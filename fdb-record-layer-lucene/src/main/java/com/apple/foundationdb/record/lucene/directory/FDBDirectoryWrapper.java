@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
+import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
@@ -57,6 +58,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -261,9 +263,21 @@ public class FDBDirectoryWrapper implements AutoCloseable {
             // In case the current directory has writes, prioritize them over the pending writes queue.
             return DirectoryReader.open(writer.get());
         } else {
-            // For now, create a reader from the writer that has all the pending queue elements.
-            // TODO: Return the regular reader if nothing in the queue
-            return DirectoryReader.open(replayedQueueIndexWriter.get());
+            PendingWriteQueue queue = getPendingWriteQueue();
+            // Use the regular context to find out if the queue has anything
+            final Boolean queueHasItems = LuceneConcurrency.asyncToSync(
+                    LuceneEvents.Waits.WAIT_COUNT_QUEUE_ITEMS,
+                    queue.queueHasItems(state.context),
+                    state.context);
+            if (!queueHasItems) {
+                // Use the regular reader in case there is nothing in the queue
+                return StandardDirectoryReaderOptimization.open(directory, null, null,
+                        state.context.getExecutor(),
+                        state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM));
+            } else {
+                // create a reader from a writer that has the queue elements replayed
+                return DirectoryReader.open(replayedQueueIndexWriter.get());
+            }
         }
     }
 
@@ -277,13 +291,18 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                 .setCodec(CODEC)
                 .setUseCompoundFile(USE_COMPOUND_FILE)
                 .setCommitOnClose(false);
-
         IndexWriter readOnlyIndexWriter = new IndexWriter(readOnlyDirectory, config);
-        // Get the queue and apply changes if necessary
+
+        // Get the queue and apply changes
         // This is using the read-only agility context as this is the one to be used for the query that is to be executed
-        // TODO: Lucene async to sync here instead of join
-        readOnlyContext.apply(context -> getPendingWriteQueue().replayQueuedOperations(context, readOnlyIndexWriter)).join();
-        // Block until replay completes
+        readOnlyContext.apply(context -> {
+            return CompletableFuture.completedFuture(LuceneConcurrency.asyncToSync(
+                    LuceneEvents.Waits.WAIT_LUCENE_REPLAY_QUEUE,
+                    getPendingWriteQueue().replayQueuedOperations(context, readOnlyIndexWriter),
+                    context));
+            // Block until replay completes: Since the returned future is completed with the result of the asyncToSync, the
+            // join() will return immediately.
+        }).join();
         return readOnlyIndexWriter;
     }
 

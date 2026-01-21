@@ -176,7 +176,11 @@ public class LuceneEvents {
         WAIT_LUCENE_FILE_LOCK_GET("lucene get file lock"),
         /** Clear a file lock. */
         WAIT_LUCENE_FILE_LOCK_CLEAR("lucene clear file lock"),
-        ;
+        /** Count number of entries in pending writes queue. */
+        WAIT_COUNT_QUEUE_ITEMS("lucene count entries in queue"),
+        /** Replay items from queue in a read-only transaction. */
+        WAIT_LUCENE_REPLAY_QUEUE("lucene replay pending writes queue");
+
         private final String title;
         private final String logKey;
 

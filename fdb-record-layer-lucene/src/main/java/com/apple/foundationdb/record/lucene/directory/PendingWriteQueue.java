@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreInternalException;
@@ -213,6 +214,19 @@ public class PendingWriteQueue {
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Cleared queue entry");
         }
+    }
+
+    public CompletableFuture<Boolean> queueHasItems(FDBRecordContext context) {
+        ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+                .setReturnedRowLimit(1)
+                .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                .build());
+        final KeyValueCursor cursor = KeyValueCursor.Builder.newBuilder(queueSubspace)
+                .setContext(context)
+                .setScanProperties(scanProperties)
+                .setContinuation(null)
+                .build();
+        return cursor.onNext().thenApply(result -> result.hasNext());
     }
 
     /**

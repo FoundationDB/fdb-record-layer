@@ -60,9 +60,10 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
             TextSamples.ROMEO_AND_JULIET_PROLOGUE_END
     ));
 
+    private Index index = SIMPLE_TEXT_SUFFIXES;
+
     @Test
     void scanAllDocsInQueue() throws Exception {
-        Index index = SIMPLE_TEXT_SUFFIXES;
         enqueueInsertAllDocs(index);
 
         // Query for all from the queue
@@ -74,8 +75,16 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void scanAllDocsNoneInQueue() throws Exception {
+        // This test has the queue empty, to cover the case where the IndexWriter is not created
+        saveAllDocsInIndex(index);
+
+        // Query for all from the queue
+        scanAndCompareDocs(index, "*:*", Set.of(0L, 1L, 2L, 3L, 4L, 5L));
+    }
+
+    @Test
     void scanSomeDocsInQueue() throws Exception {
-        Index index = SIMPLE_TEXT_SUFFIXES;
         enqueueInsertAllDocs(index);
 
         // Query for some docs in the queue
@@ -88,7 +97,6 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
 
     @Test
     void scanAllDocsInQueueAndIndex() throws Exception {
-        Index index = SIMPLE_TEXT_SUFFIXES;
         saveSomeDocsInQueueAndSomeInIndex(index);
 
         // Query for all docs - mixed in queue and index
@@ -101,7 +109,6 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
 
     @Test
     void saveToIndexAndDeleteSomeDocsFromQueue() throws Exception {
-        Index index = SIMPLE_TEXT_SUFFIXES;
         saveAllDocsInIndex(index);
         enqueueDeleteSomeDocs(index);
 
@@ -115,7 +122,6 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
 
     @Test
     void saveToIndexAndDeleteAllDocsFromQueue() throws Exception {
-        Index index = SIMPLE_TEXT_SUFFIXES;
         saveAllDocsInIndex(index);
         enqueueDeleteAllDocs(index);
 
@@ -129,7 +135,6 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
 
     @Test
     void saveToIndexAndUpdateSomeDocsInQueue() throws Exception {
-        Index index = SIMPLE_TEXT_SUFFIXES;
         saveAllDocsInIndex(index);
         enqueueUpdateDoc(index, 1, 2);
 
@@ -145,7 +150,6 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
 
     @Test
     void saveToIndexAndUpdateInQueueMultipleTimes() throws Exception {
-        Index index = SIMPLE_TEXT_SUFFIXES;
         saveAllDocsInIndex(index);
         enqueueUpdateDoc(index, 1, 2);
         // restore the original text for the doc
@@ -159,7 +163,6 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
 
     @Test
     void saveToQueueAndEmptyQueue() throws Exception {
-        Index index = SIMPLE_TEXT_SUFFIXES;
         enqueueInsertAllDocs(index);
         clearAllDocsFromQueue(index);
 
@@ -172,7 +175,6 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_MAX_PENDING_WRITES_REPLAYED_FOR_QUERY, 1)
                 .build();
-        Index index = SIMPLE_TEXT_SUFFIXES;
         enqueueInsertAllDocs(index);
 
         try (FDBRecordContext context = openContext(contextProps)) {
@@ -182,6 +184,92 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
             try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, scanBounds, null, scanProperties)) {
                 assertThatThrownBy(() -> cursor.asList().get()).hasCauseInstanceOf(PendingWriteQueue.TooManyPendingWritesException.class);
             }
+            commit(context);
+        }
+    }
+
+    @Test
+    void saveToQueueAfterTransactionCreated() throws Exception {
+        // Save an item to the queue after the transaction that performs the search is created
+        // Since the search is done with the same GRV as the original transaction, no docs will be replayed
+        saveAllDocsInIndex(index);
+
+        // Create the store to use for the query
+        FDBRecordContext queryContext = openContext();
+        FDBRecordStore queryStore = openRecordStore(queryContext, index);
+
+        // Save items to queue
+        enqueueDeleteAllDocs(index);
+
+        // all indexed items are still seen
+        LuceneScanBounds scanBounds = LuceneIndexTestUtils.fullTextSearch(queryStore, index, "*:*", false);
+        ScanProperties scanProperties = ScanProperties.FORWARD_SCAN;
+        try (RecordCursor<IndexEntry> cursor = queryStore.scanIndex(index, scanBounds, null, scanProperties)) {
+            final List<IndexEntry> indexEntries = cursor.asList().get();
+            final Set<Long> actualKeys = indexEntries.stream().map(entry -> entry.getKey().getLong(1)).collect(Collectors.toSet());
+            assertThat(actualKeys).isEqualTo(Set.of(0L, 1L, 2L, 3L, 4L, 5L));
+        }
+
+        commit(queryContext);
+
+        // ensure nothing gets committed to the index (other than the original docs)
+        clearAllDocsFromQueue(index);
+        scanAndCompareDocs(index, "text:households", Set.of(2L, 4L));
+    }
+
+    @Test
+    void saveToIndexWithinTransaction() throws Exception {
+        // Save an item to the index after the transaction that performs the search is created
+        // This should return a reader that can see the changes
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, index);
+            LuceneScanBounds scanBounds = LuceneIndexTestUtils.fullTextSearch(recordStore, index, "*:*", false);
+            ScanProperties scanProperties = ScanProperties.FORWARD_SCAN;
+            // Nothing in the index
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, scanBounds, null, scanProperties)) {
+                final List<IndexEntry> indexEntries = cursor.asList().get();
+                final Set<Long> actualKeys = indexEntries.stream().map(entry -> entry.getKey().getLong(1)).collect(Collectors.toSet());
+                assertThat(actualKeys).isEqualTo(Set.of());
+            }
+            // Save a bunch of docs
+            DOCUMENTS.forEach(recordStore::saveRecord);
+            // Docs are available before commit
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, scanBounds, null, scanProperties)) {
+                final List<IndexEntry> indexEntries = cursor.asList().get();
+                final Set<Long> actualKeys = indexEntries.stream().map(entry -> entry.getKey().getLong(1)).collect(Collectors.toSet());
+                assertThat(actualKeys).isEqualTo(Set.of(0L, 1L, 2L, 3L, 4L, 5L));
+            }
+
+            commit(context);
+        }
+    }
+
+    @Test
+    void saveToQueueWithinTransaction() throws Exception {
+        // Save an item to the queue after the transaction that performs the search is created
+        // Query should not see the changes since the writes are not replayed from the regular transaction to the read-only one
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, index);
+            LuceneScanBounds scanBounds = LuceneIndexTestUtils.fullTextSearch(recordStore, index, "*:*", false);
+            ScanProperties scanProperties = ScanProperties.FORWARD_SCAN;
+            // Nothing in the index
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, scanBounds, null, scanProperties)) {
+                final List<IndexEntry> indexEntries = cursor.asList().get();
+                final Set<Long> actualKeys = indexEntries.stream().map(entry -> entry.getKey().getLong(1)).collect(Collectors.toSet());
+                assertThat(actualKeys).isEqualTo(Set.of());
+            }
+            // Save docs to the index
+            PendingWriteQueue queue = getPendingWriteQueue(recordStore, index);
+            DOCUMENTS.forEach(doc -> enqueueInsert(context, queue, doc));
+            // Docs are not available
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, scanBounds, null, scanProperties)) {
+                final List<IndexEntry> indexEntries = cursor.asList().get();
+                final Set<Long> actualKeys = indexEntries.stream().map(entry -> entry.getKey().getLong(1)).collect(Collectors.toSet());
+                assertThat(actualKeys).isEqualTo(Set.of());
+            }
+
             commit(context);
         }
     }
@@ -310,12 +398,13 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
         return directoryWrapper.getPendingWriteQueue();
     }
 
-    protected void openRecordStore(FDBRecordContext context, Index index) {
+    protected FDBRecordStore openRecordStore(FDBRecordContext context, Index index) {
         recordStore = LuceneIndexTestUtils.openRecordStore(context, path, mdb -> {
             if (index != null) {
                 mdb.removeIndex("SimpleDocument$text");
                 mdb.addIndex(TextIndexTestUtils.SIMPLE_DOC, index);
             }
         });
+        return recordStore;
     }
 }
