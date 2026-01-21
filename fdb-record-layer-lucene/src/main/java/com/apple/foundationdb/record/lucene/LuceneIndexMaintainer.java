@@ -208,7 +208,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     int deleteDocument(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey, OverallOperation overallOperation) throws IOException {
         // overallOperation is null when called from the partitioner - which means:
-        // 1. Never use pending queue
+        // 1. Do not use pending queue
         // 2. Do not update partition info (i.e. do not reduce doc count)
         if (overallOperation != null && shouldUseQueue(groupingKey, partitionId)) {
             queueOperation(groupingKey, partitionId, primaryKey, null, overallOperation);

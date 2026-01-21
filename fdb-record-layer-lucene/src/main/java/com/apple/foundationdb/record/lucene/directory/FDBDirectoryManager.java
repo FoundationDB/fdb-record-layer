@@ -253,6 +253,11 @@ public class FDBDirectoryManager implements AutoCloseable {
                                              @Nullable final Integer partitionId,
                                              @Nonnull final AgilityContext agilityContext,
                                              FDBDirectoryWrapper directoryWrapper) {
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.of("Drain pending queue",
+                    LogMessageKeys.GROUPING_KEY, groupingKey,
+                    LogMessageKeys.PARTITION_ID, partitionId));
+        }
         for (int retries = 0; retries < 10; retries ++) {
             try {
                 agilityContext.flush(); // before potentially long drain
