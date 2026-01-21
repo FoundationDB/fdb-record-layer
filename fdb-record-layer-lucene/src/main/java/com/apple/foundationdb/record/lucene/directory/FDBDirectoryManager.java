@@ -322,7 +322,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                         maintainer.writeDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed(), queueEntry.getDocumentFieldsParsed());
                         break;
                     case DELETE:
-                        maintainer.deleteDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed());
+                        maintainer.deleteDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed(), true);
                         break;
                     default:
                         if (LOGGER.isWarnEnabled()) {
