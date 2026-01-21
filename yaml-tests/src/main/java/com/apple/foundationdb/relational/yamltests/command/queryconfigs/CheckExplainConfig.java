@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
-import com.apple.foundationdb.relational.yamltests.Reference;
+import com.apple.foundationdb.relational.yamltests.YamsqlReference;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.CommandUtil;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
@@ -63,7 +63,7 @@ public class CheckExplainConfig extends QueryConfig {
     private final boolean isExact;
     private final String blockName;
 
-    public CheckExplainConfig(final String configName, final Object value, @Nonnull final Reference reference, final YamlExecutionContext executionContext, final boolean isExact, final String blockName) {
+    public CheckExplainConfig(final String configName, final Object value, @Nonnull final YamsqlReference reference, final YamlExecutionContext executionContext, final boolean isExact, final String blockName) {
         super(configName, value, reference);
         this.executionContext = executionContext;
         this.isExact = isExact;
@@ -218,7 +218,7 @@ public class CheckExplainConfig extends QueryConfig {
     private static boolean isMetricDifferent(@Nonnull final PlannerMetricsProto.CountersAndTimers expected,
                                              @Nonnull final PlannerMetricsProto.CountersAndTimers actual,
                                              @Nonnull final Descriptors.FieldDescriptor fieldDescriptor,
-                                             @Nonnull final Reference reference) {
+                                             @Nonnull final YamsqlReference reference) {
         final long expectedMetric = (long)expected.getField(fieldDescriptor);
         final long actualMetric = (long)actual.getField(fieldDescriptor);
         if (expectedMetric != actualMetric) {

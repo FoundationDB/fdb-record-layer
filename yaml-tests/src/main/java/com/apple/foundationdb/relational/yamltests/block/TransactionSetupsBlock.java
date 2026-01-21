@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.yamltests.block;
 
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.Reference;
+import com.apple.foundationdb.relational.yamltests.YamsqlReference;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.google.common.collect.ImmutableList;
 
@@ -35,7 +35,7 @@ public class TransactionSetupsBlock extends SupportBlock {
     public TransactionSetupsBlock() {
     }
 
-    public static ImmutableList<Block> parse(@Nonnull final Reference reference,
+    public static ImmutableList<Block> parse(@Nonnull final YamsqlReference reference,
                                       final Object document,
                                       final YamlExecutionContext executionContext) {
         final Map<?, ?> map = Matchers.map(document);

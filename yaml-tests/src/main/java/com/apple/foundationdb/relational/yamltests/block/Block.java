@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.yamltests.block;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.Reference;
+import com.apple.foundationdb.relational.yamltests.YamsqlReference;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.google.common.collect.ImmutableList;
 
@@ -53,7 +53,7 @@ public interface Block {
      * @param executionContext information needed to carry out the execution
      * @return zero of more blocks
      */
-    static ImmutableList<Block> parse(@Nonnull Reference.Resource resource, @Nonnull Object region, int blockNumber,
+    static ImmutableList<Block> parse(@Nonnull YamsqlReference.YamsqlResource resource, @Nonnull Object region, int blockNumber,
                                       @Nonnull YamlExecutionContext executionContext, boolean isTopLevel) {
         final var blockObject = Matchers.map(region, "block");
         Assert.thatUnchecked(blockObject.size() == 1,
@@ -81,18 +81,18 @@ public interface Block {
                     throw new RuntimeException("Cannot recognize the type of block");
             }
         } catch (Exception e) {
-            throw YamlExecutionContext.wrapContext(e, () -> "Error parsing block at line " + reference, blockKey, reference);
+            throw YamlExecutionContext.wrapContext(e, () -> "Error parsing block at " + reference, blockKey, reference);
         }
     }
 
     /**
-     * Returns the {@link Reference} attached with the block. This is usually represented by the first line of the
+     * Returns the {@link YamsqlReference} attached with the block. This is usually represented by the first line of the
      * block in YAMSQL file and the name of that file. However, the more important bit that is there in it, is the call
      * stack that has led to the execution of this block.
-     * @return the {@link Reference} of the current block.
+     * @return the {@link YamsqlReference} of the current block.
      */
     @Nonnull
-    Reference getReference();
+    YamsqlReference getReference();
 
     /**
      * Executes the executables from the parsed block in a single connection.

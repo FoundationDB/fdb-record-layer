@@ -24,7 +24,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.Reference;
+import com.apple.foundationdb.relational.yamltests.YamsqlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.Command;
@@ -57,7 +57,7 @@ public class SetupBlock extends ConnectedBlock {
 
     public static final String SETUP_BLOCK = "setup";
 
-    protected SetupBlock(@Nonnull Reference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI,
+    protected SetupBlock(@Nonnull YamsqlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI,
                          @Nonnull YamlExecutionContext executionContext) {
         super(reference, executables, connectionURI, executionContext);
     }
@@ -79,7 +79,7 @@ public class SetupBlock extends ConnectedBlock {
         public static final String OPTIONS = "options";
         public static final String CONNECTION_OPTIONS = "connection_options";
 
-        public static ImmutableList<Block> parse(@Nonnull Reference reference, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+        public static ImmutableList<Block> parse(@Nonnull YamsqlReference reference, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
             try {
                 Options connectionOptions = Options.none();
                 final var setupMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, "setup"));
@@ -107,7 +107,7 @@ public class SetupBlock extends ConnectedBlock {
             }
         }
 
-        private ManualSetupBlock(@Nonnull Reference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI,
+        private ManualSetupBlock(@Nonnull YamsqlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI,
                                  @Nonnull YamlExecutionContext executionContext) {
             super(reference, executables, connectionURI, executionContext);
         }
@@ -133,7 +133,7 @@ public class SetupBlock extends ConnectedBlock {
         @Nonnull
         private ImmutableList<Block> finalizingBlocks;
 
-        public static ImmutableList<Block> parse(@Nonnull final Reference reference, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+        public static ImmutableList<Block> parse(@Nonnull final YamsqlReference reference, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
             try {
                 final var identifier = "YAML_" + UUID.randomUUID().toString().toUpperCase(Locale.ROOT).replace("-", "").substring(0, 16);
                 final var schemaTemplateName = identifier + "_TEMPLATE";
@@ -157,7 +157,7 @@ public class SetupBlock extends ConnectedBlock {
             }
         }
 
-        private SchemaTemplateBlock(@Nonnull final Reference reference, @Nonnull final String schemaTemplateName,
+        private SchemaTemplateBlock(@Nonnull final YamsqlReference reference, @Nonnull final String schemaTemplateName,
                                     @Nonnull final String databaseName, @Nonnull List<Consumer<YamlConnection>> executables,
                                     @Nonnull YamlExecutionContext executionContext) {
             super(reference, executables, executionContext.inferConnectionURI(reference.getResource(), 0), executionContext);
@@ -175,7 +175,7 @@ public class SetupBlock extends ConnectedBlock {
 
     private static final class DestructTemplateBlock extends SetupBlock {
 
-        public static DestructTemplateBlock withDatabaseAndSchema(@Nonnull final Reference reference, @Nonnull YamlExecutionContext executionContext,
+        public static DestructTemplateBlock withDatabaseAndSchema(@Nonnull final YamsqlReference reference, @Nonnull YamlExecutionContext executionContext,
                                                                   @Nonnull String schemaTemplateName, @Nonnull String databasePath) {
             try {
                 final var steps = new ArrayList<String>();
@@ -192,7 +192,7 @@ public class SetupBlock extends ConnectedBlock {
             }
         }
 
-        private DestructTemplateBlock(@Nonnull final Reference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
+        private DestructTemplateBlock(@Nonnull final YamsqlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
             super(reference, executables, executionContext.inferConnectionURI(reference.getResource(), 0), executionContext);
         }
     }

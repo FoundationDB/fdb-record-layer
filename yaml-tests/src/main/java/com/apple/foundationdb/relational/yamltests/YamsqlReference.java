@@ -1,5 +1,5 @@
 /*
- * Reference.java
+ * YamsqlReference.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -32,22 +32,22 @@ import java.util.function.Supplier;
 /**
  * This represents a location in a YAMSQL file.
  */
-public class Reference implements Comparable<Reference> {
+public class YamsqlReference implements Comparable<YamsqlReference> {
     @Nonnull
-    private final Resource resource;
+    private final YamsqlResource resource;
     private final int lineNumber;
     @Nonnull
     private final Supplier<Tuple> tupleSupplier;
 
 
-    private Reference(@Nonnull final Resource resource, int lineNumber) {
+    private YamsqlReference(@Nonnull final YamsqlResource resource, int lineNumber) {
         this.resource = resource;
         this.lineNumber = lineNumber;
         this.tupleSupplier = () -> Tuple.fromList(resource.tupleSupplier.get().getItems()).add(lineNumber);
     }
 
     @Nonnull
-    public Resource getResource() {
+    public YamsqlResource getResource() {
         return resource;
     }
 
@@ -56,11 +56,11 @@ public class Reference implements Comparable<Reference> {
     }
 
     /**
-     * Returns the call stack of this {@link Reference}.
-     * @return a list of locations in the call stack of this {@link Reference}.
+     * Returns the call stack of this {@link YamsqlReference}.
+     * @return a list of locations in the call stack of this {@link YamsqlReference}.
      */
-    public ImmutableList<Reference> getCallStack() {
-        final var builder = ImmutableList.<Reference>builder();
+    public ImmutableList<YamsqlReference> getCallStack() {
+        final var builder = ImmutableList.<YamsqlReference>builder();
         var current = this;
         while (current != null) {
             builder.add(current);
@@ -69,8 +69,8 @@ public class Reference implements Comparable<Reference> {
         return builder.build().reverse();
     }
 
-    public Resource newResource(@Nonnull String path) {
-        return Resource.with(this, path);
+    public YamsqlResource newResource(@Nonnull String path) {
+        return new YamsqlResource(this, path);
     }
 
     @Override
@@ -84,10 +84,10 @@ public class Reference implements Comparable<Reference> {
         if (object == null) {
             return false;
         }
-        if (!(object instanceof Reference)) {
+        if (!(object instanceof YamsqlReference)) {
             return false;
         }
-        final var otherReference = (Reference) object;
+        final var otherReference = (YamsqlReference) object;
         return getResource().equals(otherReference.getResource()) && getLineNumber() == otherReference.getLineNumber();
     }
 
@@ -97,31 +97,34 @@ public class Reference implements Comparable<Reference> {
     }
 
     @Override
-    public int compareTo(final Reference o) {
+    public int compareTo(final YamsqlReference o) {
         return tupleSupplier.get().compareTo(o.tupleSupplier.get());
     }
 
     /**
      * A resource represents path to a YAMSQL file. However, this class also serves the purpose of maintaining the
-     * parent {@link Reference}s that (recursively) provides information about the calling stack that has lead to
+     * parent {@link YamsqlReference}s that (recursively) provides information about the calling stack that has lead to
      * this file being executed.
      */
-    public static class Resource {
+    public static class YamsqlResource {
         @Nullable
-        private final Reference parentRef;
+        private final YamsqlReference parentRef;
         @Nonnull
         private final String path;
         @Nonnull
         private final Supplier<Tuple> tupleSupplier;
 
-        private Resource(@Nullable final Reference parentRef, @Nonnull final String path) {
+        private YamsqlResource(@Nullable final YamsqlReference parentRef, @Nonnull final String path) {
+            if (parentRef != null) {
+                assertNotCyclic(parentRef, path);
+            }
             this.parentRef = parentRef;
             this.path = path;
             this.tupleSupplier = () -> parentRef == null ? Tuple.from(path) : Tuple.fromList(parentRef.tupleSupplier.get().getItems()).add(path);
         }
 
-        public Reference withLineNumber(int lineNumber) {
-            return new Reference(this, lineNumber);
+        public YamsqlReference withLineNumber(int lineNumber) {
+            return new YamsqlReference(this, lineNumber);
         }
 
         public boolean isTopLevel() {
@@ -129,7 +132,7 @@ public class Reference implements Comparable<Reference> {
         }
 
         @Nullable
-        public Reference getParentRef() {
+        public YamsqlReference getParentRef() {
             return parentRef;
         }
 
@@ -149,10 +152,10 @@ public class Reference implements Comparable<Reference> {
             if (object == null) {
                 return false;
             }
-            if (!(object instanceof Resource)) {
+            if (!(object instanceof YamsqlResource)) {
                 return false;
             }
-            final var otherResource = (Resource) object;
+            final var otherResource = (YamsqlResource) object;
             if (parentRef == null) {
                 if (otherResource.parentRef != null) {
                     return false;
@@ -167,13 +170,8 @@ public class Reference implements Comparable<Reference> {
             return Objects.hash(parentRef, path);
         }
 
-        public static Resource base(@Nonnull final String path) {
-            return new Resource(null, path);
-        }
-
-        public static Resource with(@Nonnull final Reference parentRef, @Nonnull final String path) {
-            assertNotCyclic(parentRef, path);
-            return new Resource(parentRef, path);
+        public static YamsqlResource base(@Nonnull final String path) {
+            return new YamsqlResource(null, path);
         }
 
         public String getFileName() {
@@ -187,7 +185,7 @@ public class Reference implements Comparable<Reference> {
             return fileName;
         }
 
-        private static void assertNotCyclic(@Nonnull final Reference parentRef, @Nonnull final String path) {
+        private static void assertNotCyclic(@Nonnull final YamsqlReference parentRef, @Nonnull final String path) {
             final var asTuple = parentRef.tupleSupplier.get().getItems();
             Assert.thatUnchecked(asTuple.stream().noneMatch(path::equals), "Cyclic path detected at: " + parentRef);
         }

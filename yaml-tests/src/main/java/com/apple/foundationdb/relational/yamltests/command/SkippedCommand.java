@@ -22,7 +22,7 @@ package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.yamltests.Reference;
+import com.apple.foundationdb.relational.yamltests.YamsqlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.apache.logging.log4j.LogManager;
@@ -43,7 +43,7 @@ public class SkippedCommand extends Command {
     @Nonnull
     private final String query;
 
-    SkippedCommand(@Nonnull final Reference reference, @Nonnull final YamlExecutionContext executionContext,
+    SkippedCommand(@Nonnull final YamsqlReference reference, @Nonnull final YamlExecutionContext executionContext,
                    @Nonnull String message, @Nonnull final String query) {
         super(reference, executionContext);
         this.message = message;
@@ -57,7 +57,7 @@ public class SkippedCommand extends Command {
 
     public void log() {
         if (logger.isInfoEnabled()) {
-            logger.info("at " + getReference() + ": '" + query + "' --  " + message);
+            logger.info("Skipped " + getReference() + ": '" + query + "' --  " + message);
         }
     }
 }

@@ -29,7 +29,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Environment;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.Reference;
+import com.apple.foundationdb.relational.yamltests.YamsqlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.apache.logging.log4j.LogManager;
@@ -80,7 +80,7 @@ public final class QueryCommand extends Command {
     }
 
     @Nonnull
-    public static Command parse(@Nonnull final Reference.Resource resource, @Nonnull final Object object, @Nonnull final String blockName, @Nonnull final YamlExecutionContext executionContext) {
+    public static Command parse(@Nonnull final YamsqlReference.YamsqlResource resource, @Nonnull final Object object, @Nonnull final String blockName, @Nonnull final YamlExecutionContext executionContext) {
         final var queryCommand = Matchers.firstEntry(Matchers.first(Matchers.arrayList(object, "query command")), "query command");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(queryCommand.getKey(), () -> "Invalid command key-value pair: " + queryCommand);
         final var reference = resource.withLineNumber(Matchers.notNull(linedObject, "query").getLineNumber());
@@ -113,13 +113,13 @@ public final class QueryCommand extends Command {
         }
     }
 
-    public static QueryCommand withQueryString(@Nonnull final Reference reference, @Nonnull String singleExecutableCommand,
+    public static QueryCommand withQueryString(@Nonnull final YamsqlReference reference, @Nonnull String singleExecutableCommand,
                                                @Nonnull final YamlExecutionContext executionContext) {
         return new QueryCommand(reference, QueryInterpreter.withQueryString(reference, singleExecutableCommand, executionContext),
                 List.of(QueryConfig.getNoCheckConfig(reference)), executionContext, false);
     }
 
-    private QueryCommand(@Nonnull final Reference reference, @Nonnull QueryInterpreter interpreter, @Nonnull List<QueryConfig> configs,
+    private QueryCommand(@Nonnull final YamsqlReference reference, @Nonnull QueryInterpreter interpreter, @Nonnull List<QueryConfig> configs,
                          @Nonnull final YamlExecutionContext executionContext, final boolean needsSerialEnvironment) {
         super(reference, executionContext);
         if (Debugger.getDebugger() != null) {

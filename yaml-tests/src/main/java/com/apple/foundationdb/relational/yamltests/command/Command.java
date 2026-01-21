@@ -38,7 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOper
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.Reference;
+import com.apple.foundationdb.relational.yamltests.YamsqlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
@@ -62,22 +62,22 @@ public abstract class Command {
     private static final Logger logger = LogManager.getLogger(Command.class);
 
     @Nonnull
-    private final Reference reference;
+    private final YamsqlReference reference;
     @Nonnull
     final YamlExecutionContext executionContext;
 
-    Command(@Nonnull final Reference reference, @Nonnull YamlExecutionContext executionContext) {
+    Command(@Nonnull final YamsqlReference reference, @Nonnull YamlExecutionContext executionContext) {
         this.reference = reference;
         this.executionContext = executionContext;
     }
 
     @Nonnull
-    public Reference getReference() {
+    public YamsqlReference getReference() {
         return reference;
     }
 
     @Nonnull
-    public static Command parse(@Nonnull final Reference.Resource resource, @Nonnull Object object, @Nonnull final String blockName, @Nonnull final YamlExecutionContext executionContext) {
+    public static Command parse(@Nonnull final YamsqlReference.YamsqlResource resource, @Nonnull Object object, @Nonnull final String blockName, @Nonnull final YamlExecutionContext executionContext) {
         final var command = Matchers.notNull(Matchers.firstEntry(Matchers.arrayList(object, "command").get(0), "command"), "command");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(command.getKey(), () -> "Invalid command key-value pair: " + command);
         final var reference = resource.withLineNumber(linedObject.getLineNumber());
@@ -152,7 +152,7 @@ public abstract class Command {
     }
 
     @SuppressWarnings({"PMD.CloseResource"}) // We "borrow" from the connection via tryGetEmbedded, but the connection will close it
-    private static Command getLoadSchemaTemplateCommand(@Nonnull final Reference reference, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
+    private static Command getLoadSchemaTemplateCommand(@Nonnull final YamsqlReference reference, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
         return new Command(reference, executionContext) {
             @Override
             public void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException {
@@ -175,7 +175,7 @@ public abstract class Command {
     }
 
     @SuppressWarnings({"PMD.CloseResource"}) // We "borrow" from the connection via tryGetEmbedded, but the connection will close it
-    private static Command getSetSchemaStateCommand(@Nonnull final Reference reference, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
+    private static Command getSetSchemaStateCommand(@Nonnull final YamsqlReference reference, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
         return new Command(reference, executionContext) {
             @Override
             public void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException {

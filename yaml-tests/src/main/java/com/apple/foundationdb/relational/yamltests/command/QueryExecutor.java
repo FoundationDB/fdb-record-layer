@@ -29,7 +29,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.yamltests.AggregateResultSet;
-import com.apple.foundationdb.relational.yamltests.Reference;
+import com.apple.foundationdb.relational.yamltests.YamsqlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Parameter;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
@@ -63,7 +63,7 @@ public class QueryExecutor {
     @Nonnull
     private final String query;
     @Nonnull
-    private final Reference reference;
+    private final YamsqlReference reference;
     // Whether to force continuations if the query does not use continuations explicitly.
     private final boolean forceContinuations;
     /**
@@ -78,11 +78,11 @@ public class QueryExecutor {
     /**
      * Constructor.
      * @param query the query to execute
-     * @param reference the {@link Reference} from the test script
+     * @param reference the {@link YamsqlReference} from the test script
      * @param parameters the parameters to bind
      * @param forceContinuations Whether to force continuations in case the query does not explicitly specify maxRows.
      */
-    QueryExecutor(@Nonnull String query, @Nonnull final Reference reference, @Nullable List<Parameter> parameters, boolean forceContinuations) {
+    QueryExecutor(@Nonnull String query, @Nonnull final YamsqlReference reference, @Nullable List<Parameter> parameters, boolean forceContinuations) {
         this.reference = reference;
         this.query = query;
         this.parameters = parameters;

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
-import com.apple.foundationdb.relational.yamltests.Reference;
+import com.apple.foundationdb.relational.yamltests.YamsqlReference;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -34,7 +34,7 @@ class SkipBlock extends ReferencedBlock implements Block {
     @Nonnull
     private final String message;
 
-    SkipBlock(@Nonnull final Reference reference, @Nonnull String message) {
+    SkipBlock(@Nonnull final YamsqlReference reference, @Nonnull String message) {
         super(reference);
         this.message = message;
     }

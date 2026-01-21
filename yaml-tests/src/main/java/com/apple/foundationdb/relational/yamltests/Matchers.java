@@ -251,8 +251,7 @@ public class Matchers {
             }
             return ((Map<?, ?>) obj).entrySet().iterator().next();
         }
-        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s.", desc, Map.class.getSimpleName(), obj.getClass().getSimpleName()));
-        return null;
+        return fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s.", desc, Map.class.getSimpleName(), obj.getClass().getSimpleName()));
     }
 
     @Nonnull
