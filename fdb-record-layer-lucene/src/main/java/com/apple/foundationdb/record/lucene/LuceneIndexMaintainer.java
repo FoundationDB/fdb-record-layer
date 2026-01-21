@@ -207,29 +207,18 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 primaryKey, fields);
     }
 
-    int deleteDocument(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey, OverallOperation overallOperation) throws IOException {
-        // overallOperation is null when called from the partitioner - which means:
-        // 1. Do not use pending queue
-        // 2. Do not update partition info (i.e. do not reduce doc count)
-        if (overallOperation != null && shouldUseQueue(groupingKey, partitionId)) {
+    private int deleteDocument(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey) throws IOException {
+        if (shouldUseQueue(groupingKey, partitionId)) {
             queueOperation(groupingKey, partitionId, primaryKey, null, OverallOperation.DELETE);
             return 0; // partition count will be adjusted during drain
         } else {
-            return deleteDocumentBypassQueue(groupingKey, partitionId, primaryKey, overallOperation != null);
+            return deleteDocumentBypassQueue(groupingKey, partitionId, primaryKey);
         }
     }
 
-    public int deleteDocumentBypassQueue(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey, boolean allowCountUpdate) throws IOException {
-        final int countDeleted = LuceneIndexMaintainerHelper.deleteDocument(state.context, directoryManager, state.index, groupingKey, partitionId, primaryKey,
+    public int deleteDocumentBypassQueue(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey) throws IOException {
+        return LuceneIndexMaintainerHelper.deleteDocument(state.context, directoryManager, state.index, groupingKey, partitionId, primaryKey,
                 state.store.isIndexWriteOnly(state.index));
-        // countDeleted may be 0 when in writeOnly mode, but otherwise should not happen.
-        if (!allowCountUpdate || partitionId == null || countDeleted <= 0) {
-            return 0;
-        }
-        // If needed, adjust partition's count
-        state.context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DECREMENT,
-                partitioner.decrementCountAndSave(groupingKey, countDeleted, partitionId));
-        return countDeleted;
     }
 
     private void queueOperation(final Tuple groupingKey, final Integer partitionId, final Tuple primaryKey,
@@ -411,7 +400,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         OverallOperation overallOperation = OverallOperation.determine(oldRecord, newRecord);
         return AsyncUtil.whenAll(oldRecordFields.keySet().stream()
                     // delete old
-                    .map(groupingKey -> tryDelete(Objects.requireNonNull(oldRecord), groupingKey, overallOperation))
+                    .map(groupingKey -> tryDelete(Objects.requireNonNull(oldRecord), groupingKey))
                     .collect(Collectors.toList()))
                 .thenCompose(ignored ->
                     // update new
@@ -431,7 +420,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             final Integer destinationPartitionIdHint,
             final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry,
             OverallOperation overallOperation) {
-        return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey(), overallOperation).thenCompose(ignored ->
+        return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(ignored ->
                 partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint)
                         .thenAccept(partitionId -> writeDocument(newRecord, entry, partitionId, overallOperation)));
     }
@@ -450,7 +439,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     /**
-     * convenience wrapper that calls {@link #tryDelete(FDBIndexableRecord, Tuple, OverallOperation)} only if the index is in
+     * convenience wrapper that calls {@link #tryDelete(FDBIndexableRecord, Tuple)} only if the index is in
      * {@code WriteOnly} mode.
      * This is usually needed when a record is inserted during an index build, but that
      * record had already been added due to an explicit update earlier.
@@ -461,18 +450,17 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * @return count of deleted docs
      */
     private <M extends Message> CompletableFuture<Integer> tryDeleteInWriteOnlyMode(@Nonnull FDBIndexableRecord<M> record,
-                                                                                    @Nonnull Tuple groupingKey,
-                                                                                    OverallOperation overallOperation) {
+                                                                                    @Nonnull Tuple groupingKey) {
         if (!state.store.isIndexWriteOnly(state.index)) {
             // no op
             return CompletableFuture.completedFuture(0);
         }
-        return tryDelete(record, groupingKey, overallOperation);
+        return tryDelete(record, groupingKey);
     }
 
     /**
      * Delete a given record if it is indexed.
-     * The record may not necessarily exist in the index, or it may need to be deleted by query ({@link #deleteDocument(Tuple, Integer, Tuple, OverallOperation)}).
+     * The record may not necessarily exist in the index, or it may need to be deleted by query ({@link #deleteDocument(Tuple, Integer, Tuple)}).
      *
      * @param record record to be deleted
      * @param groupingKey grouping key
@@ -481,12 +469,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      * query.
      */
     private <M extends Message> CompletableFuture<Integer> tryDelete(@Nonnull FDBIndexableRecord<M> record,
-                                                                     @Nonnull Tuple groupingKey,
-                                                                     OverallOperation overallOperation) {
+                                                                     @Nonnull Tuple groupingKey) {
         try {
             // non-partitioned
             if (!partitioner.isPartitioningEnabled()) {
-                return CompletableFuture.completedFuture(deleteDocument(groupingKey, null, record.getPrimaryKey(), overallOperation));
+                return CompletableFuture.completedFuture(deleteDocument(groupingKey, null, record.getPrimaryKey()));
             }
         } catch (IOException e) {
             throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", Objects.requireNonNull(record).getPrimaryKey());
@@ -498,13 +485,22 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 return CompletableFuture.completedFuture(0);
             }
             try {
-                int countDeleted = deleteDocument(groupingKey, partitionInfo.getId(), record.getPrimaryKey(), overallOperation);
-                // je-todo: update counter in CompletableFuture
-                return CompletableFuture.completedFuture(countDeleted);
+                int countDeleted = deleteDocument(groupingKey, partitionInfo.getId(), record.getPrimaryKey());
+                return postDeleteUpdatePartitionCount(groupingKey, partitionInfo.getId(), countDeleted);
             } catch (IOException e) {
                 throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", record.getPrimaryKey());
             }
         });
+    }
+
+    @Nonnull
+    public CompletableFuture<Integer> postDeleteUpdatePartitionCount(final @Nonnull Tuple groupingKey, int partitionId, final int countDeleted) {
+        if (countDeleted > 0) {
+            return partitioner.decrementCountAndSave(groupingKey, countDeleted, partitionId)
+                    .thenApply(ignore -> countDeleted);
+        } else {
+            return CompletableFuture.completedFuture(countDeleted);
+        }
     }
 
     @Nonnull
