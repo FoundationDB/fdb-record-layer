@@ -738,7 +738,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     }
 
     @Test
-    void testPendingQueueSimple() throws Exception {
+    void testPendingQueueSimple() {
         // Test simple non-partitioned ongoing merge indicator life cycle
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
@@ -748,17 +748,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                         index, useCascadesPlanner).getLeft();
 
         // Set merge indicator
-        try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-
-            // Get directory and set queue indicator
-            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
-                    recordStore.getIndexMaintenanceFilter());
-            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
-            FDBDirectory directory = directoryManager.getDirectory(null, null);
-            directory.setPendingQueueIndicator();
-            commit(context);
-        }
+        pendingQueueSetPendingQueueIndicator(schemaSetup, index, null, null);
 
         // Write a record
         try (FDBRecordContext context = openContext()) {
@@ -806,29 +796,11 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
 
         // Verify empty queue
-        try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-
-            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
-                    recordStore.getIndexMaintenanceFilter());
-            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
-            FDBDirectory directory = directoryManager.getDirectory(null, null);
-
-            assertFalse(directory.shouldUseQueue(), "Merge indicator should be false");
-
-            PendingWriteQueue queue = directory.createPendingWritesQueue();
-            List<PendingWriteQueue.QueueEntry> queueEntries = new ArrayList<>();
-            RecordCursor<PendingWriteQueue.QueueEntry> queueCursor = queue.getQueueCursor(
-                    context, ScanProperties.FORWARD_SCAN, null);
-            queueCursor.forEach(queueEntries::add).join();
-
-            assertEquals(0, queueEntries.size(), "Queue should be empty");
-            commit(context);
-        }
+        pendingQueueVerifyClearQueueAndIndicator(schemaSetup, index, null, null);
     }
 
     @Test
-    void testPendingQueueSimpleWithDelete() throws Exception {
+    void testPendingQueueSimpleWithDelete() {
         // Test pending queue with both INSERT and DELETE operations
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
@@ -838,16 +810,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                         index, useCascadesPlanner).getLeft();
 
         // Set queue indicator
-        try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-
-            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
-                    recordStore.getIndexMaintenanceFilter());
-            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
-            FDBDirectory directory = directoryManager.getDirectory(null, null);
-            directory.setPendingQueueIndicator();
-            commit(context);
-        }
+        pendingQueueSetPendingQueueIndicator(schemaSetup, index, null, null);
 
         // Write multiple records
         try (FDBRecordContext context = openContext()) {
@@ -914,29 +877,11 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
 
         // Verify empty queue and correct final state
-        try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-
-            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
-                    recordStore.getIndexMaintenanceFilter());
-            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
-            FDBDirectory directory = directoryManager.getDirectory(null, null);
-
-            assertFalse(directory.shouldUseQueue(), "Merge indicator should be false");
-
-            PendingWriteQueue queue = directory.createPendingWritesQueue();
-            List<PendingWriteQueue.QueueEntry> queueEntries = new ArrayList<>();
-            RecordCursor<PendingWriteQueue.QueueEntry> queueCursor = queue.getQueueCursor(
-                    context, ScanProperties.FORWARD_SCAN, null);
-            queueCursor.forEach(queueEntries::add).join();
-
-            assertEquals(0, queueEntries.size(), "Queue should be empty");
-            commit(context);
-        }
+        pendingQueueVerifyClearQueueAndIndicator(schemaSetup, index, null, null);
     }
 
     @Test
-    void pendingQueueTestMultiplePartitions() throws Exception {
+    void pendingQueueTestMultiplePartitions() {
         // Test pending queue with partitioned index - documents in different partitions
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
@@ -964,18 +909,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         final Integer partition1 = 1;  // timestamp 100-199
 
         // Enable queue mode for both partitions
-        try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
-                    recordStore.getIndexMaintenanceFilter());
-            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
-
-            // Set queue indicator for partition 0
-            FDBDirectory dir0 = directoryManager.getDirectory(groupingKey, partition0);
-            dir0.setPendingQueueIndicator();
-
-            commit(context);
-        }
+        pendingQueueSetPendingQueueIndicator(schemaSetup, index, groupingKey, partition0);
 
         // Store primary keys for later deletion
         Tuple primaryKey1;
@@ -1080,6 +1014,173 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
     }
 
+    @Test
+    void testPendingQueueWithUpdate() {
+        // Test UPDATE operation in pending queue
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Insert document before queue is enabled
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(
+                    LuceneIndexTestUtils.createSimpleDocument(1001L, "original text", 1)
+            );
+            commit(context);
+        }
+
+        // Mark ongoing merge
+        pendingQueueSetPendingQueueIndicator(schemaSetup, index, null, null);
+
+        // Update the document
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(
+                    LuceneIndexTestUtils.createSimpleDocument(1001L, "updated text", 1)
+            );
+            commit(context);
+        }
+
+        // Verify UPDATE and DELETE in queue
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+            FDBDirectory directory = directoryManager.getDirectory(null, null);
+
+            PendingWriteQueue queue = directory.createPendingWritesQueue();
+            List<PendingWriteQueue.QueueEntry> entries = new ArrayList<>();
+            queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
+                    .forEach(entries::add).join();
+
+            assertEquals(2, entries.size(), "Queue should have 1 UPDATE entry");
+            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE,
+                    entries.get(0).getOperationType());
+            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.UPDATE,
+                    entries.get(1).getOperationType());
+            commit(context);
+        }
+
+        // Merge and verify
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
+            indexMaintainer.mergeIndex().join();
+            commit(context);
+        }
+
+        // Verify queue cleared
+        pendingQueueVerifyClearQueueAndIndicator(schemaSetup, index, null, null);
+    }
+
+    @Test
+    void testPendingQueueMixedOperations() {
+        // Test INSERT, UPDATE, DELETE sequence on same document
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Mark ongoing merge
+        pendingQueueSetPendingQueueIndicator(schemaSetup, index, null, null);
+
+        // INSERT
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1001L, "version 1", 1));
+            commit(context);
+        }
+
+        // UPDATE (generates DELETE + INSERT since doc was inserted while queue was active)
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1001L, "version 2", 1));
+            commit(context);
+        }
+
+        // DELETE
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.deleteRecord(Tuple.from(1001L));
+            commit(context);
+        }
+
+        // Verify INSERT, DELETE, INSERT, DELETE in queue
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+            FDBDirectory directory = directoryManager.getDirectory(null, null);
+
+            PendingWriteQueue queue = directory.createPendingWritesQueue();
+            List<PendingWriteQueue.QueueEntry> entries = new ArrayList<>();
+            queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
+                    .forEach(entries::add).join();
+
+            assertEquals(4, entries.size(), "Queue should have 4 entries");
+            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                    entries.get(0).getOperationType(), "Entry 0: INSERT");
+            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE,
+                    entries.get(1).getOperationType(), "Entry 1: DELETE from update");
+            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.UPDATE,
+                    entries.get(2).getOperationType(), "Entry 2: INSERT from update");
+            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE,
+                    entries.get(3).getOperationType(), "Entry 3: DELETE");
+            commit(context);
+        }
+
+        // Merge
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
+            indexMaintainer.mergeIndex().join();
+            commit(context);
+        }
+
+        // Verify queue cleared
+        pendingQueueVerifyClearQueueAndIndicator(schemaSetup, index, null, null);
+    }
+
+    private void pendingQueueVerifyClearQueueAndIndicator(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index, @Nullable Tuple groupingKey, @Nullable Integer partitionId) {
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+            FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
+
+            assertFalse(directory.shouldUseQueue());
+
+            PendingWriteQueue queue = directory.createPendingWritesQueue();
+            List<PendingWriteQueue.QueueEntry> entries = new ArrayList<>();
+            queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
+                    .forEach(entries::add).join();
+            assertEquals(0, entries.size());
+            commit(context);
+        }
+    }
+
+    private void pendingQueueSetPendingQueueIndicator(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index, @Nullable Tuple groupingKey, @Nullable Integer partitionId) {
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+            // Get directory and set queue indicator
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+            FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
+            directory.setPendingQueueIndicator();
+            commit(context);
+        }
+    }
 
     // A test where there are multiple threads trying to do merges. At the end the index should be validated for consistency.
     @Test
