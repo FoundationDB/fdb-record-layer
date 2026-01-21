@@ -1113,7 +1113,7 @@ public class LucenePartitioner {
             for (FDBIndexableRecord<Message> rec : records) {
                 LuceneDocumentFromRecord.getRecordFields(state.index.getRootExpression(), rec)
                         .entrySet().forEach(entry -> {
-                            indexMaintainer.writeDocument(rec, entry, destinationPartitionId, LuceneIndexMaintainer.OverallOperation.INSERT);
+                            indexMaintainer.writeDocument(rec, entry, destinationPartitionId, null);
                             addToAndSavePartitionMetadata(rec, groupingKey, destinationPartitionId);
                         });
             }
