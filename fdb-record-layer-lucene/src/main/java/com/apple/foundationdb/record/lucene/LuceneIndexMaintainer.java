@@ -212,7 +212,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         // 1. Do not use pending queue
         // 2. Do not update partition info (i.e. do not reduce doc count)
         if (overallOperation != null && shouldUseQueue(groupingKey, partitionId)) {
-            queueOperation(groupingKey, partitionId, primaryKey, null, overallOperation);
+            queueOperation(groupingKey, partitionId, primaryKey, null, OverallOperation.DELETE);
             return 0; // partition count will be adjusted during drain
         } else {
             return deleteDocumentBypassQueue(groupingKey, partitionId, primaryKey, overallOperation != null);
@@ -499,6 +499,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             }
             try {
                 int countDeleted = deleteDocument(groupingKey, partitionInfo.getId(), record.getPrimaryKey(), overallOperation);
+                // je-todo: update counter in CompletableFuture
                 return CompletableFuture.completedFuture(countDeleted);
             } catch (IOException e) {
                 throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", record.getPrimaryKey());
