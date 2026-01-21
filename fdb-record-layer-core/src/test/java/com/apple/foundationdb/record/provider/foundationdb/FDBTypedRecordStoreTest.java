@@ -88,6 +88,7 @@ public class FDBTypedRecordStoreTest {
         recordStore = BUILDER.copyBuilder()
                 .setContext(context)
                 .setKeySpacePath(path)
+                .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
                 .createOrOpen();
     }
 
@@ -109,6 +110,26 @@ public class FDBTypedRecordStoreTest {
             assertNotNull(myrec1);
             assertEquals("abc", myrec1.getStrValueIndexed());
             assertEquals(123, myrec1.getNumValueUnique());
+            context.commit();
+        }
+    }
+
+
+    @Test
+    void testIncrementIncarnation() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openTypedRecordStore(context);
+            recordStore.updateIncarnation(current -> 10).join();
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openTypedRecordStore(context);
+            recordStore.updateIncarnation(current -> current + 1).join();
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openTypedRecordStore(context);
+            assertEquals(11, recordStore.getIncarnation(), "Incarnation should be 11 after increment");
             context.commit();
         }
     }
