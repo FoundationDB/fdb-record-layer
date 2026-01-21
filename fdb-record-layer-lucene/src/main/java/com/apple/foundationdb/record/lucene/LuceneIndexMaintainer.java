@@ -272,9 +272,13 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @VisibleForTesting
     public void mergeIndexForTesting(@Nonnull final Tuple groupingKey,
                                      @Nullable final Integer partitionId,
-                                     @Nonnull final AgilityContext agilityContext) throws IOException {
-        state.store.getIndexDeferredMaintenanceControl().setExplicitMergePath(true);
-        directoryManager.mergeIndexWithContext(groupingKey, partitionId, agilityContext);
+                                     @Nonnull final AgilityContext agilityContext) {
+        try {
+            state.store.getIndexDeferredMaintenanceControl().setExplicitMergePath(true);
+            directoryManager.mergeIndexWithContext(groupingKey, partitionId, agilityContext);
+        } finally {
+            directoryManager.drainPendingQueue(groupingKey, partitionId, agilityContext);
+        }
     }
 
     @Nonnull

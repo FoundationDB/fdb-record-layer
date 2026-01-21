@@ -237,7 +237,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
-    private void drainPendingQueue(@Nonnull final Tuple groupingKey,
+    public void drainPendingQueue(@Nonnull final Tuple groupingKey,
                                    @Nullable final Integer partitionId,
                                    @Nonnull final AgilityContext agilityContext) {
         try (FDBDirectoryWrapper directoryWrapper = createDirectoryWrapper(groupingKey, partitionId, agilityContext)) {
@@ -249,10 +249,10 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
-    public void drainPendingQueueWithRetries(@Nonnull final Tuple groupingKey,
-                                             @Nullable final Integer partitionId,
-                                             @Nonnull final AgilityContext agilityContext,
-                                             FDBDirectoryWrapper directoryWrapper) {
+    private void drainPendingQueueWithRetries(@Nonnull final Tuple groupingKey,
+                                              @Nullable final Integer partitionId,
+                                              @Nonnull final AgilityContext agilityContext,
+                                              FDBDirectoryWrapper directoryWrapper) {
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.of("Drain pending queue",
                     LogMessageKeys.GROUPING_KEY, groupingKey,
@@ -278,10 +278,10 @@ public class FDBDirectoryManager implements AutoCloseable {
         // Here: 10 failed clear queue attempts. What is the right thing to do?
     }
 
-    public void drainPendingQueueNow(@Nonnull final Tuple groupingKey,
-                                     @Nullable final Integer partitionId,
-                                     @Nonnull final AgilityContext agilityContext,
-                                     @Nonnull FDBDirectoryWrapper directoryWrapper) {
+    private void drainPendingQueueNow(@Nonnull final Tuple groupingKey,
+                                      @Nullable final Integer partitionId,
+                                      @Nonnull final AgilityContext agilityContext,
+                                      @Nonnull FDBDirectoryWrapper directoryWrapper) {
         // Note - since this directory wrapper was already created, agility context should be unused in the next line's path
         final PendingWriteQueue pendingWriteQueue = directoryWrapper.getPendingWriteQueue();
         try (ThrottledRetryingIterator<PendingWriteQueue.QueueEntry> iterator = ThrottledRetryingIterator.builder(

@@ -613,8 +613,8 @@ public class LucenePartitioner {
      * @param amount amount to subtract from the doc count
      * @param partitionId the id of the partition to decrement
      */
-    public CompletableFuture<Void> decrementCountAndSave(@Nonnull Tuple groupingKey,
-                                                         int amount, final int partitionId) {
+    CompletableFuture<Void> decrementCountAndSave(@Nonnull Tuple groupingKey,
+                                                  int amount, final int partitionId) {
         return state.context.doWithWriteLock(new LockIdentifier(partitionMetadataSubspace(groupingKey)),
                 () -> getPartitionMetaInfoById(partitionId, groupingKey).thenAccept(serialized -> {
                     if (serialized == null) {
