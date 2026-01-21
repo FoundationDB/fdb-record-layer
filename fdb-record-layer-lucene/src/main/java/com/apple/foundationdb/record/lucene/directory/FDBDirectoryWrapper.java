@@ -408,7 +408,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
 
     public void setOngoingMergeIndicator() {
         // Indicate to all IO that the queue should be used
-        agilityContext.accept(context -> getDirectory().setUseQueue(context));
+        agilityContext.accept(context -> getDirectory().setPendingQueueIndicator(context));
     }
 
     public void mergeIndex() throws IOException {
@@ -416,7 +416,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     public void clearOngoingMergeIndicator() {
-        agilityContext.accept(context -> getDirectory().clearUseQueueFailIfNonEmpty(context));
+        agilityContext.accept(context -> getDirectory().clearPendingQueueIndicatorButFailIfNonEmpty(context));
     }
 
     @VisibleForTesting

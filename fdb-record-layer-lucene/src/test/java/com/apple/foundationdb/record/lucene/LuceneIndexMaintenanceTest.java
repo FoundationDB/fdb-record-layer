@@ -756,7 +756,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     recordStore.getIndexMaintenanceFilter());
             FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
             FDBDirectory directory = directoryManager.getDirectory(null, null);
-            directory.setUseQueue(context);
+            directory.setPendingQueueIndicator(context);
             commit(context);
         }
 
@@ -845,7 +845,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     recordStore.getIndexMaintenanceFilter());
             FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
             FDBDirectory directory = directoryManager.getDirectory(null, null);
-            directory.setUseQueue(context);
+            directory.setPendingQueueIndicator(context);
             commit(context);
         }
 
@@ -972,7 +972,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
             // Set queue indicator for partition 0
             FDBDirectory dir0 = directoryManager.getDirectory(groupingKey, partition0);
-            dir0.setUseQueue(context);
+            dir0.setPendingQueueIndicator(context);
 
             commit(context);
         }
