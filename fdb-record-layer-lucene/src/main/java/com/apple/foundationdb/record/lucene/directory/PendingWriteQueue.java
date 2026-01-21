@@ -23,11 +23,11 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
@@ -90,8 +90,7 @@ public class PendingWriteQueue {
     /**
      * The maximum number of queue entries to replay into an {@link IndexWriter}.
      * In case the queue has more than that number of entries, then a replay attempt will fail. This is meant as a
-     * protection
-     * against a query attempt taking too long to replay a huge number of elements.
+     * protection against a query attempt taking too long to replay a huge number of elements.
      * Default: 0 (unlimited)
      */
     private int maxEntriesToReplay;
@@ -216,21 +215,24 @@ public class PendingWriteQueue {
         }
     }
 
+    /**
+     * Return TRUE if the queue has any items.
+     * @param context the context to use
+     * @return a future that, when complete, will have TRUE if the queue has any entries, FALSE otherwise
+     */
+    @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<Boolean> queueHasItems(FDBRecordContext context) {
-        ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder()
+        ScanProperties scanProperties = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(1)
-                .setIsolationLevel(IsolationLevel.SERIALIZABLE)
-                .build());
-        final KeyValueCursor cursor = KeyValueCursor.Builder.newBuilder(queueSubspace)
-                .setContext(context)
-                .setScanProperties(scanProperties)
-                .setContinuation(null)
-                .build();
-        return cursor.onNext().thenApply(result -> result.hasNext());
+                .build()
+                .asScanProperties(false);
+        // Scan for one item, to see if there are any results returned
+        RecordCursor<QueueEntry> cursor = getQueueCursor(context, scanProperties, null);
+        return cursor.onNext().thenApply(RecordCursorResult::hasNext).whenComplete((result, ex) -> cursor.close());
     }
 
     /**
-     * Replay all queued operations for a partition into the index.
+     * Replay all queued operations into the index.
      * This should be called before executing a query to ensure queued writes are visible.
      *
      * @param indexWriter the index writer to write to
@@ -256,11 +258,11 @@ public class PendingWriteQueue {
         }).thenAccept(lastResult -> {
             if (lastResult.getNoNextReason().equals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED)) {
                 // Reached the row limit
-                LOGGER.error(KeyValueLogMessage.of("Too many entries to be replayed into IndexWriter",
-                        LuceneLogMessageKeys.MAX_ENTRIES_TO_REPLAY, maxEntriesToReplay));
+                if (LOGGER.isErrorEnabled()) {
+                    LOGGER.error(KeyValueLogMessage.of("Too many entries to be replayed into IndexWriter",
+                            LuceneLogMessageKeys.MAX_ENTRIES_TO_REPLAY, maxEntriesToReplay));
+                }
                 throw new TooManyPendingWritesException("Too many entries to replay into IndexWriter");
-
-                // TODO: Translate exception to Lucene?
             }
         });
     }
@@ -268,51 +270,26 @@ public class PendingWriteQueue {
     /**
      * Replay a single queued operation directly to the IndexWriter.
      */
-    @SuppressWarnings("fallthrough")
     private void replayOperation(@Nonnull QueueEntry entry, @Nonnull IndexWriter indexWriter) {
-        Tuple primaryKey = entry.getPrimaryKey();
         LucenePendingWriteQueueProto.PendingWriteItem.OperationType opType = entry.getOperationType();
 
         try {
             switch (opType) {
                 case UPDATE:
-                    // TODO: can we use the segment primary key index to delete the doc directly?
-                    Query updateDeleteQuery = SortedDocValuesField.newSlowExactQuery(
-                            LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME,
-                            new BytesRef(primaryKey.pack()));
-                    indexWriter.deleteDocuments(updateDeleteQuery);
-                    // Fallthrough to the next CASE
+                    handleDeleteEntry(indexWriter, entry.getPrimaryKey());
+                    handleInsertEntry(indexWriter, entry);
+                    break;
 
                 case INSERT:
-                    // Get IndexWriter and write document directly
-                    Document document = new Document();
-
-                    // Add primary key fields (simplified - using packed bytes)
-                    // todo: this should be reused from the index maintainer
-                    BytesRef ref = new BytesRef(primaryKey.pack());
-                    document.add(new StoredField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME, ref));
-                    document.add(new SortedDocValuesField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, ref));
-
-                    // Add document fields
-                    List<LuceneDocumentFromRecord.DocumentField> fields = PendingWritesQueueHelper.fromProtoFields(entry.getDocumentFields());
-                    for (LuceneDocumentFromRecord.DocumentField field : fields) {
-                        LuceneIndexMaintainerHelper.insertField(field, document);
-                    }
-
-                    indexWriter.addDocument(document);
+                    handleInsertEntry(indexWriter, entry);
                     break;
 
                 case DELETE:
-                    // Use SortedDocValuesField query for deletion
-                    // TODO: can we use the segment primary key index to delete the doc directly?
-                    Query deleteQuery = SortedDocValuesField.newSlowExactQuery(
-                            LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME,
-                            new BytesRef(primaryKey.pack()));
-                    indexWriter.deleteDocuments(deleteQuery);
+                    handleDeleteEntry(indexWriter, entry.getPrimaryKey());
                     break;
 
                 default:
-                    LOGGER.warn("Unknown operation type: {}", opType);
+                    throw new RecordCoreInternalException("Unknown queue operation type", LuceneLogMessageKeys.OPERATION_TYPE, opType);
             }
 
             if (LOGGER.isDebugEnabled()) {
@@ -321,6 +298,32 @@ public class PendingWriteQueue {
         } catch (IOException ex) {
             throw LuceneExceptions.toRecordCoreException("failed to replay message on writer", ex);
         }
+    }
+
+    private void handleInsertEntry(final @Nonnull IndexWriter indexWriter, final @Nonnull QueueEntry entry) throws IOException {
+        // This is similar to LuceneIndexMaintainerHelper.writeDocument is done, but the PK references are not
+        // as sophisticated since this document is only going to be used with a Lucene query (no PK lookup)
+        Document document = new Document();
+        BytesRef ref = new BytesRef(entry.getPrimaryKey().pack());
+        document.add(new StoredField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME, ref));
+        document.add(new SortedDocValuesField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, ref));
+
+        // Add document fields
+        List<LuceneDocumentFromRecord.DocumentField> fields = PendingWritesQueueHelper.fromProtoFields(entry.getDocumentFields());
+        for (LuceneDocumentFromRecord.DocumentField field : fields) {
+            LuceneIndexMaintainerHelper.insertField(field, document);
+        }
+
+        indexWriter.addDocument(document);
+    }
+
+    private void handleDeleteEntry(final @Nonnull IndexWriter indexWriter, final Tuple primaryKey) throws IOException {
+        // Use SortedDocValuesField query for deletion
+        // TODO: can we use the segment primary key index to delete the doc directly?
+        Query updateDeleteQuery = SortedDocValuesField.newSlowExactQuery(
+                LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME,
+                new BytesRef(primaryKey.pack()));
+        indexWriter.deleteDocuments(updateDeleteQuery);
     }
 
     private void enqueueOperationInternal(

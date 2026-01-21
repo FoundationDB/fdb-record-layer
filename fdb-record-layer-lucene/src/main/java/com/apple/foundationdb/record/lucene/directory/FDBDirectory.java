@@ -148,6 +148,7 @@ public class FDBDirectory extends Directory {
 
     private final LockFactory lockFactory;
     private final int maxPendingWritesToReplay;
+    private final int blockCacheMaximumSise;
     private Lock lastLock = null;
     private final int blockSize;
 
@@ -226,6 +227,7 @@ public class FDBDirectory extends Directory {
         this.lockFactory = (lockFactory != null) ? lockFactory : defaultLockFactory(agilityContext);
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
+        this.blockCacheMaximumSise = blockCacheMaximumSize;
         this.blockCache = CacheBuilder.newBuilder()
                 .concurrencyLevel(concurrencyLevel)
                 .initialCapacity(initialCapacity)
@@ -994,6 +996,10 @@ public class FDBDirectory extends Directory {
 
     public PendingWriteQueue createPendingWritesQueue() {
         return new PendingWriteQueue(pendingWritesQueueSubspace, maxPendingWritesToReplay);
+    }
+
+    public int getBlockCacheMaximumSise() {
+        return blockCacheMaximumSise;
     }
 
     /**

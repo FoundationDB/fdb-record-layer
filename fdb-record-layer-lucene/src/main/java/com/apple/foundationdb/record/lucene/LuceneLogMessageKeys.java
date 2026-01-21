@@ -71,6 +71,7 @@ public enum LuceneLogMessageKeys {
     MERGE_TRIGGER,
     OFFSET,
     ORIGINAL_DATA_SIZE,
+    OPERATION_TYPE,
     POINTER,
     POSITION,
     REFERENCE_CACHE_STATUS,

@@ -163,7 +163,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         this.state = state;
         this.key = key;
         this.directory = directory;
-        this.blockCacheMaximumSize = state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_BLOCK_CACHE_MAXIMUM_SIZE); // TODO!!!
+        this.blockCacheMaximumSize = directory.getBlockCacheMaximumSise();
         this.agilityContext = agilityContext;
         this.mergeDirectoryCount = mergeDirectoryCount;
         this.analyzerWrapper = analyzerWrapper;
@@ -251,9 +251,13 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     /**
-     * An {@link IndexReader} for querying this directory. This will wrap {@link #getWriter()} if the writer has
-     * already been instantiated, and wrap a writer that replays the pending writes entries otherwise.
-     * // TODO: more docs
+     * An {@link IndexReader} for querying this directory.
+     * In the case that the writer has already been created (which means that the index has been written to), that same writer
+     * will be used to create the reader, ensuring that written docs are visible to the query.
+     * In the case there were no writes and the pending writes queue is empty (there are no pending writes), then the reader
+     * is created from the current directory and can search all existing docs.
+     * In case there are entries in the pending writes queue, they will be replayed so that they are visible to the reader,
+     * and will be rolled back once the directory is closed.
      * This object should be closed by callers.
      */
     @Nonnull
@@ -282,6 +286,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
     private IndexWriter createIndexWriterWithReplayedQueue() throws IOException {
         final AgilityContext readOnlyContext = replayedQueueContext.get().getAgilityContext();
         // Create a read-only directory with read-only context and no-op lock factory
@@ -508,7 +513,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         return readersToClose;
     }
 
-    private class CloseableReadOnlyAgilityContext implements Closeable {
+    private static class CloseableReadOnlyAgilityContext implements Closeable {
         private AgilityContext agilityContext;
 
         private CloseableReadOnlyAgilityContext(final AgilityContext agilityContext) {
