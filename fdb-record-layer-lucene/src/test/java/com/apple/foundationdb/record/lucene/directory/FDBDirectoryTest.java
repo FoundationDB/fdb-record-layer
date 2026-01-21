@@ -334,7 +334,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
                 "shouldUseQueue should return false when no indicator is set");
 
         // 2. Set the queue indicator
-        directory.setPendingQueueIndicator(context);
+        directory.setPendingQueueIndicator();
 
         // 3. After setting, shouldUseQueue should return true in same transaction
         assertTrue(directory.shouldUseQueue(),
@@ -365,7 +365,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
             com.apple.foundationdb.record.RecordCoreException exception =
                     assertThrows(com.apple.foundationdb.record.RecordCoreException.class,
-                            () -> newDirectory.clearPendingQueueIndicatorButFailIfNonEmpty(newContext),
+                            newDirectory::clearPendingQueueIndicatorButFailIfNonEmpty,
                             "clearUseQueueFailIfNonEmpty should throw when queue is not empty");
 
             assertThat(exception.getMessage(),
@@ -400,7 +400,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
                     "shouldUseQueue should return true before clear");
 
             // Clear should succeed now
-            newDirectory.clearPendingQueueIndicatorButFailIfNonEmpty(newContext);
+            newDirectory.clearPendingQueueIndicatorButFailIfNonEmpty();
 
             // Should be false immediately after clear in same transaction
             assertFalse(newDirectory.shouldUseQueue(),

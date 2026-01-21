@@ -174,7 +174,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         throw new RecordCoreException("unsupported scan type for Lucene index: " + scanType);
     }
 
-    <M extends Message> void writeDocument(final FDBIndexableRecord<M> newRecord, final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry, final Integer partitionId, OverallOperation overallOperation) {
+    <M extends Message> void writeDocument(final FDBIndexableRecord<M> newRecord, final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry, final Integer partitionId, @Nullable OverallOperation overallOperation) {
         try {
             writeDocument(entry.getValue(), entry.getKey(), partitionId, newRecord.getPrimaryKey(), overallOperation);
         } catch (IOException e) {
@@ -186,9 +186,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                Tuple groupingKey,
                                Integer partitionId,
                                Tuple primaryKey,
-                               OverallOperation overallOperation) throws IOException {
+                               @Nullable OverallOperation overallOperation) throws IOException {
         // Here: partition count was adjusted pre-emptively (pending queue or not)
-        if (shouldUseQueue(groupingKey, partitionId)) {
+        // overallOperation is null only when called from the partitioner
+        if (overallOperation != null && shouldUseQueue(groupingKey, partitionId)) {
             queueOperation(groupingKey, partitionId, primaryKey, fields, overallOperation);
         } else {
             writeDocumentBypassQueue(groupingKey, partitionId, primaryKey, fields);

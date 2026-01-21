@@ -1004,42 +1004,42 @@ public class FDBDirectory extends Directory  {
 
     /**
      * Sets the pending queue indicator.
-     * @param context the FDB record context to use
      */
-    public void setPendingQueueIndicator(@Nonnull FDBRecordContext context) {
+    public void setPendingQueueIndicator() {
         final Subspace ongoingMergeSubspace = subspace.subspace(Tuple.from(ONGOING_MERGE_INDICATOR_SUBSPACE));
         final long nowMillis = System.currentTimeMillis();
         final Tuple indicatorTuple = Tuple.from(nowMillis);
-        context.ensureActive().set(ongoingMergeSubspace.pack(), indicatorTuple.pack());
+        agilityContext.set(ongoingMergeSubspace.pack(), indicatorTuple.pack());
     }
 
     /**
      * Clears the queue usage indicator, trow the queue is empty.
      *
-     * @param context the FDB record context (caller can use agilityContext accept, but function must use one context)
      * @throws RecordCoreException if the pending write queue is not empty
      */
-    public void clearPendingQueueIndicatorButFailIfNonEmpty(@Nonnull FDBRecordContext context) {
+    public void clearPendingQueueIndicatorButFailIfNonEmpty() {
         final Subspace ongoingMergeSubspace = subspace.subspace(Tuple.from(ONGOING_MERGE_INDICATOR_SUBSPACE));
         final Subspace queueSubspace = subspace.subspace(Tuple.from(PENDING_WRITE_QUEUE_SUBSPACE));
         final Range queueRange = queueSubspace.range();
 
-        // Verify that the pending write queue subspace is empty
-        final List<KeyValue> queueEntries =
-                LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_PENDING_QUEUE,
-                        context.ensureActive()
-                                .getRange(queueRange, 1) // Limit to 1 to just check if any entries exist
-                                .asList(), context);
+        agilityContext.accept(context -> {
+            // Verify that the pending write queue subspace is empty
+            final List<KeyValue> queueEntries =
+                    LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_PENDING_QUEUE,
+                            context.ensureActive()
+                                    .getRange(queueRange, 1) // Limit to 1 to just check if any entries exist
+                                    .asList(), context);
 
-        if (queueEntries == null || !queueEntries.isEmpty()) {
-            throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
-        }
+            if (queueEntries == null || !queueEntries.isEmpty()) {
+                throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
+            }
 
-        // Add queue subspace range to conflict list
-        context.ensureActive().addReadConflictRange(queueRange.begin,  queueRange.end);
+            // Add queue subspace range to conflict list
+            context.ensureActive().addReadConflictRange(queueRange.begin, queueRange.end);
 
-        // Clear the ongoing merge indicator
-        context.ensureActive().clear(ongoingMergeSubspace.pack());
+            // Clear the ongoing merge indicator
+            context.ensureActive().clear(ongoingMergeSubspace.pack());
+        });
     }
 
     public PendingWriteQueue createPendingWritesQueue() {
