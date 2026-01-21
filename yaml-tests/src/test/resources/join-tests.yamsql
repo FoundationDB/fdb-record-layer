@@ -330,6 +330,11 @@ test_block:
       - supported_version: !current_version
       - result: [{c1: 1, c2: 2, c3: 3}]
     -
+      # inner join with using: access to both c1
+      - query: select ja.c1, jb.c1 from ja join jb using(c1);
+      - supported_version: !current_version
+      - result: [{_0: 1, _1: 1}]
+    -
       # inner join with using: double join
       - query: select * from ja join jb using(c1) join jd using(c1);
       - supported_version: !current_version
