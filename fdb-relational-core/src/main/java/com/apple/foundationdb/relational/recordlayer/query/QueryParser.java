@@ -166,11 +166,6 @@ public class QueryParser {
     }
 
     @Nonnull
-    public static RelationalParser.TempSqlInvokedFunctionContext parseTemporaryFunction(@Nonnull final String functionString) {
-        return parse(functionString, ignored -> { }, parser -> parser.createTempFunction().tempSqlInvokedFunction());
-    }
-
-    @Nonnull
     public static RelationalParser.QueryContext parseView(@Nonnull final String viewDefinition) {
         return parse(viewDefinition, ignored -> { } , RelationalParser::query);
     }

@@ -47,14 +47,13 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
-import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
-import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
-import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
-import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
@@ -556,7 +555,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 ctx.tempSqlInvokedFunction().routineBody(), getDelegate().getSchemaTemplate());
         var throwIfExists = ctx.REPLACE() == null;
         return ProceduralPlan.of(metadataOperationsFactory.getCreateTemporaryFunctionConstantAction(getDelegate().getSchemaTemplate(),
-                throwIfExists, invokedRoutine, PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams())));
+                throwIfExists, invokedRoutine));
     }
 
     @Override
