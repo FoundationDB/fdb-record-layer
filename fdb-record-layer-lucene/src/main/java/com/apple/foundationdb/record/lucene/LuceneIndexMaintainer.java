@@ -207,19 +207,22 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     int deleteDocument(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey, OverallOperation overallOperation) throws IOException {
-        if (shouldUseQueue(groupingKey, partitionId)) {
+        // overallOperation is null when called from the partitioner - which means:
+        // 1. Never use pending queue
+        // 2. Do not update partition info (i.e. do not reduce doc count)
+        if (overallOperation != null && shouldUseQueue(groupingKey, partitionId)) {
             queueOperation(groupingKey, partitionId, primaryKey, null, overallOperation);
             return 0; // partition count will be adjusted during drain
         } else {
-            return deleteDocumentBypassQueue(groupingKey, partitionId, primaryKey);
+            return deleteDocumentBypassQueue(groupingKey, partitionId, primaryKey, overallOperation != null);
         }
     }
 
-    public int deleteDocumentBypassQueue(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey) throws IOException {
+    public int deleteDocumentBypassQueue(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey, boolean allowCountUpdate) throws IOException {
         final int countDeleted = LuceneIndexMaintainerHelper.deleteDocument(state.context, directoryManager, state.index, groupingKey, partitionId, primaryKey,
                 state.store.isIndexWriteOnly(state.index));
         // countDeleted may be 0 when in writeOnly mode, but otherwise should not happen.
-        if (partitionId == null || countDeleted <= 0) {
+        if (!allowCountUpdate || partitionId == null || countDeleted <= 0) {
             return 0;
         }
         // If needed, adjust partition's count
