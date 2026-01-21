@@ -935,6 +935,152 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
     }
 
+    @Test
+    void pendingQueueTestMultiplePartitions() throws Exception {
+        // Test pending queue with partitioned index - documents in different partitions
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(100));
+
+        final Index index = complexPartitionedIndex(options);
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.ComplexDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Insert a few documents when "ongoing merge indicator" is clear.
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(2001L, "document foo", 1L, 30L));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(2002L, "document bar", 1L, 130L));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(2003L, "document zoo", 1L, 35L));
+            commit(context);
+        }
+
+        final Tuple groupingKey = Tuple.from(1L);  // All documents in group 1
+        final Integer partition0 = 0;  // timestamp < 100
+        final Integer partition1 = 1;  // timestamp 100-199
+
+        // Enable queue mode for both partitions
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+
+            // Set queue indicator for partition 0
+            FDBDirectory dir0 = directoryManager.getDirectory(groupingKey, partition0);
+            dir0.setUseQueue(context);
+
+            commit(context);
+        }
+
+        // Store primary keys for later deletion
+        Tuple primaryKey1;
+
+        // Insert documents when "ongoing merge indicator" is set.
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+            primaryKey1 = recordStore.saveRecord(
+                    LuceneIndexTestUtils.createComplexDocument(1001L, "first document", 1L, 50L)
+            ).getPrimaryKey();
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1002L, "second document", 1L, 150L));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1003L, "third document", 1L, 75L));
+            commit(context);
+        }
+
+        // Delete one document from partition 0
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.deleteRecord(primaryKey1);
+            commit(context);
+        }
+
+        // Verify queues in both partitions
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+
+            // Verify partition 1 queue: empty
+            FDBDirectory dir1 = directoryManager.getDirectory(groupingKey, partition1);
+            assertFalse(dir1.shouldUseQueue(), "Partition 1 should not use queue");
+
+            PendingWriteQueue queue1 = dir1.createPendingWritesQueue();
+            List<PendingWriteQueue.QueueEntry> entries1 = new ArrayList<>();
+            queue1.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
+                    .forEach(entries1::add).join();
+
+            assertEquals(0, entries1.size(), "Partition 1 should have no entries");
+
+            // Verify partition 0 queue: 3 INSERTs + 1 DELETE
+            FDBDirectory dir0 = directoryManager.getDirectory(groupingKey, partition0);
+            assertTrue(dir0.shouldUseQueue(), "Partition 0 should use queue");
+
+            PendingWriteQueue queue0 = dir0.createPendingWritesQueue();
+            List<PendingWriteQueue.QueueEntry> entries0 = new ArrayList<>();
+            queue0.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
+                    .forEach(entries0::add).join();
+
+            assertEquals(4, entries0.size(), "Partition 0 should have 4 entries");
+            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                    entries0.get(0).getOperationType());
+            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                    entries0.get(1).getOperationType());
+            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                    entries0.get(2).getOperationType());
+            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE,
+                    entries0.get(3).getOperationType());
+
+            commit(context);
+        }
+
+        // Merge index - drains all partition queues
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
+            // unlike real life, this test sets the "ongoing merge indicator" ahead of the real merge. Merge allows
+            // the indicator being set as a way to recover from a leftover set indicator - which also enables this test.
+            indexMaintainer.mergeIndex().join();
+            commit(context);
+        }
+
+        // Verify both queues are empty and indicators are cleared
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+
+            // Check partition 0
+            FDBDirectory dir0 = directoryManager.getDirectory(groupingKey, partition0);
+            assertFalse(dir0.shouldUseQueue(), "Partition 0 queue indicator should be false");
+
+            PendingWriteQueue queue0 = dir0.createPendingWritesQueue();
+            List<PendingWriteQueue.QueueEntry> entries0 = new ArrayList<>();
+            queue0.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
+                    .forEach(entries0::add).join();
+            assertEquals(0, entries0.size(), "Partition 0 queue should be empty");
+
+            // Check partition 1
+            FDBDirectory dir1 = directoryManager.getDirectory(groupingKey, partition1);
+            assertFalse(dir1.shouldUseQueue(), "Partition 1 queue indicator should be false");
+
+            PendingWriteQueue queue1 = dir1.createPendingWritesQueue();
+            List<PendingWriteQueue.QueueEntry> entries1 = new ArrayList<>();
+            queue1.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
+                    .forEach(entries1::add).join();
+            assertEquals(0, entries1.size(), "Partition 1 queue should be empty");
+
+            commit(context);
+        }
+    }
+
+
     // A test where there are multiple threads trying to do merges. At the end the index should be validated for consistency.
     @Test
     void multipleConcurrentMergesTest() throws IOException, InterruptedException {
