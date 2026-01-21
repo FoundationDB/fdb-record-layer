@@ -228,7 +228,7 @@ public class SqlFunctionTest {
                         "CREATE FUNCTION SQ1(IN Q BIGINT DEFAULT 42) AS SELECT * FROM T WHERE b < Q " +
                         "CREATE FUNCTION SQ2(IN S BIGINT DEFAULT 100) AS SELECT * FROM SQ1() WHERE b < S"),
                 containsRoutinesInAnyOrder(routine("SQ1", "CREATE FUNCTION SQ1(IN Q BIGINT DEFAULT 42) AS SELECT * FROM T WHERE b < Q"),
-                        routine("SQ2", "CREATE FUNCTION SQ2(IN S BIGINT DEFAULT 100) AS SELECTq * FROM SQ1() WHERE b < S")));
+                        routine("SQ2", "CREATE FUNCTION SQ2(IN S BIGINT DEFAULT 100) AS SELECT * FROM SQ1() WHERE b < S")));
     }
 
     @Test
