@@ -40,7 +40,6 @@ import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperati
 import com.apple.foundationdb.relational.recordlayer.ddl.CreateTemporaryFunctionConstantAction;
 import com.apple.foundationdb.relational.recordlayer.ddl.DropTemporaryFunctionConstantAction;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
-import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingRecordStore;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
