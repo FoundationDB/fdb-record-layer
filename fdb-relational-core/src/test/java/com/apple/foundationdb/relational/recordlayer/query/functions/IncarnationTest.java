@@ -23,6 +23,8 @@ package com.apple.foundationdb.relational.recordlayer.query.functions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
@@ -103,9 +105,30 @@ public class IncarnationTest {
                 .containsRowsExactly(List.of(new Object[] {57, "banana"}, new Object[] {0, "something1"}));
     }
 
+    @Test
+    void incarnationWithContinuations() throws SQLException, RelationalException {
+        updateIncarnation(current -> 12);
+        assertThat(statement.executeUpdate("INSERT INTO my_record (key, incarnation, data) VALUES " +
+                "('r1', get_versionstamp_incarnation(), 'something0')," +
+                "('r2', get_versionstamp_incarnation(), 'something1')"))
+                .isEqualTo(2);
+        statement.setMaxRows(1);
+
+        final RelationalResultSet resultSet = statement.executeQuery("SELECT get_versionstamp_incarnation(), key FROM my_record");
+        ResultSetAssert.assertThat(resultSet)
+                .containsRowsExactly(List.<Object[]>of(new Object[] {12, "r1"}));
+        updateIncarnation(current -> 57);
+        try (RelationalPreparedStatement preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?")) {
+            preparedStatement.setBytes(1, resultSet.getContinuation().serialize());
+            ResultSetAssert.assertThat(preparedStatement.executeQuery())
+                    .containsRowsExactly(List.<Object[]>of(new Object[] {57, "r2"}));
+        }
+    }
+
     private void updateIncarnation(@Nonnull final IntFunction<Integer> updater) throws SQLException, RelationalException {
         connection.setAutoCommit(false);
-        statement.executeQuery("SELECT key FROM my_record"); // force transaction to start, because apparently we don't support BEGIN TRANSACTION
+        // force transaction to start, because at the time of writing, we don't support BEGIN TRANSACTION
+        statement.executeQuery("SELECT key FROM my_record");
         final AbstractDatabase recordLayerDatabase = ((EmbeddedRelationalConnection)statement.getConnection()).getRecordLayerDatabase();
         final RecordLayerSchema recordLayerSchema = recordLayerDatabase.loadSchema(statement.getConnection().getSchema());
         final BackingRecordStore backingRecordStore = (BackingRecordStore)recordLayerSchema.loadStore();
