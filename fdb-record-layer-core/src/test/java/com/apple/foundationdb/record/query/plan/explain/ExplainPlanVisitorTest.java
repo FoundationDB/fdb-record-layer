@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.rules.QueryPredicateSimplificationRuleTest.RandomPredicateGenerator;
@@ -533,6 +534,15 @@ public class ExplainPlanVisitorTest {
         NonnullPair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
         assertEquals(planAndString.getRight(), planAndString.getLeft().toString());
         assertEquals(planAndString.getRight(), ExplainPlanVisitor.toStringForDebugging(planAndString.getLeft()));
+    }
+
+    @ParameterizedTest(name = "randomPlanDotRepresentation[seed={0}]")
+    @MethodSource("randomPlanRepresentation")
+    void randomPlanDotRepresentation(long seed) {
+        Random r = new Random(seed);
+        logger.info("randomPlanDotRepresentation seed {}", seed);
+        NonnullPair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
+        logger.info("dot={}", PlannerGraphVisitor.internalGraphicalExplain(planAndString.getLeft()));
     }
 
     @Nonnull

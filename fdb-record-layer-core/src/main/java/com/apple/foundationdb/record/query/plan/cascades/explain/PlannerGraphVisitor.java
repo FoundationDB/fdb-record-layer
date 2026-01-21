@@ -331,6 +331,18 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
     }
 
     /**
+     * Generate the internal graphical explain of the planner expression that is passed in, in dot format.
+     * @param relationalExpression the planner expression to be explained.
+     * @return the internal explain of the planner expression handing in as a string in DOT format.
+     */
+    @Nonnull
+    public static String internalGraphicalExplain(@Nonnull final RelationalExpression relationalExpression) {
+        final PlannerGraph plannerGraph =
+                Objects.requireNonNull(relationalExpression.acceptVisitor(forInternalShow(false)));
+        return exportToDot(plannerGraph);
+    }
+
+    /**
      * Generate the explain of the planner expression that is passed in.
      * @param relationalExpression the planner expression to be explained.
      * @return the explain of the planner expression handing in as a string in GML format.
@@ -339,7 +351,6 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
     public static String explain(@Nonnull final RelationalExpression relationalExpression) {
         return explain(relationalExpression, ImmutableMap.of());
     }
-
 
     /**
      * Generate the explain of the planner expression that is passed in.
