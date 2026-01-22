@@ -204,18 +204,7 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
             // UPDATE MySimpleRecord SET num_value_2 = GET_VERSIONSTAMP_INCARNATION()
             RecordQueryPlan updatePlan = ((CascadesPlanner)planner).planGraph(() -> {
                 final Type.Record recordType = Type.Record.fromDescriptor(MySimpleRecord.getDescriptor());
-                Quantifier quantifier = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
-
-                final GraphExpansion.Builder graphExpansionBuilder = GraphExpansion.builder();
-                graphExpansionBuilder.addQuantifier(quantifier);
-                // Remove any PseudoFields
-                final Set<Type.Record.Field> properFields = Set.copyOf(recordType.getFields());
-                final List<Column<? extends FieldValue>> resultColumns = quantifier.getFlowedColumns().stream()
-                        .filter(column -> properFields.contains(column.getField()))
-                        .collect(Collectors.toList());
-                graphExpansionBuilder.addAllResultColumns(resultColumns);
-                Quantifier.ForEach selectQuantifier = Quantifier.forEach(Reference.initialOf(
-                        graphExpansionBuilder.build().buildSelect()));
+                final Quantifier.ForEach selectQuantifier = buildSelectWithProperFields("MySimpleRecord");
 
                 // Resolve the field path for num_value_2
                 final FieldValue.FieldPath updatePath = FieldValue.resolveFieldPath(selectQuantifier.getFlowedObjectType(),
@@ -296,6 +285,29 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
         Integer incarnation = getField(queryResult, Integer.class, "incarnation");
         assertNotNull(incarnation);
         return incarnation.intValue();
+    }
+
+    /**
+     * Creates a select quantifier for the given type with all proper fields (excluding pseudo fields).
+     * @param typeName the name of the record type
+     * @return a select quantifier containing all proper fields
+     */
+    @Nonnull
+    private Quantifier.ForEach buildSelectWithProperFields(final String typeName) {
+        final Type.Record recordType = Type.Record.fromDescriptor(MySimpleRecord.getDescriptor());
+        final Quantifier quantifier = fullTypeScan(recordStore.getRecordMetaData(), typeName);
+
+        final GraphExpansion.Builder graphExpansionBuilder = GraphExpansion.builder();
+        graphExpansionBuilder.addQuantifier(quantifier);
+
+        // Remove any PseudoFields
+        final Set<Type.Record.Field> properFields = Set.copyOf(recordType.getFields());
+        final List<Column<? extends FieldValue>> resultColumns = quantifier.getFlowedColumns().stream()
+                .filter(column -> properFields.contains(column.getField()))
+                .collect(Collectors.toList());
+        graphExpansionBuilder.addAllResultColumns(resultColumns);
+
+        return Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
     }
 
     @Nonnull
