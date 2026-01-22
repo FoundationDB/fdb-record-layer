@@ -38,19 +38,19 @@ import java.util.stream.Stream;
 public class MetadataOperationsFactoryTests {
 
     static Stream<Arguments> operationFactoryMethods() {
-        final var mockedUri = Mockito.mock(URI.class);
-        final var mockedString = Mockito.anyString();
-        final var mockedBoolean = Mockito.anyBoolean();
+        final var dummyURI = URI.create("dummy_uri");
+        final var dummyString = "dummy_string";
+        final var dummyBoolean = false;
         final var mockedSchemaTemplate = Mockito.mock(SchemaTemplate.class);
         return Stream.of(
-                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getCreateSchemaConstantAction(mockedUri, mockedString, mockedString, Options.NONE)),
-                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getCreateTemporaryFunctionConstantAction(mockedSchemaTemplate, mockedBoolean, Mockito.mock(RecordLayerInvokedRoutine.class))),
-                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getCreateDatabaseConstantAction(mockedUri, Options.NONE)),
+                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getCreateSchemaConstantAction(dummyURI, dummyString, dummyString, Options.NONE)),
+                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getCreateTemporaryFunctionConstantAction(mockedSchemaTemplate, dummyBoolean, Mockito.mock(RecordLayerInvokedRoutine.class))),
+                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getCreateDatabaseConstantAction(dummyURI, Options.NONE)),
                 Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getSaveSchemaTemplateConstantAction(mockedSchemaTemplate, Options.NONE)),
-                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getDropSchemaConstantAction(mockedUri, mockedString, Options.NONE)),
-                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getDropSchemaTemplateConstantAction(mockedString, mockedBoolean, Options.NONE)),
-                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getDropTemporaryFunctionConstantAction(mockedBoolean, mockedString)),
-                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getDropDatabaseConstantAction(mockedUri, mockedBoolean, Options.NONE))
+                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getDropSchemaConstantAction(dummyURI, dummyString, Options.NONE)),
+                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getDropSchemaTemplateConstantAction(dummyString, dummyBoolean, Options.NONE)),
+                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getDropTemporaryFunctionConstantAction(dummyBoolean, dummyString)),
+                Arguments.of((Function<MetadataOperationsFactory, ConstantAction>)factory -> factory.getDropDatabaseConstantAction(dummyURI, dummyBoolean, Options.NONE))
         );
     }
 
