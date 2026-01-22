@@ -1186,7 +1186,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             RecordCoreArgumentException ex = assertThrows(RecordCoreArgumentException.class,
-                    () -> secondDatabase.getStoreStateCache().get(recordStore, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY));
+                    () -> secondDatabase.getStoreStateCache().get(recordStore, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY, null));
             assertThat(ex.getMessage(), containsString("record store state cache used with different database"));
         }
 

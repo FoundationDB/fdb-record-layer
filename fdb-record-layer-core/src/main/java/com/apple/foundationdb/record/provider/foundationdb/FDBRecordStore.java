@@ -2447,15 +2447,23 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public CompletableFuture<Boolean> checkVersion(@Nullable UserVersionChecker userVersionChecker,
                                                    @Nonnull StoreExistenceCheck existenceCheck) {
-        return checkVersion(userVersionChecker, existenceCheck, AsyncUtil.DONE);
+        return checkVersion(userVersionChecker, existenceCheck, AsyncUtil.DONE, null);
     }
 
     @Nonnull
     private CompletableFuture<Boolean> checkVersion(@Nullable UserVersionChecker userVersionChecker,
                                                     @Nonnull StoreExistenceCheck existenceCheck,
                                                     @Nonnull CompletableFuture<Void> metaDataPreloadFuture) {
+        return checkVersion(userVersionChecker, existenceCheck, metaDataPreloadFuture, null);
+    }
+
+    @Nonnull
+    private CompletableFuture<Boolean> checkVersion(@Nullable UserVersionChecker userVersionChecker,
+                                                    @Nonnull StoreExistenceCheck existenceCheck,
+                                                    @Nonnull CompletableFuture<Void> metaDataPreloadFuture,
+                                                    @Nullable String bypassFullStoreLockReason) {
         CompletableFuture<Void> subspacePreloadFuture = preloadSubspaceAsync();
-        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = getStoreStateCache().get(this, existenceCheck).thenApply(storeInfo -> {
+        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = getStoreStateCache().get(this, existenceCheck, bypassFullStoreLockReason).thenApply(storeInfo -> {
             if (recordStoreStateRef.get() == null) {
                 recordStoreStateRef.compareAndSet(null, storeInfo.getRecordStoreState().toMutable());
             }
@@ -2571,7 +2579,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     private RecordMetaDataProto.DataStoreInfo checkAndParseStoreHeader(@Nullable KeyValue firstKeyValue,
-                                                                       @Nonnull StoreExistenceCheck existenceCheck) {
+                                                                       @Nonnull StoreExistenceCheck existenceCheck,
+                                                                       @Nullable String bypassFullStoreLockReason) {
         RecordMetaDataProto.DataStoreInfo info;
         if (firstKeyValue == null) {
             info = RecordMetaDataProto.DataStoreInfo.getDefaultInstance();
@@ -2587,7 +2596,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         .addLogInfo(subspaceProvider.logKey(), subspaceProvider.toString(context));
             }
         }
-        checkStoreHeaderInternal(info, getContext(), getSubspaceProvider(), existenceCheck);
+        checkStoreHeaderInternal(info, getContext(), getSubspaceProvider(), existenceCheck, bypassFullStoreLockReason);
         return info;
     }
 
@@ -2598,7 +2607,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                            @Nonnull FDBRecordContext context,
                                                            @Nonnull SubspaceProvider subspaceProvider,
                                                            @Nonnull Subspace subspace,
-                                                           @Nonnull StoreExistenceCheck existenceCheck) {
+                                                           @Nonnull StoreExistenceCheck existenceCheck,
+                                                           @Nullable String bypassFullStoreLockReason) {
         if (storeHeader == RecordMetaDataProto.DataStoreInfo.getDefaultInstance()) {
             // Validate that the store is empty
             return readStoreFirstKey(context, subspace, IsolationLevel.SNAPSHOT).thenAccept(firstKeyValue -> {
@@ -2611,11 +2621,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 // We have relied on the value of the store header key itself. We performed the read at SNAPSHOT,
                 // though, to avoid conflicts on the first key if the store isn't empty.
                 context.ensureActive().addReadConflictKey(subspace.pack(STORE_INFO_KEY));
-                checkStoreHeaderInternal(storeHeader, context, subspaceProvider, existenceCheck);
+                checkStoreHeaderInternal(storeHeader, context, subspaceProvider, existenceCheck, bypassFullStoreLockReason);
             });
         } else {
             try {
-                checkStoreHeaderInternal(storeHeader, context, subspaceProvider, existenceCheck);
+                checkStoreHeaderInternal(storeHeader, context, subspaceProvider, existenceCheck, bypassFullStoreLockReason);
                 return AsyncUtil.DONE;
             } catch (RecordCoreException e) {
                 CompletableFuture<Void> future = new CompletableFuture<>();
@@ -2701,7 +2711,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private static void checkStoreHeaderInternal(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
                                                  @Nonnull FDBRecordContext context,
                                                  @Nonnull SubspaceProvider subspaceProvider,
-                                                 @Nonnull StoreExistenceCheck existenceCheck) {
+                                                 @Nonnull StoreExistenceCheck existenceCheck,
+                                                 @Nullable String bypassFullStoreLockReason) {
         if (storeHeader == RecordMetaDataProto.DataStoreInfo.getDefaultInstance()) {
             if (existenceCheck == StoreExistenceCheck.ERROR_IF_NOT_EXISTS) {
                 throw new RecordStoreDoesNotExistException("Record store does not exist",
@@ -2713,7 +2724,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
         } else {
             FormatVersion.validateFormatVersion(storeHeader.getFormatVersion(), subspaceProvider);
-            validateStoreLockState(storeHeader, subspaceProvider);
+            validateStoreLockState(storeHeader, subspaceProvider, bypassFullStoreLockReason);
         }
     }
 
@@ -2721,13 +2732,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Validates the store lock state according to the format version. For stores with format version
      * {@link FormatVersion#FULL_STORE_LOCK} or higher, unknown lock states (including UNSPECIFIED) will prevent
      * the store from being opened. Additionally, stores in {@link RecordMetaDataProto.DataStoreInfo.StoreLockState.State#FULL_STORE}
-     * state cannot be opened.
+     * state cannot be opened unless a matching bypass reason is provided.
      *
      * @param storeHeader the store header containing the lock state
      * @param subspaceProvider the subspace provider for error messages
+     * @param bypassFullStoreLockReason if non-null, allows bypassing FULL_STORE lock if it matches the stored reason
      */
     private static void validateStoreLockState(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
-                                               @Nonnull SubspaceProvider subspaceProvider) {
+                                               @Nonnull SubspaceProvider subspaceProvider,
+                                               @Nullable String bypassFullStoreLockReason) {
         if (!storeHeader.hasStoreLockState()) {
             return;
         }
@@ -2738,6 +2751,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         // Check if store is fully locked (applies to all format versions)
         if (lockState.equals(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE)) {
+            // Allow bypass if the provided reason matches the stored reason
+            if (bypassFullStoreLockReason != null && bypassFullStoreLockReason.equals(storeLockState.getReason())) {
+                // Bypass the lock - allow the store to open
+                return;
+            }
             throw new StoreIsFullyLockedException(storeLockState, subspaceProvider.logKey(), subspaceProvider);
         }
 
@@ -2877,8 +2895,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    private CompletableFuture<RecordMetaDataProto.DataStoreInfo> loadStoreHeaderAsync(@Nonnull StoreExistenceCheck existenceCheck, @Nonnull IsolationLevel isolationLevel) {
-        return readStoreFirstKey(context, getSubspace(), isolationLevel).thenApply(keyValue -> checkAndParseStoreHeader(keyValue, existenceCheck));
+    private CompletableFuture<RecordMetaDataProto.DataStoreInfo> loadStoreHeaderAsync(@Nonnull StoreExistenceCheck existenceCheck, @Nonnull IsolationLevel isolationLevel, @Nullable String bypassFullStoreLockReason) {
+        return readStoreFirstKey(context, getSubspace(), isolationLevel).thenApply(keyValue -> checkAndParseStoreHeader(keyValue, existenceCheck, bypassFullStoreLockReason));
     }
 
     @VisibleForTesting
@@ -3904,7 +3922,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected CompletableFuture<Void> preloadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck,
                                                                    @Nonnull IsolationLevel storeHeaderIsolationLevel,
                                                                    @Nonnull IsolationLevel indexStateIsolationLevel) {
-        return loadRecordStoreStateAsync(existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel)
+        return loadRecordStoreStateAsync(existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel, null)
                 .thenAccept(state -> {
                     if (this.recordStoreStateRef.get() == null) {
                         recordStoreStateRef.compareAndSet(null, state.toMutable());
@@ -3922,24 +3940,32 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @API(API.Status.INTERNAL)
     @Nonnull
     public CompletableFuture<RecordStoreState> loadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck) {
-        return loadRecordStoreStateAsync(existenceCheck, IsolationLevel.SERIALIZABLE, IsolationLevel.SNAPSHOT);
+        return loadRecordStoreStateAsync(existenceCheck, IsolationLevel.SERIALIZABLE, IsolationLevel.SNAPSHOT, null);
+    }
+
+    @Nonnull
+    public CompletableFuture<RecordStoreState> loadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck,
+                                                                         @Nullable String bypassFullStoreLockReason) {
+        return loadRecordStoreStateAsync(existenceCheck, IsolationLevel.SERIALIZABLE, IsolationLevel.SNAPSHOT, bypassFullStoreLockReason);
     }
 
     @Nonnull
     private CompletableFuture<RecordStoreState> loadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck,
                                                                           @Nonnull IsolationLevel storeHeaderIsolationLevel,
-                                                                          @Nonnull IsolationLevel indexStateIsolationLevel) {
+                                                                          @Nonnull IsolationLevel indexStateIsolationLevel,
+                                                                          @Nullable String bypassFullStoreLockReason) {
         // Don't rely on the subspace being loaded as this is called as part of store initialization
         return getSubspaceAsync().thenCompose(subspace ->
-                loadRecordStoreStateInternalAsync(existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel)
+                loadRecordStoreStateInternalAsync(existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel, bypassFullStoreLockReason)
         );
     }
 
     @Nonnull
     private CompletableFuture<RecordStoreState> loadRecordStoreStateInternalAsync(@Nonnull StoreExistenceCheck existenceCheck,
                                                                                   @Nonnull IsolationLevel storeHeaderIsolationLevel,
-                                                                                  @Nonnull IsolationLevel indexStateIsolationLevel) {
-        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = loadStoreHeaderAsync(existenceCheck, storeHeaderIsolationLevel);
+                                                                                  @Nonnull IsolationLevel indexStateIsolationLevel,
+                                                                                  @Nullable String bypassFullStoreLockReason) {
+        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = loadStoreHeaderAsync(existenceCheck, storeHeaderIsolationLevel, bypassFullStoreLockReason);
         CompletableFuture<Map<String, IndexState>> loadIndexStates = loadIndexStatesAsync(indexStateIsolationLevel);
         return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, storeHeaderFuture.thenCombine(loadIndexStates, RecordStoreState::new));
     }
@@ -5427,6 +5453,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nonnull
         private StateCacheabilityOnOpen stateCacheabilityOnOpen = StateCacheabilityOnOpen.DEFAULT;
 
+        @Nullable
+        private String bypassFullStoreLockReason = null;
+
         @Nonnull
         private PlanSerializationRegistry planSerializationRegistry = DefaultPlanSerializationRegistry.INSTANCE;
 
@@ -5458,6 +5487,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             this.pipelineSizer = other.pipelineSizer;
             this.storeStateCache = other.storeStateCache;
             this.stateCacheabilityOnOpen = other.stateCacheabilityOnOpen;
+            this.bypassFullStoreLockReason = other.bypassFullStoreLockReason;
             this.planSerializationRegistry = other.planSerializationRegistry;
         }
 
@@ -5670,6 +5700,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return this;
         }
 
+        @Override
+        @Nullable
+        public String getBypassFullStoreLockReason() {
+            return bypassFullStoreLockReason;
+        }
+
+        @Override
+        @Nonnull
+        public Builder setBypassFullStoreLockReason(@Nullable final String reason) {
+            this.bypassFullStoreLockReason = reason;
+            return this;
+        }
+
         @Nonnull
         public PlanSerializationRegistry getPlanSerializationRegistry() {
             return planSerializationRegistry;
@@ -5723,7 +5766,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             final CompletableFuture<Long> readVersionFuture = preloadReadVersion();
             final CompletableFuture<Void> preloadMetaData = readVersionFuture.thenCompose(ignore -> preloadMetaData());
             FDBRecordStore recordStore = build();
-            final CompletableFuture<Boolean> checkVersion = recordStore.checkVersion(userVersionChecker, existenceCheck, preloadMetaData);
+            final CompletableFuture<Boolean> checkVersion = recordStore.checkVersion(userVersionChecker, existenceCheck, preloadMetaData, bypassFullStoreLockReason);
             return checkVersion.thenApply(vignore -> recordStore);
         }
 
@@ -5834,7 +5877,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             return uncheckedOpenAsync()
                     .thenCompose(store ->
-                            store.getStoreStateCache().get(store, StoreExistenceCheck.NONE)
+                            store.getStoreStateCache().get(store, StoreExistenceCheck.NONE, null)
                                     .thenCompose(storeStateCacheEntry ->
                                             repairMissingHeader(userVersion, store,
                                                     storeStateCacheEntry.getRecordStoreState().getStoreHeader())));

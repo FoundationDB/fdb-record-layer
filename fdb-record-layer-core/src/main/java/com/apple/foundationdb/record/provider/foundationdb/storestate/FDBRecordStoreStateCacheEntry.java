@@ -86,22 +86,23 @@ public class FDBRecordStoreStateCacheEntry {
 
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    CompletableFuture<Void> handleCachedState(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+    CompletableFuture<Void> handleCachedState(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck, @Nullable String bypassFullStoreLockReason) {
         final Transaction tr = context.ensureActive();
         tr.addReadConflictKey(subspace.pack(FDBRecordStoreKeyspace.STORE_INFO.key()));
-        return FDBRecordStore.checkStoreHeader(recordStoreState.getStoreHeader(), context, subspaceProvider, subspace, existenceCheck);
+        return FDBRecordStore.checkStoreHeader(recordStoreState.getStoreHeader(), context, subspaceProvider, subspace, existenceCheck, bypassFullStoreLockReason);
     }
 
     @Nonnull
     static CompletableFuture<FDBRecordStoreStateCacheEntry> load(@Nonnull FDBRecordStore recordStore,
-                                                                 @Nonnull FDBRecordStore.StoreExistenceCheck existenceCheck) {
+                                                                 @Nonnull FDBRecordStore.StoreExistenceCheck existenceCheck,
+                                                                 @Nullable String bypassFullStoreLockReason) {
         // This is primarily needed because of https://github.com/apple/foundationdb/issues/11500 where the call to
         // getMetaDataVersionStampAsync might never complete. In the tests we don't set a timeout on the futures, and
         // thus the overall test times out, but in production situations, this should mostly make a difference, because
         // "Batch GRV rate limit exceeded" is clearer than an asyncToSync timeout, on whatever eventual future depends
         // on this.
         final CompletableFuture<byte[]> metaDataVersionStampFuture = recordStore.getContext().getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT);
-        return MoreAsyncUtil.combineAndFailFast(recordStore.loadRecordStoreStateAsync(existenceCheck),
+        return MoreAsyncUtil.combineAndFailFast(recordStore.loadRecordStoreStateAsync(existenceCheck, bypassFullStoreLockReason),
                 metaDataVersionStampFuture, (recordStoreState, metaDataVersionStamp) ->
                         new FDBRecordStoreStateCacheEntry(recordStore.getSubspaceProvider(), recordStore.getSubspace(), recordStoreState.toImmutable(), metaDataVersionStamp));
     }

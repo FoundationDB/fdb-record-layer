@@ -160,27 +160,47 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
 
     @Test
     void testClearFullStoreLock() {
+        final String lockReason = "Testing lock clearing";
+
         // Test setting FULL_STORE lock
         try (FDBRecordContext context = openContext()) {
             recordStore = openSimpleRecordStore(context, null, formatVersion);
 
             recordStore.setStoreLockStateAsync(
                     RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
-                    "Testing lock clearing"
+                    lockReason
             ).join();
 
             commit(context);
         }
 
-        // Verify cannot open
+        // Verify cannot open normally
         try (FDBRecordContext context = openContext()) {
             assertThrows(StoreIsFullyLockedException.class, () -> {
                 openSimpleRecordStore(context, null, formatVersion);
             });
         }
 
-        // Note: In a real scenario, clearing a FULL_STORE lock would require special administrative
-        // tooling that can bypass the lock check. This test demonstrates that once set, the lock
-        // prevents normal store opening as expected.
+        // Open with bypass to clear the lock
+        try (FDBRecordContext context = openContext()) {
+            recordStore = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(simpleMetaData(null))
+                    .setSubspace(path.toSubspace(context))
+                    .setFormatVersion(formatVersion)
+                    .setBypassFullStoreLockReason(lockReason)
+                    .open();
+
+            // Clear the lock
+            recordStore.clearStoreLockStateAsync().join();
+
+            commit(context);
+        }
+
+        // Verify can now open normally
+        try (FDBRecordContext context = openContext()) {
+            recordStore = openSimpleRecordStore(context, null, formatVersion);
+            commit(context);
+        }
     }
 }

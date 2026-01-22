@@ -37,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -70,14 +71,15 @@ public class ReadVersionRecordStoreStateCache implements FDBRecordStoreStateCach
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<FDBRecordStoreStateCacheEntry> get(@Nonnull FDBRecordStore recordStore,
-                                                                @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+                                                                @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck,
+                                                                @Nullable String bypassFullStoreLockReason) {
         final FDBRecordContext context = recordStore.getContext();
         validateContext(context);
         if (context.hasDirtyStoreState()) {
             // If a store info header has been modified during the course of this transaction's run,
             // don't go to the cache as its results may be stale.
             context.increment(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS);
-            return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck);
+            return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck, bypassFullStoreLockReason);
         } else {
             return context.getReadVersionAsync().thenCompose(readVersion -> {
                 final SubspaceProvider subspaceProvider = recordStore.getSubspaceProvider();
@@ -88,8 +90,8 @@ public class ReadVersionRecordStoreStateCache implements FDBRecordStoreStateCach
                                 LogMessageKeys.READ_VERSION, readVersion));
                     }
                     context.increment(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS);
-                    return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck);
-                }).thenCompose(storeState -> storeState.handleCachedState(context, existenceCheck).thenApply(vignore -> storeState));
+                    return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck, bypassFullStoreLockReason);
+                }).thenCompose(storeState -> storeState.handleCachedState(context, existenceCheck, bypassFullStoreLockReason).thenApply(vignore -> storeState));
 
                 if (context.getTimer() != null && MoreAsyncUtil.isCompletedNormally(storeStateFuture)) {
                     context.increment(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT);
