@@ -1,0 +1,177 @@
+#
+# update-with-versions.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+schema_template:
+    create table T1(id bigint, a bigint, b string, c bigint, primary key(id))
+
+    create table T2(id bigint, a bigint, b string, c bigint, primary key(id))
+    create index "T2$a_with_b" as select a from T2 order by a
+    create index "T2$version" as select "__ROW_VERSION" from t2
+    create index "T2$a_version" as select a, "__ROW_VERSION" from t2 order by a, "__ROW_VERSION"
+
+    with options (store_row_versions=true)
+---
+test_block:
+  preset: single_repetition_ordered
+  options:
+    connection_lifecycle: block
+  name: update-queries-with-versions
+  tests:
+    -
+      # Insert an initial set of records into T1
+      - query: insert into T1 values
+          (1, 10, 'odd', 0),
+          (2, 10, 'even', 0),
+          (3, 20, 'odd', 0),
+          (4, 20, 'even', 0)
+      - count: 4
+    -
+      - query: select * from T1;
+      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
+      - unorderedResult: [
+           { ID: 1, A: 10, B: "odd" , C: 0 },
+           { ID: 2, A: 10, B: "even", C: 0 },
+           { ID: 3, A: 20, B: "odd" , C: 0 },
+           { ID: 4, A: 20, B: "even", C: 0 },
+        ]
+    -
+      - query: select "__ROW_VERSION", T1.* from T1;
+      - explain: "SCAN(<,>) | TFILTER T1 | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
+      - unorderedResult: [
+           { '__ROW_VERSION': !not_null _, ID: 1, A: 10, B: "odd",  C: 0 },
+           { '__ROW_VERSION': !not_null _, ID: 2, A: 10, B: "even", C: 0 },
+           { '__ROW_VERSION': !not_null _, ID: 3, A: 20, B: "odd",  C: 0 },
+           { '__ROW_VERSION': !not_null _, ID: 4, A: 20, B: "even", C: 0 },
+        ]
+    -
+      # Insert an initial set of records into T2
+      - query: insert into T2 values
+          (1, 30, 'odd', 0),
+          (2, 30, 'even', 0),
+          (3, 40, 'odd', 0),
+          (4, 40, 'even', 0)
+      - count: 4
+    -
+      - query: select * from T2;
+      - explain: "ISCAN(T2$a_with_b <,>) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
+      - unorderedResult: [
+           { ID: 1, A: 30, B: "odd",  C: 0 },
+           { ID: 2, A: 30, B: "even", C: 0 },
+           { ID: 3, A: 40, B: "odd",  C: 0 },
+           { ID: 4, A: 40, B: "even", C: 0 },
+        ]
+    -
+      - query: select * from T2 order by a;
+      - explain: "ISCAN(T2$a_with_b <,>) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
+      - result: [
+           { ID: 1, A: 30, B: "odd",  C: 0 },
+           { ID: 2, A: 30, B: "even", C: 0 },
+           { ID: 3, A: 40, B: "odd",  C: 0 },
+           { ID: 4, A: 40, B: "even", C: 0 },
+        ]
+    -
+      - query: select "__ROW_VERSION", T2.* from T2 order by "__ROW_VERSION";
+      - explain: "ISCAN(T2$version <,>) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
+      - result: [
+           { '__ROW_VERSION': !not_null _, ID: 1, A: 30, B: "odd",  C: 0},
+           { '__ROW_VERSION': !not_null _, ID: 2, A: 30, B: "even", C: 0},
+           { '__ROW_VERSION': !not_null _, ID: 3, A: 40, B: "odd",  C: 0},
+           { '__ROW_VERSION': !not_null _, ID: 4, A: 40, B: "even", C: 0},
+        ]
+    -
+      - query: select "__ROW_VERSION", T2.* from T2 where a = 40 order by "__ROW_VERSION";
+      - explain: "ISCAN(T2$a_version [EQUALS promote(@c12 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
+      - result: [
+           { '__ROW_VERSION': !not_null _, ID: 3, A: 40, B: "odd",  C: 0},
+           { '__ROW_VERSION': !not_null _, ID: 4, A: 40, B: "even", C: 0},
+        ]
+    -
+      # Issue a query on T1 that selects the elements from T1 that will be updated in the next query. This allows us to get the result set and compare the plans
+      - query: select * from T1 where a = 10 and b = 'odd'
+      - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.A EQUALS promote(@c8 AS LONG) AND _.B EQUALS promote(@c12 AS STRING) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
+      - result: [
+           { ID: 1, A: 10, B: "odd",  C: 0 },
+        ]
+    -
+      # Update one record in T1. As there are no indexes on the type, it must do a full scan
+      - query: update T1 set c = c + 1 where a = 10 and b = 'odd'
+      - explain: "SCAN(<,>) | TFILTER T1 | DISTINCT BY PK | FILTER _.A EQUALS promote(@c12 AS LONG) AND _.B EQUALS promote(@c16 AS STRING) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C) | UPDATE T1"
+      - count: 1
+    -
+      # Validate the update
+      - query: select * from T1;
+      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
+      - unorderedResult: [
+           { ID: 1, A: 10, B: "odd" , C: 1 },
+           { ID: 2, A: 10, B: "even", C: 0 },
+           { ID: 3, A: 20, B: "odd" , C: 0 },
+           { ID: 4, A: 20, B: "even", C: 0 },
+        ]
+    -
+      - query: select "__ROW_VERSION", T1.* from T1;
+      - explain: "SCAN(<,>) | TFILTER T1 | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
+      - unorderedResult: [
+           { '__ROW_VERSION': !not_null _, ID: 1, A: 10, B: "odd",  C: 1 },
+           { '__ROW_VERSION': !not_null _, ID: 2, A: 10, B: "even", C: 0 },
+           { '__ROW_VERSION': !not_null _, ID: 3, A: 20, B: "odd",  C: 0 },
+           { '__ROW_VERSION': !not_null _, ID: 4, A: 20, B: "even", C: 0 },
+        ]
+
+    -
+      # Issue a query on T2 that selects the elements from T2 that will be updated in the next query
+      - query: select * from T2 where a = 30 and id < 100 and b = 'even'
+      - explain: "ISCAN(T2$a_with_b [EQUALS promote(@c8 AS LONG)]) | FILTER _.ID LESS_THAN promote(@c12 AS LONG) AND _.B EQUALS promote(@c16 AS STRING) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
+      - result: [
+           { ID: 2, A: 30, B: "even", C: 0},
+        ]
+    -
+      # Update one record in T2
+      - query: update T2 set c = c + 1 where a = 30 and id < 100 and b = 'even'
+      - explain: "ISCAN(T2$a_with_b [EQUALS promote(@c12 AS LONG)]) | DISTINCT BY PK | FILTER _.ID LESS_THAN promote(@c16 AS LONG) AND _.B EQUALS promote(@c20 AS STRING) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C) | UPDATE T2"
+      - count: 1
+    -
+      # Validate the results
+      - query: select * from T2;
+      - explain: "ISCAN(T2$a_with_b <,>) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
+      - unorderedResult: [
+           { ID: 1, A: 30, B: "odd",  C: 0 },
+           { ID: 2, A: 30, B: "even", C: 1 },
+           { ID: 3, A: 40, B: "odd",  C: 0 },
+           { ID: 4, A: 40, B: "even", C: 0 },
+        ]
+    -
+      # Make sure the updated record now has the largest version
+      - query: select "__ROW_VERSION", T2.* from T2 order by "__ROW_VERSION";
+      - explain: "ISCAN(T2$version <,>) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
+      - unorderedResult: [
+           { '__ROW_VERSION': !not_null _, ID: 1, A: 30, B: "odd",  C: 0 },
+           { '__ROW_VERSION': !not_null _, ID: 3, A: 40, B: "odd",  C: 0 },
+           { '__ROW_VERSION': !not_null _, ID: 4, A: 40, B: "even", C: 0 },
+           { '__ROW_VERSION': !not_null _, ID: 2, A: 30, B: "even", C: 1 },
+        ]
+    -
+      # Make sure the updated record still has the largest version within the group of values sharing the same "A" value
+      - query: select "__ROW_VERSION", T2.* from T2 where a = 30 order by "__ROW_VERSION";
+      - explain: "ISCAN(T2$a_version [EQUALS promote(@c12 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.A AS A, _.B AS B, _.C AS C)"
+      - unorderedResult: [
+           { '__ROW_VERSION': !not_null _, ID: 1, A: 30, B: "odd",  C: 0 },
+           { '__ROW_VERSION': !not_null _, ID: 2, A: 30, B: "even", C: 1 },
+        ]
+...
