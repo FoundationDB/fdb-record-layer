@@ -173,6 +173,35 @@ test_block:
            { {ID: 5, COL1: 10, COL2: 5} },
         ]
     -
+      # Do not include __ROW_VERSION (as a pseudo-column) when there is a type alias
+      - query: select a.* from t1 as a where a.col1 = 10;
+      - explain: "ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - result: [
+           { ID: 1, COL1: 10, COL2: 1 },
+           { ID: 2, COL1: 10, COL2: 2 },
+           { ID: 3, COL1: 10, COL2: 3 },
+           { ID: 4, COL1: 10, COL2: 4 },
+           { ID: 5, COL1: 10, COL2: 5 },
+        ]
+    -
+      # Do not include __ROW_VERSION (as a pseudo-column) in a nested element when there is a type alias
+      - query: select (a.*) from t1 as a where a.col1 = 10;
+      - explain: "ISCAN(I1 [EQUALS promote(@c16 AS LONG)]) | MAP ((_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS _0)"
+      - result: [
+           { { ID: 1, COL1: 10, COL2: 1 } },
+           { { ID: 2, COL1: 10, COL2: 2 } },
+           { { ID: 3, COL1: 10, COL2: 3 } },
+           { { ID: 4, COL1: 10, COL2: 4 } },
+           { { ID: 5, COL1: 10, COL2: 5 } },
+        ]
+    -
+      # Should not be able to select the row version from a sub-select
+      - query: select "__ROW_VERSION" from (select * from t1) a;
+      - initialVersionLessThan: !current_version
+      - error: 'XXXXX'
+      - initialVersionAtLeast: !current_version
+      - error: '42703'
+    -
       # Do not include __ROW_VERSION (as a pseudo-column) in nested (*) without identifier
       - query: select (*) from t1 where col1 = 10;
       - explain: "ISCAN(I1 [EQUALS promote(@c10 AS LONG)]) | MAP ((_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS _0)"
@@ -182,6 +211,72 @@ test_block:
            { {ID: 3, COL1: 10, COL2: 3} },
            { {ID: 4, COL1: 10, COL2: 4} },
            { {ID: 5, COL1: 10, COL2: 5} },
+        ]
+    -
+      # Simple star select ordered by newest first. The row version is not projected
+      - query: select * from t1 where col1 = 10 order by "__ROW_VERSION" desc;
+      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c8 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - result: [
+           { ID: 4, COL1: 10, COL2: 4 },
+           { ID: 2, COL1: 10, COL2: 2 },
+           { ID: 5, COL1: 10, COL2: 5 },
+           { ID: 3, COL1: 10, COL2: 3 },
+           { ID: 1, COL1: 10, COL2: 1 },
+        ]
+    -
+      # Simple star select ordered by newest first. The row version _is_ projected
+      - query: select *, "__ROW_VERSION" from t1 where col1 = 10 order by "__ROW_VERSION" desc;
+      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c10 AS LONG)] REVERSE)"
+      - result: [
+           { ID: 4, COL1: 10, COL2: 4, '__ROW_VERSION': !not_null _ },
+           { ID: 2, COL1: 10, COL2: 2, '__ROW_VERSION': !not_null _ },
+           { ID: 5, COL1: 10, COL2: 5, '__ROW_VERSION': !not_null _ },
+           { ID: 3, COL1: 10, COL2: 3, '__ROW_VERSION': !not_null _ },
+           { ID: 1, COL1: 10, COL2: 1, '__ROW_VERSION': !not_null _ },
+        ]
+    -
+      # Simple star select ordered by newest first. Like the previous query, but the version should be the first column, not the last
+      - query: select "__ROW_VERSION", * from t1 where col1 = 10 order by "__ROW_VERSION" desc;
+      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c10 AS LONG)] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - result: [
+           { '__ROW_VERSION': !not_null _, ID: 4, COL1: 10, COL2: 4 },
+           { '__ROW_VERSION': !not_null _, ID: 2, COL1: 10, COL2: 2 },
+           { '__ROW_VERSION': !not_null _, ID: 5, COL1: 10, COL2: 5 },
+           { '__ROW_VERSION': !not_null _, ID: 3, COL1: 10, COL2: 3 },
+           { '__ROW_VERSION': !not_null _, ID: 1, COL1: 10, COL2: 1 },
+        ]
+    -
+      # Simple star select ordered by newest first. The row version and data are packaged up. The row version should not be in the nested star
+      - query: select (t1."__ROW_VERSION", (t1.*)) from t1 where col1 = 10 order by "__ROW_VERSION" desc;
+      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c18 AS LONG)] REVERSE) | MAP ((_.__ROW_VERSION AS __ROW_VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS _1) AS _0)"
+      - result: [
+           { { '__ROW_VERSION': !not_null _, { ID: 4, COL1: 10, COL2: 4 }, }, },
+           { { '__ROW_VERSION': !not_null _, { ID: 2, COL1: 10, COL2: 2 }, }, },
+           { { '__ROW_VERSION': !not_null _, { ID: 5, COL1: 10, COL2: 5 }, }, },
+           { { '__ROW_VERSION': !not_null _, { ID: 3, COL1: 10, COL2: 3 }, }, },
+           { { '__ROW_VERSION': !not_null _, { ID: 1, COL1: 10, COL2: 1 }, }, },
+        ]
+    -
+      # Simple star select ordered by newest first with a type alias. The row version should not be projected
+      - query: select * from t1 as b where col1 = 10 order by "__ROW_VERSION" desc;
+      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c10 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - result: [
+           { ID: 4, COL1: 10, COL2: 4 },
+           { ID: 2, COL1: 10, COL2: 2 },
+           { ID: 5, COL1: 10, COL2: 5 },
+           { ID: 3, COL1: 10, COL2: 3 },
+           { ID: 1, COL1: 10, COL2: 1 },
+        ]
+    -
+      # Simple star select ordered by newest first with a type alias. The row version should only be projected once per row
+      - query: select (b."__ROW_VERSION", (b.*) as "t2_data") from t1 as b where b.col1 = 10 order by b."__ROW_VERSION" desc;
+      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c24 AS LONG)] REVERSE) | MAP ((_.__ROW_VERSION AS __ROW_VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS t2_data) AS _0)"
+      - result: [
+           { { '__ROW_VERSION': !not_null _, { ID: 4, COL1: 10, COL2: 4 }, }, },
+           { { '__ROW_VERSION': !not_null _, { ID: 2, COL1: 10, COL2: 2 }, }, },
+           { { '__ROW_VERSION': !not_null _, { ID: 5, COL1: 10, COL2: 5 }, }, },
+           { { '__ROW_VERSION': !not_null _, { ID: 3, COL1: 10, COL2: 3 }, }, },
+           { { '__ROW_VERSION': !not_null _, { ID: 1, COL1: 10, COL2: 1 }, }, },
         ]
     -
       # Do include __ROW_VERSION (as a real column) when querying the table function
@@ -315,6 +410,48 @@ test_block:
            {__ROW_VERSION: !not_null _, ID: 13, COL1: "a" },
            {__ROW_VERSION: !not_null _, ID: 11, COL1: "b" },
            {__ROW_VERSION: !not_null _, ID:  9, COL1: "a" },
+        ]
+    # Several cases of potentially ambiguous columns. Validate we get an ambiguous column reference for each
+    -
+      - query: select "__ROW_VERSION", t1.id, t2.id
+                 from t1, t2
+      - error: '42702'
+    -
+      - query: select t1.id, t2.id
+                 from t1, t2
+                 order by "__ROW_VERSION"
+      - error: '42702'
+    -
+      - query: select t1.id, t2.id
+                 from t1, t2
+                 where "__ROW_VERSION" is not null
+      - error: '42702'
+    -
+      # Reference row version without a qualifier. Only one of the two sides of the join should surface the row version, though
+      # so this shouldn't be ambiguous. Ideally, we'd assert that it came from the correct side, but barring that, we can inspect
+      # the plan and validate it comes from the right source
+      - query: select "__ROW_VERSION", (a.*), (b.*)
+                 from t1 as a, (select * from t2) b
+                 where a.col2 = b.col1
+      - explain: "ISCAN(I1 <,>) | FLATMAP q0 -> { ISCAN(T1_COL2 <,>) | FILTER q0.COL2 EQUALS _.COL1 AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _1, (q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS _2) }"
+      - initialVersionLessThan: !current_version
+      - error: '42702'
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [
+          { '__ROW_VERSION': !not_null _, { ID: 1, COL1: 10, COL2: 1 }, { ID:  1, COL1: 1, COL2: 'a' } },
+          { '__ROW_VERSION': !not_null _, { ID: 1, COL1: 10, COL2: 1 }, { ID:  5, COL1: 1, COL2: 'a' } },
+          { '__ROW_VERSION': !not_null _, { ID: 1, COL1: 10, COL2: 1 }, { ID:  3, COL1: 1, COL2: 'b' } },
+          { '__ROW_VERSION': !not_null _, { ID: 2, COL1: 10, COL2: 2 }, { ID:  2, COL1: 2, COL2: 'a' } },
+          { '__ROW_VERSION': !not_null _, { ID: 2, COL1: 10, COL2: 2 }, { ID:  6, COL1: 2, COL2: 'a' } },
+          { '__ROW_VERSION': !not_null _, { ID: 2, COL1: 10, COL2: 2 }, { ID:  4, COL1: 2, COL2: 'b' } },
+          { '__ROW_VERSION': !not_null _, { ID: 3, COL1: 10, COL2: 3 }, { ID:  9, COL1: 3, COL2: 'a' } },
+          { '__ROW_VERSION': !not_null _, { ID: 3, COL1: 10, COL2: 3 }, { ID: 13, COL1: 3, COL2: 'a' } },
+          { '__ROW_VERSION': !not_null _, { ID: 3, COL1: 10, COL2: 3 }, { ID:  7, COL1: 3, COL2: 'b' } },
+          { '__ROW_VERSION': !not_null _, { ID: 3, COL1: 10, COL2: 3 }, { ID: 11, COL1: 3, COL2: 'b' } },
+          { '__ROW_VERSION': !not_null _, { ID: 4, COL1: 10, COL2: 4 }, { ID: 10, COL1: 4, COL2: 'a' } },
+          { '__ROW_VERSION': !not_null _, { ID: 4, COL1: 10, COL2: 4 }, { ID: 14, COL1: 4, COL2: 'a' } },
+          { '__ROW_VERSION': !not_null _, { ID: 4, COL1: 10, COL2: 4 }, { ID:  8, COL1: 4, COL2: 'b' } },
+          { '__ROW_VERSION': !not_null _, { ID: 4, COL1: 10, COL2: 4 }, { ID: 12, COL1: 4, COL2: 'b' } },
         ]
     -
       # Project the array field as part of a join, projecting the version out of both join constituents

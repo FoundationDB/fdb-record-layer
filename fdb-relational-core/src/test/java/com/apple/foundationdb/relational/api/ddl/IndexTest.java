@@ -43,7 +43,6 @@ import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -68,7 +67,6 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValu
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.version;
 import static com.apple.foundationdb.relational.util.NullableArrayUtils.REPEATED_FIELD_NAME;
-
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 public class IndexTest {
@@ -759,13 +757,13 @@ public class IndexTest {
     }
 
     @Test
-    void failToCreateVersionIndexWithAmbiguousSource() throws Exception {
+    void createVersionIndexWithoutQualifyingTableName() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
                 "CREATE TABLE T1(col1 bigint, a A Array, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT X.col2, \"__ROW_VERSION\" FROM T1, (SELECT col2 FROM T1.A) X ORDER BY X.col2, \"__ROW_VERSION\" " +
                 "WITH OPTIONS(store_row_versions=true)";
-        shouldFailWith(stmt, ErrorCode.AMBIGUOUS_COLUMN, "Ambiguous reference __ROW_VERSION");
+        indexIs(stmt, concat(field("A").nest(field("values", KeyExpression.FanType.FanOut).nest("COL2")), version()), IndexTypes.VERSION);
     }
 
     @Test
@@ -774,11 +772,21 @@ public class IndexTest {
                 "CREATE TABLE T1(col1 bigint, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT \"__ROW_VERSION\" FROM T1 ORDER BY \"__ROW_VERSION\" " +
                 "WITH OPTIONS(store_row_versions=false)";
-        // TODO: it's possible the right thing here is to reject index creation because the meta-data is not configured to store versions
-        indexIs(stmt, version(), IndexTypes.VERSION);
+        shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN, "Attempting to query non existing column __ROW_VERSION");
     }
 
-    @Disabled // until REL-628 is in.
+    @Test
+    void failToCreateVersionIndexWithAmbiguousColumn() throws Exception {
+        // Attempt to create a join index with a version column that doesn't specify which table the version comes from,
+        // which results in an ambiguous column reference (regardless of join support writ large)
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, primary key (col1)) " +
+                "CREATE TABLE T2(col2 bigint, primary key (col2)) " +
+                "CREATE INDEX mv1 AS SELECT \"__ROW_VERSION\", T1.col1, T2.col2 FROM T1, T2 ORDER BY \"__ROW_VERSION\", T1.col1, T2.col2 " +
+                "WITH OPTIONS(store_row_versions=true)";
+        shouldFailWith(stmt, ErrorCode.AMBIGUOUS_COLUMN, "Ambiguous reference __ROW_VERSION");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"MIN", "MAX"})
     void createAggregateIndexOnMinMax(String index) throws Exception {
