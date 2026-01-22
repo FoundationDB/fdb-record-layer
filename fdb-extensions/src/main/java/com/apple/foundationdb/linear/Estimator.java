@@ -41,6 +41,7 @@ public interface Estimator {
      * This method is designed to compute the distance metric between two vectors in a high-dimensional space. It is
      * crucial that the {@code query} vector has already been appropriately transformed (e.g., rotated and translated)
      * to align with the coordinate system of the {@code storedVector} before calling this method.
+     * Note, that the particular metric in use may reject
      *
      * @param query the pre-rotated and translated query vector, cannot be null.
      * @param storedVector the stored vector to which the distance is calculated, cannot be null.

@@ -49,15 +49,20 @@ public class RaBitEstimator implements Estimator {
 
     @Override
     public double distance(@Nonnull final RealVector query, @Nonnull final RealVector storedVector) {
+        final double distance;
         if (!(query instanceof EncodedRealVector) && storedVector instanceof EncodedRealVector) {
             // only use the estimator if the first (by convention) vector is not encoded, but the second is
-            return distance(query, (EncodedRealVector)storedVector);
+            distance = distance(query, (EncodedRealVector)storedVector);
+        } else if (query instanceof EncodedRealVector && !(storedVector instanceof EncodedRealVector)) {
+            distance = distance(storedVector, (EncodedRealVector)query);
+        } else {
+            // use the regular metric for all other cases
+            distance = metric.distance(query, storedVector);
         }
-        if (query instanceof EncodedRealVector && !(storedVector instanceof EncodedRealVector)) {
-            return distance(storedVector, (EncodedRealVector)query);
+        if (!Double.isFinite(distance)) {
+            throw new IllegalArgumentException("distance is infinite or not a number");
         }
-        // use the regular metric for all other cases
-        return metric.distance(query, storedVector);
+        return distance;
     }
 
     private double distance(@Nonnull final RealVector query, @Nonnull final EncodedRealVector encodedVector) {
@@ -70,11 +75,11 @@ public class RaBitEstimator implements Estimator {
         if (metric == Metric.COSINE_METRIC) {
             //
             // In cosine metric there is a special case that conventionally if one vector is the zero vector, the
-            // distance is 1 as that distance corresponds to all vectors that are orthogonal to each other.
+            // distance is NaN as that distance corresponds to all vectors that are orthogonal to each other.
             //
             final double qNormSqr = query.dot(query);
             if (!(qNormSqr > 0.0) || !Double.isFinite(qNormSqr)) {
-                return new Result(1.0, 0.0);
+                return new Result(Double.NaN, 0.0);
             }
         }
 

@@ -218,7 +218,8 @@ interface MetricDefinition {
      * <p>
      * This metric calculates a "distance" between two vectors {@code v1} and {@code v2} that ranges between
      * {@code 0.0d} and {@code 2.0d} that corresponds to {@code 1 - cos(v1, v2)}, meaning that if {@code v1 == v2},
-     * the distance is {@code 0} while if {@code v1} is orthogonal to {@code v2} it is {@code 1}.
+     * the distance is {@code 0} while if {@code v1} is orthogonal to {@code v2} it is {@code 1}. Note that the zero
+     * vector cannot be compared to any vector. We define the distance here to be {@link Double#NaN}.
      * @see MetricDefinition.CosineMetric
      */
     final class CosineMetric implements MetricDefinition {

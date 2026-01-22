@@ -76,6 +76,16 @@ class StorageTransform implements VectorOperator {
     @Nonnull
     @Override
     public RealVector invertedApply(@Nonnull final RealVector vector) {
+        //
+        // Only invertApply(.) the vector, do not also un-normalize (which is impossible to do as we don't have the
+        // original L2-norm stored anywhere) using the following reasoning:
+        // 1. In order to make any difference at all, normalizeVectors must have been set, if it is not set
+        //    we are storing unnormalized vectors anyway and un-normalizing is not necessary
+        // 2. If we originally had normalized the vector, we still do not un-normalize it as the metric that is used
+        //    (e.g. cosine metric) is not dependent on the L2 norm of the vectors. Note that we do not store the
+        //    vectors for the sake of returning the vectors in a query; we store the vectors so they can power our
+        //    distance computation/estimation.
+        //
         return affineOperator.invertedApply(vector);
     }
 
