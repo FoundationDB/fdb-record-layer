@@ -178,7 +178,7 @@ public class LuceneEvents {
         WAIT_LUCENE_FILE_LOCK_GET("lucene get file lock"),
         /** Clear a file lock. */
         WAIT_LUCENE_FILE_LOCK_CLEAR("lucene clear file lock"),
-        /** read the ongoing merge indicator */
+        /** read the ongoing merge indicator. */
         WAIT_LUCENE_READ_ONGOING_MERGE_INDICATOR("lucene read the ongoing merge indicator"),
         /** Wait to drain the pending queue. */
         WAIT_LUCENE_DRAIN_PENDING_QUEUE("lucene pending queue drain"),
