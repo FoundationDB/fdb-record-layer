@@ -24,6 +24,8 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.StoreIsFullyLockedException;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.UnknownStoreLockStateException;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.MetaDataVersionStampStoreStateCacheFactory;
 import com.apple.test.Tags;
 import com.google.common.collect.Comparators;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -32,6 +34,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -202,5 +207,84 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
             recordStore = openSimpleRecordStore(context, null, formatVersion);
             commit(context);
         }
+    }
+
+    @Test
+    void testBypassLockBypassesCache() throws Exception {
+        final String lockReason = "Testing cache bypass";
+
+        // Create a meta-data version stamp cache for this test
+        FDBRecordStoreStateCache cache = MetaDataVersionStampStoreStateCacheFactory.newInstance()
+                .getCache(fdb);
+
+        // Create store with cacheability enabled (no lock yet)
+        try (FDBRecordContext context = openContext()) {
+            context.setMetaDataVersionStamp();
+            recordStore = getStoreBuilder(context, cache).createOrOpen();
+            recordStore.setStateCacheabilityAsync(true).get();
+            commit(context);
+        }
+
+        // Prime the cache by opening once
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, cache).open();
+        }
+
+        // Now set the lock
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, cache).open();
+
+            recordStore.setStoreLockStateAsync(
+                    RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
+                    lockReason
+            ).join();
+
+            commit(context);
+        }
+
+        // Verify normal open fails
+        try (FDBRecordContext context = openContext()) {
+            assertThrows(StoreIsFullyLockedException.class, () -> getStoreBuilder(context, cache).open());
+        }
+
+        // Open with bypass - should bypass the cache and succeed
+        timer.reset();
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, cache)
+                    .setBypassFullStoreLockReason(lockReason)
+                    .open();
+
+            // Verify we did NOT hit the cache (bypassed it)
+            assertEquals(0, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+
+            // Clear the lock and re-enable cacheability
+            recordStore.clearStoreLockStateAsync().join();
+            commit(context);
+        }
+
+        // Verify can now open normally (expect cache miss after header change)
+        timer.reset();
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, cache).open();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+        }
+
+        // Now we should get a cache hit on the next open
+        timer.reset();
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, cache).open();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+            commit(context);
+        }
+    }
+
+    @Nonnull
+    private FDBRecordStore.Builder getStoreBuilder(final FDBRecordContext context, final FDBRecordStoreStateCache cache) {
+        return FDBRecordStore.newBuilder()
+                .setContext(context)
+                .setMetaDataProvider(simpleMetaData(null))
+                .setSubspace(path.toSubspace(context))
+                .setFormatVersion(formatVersion)
+                .setStoreStateCache(cache);
     }
 }
