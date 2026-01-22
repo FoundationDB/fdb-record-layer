@@ -2426,7 +2426,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * clear or modify the lock state.
          * <p>
          * <b>Important:</b> The store will remain in the FULL_STORE locked state after opening unless explicitly
-         * cleared using {@link FDBRecordStoreBase#clearStoreLockStateAsync()}. Simply opening with bypass does not
+         * cleared using {@link FDBRecordStore#clearStoreLockStateAsync()}. Simply opening with bypass does not
          * remove the lock.
          * </p>
          *
