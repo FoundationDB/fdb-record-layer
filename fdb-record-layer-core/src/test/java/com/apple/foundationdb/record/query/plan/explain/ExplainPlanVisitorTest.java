@@ -636,8 +636,9 @@ public class ExplainPlanVisitorTest {
     void testDotExplainForCorrelatedPredicates() {
         final Type t =
                 Type.Record.fromFields(false, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("x"))));
+        final CorrelationIdentifier a = CorrelationIdentifier.of("a");
         final QueryPredicate valuePredicate =
-                new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(CorrelationIdentifier.of("a"), t), "x"),
+                new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(a, t), "x"),
                         new Comparisons.ValueComparison(Comparisons.Type.EQUALS, LiteralValue.ofScalar(0L)));
         final var explainTokens = valuePredicate.explain().getExplainTokens();
         final String defaultExplainPredicateString =
@@ -645,10 +646,19 @@ public class ExplainPlanVisitorTest {
                         50, 4)).toString();
         assertEquals("a.x EQUALS 0l", defaultExplainPredicateString); // triggers an alias rendering case
 
-        final String selfContainedExplainPredicateString =
+        String selfContainedExplainPredicateString =
                 explainTokens.render(new WithIndentationsExplainFormatter(ExplainSelfContainedSymbolMap::new, 0,
                         50, 4)).toString();
         assertEquals("?a?.x EQUALS 0l", selfContainedExplainPredicateString); // triggers an error case
+
+        final ExplainTokens explainTokensWithAliasDefinition =
+                new ExplainTokens().addToString("defined:")
+                        .addAliasDefinition(a).addWhitespace().addNested(explainTokens);
+        selfContainedExplainPredicateString =
+                explainTokensWithAliasDefinition.render(
+                        new WithIndentationsExplainFormatter(ExplainSelfContainedSymbolMap::new, 0,
+                                50, 4)).toString();
+        assertEquals("defined:q0 q0.x EQUALS 0l", selfContainedExplainPredicateString);
     }
 
     /**
