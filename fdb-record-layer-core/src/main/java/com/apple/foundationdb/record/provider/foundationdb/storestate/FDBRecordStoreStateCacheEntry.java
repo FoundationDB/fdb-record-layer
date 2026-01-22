@@ -86,16 +86,15 @@ public class FDBRecordStoreStateCacheEntry {
 
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    CompletableFuture<Void> handleCachedState(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck, @Nullable String bypassFullStoreLockReason) {
+    CompletableFuture<Void> handleCachedState(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         final Transaction tr = context.ensureActive();
         tr.addReadConflictKey(subspace.pack(FDBRecordStoreKeyspace.STORE_INFO.key()));
-        return FDBRecordStore.checkStoreHeader(recordStoreState.getStoreHeader(), context, subspaceProvider, subspace, existenceCheck, bypassFullStoreLockReason);
+        return FDBRecordStore.checkStoreHeader(recordStoreState.getStoreHeader(), context, subspaceProvider, subspace, existenceCheck, null);
     }
 
     @Nonnull
     static CompletableFuture<FDBRecordStoreStateCacheEntry> load(@Nonnull FDBRecordStore recordStore,
-                                                                 @Nonnull FDBRecordStore.StoreExistenceCheck existenceCheck,
-                                                                 @Nullable String bypassFullStoreLockReason) {
+                                                                 @Nonnull FDBRecordStore.StoreExistenceCheck existenceCheck) {
         // This is primarily needed because of https://github.com/apple/foundationdb/issues/11500 where the call to
         // getMetaDataVersionStampAsync might never complete. In the tests we don't set a timeout on the futures, and
         // thus the overall test times out, but in production situations, this should mostly make a difference, because

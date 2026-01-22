@@ -60,7 +60,10 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.StoreIsFullyLockedException;
+import com.apple.foundationdb.record.StoreIsLockedForRecordUpdates;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.UnknownStoreLockStateException;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.cursors.DedupCursor;
 import com.apple.foundationdb.record.cursors.ListCursor;
@@ -87,6 +90,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHear
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCacheEntry;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
@@ -97,9 +101,6 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.StoreIsLockedForRecordUpdates;
-import com.apple.foundationdb.record.StoreIsFullyLockedException;
-import com.apple.foundationdb.record.UnknownStoreLockStateException;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry;
@@ -2460,9 +2461,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                     @Nonnull StoreExistenceCheck existenceCheck,
                                                     @Nonnull CompletableFuture<Void> metaDataPreloadFuture) {
         CompletableFuture<Void> subspacePreloadFuture = preloadSubspaceAsync();
-        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = getStoreStateCache().get(this, existenceCheck, bypassFullStoreLockReason).thenApply(storeInfo -> {
+        CompletableFuture<RecordStoreState> stateFuture;
+        if (bypassFullStoreLockReason != null) {
+            // if we're bypassing the lock, bypass the cache. This is done primarily to keep the cache api simpler,
+            // and you really shouldn't be bypassing locks at a scale where the cache matters
+            stateFuture = loadRecordStoreStateAsync(existenceCheck);
+        } else {
+            stateFuture = getStoreStateCache().get(this, existenceCheck)
+                    .thenApply(FDBRecordStoreStateCacheEntry::getRecordStoreState);
+        }
+        CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = stateFuture.thenApply(storeState -> {
             if (recordStoreStateRef.get() == null) {
-                recordStoreStateRef.compareAndSet(null, storeInfo.getRecordStoreState().toMutable());
+                recordStoreStateRef.compareAndSet(null, storeState.toMutable());
             }
             return recordStoreStateRef.get().getStoreHeader();
         });
@@ -5866,7 +5876,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             return uncheckedOpenAsync()
                     .thenCompose(store ->
-                            store.getStoreStateCache().get(store, StoreExistenceCheck.NONE, null)
+                            store.getStoreStateCache().get(store, StoreExistenceCheck.NONE)
                                     .thenCompose(storeStateCacheEntry ->
                                             repairMissingHeader(userVersion, store,
                                                     storeStateCacheEntry.getRecordStoreState().getStoreHeader())));

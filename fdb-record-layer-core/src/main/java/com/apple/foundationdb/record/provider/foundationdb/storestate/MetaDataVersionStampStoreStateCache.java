@@ -32,7 +32,6 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.google.common.cache.Cache;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -93,18 +92,18 @@ public class MetaDataVersionStampStoreStateCache implements FDBRecordStoreStateC
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<FDBRecordStoreStateCacheEntry> get(@Nonnull FDBRecordStore recordStore, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck, @Nullable String bypassFullStoreLockReason) {
+    public CompletableFuture<FDBRecordStoreStateCacheEntry> get(@Nonnull FDBRecordStore recordStore, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         final FDBRecordContext context = recordStore.getContext();
         validateContext(context);
         if (context.hasDirtyStoreState()) {
             recordStore.increment(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS);
-            return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck, bypassFullStoreLockReason);
+            return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck);
         }
         final SubspaceProvider subspaceProvider = recordStore.getSubspaceProvider();
         final FDBRecordStoreStateCacheEntry existingEntry = cache.getIfPresent(subspaceProvider);
         if (existingEntry == null) {
             recordStore.increment(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS);
-            return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck, bypassFullStoreLockReason).whenComplete((cacheEntry, err) -> {
+            return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck).whenComplete((cacheEntry, err) -> {
                 if (err == null && cacheEntry.getRecordStoreState().getStoreHeader().getCacheable()) {
                     addToCache(subspaceProvider, cacheEntry);
                 }
@@ -114,7 +113,7 @@ public class MetaDataVersionStampStoreStateCache implements FDBRecordStoreStateC
                 if (metaDataVersionStamp == null || existingEntry.getMetaDataVersionStamp() == null ||
                         ByteArrayUtil.compareUnsigned(metaDataVersionStamp, existingEntry.getMetaDataVersionStamp()) != 0) {
                     recordStore.increment(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS);
-                    return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck, bypassFullStoreLockReason).whenComplete((cacheEntry, err) -> {
+                    return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck).whenComplete((cacheEntry, err) -> {
                         if (err == null && metaDataVersionStamp != null) {
                             if (cacheEntry.getRecordStoreState().getStoreHeader().getCacheable()) {
                                 addToCache(subspaceProvider, cacheEntry);
@@ -125,7 +124,7 @@ public class MetaDataVersionStampStoreStateCache implements FDBRecordStoreStateC
                     });
                 } else {
                     recordStore.increment(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT);
-                    return existingEntry.handleCachedState(context, existenceCheck, bypassFullStoreLockReason).thenApply(ignore -> existingEntry);
+                    return existingEntry.handleCachedState(context, existenceCheck).thenApply(ignore -> existingEntry);
                 }
             });
         }

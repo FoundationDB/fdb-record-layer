@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -50,9 +49,9 @@ public class PassThroughRecordStoreStateCache implements FDBRecordStoreStateCach
 
     @Override
     @Nonnull
-    public CompletableFuture<FDBRecordStoreStateCacheEntry> get(@Nonnull FDBRecordStore recordStore, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck, @Nullable String bypassFullStoreLockReason) {
+    public CompletableFuture<FDBRecordStoreStateCacheEntry> get(@Nonnull FDBRecordStore recordStore, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         // No cache to check. Always go to the database.
-        return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck, bypassFullStoreLockReason);
+        return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck);
     }
 
     @Override

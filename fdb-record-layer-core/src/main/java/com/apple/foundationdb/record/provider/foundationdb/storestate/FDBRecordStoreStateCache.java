@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -73,14 +72,13 @@ public interface FDBRecordStoreStateCache {
      *
      * @param recordStore the record store to load the store state of
      * @param existenceCheck whether to error if the store does or does not exist
-     * @param bypassFullStoreLockReason the reason to use when bypassing a FULL_STORE lock, or {@code null} if not bypassing
+     *
      * @return a future that will complete with the cached store state
      */
     @API(API.Status.INTERNAL)
     @Nonnull
     CompletableFuture<FDBRecordStoreStateCacheEntry> get(@Nonnull FDBRecordStore recordStore,
-                                                         @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck,
-                                                         @Nullable String bypassFullStoreLockReason);
+                                                         @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck);
 
     @API(API.Status.INTERNAL)
     void validateDatabase(@Nonnull FDBDatabase database);
