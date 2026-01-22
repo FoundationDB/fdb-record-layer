@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -145,8 +145,13 @@ public class RowNumberHighOrderValue extends AbstractValue implements Value.High
     public static final class CurriedRowNumberFn extends BuiltInFunction<RowNumberValue> {
         CurriedRowNumberFn(@Nullable final Integer efSearch, @Nullable final Boolean isReturningVectors) {
             super("row_number", ImmutableList.of(Type.any(), Type.any()), (builtInFunction, arguments) -> {
-                SemanticException.check(arguments.size() >= 2,
+                SemanticException.check(arguments.size() == 2,
                         SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                SemanticException.check(arguments.get(0) instanceof AbstractArrayConstructorValue,
+                        SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                SemanticException.check(arguments.get(1) instanceof AbstractArrayConstructorValue,
+                        SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+
                 final var partitioningValuesList = (AbstractArrayConstructorValue)arguments.get(0);
                 final var argumentValuesList = (AbstractArrayConstructorValue)arguments.get(1);
                 return new RowNumberValue(partitioningValuesList.getChildren(), argumentValuesList.getChildren(),

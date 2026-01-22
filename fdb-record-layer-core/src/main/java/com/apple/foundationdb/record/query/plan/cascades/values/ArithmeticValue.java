@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.linear.Metric;
-import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -361,61 +359,6 @@ public class ArithmeticValue extends AbstractValue {
     }
 
     /**
-     * Euclidean distance function.
-     */
-    @AutoService(BuiltInFunction.class)
-    public static class EuclideanDistanceFn extends BuiltInFunction<Value> {
-        public EuclideanDistanceFn() {
-            super("euclidean_distance",
-                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
-        }
-    }
-
-    /**
-     * Euclidean square distance function.
-     */
-    @AutoService(BuiltInFunction.class)
-    public static class EuclideanSquareDistanceFn extends BuiltInFunction<Value> {
-        public EuclideanSquareDistanceFn() {
-            super("euclidean_square_distance",
-                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
-        }
-    }
-
-    /**
-     * Manhattan distance function.
-     */
-    @AutoService(BuiltInFunction.class)
-    public static class ManhattanDistanceFn extends BuiltInFunction<Value> {
-        public ManhattanDistanceFn() {
-            super("manhattan_distance",
-                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
-        }
-    }
-
-    /**
-     * Cosine distance function.
-     */
-    @AutoService(BuiltInFunction.class)
-    public static class CosineDistanceFn extends BuiltInFunction<Value> {
-        public CosineDistanceFn() {
-            super("cosine_distance",
-                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
-        }
-    }
-
-    /**
-     * Dot product distance function.
-     */
-    @AutoService(BuiltInFunction.class)
-    public static class DotProductDistanceFn extends BuiltInFunction<Value> {
-        public DotProductDistanceFn() {
-            super("dot_product_distance",
-                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
-        }
-    }
-
-    /**
      * Logical operator.
      */
     public enum LogicalOperator {
@@ -429,12 +372,7 @@ public class ArithmeticValue extends AbstractValue {
         BITXOR("^", Precedence.BITWISE_XOR),
         BITMAP_BUCKET_NUMBER("bitmap_bucket_number", Precedence.NEVER_PARENS),
         BITMAP_BUCKET_OFFSET("bitmap_bucket_offset", Precedence.NEVER_PARENS),
-        BITMAP_BIT_POSITION("bitmap_bit_position", Precedence.NEVER_PARENS),
-        EUCLIDEAN_DISTANCE("euclidean_distance", Precedence.NEVER_PARENS),
-        EUCLIDEAN_SQUARE_DISTANCE("euclidean_square_distance", Precedence.NEVER_PARENS),
-        MANHATTAN_DISTANCE("manhattan_distance", Precedence.NEVER_PARENS),
-        COSINE_DISTANCE("cosine_distance", Precedence.NEVER_PARENS),
-        DOT_PRODUCT_DISTANCE("dot_product_distance", Precedence.NEVER_PARENS)
+        BITMAP_BIT_POSITION("bitmap_bit_position", Precedence.NEVER_PARENS)
         ;
 
         @Nonnull
@@ -579,13 +517,7 @@ public class ArithmeticValue extends AbstractValue {
         BITMAP_BUCKET_NUMBER_II(LogicalOperator.BITMAP_BUCKET_NUMBER, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.floorDiv((int)l, (int)r)),
 
         BITMAP_BIT_POSITION_LI(LogicalOperator.BITMAP_BIT_POSITION, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.subtractExact((long)l, Math.multiplyExact(Math.floorDiv((long)l, (int)r), (int)r))),
-        BITMAP_BIT_POSITION_II(LogicalOperator.BITMAP_BIT_POSITION, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.subtractExact((int)l, Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r))),
-
-        EUCLIDEAN_DISTANCE_VV(LogicalOperator.EUCLIDEAN_DISTANCE, TypeCode.VECTOR, TypeCode.VECTOR, TypeCode.DOUBLE, ((l, r) -> new Metric.EuclideanMetric().distance(((RealVector)l).getData(), ((RealVector)r).getData()))),
-        EUCLIDEAN_SQUARE_DISTANCE_VV(LogicalOperator.EUCLIDEAN_SQUARE_DISTANCE, TypeCode.VECTOR, TypeCode.VECTOR, TypeCode.DOUBLE, ((l, r) -> new Metric.EuclideanSquareMetric().distance(((RealVector)l).getData(), ((RealVector)r).getData()))),
-        MANHATTAN_DISTANCE_VV(LogicalOperator.MANHATTAN_DISTANCE, TypeCode.VECTOR, TypeCode.VECTOR, TypeCode.DOUBLE, ((l, r) -> new Metric.ManhattanMetric().distance(((RealVector)l).getData(), ((RealVector)r).getData()))),
-        COSINE_DISTANCE_VV(LogicalOperator.COSINE_DISTANCE, TypeCode.VECTOR, TypeCode.VECTOR, TypeCode.DOUBLE, ((l, r) -> new Metric.CosineMetric().distance(((RealVector)l).getData(), ((RealVector)r).getData()))),
-        DOT_PRODUCT_DISTANCE_VV(LogicalOperator.DOT_PRODUCT_DISTANCE, TypeCode.VECTOR, TypeCode.VECTOR, TypeCode.DOUBLE, ((l, r) -> new Metric.DotProductMetric().distance(((RealVector)l).getData(), ((RealVector)r).getData())))
+        BITMAP_BIT_POSITION_II(LogicalOperator.BITMAP_BIT_POSITION, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.subtractExact((int)l, Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r)))
         ;
 
         @Nonnull

@@ -49,7 +49,7 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
 
     private final Supplier<Integer> heightSupplier;
 
-    private final Supplier<Boolean> isIndexOnlySupplier;
+    protected Supplier<Boolean> isIndexOnlySupplier;
 
     @SuppressWarnings("unused")
     protected AbstractQueryPredicate(@Nonnull final PlanSerializationContext serializationContext,

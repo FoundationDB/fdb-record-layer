@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.planprotos.PCosineDistanceRank;
+import com.apple.foundationdb.record.planprotos.PCosineDistanceRowNumberValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
@@ -70,8 +70,8 @@ public class CosineDistanceRowNumberValue extends WindowedValue implements Value
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 
     public CosineDistanceRowNumberValue(@Nonnull final PlanSerializationContext serializationContext,
-                                        @Nonnull final PCosineDistanceRank rowNumberValueProto) {
-        super(serializationContext, Objects.requireNonNull(rowNumberValueProto.getSuper()));
+                                        @Nonnull final PCosineDistanceRowNumberValue cosineDistanceRowNumberValueProto) {
+        super(serializationContext, Objects.requireNonNull(cosineDistanceRowNumberValueProto.getSuper()));
     }
 
     public CosineDistanceRowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
@@ -105,19 +105,19 @@ public class CosineDistanceRowNumberValue extends WindowedValue implements Value
 
     @Nonnull
     @Override
-    public PCosineDistanceRank toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PCosineDistanceRank.newBuilder().setSuper(toWindowedValueProto(serializationContext)).build();
+    public PCosineDistanceRowNumberValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PCosineDistanceRowNumberValue.newBuilder().setSuper(toWindowedValueProto(serializationContext)).build();
     }
 
     @Nonnull
     @Override
     public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PValue.newBuilder().setCosineDistanceRank(toProto(serializationContext)).build();
+        return PValue.newBuilder().setCosineDistanceRowNumberValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
     public static CosineDistanceRowNumberValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                         @Nonnull final PCosineDistanceRank rowNumberValueProto) {
+                                                         @Nonnull final PCosineDistanceRowNumberValue rowNumberValueProto) {
         return new CosineDistanceRowNumberValue(serializationContext, rowNumberValueProto);
     }
 
@@ -125,18 +125,18 @@ public class CosineDistanceRowNumberValue extends WindowedValue implements Value
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PCosineDistanceRank, CosineDistanceRowNumberValue> {
+    public static class Deserializer implements PlanDeserializer<PCosineDistanceRowNumberValue, CosineDistanceRowNumberValue> {
         @Nonnull
         @Override
-        public Class<PCosineDistanceRank> getProtoMessageClass() {
-            return PCosineDistanceRank.class;
+        public Class<PCosineDistanceRowNumberValue> getProtoMessageClass() {
+            return PCosineDistanceRowNumberValue.class;
         }
 
         @Nonnull
         @Override
         public CosineDistanceRowNumberValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                      @Nonnull final PCosineDistanceRank cosineDistanceRank) {
-            return CosineDistanceRowNumberValue.fromProto(serializationContext, cosineDistanceRank);
+                                                      @Nonnull final PCosineDistanceRowNumberValue cosineDistanceRowNumberValueProto) {
+            return CosineDistanceRowNumberValue.fromProto(serializationContext, cosineDistanceRowNumberValueProto);
         }
     }
 }

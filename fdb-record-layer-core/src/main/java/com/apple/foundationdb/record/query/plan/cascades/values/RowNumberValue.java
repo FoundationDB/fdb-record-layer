@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue.LogicalOperator.EUCLIDEAN_DISTANCE;
+import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.COSINE_DISTANCE;
+import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.EUCLIDEAN_DISTANCE;
 
 public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValue {
 
@@ -171,8 +172,8 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
      * <p>
      * <strong>Supported Distance Metrics:</strong>
      * <ul>
-     *   <li>{@link ArithmeticValue.LogicalOperator#EUCLIDEAN_DISTANCE}</li>
-     *   <li>{@link ArithmeticValue.LogicalOperator#COSINE_DISTANCE}</li>
+     *   <li>{@link com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator#EUCLIDEAN_DISTANCE}
+     *   <li>{@link com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator#COSINE_DISTANCE}</li>
      * </ul>
      * Future support may include {@code EUCLIDEAN_SQUARE_DISTANCE}, {@code MANHATTAN_DISTANCE}, and {@code DOT_PRODUCT_DISTANCE}.
      * </p>
@@ -194,7 +195,7 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
      */
     @Nonnull
     @Override
-    public Optional<QueryPredicate> adjustComparison(@Nonnull final Comparisons.Type comparisonType, @Nonnull final Value comparand) {
+    public Optional<QueryPredicate> transformComparisonMaybe(@Nonnull final Comparisons.Type comparisonType, @Nonnull final Value comparand) {
         if (getArgumentValues().size() > 1) {
             // window definition is too complicated for adjustment, bailout.
             return Optional.empty();
@@ -202,7 +203,7 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
 
         Verify.verify(!getArgumentValues().isEmpty());
         final var argument = getArgumentValues().get(0);
-        if (!(argument instanceof ArithmeticValue)) {
+        if (!(argument instanceof DistanceValue)) {
             return Optional.empty();
         }
 
@@ -223,20 +224,20 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
 
         WindowedValue windowedValue;
         Comparisons.DistanceRankValueComparison distanceRankComparison;
-        final var arithmeticValue = (ArithmeticValue)argument;
-        switch (arithmeticValue.getLogicalOperator()) {
+        final var distanceValue = (DistanceValue)argument;
+        switch (distanceValue.getOperator()) {
             case EUCLIDEAN_DISTANCE:
             // TODO enable once supported by the index:
             // case EUCLIDEAN_SQUARE_DISTANCE:
             // case MANHATTAN_DISTANCE:
             // case DOT_PRODUCT_DISTANCE:
             case COSINE_DISTANCE:
-                final var arithmeticValueArgs = ImmutableList.copyOf(arithmeticValue.getChildren());
-                final var indexVector = arithmeticValueArgs.get(0);
-                final var queryVector = arithmeticValueArgs.get(1);
+                final var distanceValueArgs = ImmutableList.copyOf(distanceValue.getChildren());
+                final var indexVector = distanceValueArgs.get(0);
+                final var queryVector = distanceValueArgs.get(1);
                 distanceRankComparison = new Comparisons.DistanceRankValueComparison(distanceRankComparisonType, queryVector,
                         comparand, efSearch, isReturningVectors);
-                if (arithmeticValue.getLogicalOperator() == EUCLIDEAN_DISTANCE) {
+                if (distanceValue.getOperator() == EUCLIDEAN_DISTANCE) {
                     windowedValue = new EuclideanDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
                 } else {
                     windowedValue = new CosineDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.planprotos.PEuclideanDistanceRank;
+import com.apple.foundationdb.record.planprotos.PEuclideanDistanceRowNumberValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
@@ -60,12 +60,12 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 public class EuclideanDistanceRowNumberValue extends WindowedValue implements Value.IndexOnlyValue {
-    private static final String NAME = "EuclideanDistanceRank";
+    private static final String NAME = "EuclideanDistanceRowNumber";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 
     public EuclideanDistanceRowNumberValue(@Nonnull final PlanSerializationContext serializationContext,
-                                           @Nonnull final PEuclideanDistanceRank rankValueProto) {
-        super(serializationContext, Objects.requireNonNull(rankValueProto.getSuper()));
+                                           @Nonnull final PEuclideanDistanceRowNumberValue euclideanDistanceRowNumberValueProto) {
+        super(serializationContext, Objects.requireNonNull(euclideanDistanceRowNumberValueProto.getSuper()));
     }
 
     public EuclideanDistanceRowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
@@ -99,19 +99,19 @@ public class EuclideanDistanceRowNumberValue extends WindowedValue implements Va
 
     @Nonnull
     @Override
-    public PEuclideanDistanceRank toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PEuclideanDistanceRank.newBuilder().setSuper(toWindowedValueProto(serializationContext)).build();
+    public PEuclideanDistanceRowNumberValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PEuclideanDistanceRowNumberValue.newBuilder().setSuper(toWindowedValueProto(serializationContext)).build();
     }
 
     @Nonnull
     @Override
     public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PValue.newBuilder().setEuclideanDistanceRank(toProto(serializationContext)).build();
+        return PValue.newBuilder().setEuclideanDistanceRowNumberValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
     public static EuclideanDistanceRowNumberValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                            @Nonnull final PEuclideanDistanceRank rankValueProto) {
+                                                            @Nonnull final PEuclideanDistanceRowNumberValue rankValueProto) {
         return new EuclideanDistanceRowNumberValue(serializationContext, rankValueProto);
     }
 
@@ -119,18 +119,18 @@ public class EuclideanDistanceRowNumberValue extends WindowedValue implements Va
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PEuclideanDistanceRank, EuclideanDistanceRowNumberValue> {
+    public static class Deserializer implements PlanDeserializer<PEuclideanDistanceRowNumberValue, EuclideanDistanceRowNumberValue> {
         @Nonnull
         @Override
-        public Class<PEuclideanDistanceRank> getProtoMessageClass() {
-            return PEuclideanDistanceRank.class;
+        public Class<PEuclideanDistanceRowNumberValue> getProtoMessageClass() {
+            return PEuclideanDistanceRowNumberValue.class;
         }
 
         @Nonnull
         @Override
         public EuclideanDistanceRowNumberValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                         @Nonnull final PEuclideanDistanceRank euclideanDistanceRank) {
-            return EuclideanDistanceRowNumberValue.fromProto(serializationContext, euclideanDistanceRank);
+                                                         @Nonnull final PEuclideanDistanceRowNumberValue euclideanDistanceRowNumberValueProto) {
+            return EuclideanDistanceRowNumberValue.fromProto(serializationContext, euclideanDistanceRowNumberValueProto);
         }
     }
 }

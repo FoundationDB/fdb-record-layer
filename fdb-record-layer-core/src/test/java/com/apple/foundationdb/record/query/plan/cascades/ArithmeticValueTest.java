@@ -20,10 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.linear.DoubleRealVector;
-import com.apple.foundationdb.linear.FloatRealVector;
-import com.apple.foundationdb.linear.HalfRealVector;
-import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.TestRecords7Proto;
@@ -73,16 +69,6 @@ class ArithmeticValueTest {
     private static final LiteralValue<Double> DOUBLE_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 2.0);
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
     private static final LiteralValue<String> STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "b");
-
-    private static final LiteralValue<FloatRealVector> VECTOR_1_0_0 = new LiteralValue<>(Type.Vector.of(false, 32, 3), new FloatRealVector(new float[] {1.0f, 0.0f, 0.0f}));
-    private static final LiteralValue<FloatRealVector> VECTOR_0_1_0 = new LiteralValue<>(Type.Vector.of(false, 32, 3), new FloatRealVector(new float[] {0.0f, 1.0f, 0.0f}));
-    private static final LiteralValue<FloatRealVector> VECTOR_3_4_0 = new LiteralValue<>(Type.Vector.of(false, 32, 3), new FloatRealVector(new float[] {3.0f, 4.0f, 0.0f}));
-    private static final LiteralValue<FloatRealVector> VECTOR_0_0_0 = new LiteralValue<>(Type.Vector.of(false, 32, 3), new FloatRealVector(new float[] {0.0f, 0.0f, 0.0f}));
-    private static final LiteralValue<DoubleRealVector> VECTOR_DOUBLE_1_2_2 = new LiteralValue<>(Type.Vector.of(false, 64, 3), new DoubleRealVector(new double[] {1.0, 2.0, 2.0}));
-    private static final LiteralValue<DoubleRealVector> VECTOR_DOUBLE_4_5_6 = new LiteralValue<>(Type.Vector.of(false, 64, 3), new DoubleRealVector(new double[] {4.0, 5.0, 6.0}));
-    private static final LiteralValue<HalfRealVector> VECTOR_HALF_2_3_6 = new LiteralValue<>(Type.Vector.of(false, 16, 3), new HalfRealVector(new double[] {2.0, 3.0, 6.0}));
-    private static final LiteralValue<HalfRealVector> VECTOR_HALF_5_6_9 = new LiteralValue<>(Type.Vector.of(false, 16, 3), new HalfRealVector(new double[] {5.0, 6.0, 9.0}));
-    private static final LiteralValue<FloatRealVector> VECTOR_NULL = new LiteralValue<>(Type.Vector.of(false, 32, 3), null);
 
     private static final EvaluationContext evaluationContext = EvaluationContext.forBinding(Bindings.Internal.CORRELATION.bindingName("ident"), QueryResult.ofComputed(TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build()));
 
@@ -389,168 +375,5 @@ class ArithmeticValueTest {
                 );
             }
         }
-    }
-
-    @ParameterizedTest
-    @MethodSource("vectorDistanceFunctionTests")
-    void testVectorDistanceFunctions(LiteralValue<?> vector1, LiteralValue<?> vector2, BuiltInFunction<?> function, Double expectedDistance) {
-        final List<Value> arguments = List.of(vector1, vector2);
-        final ArithmeticValue value = (ArithmeticValue) function.encapsulate(arguments);
-        final Object result = value.evalWithoutStore(evaluationContext);
-        if (expectedDistance == null) {
-            Assertions.assertNull(result);
-        } else {
-            Assertions.assertNotNull(result, "Vector distance function should not return null for non-null vectors");
-            Assertions.assertInstanceOf(Double.class, result, "Vector distance function should return a Double");
-            Assertions.assertEquals(expectedDistance, (Double)result, 1e-6,
-                    String.format("Expected %s(%s, %s) to be %f", function.getFunctionName(), vector1, vector2, expectedDistance));
-        }
-    }
-
-    static Stream<Arguments> vectorDistanceFunctionTests() {
-        return Stream.of(
-                // Euclidean distance tests
-                // Distance from (1,0,0) to (0,1,0) = sqrt(1^2 + 1^2) = sqrt(2) ≈ 1.414
-                Arguments.of(VECTOR_1_0_0, VECTOR_0_1_0, new ArithmeticValue.EuclideanDistanceFn(), Math.sqrt(2.0)),
-                // Distance from (3,4,0) to (0,0,0) = sqrt(3^2 + 4^2) = 5.0
-                Arguments.of(VECTOR_3_4_0, VECTOR_0_0_0, new ArithmeticValue.EuclideanDistanceFn(), 5.0),
-                // Distance from same vector to itself = 0.0
-                Arguments.of(VECTOR_1_0_0, VECTOR_1_0_0, new ArithmeticValue.EuclideanDistanceFn(), 0.0),
-                // Distance with double vectors
-                Arguments.of(VECTOR_DOUBLE_1_2_2, VECTOR_DOUBLE_4_5_6, new ArithmeticValue.EuclideanDistanceFn(),
-                        new Metric.EuclideanMetric().distance(
-                                new DoubleRealVector(new double[] {1.0, 2.0, 2.0}).getData(),
-                                new DoubleRealVector(new double[] {4.0, 5.0, 6.0}).getData())),
-
-                // Euclidean square distance tests
-                // Squared distance from (1,0,0) to (0,1,0) = 1^2 + 1^2 = 2.0
-                Arguments.of(VECTOR_1_0_0, VECTOR_0_1_0, new ArithmeticValue.EuclideanSquareDistanceFn(), 2.0),
-                // Squared distance from (3,4,0) to (0,0,0) = 3^2 + 4^2 = 25.0
-                Arguments.of(VECTOR_3_4_0, VECTOR_0_0_0, new ArithmeticValue.EuclideanSquareDistanceFn(), 25.0),
-                // Squared distance from same vector to itself = 0.0
-                Arguments.of(VECTOR_1_0_0, VECTOR_1_0_0, new ArithmeticValue.EuclideanSquareDistanceFn(), 0.0),
-                // Squared distance with double vectors
-                Arguments.of(VECTOR_DOUBLE_1_2_2, VECTOR_DOUBLE_4_5_6, new ArithmeticValue.EuclideanSquareDistanceFn(),
-                        new Metric.EuclideanSquareMetric().distance(
-                                new DoubleRealVector(new double[] {1.0, 2.0, 2.0}).getData(),
-                                new DoubleRealVector(new double[] {4.0, 5.0, 6.0}).getData())),
-
-                // Manhattan distance tests
-                // Manhattan distance from (1,0,0) to (0,1,0) = |1-0| + |0-1| + |0-0| = 2.0
-                Arguments.of(VECTOR_1_0_0, VECTOR_0_1_0, new ArithmeticValue.ManhattanDistanceFn(), 2.0),
-                // Manhattan distance from (3,4,0) to (0,0,0) = |3| + |4| + |0| = 7.0
-                Arguments.of(VECTOR_3_4_0, VECTOR_0_0_0, new ArithmeticValue.ManhattanDistanceFn(), 7.0),
-                // Manhattan distance from same vector to itself = 0.0
-                Arguments.of(VECTOR_1_0_0, VECTOR_1_0_0, new ArithmeticValue.ManhattanDistanceFn(), 0.0),
-                // Manhattan distance with double vectors
-                Arguments.of(VECTOR_DOUBLE_1_2_2, VECTOR_DOUBLE_4_5_6, new ArithmeticValue.ManhattanDistanceFn(),
-                        new Metric.ManhattanMetric().distance(
-                                new DoubleRealVector(new double[] {1.0, 2.0, 2.0}).getData(),
-                                new DoubleRealVector(new double[] {4.0, 5.0, 6.0}).getData())),
-
-                // Cosine distance tests
-                // Cosine distance between orthogonal vectors (1,0,0) and (0,1,0) = 1.0
-                Arguments.of(VECTOR_1_0_0, VECTOR_0_1_0, new ArithmeticValue.CosineDistanceFn(), 1.0),
-                // Cosine distance from same vector to itself = 0.0 (identical direction)
-                Arguments.of(VECTOR_1_0_0, VECTOR_1_0_0, new ArithmeticValue.CosineDistanceFn(), 0.0),
-                // Cosine distance with double vectors
-                Arguments.of(VECTOR_DOUBLE_1_2_2, VECTOR_DOUBLE_4_5_6, new ArithmeticValue.CosineDistanceFn(),
-                        new Metric.CosineMetric().distance(
-                                new DoubleRealVector(new double[] {1.0, 2.0, 2.0}).getData(),
-                                new DoubleRealVector(new double[] {4.0, 5.0, 6.0}).getData())),
-
-                // Dot product distance tests (negative dot product)
-                // Dot product of (1,0,0) and (0,1,0) = 0, so distance = -0 = 0.0
-                Arguments.of(VECTOR_1_0_0, VECTOR_0_1_0, new ArithmeticValue.DotProductDistanceFn(), 0.0),
-                // Dot product of (1,0,0) and itself = 1, so distance = -1 = -1.0
-                Arguments.of(VECTOR_1_0_0, VECTOR_1_0_0, new ArithmeticValue.DotProductDistanceFn(), -1.0),
-                // Dot product distance with double vectors
-                Arguments.of(VECTOR_DOUBLE_1_2_2, VECTOR_DOUBLE_4_5_6, new ArithmeticValue.DotProductDistanceFn(),
-                        new Metric.DotProductMetric().distance(
-                                new DoubleRealVector(new double[] {1.0, 2.0, 2.0}).getData(),
-                                new DoubleRealVector(new double[] {4.0, 5.0, 6.0}).getData())),
-
-                // Half precision vector tests
-                // Euclidean distance with half vectors
-                Arguments.of(VECTOR_HALF_2_3_6, VECTOR_HALF_5_6_9, new ArithmeticValue.EuclideanDistanceFn(),
-                        new Metric.EuclideanMetric().distance(
-                                new HalfRealVector(new double[] {2.0, 3.0, 6.0}).getData(),
-                                new HalfRealVector(new double[] {5.0, 6.0, 9.0}).getData())),
-                // Euclidean square distance with half vectors
-                Arguments.of(VECTOR_HALF_2_3_6, VECTOR_HALF_5_6_9, new ArithmeticValue.EuclideanSquareDistanceFn(),
-                        new Metric.EuclideanSquareMetric().distance(
-                                new HalfRealVector(new double[] {2.0, 3.0, 6.0}).getData(),
-                                new HalfRealVector(new double[] {5.0, 6.0, 9.0}).getData())),
-                // Manhattan distance with half vectors
-                Arguments.of(VECTOR_HALF_2_3_6, VECTOR_HALF_5_6_9, new ArithmeticValue.ManhattanDistanceFn(),
-                        new Metric.ManhattanMetric().distance(
-                                new HalfRealVector(new double[] {2.0, 3.0, 6.0}).getData(),
-                                new HalfRealVector(new double[] {5.0, 6.0, 9.0}).getData())),
-                // Cosine distance with half vectors
-                Arguments.of(VECTOR_HALF_2_3_6, VECTOR_HALF_5_6_9, new ArithmeticValue.CosineDistanceFn(),
-                        new Metric.CosineMetric().distance(
-                                new HalfRealVector(new double[] {2.0, 3.0, 6.0}).getData(),
-                                new HalfRealVector(new double[] {5.0, 6.0, 9.0}).getData())),
-                // Dot product distance with half vectors
-                Arguments.of(VECTOR_HALF_2_3_6, VECTOR_HALF_5_6_9, new ArithmeticValue.DotProductDistanceFn(),
-                        new Metric.DotProductMetric().distance(
-                                new HalfRealVector(new double[] {2.0, 3.0, 6.0}).getData(),
-                                new HalfRealVector(new double[] {5.0, 6.0, 9.0}).getData())),
-
-                // Null vector tests
-                Arguments.of(VECTOR_NULL, VECTOR_NULL, new ArithmeticValue.EuclideanDistanceFn(), null),
-                Arguments.of(VECTOR_NULL, VECTOR_1_0_0, new ArithmeticValue.EuclideanDistanceFn(), null),
-                Arguments.of(VECTOR_1_0_0, VECTOR_NULL, new ArithmeticValue.EuclideanDistanceFn(), null),
-
-                Arguments.of(VECTOR_NULL, VECTOR_NULL, new ArithmeticValue.EuclideanSquareDistanceFn(), null),
-                Arguments.of(VECTOR_NULL, VECTOR_1_0_0, new ArithmeticValue.EuclideanSquareDistanceFn(), null),
-                Arguments.of(VECTOR_1_0_0, VECTOR_NULL, new ArithmeticValue.EuclideanSquareDistanceFn(), null),
-
-                Arguments.of(VECTOR_NULL, VECTOR_NULL, new ArithmeticValue.ManhattanDistanceFn(), null),
-                Arguments.of(VECTOR_NULL, VECTOR_1_0_0, new ArithmeticValue.ManhattanDistanceFn(), null),
-                Arguments.of(VECTOR_1_0_0, VECTOR_NULL, new ArithmeticValue.ManhattanDistanceFn(), null),
-
-                // Cosine distance with null vectors
-                Arguments.of(VECTOR_NULL, VECTOR_NULL, new ArithmeticValue.CosineDistanceFn(), null),
-                Arguments.of(VECTOR_NULL, VECTOR_0_1_0, new ArithmeticValue.CosineDistanceFn(), null),
-                Arguments.of(VECTOR_0_1_0, VECTOR_NULL, new ArithmeticValue.CosineDistanceFn(), null),
-
-                // Dot product distance with null vectors
-                Arguments.of(VECTOR_NULL, VECTOR_NULL, new ArithmeticValue.DotProductDistanceFn(), null),
-                Arguments.of(VECTOR_NULL, VECTOR_0_1_0, new ArithmeticValue.DotProductDistanceFn(), null),
-                Arguments.of(VECTOR_0_1_0, VECTOR_NULL, new ArithmeticValue.DotProductDistanceFn(), null)
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource("vectorDistanceFunctions")
-    void testVectorDistanceSemanticEquality(BuiltInFunction<?> distanceFunction) {
-        final List<Value> arguments1 = List.of(VECTOR_1_0_0, VECTOR_0_1_0);
-        final List<Value> arguments2 = List.of(VECTOR_1_0_0, VECTOR_0_1_0);
-        final List<Value> arguments3 = List.of(VECTOR_1_0_0, VECTOR_3_4_0);
-
-        final Value value1 = (Value) distanceFunction.encapsulate(arguments1);
-        final Value value2 = (Value) distanceFunction.encapsulate(arguments2);
-        final Value value3 = (Value) distanceFunction.encapsulate(arguments3);
-
-        // Same arguments should be semantically equal
-        Assertions.assertTrue(value1.semanticEquals(value2, AliasMap.emptyMap()),
-                value1 + " and " + value2 + " should be semantically equal with same arguments");
-        Assertions.assertEquals(value1.semanticHashCode(), value2.semanticHashCode(),
-                value1 + " and " + value2 + " should have same hash code");
-
-        // Different arguments should not be semantically equal
-        Assertions.assertFalse(value1.semanticEquals(value3, AliasMap.emptyMap()),
-                value1 + " and " + value3 + " should not be semantically equal with different arguments");
-    }
-
-    static Stream<BuiltInFunction<?>> vectorDistanceFunctions() {
-        return Stream.of(
-                new ArithmeticValue.EuclideanDistanceFn(),
-                new ArithmeticValue.EuclideanSquareDistanceFn(),
-                new ArithmeticValue.ManhattanDistanceFn(),
-                new ArithmeticValue.CosineDistanceFn(),
-                new ArithmeticValue.DotProductDistanceFn()
-        );
     }
 }

@@ -161,13 +161,13 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             //           ParentPredicate
             //          /               \                =>      LeftComparand.transform(ParentPredicate, RightComparand)
             //       LeftComparand     RightComparand
-            var absorbedMaybe = leftChild.adjustComparison(comparisonType, rightChild);
+            var absorbedMaybe = leftChild.transformComparisonMaybe(comparisonType, rightChild);
             if (absorbedMaybe.isPresent()) {
                 return absorbedMaybe;
             }
             final var invertedComparison = Comparisons.invertComparisonType(comparisonType);
             if (invertedComparison != null) {
-                absorbedMaybe = rightChild.adjustComparison(invertedComparison, leftChild);
+                absorbedMaybe = rightChild.transformComparisonMaybe(invertedComparison, leftChild);
                 if (absorbedMaybe.isPresent()) {
                     return absorbedMaybe;
                 }

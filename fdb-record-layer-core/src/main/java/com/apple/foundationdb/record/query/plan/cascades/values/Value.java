@@ -286,9 +286,45 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                 .allMatch(quantifiedValue -> quantifiedValue.isFunctionallyDependentOn(otherValue));
     }
 
+    /**
+     * Attempts to transform a comparison predicate involving this value into a specialized predicate that may
+     * enable more efficient query execution through the use of specialized indexes or execution strategies.
+     * <p>
+     * This method provides a hook for {@link Value} implementations to participate in comparison transformation
+     * during query planning. When a comparison predicate (e.g., {@code value <= constant}) is encountered, this
+     * method can pattern-match the structure and potentially transform it into a more specialized form that the
+     * query planner can optimize.
+     * </p>
+     * <p>
+     * <strong>Current Implementation:</strong><br>
+     * As of now, only {@link RowNumberValue} provides a non-trivial implementation of this method. It transforms
+     * comparisons involving {@code ROW_NUMBER()} window functions ordered by distance metrics into specialized
+     * {@link Comparisons.DistanceRankValueComparison} predicates that can leverage vector similarity indexes
+     * (such as HNSW indexes) for efficient K-nearest neighbor searches.
+     * </p>
+     * <p>
+     * This transformation mechanism is somewhat nuanced and operates at the {@link Value} level rather than as
+     * part of the systematic rewriting optimizer framework. While this approach provides immediate utility for
+     * specific use cases (like HNSW-backed semantic search), it creates a fragmented transformation model:
+     * <ul>
+     *   <li>Transformations are scattered across individual {@link Value} implementations rather than
+     *       centralized in rewrite rules</li>
+     *   <li>The pattern-matching logic is ad-hoc and specific to each implementation</li>
+     *   <li>There is no declarative specification of the transformation patterns</li>
+     *   <li>Testing and debugging transformations requires examining individual {@link Value} classes</li>
+     * </ul>
+     * </p>
+     * @param comparisonType the type of comparison being performed (e.g., {@code EQUALS}, {@code LESS_THAN},
+     *                       {@code LESS_THAN_OR_EQUALS}, etc.)
+     * @param comparand the value being compared against (the right-hand side of the comparison)
+     * @return an {@link Optional} containing the transformed {@link QueryPredicate} if this value recognizes
+     *         the comparison pattern and can transform it; {@link Optional#empty()} otherwise
+     *
+     * @see RowNumberValue#transformComparisonMaybe(Comparisons.Type, Value) for the primary implementation example
+     */
     @Nonnull
-    default Optional<QueryPredicate> adjustComparison(@Nonnull final Comparisons.Type comparisonType,
-                                                      @Nonnull final Value comparand) {
+    default Optional<QueryPredicate> transformComparisonMaybe(@Nonnull final Comparisons.Type comparisonType,
+                                                              @Nonnull final Value comparand) {
         return Optional.empty();
     }
 

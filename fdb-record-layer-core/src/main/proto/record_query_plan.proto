@@ -276,9 +276,10 @@ message PValue {
     PParameterObjectValue parameter_object_value = 53;
     PCastValue cast_value = 54;
     PRowNumberValue row_number_value = 55;
-    PEuclideanDistanceRank euclidean_distance_rank = 56;
-    PCosineDistanceRank cosine_distance_rank = 57;
+    PEuclideanDistanceRowNumberValue euclidean_distance_row_number_value = 56;
+    PCosineDistanceRowNumberValue cosine_distance_row_number_value = 57;
     PRowNumberHighOrderValue row_number_high_order_value = 58;
+    PDistanceValue distance_value = 59;
   }
 }
 
@@ -425,14 +426,23 @@ message PArithmeticValue {
       BITMAP_BUCKET_NUMBER_II = 105;
       BITMAP_BIT_POSITION_LI = 106;
       BITMAP_BIT_POSITION_II = 107;
-      EUCLIDEAN_DISTANCE_VV = 108;
-      EUCLIDEAN_SQUARE_DISTANCE_VV = 109;
-      MANHATTAN_DISTANCE_VV = 110;
-      COSINE_DISTANCE_VV = 111;
-      DOT_PRODUCT_DISTANCE_VV = 112;
   }
 
   optional PPhysicalOperator operator = 1;
+  optional PValue left_child = 2;
+  optional PValue right_child = 3;
+}
+
+message PDistanceValue {
+  enum PDistanceOperator {
+    EUCLIDEAN_DISTANCE = 1;
+    EUCLIDEAN_SQUARE_DISTANCE = 2;
+    MANHATTAN_DISTANCE = 3;
+    COSINE_DISTANCE = 4;
+    DOT_PRODUCT_DISTANCE = 5;
+  }
+
+  optional PDistanceOperator operator = 1;
   optional PValue left_child = 2;
   optional PValue right_child = 3;
 }
@@ -672,12 +682,12 @@ message PRankValue {
   optional PWindowedValue super = 1;
 }
 
-message PEuclideanDistanceRank {
+message PEuclideanDistanceRowNumberValue {
   optional PWindowedValue super = 1;
   repeated PRuntimeOption runtime_options = 2;
 }
 
-message PCosineDistanceRank {
+message PCosineDistanceRowNumberValue {
   optional PWindowedValue super = 1;
   repeated PRuntimeOption runtime_options = 2;
 }

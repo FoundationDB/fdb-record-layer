@@ -63,9 +63,9 @@ public class QueryPredicateMatchers {
         return ofType(QueryPredicate.class);
     }
 
-    public static TypedMatcher<QueryPredicate> anyResidualPredicate() {
+    public static TypedMatcher<QueryPredicate> anyCompensatablePredicate() {
         return typedWithDownstream(QueryPredicate.class,
-                Extractor.of(p -> !p.isIndexOnly(), p -> "residualPredicate(" + p + ")"),
+                Extractor.of(p -> !p.isIndexOnly(), p -> "compensatablePredicate(" + p + ")"),
                 PrimitiveMatchers.equalsObject(true));
     }
 

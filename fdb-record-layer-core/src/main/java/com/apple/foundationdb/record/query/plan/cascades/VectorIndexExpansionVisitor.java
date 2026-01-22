@@ -78,7 +78,7 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
     public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
-        Debugger.updateIndex(VectorIndexExpansionVisitor.class, i -> i + 1);
+        Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
 
         final var baseQuantifier = baseQuantifierSupplier.get();
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
@@ -118,9 +118,9 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
                         .removeAllResultColumns()
                         .build();
 
+        final var orderingAliases = keyValueExpansion.getPlaceholderAliases();
         final var distanceValuePlaceholder = createDistanceValuePlaceholder(ImmutableList.copyOf(keyValues),
                 ImmutableList.copyOf(valueValues));
-
         allExpansionsBuilder.add(keyValueExpansion);
         allExpansionsBuilder.add(GraphExpansion.ofPlaceholder(distanceValuePlaceholder));
 
@@ -158,17 +158,20 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
                 .filter(placeholder -> placeholder.getValue().isIndexOnly())
                 .map(Placeholder::getParameterAlias)
                 .collect(ImmutableSet.toImmutableSet());
-        final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse,
-                sealedExpansion.buildSelectWithResultValue(baseQuantifier.getFlowedObjectValue()));
+
+        final var selectExpression = sealedExpansion.buildSelectWithResultValue(baseQuantifier.getFlowedObjectValue());
+
+        final var maybeWithSort = orderingAliases.isEmpty()
+                                  ? Reference.initialOf(selectExpression) // window is the entire table.
+                                  : Reference.initialOf(new MatchableSortExpression(orderingAliases, isReverse, selectExpression));
         return new VectorIndexScanMatchCandidate(index,
                 queriedRecordTypes,
-                Traversal.withRoot(Reference.initialOf(matchableSortExpression)),
+                Traversal.withRoot(maybeWithSort),
                 parameters,
+                orderingAliases,
                 parametersRequiredForBinding,
                 baseQuantifier.getFlowedObjectType().narrowRecordMaybe().orElseThrow(() -> new RecordCoreException("cannot create match candidate with non-record type")),
                 baseQuantifier.getAlias(),
-                keyValues,
-                valueValues,
                 ValueIndexExpansionVisitor.fullKey(index, primaryKey),
                 primaryKey);
     }

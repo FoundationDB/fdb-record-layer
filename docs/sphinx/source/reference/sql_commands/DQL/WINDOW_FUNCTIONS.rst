@@ -284,7 +284,8 @@ NULL Handling
 -------------
 
 - NULL vectors are not indexed and will not appear in HNSW search results
-- Standard NULL comparison semantics apply to vector columns
+- Distance functions (``euclidean_distance``, ``cosine_distance``, etc.) throw a ``RecordCoreException`` when invoked with NULL vectors
+- Ensure vector columns are properly initialized before using them in distance calculations
 
 See Also
 ========

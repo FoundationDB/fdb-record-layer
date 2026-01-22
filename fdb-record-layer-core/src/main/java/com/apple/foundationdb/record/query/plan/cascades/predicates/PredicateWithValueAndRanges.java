@@ -102,9 +102,6 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     @Nonnull
     private final Supplier<Boolean> rangesCompileTimeChecker;
 
-    @Nonnull
-    private final Supplier<Boolean> isIndexOnlySupplier;
-
     protected PredicateWithValueAndRanges(@Nonnull final PlanSerializationContext serializationContext,
                                           @Nonnull final PPredicateWithValueAndRanges predicateWithValueAndRangesProto) {
         super(serializationContext, Objects.requireNonNull(predicateWithValueAndRangesProto.getSuper()));

@@ -94,6 +94,25 @@ public interface MatchCandidate {
     @Nonnull
     List<CorrelationIdentifier> getOrderingAliases();
 
+    /**
+     * Returns the set of sargable (Search ARGument ABLE) parameter aliases that must be bound with concrete values
+     * for this match candidate to be considered valid during query planning.
+     * <p>
+     * This method specifies binding requirements that act as prerequisites for using this match candidate in a query
+     * plan. During the matching phase, the query planner attempts to bind parameters through predicates and
+     * placeholders. For a match candidate to be selected, all aliases returned by this method must have been
+     * successfully bound to values.
+     * </p>
+     * <p>
+     * The default implementation returns an empty set, indicating that no specific parameter bindings are required.
+     * Match candidates that have binding requirements should override this method to specify their constraints.
+     * </p>
+     *
+     * @return a set of {@link CorrelationIdentifier}s representing parameter aliases that must be bound;
+     *         returns an empty set if no bindings are required
+     * @see PartialMatch#getBoundSargableAliases() for the set of actually bound aliases in a partial match
+     * @see #getSargableAliases() for all available sargable aliases (whether required or optional)
+     */
     @Nonnull
     default Set<CorrelationIdentifier> getSargableAliasesRequiredForBinding() {
         return ImmutableSet.of();

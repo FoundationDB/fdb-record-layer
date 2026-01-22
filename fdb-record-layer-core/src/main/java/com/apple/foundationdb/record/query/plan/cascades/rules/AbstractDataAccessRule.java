@@ -662,6 +662,8 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
             }
 
             if (!partialMatch.getBoundSargableAliases().containsAll(partialMatch.getMatchCandidate().getSargableAliasesRequiredForBinding())) {
+                // skip this match since it did not bind all the sargables required by the candidate making it impossible
+                // to create a produce a physical plan.
                 continue;
             }
 

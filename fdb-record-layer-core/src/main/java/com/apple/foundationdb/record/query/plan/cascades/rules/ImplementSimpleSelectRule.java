@@ -49,7 +49,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyResidualPredicate;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyCompensatablePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -70,7 +70,7 @@ public class ImplementSimpleSelectRule extends ImplementationCascadesRule<Select
     private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(innerReferenceMatcher);
 
     @Nonnull
-    private static final BindingMatcher<QueryPredicate> predicateMatcher = anyResidualPredicate();
+    private static final BindingMatcher<QueryPredicate> predicateMatcher = anyCompensatablePredicate();
 
     @Nonnull
     private static final BindingMatcher<SelectExpression> root =

@@ -178,7 +178,7 @@ public class PredicateMultiMap {
         @Nonnull
         static PredicateCompensationFunction ofPredicate(@Nonnull final QueryPredicate predicate,
                                                          final boolean shouldSimplifyValues) {
-            final var isImpossible = predicateContainsUnmatchedValues(predicate);
+            final var isImpossible = predicateContainsUncompensatableValues(predicate);
 
             return new PredicateCompensationFunction() {
                 @Override
@@ -211,7 +211,7 @@ public class PredicateMultiMap {
             };
         }
 
-        private static boolean predicateContainsUnmatchedValues(@Nonnull final QueryPredicate pulledUpPredicate) {
+        private static boolean predicateContainsUncompensatableValues(@Nonnull final QueryPredicate pulledUpPredicate) {
             if (pulledUpPredicate instanceof PredicateWithValue) {
                 final var value = Objects.requireNonNull(((PredicateWithValue)pulledUpPredicate).getValue());
                 if (value.preOrderStream()
