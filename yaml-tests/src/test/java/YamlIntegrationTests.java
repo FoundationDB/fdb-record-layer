@@ -258,6 +258,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void pseudoFieldClash(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("pseudo-field-clash.yamsql");
+    }
+
+    @TestTemplate
     public void recursiveCte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("recursive-cte.yamsql");
     }

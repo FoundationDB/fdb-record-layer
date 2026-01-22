@@ -39,12 +39,12 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Charsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -67,7 +67,7 @@ public class FDBReverseDirectoryCache {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBReverseDirectoryCache.class);
 
     /// The name of the persistent reverse cache directory entry in the directory layer
-    public static final String REVERSE_DIRECTORY_CACHE_ENTRY = new String(new byte[]{0x72, 0x65, 0x63, 0x64, 0x62, 0x5f, 0x72, 0x64, 0x5f, 0x63, 0x61, 0x63, 0x68, 0x65}, Charsets.US_ASCII);
+    public static final String REVERSE_DIRECTORY_CACHE_ENTRY = new String(new byte[]{0x72, 0x65, 0x63, 0x64, 0x62, 0x5f, 0x72, 0x64, 0x5f, 0x63, 0x61, 0x63, 0x68, 0x65}, StandardCharsets.US_ASCII);
 
     /**
      * The default maximum number of directory entries that will be scanned during a lookup

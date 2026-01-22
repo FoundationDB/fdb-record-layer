@@ -23,7 +23,7 @@
 
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.9.1.0
     noChecks: [metrics]
 ---
 schema_template:
