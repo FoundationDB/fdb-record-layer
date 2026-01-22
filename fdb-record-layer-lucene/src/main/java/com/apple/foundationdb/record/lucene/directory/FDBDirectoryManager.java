@@ -294,7 +294,7 @@ public class FDBDirectoryManager implements AutoCloseable {
             agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DRAIN_PENDING_QUEUE,
                     iterator.iterateAll(state.store.asBuilder()));
         } catch (CloseException e) {
-            throw new RuntimeException(e);
+            throw new PendingQueueDrainException(e);
         }
 
     }
@@ -313,7 +313,6 @@ public class FDBDirectoryManager implements AutoCloseable {
                                                                            @Nonnull final Tuple groupingKey,
                                                                            @Nullable final Integer partitionId) {
         return (store, lastResult, quotamanager) -> {
-            final FDBRecordContext context = store.getContext();
             final PendingWriteQueue.QueueEntry queueEntry = lastResult.get();
             if (queueEntry == null) {
                 return AsyncUtil.DONE;
@@ -324,13 +323,16 @@ public class FDBDirectoryManager implements AutoCloseable {
                 switch (queueEntry.getOperationType()) {
                     case UPDATE:
                     case INSERT:
+                        // je-todo:
+                        //  1. consolidate UPDATE and INSERT
+                        //  2. if index is in WRITE_ONLY mode - delete before writing (and avoid extra queue item?)
                         maintainer.writeDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed(), queueEntry.getDocumentFieldsParsed());
                         break;
                     case DELETE:
                         final int countDeleted = maintainer.deleteDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed());
                         if (partitionId != null) {
                             state.context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DECREMENT,
-                                    maintainer.postDeleteUpdatePartitionCount(groupingKey, partitionId, countDeleted));
+                                    maintainer.postDeleteUpdatePartitionCounter(groupingKey, partitionId, countDeleted));
                         }
                         break;
                     default:
@@ -340,8 +342,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                         }
                         break;
                 }
-
-                pendingWriteQueue.clearEntry(context, queueEntry);
+                pendingWriteQueue.clearEntry(store.getContext(), queueEntry);
                 return AsyncUtil.DONE;
             } catch (IOException ex) {
                 throw new RecordCoreException("Lucene IOException", ex);
@@ -543,5 +544,17 @@ public class FDBDirectoryManager implements AutoCloseable {
                 .stream()
                 .filter(i -> LuceneIndexTypes.LUCENE.equals(i.getType()))
                 .count());
+    }
+
+    /**
+     * thrown if pending queue drain had failed.
+     */
+    @SuppressWarnings("java:S110")
+    public static class PendingQueueDrainException extends RecordCoreException {
+        private static final long serialVersionUID = 10;
+
+        public PendingQueueDrainException(final Throwable cause) {
+            super("Pending queue drain had failed", cause);
+        }
     }
 }

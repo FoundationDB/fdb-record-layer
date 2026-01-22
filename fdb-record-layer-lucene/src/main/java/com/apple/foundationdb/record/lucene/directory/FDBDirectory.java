@@ -995,7 +995,7 @@ public class FDBDirectory extends Directory  {
      */
     public boolean shouldUseQueue() {
         final Subspace ongoingMergeSubspace = subspace.subspace(Tuple.from(ONGOING_MERGE_INDICATOR_SUBSPACE));
-        final byte[] tupleBytes = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_INCREMENT,
+        final byte[] tupleBytes = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_ONGOING_MERGE_INDICATOR,
                 agilityContext.get(ongoingMergeSubspace.pack()));
 
         // return true if the tuple exists, and not empty
@@ -1025,12 +1025,12 @@ public class FDBDirectory extends Directory  {
         agilityContext.accept(context -> {
             // Verify that the pending write queue subspace is empty
             final List<KeyValue> queueEntries =
-                    LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_PENDING_QUEUE,
+                    LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_PENDING_QUEUE,
                             context.ensureActive()
                                     .getRange(queueRange, 1) // Limit to 1 to just check if any entries exist
                                     .asList(), context);
 
-            if (queueEntries == null || !queueEntries.isEmpty()) {
+            if (queueEntries != null && !queueEntries.isEmpty()) {
                 throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
             }
 

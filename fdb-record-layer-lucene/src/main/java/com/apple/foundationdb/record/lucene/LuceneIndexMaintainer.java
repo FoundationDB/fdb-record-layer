@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.AgilityContext;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
@@ -174,25 +173,20 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         throw new RecordCoreException("unsupported scan type for Lucene index: " + scanType);
     }
 
-    <M extends Message> void writeDocument(final FDBIndexableRecord<M> newRecord, final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry, final Integer partitionId, @Nullable OverallOperation overallOperation) {
-        try {
-            writeDocument(entry.getValue(), entry.getKey(), partitionId, newRecord.getPrimaryKey(), overallOperation);
-        } catch (IOException e) {
-            throw LuceneExceptions.toRecordCoreException("Issue updating new index keys", e, "newRecord", newRecord.getPrimaryKey());
+    private <M extends Message> void writeDocument(final FDBIndexableRecord<M> newRecord, final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry, final Integer partitionId) {
+        if (shouldUseQueue(entry.getKey(), partitionId)) {
+            PendingWriteQueue queue = directoryManager.getPendingWriteQueue(entry.getKey(), partitionId);
+            queue.enqueueInsert(state.context, newRecord.getPrimaryKey(), entry.getValue());
+        } else {
+            writeDocumentBypassQueue(newRecord, entry, partitionId);
         }
     }
 
-    private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields,
-                               Tuple groupingKey,
-                               Integer partitionId,
-                               Tuple primaryKey,
-                               @Nullable OverallOperation overallOperation) throws IOException {
-        // Here: partition count was adjusted pre-emptively (pending queue or not)
-        // overallOperation is null only when called from the partitioner
-        if (overallOperation != null && shouldUseQueue(groupingKey, partitionId)) {
-            queueOperation(groupingKey, partitionId, primaryKey, fields, overallOperation);
-        } else {
-            writeDocumentBypassQueue(groupingKey, partitionId, primaryKey, fields);
+    <M extends Message> void writeDocumentBypassQueue(final FDBIndexableRecord<M> newRecord, final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry, final Integer partitionId) {
+        try {
+            writeDocumentBypassQueue(entry.getKey(), partitionId, newRecord.getPrimaryKey(), entry.getValue());
+        } catch (IOException e) {
+            throw LuceneExceptions.toRecordCoreException("Issue updating new index keys", e, "newRecord", newRecord.getPrimaryKey());
         }
     }
 
@@ -203,13 +197,13 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         LuceneIndexMaintainerHelper.writeDocument(state.context,
                 directoryManager.getIndexWriter(groupingKey, partitionId),
                 state.index,
-                groupingKey, partitionId,
                 primaryKey, fields);
     }
 
     private int deleteDocument(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey) throws IOException {
         if (shouldUseQueue(groupingKey, partitionId)) {
-            queueOperation(groupingKey, partitionId, primaryKey, null, OverallOperation.DELETE);
+            PendingWriteQueue queue = directoryManager.getPendingWriteQueue(groupingKey, partitionId);
+            queue.enqueueDelete(state.context, primaryKey);
             return 0; // partition count will be adjusted during drain
         } else {
             return deleteDocumentBypassQueue(groupingKey, partitionId, primaryKey);
@@ -219,33 +213,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     public int deleteDocumentBypassQueue(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey) throws IOException {
         return LuceneIndexMaintainerHelper.deleteDocument(state.context, directoryManager, state.index, groupingKey, partitionId, primaryKey,
                 state.store.isIndexWriteOnly(state.index));
-    }
-
-    private void queueOperation(final Tuple groupingKey, final Integer partitionId, final Tuple primaryKey,
-                                List<LuceneDocumentFromRecord.DocumentField> fields,
-                                final OverallOperation overallOperation) {
-        PendingWriteQueue queue = directoryManager.getPendingWriteQueue(groupingKey, partitionId);
-        switch (overallOperation) {
-            case INSERT:
-                queue.enqueueInsert(state.context, primaryKey, fields);
-                break;
-            case UPDATE:
-                queue.enqueueUpdate(state.context, primaryKey, fields);
-                break;
-            case DELETE:
-                queue.enqueueDelete(state.context, primaryKey); // ignore fields
-                break;
-            default:
-                // do nothing - this will be taken care of elsewhere
-        }
-        if (LOG.isDebugEnabled()) {
-            LOG.debug(KeyValueLogMessage.of("Lucene enqueue operation",
-                    LogMessageKeys.PARTITION_ID, partitionId,
-                    LogMessageKeys.GROUPING_KEY, groupingKey,
-                    LogMessageKeys.PRIMARY_KEY, primaryKey,
-                    LogMessageKeys.OVERALL_OPERATION, overallOperation
-            ));
-        }
     }
 
     @Override
@@ -311,9 +278,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         FDBDatabaseRunner runner = state.context.newRunner();
         runner.setMaxAttempts(1); // retries (and throttling) are performed by the caller
         return rebalancePartitions(runner, storeBuilder, state, mergeControl)
-                .whenComplete((result, error) -> {
-                    runner.close();
-                });
+                .whenComplete((result, error) -> runner.close());
     }
 
     private static CompletableFuture<Void> rebalancePartitions(final FDBDatabaseRunner runner,
@@ -343,24 +308,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                                         return true;
                                                     }
                                                 }))), repartitioningLogMessages.logMessages), state.context.getExecutor());
-    }
-
-    enum OverallOperation {
-        INSERT,
-        UPDATE,
-        DELETE;
-
-        @Nullable
-        public static OverallOperation determine(Object oldRecord, Object newRecord) {
-            if (oldRecord == null) {
-                return newRecord == null ?
-                       null : // illegal
-                       OverallOperation.INSERT; // insert new, no old
-            }
-            return newRecord == null ?
-                   OverallOperation.DELETE : // remove old, no new
-                   OverallOperation.UPDATE;  // remove old, insert new
-        }
     }
 
     @Nonnull
@@ -397,7 +344,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
         LOG.trace("update oldFields={}, newFields{}", oldRecordFields, newRecordFields);
 
-        OverallOperation overallOperation = OverallOperation.determine(oldRecord, newRecord);
         return AsyncUtil.whenAll(oldRecordFields.keySet().stream()
                     // delete old
                     .map(groupingKey -> tryDelete(Objects.requireNonNull(oldRecord), groupingKey))
@@ -405,7 +351,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 .thenCompose(ignored ->
                     // update new
                     AsyncUtil.whenAll(newRecordFields.entrySet().stream()
-                        .map(entry -> updateRecord(newRecord, destinationPartitionIdHint, entry, overallOperation))
+                        .map(entry -> updateRecord(newRecord, destinationPartitionIdHint, entry))
                         .collect(Collectors.toList())));
     }
 
@@ -418,11 +364,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private <M extends Message> CompletableFuture<Void> updateRecord(
             final FDBIndexableRecord<M> newRecord,
             final Integer destinationPartitionIdHint,
-            final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry,
-            OverallOperation overallOperation) {
-        return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(ignored ->
+            final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry) {
+        return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(countDeleted ->
                 partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint)
-                        .thenAccept(partitionId -> writeDocument(newRecord, entry, partitionId, overallOperation)));
+                        .thenAccept(partitionId -> writeDocument(newRecord, entry, partitionId)));
     }
 
     @Nullable
@@ -486,7 +431,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             }
             try {
                 int countDeleted = deleteDocument(groupingKey, partitionInfo.getId(), record.getPrimaryKey());
-                return postDeleteUpdatePartitionCount(groupingKey, partitionInfo.getId(), countDeleted);
+                return postDeleteUpdatePartitionCounter(groupingKey, partitionInfo.getId(), countDeleted);
             } catch (IOException e) {
                 throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", record.getPrimaryKey());
             }
@@ -494,7 +439,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Nonnull
-    public CompletableFuture<Integer> postDeleteUpdatePartitionCount(final @Nonnull Tuple groupingKey, int partitionId, final int countDeleted) {
+    public CompletableFuture<Integer> postDeleteUpdatePartitionCounter(final @Nonnull Tuple groupingKey, int partitionId, final int countDeleted) {
         if (countDeleted > 0) {
             return partitioner.decrementCountAndSave(groupingKey, countDeleted, partitionId)
                     .thenApply(ignore -> countDeleted);

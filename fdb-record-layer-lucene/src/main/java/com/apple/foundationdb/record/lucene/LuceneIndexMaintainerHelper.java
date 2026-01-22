@@ -163,8 +163,6 @@ public final class LuceneIndexMaintainerHelper {
     public static void writeDocument(FDBRecordContext context,
                                      IndexWriter newWriter,
                                      Index index,
-                                     Tuple groupingKey,
-                                     Integer partitionId,
                                      Tuple primaryKey,
                                      List<LuceneDocumentFromRecord.DocumentField> fields
                                      ) throws IOException {
