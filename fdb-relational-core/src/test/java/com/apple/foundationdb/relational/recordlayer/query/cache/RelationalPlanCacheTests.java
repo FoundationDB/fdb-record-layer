@@ -448,7 +448,7 @@ public class RelationalPlanCacheTests {
     }
 
     @Nonnull
-    private static PhysicalPlanEquivalence ppe(@Nonnull final QueryPlanConstraint... constraints) {
+    private PhysicalPlanEquivalence ppe(@Nonnull final QueryPlanConstraint... constraints) {
         return PhysicalPlanEquivalence.of(QueryPlanConstraint.composeConstraints(Arrays.asList(constraints)));
     }
 
