@@ -542,12 +542,24 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void testReadOnlyfailures() {
+    void testReadOnlyFailures() {
         try (FDBRecordContext context = openContext()) {
             AgilityContext readOnly = getAgilityContext(context, AgilityContextType.READ_ONLY);
             readOnly.applyInRecoveryPath(ctx -> CompletableFuture.failedFuture(new RuntimeException("Blah")));
             Assertions.assertThrows(RecordCoreStorageException.class, readOnly::flushAndClose);
             Assertions.assertThrows(RecordCoreStorageException.class, readOnly::flush);
+
+            readOnly.abortAndClose();
+        }
+    }
+
+    @Test
+    void testReadOnlyTransactionFailures() {
+        try (FDBRecordContext context = openContext()) {
+            AgilityContext readOnly = getAgilityContext(context, AgilityContextType.READ_ONLY);
+            Assertions.assertThrows(RecordCoreStorageException.class, () -> readOnly.accept(ctx -> ctx.commit()));
+
+            readOnly.accept(c -> c.commit());
 
             readOnly.abortAndClose();
         }
