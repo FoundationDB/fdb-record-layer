@@ -302,6 +302,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
 
     @Nullable
+    private final String bypassFullStoreLockReason;
+
+    @Nullable
     private Subspace cachedRecordsSubspace;
 
     @Nonnull
@@ -331,6 +334,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                              @Nullable FDBRecordStoreStateCache storeStateCache,
                              @Nonnull StateCacheabilityOnOpen stateCacheabilityOnOpen,
                              @Nullable UserVersionChecker userVersionChecker,
+                             @Nullable String bypassFullStoreLockReason,
                              @Nonnull PlanSerializationRegistry planSerializationRegistry) {
         super(context, subspaceProvider);
         this.formatVersion = formatVersion;
@@ -342,6 +346,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         this.storeStateCache = storeStateCache;
         this.stateCacheabilityOnOpen = stateCacheabilityOnOpen;
         this.userVersionChecker = userVersionChecker;
+        this.bypassFullStoreLockReason = bypassFullStoreLockReason;
         this.omitUnsplitRecordSuffix = !formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX);
         this.preloadCache = new FDBPreloadRecordCache(PRELOAD_CACHE_SIZE);
         this.planSerializationRegistry = planSerializationRegistry;
@@ -2447,21 +2452,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public CompletableFuture<Boolean> checkVersion(@Nullable UserVersionChecker userVersionChecker,
                                                    @Nonnull StoreExistenceCheck existenceCheck) {
-        return checkVersion(userVersionChecker, existenceCheck, AsyncUtil.DONE, null);
+        return checkVersion(userVersionChecker, existenceCheck, AsyncUtil.DONE);
     }
 
     @Nonnull
     private CompletableFuture<Boolean> checkVersion(@Nullable UserVersionChecker userVersionChecker,
                                                     @Nonnull StoreExistenceCheck existenceCheck,
                                                     @Nonnull CompletableFuture<Void> metaDataPreloadFuture) {
-        return checkVersion(userVersionChecker, existenceCheck, metaDataPreloadFuture, null);
-    }
-
-    @Nonnull
-    private CompletableFuture<Boolean> checkVersion(@Nullable UserVersionChecker userVersionChecker,
-                                                    @Nonnull StoreExistenceCheck existenceCheck,
-                                                    @Nonnull CompletableFuture<Void> metaDataPreloadFuture,
-                                                    @Nullable String bypassFullStoreLockReason) {
         CompletableFuture<Void> subspacePreloadFuture = preloadSubspaceAsync();
         CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = getStoreStateCache().get(this, existenceCheck, bypassFullStoreLockReason).thenApply(storeInfo -> {
             if (recordStoreStateRef.get() == null) {
@@ -3922,7 +3919,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected CompletableFuture<Void> preloadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck,
                                                                    @Nonnull IsolationLevel storeHeaderIsolationLevel,
                                                                    @Nonnull IsolationLevel indexStateIsolationLevel) {
-        return loadRecordStoreStateAsync(existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel, null)
+        return loadRecordStoreStateAsync(existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel)
                 .thenAccept(state -> {
                     if (this.recordStoreStateRef.get() == null) {
                         recordStoreStateRef.compareAndSet(null, state.toMutable());
@@ -3940,31 +3937,23 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @API(API.Status.INTERNAL)
     @Nonnull
     public CompletableFuture<RecordStoreState> loadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck) {
-        return loadRecordStoreStateAsync(existenceCheck, IsolationLevel.SERIALIZABLE, IsolationLevel.SNAPSHOT, null);
-    }
-
-    @Nonnull
-    public CompletableFuture<RecordStoreState> loadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck,
-                                                                         @Nullable String bypassFullStoreLockReason) {
-        return loadRecordStoreStateAsync(existenceCheck, IsolationLevel.SERIALIZABLE, IsolationLevel.SNAPSHOT, bypassFullStoreLockReason);
+        return loadRecordStoreStateAsync(existenceCheck, IsolationLevel.SERIALIZABLE, IsolationLevel.SNAPSHOT);
     }
 
     @Nonnull
     private CompletableFuture<RecordStoreState> loadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck,
                                                                           @Nonnull IsolationLevel storeHeaderIsolationLevel,
-                                                                          @Nonnull IsolationLevel indexStateIsolationLevel,
-                                                                          @Nullable String bypassFullStoreLockReason) {
+                                                                          @Nonnull IsolationLevel indexStateIsolationLevel) {
         // Don't rely on the subspace being loaded as this is called as part of store initialization
         return getSubspaceAsync().thenCompose(subspace ->
-                loadRecordStoreStateInternalAsync(existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel, bypassFullStoreLockReason)
+                loadRecordStoreStateInternalAsync(existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel)
         );
     }
 
     @Nonnull
     private CompletableFuture<RecordStoreState> loadRecordStoreStateInternalAsync(@Nonnull StoreExistenceCheck existenceCheck,
                                                                                   @Nonnull IsolationLevel storeHeaderIsolationLevel,
-                                                                                  @Nonnull IsolationLevel indexStateIsolationLevel,
-                                                                                  @Nullable String bypassFullStoreLockReason) {
+                                                                                  @Nonnull IsolationLevel indexStateIsolationLevel) {
         CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = loadStoreHeaderAsync(existenceCheck, storeHeaderIsolationLevel, bypassFullStoreLockReason);
         CompletableFuture<Map<String, IndexState>> loadIndexStates = loadIndexStatesAsync(indexStateIsolationLevel);
         return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, storeHeaderFuture.thenCombine(loadIndexStates, RecordStoreState::new));
@@ -5744,7 +5733,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             return new FDBRecordStore(context, subspaceProvider, formatVersion, getMetaDataProviderForBuild(),
                     serializer, indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer, storeStateCache, stateCacheabilityOnOpen,
-                    userVersionChecker, planSerializationRegistry);
+                    userVersionChecker, bypassFullStoreLockReason, planSerializationRegistry);
         }
 
         @Override
@@ -5766,7 +5755,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             final CompletableFuture<Long> readVersionFuture = preloadReadVersion();
             final CompletableFuture<Void> preloadMetaData = readVersionFuture.thenCompose(ignore -> preloadMetaData());
             FDBRecordStore recordStore = build();
-            final CompletableFuture<Boolean> checkVersion = recordStore.checkVersion(userVersionChecker, existenceCheck, preloadMetaData, bypassFullStoreLockReason);
+            final CompletableFuture<Boolean> checkVersion = recordStore.checkVersion(userVersionChecker, existenceCheck, preloadMetaData);
             return checkVersion.thenApply(vignore -> recordStore);
         }
 

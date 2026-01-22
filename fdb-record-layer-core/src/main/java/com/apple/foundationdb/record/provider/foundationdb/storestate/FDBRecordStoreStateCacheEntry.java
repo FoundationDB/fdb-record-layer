@@ -102,7 +102,7 @@ public class FDBRecordStoreStateCacheEntry {
         // "Batch GRV rate limit exceeded" is clearer than an asyncToSync timeout, on whatever eventual future depends
         // on this.
         final CompletableFuture<byte[]> metaDataVersionStampFuture = recordStore.getContext().getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT);
-        return MoreAsyncUtil.combineAndFailFast(recordStore.loadRecordStoreStateAsync(existenceCheck, bypassFullStoreLockReason),
+        return MoreAsyncUtil.combineAndFailFast(recordStore.loadRecordStoreStateAsync(existenceCheck),
                 metaDataVersionStampFuture, (recordStoreState, metaDataVersionStamp) ->
                         new FDBRecordStoreStateCacheEntry(recordStore.getSubspaceProvider(), recordStore.getSubspace(), recordStoreState.toImmutable(), metaDataVersionStamp));
     }
