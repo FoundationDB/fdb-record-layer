@@ -21,14 +21,11 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
 import java.util.Optional;
-import java.util.function.Function;
 
 /**
  * An expression that is used mainly for alias resolution and does not materialize into an operator output.
@@ -42,32 +39,8 @@ public class EphemeralExpression extends Expression {
 
     @Nonnull
     @Override
-    public Expression withQualifier(@Nonnull final Collection<String> qualifier) {
-        return super.withQualifier(qualifier).asEphemeral();
-    }
-
-    @Nonnull
-    @Override
-    public Expression withQualifier(@Nonnull final Optional<Identifier> qualifier) {
-        return super.withQualifier(qualifier).asEphemeral();
-    }
-
-    @Nonnull
-    @Override
-    public Expression replaceQualifier(@Nonnull final Function<Collection<String>, Collection<String>> replaceFunc) {
-        return super.replaceQualifier(replaceFunc).asEphemeral();
-    }
-
-    @Nonnull
-    @Override
-    public Expression withName(@Nonnull final Identifier name) {
-        return super.withName(name).asEphemeral();
-    }
-
-    @Nonnull
-    @Override
-    public Expression withUnderlying(@Nonnull final Value underlying) {
-        return super.withUnderlying(underlying).asEphemeral();
+    protected Expression createNew(@Nonnull final Optional<Identifier> newName, @Nonnull final DataType newDataType, @Nonnull final Value newUnderlying) {
+        return super.createNew(newName, newDataType, newUnderlying).asEphemeral();
     }
 
     @Nonnull
