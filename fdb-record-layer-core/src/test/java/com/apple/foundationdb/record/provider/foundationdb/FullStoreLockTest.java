@@ -20,10 +20,18 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.StoreIsFullyLockedException;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.UnknownStoreLockStateException;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.MetaDataVersionStampStoreStateCacheFactory;
 import com.apple.test.Tags;
@@ -35,7 +43,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -278,8 +288,124 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void testFullStoreLockWithIndexRebuild() {
+        final String lockReason = "Performing index maintenance";
+        final Index newIndex = new Index("newIndex", field("num_value_2"));
+
+        // Create a store with a new index to rebuild
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.addIndex("MySimpleRecord", newIndex);
+        };
+
+        final RecordMetaData metaData = simpleMetaData(hook);
+
+        // Populate some data
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, metaData).createOrOpen();
+            for (int i = 0; i < 20; i++) {
+                TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setNumValue2(i * 100)
+                        .build();
+                recordStore.saveRecord(record);
+            }
+            commit(context);
+        }
+
+        // Verify index is readable before we start
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, metaData).open();
+            assertEquals(IndexState.READABLE, recordStore.getRecordStoreState().getState(newIndex.getName()));
+            commit(context);
+        }
+
+        // Lock the store for maintenance
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, metaData).open();
+            recordStore.setStoreLockStateAsync(
+                    RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
+                    lockReason
+            ).join();
+            commit(context);
+        }
+
+        // Verify normal open fails
+        try (FDBRecordContext context = openContext()) {
+            assertThrows(StoreIsFullyLockedException.class, () -> {
+                getStoreBuilder(context, metaData).open();
+            });
+        }
+
+        final FDBRecordStore.Builder storeBuilderWithLockBypass;
+        // Use bypass to mark the index as disabled
+        try (FDBRecordContext context = openContext()) {
+            storeBuilderWithLockBypass = getStoreBuilder(context, metaData)
+                    .setBypassFullStoreLockReason(lockReason);
+            recordStore = storeBuilderWithLockBypass.open();
+
+            recordStore.markIndexDisabled(newIndex).join();
+            commit(context);
+        }
+
+        // Verify index is now disabled (using bypass)
+        try (FDBRecordContext context = openContext()) {
+            recordStore = storeBuilderWithLockBypass
+                    .setContext(context).open();
+
+            assertEquals(IndexState.DISABLED, recordStore.getRecordStoreState().getState(newIndex.getName()));
+        }
+
+        // Rebuild the index using OnlineIndexer with bypass
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb)
+                .setRecordStoreBuilder(storeBuilderWithLockBypass)
+                .setIndex(newIndex)
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        // Verify index is now readable (using bypass)
+        try (FDBRecordContext context = openContext()) {
+            recordStore = storeBuilderWithLockBypass
+                    .setContext(context)
+                    .open();
+
+            assertEquals(IndexState.READABLE, recordStore.getRecordStoreState().getState(newIndex.getName()));
+        }
+
+        // Unlock the store
+        try (FDBRecordContext context = openContext()) {
+            recordStore = storeBuilderWithLockBypass
+                    .setContext(context)
+                    .open();
+
+            recordStore.clearStoreLockStateAsync().join();
+            commit(context);
+        }
+
+        // Verify can now open normally and index is still readable
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, metaData).open();
+            assertEquals(IndexState.READABLE, recordStore.getRecordStoreState().getState(newIndex.getName()));
+
+            // Verify we can query the index, we don't really care about the results
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(newIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                cursor.asList().join();
+            }
+
+            commit(context);
+        }
+    }
+
     @Nonnull
-    private FDBRecordStore.Builder getStoreBuilder(final FDBRecordContext context, final FDBRecordStoreStateCache cache) {
+    public FDBRecordStore.Builder getStoreBuilder(final FDBRecordContext context, final RecordMetaData metaData) {
+        return getStoreBuilder(context, metaData, path, formatVersion);
+    }
+
+    @Nonnull
+    private FDBRecordStore.Builder getStoreBuilder(@Nonnull final FDBRecordContext context,
+                                                   @Nullable final FDBRecordStoreStateCache cache) {
         return FDBRecordStore.newBuilder()
                 .setContext(context)
                 .setMetaDataProvider(simpleMetaData(null))
