@@ -1016,7 +1016,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
     @Test
     void testPendingQueueWithUpdate() {
-        // Test UPDATE operation in pending queue
+        // Test update operation in pending queue
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
@@ -1045,7 +1045,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             commit(context);
         }
 
-        // Verify UPDATE and DELETE in queue
+        // Verify INSERT and DELETE in queue
         try (FDBRecordContext context = openContext()) {
             FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
             IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
@@ -1058,10 +1058,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
                     .forEach(entries::add).join();
 
-            assertEquals(2, entries.size(), "Queue should have 1 UPDATE entry");
+            assertEquals(2, entries.size(), "Queue should have 2 entries");
             assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE,
                     entries.get(0).getOperationType());
-            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.UPDATE,
+            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
                     entries.get(1).getOperationType());
             commit(context);
         }
@@ -1130,7 +1130,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     entries.get(0).getOperationType(), "Entry 0: INSERT");
             assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE,
                     entries.get(1).getOperationType(), "Entry 1: DELETE from update");
-            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.UPDATE,
+            assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
                     entries.get(2).getOperationType(), "Entry 2: INSERT from update");
             assertEquals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE,
                     entries.get(3).getOperationType(), "Entry 3: DELETE");
