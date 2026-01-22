@@ -185,7 +185,7 @@ public final class OnSourceIndexGenerator {
                 .collect(Collectors.toUnmodifiableMap(
                         expression -> expression.getName().get(),
                         expression -> {
-                            final var value = ImmutableList.of(expression.getUnderlyingValue());
+                            final var value = ImmutableList.of(expression.getUnderlying());
                             final var pushedDownValue = selectResultValue.pushDown(value, DefaultValueSimplificationRuleSet.instance(),
                                     EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(),
                                     topLevelOperator.getQuantifier().getAlias()).get(0);

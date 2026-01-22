@@ -23,11 +23,13 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Main interface for defining a built-in function that can be evaluated against a number of arguments.
@@ -39,7 +41,7 @@ import java.util.Map;
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
 public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction {
-    @Nonnull
+    @Nullable
     final EncapsulationFunction<T> encapsulationFunction;
 
     /**
@@ -64,15 +66,17 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
         this.encapsulationFunction = encapsulationFunction;
     }
 
-    @Nonnull
-    public EncapsulationFunction<T> getEncapsulationFunction() {
-        return encapsulationFunction;
+    protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
+                              @Nonnull final List<Type> parameterTypes,
+                              @Nonnull final List<Optional<? extends Typed>> parameterDefaults) {
+        super(functionName, parameterNames, parameterTypes, parameterDefaults);
+        this.encapsulationFunction = null;
     }
 
     @Nonnull
     @Override
     public Typed encapsulate(@Nonnull final List<? extends Typed> arguments) {
-        return encapsulationFunction.encapsulate(this, arguments);
+        return Verify.verifyNotNull(encapsulationFunction).encapsulate(this, arguments);
     }
 
     @Nonnull

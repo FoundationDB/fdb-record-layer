@@ -592,6 +592,7 @@ queryOption
     : NOCACHE
     | LOG QUERY
     | DRY RUN
+    | EF_SEARCH decimalLiteral
     ;
 
 // Transaction's Statements

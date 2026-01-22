@@ -622,7 +622,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var functionBody = visitUserDefinedScalarFunctionStatementBody(Assert.castUnchecked(bodyCtx, RelationalParser.UserDefinedScalarFunctionStatementBodyContext.class));
             Optional<Expression> result = semanticAnalyzer.lookupNestedField(functionBody, Expression.of(paramValueList.get(0), paramNameIdList.get(0)), Expression.of(paramValueList.get(0), paramNameIdList.get(0)), true);
             Assert.thatUnchecked(result.isPresent(), "cannot resolve user defined scalar function value");
-            return new UserDefinedMacroFunction(functionName, paramValueList, result.get().getUnderlyingValue());
+            return new UserDefinedMacroFunction(functionName, paramValueList, result.get().getUnderlying());
         } else {
             // table functions
             Assert.thatUnchecked(isSqlParameterStyle, ErrorCode.UNSUPPORTED_OPERATION, "only sql-style parameters are supported");
@@ -708,7 +708,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.thatUnchecked(ctx.parameterMode() == null || ctx.parameterMode().IN() != null, "only IN parameters are supported");
         if (ctx.DEFAULT() != null) {
             final var defaultExpression = Assert.castUnchecked(visit(ctx.parameterDefault), Expression.class);
-            var defaultValue = PromoteValue.inject(defaultExpression.getUnderlyingValue(), underlyingType);
+            var defaultValue = PromoteValue.inject(defaultExpression.getUnderlying(), underlyingType);
             return Expression.of(defaultValue, parameterName);
         } else {
             return Expression.of(new ThrowsValue(underlyingType), parameterName);

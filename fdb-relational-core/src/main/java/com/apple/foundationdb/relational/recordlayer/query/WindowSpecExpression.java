@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.record.provider.foundationdb.RuntimeOption;
-
 import javax.annotation.Nonnull;
 
 /**
@@ -47,11 +45,11 @@ public final class WindowSpecExpression {
     private final Iterable<OrderByExpression> orderByExpressions;
 
     @Nonnull
-    private final Iterable<RuntimeOption> windowOptions;
+    private final Expressions windowOptions;
 
     private WindowSpecExpression(@Nonnull final Expressions partitions,
                                  @Nonnull final Iterable<OrderByExpression> orderByExpressions,
-                                 @Nonnull final Iterable<RuntimeOption> windowOptions) {
+                                 @Nonnull final Expressions windowOptions) {
         this.partitions = partitions;
         this.orderByExpressions = orderByExpressions;
         this.windowOptions = windowOptions;
@@ -67,7 +65,7 @@ public final class WindowSpecExpression {
     @Nonnull
     public static WindowSpecExpression of(@Nonnull final Expressions partitions,
                                           @Nonnull final Iterable<OrderByExpression> orderByExpressions,
-                                          @Nonnull final Iterable<RuntimeOption> windowOptions) {
+                                          @Nonnull final Expressions windowOptions) {
         return new WindowSpecExpression(partitions, orderByExpressions, windowOptions);
     }
 
@@ -92,7 +90,7 @@ public final class WindowSpecExpression {
     }
 
     @Nonnull
-    public Iterable<RuntimeOption> getWindowOptions() {
+    public Expressions getWindowOptions() {
         return windowOptions;
     }
 }

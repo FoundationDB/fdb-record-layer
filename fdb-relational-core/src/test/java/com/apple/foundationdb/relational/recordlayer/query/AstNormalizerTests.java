@@ -1342,4 +1342,10 @@ public class AstNormalizerTests {
                 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, functionDdl);
         return normalizer.getQueryCacheKey().getCanonicalQueryString();
     }
+
+    @Test
+    void indexHintIsPartOfTheCanonicalQueryString() throws RelationalException {
+        validate("select * from t1 use index (i1)",
+                "select * from \"T1\" use index ( \"I1\" ) ");
+    }
 }

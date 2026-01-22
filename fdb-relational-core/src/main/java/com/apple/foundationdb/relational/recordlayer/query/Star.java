@@ -73,7 +73,7 @@ public final class Star extends Expression {
         final var newNameMaybe = name.withQualifier(qualifier);
         final var newExpansionMaybe = expansion.stream().map(expression -> expression.withQualifier(qualifier)).collect(ImmutableList.toImmutableList());
         if (!newNameMaybe.equals(name) || !Objects.equals(newExpansionMaybe, expansion)) {
-            return new Star(Optional.of(newNameMaybe), getDataType(), getUnderlyingValue(), newExpansionMaybe);
+            return new Star(Optional.of(newNameMaybe), getDataType(), getUnderlying(), newExpansionMaybe);
         }
         return this;
     }
@@ -118,7 +118,7 @@ public final class Star extends Expression {
         return "* ≍" + (expansion.stream()
                 .flatMap(exp -> exp.getName().stream()))
                 .map(Identifier::toString)
-                .collect(Collectors.joining(",")) + "|" + getDataType() + "| ⇾ " + getUnderlyingValue();
+                .collect(Collectors.joining(",")) + "|" + getDataType() + "| ⇾ " + getUnderlying();
     }
 
     @Nonnull
@@ -169,7 +169,7 @@ public final class Star extends Expression {
         int i = 0;
         for (final var expression : expansion) {
             fields.add(DataType.StructType.Field.from(expression.getName().map(Identifier::toString)
-                    .orElseGet(() -> expression.getUnderlyingValue().toString()), expression.getDataType(), i));
+                    .orElseGet(() -> expression.getUnderlying().toString()), expression.getDataType(), i));
             i++;
         }
         return DataType.StructType.from(name, fields.build(), true);

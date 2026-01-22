@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -31,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -51,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -88,6 +91,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+
+import static com.apple.foundationdb.record.query.plan.cascades.SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES;
 
 /**
  * This class is responsible for performing a number of tasks revolving around semantic checks and resolution. For example,
@@ -334,7 +339,7 @@ public class SemanticAnalyzer {
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.STRUCT, ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "attempt to expand non-struct column %s", qualifier));
         final var expressions = expandStructExpression(expression).nonEphemeral();
-        return Star.overQuantifier(optionalQualifier, expression.getUnderlyingValue(), qualifier.getName(), expressions);
+        return Star.overQuantifier(optionalQualifier, expression.getUnderlying(), qualifier.getName(), expressions);
     }
 
     @Nonnull
@@ -542,8 +547,8 @@ public class SemanticAnalyzer {
                 return Optional.empty();
             }
         }
-        final var fieldPath = FieldValue.resolveFieldPath(existingExpression.getUnderlyingValue().getResultType(), accessors.build());
-        final var attributeExpression = FieldValue.ofFieldsAndFuseIfPossible(existingExpression.getUnderlyingValue(), fieldPath);
+        final var fieldPath = FieldValue.resolveFieldPath(existingExpression.getUnderlying().getResultType(), accessors.build());
+        final var attributeExpression = FieldValue.ofFieldsAndFuseIfPossible(existingExpression.getUnderlying(), fieldPath);
         final var nestedAttribute = new Expression(Optional.of(requestedIdentifier), type, attributeExpression);
         return Optional.of(nestedAttribute);
     }
@@ -694,7 +699,7 @@ public class SemanticAnalyzer {
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.STRUCT, ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "attempt to expand non-struct expression %s", expression));
         final ImmutableList.Builder<Expression> resultBuilder = ImmutableList.builder();
-        final var underlying = expression.getUnderlyingValue();
+        final var underlying = expression.getUnderlying();
         final var type = Assert.castUnchecked(expression.getDataType(), DataType.StructType.class);
         var colCount = 0;
         for (final var field : type.getFields()) {
@@ -711,7 +716,7 @@ public class SemanticAnalyzer {
 
     public void validateInListItems(@Nonnull Expressions inListItems) {
         for (final var inListItem : inListItems) {
-            final var resultType = inListItem.getUnderlyingValue().getResultType();
+            final var resultType = inListItem.getUnderlying().getResultType();
             Assert.thatUnchecked(resultType != Type.NULL, ErrorCode.WRONG_OBJECT_TYPE, "NULL values are not allowed in the IN list");
             Assert.thatUnchecked(!resultType.isUnresolved(), ErrorCode.UNKNOWN_TYPE,  String.format(Locale.ROOT, "Type cannot be determined for element `%s` in the IN list", inListItem));
         }
@@ -719,11 +724,11 @@ public class SemanticAnalyzer {
 
     public static void validateGroupByAggregates(@Nonnull Expressions groupByExpressions) {
         final var nestedAggregates = groupByExpressions.stream()
-                .filter(expression -> expression.getUnderlyingValue() instanceof AggregateValue)
-                .filter(agg -> agg.getUnderlyingValue().preOrderStream().skip(1).anyMatch(c -> c instanceof StreamableAggregateValue || c instanceof IndexableAggregateValue))
+                .filter(expression -> expression.getUnderlying() instanceof AggregateValue)
+                .filter(agg -> agg.getUnderlying().preOrderStream().skip(1).anyMatch(c -> c instanceof StreamableAggregateValue || c instanceof IndexableAggregateValue))
                 .collect(ImmutableSet.toImmutableSet());
         Assert.thatUnchecked(nestedAggregates.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, () -> String.format(Locale.ROOT, "unsupported nested aggregate(s) %s",
-                nestedAggregates.stream().map(ex -> ex.getUnderlyingValue().toString()).collect(Collectors.joining(","))));
+                nestedAggregates.stream().map(ex -> ex.getUnderlying().toString()).collect(Collectors.joining(","))));
     }
 
     /**
@@ -769,7 +774,7 @@ public class SemanticAnalyzer {
     public Type.Array resolveArrayTypeFromValues(@Nonnull Expressions arrayItems) {
         final var arrayItemsTypes = Streams
                 .stream(arrayItems)
-                .map(Expression::getUnderlyingValue)
+                .map(Expression::getUnderlying)
                 .map(Value::getResultType)
                 .collect(ImmutableList.toImmutableList());
         return resolveArrayTypeFromElementTypes(arrayItemsTypes);
@@ -780,9 +785,9 @@ public class SemanticAnalyzer {
                                            @Nonnull AliasMap aliasMap,
                                            @Nonnull Set<CorrelationIdentifier> constantCorrelations) {
         final Correlated.BoundEquivalence<Value> boundEquivalence = new Correlated.BoundEquivalence<>(aliasMap);
-        final var boundParts = Streams.stream(parts).map(Expression::getUnderlyingValue).map(boundEquivalence::wrap)
+        final var boundParts = Streams.stream(parts).map(Expression::getUnderlying).map(boundEquivalence::wrap)
                 .collect(ImmutableSet.toImmutableSet());
-        return isComposableFromInternal(expression.getUnderlyingValue(), boundParts, boundEquivalence, constantCorrelations);
+        return isComposableFromInternal(expression.getUnderlying(), boundParts, boundEquivalence, constantCorrelations);
     }
 
     private static boolean isComposableFromInternal(@Nonnull Value value,
@@ -836,7 +841,7 @@ public class SemanticAnalyzer {
     public static void validateLimit(@Nonnull Expression expression) {
         final long minInclusive = 1;
         final long maxInclusive = Integer.MAX_VALUE;
-        final var underlying = expression.getUnderlyingValue();
+        final var underlying = expression.getUnderlying();
         Assert.thatUnchecked(underlying instanceof LiteralValue<?>);
         final var value = ((LiteralValue<?>) underlying).getLiteralValue();
         Assert.notNullUnchecked(value, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
@@ -884,7 +889,7 @@ public class SemanticAnalyzer {
     public static void validateContinuation(@Nonnull final Expression continuation) {
         // currently, this only validates that the underlying Value is a byte string.
         // in the future, we might add more context-aware checks.
-        final var underlying = continuation.getUnderlyingValue();
+        final var underlying = continuation.getUnderlying();
         Assert.thatUnchecked(underlying instanceof LiteralValue<?>, ErrorCode.INVALID_CONTINUATION,
                 "Unexpected continuation parameter of type %s", underlying.getClass().getSimpleName());
         final var continuationBytes = Assert.castUnchecked(underlying, LiteralValue.class).getLiteralValue();
@@ -929,6 +934,135 @@ public class SemanticAnalyzer {
                 .collect(ImmutableList.toImmutableList());
         final var resultingValue = Assert.castUnchecked(builtInFunction.encapsulate(valueArgs), Value.class);
         return Expression.ofUnnamed(DataTypeUtils.toRelationalType(resultingValue.getResultType()), resultingValue);
+    }
+
+    /**
+     * Resolves a higher-order scalar function using a progressive resolution strategy similar to C++ SFINAE
+     * (Substitution Failure Is Not An Error). This method attempts to resolve function calls where the function
+     * itself may return another function, enabling support for second-order functions in SQL.
+     *
+     * <p>The resolution logic employs a fallback mechanism that tries multiple interpretations when function
+     * resolution fails, allowing flexible function call syntax without ambiguity. This is particularly useful
+     * for functions that can be invoked with varying argument structures (e.g., {@code row_number()} vs
+     * {@code row_number(ef_search: 100)}).
+     *
+     * <p><b>Resolution Strategy:</b>
+     * <ul>
+     *   <li><b>No arguments ({@code arguments.isEmpty()}):</b> Resolves the function with no arguments. If the
+     *       result is a function type (second-order), it encapsulates a parameterless invocation to produce
+     *       the final first-order value.</li>
+     *
+     *   <li><b>Single argument list ({@code arguments.size() == 1}):</b> Attempts to resolve the function with
+     *       the provided argument list. If this fails with {@code UNDEFINED_FUNCTION} or
+     *       {@code FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES}, it re-attempts resolution with an empty
+     *       argument list (treating the function as second-order) and then applies the original arguments
+     *       to the resulting first-order function.</li>
+     *
+     *   <li><b>Two argument lists ({@code arguments.size() == 2}):</b> Resolves the second-order function
+     *       using the first argument list, then applies the second argument list to the resulting first-order
+     *       function. This enables explicit two-stage resolution (e.g., {@code func(config_args)(data_args)}).</li>
+     * </ul>
+     *
+     * <p><b>Limitation to Second-Order Functions:</b>
+     * The implementation currently supports up to second-order functions (functions that return functions that
+     * return values) due to:
+     * <ul>
+     *   <li>The complexity of implementing and reasoning about higher-order function resolution in SQL</li>
+     *   <li>The lack of practical use cases requiring third-order or higher functions in relational query contexts</li>
+     *   <li>The potential for confusing syntax and error messages when dealing with deeper function nesting</li>
+     * </ul>
+     *
+     * <p><b>Example Usage:</b>
+     * <pre>{@code
+     * // Zero-order invocation: row_number() -> resolves second-order function, then encapsulates with no args
+     * resolveHighOrderScalarFunction("row_number", false, List.of())
+     *
+     * // First-order invocation: row_number(ef_search: 100) -> tries direct resolution first
+     * resolveHighOrderScalarFunction("row_number", false, List.of(Expressions.of(...)))
+     *
+     * // Explicit second-order: row_number()(some_args) -> resolves outer, then applies args to inner
+     * resolveHighOrderScalarFunction("row_number", false, List.of(Expressions.empty(), Expressions.of(...)))
+     * }</pre>
+     *
+     * @param functionName the name of the function to resolve
+     * @param flattenSingleItemRecords whether to flatten single-field records in argument processing
+     * @param arguments a list of argument lists, where each element represents a level of function application
+     *                  (empty for no args, single element for one arg list, two elements for explicit second-order)
+     * @return the resolved {@link Expression} representing the fully evaluated function call
+     * @throws UncheckedRelationalException if function resolution fails after all fallback attempts
+     * @throws SemanticException if the function signature doesn't match any known interpretation
+     */
+    @Nonnull
+    public Expression resolveHighOrderScalarFunction(@Nonnull final String functionName, boolean flattenSingleItemRecords,
+                                                     @Nonnull final List<Expressions> arguments) {
+        Assert.thatUnchecked(arguments.size() <= 2, ErrorCode.UNSUPPORTED_OPERATION, "unsupported higher-order function");
+        if (arguments.isEmpty()) {
+            var functionExpression = resolveScalarFunction(functionName, Expressions.empty(), flattenSingleItemRecords);
+            if (functionExpression.getUnderlying().getResultType().isFunction()) {
+                // this is a second-order function, try to encapsulate a parameterless invocation of it.
+                functionExpression = encapsulateValueFunction(functionExpression.getUnderlying(), Expressions.empty(), flattenSingleItemRecords);
+            }
+            return functionExpression;
+        }
+
+        if (arguments.size() == 1) {
+            Expression functionExpression;
+            boolean passArgsToFirstOrderFunction = false;
+            try {
+                // attempt to resolve the function with that list of arguments first.
+                functionExpression = resolveScalarFunction(functionName, arguments.get(0), flattenSingleItemRecords);
+            } catch (UncheckedRelationalException exp) {
+                if (exp.unwrap().getErrorCode().equals(ErrorCode.UNDEFINED_FUNCTION)) {
+                    // re-attempt to resolve the high-order function with an empty list of arguments.
+                    functionExpression = resolveScalarFunction(functionName, Expressions.empty(), flattenSingleItemRecords);
+                    passArgsToFirstOrderFunction = true;
+                } else {
+                    throw exp;
+                }
+            } catch (SemanticException exp) {
+                if (exp.getErrorCode().equals(FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES)) {
+                    // re-attempt to resolve the high-order function with an empty list of arguments.
+                    functionExpression = resolveScalarFunction(functionName, Expressions.empty(), flattenSingleItemRecords);
+                    passArgsToFirstOrderFunction = true;
+                } else {
+                    throw exp;
+                }
+            }
+
+            if (functionExpression.getUnderlying().getResultType().isFunction()) {
+                // the function is second-order, now resolve the first-order function, make sure to not reuse the
+                // provided argument list if it was already used to resolve the second-order function.
+                final var firstOrderArgs = passArgsToFirstOrderFunction ? arguments.get(0) : Expressions.empty();
+                functionExpression = encapsulateValueFunction(functionExpression.getUnderlying(), firstOrderArgs, flattenSingleItemRecords);
+            } else {
+                Assert.thatUnchecked(!passArgsToFirstOrderFunction, ErrorCode.UNDEFINED_FUNCTION, () ->
+                        "could not resolve " + functionName + " with the given list of arguments");
+            }
+            return functionExpression;
+        }
+
+        final var functionExpr = resolveScalarFunction(functionName, arguments.get(0), flattenSingleItemRecords);
+        var functionValue = functionExpr.getUnderlying();
+        Assert.thatUnchecked(functionValue.getResultType().isFunction());
+        final Value.HighOrderValue highOrderValue = Assert.castUnchecked(functionValue, Value.HighOrderValue.class);
+        final List<? extends Typed> valueArgs = StreamSupport.stream(arguments.get(1).underlying().spliterator(), false)
+                    .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
+                    .collect(ImmutableList.toImmutableList());
+        final var highOrderFunctionBuilder = Assert.notNullUnchecked(highOrderValue.evalWithoutStore(EvaluationContext.EMPTY));
+        functionValue = Assert.castUnchecked(highOrderFunctionBuilder.encapsulate(valueArgs), Value.class);
+        Assert.thatUnchecked(!functionValue.getResultType().isFunction());
+        return Expression.ofUnnamed(DataTypeUtils.toRelationalType(functionValue.getResultType()), functionValue);
+    }
+
+    @Nonnull
+    private Expression encapsulateValueFunction(@Nonnull final Value value, @Nonnull final Expressions arguments, boolean flattenSingleItemRecords) {
+        final Value.HighOrderValue highOrderValue = Assert.castUnchecked(value, Value.HighOrderValue.class);
+        final List<? extends Typed> valueArgs = arguments.stream().map(Expression::getUnderlying)
+                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
+                .collect(ImmutableList.toImmutableList());
+        final var firstOrderValue = Assert.castUnchecked(Assert.notNullUnchecked(highOrderValue.evalWithoutStore(EvaluationContext.EMPTY))
+                .encapsulate(valueArgs), Value.class);
+        return Expression.ofUnnamed(DataTypeUtils.toRelationalType(firstOrderValue.getResultType()), firstOrderValue);
     }
 
     private void processFunctionSideEffects(@Nonnull final CatalogedFunction builtInFunction) {

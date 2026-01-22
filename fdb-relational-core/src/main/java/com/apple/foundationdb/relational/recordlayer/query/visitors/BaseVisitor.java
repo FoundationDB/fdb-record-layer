@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.provider.foundationdb.RuntimeOption;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -1533,13 +1532,13 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Iterable<RuntimeOption> visitWindowOptionsClause(final RelationalParser.WindowOptionsClauseContext ctx) {
+    public Expressions visitWindowOptionsClause(final RelationalParser.WindowOptionsClauseContext ctx) {
         return expressionVisitor.visitWindowOptionsClause(ctx);
     }
 
     @Nonnull
     @Override
-    public RuntimeOption visitWindowOption(final RelationalParser.WindowOptionContext ctx) {
+    public Expression visitWindowOption(final RelationalParser.WindowOptionContext ctx) {
         return expressionVisitor.visitWindowOption(ctx);
     }
 

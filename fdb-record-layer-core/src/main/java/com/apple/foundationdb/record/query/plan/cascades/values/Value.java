@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -791,6 +792,19 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                                                 @Nonnull final EvaluationContext context) {
             throw new RecordCoreException("value cannot be evaluated");
         }
+    }
+
+    @API(API.Status.EXPERIMENTAL)
+    interface HighOrderValue extends NonEvaluableValue {
+        @Nonnull
+        @Override
+        default Type getResultType() {
+            return Type.FUNCTION;
+        }
+
+        @Nullable
+        @Override
+        BuiltInFunction<? extends Value> evalWithoutStore(@Nonnull EvaluationContext context);
     }
 
     /**

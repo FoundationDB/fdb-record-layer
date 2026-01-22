@@ -85,7 +85,7 @@ public final class OrderByExpression {
                                 Stream.of(orderBy))
                 .map(orderBy -> {
                     final var orderByExpression = orderBy.getExpression();
-                    final var underlying = orderByExpression.getUnderlyingValue();
+                    final var underlying = orderByExpression.getUnderlying();
                     final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
                             subExpression -> {
                                 final var pulledUpExpressionMap =
@@ -122,7 +122,7 @@ public final class OrderByExpression {
                                                                              @Nonnull CorrelationIdentifier rebaseTarget) {
         final var aliasMap = AliasMap.ofAliases(rebaseSource, rebaseTarget);
         return orderBys.map(orderBy -> {
-            final var rebased = orderBy.getExpression().getUnderlyingValue().rebase(aliasMap);
+            final var rebased = orderBy.getExpression().getUnderlying().rebase(aliasMap);
             final var sortOrder = orderBy.toSortOrder();
             return new OrderingPart.RequestedOrderingPart(rebased, sortOrder);
         });

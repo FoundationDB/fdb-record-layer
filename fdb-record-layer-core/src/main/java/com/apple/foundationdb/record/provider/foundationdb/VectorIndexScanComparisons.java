@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -322,20 +321,13 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
             prefixScanComparisons = ScanComparisons.EMPTY;
         }
 
-        final var runtimeOptions = distanceRankValueComparison.getRuntimeOptions();
         final var vectorIndexScanOptionsBuilder = VectorIndexScanOptions.builder();
-        runtimeOptions.getOptions().forEach(runtimeOption -> {
-            final var value = runtimeOption.getValue().evalWithoutStore(EvaluationContext.empty());
-            if (runtimeOption.getName().equals(HNSW_EF_SEARCH.getOptionName())) {
-                Verify.verify(value instanceof Integer);
-                vectorIndexScanOptionsBuilder.putOption(HNSW_EF_SEARCH, (Integer)value);
-            }
-            if (runtimeOption.getName().equals(HNSW_RETURN_VECTORS.getOptionName())) {
-                Verify.verify(value instanceof Boolean);
-                vectorIndexScanOptionsBuilder.putOption(HNSW_RETURN_VECTORS, (Boolean)value);
-            }
-        });
-
+        if (distanceRankValueComparison.isReturningVectors() != null) {
+            vectorIndexScanOptionsBuilder.putOption(HNSW_RETURN_VECTORS, distanceRankValueComparison.isReturningVectors());
+        }
+        if (distanceRankValueComparison.getEfSearch() != null) {
+            vectorIndexScanOptionsBuilder.putOption(HNSW_EF_SEARCH, distanceRankValueComparison.getEfSearch());
+        }
         return byDistance(prefixScanComparisons, distanceRankValueComparison, vectorIndexScanOptionsBuilder.build());
     }
 

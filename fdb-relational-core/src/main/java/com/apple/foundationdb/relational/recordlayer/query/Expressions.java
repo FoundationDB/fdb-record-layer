@@ -100,7 +100,7 @@ public final class Expressions implements Iterable<Expression> {
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
         final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         for (final var expression : this) {
-            final var underlying = expression.getUnderlyingValue();
+            final var underlying = expression.getUnderlying();
             final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
                     subExpression -> {
                         final var pulledUpExpressionMap =
@@ -212,7 +212,7 @@ public final class Expressions implements Iterable<Expression> {
 
     @Nonnull
     public Iterable<Value> underlying() {
-        return Streams.stream(this).map(Expression::getUnderlyingValue).collect(ImmutableList.toImmutableList());
+        return Streams.stream(this).map(Expression::getUnderlying).collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull
@@ -235,7 +235,7 @@ public final class Expressions implements Iterable<Expression> {
                     Optional<String> maybeName = expression.getName()
                             .map(Identifier::getName)
                             .map(name -> countsByName.getOrDefault(name, 1) < 2 ? name : null);
-                    return Column.of(maybeName, expression.getUnderlyingValue());
+                    return Column.of(maybeName, expression.getUnderlying());
                 })
                 .collect(ImmutableList.toImmutableList());
     }
@@ -278,7 +278,7 @@ public final class Expressions implements Iterable<Expression> {
         for (final var argument : this) {
             final var argumentName = argument.getName();
             Verify.verify(argumentName.isPresent());
-            resultBuilder.put(argumentName.get().toString(), argument.getUnderlyingValue());
+            resultBuilder.put(argumentName.get().toString(), argument.getUnderlying());
         }
         return resultBuilder.build();
     }

@@ -254,7 +254,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             if (groupByExpressions.isEmpty() && !getDelegate().isForDdl()) {
                 selectExpressions = LogicalOperator.adjustCountOnEmpty(selectExpressions);
             }
-            selectExpressions = selectExpressions.dereferenced(literals).expanded().pullUp(Expression.ofUnnamed(groupBy.getQuantifier().getRangesOver().get().getResultValue()).dereferenced(literals).getSingleItem().getUnderlyingValue(), groupBy.getQuantifier().getAlias(), outerCorrelations).clearQualifier();
+            selectExpressions = selectExpressions.dereferenced(literals).expanded().pullUp(Expression.ofUnnamed(groupBy.getQuantifier().getRangesOver().get().getResultValue()).dereferenced(literals).getSingleItem().getUnderlying(), groupBy.getQuantifier().getAlias(), outerCorrelations).clearQualifier();
             final var finalOuterCorrelation = outerCorrelations;
             where = where.map(predicate -> predicate.pullUp(groupBy.getQuantifier().getRangesOver().get().getResultValue(), groupBy.getQuantifier().getAlias(), finalOuterCorrelation));
             if (simpleTableContext.orderByClause() != null) {
@@ -369,8 +369,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             Type type = null;
             for (final var inlineTableContext : inlineTableItemContext.recordConstructorForInlineTable()) {
                 final var rowExpression = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->  visitRecordConstructorForInlineTable(inlineTableContext));
-                type = type == null ? rowExpression.getUnderlyingValue().getResultType()
-                        : Type.maximumType(type, rowExpression.getUnderlyingValue().getResultType());
+                type = type == null ? rowExpression.getUnderlying().getResultType()
+                        : Type.maximumType(type, rowExpression.getUnderlying().getResultType());
             }
             final var actualInlineTableType = type;
             final var inlineTypedWithNames = TypeUtils.setFieldNames(actualInlineTableType, typeMaybe.getRight());
@@ -386,7 +386,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         final var arguments = Expressions.of(rowExpressionBuilder.build()).asList().toArray(new Expression[0]);
         final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", false, arguments);
-        final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlyingValue());
+        final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlying());
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
         var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
         return typeMaybe == null
@@ -468,7 +468,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         final var arguments = Expressions.of(insertTuples.build()).asList().toArray(new Expression[0]);
         final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", false, arguments);
-        final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlyingValue());
+        final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlying());
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
         return LogicalOperator.newUnnamedOperator(Expressions.ofSingle(arrayOfTuples), resultingQuantifier);
     }
@@ -495,8 +495,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final ImmutableMap.Builder<FieldValue.FieldPath, Value> transformMapBuilder = ImmutableMap.builder();
         for (final RelationalParser.UpdatedElementContext updatedElementCtx : ctx.updatedElement()) {
             final List<Expression> targetAndUpdateExpressions = visitUpdatedElement(updatedElementCtx).asList();
-            final FieldValue.FieldPath target = Assert.castUnchecked(targetAndUpdateExpressions.get(0).getUnderlyingValue(), FieldValue.class).getFieldPath();
-            final Value update = targetAndUpdateExpressions.get(1).getUnderlyingValue();
+            final FieldValue.FieldPath target = Assert.castUnchecked(targetAndUpdateExpressions.get(0).getUnderlying(), FieldValue.class).getFieldPath();
+            final Value update = targetAndUpdateExpressions.get(1).getUnderlying();
             transformMapBuilder.put(target, update);
         }
 

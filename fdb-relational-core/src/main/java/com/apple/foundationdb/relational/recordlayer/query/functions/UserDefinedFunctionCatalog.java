@@ -77,12 +77,12 @@ final class UserDefinedFunctionCatalog {
                 Assert.thatUnchecked(countUnnamed == 0, ErrorCode.UNSUPPORTED_OPERATION,
                         "mixing named and unnamed arguments is not supported");
                 countNamed++;
-                namedArgumentsBuilder.put(argument.getName().get().toString(), argument.getUnderlyingValue());
+                namedArgumentsBuilder.put(argument.getName().get().toString(), argument.getUnderlying());
             } else {
                 Assert.thatUnchecked(countNamed == 0, ErrorCode.UNSUPPORTED_OPERATION,
                         "mixing named and unnamed arguments is not supported");
                 countUnnamed++;
-                unnamedArgumentsBuilder.add(argument.getUnderlyingValue());
+                unnamedArgumentsBuilder.add(argument.getUnderlying());
             }
         }
         final var namedArguments = namedArgumentsBuilder.build();

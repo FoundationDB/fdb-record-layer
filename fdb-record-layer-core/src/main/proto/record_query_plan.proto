@@ -53,6 +53,7 @@ message PType {
     NONE = 16;
     UUID = 17;
     VECTOR = 18;
+    FUNCTION = 19;
   }
 
   message PPrimitiveType {
@@ -123,6 +124,10 @@ message PType {
     optional PType element_type = 3;
   }
 
+  message PFunctionType {
+    // nothing
+  }
+
   oneof specific_type {
     PPrimitiveType primitive_type = 1;
     PNullType null_type = 2;
@@ -135,6 +140,7 @@ message PType {
     PAnyRecordType any_record_type = 9;
     PUuidType uuid_type = 10;
     PVectorType vector_type = 11;
+    PFunctionType function_type = 12;
   }
 }
 
@@ -272,6 +278,7 @@ message PValue {
     PRowNumberValue row_number_value = 55;
     PEuclideanDistanceRank euclidean_distance_rank = 56;
     PCosineDistanceRank cosine_distance_rank = 57;
+    PRowNumberHighOrderValue row_number_high_order_value = 58;
   }
 }
 
@@ -689,9 +696,15 @@ message PRecordTypeValue {
   optional PValue in = 2;
 }
 
+message PRowNumberHighOrderValue {
+  optional int32 efSearch = 2;
+  optional bool isReturningVectors = 3;
+}
+
 message PRowNumberValue {
   optional PWindowedValue super = 1;
-  repeated PRuntimeOption runtime_options = 2;
+  optional int32 efSearch = 2;
+  optional bool isReturningVectors = 3;
 }
 
 message PRelOpValue {
@@ -1512,7 +1525,8 @@ message PRecordTypeComparison {
 message PDistanceRankValueComparison {
   optional PValueComparison super = 1;
   optional PValue limitValue = 2;
-  repeated PRuntimeOption runtime_options = 3;
+  optional int32 efSearch = 3;
+  optional bool isReturningVectors = 4;
 }
 
 //
