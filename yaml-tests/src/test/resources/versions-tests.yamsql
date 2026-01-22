@@ -213,6 +213,72 @@ test_block:
            { {ID: 5, COL1: 10, COL2: 5} },
         ]
     -
+      # Do include __ROW_VERSION (as a real column) when querying the table function
+      - query: select t1_v.* from t1_v(10);
+      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - result: [{'__ROW_VERSION': !not_null _, ID: 1, COL1: 10, COL2: 1}, {'__ROW_VERSION': !not_null _, ID: 2, COL1: 10,  COL2: 2}, {'__ROW_VERSION': !not_null _, ID: 3, COL1: 10, COL2: 3}, {'__ROW_VERSION': !not_null _, ID: 4, COL1: 10, COL2: 4}, {'__ROW_VERSION': !not_null _, ID: 5, COL1: 10, COL2: 5}]
+    -
+      # Get version column from sub-select
+      - query: select s.version, s.col2 from (select "__ROW_VERSION" as version, t1.col2 as col2 from t1 where col1 = 10) AS s;
+      - explain: "ISCAN(I1 [EQUALS promote(@c26 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)"
+      - result: [{VERSION: !not_null _, COL2: 1}, {VERSION: !not_null _, COL2: 2}, {VERSION: !not_null _, COL2: 3}, {VERSION: !not_null _, COL2: 4}, {VERSION: !not_null _, COL2: 5}]
+    -
+      # In inner select, the pseudo-column is selected but not renamed. Then, in the outer select, the column is read and returned, and a new version(S) value is *not* created
+      - query: select s."__ROW_VERSION", s.col2 from (select "__ROW_VERSION", t1.col2 from t1 where col1 = 10) AS s;
+      - explain: "ISCAN(I1 [EQUALS promote(@c22 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.COL2 AS COL2)"
+      - result: [{__ROW_VERSION: !not_null _, COL2: 1}, {__ROW_VERSION: !not_null _, COL2: 2}, {__ROW_VERSION: !not_null _, COL2: 3}, {__ROW_VERSION: !not_null _, COL2: 4}, {__ROW_VERSION: !not_null _, COL2: 5}]
+    -
+      # Get version column with subselect over a TVF
+      - query: select s.version, s.col2 from (select "__ROW_VERSION" as version, t1_v.col2 as col2 from t1_v(10)) AS s;
+      - explain: "ISCAN(I1 [EQUALS promote(@c24 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)"
+      - result: [{VERSION: !not_null _, COL2: 1}, {VERSION: !not_null _, COL2: 2}, {VERSION: !not_null _, COL2: 3}, {VERSION: !not_null _, COL2: 4}, {VERSION: !not_null _, COL2: 5}]
+    -
+      - query: select "__ROW_VERSION" as version, t1.* from t1 where col1 = 20;
+      - explain: "ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - result: [{VERSION: !not_null _, ID: 6, COL1: 20, COL2: 6}, {VERSION: !not_null _, ID: 7, COL1: 20, COL2: 7}, {VERSION: !not_null _, ID: 8, COL1: 20, COL2: 8}, {VERSION: !not_null _, ID: 9, COL1: 20, COL2: 9}, {VERSION: !not_null _, ID: 10, COL1: 20, COL2: 10}, {VERSION: !not_null _, ID: 11, COL1: 20, COL2: 11}, {VERSION: !not_null _, ID: 12, COL1: 20, COL2: 12}, {VERSION: !not_null _, ID: 13, COL1: 20, COL2: 13}]
+    -
+      - query: select "__ROW_VERSION" as version, (t1.*) from t1 where col1 = 20;
+      - explain: "ISCAN(I1 [EQUALS promote(@c16 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS _1)"
+      - result: [{VERSION: !not_null _, {ID: 6, COL1: 20, COL2: 6}}, {VERSION: !not_null _, {ID: 7, COL1: 20, COL2: 7}}, {VERSION: !not_null _, {ID: 8, COL1: 20, COL2: 8}}, {VERSION: !not_null _, {ID: 9, COL1: 20, COL2: 9}}, {VERSION: !not_null _, {ID: 10, COL1: 20, COL2: 10}}, {VERSION: !not_null _, {ID: 11, COL1: 20, COL2: 11}}, {VERSION: !not_null _, {ID: 12, COL1: 20, COL2: 12}}, {VERSION: !not_null _, {ID: 13, COL1: 20, COL2: 13}}]
+    -
+      - query: select "__ROW_VERSION", t1.* from t1 where col1 = 20;
+      - explain: "ISCAN(I1 [EQUALS promote(@c12 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - result: [{__ROW_VERSION: !not_null _, ID: 6, COL1: 20, COL2: 6}, {__ROW_VERSION: !not_null _, ID: 7, COL1: 20, COL2: 7}, {__ROW_VERSION: !not_null _, ID: 8, COL1: 20, COL2: 8}, {__ROW_VERSION: !not_null _, ID: 9, COL1: 20, COL2: 9}, {__ROW_VERSION: !not_null _, ID: 10, COL1: 20, COL2: 10}, {__ROW_VERSION: !not_null _, ID: 11, COL1: 20, COL2: 11}, {__ROW_VERSION: !not_null _, ID: 12, COL1: 20, COL2: 12}, {__ROW_VERSION: !not_null _, ID: 13, COL1: 20, COL2: 13}]
+    -
+      - query: select "__ROW_VERSION", (t1.*) from t1 where col1 = 20;
+      - explain: "ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS _1)"
+      - result: [{__ROW_VERSION: !not_null _, {ID: 6, COL1: 20, COL2: 6}}, {__ROW_VERSION: !not_null _, {ID: 7, COL1: 20, COL2: 7}}, {__ROW_VERSION: !not_null _, {ID: 8, COL1: 20, COL2: 8}}, {__ROW_VERSION: !not_null _, {ID: 9, COL1: 20, COL2: 9}}, {__ROW_VERSION: !not_null _, {ID: 10, COL1: 20, COL2: 10}}, {__ROW_VERSION: !not_null _, {ID: 11, COL1: 20, COL2: 11}}, {__ROW_VERSION: !not_null _, {ID: 12, COL1: 20, COL2: 12}}, {__ROW_VERSION: !not_null _, {ID: 13, COL1: 20, COL2: 13}}]
+    -
+      # Select all columns including the row-version at the end, which matches how the pseudo-field is added in internally
+      - query: select t1.id, t1.col1, t1.col2, t1."__ROW_VERSION" from t1 where col1 = 20;
+      - explain: "ISCAN(I1 [EQUALS promote(@c22 AS LONG)])"
+      - result: [{ID: 6, COL1: 20, COL2: 6, '__ROW_VERSION': !not_null _}, {ID: 7, COL1: 20, COL2: 7, '__ROW_VERSION': !not_null _ }, {ID: 8, COL1: 20, COL2: 8, '__ROW_VERSION': !not_null _ }, {ID: 9, COL1: 20, COL2: 9, '__ROW_VERSION': !not_null _ }, {ID: 10, COL1: 20, COL2: 10, '__ROW_VERSION': !not_null _ }, {ID: 11, COL1: 20, COL2: 11, '__ROW_VERSION': !not_null _ }, {ID: 12, COL1: 20, COL2: 12, '__ROW_VERSION': !not_null _ }, {ID: 13, COL1: 20, COL2: 13, '__ROW_VERSION': !not_null _ }]
+    -
+      - query: select "__ROW_VERSION", t1.id from t1 order by "__ROW_VERSION" ASC;
+      - explain: "ISCAN(T1_VERSION_INDEX <,>) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)"
+      - result: [{__ROW_VERSION: !not_null _, ID: 1}, {__ROW_VERSION: !not_null _, ID: 3}, {__ROW_VERSION: !not_null _, ID: 5}, {__ROW_VERSION: !not_null _, ID: 7}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 2}, {__ROW_VERSION: !not_null _, ID: 4}, {__ROW_VERSION: !not_null _, ID: 6}, {__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 12}]
+    -
+      - query: select t1."__ROW_VERSION", t1.id from t1 order by "__ROW_VERSION" DESC;
+      - explain: "ISCAN(T1_VERSION_INDEX <,> REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)"
+      - result: [{__ROW_VERSION: !not_null _, ID: 12}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 6}, {__ROW_VERSION: !not_null _, ID: 4}, {__ROW_VERSION: !not_null _, ID: 2}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 7}, {__ROW_VERSION: !not_null _, ID: 5}, {__ROW_VERSION: !not_null _, ID: 3}, {__ROW_VERSION: !not_null _, ID: 1}]
+    -
+      - query: select t1."__ROW_VERSION", t1.id from t1 where col1 = 20 order by "__ROW_VERSION" ASC;
+      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c14 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)"
+      - result: [{__ROW_VERSION: !not_null _, ID: 7}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 6}, {__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 12}]
+    -
+      - query: select t1_v."__ROW_VERSION", t1_v.id from t1_v(20) order by "__ROW_VERSION" ASC;
+      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c12 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)"
+      - result: [{__ROW_VERSION: !not_null _, ID: 7}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 6}, {__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 12}]
+    -
+      - query: select "__ROW_VERSION", t1.id from t1 where col1 = 20 order by "__ROW_VERSION" DESC;
+      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c12 AS LONG)] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)"
+      - result: [{__ROW_VERSION: !not_null _, ID: 12}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 6}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 7}]
+    -
+      - query: select t1."__ROW_VERSION", t1.id from t1 where col1 = 20 order by t1."__ROW_VERSION" ASC;
+      - maxRows: 5
+      - result: [{__ROW_VERSION: !not_null _, ID: 7}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 6}]
+      - result: [{__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 12}]
+    -
       # Simple star select ordered by newest first. The row version is not projected
       - query: select * from t1 where col1 = 10 order by "__ROW_VERSION" desc;
       - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c8 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
@@ -278,73 +344,6 @@ test_block:
            { { '__ROW_VERSION': !not_null _, { ID: 3, COL1: 10, COL2: 3 }, }, },
            { { '__ROW_VERSION': !not_null _, { ID: 1, COL1: 10, COL2: 1 }, }, },
         ]
-    -
-      # Do include __ROW_VERSION (as a real column) when querying the table function
-      - query: select t1_v.* from t1_v(10);
-      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
-      - result: [{'__ROW_VERSION': !not_null _, ID: 1, COL1: 10, COL2: 1}, {'__ROW_VERSION': !not_null _, ID: 2, COL1: 10,  COL2: 2}, {'__ROW_VERSION': !not_null _, ID: 3, COL1: 10, COL2: 3}, {'__ROW_VERSION': !not_null _, ID: 4, COL1: 10, COL2: 4}, {'__ROW_VERSION': !not_null _, ID: 5, COL1: 10, COL2: 5}]
-    -
-      # Get version column from sub-select
-      - query: select s.version, s.col2 from (select "__ROW_VERSION" as version, t1.col2 as col2 from t1 where col1 = 10) AS s;
-      - explain: "ISCAN(I1 [EQUALS promote(@c26 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)"
-      - result: [{VERSION: !not_null _, COL2: 1}, {VERSION: !not_null _, COL2: 2}, {VERSION: !not_null _, COL2: 3}, {VERSION: !not_null _, COL2: 4}, {VERSION: !not_null _, COL2: 5}]
-    -
-      # In inner select, the pseudo-column is selected but not renamed. Then, in the outer select, the column is read and returned, and a new version(S) value is *not* created
-      - query: select s."__ROW_VERSION", s.col2 from (select "__ROW_VERSION", t1.col2 from t1 where col1 = 10) AS s;
-      - explain: "ISCAN(I1 [EQUALS promote(@c22 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.COL2 AS COL2)"
-      - result: [{__ROW_VERSION: !not_null _, COL2: 1}, {__ROW_VERSION: !not_null _, COL2: 2}, {__ROW_VERSION: !not_null _, COL2: 3}, {__ROW_VERSION: !not_null _, COL2: 4}, {__ROW_VERSION: !not_null _, COL2: 5}]
-    -
-      # Get version column with subselect over a TVF
-      - query: select s.version, s.col2 from (select "__ROW_VERSION" as version, t1_v.col2 as col2 from t1_v(10)) AS s;
-      - explain: "ISCAN(I1 [EQUALS promote(@c24 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)"
-      - result: [{VERSION: !not_null _, COL2: 1}, {VERSION: !not_null _, COL2: 2}, {VERSION: !not_null _, COL2: 3}, {VERSION: !not_null _, COL2: 4}, {VERSION: !not_null _, COL2: 5}]
-    -
-      - query: select "__ROW_VERSION" as version, t1.* from t1 where col1 = 20;
-      - explain: "ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
-      - result: [{VERSION: !not_null _, ID: 6, COL1: 20, COL2: 6}, {VERSION: !not_null _, ID: 7, COL1: 20, COL2: 7}, {VERSION: !not_null _, ID: 8, COL1: 20, COL2: 8}, {VERSION: !not_null _, ID: 9, COL1: 20, COL2: 9}, {VERSION: !not_null _, ID: 10, COL1: 20, COL2: 10}, {VERSION: !not_null _, ID: 11, COL1: 20, COL2: 11}, {VERSION: !not_null _, ID: 12, COL1: 20, COL2: 12}, {VERSION: !not_null _, ID: 13, COL1: 20, COL2: 13}]
-    -
-      - query: select "__ROW_VERSION" as version, (t1.*) from t1 where col1 = 20;
-      - explain: "ISCAN(I1 [EQUALS promote(@c16 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS _1)"
-      - result: [{VERSION: !not_null _, {ID: 6, COL1: 20, COL2: 6}}, {VERSION: !not_null _, {ID: 7, COL1: 20, COL2: 7}}, {VERSION: !not_null _, {ID: 8, COL1: 20, COL2: 8}}, {VERSION: !not_null _, {ID: 9, COL1: 20, COL2: 9}}, {VERSION: !not_null _, {ID: 10, COL1: 20, COL2: 10}}, {VERSION: !not_null _, {ID: 11, COL1: 20, COL2: 11}}, {VERSION: !not_null _, {ID: 12, COL1: 20, COL2: 12}}, {VERSION: !not_null _, {ID: 13, COL1: 20, COL2: 13}}]
-    -
-      - query: select "__ROW_VERSION", t1.* from t1 where col1 = 20;
-      - explain: "ISCAN(I1 [EQUALS promote(@c12 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
-      - result: [{__ROW_VERSION: !not_null _, ID: 6, COL1: 20, COL2: 6}, {__ROW_VERSION: !not_null _, ID: 7, COL1: 20, COL2: 7}, {__ROW_VERSION: !not_null _, ID: 8, COL1: 20, COL2: 8}, {__ROW_VERSION: !not_null _, ID: 9, COL1: 20, COL2: 9}, {__ROW_VERSION: !not_null _, ID: 10, COL1: 20, COL2: 10}, {__ROW_VERSION: !not_null _, ID: 11, COL1: 20, COL2: 11}, {__ROW_VERSION: !not_null _, ID: 12, COL1: 20, COL2: 12}, {__ROW_VERSION: !not_null _, ID: 13, COL1: 20, COL2: 13}]
-    -
-      - query: select "__ROW_VERSION", (t1.*) from t1 where col1 = 20;
-      - explain: "ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS _1)"
-      - result: [{__ROW_VERSION: !not_null _, {ID: 6, COL1: 20, COL2: 6}}, {__ROW_VERSION: !not_null _, {ID: 7, COL1: 20, COL2: 7}}, {__ROW_VERSION: !not_null _, {ID: 8, COL1: 20, COL2: 8}}, {__ROW_VERSION: !not_null _, {ID: 9, COL1: 20, COL2: 9}}, {__ROW_VERSION: !not_null _, {ID: 10, COL1: 20, COL2: 10}}, {__ROW_VERSION: !not_null _, {ID: 11, COL1: 20, COL2: 11}}, {__ROW_VERSION: !not_null _, {ID: 12, COL1: 20, COL2: 12}}, {__ROW_VERSION: !not_null _, {ID: 13, COL1: 20, COL2: 13}}]
-    -
-      # Select all columns including the row-version at the end, which matches how the pseudo-field is added in internally
-      - query: select t1.id, t1.col1, t1.col2, t1."__ROW_VERSION" from t1 where col1 = 20;
-      - explain: "ISCAN(I1 [EQUALS promote(@c22 AS LONG)])"
-      - result: [{ID: 6, COL1: 20, COL2: 6, '__ROW_VERSION': !not_null _}, {ID: 7, COL1: 20, COL2: 7, '__ROW_VERSION': !not_null _ }, {ID: 8, COL1: 20, COL2: 8, '__ROW_VERSION': !not_null _ }, {ID: 9, COL1: 20, COL2: 9, '__ROW_VERSION': !not_null _ }, {ID: 10, COL1: 20, COL2: 10, '__ROW_VERSION': !not_null _ }, {ID: 11, COL1: 20, COL2: 11, '__ROW_VERSION': !not_null _ }, {ID: 12, COL1: 20, COL2: 12, '__ROW_VERSION': !not_null _ }, {ID: 13, COL1: 20, COL2: 13, '__ROW_VERSION': !not_null _ }]
-    -
-      - query: select "__ROW_VERSION", t1.id from t1 order by "__ROW_VERSION" ASC;
-      - debugger: repl
-      - explain: "ISCAN(T1_VERSION_INDEX <,>) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)"
-      - result: [{__ROW_VERSION: !not_null _, ID: 1}, {__ROW_VERSION: !not_null _, ID: 3}, {__ROW_VERSION: !not_null _, ID: 5}, {__ROW_VERSION: !not_null _, ID: 7}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 2}, {__ROW_VERSION: !not_null _, ID: 4}, {__ROW_VERSION: !not_null _, ID: 6}, {__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 12}]
-    -
-      - query: select t1."__ROW_VERSION", t1.id from t1 order by "__ROW_VERSION" DESC;
-      - explain: "ISCAN(T1_VERSION_INDEX <,> REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)"
-      - result: [{__ROW_VERSION: !not_null _, ID: 12}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 6}, {__ROW_VERSION: !not_null _, ID: 4}, {__ROW_VERSION: !not_null _, ID: 2}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 7}, {__ROW_VERSION: !not_null _, ID: 5}, {__ROW_VERSION: !not_null _, ID: 3}, {__ROW_VERSION: !not_null _, ID: 1}]
-    -
-      - query: select t1."__ROW_VERSION", t1.id from t1 where col1 = 20 order by "__ROW_VERSION" ASC;
-      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c14 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)"
-      - result: [{__ROW_VERSION: !not_null _, ID: 7}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 6}, {__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 12}]
-    -
-      - query: select t1_v."__ROW_VERSION", t1_v.id from t1_v(20) order by "__ROW_VERSION" ASC;
-      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c12 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)"
-      - result: [{__ROW_VERSION: !not_null _, ID: 7}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 6}, {__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 12}]
-    -
-      - query: select "__ROW_VERSION", t1.id from t1 where col1 = 20 order by "__ROW_VERSION" DESC;
-      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c12 AS LONG)] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID)"
-      - result: [{__ROW_VERSION: !not_null _, ID: 12}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 6}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 7}]
-    -
-      - query: select t1."__ROW_VERSION", t1.id from t1 where col1 = 20 order by t1."__ROW_VERSION" ASC;
-      - maxRows: 5
-      - result: [{__ROW_VERSION: !not_null _, ID: 7}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 6}]
-      - result: [{__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 12}]
 #    -
 #      # Need to have a solution for casting versions as query arguments for this one
 #      - query: select "__ROW_VERSION", col1, t1.id from t1 where col1 = 10 and "__ROW_VERSION" > 'AAAAAAAAAAAAAAAA' order by col1 asc, "__ROW_VERSION" asc;
@@ -435,6 +434,8 @@ test_block:
                  where a.col2 = b.col1
       - explain: "ISCAN(I1 <,>) | FLATMAP q0 -> { ISCAN(T1_COL2 <,>) | FILTER q0.COL2 EQUALS _.COL1 AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _1, (q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS _2) }"
       - initialVersionLessThan: !current_version
+      # Prior to !current_version, we did not keep track of which quantifiers actually had the version, so this would default to
+      # assuming that the row version column was ambiguous
       - error: '42702'
       - initialVersionAtLeast: !current_version
       - unorderedResult: [
@@ -600,6 +601,9 @@ test_block:
            and t2."__ROW_VERSION" > t3."__ROW_VERSION"
       - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { ISCAN(T1_COL2 [EQUALS promote(@c22 AS STRING)]) | FILTER q0.COL1 EQUALS promote(@c22 AS STRING) AND _.__ROW_VERSION GREATER_THAN q0.__ROW_VERSION AS q1 RETURN ((q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS _0, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _1) }"
       - initialVersionLessThan: !current_version
+      # Prior to !current_version, the two row version predicates would be transformed incorrectly so that they were
+      # evaluated twice on the same record (i.e., `version([_]) > version([_])`) which is a contradiction, so we
+      # would not get any results.
       - result: []
       - initialVersionAtLeast: !current_version
       - result: [
