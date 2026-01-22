@@ -201,18 +201,23 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Get the current incarnation of the store.
+     * <p>
      * The incarnation is intended to be incremented when moving data from one cluster to another.
      * By combining the incarnation with version information in indexes, you can maintain proper ordering
-     * of modifications even when data is moved between clusters with different version stamps.
+     * of modifications even when data is moved between clusters with different versions.
+     * </p>
      * @return the current incarnation value, or 0 if not set
      */
     int getIncarnation();
 
     /**
      * Update the incarnation of the store.
+     * <p>
      * The incarnation is intended to be incremented when moving data from one cluster to another.
      * This should typically be called before moving data to ensure proper version ordering across clusters.
-     * @param updater a function that takes the current incarnation value and returns the new value (must be non-negative)
+     * </p>
+     * @param updater a function that takes the current incarnation value and returns the new value
+     * (must not be less than the current value)
      * @return a future that updates this incarnation
      * @throws RecordCoreException if the updated incarnation is less than the current one
      */

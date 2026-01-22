@@ -114,7 +114,6 @@ public class FDBTypedRecordStoreTest {
         }
     }
 
-
     @Test
     void testIncrementIncarnation() {
         try (FDBRecordContext context = fdb.openContext()) {
