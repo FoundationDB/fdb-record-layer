@@ -208,6 +208,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * </p>
      * @return the current incarnation value, or 0 if not set
      */
+    @API(API.Status.EXPERIMENTAL)
     int getIncarnation();
 
     /**
@@ -221,6 +222,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a future that updates this incarnation
      * @throws RecordCoreException if the updated incarnation is less than the current one
      */
+    @API(API.Status.EXPERIMENTAL)
     CompletableFuture<Void> updateIncarnation(@Nonnull IntFunction<Integer> updater);
 
     /**
