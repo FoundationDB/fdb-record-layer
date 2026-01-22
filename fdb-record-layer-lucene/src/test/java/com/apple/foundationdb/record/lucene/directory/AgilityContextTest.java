@@ -40,10 +40,12 @@ import com.apple.test.Tags;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
@@ -69,6 +71,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 @Tag(Tags.RequiresFDB)
 class AgilityContextTest extends FDBRecordStoreTestBase {
+    enum AgilityContextType { AGILE, NON_AGILE, READ_ONLY }
+
     int loopCount = 20;
     int threadCount = 5; // if exceeds a certain size, may cause an execution pool deadlock
     final String prefix = RandomUtil.randomByteString(ThreadLocalRandom.current(), 100).toString();
@@ -83,9 +87,17 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         return AgilityContext.agile(callerContext, timeQuotaMillis, sizeQuotaBytes);
     }
 
-    private AgilityContext getAgilityContext(FDBRecordContext callerContext, boolean useAgileContext) {
-        return useAgileContext ?
-               getAgilityContextAgileProp(callerContext) : AgilityContext.nonAgile(callerContext);
+    private AgilityContext getAgilityContext(FDBRecordContext callerContext, AgilityContextType type) {
+        switch (type) {
+            case AGILE:
+                return getAgilityContextAgileProp(callerContext);
+            case NON_AGILE:
+                return AgilityContext.nonAgile(callerContext);
+            case READ_ONLY:
+                return AgilityContext.readOnlyNonAgile(callerContext, null);
+            default:
+                throw new IllegalArgumentException("Unknown context type: " + type);
+        }
     }
 
     void testAgilityContextConcurrentSingleObject(final AgilityContext agilityContext, boolean doFlush) throws ExecutionException, InterruptedException {
@@ -126,7 +138,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     private void assertLoopThreadsValues() {
         try (FDBRecordContext context = fdb.openContext()) {
             for (int loop = 0; loop < loopCount; loop++) {
-                final AgilityContext agilityContext = getAgilityContext(context, false);
+                final AgilityContext agilityContext = getAgilityContext(context, AgilityContextType.NON_AGILE);
                 for (int i = 0; i < threadCount; i++) {
                     byte[] key = Tuple.from(500, loop, i).pack();
                     final byte[] bytes = agilityContext.get(key).join();
@@ -140,10 +152,11 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     }
 
     @ParameterizedTest
-    @BooleanSource
-    void testAgilityContextConcurrent(boolean useAgile)  throws ExecutionException, InterruptedException {
+    @EnumSource
+    void testAgilityContextConcurrent(AgilityContextType contextType) throws ExecutionException, InterruptedException {
+        Assumptions.assumeFalse(contextType.equals(AgilityContextType.READ_ONLY)); // This test flushes the context, not applicable for READ_ONLY
         try (FDBRecordContext context = fdb.openContext()) {
-            final AgilityContext agilityContext = getAgilityContext(context, useAgile);
+            final AgilityContext agilityContext = getAgilityContext(context, contextType);
             testAgilityContextConcurrentSingleObject(agilityContext, true);
             context.commit();
         }
@@ -151,16 +164,19 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     }
 
     @ParameterizedTest
-    @BooleanSource
-    void testAgilityContextConcurrentNonExplicitCommits(boolean useAgile) throws ExecutionException, InterruptedException {
+    @EnumSource
+    void testAgilityContextConcurrentNonExplicitCommits(AgilityContextType contextType) throws ExecutionException, InterruptedException {
         for (int sizeQuota : new int[] {1, 2, 7, 21, 100, 10000}) {
             final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
                     .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, sizeQuota);
 
             try (FDBRecordContext context = openContext(insertProps)) {
-                final AgilityContext agilityContext = getAgilityContext(context, useAgile);
+                final AgilityContext agilityContext = getAgilityContext(context, contextType);
                 testAgilityContextConcurrentSingleObject(agilityContext, false);
                 context.commit();
+                if (contextType.equals(AgilityContextType.READ_ONLY)) {
+                    agilityContext.abortAndClose();
+                }
             }
         }
         assertLoopThreadsValues();
@@ -268,7 +284,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext(insertProps)) {
             final Subspace subspace = path.toSubspace(context);
-            final AgilityContext agilityContext = getAgilityContext(context, false);
+            final AgilityContext agilityContext = getAgilityContext(context, AgilityContextType.NON_AGILE);
             for (int i = 0; i < loopCount; i++) {
                 byte[] key = subspace.pack(Tuple.from(2023, i));
                 final byte[] bytes = agilityContext.get(key).join();
@@ -397,8 +413,8 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     }
 
     @ParameterizedTest
-    @BooleanSource
-    void testAgilityContextAtomicAttribute(boolean useAgile) {
+    @EnumSource
+    void testAgilityContextAtomicAttribute(AgilityContextType contextType) {
         // assert that commits doesn't happen in he middle of an accept or apply call
         for (int sizeQuota : new int[] {1, 21, 100, 10000}) {
             final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
@@ -406,7 +422,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
 
             IntStream.rangeClosed(0, threadCount).parallel().forEach(threadNum -> {
                 try (FDBRecordContext context = openContext(insertProps)) {
-                    final AgilityContext agilityContext = getAgilityContext(context, useAgile);
+                    final AgilityContext agilityContext = getAgilityContext(context, contextType);
                     for (int i = 1700; i < 1900; i += 17) {
                         final long iFinal = i;
                         // occasionally, we wish to have multiple writers
@@ -436,7 +452,11 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                             });
                         }
                     }
-                    agilityContext.flush();
+                    if (contextType.equals(AgilityContextType.READ_ONLY)) {
+                        agilityContext.abortAndClose();
+                    } else {
+                        agilityContext.flush();
+                    }
                 }
             });
         }
@@ -449,7 +469,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         final Tuple value = Tuple.from(800, "Green eggs and ham", 0);
         byte[] packedValue = value.pack();
         try (FDBRecordContext context = openContext()) {
-            final AgilityContext agilityContext = getAgilityContext(context, true);
+            final AgilityContext agilityContext = getAgilityContext(context, AgilityContextType.AGILE);
             final Subspace subspace = path.toSubspace(context);
             keyAborted = subspace.pack(Tuple.from(2023, 3));
             agilityContext.set(keyAborted, packedValue);
@@ -483,7 +503,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         final Tuple failTuple = Tuple.from(prefix, "no");
         byte[] packedValue = value.pack();
         try (FDBRecordContext context = openContext()) {
-            final AgilityContext agilityContext = getAgilityContext(context, true);
+            final AgilityContext agilityContext = getAgilityContext(context, AgilityContextType.AGILE);
             final Subspace subspace = path.toSubspace(context);
             byte[] keyAborted = subspace.pack(abortedTuple);
             byte[] keySucceeds = subspace.pack(successTuple);
@@ -521,9 +541,21 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void testReadOnlyfailures() {
+        try (FDBRecordContext context = openContext()) {
+            AgilityContext readOnly = getAgilityContext(context, AgilityContextType.READ_ONLY);
+            readOnly.applyInRecoveryPath(ctx -> CompletableFuture.failedFuture(new RuntimeException("Blah")));
+            Assertions.assertThrows(RecordCoreStorageException.class, readOnly::flushAndClose);
+            Assertions.assertThrows(RecordCoreStorageException.class, readOnly::flush);
+
+            readOnly.abortAndClose();
+        }
+    }
+
     @ParameterizedTest
-    @BooleanSource
-    void testAgilityContextAtomicAttributeMultiContext(boolean useAgile) {
+    @EnumSource
+    void testAgilityContextAtomicAttributeMultiContext(AgilityContextType contextType) {
         // assert that commits doesn't happen in he middle of an accept or apply call
         IntStream.rangeClosed(0, threadCount).parallel().forEach(threadNum -> {
             for (int i = 1700; i < 1900; i += 17) {
@@ -532,7 +564,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 int numWriters = 1; // in this test, two writes may conflict each other
                 if (threadNum < numWriters) {
                     try (FDBRecordContext context = openContext()) {
-                        final AgilityContext agilityContext = getAgilityContext(context, useAgile);
+                        final AgilityContext agilityContext = getAgilityContext(context, contextType);
                         agilityContext.accept(aContext -> {
                             for (int j = 0; j < 5; j++) {
                                 final Transaction tr = aContext.ensureActive();
@@ -542,12 +574,16 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                             }
                             napTime(3); // give a chance to other threads to run
                         });
-                        agilityContext.flush();
+                        if (contextType.equals(AgilityContextType.READ_ONLY)) {
+                            agilityContext.abortAndClose();
+                        } else {
+                            agilityContext.flush();
+                        }
                     }
                 } else {
                     napTime(3);
                     try (FDBRecordContext context = openContext()) {
-                        final AgilityContext agilityContext = getAgilityContext(context, useAgile);
+                        final AgilityContext agilityContext = getAgilityContext(context, contextType);
                         agilityContext.accept(aContext -> {
                             long[] values = new long[5];
                             final Transaction tr = aContext.ensureActive();
@@ -559,7 +595,11 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                                 assertEquals(values[0], values[j]);
                             }
                         });
-                        agilityContext.flush();
+                        if (contextType.equals(AgilityContextType.READ_ONLY)) {
+                            agilityContext.abortAndClose();
+                        } else {
+                            agilityContext.flush();
+                        }
                     }
                 }
             }
