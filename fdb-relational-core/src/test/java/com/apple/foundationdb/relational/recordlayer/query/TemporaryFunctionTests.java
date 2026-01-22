@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
@@ -45,6 +46,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Optional;
@@ -232,24 +234,27 @@ public class TemporaryFunctionTests {
             // at least 1 function is defined
             try (var statement = connection.createStatement()) {
                 statement.execute("create or replace temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ");
-                final var boundSchemaTemplateMaybe = ((EmbeddedRelationalConnection) connection).getTransaction().getBoundSchemaTemplateMaybe();
-                Assertions.assertTrue(boundSchemaTemplateMaybe.isPresent());
-                final var invokedRoutineMaybe = boundSchemaTemplateMaybe.get().findInvokedRoutineByName("SQ1");
-                Assertions.assertTrue(invokedRoutineMaybe.isPresent());
-                Assertions.assertTrue(invokedRoutineMaybe.get().isTemporary());
-                Assertions.assertInstanceOf(RecordLayerInvokedRoutine.class, invokedRoutineMaybe.get());
-                final Supplier<UserDefinedFunction> call = () ->  ((RecordLayerInvokedRoutine) invokedRoutineMaybe.get()).getUserDefinedFunctionProvider().apply(true);
 
-                final var firstCall = call.get();
+                final var firstCall = getUserDefinedFunction(connection, "SQ1");
                 Assertions.assertInstanceOf(CompiledSqlFunction.class, firstCall);
 
                 // more calls
-                Assertions.assertEquals(firstCall, call.get());
-                Assertions.assertEquals(firstCall, call.get());
-                Assertions.assertEquals(firstCall, call.get());
+                Assertions.assertSame(firstCall, getUserDefinedFunction(connection, "SQ1"));
+                Assertions.assertSame(firstCall, getUserDefinedFunction(connection, "SQ1"));
+                Assertions.assertSame(firstCall, getUserDefinedFunction(connection, "SQ1"));
             }
             connection.rollback();
         }
+    }
+
+    private UserDefinedFunction getUserDefinedFunction(@Nonnull RelationalConnection connection, @Nonnull String name) throws RelationalException {
+        final var boundSchemaTemplateMaybe = ((EmbeddedRelationalConnection) connection).getTransaction().getBoundSchemaTemplateMaybe();
+        Assertions.assertTrue(boundSchemaTemplateMaybe.isPresent());
+        final var invokedRoutineMaybe = boundSchemaTemplateMaybe.get().findInvokedRoutineByName(name);
+        Assertions.assertTrue(invokedRoutineMaybe.isPresent());
+        Assertions.assertTrue(invokedRoutineMaybe.get().isTemporary());
+        Assertions.assertInstanceOf(RecordLayerInvokedRoutine.class, invokedRoutineMaybe.get());
+        return ((RecordLayerInvokedRoutine) invokedRoutineMaybe.get()).getUserDefinedFunctionProvider().apply(true);
     }
 
     @Test
