@@ -274,7 +274,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             }
 
             if (i + 1 < columns.size()) {
-                arguments.addCommaAndWhiteSpace();
+                arguments.addComma();
+                arguments.addLinebreakOrWhitespace();
             }
         }
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addOpeningParen().addOptionalWhitespace()

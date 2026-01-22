@@ -7,6 +7,38 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.9
 
+### 4.9.2.0
+
+<h4> New Features </h4>
+
+* Avoid recreating new invoked routine - [PR #3856](https://github.com/FoundationDB/fdb-record-layer/pull/3856)
+* dot rendering improvements - [PR #3854](https://github.com/FoundationDB/fdb-record-layer/pull/3854)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Document how to run tests & our test configurations - [PR #3843](https://github.com/FoundationDB/fdb-record-layer/pull/3843)
+* Remove yaml debugger from versions-tests.yamsql - [PR #3849](https://github.com/FoundationDB/fdb-record-layer/pull/3849)
+
+</details>
+
+
+**[Full Changelog (4.9.1.0...4.9.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.9.1.0...4.9.2.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.8.5.0`, ✅`4.8.6.0`, ✅`4.8.11.0`, ✅`4.8.12.0`, ✅`4.8.13.0`, ✅`4.8.14.0`, ✅`4.8.15.0`, ✅`4.8.16.0`, ✅`4.8.17.0`, ✅`4.9.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/21259418471)
+
+
+
 ### 4.9.1.0
 
 <h4> Breaking Changes </h4>
