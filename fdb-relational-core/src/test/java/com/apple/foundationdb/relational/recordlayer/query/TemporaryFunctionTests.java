@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -30,6 +31,8 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnectio
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
@@ -212,6 +215,38 @@ public class TemporaryFunctionTests {
                 invokeAndVerifyTempFunction(statement);
                 invokeAndVerifyTempFunction(statement);
                 invokeAndVerifyTempFunction(statement);
+            }
+            connection.rollback();
+        }
+    }
+
+    @Test
+    void temporaryFunctionIsMemoizedAcrossInvocations() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            // at least 1 function is defined
+            try (var statement = connection.createStatement()) {
+                statement.execute("create or replace temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ");
+                final var boundSchemaTemplateMaybe = ((EmbeddedRelationalConnection) connection).getTransaction().getBoundSchemaTemplateMaybe();
+                Assertions.assertTrue(boundSchemaTemplateMaybe.isPresent());
+                final var invokedRoutineMaybe = boundSchemaTemplateMaybe.get().findInvokedRoutineByName("SQ1");
+                Assertions.assertTrue(invokedRoutineMaybe.isPresent());
+                Assertions.assertTrue(invokedRoutineMaybe.get().isTemporary());
+                Assertions.assertInstanceOf(RecordLayerInvokedRoutine.class, invokedRoutineMaybe.get());
+                final Supplier<UserDefinedFunction> call = () ->  ((RecordLayerInvokedRoutine) invokedRoutineMaybe.get()).getUserDefinedFunctionProvider().apply(true);
+
+                final var firstCall = call.get();
+                Assertions.assertInstanceOf(CompiledSqlFunction.class, firstCall);
+
+                // more calls
+                Assertions.assertEquals(firstCall, call.get());
+                Assertions.assertEquals(firstCall, call.get());
+                Assertions.assertEquals(firstCall, call.get());
             }
             connection.rollback();
         }
