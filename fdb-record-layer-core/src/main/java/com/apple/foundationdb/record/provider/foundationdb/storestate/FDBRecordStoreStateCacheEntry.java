@@ -89,7 +89,7 @@ public class FDBRecordStoreStateCacheEntry {
     CompletableFuture<Void> handleCachedState(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         final Transaction tr = context.ensureActive();
         tr.addReadConflictKey(subspace.pack(FDBRecordStoreKeyspace.STORE_INFO.key()));
-        return FDBRecordStore.checkStoreHeader(recordStoreState.getStoreHeader(), context, subspaceProvider, subspace, existenceCheck, null);
+        return FDBRecordStore.checkStoreHeader(recordStoreState.getStoreHeader(), context, subspaceProvider, subspace, existenceCheck);
     }
 
     @Nonnull

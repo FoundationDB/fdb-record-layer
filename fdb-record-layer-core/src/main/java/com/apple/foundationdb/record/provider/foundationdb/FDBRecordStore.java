@@ -2614,8 +2614,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                            @Nonnull FDBRecordContext context,
                                                            @Nonnull SubspaceProvider subspaceProvider,
                                                            @Nonnull Subspace subspace,
-                                                           @Nonnull StoreExistenceCheck existenceCheck,
-                                                           @Nullable String bypassFullStoreLockReason) {
+                                                           @Nonnull StoreExistenceCheck existenceCheck) {
         if (storeHeader == RecordMetaDataProto.DataStoreInfo.getDefaultInstance()) {
             // Validate that the store is empty
             return readStoreFirstKey(context, subspace, IsolationLevel.SNAPSHOT).thenAccept(firstKeyValue -> {
@@ -2628,11 +2627,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 // We have relied on the value of the store header key itself. We performed the read at SNAPSHOT,
                 // though, to avoid conflicts on the first key if the store isn't empty.
                 context.ensureActive().addReadConflictKey(subspace.pack(STORE_INFO_KEY));
-                checkStoreHeaderInternal(storeHeader, context, subspaceProvider, existenceCheck, bypassFullStoreLockReason);
+                checkStoreHeaderInternal(storeHeader, context, subspaceProvider, existenceCheck, null);
             });
         } else {
             try {
-                checkStoreHeaderInternal(storeHeader, context, subspaceProvider, existenceCheck, bypassFullStoreLockReason);
+                checkStoreHeaderInternal(storeHeader, context, subspaceProvider, existenceCheck, null);
                 return AsyncUtil.DONE;
             } catch (RecordCoreException e) {
                 CompletableFuture<Void> future = new CompletableFuture<>();
