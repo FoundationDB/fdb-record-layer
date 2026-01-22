@@ -34,13 +34,7 @@ import java.util.List;
  * on the query planner.
  * @see PlannerGraphRewritable for a more comprehensive explanation of graph rewriting.
  */
-public interface InternalPlannerGraphRewritable extends PlannerGraphRewritable {
-    @Nonnull
-    @Override
-    default PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
-        return rewriteInternalPlannerGraph(childGraphs);
-    }
-
+public interface InternalPlannerGraphRewritable {
     /**
      * Method to rewrite the planner graph.
      *
