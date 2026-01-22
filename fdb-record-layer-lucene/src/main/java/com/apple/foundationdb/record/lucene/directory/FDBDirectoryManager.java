@@ -323,9 +323,12 @@ public class FDBDirectoryManager implements AutoCloseable {
                 switch (queueEntry.getOperationType()) {
                     case UPDATE:
                     case INSERT:
-                        // je-todo:
-                        //  1. consolidate UPDATE and INSERT
-                        //  2. if index is in WRITE_ONLY mode - delete before writing (and avoid extra queue item?)
+                        if (store.isIndexWriteOnly(state.index)) {
+                            // Here: covering a (rare) case of index becoming write-only after the item was queued.
+                            // We could have been nice to avoid pushing the DELETE new record item in tryDeleteInWriteOnlyMode if queueing, but
+                            // adding and processing this extra DELETE item in a background job seems easy enough.
+                            maintainer.deleteDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed());
+                        }
                         maintainer.writeDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed(), queueEntry.getDocumentFieldsParsed());
                         break;
                     case DELETE:
