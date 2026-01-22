@@ -1332,7 +1332,9 @@ public class AstNormalizerTests {
         validate(List.of("copy /test/foo/bar",
                         "  copy   /test/foo/bar  "),
                 PreparedParams.empty(),
-                "copy \"/TEST/FOO/BAR\" ", // I don't know if this matters, since we're not caching
+                // the canonical representation isn't super important because we're not caching, but it is part of the
+                // standard validate helper method
+                "copy \"/TEST/FOO/BAR\" ",
                 List.of(Map.of(), Map.of()),
                 null,
                 -1,
@@ -1345,7 +1347,9 @@ public class AstNormalizerTests {
         validate(List.of("copy /test/foo/bar from ?",
                         "  copy /test/foo/bar   from   ?"),
                 PreparedParams.of(Map.of(1, new byte[0]), Map.of()),
-                "copy \"/TEST/FOO/BAR\" from ? ", // I don't know if this matters, since we're not caching
+                // the canonical representation isn't super important because we're not caching, but it is part of the
+                // standard validate helper method
+                "copy \"/TEST/FOO/BAR\" from ? ",
                 List.of(Map.of(constantId(3), ByteString.empty()),
                         Map.of(constantId(3), ByteString.empty())),
                 null,
