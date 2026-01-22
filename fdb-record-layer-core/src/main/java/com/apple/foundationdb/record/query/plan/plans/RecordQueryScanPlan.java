@@ -46,15 +46,18 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithoutChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -80,7 +83,8 @@ import java.util.function.Supplier;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren,
                                                                                                 RecordQueryPlanWithComparisons,
-                                                                                                PlannerGraphRewritable,
+                                                                                                ExplainPlannerGraphRewritable,
+                                                                                                InternalPlannerGraphRewritable,
                                                                                                 RecordQueryPlanWithMatchCandidate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Scan-Plan");
 
@@ -392,6 +396,70 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
     @Override
     public int getComplexity() {
         return 1;
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewriteExplainPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return rewritePlannerGraph(childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        Verify.verify(childGraphs.isEmpty());
+
+        @Nullable final TupleRange tupleRange = comparisons.toTupleRangeWithoutContext();
+
+        final ImmutableList.Builder<String> detailsBuilder = ImmutableList.builder();
+        final ImmutableMap.Builder<String, Attribute> additionalAttributes = ImmutableMap.builder();
+
+        if (tupleRange != null) {
+            detailsBuilder.add("range: " + tupleRange.getLowEndpoint().toString(false) + "{{low}}, {{high}}" + tupleRange.getHighEndpoint().toString(true));
+            additionalAttributes.put("low", Attribute.dot(tupleRange.getLow() == null ? "-∞" : tupleRange.getLow().toString()));
+            additionalAttributes.put("high", Attribute.dot(tupleRange.getHigh() == null ? "∞" : tupleRange.getHigh().toString()));
+        } else {
+            detailsBuilder.add("comparisons: {{comparisons}}");
+            additionalAttributes.put("comparisons", Attribute.dot(comparisons.toString()));
+        }
+
+        if (reverse) {
+            detailsBuilder.add("direction: {{direction}}");
+            additionalAttributes.put("direction", Attribute.dot("reversed"));
+        }
+
+        final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
+        if (getRecordTypes() == null) {
+            dataNodeWithInfo =
+                    new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
+                            getResultType(),
+                            ImmutableList.of("ALL"));
+        } else {
+            final var explainFormatter =
+                    WithIndentationsExplainFormatter.forDot(14);
+
+            final var sourceString =
+                    "record types: " +
+                            new ExplainTokens().addSequence(() -> new ExplainTokens().addComma().addLinebreakOrWhitespace(),
+                                    getRecordTypes().stream()
+                                            .map(recordType -> new ExplainTokens().addIdentifier(recordType))
+                                            .collect(ImmutableList.toImmutableList())).render(explainFormatter);
+
+            dataNodeWithInfo =
+                    new PlannerGraph.DataNodeWithInfo(
+                            NodeInfo.BASE_DATA,
+                            getResultType(),
+                            ImmutableList.of(sourceString));
+        }
+
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.OperatorNodeWithInfo(this,
+                        NodeInfo.SCAN_OPERATOR,
+                        detailsBuilder.build(),
+                        additionalAttributes.build()),
+                ImmutableList.of(PlannerGraph.fromNodeAndChildGraphs(
+                        dataNodeWithInfo,
+                        childGraphs)));
     }
 
     /**
