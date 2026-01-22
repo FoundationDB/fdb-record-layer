@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -225,6 +226,11 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     @Nonnull
     public static SelectExpression selectWithPredicates(Quantifier qun, QueryPredicate... predicates) {
         return new SelectExpression(qun.getFlowedObjectValue(), List.of(qun), List.of(predicates));
+    }
+
+    @Nonnull
+    public static LogicalFilterExpression logicalFilterExpressionWithPredicates(Quantifier qun, QueryPredicate... predicates) {
+        return new LogicalFilterExpression(List.of(predicates), qun);
     }
 
     @Nonnull

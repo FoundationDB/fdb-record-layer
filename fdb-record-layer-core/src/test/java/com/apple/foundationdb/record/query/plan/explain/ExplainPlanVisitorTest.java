@@ -55,11 +55,14 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.rules.QueryPredicateSimplificationRuleTest.RandomPredicateGenerator;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -98,6 +101,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Message;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
@@ -109,6 +113,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -625,6 +630,25 @@ public class ExplainPlanVisitorTest {
         final String defaultExplainPredicateString = explainTokens.render(new DefaultExplainFormatter(DefaultExplainSymbolMap::new)).toString();
         assertEquals(defaultExplainPredicateString.replaceAll("\\s+", ""),
                 predicateString.replaceAll("\\s+", ""));
+    }
+
+    @Test
+    void testDotExplainForCorrelatedPredicates() {
+        final Type t =
+                Type.Record.fromFields(false, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("x"))));
+        final QueryPredicate valuePredicate =
+                new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(CorrelationIdentifier.of("a"), t), "x"),
+                        new Comparisons.ValueComparison(Comparisons.Type.EQUALS, LiteralValue.ofScalar(0L)));
+        final var explainTokens = valuePredicate.explain().getExplainTokens();
+        final String defaultExplainPredicateString =
+                explainTokens.render(new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, 0,
+                        50, 4)).toString();
+        assertEquals("a.x EQUALS 0l", defaultExplainPredicateString); // triggers an alias rendering case
+
+        final String selfContainedExplainPredicateString =
+                explainTokens.render(new WithIndentationsExplainFormatter(ExplainSelfContainedSymbolMap::new, 0,
+                        50, 4)).toString();
+        assertEquals("?a?.x EQUALS 0l", selfContainedExplainPredicateString); // triggers an error case
     }
 
     /**

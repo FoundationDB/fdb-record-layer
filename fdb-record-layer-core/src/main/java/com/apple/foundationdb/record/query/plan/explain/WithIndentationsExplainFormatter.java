@@ -84,7 +84,7 @@ public class WithIndentationsExplainFormatter extends DefaultExplainFormatter {
     @Nonnull
     @Override
     public CharSequence visitAliasDefinition(@Nonnull final ExplainTokens.AliasDefinitionToken aliasDefinitionToken,
-                                  @Nonnull final CharSequence stringedToken) {
+                                             @Nonnull final CharSequence stringedToken) {
         return increaseWidth(stringedToken);
     }
 
@@ -117,7 +117,7 @@ public class WithIndentationsExplainFormatter extends DefaultExplainFormatter {
     @Nonnull
     @Override
     public CharSequence visitError(@Nonnull final ExplainTokens.Token token, @Nonnull final CharSequence stringedToken) {
-        return increaseWidth(new StringBuilder().append("!").append(stringedToken).append("!"));
+        return increaseWidth(new StringBuilder().append("?").append(stringedToken).append("?"));
     }
 
     @Nonnull
