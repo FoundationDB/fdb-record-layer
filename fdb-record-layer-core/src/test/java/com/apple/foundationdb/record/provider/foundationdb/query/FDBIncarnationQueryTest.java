@@ -46,13 +46,13 @@ import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.executeCascades;
@@ -91,7 +91,7 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
             // Save a simple record
             saveSimpleRecord(1L, 100);
 
-            final RecordQueryPlan plan = getRecordQueryPlan();
+            final RecordQueryPlan plan = selectRecNoAndIncarnationValue();
 
             // Execute and verify
             try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
@@ -119,28 +119,30 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
             }
 
             // Plan a query that returns incarnation with each record
-            final RecordQueryPlan plan = getRecordQueryPlan();
+            final RecordQueryPlan plan = selectRecNoAndIncarnationValue();
 
             // Build type repository for plan execution
             final EvaluationContext evalContext = getEvaluationContext(plan);
 
             // First batch: fetch 3 records with incarnation = 100
-            RecordCursorContinuation continuation = getIncarnations(plan, evalContext, null, List.of(100, 100, 100));
-            assertFalse(continuation.isEnd());
+            AtomicReference<RecordCursorContinuation> continuation = new AtomicReference<>(null);
+
+            assertEquals(List.of(100, 100, 100), selectAndAssertIncarnations(plan, evalContext, continuation, 3));
+            assertFalse(continuation.get().isEnd());
 
             // Change incarnation before second batch
             recordStore.updateIncarnation(current -> 200).join();
 
-            continuation = getIncarnations(plan, evalContext, continuation, List.of(200, 200, 200));
-            assertFalse(continuation.isEnd());
+            assertEquals(List.of(200, 200, 200), selectAndAssertIncarnations(plan, evalContext, continuation, 3));
+            assertFalse(continuation.get().isEnd());
 
-            continuation = getIncarnations(plan, evalContext, continuation, List.of(200, 200, 200));
-            assertFalse(continuation.isEnd());
+            assertEquals(List.of(200, 200, 200), selectAndAssertIncarnations(plan, evalContext, continuation, 3));
+            assertFalse(continuation.get().isEnd());
 
             recordStore.updateIncarnation(current -> 300).join();
 
-            continuation = getIncarnations(plan, evalContext, continuation, List.of(300));
-            assertTrue(continuation.isEnd());
+            assertEquals(List.of(300), selectAndAssertIncarnations(plan, evalContext, continuation, 5));
+            assertTrue(continuation.get().isEnd());
         }
     }
 
@@ -158,7 +160,7 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
             }
 
             // Plan a query that returns incarnation with each record
-            final RecordQueryPlan plan = getRecordQueryPlan();
+            final RecordQueryPlan plan = selectRecNoAndIncarnationValue();
 
             List<Integer> incarnationsSeen = new ArrayList<>();
 
@@ -263,10 +265,13 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
         return EvaluationContext.forTypeRepository(typeRepository);
     }
 
+    /**
+     * Plan for a query approximating
+     * {@code SELECT GET_VERSIONSTAMP_INCARNATION() AS incarnation, MySimpleRecord.rec_no FROM MySimpleRecord}.
+     * @return plan that uses IncarnationValue
+     */
     @Nonnull
-    private RecordQueryPlan getRecordQueryPlan() {
-        // Plan a query approximating:
-        //    SELECT GET_VERSIONSTAMP_INCARNATION() AS incarnation, MySimpleRecord.rec_no FROM MySimpleRecord
+    private RecordQueryPlan selectRecNoAndIncarnationValue() {
         RecordQueryPlan plan = ((CascadesPlanner)planner).planGraph(() -> {
             Quantifier quantifier = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
@@ -294,21 +299,21 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private RecordCursorContinuation getIncarnations(final RecordQueryPlan plan,
-                                                     final EvaluationContext evalContext,
-                                                     @Nullable final RecordCursorContinuation continuation,
-                                                     List<Integer> expectedIncarnations) {
+    private List<Integer> selectAndAssertIncarnations(final RecordQueryPlan plan,
+                                                      final EvaluationContext evalContext,
+                                                      final AtomicReference<RecordCursorContinuation> continuation,
+                                                      int rowLimit) {
         try (RecordCursor<QueryResult> cursor = plan.executePlan(recordStore, evalContext,
-                continuation == null ? null : continuation.toBytes(),
-                ExecuteProperties.newBuilder().setReturnedRowLimit(3).build())) {
+                continuation.get() == null ? null : continuation.get().toBytes(),
+                ExecuteProperties.newBuilder().setReturnedRowLimit(rowLimit).build())) {
             final List<Integer> incarnationsSeen = new ArrayList<>();
             RecordCursorResult<QueryResult> result = cursor.getNext();
             while (result.hasNext()) {
                 incarnationsSeen.add(getIncarnation(Objects.requireNonNull(result.get())));
                 result = cursor.getNext();
             }
-            assertEquals(expectedIncarnations, incarnationsSeen);
-            return result.getContinuation();
+            continuation.set(result.getContinuation());
+            return incarnationsSeen;
         }
     }
 
