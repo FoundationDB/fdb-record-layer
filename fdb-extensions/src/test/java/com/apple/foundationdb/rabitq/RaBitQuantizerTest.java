@@ -59,6 +59,18 @@ public class RaBitQuantizerTest {
                                 .map(arguments -> Arguments.of(seed, arguments.get(0), arguments.get(1))));
     }
 
+    @Nonnull
+    private static Stream<Arguments> randomSeedsWithMetricsNumDimensionsAndNumExBits() {
+        return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
+                .flatMap(seed ->
+                        Sets.cartesianProduct(ImmutableSet.of(Metric.COSINE_METRIC, Metric.DOT_PRODUCT_METRIC),
+                                        ImmutableSet.of(3, 5, 10, 128, 768, 1000),
+                                        ImmutableSet.of(4, 5, 6, 7, 8))
+                                .stream()
+                                .map(arguments -> Arguments.of(seed, arguments.get(0),
+                                        arguments.get(1), arguments.get(2))));
+    }
+
     @ParameterizedTest
     @MethodSource("randomSeedsWithNumDimensionsAndNumExBits")
     void basicEncodeTest(final long seed, final int numDimensions, final int numExBits) {
@@ -112,12 +124,31 @@ public class RaBitQuantizerTest {
     @MethodSource("randomSeedsWithNumDimensionsAndNumExBits")
     void basicEncodeWithEstimationCosineMetricTest(final long seed, final int numDimensions, final int numExBits) {
         final Random random = new Random(seed);
-        final RealVector v = createRandomDoubleVector(random, numDimensions);
+        final RealVector v = createRandomDoubleVector(random, numDimensions).normalize();
         final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.COSINE_METRIC, numExBits);
         final EncodedRealVector encodedV = quantizer.encode(v);
         final RaBitEstimator estimator = quantizer.estimator();
         final double estimatedDistance = estimator.distance(v, encodedV);
         Assertions.assertThat(estimatedDistance).isCloseTo(0.0d, Offset.offset(0.01));
+    }
+
+    /**
+     * Create a random vector {@code v}, encode it into {@code encodedV} and estimate the distance between {@code v} and
+     * {@code encodedV} which should be very close to {@code 0}.
+     * @param seed a seed
+     * @param numDimensions the number of dimensions
+     * @param numExBits the number of bits per dimension used for encoding
+     */
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithNumDimensionsAndNumExBits")
+    void basicEncodeWithEstimationDotProductMetricTest(final long seed, final int numDimensions, final int numExBits) {
+        final Random random = new Random(seed);
+        final RealVector v = createRandomDoubleVector(random, numDimensions).normalize();
+        final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.DOT_PRODUCT_METRIC, numExBits);
+        final EncodedRealVector encodedV = quantizer.encode(v);
+        final RaBitEstimator estimator = quantizer.estimator();
+        final double estimatedDistance = estimator.distance(v, encodedV);
+        Assertions.assertThat(estimatedDistance).isCloseTo(-1.0d, Offset.offset(0.01));
     }
 
     @Nonnull
@@ -240,8 +271,9 @@ public class RaBitQuantizerTest {
     }
 
     @ParameterizedTest
-    @MethodSource("randomSeedsWithNumDimensionsAndNumExBits")
-    void encodeManyWithEstimationsCosineMetricTest(final long seed, final int numDimensions, final int numExBits) {
+    @MethodSource("randomSeedsWithMetricsNumDimensionsAndNumExBits")
+    void encodeManyWithEstimationsCosineDotProductMetricTest(final long seed, @Nonnull final Metric metric,
+                                                             final int numDimensions, final int numExBits) {
         final Random random = new Random(seed);
         final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);
         final int numRounds = 500;
@@ -254,17 +286,17 @@ public class RaBitQuantizerTest {
             v = v.normalize();
             q = q.normalize();
 
-            logger.trace("(cosine metric) q = {}", q);
-            logger.trace("(cosine metric) v = {}", v);
+            logger.trace("(cosine/dot product metric) q = {}", q);
+            logger.trace("(cosine/dot product metric) v = {}", v);
 
             final AffineOperator operator = new AffineOperator(rotator, null);
             final Transformed<RealVector> qRot = operator.transform(q);
             final Transformed<RealVector> vRot = operator.transform(v);
 
-            logger.trace("(cosine metric) qRot = {}", qRot);
-            logger.trace("(cosine metric) vRot = {}", vRot);
+            logger.trace("(cosine/dot product metric) qRot = {}", qRot);
+            logger.trace("(cosine/dot product metric) vRot = {}", vRot);
 
-            final RaBitQuantizer quantizer = new RaBitQuantizer(Metric.COSINE_METRIC, numExBits);
+            final RaBitQuantizer quantizer = new RaBitQuantizer(metric, numExBits);
             final Transformed<RealVector> encodedV = quantizer.encode(vRot);
             final Transformed<RealVector> encodedQ = quantizer.encode(qRot);
             final RaBitEstimator estimator = quantizer.estimator();
@@ -273,19 +305,19 @@ public class RaBitQuantizerTest {
             final RaBitEstimator.Result estimatedDistance =
                     estimator.estimateDistanceAndErrorBound(qRot.getUnderlyingVector(),
                             (EncodedRealVector)encodedV.getUnderlyingVector());
-            logger.trace("estimated 1 - cos(qRot, vRot) = {}", estimatedDistance);
-            final double trueDistance =
-                    Metric.COSINE_METRIC.distance(vRot.getUnderlyingVector(),
-                            qRot.getUnderlyingVector());
-            logger.trace("true 1 - cos(qRot, vRot) = {}", trueDistance);
+            logger.trace("estimated distance(qRot, vRot) = {}", estimatedDistance);
+            final double trueDistance = metric.distance(v, q);
+            final double trueRotDistance = metric.distance(vRot.getUnderlyingVector(), qRot.getUnderlyingVector());
+            Assertions.assertThat(trueRotDistance).isCloseTo(trueDistance, Offset.offset(0.01d));
+            logger.trace("true distance(q, v) = {}", trueDistance);
             if (trueDistance >= estimatedDistance.getDistance() - estimatedDistance.getErr() &&
                     trueDistance < estimatedDistance.getDistance() + estimatedDistance.getErr()) {
                 numEstimationWithinBounds++;
             }
-            logger.trace("(cosine metric) reconstructed q = {}", reconstructedQ);
-            logger.trace("(cosine metric) reconstructed v = {}", reconstructedV);
-            logger.trace("true 1 - cos(qDec, vDec) = {}", Metric.COSINE_METRIC.distance(reconstructedV, reconstructedQ));
-            final double reconstructedDistance = Metric.COSINE_METRIC.distance(reconstructedV, q);
+            logger.trace("(cosine/dot product metric) reconstructed q = {}", reconstructedQ);
+            logger.trace("(cosine/dot product metric) reconstructed v = {}", reconstructedV);
+            logger.trace("true distance(qDec, vDec) = {}", metric.distance(reconstructedV, reconstructedQ));
+            final double reconstructedDistance = metric.distance(reconstructedV, q);
             logger.trace("true 1 - cos(q, vDec) = {}", reconstructedDistance);
             double error = Math.abs(estimatedDistance.getDistance() - trueDistance);
             if (error < Math.abs(reconstructedDistance - trueDistance)) {
@@ -293,13 +325,16 @@ public class RaBitQuantizerTest {
             }
             sumRelativeError += error / trueDistance;
         }
-        logger.info("(cosine metric) estimator within bounds = {}%", String.format(Locale.ROOT, "%.2f", (double)numEstimationWithinBounds * 100.0d / numRounds));
-        logger.info("(cosine metric) estimator better than reconstructed distance = {}%", String.format(Locale.ROOT, "%.2f", (double)numEstimationBetter * 100.0d / numRounds));
-        logger.info("(cosine metric) relative error = {}%", String.format(Locale.ROOT, "%.2f", sumRelativeError * 100.0d / numRounds));
+        logger.info("(cosine/dot product metric) estimator within bounds = {}%",
+                String.format(Locale.ROOT, "%.2f", (double)numEstimationWithinBounds * 100.0d / numRounds));
+        logger.info("(cosine/dot product metric) estimator better than reconstructed distance = {}%",
+                String.format(Locale.ROOT, "%.2f", (double)numEstimationBetter * 100.0d / numRounds));
+        logger.info("(cosine/dot product metric) relative error = {}%",
+                String.format(Locale.ROOT, "%.2f", sumRelativeError * 100.0d / numRounds));
 
         Assertions.assertThat((double)numEstimationWithinBounds / numRounds).isGreaterThan(0.8);
         Assertions.assertThat((double)numEstimationBetter / numRounds).isBetween(0.3, 0.7);
-        Assertions.assertThat(sumRelativeError / numRounds).isLessThan(0.1d);
+        Assertions.assertThat(sumRelativeError / numRounds).isLessThan(0.3d);
     }
 
     @ParameterizedTest

@@ -59,6 +59,8 @@ public class RaBitEstimator implements Estimator {
             // use the regular metric for all other cases
             distance = metric.distance(query, storedVector);
         }
+
+        // if the distance is not finite, raise an exception
         if (!Double.isFinite(distance)) {
             throw new IllegalArgumentException("distance is infinite or not a number");
         }
@@ -75,7 +77,7 @@ public class RaBitEstimator implements Estimator {
         if (metric == Metric.COSINE_METRIC) {
             //
             // In cosine metric there is a special case that conventionally if one vector is the zero vector, the
-            // distance is NaN as that distance corresponds to all vectors that are orthogonal to each other.
+            // distance is NaN as the norm of the zero vector is 0, and we therefore divide by zero.
             //
             final double qNormSqr = query.dot(query);
             if (!(qNormSqr > 0.0) || !Double.isFinite(qNormSqr)) {
@@ -96,8 +98,29 @@ public class RaBitEstimator implements Estimator {
 
         switch (metric) {
             case COSINE_METRIC:
+                //
+                // We derive the result from the Euclidean square metric:
+                // ||v - q||^2 = (v - q) * (v - q)
+                //             = v^2 - 2 * v * q + q^2
+                //             = ||v||^2 + ||q||^2 - 2 * v * q
+                // (||v||^2 == 1 ^ ||q||^2 == 1) ==>
+                //             == 2 - 2 * v * q
+                // ==> v * q = (2 - ||v - q||^2) / 2 = 1 - 1/2 * ||v - q||^2
+                // ==> 1 - v * q = 1/2 * ||v - q||^2
+                //
                 return new Result(0.5 * euclideanSquare, 0.5 * euclideanSquareError);
             case DOT_PRODUCT_METRIC:
+                //
+                // We derive the result from the Euclidean square metric:
+                // ||v - q||^2 = (v - q) * (v - q)
+                //             = v^2 - 2 * v * q + q^2
+                //             = ||v||^2 + ||q||^2 - 2 * v * q
+                // (||v||^2 == 1 ^ ||q||^2 == 1) ==>
+                //             == 2 - 2 * v * q
+                // ==> v * q = (2 - ||v - q||^2) / 2 = 1 - 1/2 * ||v - q||^2
+                // ==> - v * q = 1/2 * ||v - q||^2 - 1
+                //
+                return new Result(0.5 * euclideanSquare - 1, 0.5 * euclideanSquareError);
             case EUCLIDEAN_SQUARE_METRIC:
                 return new Result(euclideanSquare, euclideanSquareError);
             case EUCLIDEAN_METRIC:

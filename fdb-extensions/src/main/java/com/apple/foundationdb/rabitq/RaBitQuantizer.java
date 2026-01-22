@@ -179,17 +179,12 @@ public final class RaBitQuantizer implements Quantizer {
 
         switch (metric) {
             case COSINE_METRIC:
+            case DOT_PRODUCT_METRIC:
             case EUCLIDEAN_SQUARE_METRIC:
             case EUCLIDEAN_METRIC:
                 fAddEx = residualL2Sqr;
                 fRescaleEx = ipInv * (-2.0 * residualL2Norm);
                 fErrorEx = 2.0 * tmpError;
-                break;
-
-            case DOT_PRODUCT_METRIC:
-                fAddEx = 1.0;
-                fRescaleEx = ipInv * (-1.0 * residualL2Norm);
-                fErrorEx = tmpError;
                 break;
 
             default:
