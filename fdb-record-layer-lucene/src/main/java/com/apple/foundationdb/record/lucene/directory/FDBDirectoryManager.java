@@ -258,7 +258,8 @@ public class FDBDirectoryManager implements AutoCloseable {
                     LogMessageKeys.GROUPING_KEY, groupingKey,
                     LogMessageKeys.PARTITION_ID, partitionId));
         }
-        for (int retries = 0; retries < 10; retries ++) {
+        final int maxRetries = 10;
+        for (int retries = 0; ; retries ++) {
             try {
                 agilityContext.flush(); // before potentially long drain
                 drainPendingQueueNow(groupingKey, partitionId, agilityContext, directoryWrapper);
@@ -266,6 +267,9 @@ public class FDBDirectoryManager implements AutoCloseable {
                 agilityContext.flush(); // commit clear indicator
                 return;
             } catch (RuntimeException ex) {
+                if (retries >= maxRetries) {
+                    throw new PendingQueueDrainException(ex);
+                }
                 if (LOGGER.isWarnEnabled()) {
                     LOGGER.warn(KeyValueLogMessage.of("Failed to drain queue",
                             LogMessageKeys.RETRY_COUNT, retries,
