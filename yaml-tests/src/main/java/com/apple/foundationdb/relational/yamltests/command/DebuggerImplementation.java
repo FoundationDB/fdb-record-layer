@@ -31,9 +31,9 @@ import java.io.IOException;
 import java.util.function.Function;
 
 public enum DebuggerImplementation {
-    INSANE(context -> DebuggerWithSymbolTables.withSanityChecks()),
-    SANE(context -> DebuggerWithSymbolTables.withoutSanityChecks()),
-    REPL(context -> {
+    INSANE(true, context -> DebuggerWithSymbolTables.withSanityChecks()),
+    SANE(true, context -> DebuggerWithSymbolTables.withoutSanityChecks()),
+    REPL(false, context -> {
         if (context.isNightly()) {
             throw new UnsupportedOperationException("somebody checked in a test with a debugger option");
         }
@@ -44,15 +44,21 @@ public enum DebuggerImplementation {
         }
     });
 
+    private final boolean allowedInCI;
     @Nonnull
     private final Function<YamlExecutionContext, Debugger> debuggerSupplier;
 
-    DebuggerImplementation(@Nonnull final Function<YamlExecutionContext, Debugger> debuggerCreator) {
+    DebuggerImplementation(boolean allowedInCI, @Nonnull final Function<YamlExecutionContext, Debugger> debuggerCreator) {
+        this.allowedInCI = allowedInCI;
         this.debuggerSupplier = debuggerCreator;
     }
 
     @Nonnull
     public Debugger newDebugger(@Nonnull YamlExecutionContext context) {
         return debuggerSupplier.apply(context);
+    }
+
+    public boolean isAllowedInCI() {
+        return allowedInCI;
     }
 }

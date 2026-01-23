@@ -19,7 +19,7 @@ runs:
   - name: Run build and test
     uses: ./actions/run-gradle
     with:
-      gradle_command: ${{ inputs.gradle_command }} -PcoreNotStrict ${{ inputs.gradle_args }}
+      gradle_command: ${{ inputs.gradle_command }} -PcoreNotStrict -Ptests.ci=true ${{ inputs.gradle_args }}
   - name: Test Summary
     shell: bash
     if: ${{ !cancelled() && hashFiles('.out/reports/test-summary.md') != '' }}
