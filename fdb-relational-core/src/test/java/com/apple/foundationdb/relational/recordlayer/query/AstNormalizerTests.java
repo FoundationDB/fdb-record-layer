@@ -1328,6 +1328,37 @@ public class AstNormalizerTests {
     }
 
     @Test
+    void parseCopyExport() throws Exception {
+        validate(List.of("copy /test/foo/bar",
+                        "  copy   /test/foo/bar  "),
+                PreparedParams.empty(),
+                // the canonical representation isn't super important because we're not caching, but it is part of the
+                // standard validate helper method
+                "copy \"/TEST/FOO/BAR\" ",
+                List.of(Map.of(), Map.of()),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_ADMIN_STATEMENT,
+                        AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION));
+    }
+
+    @Test
+    void parseCopyImport() throws Exception {
+        validate(List.of("copy /test/foo/bar from ?",
+                        "  copy /test/foo/bar   from   ?"),
+                PreparedParams.of(Map.of(1, new byte[0]), Map.of()),
+                // the canonical representation isn't super important because we're not caching, but it is part of the
+                // standard validate helper method
+                "copy \"/TEST/FOO/BAR\" from ? ",
+                List.of(Map.of(constantId(3), ByteString.empty()),
+                        Map.of(constantId(3), ByteString.empty())),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_ADMIN_STATEMENT,
+                        AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION));
+    }
+
+    @Test
     void windowFunctionOptionsAreNotStripped() throws Exception {
         // Test that EF_SEARCH option in window function is preserved during normalization
         validate("select * from t1 qualify row_number() over (partition by zone order by distance OPTIONS EF_SEARCH = 100) < 10",

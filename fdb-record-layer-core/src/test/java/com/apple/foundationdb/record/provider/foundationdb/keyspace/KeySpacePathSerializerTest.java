@@ -313,7 +313,12 @@ class KeySpacePathSerializerTest {
                         NoSuchDirectoryException.class),
                 Arguments.of(Named.of("Missing subdirectory",
                         new KeySpaceDirectory("tenant", KeyType.STRING)),
-                        NoSuchDirectoryException.class));
+                        NoSuchDirectoryException.class),
+                Arguments.of(Named.of("Non Leaf",
+                        new KeySpaceDirectory("tenant", KeyType.STRING)
+                                .addSubdirectory(new KeySpaceDirectory("record", KeyType.LONG)
+                                        .addSubdirectory(new KeySpaceDirectory("settings", KeyType.BOOLEAN)))),
+                        DataNotAtLeafException.class));
     }
 
     @ParameterizedTest

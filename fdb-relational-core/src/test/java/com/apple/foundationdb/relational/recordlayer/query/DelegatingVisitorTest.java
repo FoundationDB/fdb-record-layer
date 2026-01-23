@@ -34,12 +34,14 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.DelegatingVisitor;
+import com.apple.foundationdb.relational.recordlayer.query.visitors.TypedVisitor;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -552,5 +554,27 @@ public class DelegatingVisitorTest {
                         return Expression.ofUnnamed(LiteralValue.ofScalar(42));
                     }
                 });
+    }
+
+    @Test
+    void visitCopyImport() {
+        final TypedVisitor baseVisitor = Mockito.mock(TypedVisitor.class);
+        final DelegatingVisitor<TypedVisitor> delegating = new DelegatingVisitor<>(baseVisitor);
+        final RelationalParser.CopyImportStatementContext context = new RelationalParser.CopyImportStatementContext(new RelationalParser.CopyStatementContext());
+        final QueryPlan mockPlan = Mockito.mock(QueryPlan.class);
+        Mockito.when(baseVisitor.visitCopyImportStatement(context)).thenReturn(mockPlan);
+        final QueryPlan queryPlan = delegating.visitCopyImportStatement(context);
+        Assertions.assertThat(queryPlan).isSameAs(mockPlan);
+    }
+
+    @Test
+    void visitCopyExport() {
+        final TypedVisitor baseVisitor = Mockito.mock(TypedVisitor.class);
+        final DelegatingVisitor<TypedVisitor> delegating = new DelegatingVisitor<>(baseVisitor);
+        final RelationalParser.CopyExportStatementContext context = new RelationalParser.CopyExportStatementContext(new RelationalParser.CopyStatementContext());
+        final QueryPlan mockPlan = Mockito.mock(QueryPlan.class);
+        Mockito.when(baseVisitor.visitCopyExportStatement(context)).thenReturn(mockPlan);
+        final QueryPlan queryPlan = delegating.visitCopyExportStatement(context);
+        Assertions.assertThat(queryPlan).isSameAs(mockPlan);
     }
 }
