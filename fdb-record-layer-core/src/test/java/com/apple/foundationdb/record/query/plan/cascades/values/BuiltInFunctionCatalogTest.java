@@ -191,4 +191,186 @@ class BuiltInFunctionCatalogTest {
         Assertions.assertNotSame(cosine.get(), manhattan.get(),
                 "Different functions should have different instances");
     }
+
+    // Tests for FunctionKey.toString()
+
+    @Test
+    void testFunctionKeyInvocationToStringWithZeroArguments() {
+        final BuiltInFunctionCatalog.FunctionKey functionKey =
+                BuiltInFunctionCatalog.FunctionKey.invocation("test_func", 0);
+        final String toString = functionKey.toString();
+
+        Assertions.assertEquals("test_func()", toString,
+                "Invocation with 0 arguments should format as 'functionName()'");
+    }
+
+    @Test
+    void testFunctionKeyInvocationToStringWithOneArgument() {
+        final BuiltInFunctionCatalog.FunctionKey functionKey =
+                BuiltInFunctionCatalog.FunctionKey.invocation("my_function", 1);
+        final String toString = functionKey.toString();
+
+        Assertions.assertEquals("my_function(arg1)", toString,
+                "Invocation with 1 argument should format as 'functionName(arg1)'");
+    }
+
+    @Test
+    void testFunctionKeyInvocationToStringWithTwoArguments() {
+        final BuiltInFunctionCatalog.FunctionKey functionKey =
+                BuiltInFunctionCatalog.FunctionKey.invocation("euclidean_distance", 2);
+        final String toString = functionKey.toString();
+
+        Assertions.assertEquals("euclidean_distance(arg1, arg2)", toString,
+                "Invocation with 2 arguments should format as 'functionName(arg1, arg2)'");
+    }
+
+    @Test
+    void testFunctionKeyInvocationToStringWithMultipleArguments() {
+        final BuiltInFunctionCatalog.FunctionKey functionKey =
+                BuiltInFunctionCatalog.FunctionKey.invocation("complex_func", 5);
+        final String toString = functionKey.toString();
+
+        Assertions.assertEquals("complex_func(arg1, arg2, arg3, arg4, arg5)", toString,
+                "Invocation with 5 arguments should format correctly");
+    }
+
+    @Test
+    void testFunctionKeyEntryToStringWithFixedParameters() {
+        // Entry with 2 parameters, 0 defaults, not variadic
+        final BuiltInFunctionCatalog.FunctionKey functionKey =
+                BuiltInFunctionCatalog.FunctionKey.entry("fixed_func", 2, 0, false);
+        final String toString = functionKey.toString();
+
+        Assertions.assertEquals("fixed_func(param1, param2)", toString,
+                "Entry with fixed parameters should format as 'functionName(param1, param2)'");
+    }
+
+    @Test
+    void testFunctionKeyEntryToStringWithZeroParameters() {
+        // Entry with 0 parameters, 0 defaults, not variadic
+        final BuiltInFunctionCatalog.FunctionKey functionKey =
+                BuiltInFunctionCatalog.FunctionKey.entry("no_param_func", 0, 0, false);
+        final String toString = functionKey.toString();
+
+        Assertions.assertEquals("no_param_func()", toString,
+                "Entry with 0 parameters should format as 'functionName()'");
+    }
+
+    @Test
+    void testFunctionKeyEntryToStringWithOneParameter() {
+        // Entry with 1 parameter, 0 defaults, not variadic
+        final BuiltInFunctionCatalog.FunctionKey functionKey =
+                BuiltInFunctionCatalog.FunctionKey.entry("single_param", 1, 0, false);
+        final String toString = functionKey.toString();
+
+        Assertions.assertEquals("single_param(param1)", toString,
+                "Entry with 1 parameter should format as 'functionName(param1)'");
+    }
+
+    @Test
+    void testFunctionKeyEntryToStringWithDefaultParameters() {
+        // Entry with 3 parameters total, 2 with defaults, not variadic
+        final BuiltInFunctionCatalog.FunctionKey functionKey =
+                BuiltInFunctionCatalog.FunctionKey.entry("func_with_defaults", 3, 2, false);
+        final String toString = functionKey.toString();
+
+        Assertions.assertEquals("func_with_defaults(param1, param2 (with default), param3 (with default))", toString,
+                "Entry with default parameters should indicate which parameters have defaults");
+    }
+
+    @Test
+    void testFunctionKeyEntryToStringWithAllDefaultParameters() {
+        // Entry with 2 parameters, all have defaults, not variadic
+        final BuiltInFunctionCatalog.FunctionKey functionKey =
+                BuiltInFunctionCatalog.FunctionKey.entry("all_defaults", 2, 2, false);
+        final String toString = functionKey.toString();
+
+        Assertions.assertEquals("all_defaults(param1 (with default), param2 (with default))", toString,
+                "Entry where all parameters have defaults should mark all as '(with default)'");
+    }
+
+    @Test
+    void testFunctionKeyEntryToStringWithVariadicAndNoRequiredParams() {
+        // Entry with 0 required parameters, variadic
+        final BuiltInFunctionCatalog.FunctionKey functionKey =
+                BuiltInFunctionCatalog.FunctionKey.entry("variadic_func", 0, 0, true);
+        final String toString = functionKey.toString();
+
+        Assertions.assertEquals("variadic_func(...)", toString,
+                "Variadic entry with no required parameters should format as 'functionName(...)'");
+    }
+
+    @Test
+    void testFunctionKeyEntryToStringWithVariadicAndRequiredParams() {
+        // Entry with 2 required parameters, variadic
+        final BuiltInFunctionCatalog.FunctionKey functionKey =
+                BuiltInFunctionCatalog.FunctionKey.entry("variadic_with_required", 2, 0, true);
+        final String toString = functionKey.toString();
+
+        Assertions.assertEquals("variadic_with_required(param1, param2, ...)", toString,
+                "Variadic entry with required parameters should show params followed by '...'");
+    }
+
+    @Test
+    void testFunctionKeyEntryToStringWithVariadicAndOneRequiredParam() {
+        // Entry with 1 required parameter, variadic
+        final BuiltInFunctionCatalog.FunctionKey functionKey =
+                BuiltInFunctionCatalog.FunctionKey.entry("variadic_one_req", 1, 0, true);
+        final String toString = functionKey.toString();
+
+        Assertions.assertEquals("variadic_one_req(param1, ...)", toString,
+                "Variadic entry with 1 required parameter should format correctly");
+    }
+
+    @Test
+    void testFunctionKeyEntryToStringWithDefaultsAndVariadic() {
+        // Entry with 3 total params, 1 with default, and variadic
+        // This means min required = 3 - 1 = 2, and it's variadic
+        final BuiltInFunctionCatalog.FunctionKey functionKey =
+                BuiltInFunctionCatalog.FunctionKey.entry("complex_variadic", 3, 1, true);
+        final String toString = functionKey.toString();
+
+        Assertions.assertEquals("complex_variadic(param1, param2, ...)", toString,
+                "Variadic entry with defaults should show only required params before '...'");
+    }
+
+    @Test
+    void testFunctionKeyToStringIsNotNull() {
+        final BuiltInFunctionCatalog.FunctionKey invocationKey =
+                BuiltInFunctionCatalog.FunctionKey.invocation("test", 1);
+        Assertions.assertNotNull(invocationKey.toString(),
+                "FunctionKey.toString() should never return null");
+
+        final BuiltInFunctionCatalog.FunctionKey entryKey =
+                BuiltInFunctionCatalog.FunctionKey.entry("test", 1, 0, false);
+        Assertions.assertNotNull(entryKey.toString(),
+                "FunctionKey.toString() should never return null");
+    }
+
+    @Test
+    void testFunctionKeyToStringIsNotEmpty() {
+        final BuiltInFunctionCatalog.FunctionKey invocationKey =
+                BuiltInFunctionCatalog.FunctionKey.invocation("test", 0);
+        Assertions.assertFalse(invocationKey.toString().isEmpty(),
+                "FunctionKey.toString() should never return empty string");
+
+        final BuiltInFunctionCatalog.FunctionKey entryKey =
+                BuiltInFunctionCatalog.FunctionKey.entry("test", 0, 0, false);
+        Assertions.assertFalse(entryKey.toString().isEmpty(),
+                "FunctionKey.toString() should never return empty string");
+    }
+
+    @Test
+    void testFunctionKeyToStringContainsFunctionName() {
+        final String functionName = "my_special_function";
+        final BuiltInFunctionCatalog.FunctionKey invocationKey =
+                BuiltInFunctionCatalog.FunctionKey.invocation(functionName, 2);
+        Assertions.assertTrue(invocationKey.toString().contains(functionName),
+                "Invocation toString() should contain the function name");
+
+        final BuiltInFunctionCatalog.FunctionKey entryKey =
+                BuiltInFunctionCatalog.FunctionKey.entry(functionName, 2, 0, false);
+        Assertions.assertTrue(entryKey.toString().contains(functionName),
+                "Entry toString() should contain the function name");
+    }
 }

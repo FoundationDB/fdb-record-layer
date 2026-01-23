@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
@@ -170,7 +171,8 @@ public class BuiltInFunctionCatalog {
      * FunctionKey.invocation("g", 5)       // Range: [5, 5] - matches entry
      * }</pre>
      */
-    private static final class FunctionKey {
+    @VisibleForTesting
+    public static final class FunctionKey {
         @Nonnull
         private final String functionName;
 
