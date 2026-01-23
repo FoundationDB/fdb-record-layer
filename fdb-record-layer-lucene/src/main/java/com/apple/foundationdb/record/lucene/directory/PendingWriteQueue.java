@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -47,6 +48,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Manages a persistent queue of pending Lucene write operations in FDB.
@@ -183,6 +185,27 @@ public class PendingWriteQueue {
 
         // Record metrics
         context.increment(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_CLEAR);
+    }
+
+
+    /**
+     * Check if the pending write queue is empty.
+     *
+     * @param context the record context
+     * @return a future that resolves to {@code true} if the queue is empty, {@code false} otherwise
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> isQueueEmpty(@Nonnull FDBRecordContext context) {
+
+        // Add queue subspace range to conflict list
+        final Range queueRange = queueSubspace.range();
+        context.ensureActive().addReadConflictRange(queueRange.begin, queueRange.end);
+
+        // Return true if empty
+        return context.ensureActive()
+                .getRange(queueSubspace.range(), 1)
+                .asList()
+                .thenApply(List::isEmpty);
     }
 
     private QueueEntry toQueueEntry(final KeyValue kv) {

@@ -444,6 +444,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             return partitioner.decrementCountAndSave(groupingKey, countDeleted, partitionId)
                     .thenApply(ignore -> countDeleted);
         } else {
+            // countDeletes might be 0 when in writeOnly mode, but otherwise should not happen.
             return CompletableFuture.completedFuture(countDeleted);
         }
     }

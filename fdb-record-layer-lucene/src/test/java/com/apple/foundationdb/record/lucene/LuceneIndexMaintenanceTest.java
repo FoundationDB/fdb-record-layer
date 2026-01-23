@@ -635,6 +635,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         AtomicInteger merges = new AtomicInteger();
         AtomicInteger docCount = new AtomicInteger();
         AtomicInteger conflicts = new AtomicInteger();
+        AtomicInteger fileLockFailures = new AtomicInteger();
         AtomicReference<Throwable> failedInsert = new AtomicReference<>();
         AtomicReference<Throwable> failedMerge = new AtomicReference<>();
         Thread inserter = new Thread(() -> {
@@ -675,7 +676,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                             if (e instanceof FDBExceptions.FDBStoreTransactionConflictException) {
                                 conflicts.incrementAndGet();
                             } else if (e instanceof FDBExceptions.FDBStoreLockTakenException) {
-                                // do nothing
+                                fileLockFailures.incrementAndGet();
                             } else {
                                 LOGGER.debug("Failing: couldn't commit for key {}", (1000L + i), e);
                                 failedInsert.set(e);
@@ -732,6 +733,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         assertNull(failedMerge.get());
         assertThat(successfulMerges.get(), Matchers.greaterThan(10));
         assertThat(conflicts.get(), Matchers.greaterThan(10));
+        assertThat(fileLockFailures.get(), Matchers.equalTo(0));
         assertThat(docCount.get(), Matchers.greaterThanOrEqualTo(200));
 
         // validate index is sane
@@ -776,10 +778,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
             PendingWriteQueue queue = directory.createPendingWritesQueue();
 
-            List<PendingWriteQueue.QueueEntry> queueEntries = new ArrayList<>();
             RecordCursor<PendingWriteQueue.QueueEntry> queueCursor = queue.getQueueCursor(
                     context, ScanProperties.FORWARD_SCAN, null);
-            queueCursor.forEach(queueEntries::add).join();
+            List<PendingWriteQueue.QueueEntry> queueEntries = queueCursor.asList().join();
 
             assertEquals(1, queueEntries.size(), "Queue should have exactly 1 entry");
 
@@ -842,10 +843,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
             PendingWriteQueue queue = directory.createPendingWritesQueue();
 
-            List<PendingWriteQueue.QueueEntry> queueEntries = new ArrayList<>();
             RecordCursor<PendingWriteQueue.QueueEntry> queueCursor = queue.getQueueCursor(
                     context, ScanProperties.FORWARD_SCAN, null);
-            queueCursor.forEach(queueEntries::add).join();
+            List<PendingWriteQueue.QueueEntry> queueEntries = queueCursor.asList().join();
 
             assertEquals(3, queueEntries.size(), "Queue should have exactly 3 entries");
 
@@ -1189,7 +1189,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     recordStore.getIndexMaintenanceFilter());
             FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
             FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
-            directory.setPendingQueueIndicator();
+            directory.setOngoingMergeIndicator();
             commit(context);
         }
     }
