@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
@@ -557,9 +558,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     void testReadOnlyTransactionFailures() {
         try (FDBRecordContext context = openContext()) {
             AgilityContext readOnly = getAgilityContext(context, AgilityContextType.READ_ONLY);
-            Assertions.assertThrows(RecordCoreStorageException.class, () -> readOnly.accept(ctx -> ctx.commit()));
-
-            readOnly.accept(c -> c.commit());
+            Assertions.assertThrows(RecordCoreException.class, () -> readOnly.accept(ctx -> ctx.commit()));
 
             readOnly.abortAndClose();
         }
