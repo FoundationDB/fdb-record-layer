@@ -221,6 +221,7 @@ test_block:
       - result: [{__ROW_VERSION: !not_null _, {ID: 6, COL1: 20, COL2: 6}}, {__ROW_VERSION: !not_null _, {ID: 7, COL1: 20, COL2: 7}}, {__ROW_VERSION: !not_null _, {ID: 8, COL1: 20, COL2: 8}}, {__ROW_VERSION: !not_null _, {ID: 9, COL1: 20, COL2: 9}}, {__ROW_VERSION: !not_null _, {ID: 10, COL1: 20, COL2: 10}}, {__ROW_VERSION: !not_null _, {ID: 11, COL1: 20, COL2: 11}}, {__ROW_VERSION: !not_null _, {ID: 12, COL1: 20, COL2: 12}}, {__ROW_VERSION: !not_null _, {ID: 13, COL1: 20, COL2: 13}}]
     -
       - query: select "__ROW_VERSION", t1.id from t1 order by "__ROW_VERSION" ASC;
+      - debugger: repl
       - explain: "ISCAN(T1_VERSION_INDEX <,>) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)"
       - result: [{__ROW_VERSION: !not_null _, ID: 1}, {__ROW_VERSION: !not_null _, ID: 3}, {__ROW_VERSION: !not_null _, ID: 5}, {__ROW_VERSION: !not_null _, ID: 7}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 2}, {__ROW_VERSION: !not_null _, ID: 4}, {__ROW_VERSION: !not_null _, ID: 6}, {__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 12}]
     -
