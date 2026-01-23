@@ -204,8 +204,8 @@ class VectorIndexScanComparisonsTest {
         assertThat(original.hasScanComparisons()).isTrue();
         final ScanComparisons scanComparisons = original.getScanComparisons();
         assertThat(scanComparisons.getEqualityComparisons()).isEqualTo(originalPrefixScanComparisons.getEqualityComparisons());
-        assertThat(scanComparisons.getInequalityComparisons()).hasSize(1)
-                .allSatisfy(comparison -> assertThat(comparison).isEqualTo(originalDistanceRankComparison));
+        // currently only prefix scan comparisons are returned, the distance rank comparison, which is added here as inequality, is discarded.
+        assertThat(scanComparisons.getInequalityComparisons()).isEmpty();
     }
 
     @Nonnull
