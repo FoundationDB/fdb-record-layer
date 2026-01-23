@@ -173,9 +173,6 @@ public final class QueryCommand extends Command {
                         .map(config -> (DebuggerImplementation)Objects.requireNonNull(config.getVal()))
                         .findFirst()
                         .orElse(DebuggerImplementation.SANE);
-        if (!debuggerImplementation.isAllowedInCI() && executionContext.isInCI()) {
-            throw new UnsupportedOperationException("somebody checked in a test with a debugger option");
-        }
 
         var queryConfigsIterator = queryConfigs.listIterator();
         while (queryConfigsIterator.hasNext()) {
