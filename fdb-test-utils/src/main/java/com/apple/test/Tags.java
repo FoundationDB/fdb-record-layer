@@ -47,6 +47,11 @@ public final class Tags {
      * Tests that wipe the entire FDB cluster during their run.
      */
     public static final String WipesFDB = "WipesFDB";
+    /**
+     * Tests that are inherently random, and thus could be flaky.
+     * See also {@link RandomizedTestUtils}.
+     */
+    public static final String Random = "Random";
 
     private Tags() {
     }

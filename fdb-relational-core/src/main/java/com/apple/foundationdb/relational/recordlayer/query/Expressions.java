@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,12 +41,15 @@ import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -57,6 +61,8 @@ public final class Expressions implements Iterable<Expression> {
 
     @Nonnull
     private final List<Expression> underlying;
+
+    private final Supplier<Map<String, Integer>> countsByNameSupplier = Suppliers.memoize(this::computeCountsByName);
 
     private Expressions(@Nonnull Iterable<Expression> underlying) {
         this.underlying = ImmutableList.copyOf(underlying);
@@ -198,6 +204,13 @@ public final class Expressions implements Iterable<Expression> {
         return underlying.size();
     }
 
+    private Map<String, Integer> computeCountsByName() {
+        Map<String, Integer> countsByColumnName = new LinkedHashMap<>();
+        underlying.forEach(expression ->
+                expression.getName().ifPresent(id -> countsByColumnName.compute(id.getName(), (ignore, previous) -> previous == null ? 1 : (previous + 1))));
+        return Collections.unmodifiableMap(countsByColumnName);
+    }
+
     @Nonnull
     public Iterable<Value> underlying() {
         return Streams.stream(this).map(Expression::getUnderlying).collect(ImmutableList.toImmutableList());
@@ -252,8 +265,16 @@ public final class Expressions implements Iterable<Expression> {
 
     @Nonnull
     public Collection<Column<? extends Value>> underlyingAsColumns() {
+        Map<String, Integer> countsByName = countsByNameSupplier.get();
         return Streams.stream(this)
-                .map(expression -> Column.of(expression.getName().map(Identifier::getName), expression.getUnderlying()))
+                .map(expression -> {
+                    // Take the name from the expression if set, but return empty if there is more than one
+                    // expression with the given name
+                    Optional<String> maybeName = expression.getName()
+                            .map(Identifier::getName)
+                            .map(name -> countsByName.getOrDefault(name, 1) < 2 ? name : null);
+                    return Column.of(maybeName, expression.getUnderlying());
+                })
                 .collect(ImmutableList.toImmutableList());
     }
 

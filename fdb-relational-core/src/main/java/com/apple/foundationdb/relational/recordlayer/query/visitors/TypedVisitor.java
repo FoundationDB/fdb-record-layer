@@ -165,7 +165,27 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    RecordLayerIndex visitIndexDefinition(@Nonnull RelationalParser.IndexDefinitionContext ctx);
+    RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx);
+
+    @Nonnull
+    @Override
+    RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx);
+
+    @Nonnull
+    @Override
+    RecordLayerIndex visitVectorIndexDefinition(RelationalParser.VectorIndexDefinitionContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitIndexColumnList(@Nonnull RelationalParser.IndexColumnListContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitIndexColumnSpec(@Nonnull RelationalParser.IndexColumnSpecContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitIncludeClause(@Nonnull RelationalParser.IncludeClauseContext ctx);
 
     @Override
     Object visitIndexAttributes(RelationalParser.IndexAttributesContext ctx);

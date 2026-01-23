@@ -71,6 +71,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -518,6 +519,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     private static Descriptors.GenericDescriptor getTypeSpecificDescriptor(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
         switch (fieldDescriptor.getType()) {
             case MESSAGE:
+            case GROUP:
                 return fieldDescriptor.getMessageType();
             case ENUM:
                 return fieldDescriptor.getEnumType();
@@ -883,9 +885,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     return TypeCode.BOOLEAN;
                 case STRING:
                     return TypeCode.STRING;
-                case GROUP:
                 case ENUM:
                     return TypeCode.ENUM;
+                case GROUP:
                 case MESSAGE:
                     return TypeCode.RECORD;
                 case BYTES:
@@ -2319,6 +2321,18 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
         }
 
+        @Nonnull
+        public Type.Record addPseudoFields() {
+            final List<Type.Record.Field> newFields = new ArrayList<>(fields.size() + 1);
+            newFields.addAll(fields);
+            for (PseudoField pseudoField : PseudoField.values()) {
+                if (!getFieldNameFieldMap().containsKey(pseudoField.getFieldName())) {
+                    newFields.add(Type.Record.Field.of(pseudoField.getType(), Optional.of(pseudoField.getFieldName())));
+                }
+            }
+            return new Type.Record(name, storageName, isNullable, normalizeFields(newFields));
+        }
+
         /**
          * {@inheritDoc}
          */
@@ -2573,14 +2587,14 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             Set<Integer> fieldIndexesSeen = Sets.newHashSet();
             boolean override = false;
+            boolean containsDuplicateFieldIndexes = false;
             for (final var field : fields) {
                 if (field.getFieldNameOptional().isEmpty() || field.getFieldIndexOptional().isEmpty()) {
                     override = true;
-                    break;
                 }
                 if (field.fieldIndexOptional.isPresent() && !fieldIndexesSeen.add(field.getFieldIndex())) {
                     override = true;
-                    break;
+                    containsDuplicateFieldIndexes = true;
                 }
             }
 
@@ -2604,10 +2618,26 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     final var fieldStorageName =
                             field.getFieldStorageNameOptional()
                                     .orElseGet(() -> ProtoUtils.toProtoBufCompliantName(explicitFieldName));
+                    final int ordinal = i;
+                    final int fieldIndex;
+                    if (containsDuplicateFieldIndexes) {
+                        fieldIndex = ordinal + 1;
+                    } else {
+                        fieldIndex = field.getFieldIndexOptional()
+                                .orElseGet(() -> {
+                                    // Pick the lowest index for this field that is not already in the seen set
+                                    int candidate = ordinal + 1;
+                                    while (!fieldIndexesSeen.add(candidate)) {
+                                        candidate++;
+                                    }
+                                    return candidate;
+                                });
+                    }
+
                     fieldToBeAdded =
                             new Field(field.getFieldType(),
                                     Optional.of(explicitFieldName),
-                                    Optional.of(i + 1),
+                                    Optional.of(fieldIndex),
                                     Optional.of(fieldStorageName));
                 }
 

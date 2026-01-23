@@ -23,13 +23,13 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -55,7 +55,7 @@ class DataInKeySpacePathTest {
         // Verify accessors
         assertSame(testPath, dataInPath.getPath());
         assertNull(dataInPath.getRemainder());
-        assertArrayEquals(valueBytes, dataInPath.getValue());
+        assertEquals(ByteString.copyFrom(valueBytes), dataInPath.getValue());
     }
 
     @ParameterizedTest
@@ -84,7 +84,7 @@ class DataInKeySpacePathTest {
         // Verify accessors
         assertSame(testPath, dataInPath.getPath());
         assertEquals(remainderTuple, dataInPath.getRemainder());
-        assertArrayEquals(valueBytes, dataInPath.getValue());
+        assertEquals(ByteString.copyFrom(valueBytes), dataInPath.getValue());
     }
 
     @Test
@@ -101,7 +101,7 @@ class DataInKeySpacePathTest {
         // Verify accessors
         assertSame(storePath, dataInPath.getPath());
         assertEquals(remainder, dataInPath.getRemainder());
-        assertArrayEquals(binaryValue, dataInPath.getValue());
+        assertEquals(ByteString.copyFrom(binaryValue), dataInPath.getValue());
     }
 
     /**

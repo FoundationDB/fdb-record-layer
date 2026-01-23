@@ -1,0 +1,353 @@
+ﬂ
+Ü
+sum_aggregate_single_groupingeEXPLAIN select category, sum(amount) as total from sales_mat_view group by category order by category”
+ä÷¿—Ãß ˚ÌΩ†(å0˜  8b@
+sAISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)ªdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS TOTAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, LONG AS TOTAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_SUM_BY_CATEGORY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}·
+Ü
+sum_aggregate_single_groupingeEXPLAIN select category, sum(amount) as total from sales_index_on group by category order by category’
+ä£€ÎÕß ò—±ü(å0≤ù◊8b@
+tAISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)ºdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS TOTAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, LONG AS TOTAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_SUM_BY_CATEGORY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Œ
+Ä
+sum_aggregate_single_grouping_EXPLAIN select region, sum(amount) as total from sales_mat_view group by region order by region»
+Æà´ú®∂ ôø‰ç(w0â≠ù8$@oAISCAN(IDX_MV_SUM_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS TOTAL)µdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS REGION, q6._1 AS TOTAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REGION, LONG AS TOTAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_SUM_BY_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Õ
+Ä
+sum_aggregate_single_grouping_EXPLAIN select region, sum(amount) as total from sales_index_on group by region order by region«
+Æè∆ÏF∂ ˚—¥9(w0æ¨G8$@pAISCAN(IDX_IOT_SUM_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS TOTAL)∂digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS REGION, q6._1 AS TOTAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REGION, LONG AS TOTAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_SUM_BY_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¡
+ù
+sum_aggregate_multi_grouping}EXPLAIN select category, region, sum(amount) as total from sales_mat_view group by category, region order by category, regionû
+Øõ‰ÿÅ¯ ’ãÌa(~0¡ãÿ8E@èAISCAN(IDX_MV_CAT_REGION_SUM <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)Îdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS REGION, q6._2 AS TOTAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, STRING AS REGION, LONG AS TOTAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, STRING AS _1, LONG AS _2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_CAT_REGION_SUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}√
+ù
+sum_aggregate_multi_grouping}EXPLAIN select category, region, sum(amount) as total from sales_index_on group by category, region order by category, region†
+Ø˛ÉºÑ¯ ©¸∆d(~0Û£Ê8E@êAISCAN(IDX_IOT_CAT_REGION_SUM <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)Ïdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS REGION, q6._2 AS TOTAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, STRING AS REGION, LONG AS TOTAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, STRING AS _1, LONG AS _2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_CAT_REGION_SUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ä
+≥
+sum_aggregate_multi_groupingíEXPLAIN select category, region, sum(amount) as total from sales_mat_view where category = 'Electronics' group by category, region order by region—
+·ìﬂ˜óî åºj(Å0ŸÃÍ8G@¨AISCAN(IDX_MV_CAT_REGION_SUM [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)Ädigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS REGION, q6._2 AS TOTAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, STRING AS REGION, LONG AS TOTAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c17 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, STRING AS _1, LONG AS _2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_CAT_REGION_SUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ã
+≥
+sum_aggregate_multi_groupingíEXPLAIN select category, region, sum(amount) as total from sales_index_on where category = 'Electronics' group by category, region order by region“
+·∑◊Êsî åÚªO(Å0≠ûº8G@≠AISCAN(IDX_IOT_CAT_REGION_SUM [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)Ådigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS REGION, q6._2 AS TOTAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, STRING AS REGION, LONG AS TOTAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c17 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, STRING AS _1, LONG AS _2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_CAT_REGION_SUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}≤
+¬
+sum_aggregate_three_grouping°EXPLAIN select category, region, product_id, sum(amount) as total from sales_mat_view group by category, region, product_id order by category, region, product_idÍ
+‘ç®ùH£ ë›Ö<(d0ı†.8@¨AISCAN(IDX_MV_SUM_BY_ALL <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS PRODUCT_ID, _._3 AS TOTAL)údigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS REGION, q6._2 AS PRODUCT_ID, q6._3 AS TOTAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, STRING AS REGION, LONG AS PRODUCT_ID, LONG AS TOTAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, STRING AS _1, LONG AS _2, LONG AS _3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_SUM_BY_ALL</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¥
+¬
+sum_aggregate_three_grouping°EXPLAIN select category, region, product_id, sum(amount) as total from sales_index_on group by category, region, product_id order by category, region, product_idÏ
+‘Éä«H£ ›‡ô=(d0†Ê)8@≠AISCAN(IDX_IOT_SUM_BY_ALL <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS PRODUCT_ID, _._3 AS TOTAL)ùdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS REGION, q6._2 AS PRODUCT_ID, q6._3 AS TOTAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, STRING AS REGION, LONG AS PRODUCT_ID, LONG AS TOTAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, STRING AS _1, LONG AS _2, LONG AS _3)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_SUM_BY_ALL</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}À
+x
+count_star_aggregate`EXPLAIN select category, count(*) as cnt from sales_mat_view group by category order by categoryŒ
+Ô†Êå>æ ©Ì∂)(n0Ÿµã88@sAISCAN(IDX_MV_COUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS CNT)πdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS CNT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, LONG AS CNT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_COUNT_BY_CATEGORY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Õ
+x
+count_star_aggregate`EXPLAIN select category, count(*) as cnt from sales_index_on group by category order by category–
+ÔãÛÓ=æ √Û‰&(n0–ÉÖ88@tAISCAN(IDX_IOT_COUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS CNT)∫digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS CNT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, LONG AS CNT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_COUNT_BY_CATEGORY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}À
+{
+count_column_aggregateaEXPLAIN select region, count(quantity) as cnt from sales_mat_view group by region order by regionÀ
+êˇì≈0≠ ¯≤ï"(h0ﬂæ^8$@sAISCAN(IDX_MV_COUNT_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS CNT)∑digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS REGION, q6._1 AS CNT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REGION, LONG AS CNT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_COUNT_QTY_BY_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Õ
+{
+count_column_aggregateaEXPLAIN select region, count(quantity) as cnt from sales_index_on group by region order by regionÕ
+ê»ÿ¸0≠ Öüä"(h0à·S8$@tAISCAN(IDX_IOT_COUNT_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS CNT)∏digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS REGION, q6._1 AS CNT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REGION, LONG AS CNT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_COUNT_QTY_BY_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ó
+ò
+aggregate_with_havingEXPLAIN select category, sum(amount) as total from sales_mat_view group by category having sum(amount) > 2000 order by category˘
+ÂäÁ±õπ ﬂÖÅq(ê0óéË8o@
+§AISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._1 GREATER_THAN promote(@c21 AS LONG) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)∞digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS TOTAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, LONG AS TOTAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q6._1 GREATER_THAN promote(@c21 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_SUM_BY_CATEGORY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ô
+ò
+aggregate_with_havingEXPLAIN select category, sum(amount) as total from sales_index_on group by category having sum(amount) > 2000 order by category˚
+Â˛©Ôõπ Ì—ár(ê0ß¯Œ8o@
+•AISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._1 GREATER_THAN promote(@c21 AS LONG) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)±digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS TOTAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, LONG AS TOTAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q6._1 GREATER_THAN promote(@c21 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_SUM_BY_CATEGORY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ﬂ
+x
+min_aggregategEXPLAIN select category, min(amount) as min_amt from sales_mat_view group by category order by category‚
+å¬ŸêCÂ ƒ«„.(z0∆„ë8H@zAISCAN(IDX_MV_MIN_AMOUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_AMT)∆digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS MIN_AMT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, LONG AS MIN_AMT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_MIN_AMOUNT_BY_CATEGORY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‡
+x
+min_aggregategEXPLAIN select category, min(amount) as min_amt from sales_index_on group by category order by category„
+ç√åÌ;≈ ßÃœ)(u0Íıf8:@{AISCAN(IDX_IOT_MIN_AMOUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_AMT)«digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS MIN_AMT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, LONG AS MIN_AMT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_MIN_AMOUNT_BY_CATEGORY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Œ
+r
+max_aggregateaEXPLAIN select region, max(amount) as max_amt from sales_mat_view group by region order by region◊
+ÆÑ»ª)¥ „à (o0â¡.8&@vAISCAN(IDX_MV_MAX_AMOUNT_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS REGION, _._1 AS MAX_AMT)¿digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS REGION, q6._1 AS MAX_AMT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REGION, LONG AS MAX_AMT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_MAX_AMOUNT_BY_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}–
+r
+max_aggregateaEXPLAIN select region, max(amount) as max_amt from sales_index_on group by region order by regionŸ
+ÆæªÀ*¥ °úÇ (o0ÂÌ78&@wAISCAN(IDX_IOT_MAX_AMOUNT_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS REGION, _._1 AS MAX_AMT)¡digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS REGION, q6._1 AS MAX_AMT)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REGION, LONG AS MAX_AMT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_MAX_AMOUNT_BY_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ò
+Ñ
+min_ever_aggregatenEXPLAIN select category, min_ever(quantity) as min_qty from sales_mat_view group by category order by categoryÁ
+—úî˝(ª ›¿Ó(l0ëòE82@~AISCAN(IDX_MV_MIN_EVER_QTY_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_QTY)»digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS MIN_QTY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, LONG AS MIN_QTY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_MIN_EVER_QTY_BY_CATEGORY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Û
+Ñ
+min_ever_aggregatenEXPLAIN select category, min_ever(quantity) as min_qty from sales_index_on group by category order by categoryÈ
+—ñ¨˝(ª Ü«®(l0÷†M82@AISCAN(IDX_IOT_MIN_EVER_QTY_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_QTY)…digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._1 AS MIN_QTY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, LONG AS MIN_QTY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_MIN_EVER_QTY_BY_CATEGORY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‡
+~
+max_ever_aggregatehEXPLAIN select region, max_ever(quantity) as max_qty from sales_mat_view group by region order by region›
+Åœªï!´ Í¢”(g0ü·+8!@zAISCAN(IDX_MV_MAX_EVER_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS MAX_QTY)¬digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS REGION, q6._1 AS MAX_QTY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REGION, LONG AS MAX_QTY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_MAX_EVER_QTY_BY_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‚
+~
+max_ever_aggregatehEXPLAIN select region, max_ever(quantity) as max_qty from sales_index_on group by region order by regionﬂ
+Å¡¿å!´ »±ˇ(g0´≤+8!@{AISCAN(IDX_IOT_MAX_EVER_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS MAX_QTY)√digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS REGION, q6._1 AS MAX_QTY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS REGION, LONG AS MAX_QTY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_MAX_EVER_QTY_BY_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ƒ
+ù
+aggregate_in_middle_of_keyEXPLAIN select category, max(amount) as max_amt, region from sales_mat_view group by category, region order by category, region°
+«Ú™ö:∏ ˘«†*(l0äÂ≤8.@èAISCAN(IDX_MV_CAT_MAX_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]]) | MAP (_._0 AS CATEGORY, _._2 AS MAX_AMT, _._1 AS REGION)Ôdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS CATEGORY, q6._2 AS MAX_AMT, q6._1 AS REGION)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, LONG AS MAX_AMT, STRING AS REGION)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, STRING AS _1, LONG AS _2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_CAT_MAX_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}°
+ù
+aggregate_in_middle_of_keyEXPLAIN select category, max(amount) as max_amt, region from sales_index_on group by category, region order by category, region˛
+ ∞ÆÏ3ñ πß©&(e0ëËá8!@«ISCAN(IDX_IOT_MIN_CAT_REGION <,>) | MAP (_ AS _0) | AGG (max_l(_._0.AMOUNT) AS _0) GROUP BY (_._0.CATEGORY AS _0, _._0.REGION AS _1) | MAP (_._0._0 AS CATEGORY, _._1._0 AS MAX_AMT, _._0._1 AS REGION)îdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS CATEGORY, q6._1._0 AS MAX_AMT, q6._0._1 AS REGION)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, LONG AS MAX_AMT, STRING AS REGION)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (max_l(q206._0.AMOUNT) AS _0)</td></tr><tr><td align="left">GROUP BY (q206._0.CATEGORY AS _0, q206._0.REGION AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, STRING AS _1 AS _0, LONG AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_MIN_CAT_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ label=<&nbsp;q206> label="q206" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ƒ
+ù
+aggregate_in_middle_of_keyEXPLAIN select min(amount) as min_amt, category, region from sales_mat_view group by category, region order by category, region°
+«¸Å´9∏ ¶ıô*(l0≈√Ñ8.@èAISCAN(IDX_MV_MIN_CAT_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]]) | MAP (_._2 AS MIN_AMT, _._0 AS CATEGORY, _._1 AS REGION)Ôdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._2 AS MIN_AMT, q6._0 AS CATEGORY, q6._1 AS REGION)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS MIN_AMT, STRING AS CATEGORY, STRING AS REGION)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, STRING AS _1, LONG AS _2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_MIN_CAT_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}†
+ù
+aggregate_in_middle_of_keyEXPLAIN select min(amount) as min_amt, category, region from sales_index_on group by category, region order by category, region˝
+ ¡üßñ ıµ¯(e0‹µ)8!@«ISCAN(IDX_IOT_MIN_CAT_REGION <,>) | MAP (_ AS _0) | AGG (min_l(_._0.AMOUNT) AS _0) GROUP BY (_._0.CATEGORY AS _0, _._0.REGION AS _1) | MAP (_._1._0 AS MIN_AMT, _._0._0 AS CATEGORY, _._0._1 AS REGION)îdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1._0 AS MIN_AMT, q6._0._0 AS CATEGORY, q6._0._1 AS REGION)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS MIN_AMT, STRING AS CATEGORY, STRING AS REGION)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (min_l(q206._0.AMOUNT) AS _0)</td></tr><tr><td align="left">GROUP BY (q206._0.CATEGORY AS _0, q206._0.REGION AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, STRING AS _1 AS _0, LONG AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_MIN_CAT_REGION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS PRODUCT_ID, STRING AS CATEGORY, STRING AS REGION, LONG AS AMOUNT, LONG AS QUANTITY)" ];
+  3 -> 2 [ label=<&nbsp;q206> label="q206" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

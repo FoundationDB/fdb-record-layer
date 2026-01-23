@@ -64,6 +64,152 @@ In each case, the fact that index entries are ordered by `fname` is leveraged, e
 the scan to a smaller range of index entries. The `lname` field can then be returned to the user without having to
 perform an additional lookup of the underlying row.
 
+Index Syntax Alternatives
+##########################
+
+The Relational Layer supports two equivalent syntaxes for creating indexes:
+
+1. **INDEX AS SELECT** - A query-based syntax (shown above) inspired by materialized views
+2. **INDEX ON** - A traditional columnar syntax that creates indexes on tables or views
+
+Both syntaxes produce identical index structures and have the same capabilities. The choice between them is primarily
+a matter of style and organizational preference.
+
+INDEX ON Syntax
+***************
+
+The ``INDEX ON`` syntax provides a more traditional approach to index creation, specifying columns directly rather
+than through a SELECT query:
+
+.. code-block:: sql
+
+    CREATE INDEX <indexName> ON <source>(<columns>) [INCLUDE(<valueColumns>)] [OPTIONS(...)]
+
+Where:
+
+* :sql:`indexName` is the name of the index
+* :sql:`source` is a table or view name
+* :sql:`columns` specifies the index key columns with optional ordering
+* :sql:`INCLUDE` clause (optional) adds covered columns stored as values
+* :sql:`OPTIONS` clause (optional) specifies index-specific options
+
+Using the same employee table from above, we can create an equivalent index using the INDEX ON syntax:
+
+.. code-block:: sql
+
+    CREATE INDEX fnameIdx ON employee(fname) INCLUDE(lname)
+
+This creates the same index structure as the INDEX AS SELECT example - a VALUE index with ``fname`` in the key
+and ``lname`` as a covered value.
+
+Syntax Comparison
+*****************
+
+These two approaches create identical indexes:
+
+**INDEX AS SELECT:**
+
+.. code-block:: sql
+
+    CREATE INDEX fnameIdx AS
+        SELECT fname, lname
+        FROM employee
+        ORDER BY fname
+
+**INDEX ON:**
+
+.. code-block:: sql
+
+    CREATE INDEX fnameIdx ON employee(fname) INCLUDE(lname)
+
+Column Ordering and NULL Handling
+##################################
+
+When creating indexes using either syntax, you can control how values are sorted in the index through ordering
+clauses and NULL semantics.
+
+Sorting Criteria
+****************
+
+Each key column in an INDEX ON definition supports explicit sort order:
+
+* :sql:`ASC` (ascending) - Values sorted from smallest to largest (default if not specified)
+* :sql:`DESC` (descending) - Values sorted from largest to smallest
+
+For INDEX AS SELECT, the sort order is specified in the ORDER BY clause.
+
+NULL Semantics
+**************
+
+You can control where NULL values appear in the sort order:
+
+* :sql:`NULLS FIRST` - NULL values appear before non-NULL values
+* :sql:`NULLS LAST` - NULL values appear after non-NULL values
+
+**Default NULL behavior:**
+
+* For ``ASC`` ordering: ``NULLS FIRST`` is the default
+* For ``DESC`` ordering: ``NULLS LAST`` is the default
+
+Ordering Syntax Examples
+*************************
+
+The ordering clause for each column in INDEX ON can take several forms:
+
+1. Sort order only: ``columnName ASC`` or ``columnName DESC``
+2. Sort order with null semantics: ``columnName ASC NULLS LAST`` or ``columnName DESC NULLS FIRST``
+3. Null semantics only: ``columnName NULLS FIRST`` (uses default ASC ordering)
+
+Examples:
+
+.. code-block:: sql
+
+    -- Ascending order with nulls last
+    CREATE INDEX idx_rating ON products(rating ASC NULLS LAST)
+
+    -- Descending order with nulls first
+    CREATE INDEX idx_price ON products(price DESC NULLS FIRST)
+
+    -- Specify only null semantics (ascending is implicit)
+    CREATE INDEX idx_stock ON products(stock NULLS LAST)
+
+    -- Mixed ordering across multiple columns
+    CREATE INDEX idx_complex ON products(
+        category ASC NULLS FIRST,
+        price DESC NULLS LAST,
+        name ASC
+    )
+
+For INDEX AS SELECT syntax, the same ordering is specified in the ORDER BY clause:
+
+.. code-block:: sql
+
+    CREATE INDEX idx_rating AS
+        SELECT rating
+        FROM products
+        ORDER BY rating ASC NULLS LAST
+
+Partitioning for Vector Indexes
+################################
+
+Vector indexes support an optional ``PARTITION BY`` clause that allows organizing vectors by category or tenant.
+This clause is **only applicable to vector indexes** created with the ``VECTOR INDEX`` syntax and is not supported
+for regular value indexes.
+
+Partitioning helps improve query performance for vector similarity searches by limiting the search space to relevant
+partitions:
+
+.. code-block:: sql
+
+    CREATE VECTOR INDEX idx_embedding USING HNSW ON products(embedding)
+        PARTITION BY(category)
+
+In this example, vectors are partitioned by product category, so similarity searches can be scoped to specific
+categories for better performance.
+
+**Important:** The ``PARTITION BY`` clause cannot be used with regular (non-vector) indexes created using either
+the INDEX AS SELECT or INDEX ON syntax.
+
 Indexes on nested fields
 ########################
 
@@ -128,3 +274,8 @@ that resembles the structure of the SQL statement:
 * Projected fields :sql:`f1`, :sql:`f2`, ... :sql:`fn` in (sub)queries maps to a :sql:`concat(field(f1), field(f2), ... field(fn))`.
 * Projected nested fields (:sql:`f1`, :sql:`f2`, ... :sql:`fn`) from a repeated field :sql:`rf`, i.e. :sql:`select f1, f2, ... fn, ... from FOO.rf`
   maps to :sql:`field(rf, FAN_OUT).nest(field(f1), (field(f2), ..., field(fn)))`.
+
+See Also
+########
+
+* :doc:`CREATE INDEX <sql_commands/DDL/CREATE/INDEX>` - Complete CREATE INDEX command reference with detailed syntax and examples

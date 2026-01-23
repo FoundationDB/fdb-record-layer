@@ -30,10 +30,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -87,7 +87,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
         final Function<byte[], RecordCursor<IndexEntry>> entryCursorFunction =
                 nestedContinuation -> executeEntries(store, evaluationContext, nestedContinuation, executeProperties);
         return fetchIndexRecords(store, evaluationContext, entryCursorFunction, continuation, executeProperties)
-                .map(QueryResult::fromQueriedRecord);
+                .map(queriedRecord -> QueryResult.fromQueriedRecord(getResultValue().getResultType(), evaluationContext, queriedRecord));
     }
 
     @Nonnull
