@@ -132,6 +132,7 @@ public enum ErrorCode {
     UNKNOWN_TYPE("42F18"),
     INVALID_RECURSION("42F19"),
     INCOMPATIBLE_TABLE_ALIAS("42F20"),
+    WINDOWING_ERROR("42F21"),
     /**
      * Indicates that a schema with the given name is already mapped to a schema template.
      */

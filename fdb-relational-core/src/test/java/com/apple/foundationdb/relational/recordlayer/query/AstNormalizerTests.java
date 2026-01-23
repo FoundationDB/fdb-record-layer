@@ -1358,11 +1358,25 @@ public class AstNormalizerTests {
                         AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION));
     }
 
+    @Test
+    void windowFunctionOptionsAreNotStripped() throws Exception {
+        // Test that EF_SEARCH option in window function is preserved during normalization
+        validate("select * from t1 qualify row_number() over (partition by zone order by distance OPTIONS EF_SEARCH = 100) < 10",
+                "select * from \"T1\" qualify row_number ( ) over ( partition by \"ZONE\" order by \"DISTANCE\" OPTIONS EF_SEARCH = 100 ) < ? ",
+                Map.of(constantId(22), 10));
+    }
+
     @Nonnull
     private String normalizeQuery(@Nonnull final String functionDdl) throws RelationalException {
         final var normalizer = AstNormalizer.normalizeAst(fakeSchemaTemplate,
                 QueryParser.parse(functionDdl).getRootContext(), PreparedParams.empty(),
                 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, functionDdl);
         return normalizer.getQueryCacheKey().getCanonicalQueryString();
+    }
+
+    @Test
+    void indexHintIsPartOfTheCanonicalQueryString() throws RelationalException {
+        validate("select * from t1 use index (i1)",
+                "select * from \"T1\" use index ( \"I1\" ) ");
     }
 }

@@ -143,6 +143,11 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         return new PredicateWithValueAndRanges(value, ranges);
     }
 
+    @Override
+    protected boolean computeIsIndexOnly() {
+        return getValue().isIndexOnly();
+    }
+
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {

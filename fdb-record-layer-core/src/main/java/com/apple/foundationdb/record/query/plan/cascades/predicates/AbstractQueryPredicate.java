@@ -33,6 +33,7 @@ import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.StreamSupport;
 
 /**
  * Abstract implementation of {@link QueryPredicate} that provides memoization of correlatedTo sets.
@@ -48,6 +49,8 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
 
     private final Supplier<Integer> heightSupplier;
 
+    private final Supplier<Boolean> isIndexOnlySupplier;
+
     @SuppressWarnings("unused")
     protected AbstractQueryPredicate(@Nonnull final PlanSerializationContext serializationContext,
                                      @Nonnull final PAbstractQueryPredicate abstractQueryPredicateProto) {
@@ -60,6 +63,7 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
         this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
         this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
         this.heightSupplier = Suppliers.memoize(QueryPredicate.super::height);
+        this.isIndexOnlySupplier = Suppliers.memoize(this::computeIsIndexOnly);
     }
 
     @Nonnull
@@ -111,6 +115,15 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
     @Override
     public boolean isAtomic() {
         return isAtomic;
+    }
+
+    @Override
+    public boolean isIndexOnly() {
+        return isIndexOnlySupplier.get();
+    }
+
+    protected boolean computeIsIndexOnly() {
+        return StreamSupport.stream(getChildren().spliterator(), false).anyMatch(QueryPredicate::isIndexOnly);
     }
 
     @Nonnull
