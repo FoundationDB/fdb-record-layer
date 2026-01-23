@@ -24,11 +24,13 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
+import com.apple.foundationdb.rabitq.RaBitQuantizer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
@@ -186,50 +188,38 @@ public class Insert {
                     }
 
                     final AccessInfo accessInfo = accessInfoAndNodeExistence.getAccessInfo();
+                    if (accessInfo == null) {
+                        firstInsert(transaction, newPrimaryKey, newVector, random, primitives, insertionLayer);
+                        return AsyncUtil.DONE;
+                    }
+
                     final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
                     final Transformed<RealVector> transformedNewVector = storageTransform.transform(newVector);
                     final Quantizer quantizer = primitives.quantizer(accessInfo);
                     final Estimator estimator = quantizer.estimator();
 
                     final AccessInfo currentAccessInfo;
-                    if (accessInfo == null) {
-                        // this is the first node
-                        primitives.writeLonelyNodes(quantizer, transaction, newPrimaryKey, transformedNewVector,
-                                insertionLayer, -1);
-                        currentAccessInfo = new AccessInfo(
-                                new EntryNodeReference(newPrimaryKey, transformedNewVector, insertionLayer),
-                                -1L, null);
-                        StorageAdapter.writeAccessInfo(transaction, getSubspace(), currentAccessInfo,
-                                getOnWriteListener());
-                        if (logger.isTraceEnabled()) {
-                            logger.trace("written initial entry node reference with key={} on layer={}",
-                                    newPrimaryKey, insertionLayer);
-                        }
-                        return AsyncUtil.DONE;
-                    } else {
-                        final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
-                        final int lMax = entryNodeReference.getLayer();
-                        if (insertionLayer > lMax) {
-                            primitives.writeLonelyNodes(quantizer, transaction, newPrimaryKey, transformedNewVector,
-                                    insertionLayer, lMax);
-                            currentAccessInfo = accessInfo.withNewEntryNodeReference(
-                                    new EntryNodeReference(newPrimaryKey, transformedNewVector,
-                                            insertionLayer));
-                            StorageAdapter.writeAccessInfo(transaction, getSubspace(), currentAccessInfo,
-                                    getOnWriteListener());
-                            if (logger.isTraceEnabled()) {
-                                logger.trace("written higher entry node reference with key={} on layer={}",
-                                        newPrimaryKey, insertionLayer);
-                            }
-                        } else {
-                            currentAccessInfo = accessInfo;
-                        }
-                    }
-                    
+
                     final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
                     final int lMax = entryNodeReference.getLayer();
                     if (logger.isTraceEnabled()) {
                         logger.trace("entry node read with key {} at layer {}", entryNodeReference.getPrimaryKey(), lMax);
+                    }
+
+                    if (insertionLayer > lMax) {
+                        primitives.writeLonelyNodes(quantizer, transaction, newPrimaryKey, transformedNewVector,
+                                insertionLayer, lMax);
+                        currentAccessInfo = accessInfo.withNewEntryNodeReference(
+                                new EntryNodeReference(newPrimaryKey, transformedNewVector,
+                                        insertionLayer));
+                        StorageAdapter.writeAccessInfo(transaction, getSubspace(), currentAccessInfo,
+                                getOnWriteListener());
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("written higher entry node reference with key={} on layer={}",
+                                    newPrimaryKey, insertionLayer);
+                        }
+                    } else {
+                        currentAccessInfo = accessInfo;
                     }
 
                     final ToDoubleFunction<Transformed<RealVector>> objectiveFunction =
@@ -257,6 +247,53 @@ public class Insert {
                 }).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
+
+    private void firstInsert(@Nonnull final Transaction transaction,
+                             @Nonnull final Tuple newPrimaryKey,
+                             @Nonnull final RealVector newVector,
+                             @Nonnull final SplittableRandom random,
+                             @Nonnull final Primitives primitives,
+                             final int insertionLayer) {
+        final Config config = getConfig();
+        final long rotatorSeed;
+        final StorageTransform storageTransform;
+        final Quantizer quantizer;
+        final RealVector negatedCentroid;
+        if (config.isUseRaBitQ() &&
+                !config.getMetric().satisfiesPreservedUnderTranslation()) {
+            //
+            // The metric does not preserve distances under translation of the vectors, but we are supposed to encode
+            // the vectors using RaBitQ. There is no point in sampling the centroid as we cannot translate any vectors.
+            // Instead, we use RaBitQ immediately under an identity translation.
+            //
+            rotatorSeed = random.nextLong();
+            storageTransform = primitives.storageTransform(rotatorSeed, null,
+                    primitives.isMetricNeedsNormalizedVectors());
+            quantizer = new RaBitQuantizer(config.getMetric(), config.getRaBitQNumExBits());
+            negatedCentroid = DoubleRealVector.zeroVector(config.getNumDimensions());
+        } else {
+            rotatorSeed = -1L;
+            storageTransform = StorageTransform.identity();
+            quantizer = Quantizer.noOpQuantizer(config.getMetric());
+            negatedCentroid = null;
+        }
+
+        final Transformed<RealVector> transformedNewVector = storageTransform.transform(newVector);
+
+        // this is the first node
+        primitives.writeLonelyNodes(quantizer, transaction, newPrimaryKey, transformedNewVector,
+                insertionLayer, -1);
+        final AccessInfo initialAccessInfo = new AccessInfo(
+                new EntryNodeReference(newPrimaryKey, transformedNewVector, insertionLayer),
+                rotatorSeed, negatedCentroid);
+        StorageAdapter.writeAccessInfo(transaction, getSubspace(), initialAccessInfo,
+                getOnWriteListener());
+        if (logger.isTraceEnabled()) {
+            logger.trace("written initial entry node reference with key={} on layer={}",
+                    newPrimaryKey, insertionLayer);
+        }
+    }
+
     /**
      * Method to keep stats if necessary. Stats need to be kept and maintained when the client would like to use
      * e.g. RaBitQ as RaBitQ needs a stable somewhat correct centroid in order to function properly.
@@ -279,7 +316,8 @@ public class Insert {
                                                           @Nonnull final Transaction transaction,
                                                           @Nonnull final AccessInfo currentAccessInfo,
                                                           @Nonnull final Transformed<RealVector> transformedNewVector) {
-        if (getConfig().isUseRaBitQ() && !currentAccessInfo.canUseRaBitQ()) {
+        if (getConfig().isUseRaBitQ() &&
+                !currentAccessInfo.canUseRaBitQ()) {
             if (shouldSampleVector(random)) {
                 StorageAdapter.appendSampledVector(transaction, getSubspace(),
                         1, transformedNewVector, getOnWriteListener());
@@ -311,7 +349,8 @@ public class Insert {
                                     final RealVector rotatedCentroid =
                                             rotator.apply(centroid.getUnderlyingVector());
                                     final StorageTransform storageTransform =
-                                            new StorageTransform(rotator, rotatedCentroid);
+                                            new StorageTransform(rotator, rotatedCentroid,
+                                                    primitives().isMetricNeedsNormalizedVectors());
 
                                     //
                                     // The entry node reference is expressed in a transformation that has so-far been
