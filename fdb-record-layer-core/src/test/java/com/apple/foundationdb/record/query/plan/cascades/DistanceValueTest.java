@@ -38,6 +38,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -202,6 +203,17 @@ class DistanceValueTest {
         );
     }
 
+    @Nonnull
+    static Stream<BuiltInFunction<?>> vectorDistanceFunctions() {
+        return Stream.of(
+                new DistanceValue.EuclideanDistanceFn(),
+                new DistanceValue.EuclideanSquareDistanceFn(),
+                new DistanceValue.ManhattanDistanceFn(),
+                new DistanceValue.CosineDistanceFn(),
+                new DistanceValue.DotProductDistanceFn()
+        );
+    }
+
     @ParameterizedTest
     @MethodSource("vectorDistanceFunctions")
     void testVectorDistanceSemanticEquality(BuiltInFunction<?> distanceFunction) {
@@ -224,13 +236,60 @@ class DistanceValueTest {
                 value1 + " and " + value3 + " should not be semantically equal with different arguments");
     }
 
-    static Stream<BuiltInFunction<?>> vectorDistanceFunctions() {
-        return Stream.of(
-                new DistanceValue.EuclideanDistanceFn(),
-                new DistanceValue.EuclideanSquareDistanceFn(),
-                new DistanceValue.ManhattanDistanceFn(),
-                new DistanceValue.CosineDistanceFn(),
-                new DistanceValue.DotProductDistanceFn()
-        );
+    @ParameterizedTest
+    @MethodSource("vectorDistanceFunctions")
+    void testDistanceValueEquals(BuiltInFunction<?> distanceFunction) {
+        final List<Value> arguments1 = List.of(VECTOR_1_0_0, VECTOR_0_1_0);
+        final List<Value> arguments2 = List.of(VECTOR_1_0_0, VECTOR_0_1_0);
+        final List<Value> arguments3 = List.of(VECTOR_1_0_0, VECTOR_3_4_0);
+
+        final DistanceValue value1 = (DistanceValue) distanceFunction.encapsulate(arguments1);
+        final DistanceValue value2 = (DistanceValue) distanceFunction.encapsulate(arguments2);
+        final DistanceValue value3 = (DistanceValue) distanceFunction.encapsulate(arguments3);
+
+        // Reflexive: value should equal itself
+        Assertions.assertEquals(value1, value1,
+                "DistanceValue should equal itself");
+
+        // Symmetric: values with same arguments should be equal
+        Assertions.assertEquals(value1, value2,
+                "DistanceValue with same arguments should be equal");
+        Assertions.assertEquals(value2, value1,
+                "Equals should be symmetric");
+
+        // Hash code consistency
+        Assertions.assertEquals(value1.hashCode(), value2.hashCode(),
+                "Equal DistanceValues should have same hash code");
+
+        // Different arguments should not be equal
+        Assertions.assertNotEquals(value1, value3,
+                "DistanceValue with different arguments should not be equal");
+
+        // Not equal to null
+        Assertions.assertNotEquals(null, value1,
+                "DistanceValue should not equal null");
+
+        // Not equal to different type
+        Assertions.assertNotEquals(value1, "not a DistanceValue",
+                "DistanceValue should not equal object of different type");
+    }
+
+    @ParameterizedTest
+    @MethodSource("vectorDistanceFunctions")
+    void testDistanceValueEqualsDifferentDistanceFunctions(BuiltInFunction<?> distanceFunction) {
+        // Create values using different distance functions with same arguments
+        final List<Value> arguments = List.of(VECTOR_1_0_0, VECTOR_0_1_0);
+
+        final DistanceValue euclideanValue = (DistanceValue) new DistanceValue.EuclideanDistanceFn().encapsulate(arguments);
+        final DistanceValue cosineValue = (DistanceValue) new DistanceValue.CosineDistanceFn().encapsulate(arguments);
+        final DistanceValue manhattanValue = (DistanceValue) new DistanceValue.ManhattanDistanceFn().encapsulate(arguments);
+
+        // Different distance functions should produce non-equal values even with same arguments
+        Assertions.assertNotEquals(euclideanValue, cosineValue,
+                "Euclidean and Cosine distance values should not be equal");
+        Assertions.assertNotEquals(euclideanValue, manhattanValue,
+                "Euclidean and Manhattan distance values should not be equal");
+        Assertions.assertNotEquals(cosineValue, manhattanValue,
+                "Cosine and Manhattan distance values should not be equal");
     }
 }

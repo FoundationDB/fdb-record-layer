@@ -256,14 +256,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitNonAggregateFunctionCall(@Nonnull final RelationalParser.NonAggregateFunctionCallContext ctx) {
-        return visitNonAggregateWindowedFunction(ctx.nonAggregateWindowedFunction());
+        return getDelegate().visitNonAggregateWindowedFunction(ctx.nonAggregateWindowedFunction());
     }
 
     @Nonnull
     @Override
     public Expression visitNonAggregateWindowedFunction(@Nonnull final RelationalParser.NonAggregateWindowedFunctionContext windowedFunctionContext) {
         final String functionName = windowedFunctionContext.functionName.getText();
-        final WindowSpecExpression windowSpecExpression = visitOverClause(windowedFunctionContext.overClause());
+        final WindowSpecExpression windowSpecExpression = getDelegate().visitOverClause(windowedFunctionContext.overClause());
 
         final var partitionExpressions = windowSpecExpression.getPartitions();
         final var partitionValues = Streams.stream(partitionExpressions.underlying()).collect(ImmutableList.toImmutableList());
@@ -293,13 +293,13 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.isNullUnchecked(ctx.windowName(), ErrorCode.UNSUPPORTED_QUERY, "named window functions not supported");
 
         @Nullable final var partitionClause = ctx.windowSpec().partitionClause();
-        final Expressions partitions = partitionClause == null ? Expressions.empty() : visitPartitionClause(partitionClause);
+        final Expressions partitions = partitionClause == null ? Expressions.empty() : getDelegate().visitPartitionClause(partitionClause);
 
         @Nullable final var orderByClause = ctx.windowSpec().orderByClause();
         final List<OrderByExpression> orderByExpressions = orderByClause == null ? ImmutableList.of() : visitOrderByClause(orderByClause);
 
         @Nullable final var windowOptionsClause = ctx.windowSpec().windowOptionsClause();
-        final Expressions windowOptions = windowOptionsClause == null ? Expressions.empty() : visitWindowOptionsClause(windowOptionsClause);
+        final Expressions windowOptions = windowOptionsClause == null ? Expressions.empty() : getDelegate().visitWindowOptionsClause(windowOptionsClause);
 
         return WindowSpecExpression.of(partitions, orderByExpressions, windowOptions);
     }
@@ -307,7 +307,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expressions visitWindowOptionsClause(final RelationalParser.WindowOptionsClauseContext ctx) {
-        return Expressions.of(ImmutableSet.copyOf(ctx.windowOption().stream().map(this::visitWindowOption)
+        return Expressions.of(ImmutableSet.copyOf(ctx.windowOption().stream().map(option -> getDelegate().visitWindowOption(option))
                 .collect(ImmutableList.toImmutableList())));
     }
 

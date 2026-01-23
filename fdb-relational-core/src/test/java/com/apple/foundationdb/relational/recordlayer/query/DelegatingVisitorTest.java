@@ -475,4 +475,82 @@ public class DelegatingVisitorTest {
                     }
                 });
     }
+
+    @Test
+    void visitIndexPartitionClauseTest() {
+        testSimple("PARTITION BY (col1)",
+                RelationalParser::indexPartitionClause,
+                DelegatingVisitor::visitIndexPartitionClause,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitIndexPartitionClause(@Nonnull RelationalParser.IndexPartitionClauseContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitWindowOptionsClauseTest() {
+        testSimple("OPTIONS (ef_search = 100)",
+                RelationalParser::windowOptionsClause,
+                DelegatingVisitor::visitWindowOptionsClause,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Expressions visitWindowOptionsClause(@Nonnull RelationalParser.WindowOptionsClauseContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitWindowOptionTest() {
+        testSimple("ef_search = 100",
+                RelationalParser::windowOption,
+                DelegatingVisitor::visitWindowOption,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Expression visitWindowOption(@Nonnull RelationalParser.WindowOptionContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitWindowSpecTest() {
+        testSimple("(PARTITION BY col1 ORDER BY col2)",
+                RelationalParser::windowSpec,
+                DelegatingVisitor::visitWindowSpec,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitWindowSpec(@Nonnull RelationalParser.WindowSpecContext ctx) {
+                        called.setTrue();
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitNonAggregateFunctionCallTest() {
+        testSimple("ROW_NUMBER() OVER (PARTITION BY col1 ORDER BY col2)",
+                RelationalParser::functionCall,
+                (visitor, ctx) -> visitor.visitNonAggregateFunctionCall((RelationalParser.NonAggregateFunctionCallContext) ctx),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Expression visitNonAggregateFunctionCall(@Nonnull RelationalParser.NonAggregateFunctionCallContext ctx) {
+                        called.setTrue();
+                        return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
 }
