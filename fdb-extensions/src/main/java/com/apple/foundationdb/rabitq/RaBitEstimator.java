@@ -51,9 +51,10 @@ public class RaBitEstimator implements Estimator {
     public double distance(@Nonnull final RealVector query, @Nonnull final RealVector storedVector) {
         final double distance;
         if (!(query instanceof EncodedRealVector) && storedVector instanceof EncodedRealVector) {
-            // only use the estimator if the first (by convention) vector is not encoded, but the second is
+            // use the estimator if the first vector is not encoded, but the second is
             distance = distance(query, (EncodedRealVector)storedVector);
         } else if (query instanceof EncodedRealVector && !(storedVector instanceof EncodedRealVector)) {
+            // use the estimator if the second vector is not encoded, but the first is
             distance = distance(storedVector, (EncodedRealVector)query);
         } else {
             // use the regular metric for all other cases
