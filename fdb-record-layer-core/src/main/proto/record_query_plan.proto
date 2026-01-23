@@ -269,6 +269,7 @@ message PValue {
     PSubscriptValue subscript_value = 52;
     PParameterObjectValue parameter_object_value = 53;
     PCastValue cast_value = 54;
+    PStringFnValue string_fn_value = 55;
   }
 }
 
@@ -1296,6 +1297,15 @@ message PCollateValue {
   optional PValue string_child = 2;
   optional PValue locale_child = 3;
   optional PValue strength_child = 4;
+}
+
+message PStringFnValue {
+  enum PStringFn {
+    LOWER = 1;
+    UPPER = 2;
+  }
+  optional PStringFn function = 1;
+  optional PValue child = 2;
 }
 
 message PRangeValue {

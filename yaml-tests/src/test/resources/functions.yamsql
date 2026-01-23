@@ -148,6 +148,49 @@ test_block:
       - query: update C set st = coalesce(st, (5, 'e', 5.0)) where c1 = 4 returning "new".st
       - unorderedResult: [
             {{ T1: 5, A: 'e', B: 5.0}}]
+---
+test_block:
+  name: string-case-functions
+  options:
+    supported_version: !current_version
+  tests:
+    -
+      - query: select lower('HELLO WORLD') from A
+      - result: [{'hello world'}]
+    -
+      - query: select upper('hello world') from A
+      - result: [{'HELLO WORLD'}]
+    -
+      - query: select lower('MiXeD CaSe') from A
+      - result: [{'mixed case'}]
+    -
+      - query: select upper('MiXeD CaSe') from A
+      - result: [{'MIXED CASE'}]
+    -
+      - query: select lower(a3) from A
+      - result: [{'1'}]
+    -
+      - query: select upper(a3) from A
+      - result: [{'1'}]
+    -
+      # Test NULL handling
+      - query: select lower(null) from A
+      - result: [{!null _}]
+    -
+      - query: select upper(null) from A
+      - result: [{!null _}]
+    -
+      # Test with empty string
+      - query: select lower(''), upper('') from A
+      - result: [{_0: '', _1: ''}]
+    -
+      # Test with special characters and numbers
+      - query: select lower('ABC123!@#'), upper('abc123!@#') from A
+      - result: [{_0: 'abc123!@#', _1: 'ABC123!@#'}]
+    -
+      # Test with unicode characters
+      - query: select lower('CAFÉ'), upper('café') from A
+      - result: [{_0: 'café', _1: 'CAFÉ'}]
 ...
 
 
