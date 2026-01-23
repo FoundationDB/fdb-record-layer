@@ -533,7 +533,7 @@ S
 }ı
 k
 update-delete-statementsOEXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" = 1Ö
-Á˝ã⁄í ≈“Ï(90ÂÓw8W@æCOVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA•digraph G {
+Ú˛·”í åùª(90î¸8W@æCOVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -556,27 +556,27 @@ k
 }√
 ã
 update-delete-statementsoEXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" > 1 RETURNING "new"."foo.tableA.A1"≤
-†Ø◊ß† ”–Ô(90äÍ<8[@ÛCOVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)ùdigraph G {
+´Ü¢Ï† ÅÕƒ(90ﬁô8[@ÛCOVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)ùdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.new.foo.tableA.A1 AS foo.tableA.A1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Modification</td></tr><tr><td align="left">UPDATE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightcoral" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS old, LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS new)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">foo__2tableA</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS old, LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS new)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">foo__2tableA</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS old, LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3 AS new)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Unordered Primary Key Distinct</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c10 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.tableA.idx</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS foo.tableA.A1, LONG AS foo.tableA.A2, LONG AS foo.tableA.A3)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q115> label="q115" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="none" arrowtail="normal" dir="both" ];
+  4 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q115> label="q115" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ label=<&nbsp;q113> label="q113" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
+    4 -> 3 [ color="red" style="invis" ];
   }
 }≈
 î
