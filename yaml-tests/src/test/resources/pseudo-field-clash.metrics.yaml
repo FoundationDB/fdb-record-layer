@@ -197,14 +197,14 @@ pseudo-field-clash-queries:
         q1 -> { SCAN(<,>) | TFILTER T1 | FILTER q1.ID EQUALS _.ID AND q0.ID EQUALS
         _.ID AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0 AS _0, q3._1
         AS _1, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _2) }
-    task_count: 3409
-    task_total_time_ms: 288
-    transform_count: 1013
-    transform_time_ms: 102
-    transform_yield_count: 219
-    insert_time_ms: 19
-    insert_new_count: 571
-    insert_reused_count: 39
+    task_count: 2392
+    task_total_time_ms: 147
+    transform_count: 750
+    transform_time_ms: 34
+    transform_yield_count: 163
+    insert_time_ms: 7
+    insert_new_count: 399
+    insert_reused_count: 40
 -   query: EXPLAIN SELECT (t1.id, t1.col1, t1."__ROW_VERSION"), (t2.id, t2.col1, t2."__ROW_VERSION"),
         (t3.id, t3.col1, t3.col2, t3."__ROW_VERSION") FROM t1, t2, t3 WHERE t2.id
         = t1.id AND t3.id = t1.id
@@ -215,11 +215,11 @@ pseudo-field-clash-queries:
         AS COL1, q0.__ROW_VERSION AS __ROW_VERSION) AS _1, (q3._1.ID AS ID, q3._1.COL1
         AS COL1, q3._1.COL2 AS COL2, q3._1.__ROW_VERSION AS __ROW_VERSION) AS _2)
         }
-    task_count: 3409
-    task_total_time_ms: 290
-    transform_count: 1012
-    transform_time_ms: 79
-    transform_yield_count: 219
-    insert_time_ms: 11
-    insert_new_count: 571
-    insert_reused_count: 39
+    task_count: 2392
+    task_total_time_ms: 146
+    transform_count: 750
+    transform_time_ms: 32
+    transform_yield_count: 163
+    insert_time_ms: 6
+    insert_new_count: 399
+    insert_reused_count: 40

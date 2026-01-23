@@ -255,14 +255,14 @@ all-tests:
         | TFILTER my__1adjacency__1list | FILTER _.me EQUALS promote(@c8 AS LONG)
         AS q1 RETURN (q0.me AS _0, q0.my__parent AS _1, q1.me AS _2, q1.my__parent
         AS _3) }
-    task_count: 1405
-    task_total_time_ms: 43
-    transform_count: 301
-    transform_time_ms: 17
-    transform_yield_count: 110
-    insert_time_ms: 5
-    insert_new_count: 289
-    insert_reused_count: 13
+    task_count: 1459
+    task_total_time_ms: 70
+    transform_count: 321
+    transform_time_ms: 16
+    transform_yield_count: 112
+    insert_time_ms: 3
+    insert_new_count: 296
+    insert_reused_count: 19
 -   query: EXPLAIN select * from "$yay"(5);
     explain: SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c6
         AS LONG) | MAP (_.foo.tableE.E1 AS _$x.id)
