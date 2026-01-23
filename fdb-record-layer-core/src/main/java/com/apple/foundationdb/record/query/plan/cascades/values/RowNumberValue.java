@@ -422,7 +422,8 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
         public RowNumberHighOrderFn() {
             super("row_number", ImmutableList.of(EF_SEARCH_ARGUMENT, INDEX_RETURNS_VECTORS_ARGUMENT),
                     ImmutableList.of(Type.primitiveType(Type.TypeCode.INT), Type.primitiveType(Type.TypeCode.BOOLEAN)),
-                    ImmutableList.of(Optional.of(LiteralValue.ofScalar(null)), Optional.of(LiteralValue.ofScalar(null))));
+                    ImmutableList.of(Optional.of(LiteralValue.ofScalar(null)), Optional.of(LiteralValue.ofScalar(null))),
+                    RowNumberHighOrderFn::encapsulateInternal);
         }
 
         @Nonnull
@@ -446,13 +447,13 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
         }
 
         @Nonnull
-        @Override
-        public HighOrderValue encapsulate(@Nonnull final List<? extends Typed> arguments) {
+        private static RowNumberHighOrderValue encapsulateInternal(@Nonnull final BuiltInFunction<RowNumberHighOrderValue> ignored,
+                                                                   @Nonnull final List<? extends Typed> arguments) {
             SemanticException.check(arguments.size() <= 2,
                     SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
 
             if (arguments.isEmpty()) {
-                return new RowNumberHighOrderValue((Integer)null, null);
+                return new RowNumberHighOrderValue(null, null);
             }
 
             if (arguments.size() == 1) {

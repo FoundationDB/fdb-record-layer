@@ -41,7 +41,7 @@ import java.util.Optional;
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
 public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction {
-    @Nullable
+    @Nonnull
     final EncapsulationFunction<T> encapsulationFunction;
 
     /**
@@ -68,9 +68,10 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
 
     protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                               @Nonnull final List<Type> parameterTypes,
-                              @Nonnull final List<Optional<? extends Typed>> parameterDefaults) {
+                              @Nonnull final List<Optional<? extends Typed>> parameterDefaults,
+                              @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
-        this.encapsulationFunction = null;
+        this.encapsulationFunction = encapsulationFunction;
     }
 
     @Nonnull
