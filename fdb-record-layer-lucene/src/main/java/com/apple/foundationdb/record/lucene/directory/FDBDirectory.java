@@ -145,6 +145,7 @@ public class FDBDirectory extends Directory  {
     protected final Subspace storedFieldsSubspace;
     private final Subspace fileLockSubspace;
     private final Subspace pendingWritesQueueSubspace;
+    private final Subspace ongoingMergeSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final FDBDirectoryLockFactory lockFactory;
@@ -222,6 +223,7 @@ public class FDBDirectory extends Directory  {
         this.storedFieldsSubspace = subspace.subspace(Tuple.from(STORED_FIELDS_SUBSPACE));
         this.fileLockSubspace = subspace.subspace(Tuple.from(FILE_LOCK_SUBSPACE));
         this.pendingWritesQueueSubspace = subspace.subspace(Tuple.from(PENDING_WRITE_QUEUE_SUBSPACE));
+        this.ongoingMergeSubspace = subspace.subspace(Tuple.from(ONGOING_MERGE_INDICATOR_SUBSPACE));
         this.lockFactory = new FDBDirectoryLockFactory(this, Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS), 0));
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -994,7 +996,6 @@ public class FDBDirectory extends Directory  {
      * @return true if queue should be used
      */
     public boolean shouldUseQueue() {
-        final Subspace ongoingMergeSubspace = subspace.subspace(Tuple.from(ONGOING_MERGE_INDICATOR_SUBSPACE));
         final byte[] tupleBytes = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_ONGOING_MERGE_INDICATOR,
                 agilityContext.get(ongoingMergeSubspace.pack()));
 
@@ -1003,39 +1004,30 @@ public class FDBDirectory extends Directory  {
     }
 
     /**
-     * Sets the pending queue indicator.
+     * Sets the ongoing merge indicator.
      */
-    public void setPendingQueueIndicator() {
-        final Subspace ongoingMergeSubspace = subspace.subspace(Tuple.from(ONGOING_MERGE_INDICATOR_SUBSPACE));
+    public void setOngoingMergeIndicator() {
         final long nowMillis = System.currentTimeMillis();
         final Tuple indicatorTuple = Tuple.from(nowMillis);
         agilityContext.set(ongoingMergeSubspace.pack(), indicatorTuple.pack());
     }
 
     /**
-     * Clears the queue usage indicator, trow the queue is empty.
+     * Clears the ongoing merge indicator, throw exception if the queue is not empty.
      *
      * @throws RecordCoreException if the pending write queue is not empty
      */
-    public void clearPendingQueueIndicatorButFailIfNonEmpty() {
-        final Subspace ongoingMergeSubspace = subspace.subspace(Tuple.from(ONGOING_MERGE_INDICATOR_SUBSPACE));
-        final Subspace queueSubspace = subspace.subspace(Tuple.from(PENDING_WRITE_QUEUE_SUBSPACE));
-        final Range queueRange = queueSubspace.range();
-
+    public void clearOngoingMergeIndicatorButFailIfNonEmpty() {
         agilityContext.accept(context -> {
             // Verify that the pending write queue subspace is empty
-            final List<KeyValue> queueEntries =
-                    LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_PENDING_QUEUE,
-                            context.ensureActive()
-                                    .getRange(queueRange, 1) // Limit to 1 to just check if any entries exist
-                                    .asList(), context);
+            final CompletableFuture<Boolean> isEmptyFuture = createPendingWritesQueue().isQueueEmpty(context);
+            boolean isEmptyQueue =
+                    Boolean.TRUE.equals(LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_PENDING_QUEUE,
+                            isEmptyFuture, context));
 
-            if (queueEntries != null && !queueEntries.isEmpty()) {
+            if (!isEmptyQueue) {
                 throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
             }
-
-            // Add queue subspace range to conflict list
-            context.ensureActive().addReadConflictRange(queueRange.begin, queueRange.end);
 
             // Clear the ongoing merge indicator
             context.ensureActive().clear(ongoingMergeSubspace.pack());

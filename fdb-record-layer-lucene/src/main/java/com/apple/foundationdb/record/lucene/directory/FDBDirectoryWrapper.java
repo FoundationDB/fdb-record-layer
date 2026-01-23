@@ -407,7 +407,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     public void setOngoingMergeIndicator() {
-        getDirectory().setPendingQueueIndicator();
+        getDirectory().setOngoingMergeIndicator();
     }
 
     public void mergeIndex() throws IOException {
@@ -415,7 +415,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     public void clearOngoingMergeIndicator() {
-        getDirectory().clearPendingQueueIndicatorButFailIfNonEmpty();
+        getDirectory().clearOngoingMergeIndicatorButFailIfNonEmpty();
     }
 
     @VisibleForTesting

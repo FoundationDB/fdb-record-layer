@@ -271,7 +271,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                     throw new PendingQueueDrainException(ex);
                 }
                 if (LOGGER.isWarnEnabled()) {
-                    LOGGER.warn(KeyValueLogMessage.of("Failed to drain queue",
+                    LOGGER.warn(KeyValueLogMessage.of("Failed to drain queue, retrying",
                             LogMessageKeys.RETRY_COUNT, retries,
                             LogMessageKeys.GROUPING_KEY, groupingKey,
                             LogMessageKeys.PARTITION_ID, partitionId
@@ -279,7 +279,6 @@ public class FDBDirectoryManager implements AutoCloseable {
                 }
             }
         }
-        // Here: 10 failed clear queue attempts. What is the right thing to do?
     }
 
     private void drainPendingQueueNow(@Nonnull final Tuple groupingKey,
@@ -324,6 +323,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
             try {
                 final LuceneIndexMaintainer maintainer = (LuceneIndexMaintainer)store.getIndexMaintainer(state.index);
+                CompletableFuture<Void> oneItemFuture = AsyncUtil.DONE;
                 switch (queueEntry.getOperationType()) {
                     case UPDATE:
                     case INSERT:
@@ -338,19 +338,19 @@ public class FDBDirectoryManager implements AutoCloseable {
                     case DELETE:
                         final int countDeleted = maintainer.deleteDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed());
                         if (partitionId != null) {
-                            state.context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DECREMENT,
-                                    maintainer.postDeleteUpdatePartitionCounter(groupingKey, partitionId, countDeleted));
+                            oneItemFuture = maintainer.postDeleteUpdatePartitionCounter(groupingKey, partitionId, countDeleted)
+                                    .thenApply(ignore -> null);
                         }
                         break;
                     default:
                         if (LOGGER.isWarnEnabled()) {
-                            LOGGER.warn(KeyValueLogMessage.of("bad queue entry",
+                            LOGGER.warn(KeyValueLogMessage.of("unknown queue entry",
                                     LogMessageKeys.PRIMARY_KEY, queueEntry.getPrimaryKey()));
                         }
                         break;
                 }
                 pendingWriteQueue.clearEntry(store.getContext(), queueEntry);
-                return AsyncUtil.DONE;
+                return oneItemFuture;
             } catch (IOException ex) {
                 throw new RecordCoreException("Lucene IOException", ex);
             }
