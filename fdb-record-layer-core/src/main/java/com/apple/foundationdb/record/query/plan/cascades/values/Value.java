@@ -177,9 +177,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @return {@code true} if this value or any of its children is an {@link IndexOnlyValue}, {@code false} otherwise.
      * @see IndexOnlyValue
      */
-    default boolean isIndexOnly() {
-        return preOrderStream().anyMatch(IndexOnlyValue.class::isInstance);
-    }
+    boolean isIndexOnly();
 
     /**
      * evaluates computation of the expression without a store and returns the result immediately.
@@ -830,8 +828,61 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         }
     }
 
+    /**
+     * A scalar {@link Value} that cannot be evaluated at runtime; it can only be evaluated at compile-time
+     * using {@link Value#evalWithoutStore(EvaluationContext)}.
+     */
     @API(API.Status.EXPERIMENTAL)
-    interface HighOrderValue extends NonEvaluableValue {
+    interface CompileTimeOnlyValue extends Value {
+        @Nullable
+        @Override
+        default <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
+                                                @Nonnull final EvaluationContext context) {
+            throw new RecordCoreException("compile-time value can not be evaluated at runtime");
+        }
+
+        @Nullable
+        @Override
+        @SuppressWarnings({"java:S2637", "ConstantConditions"})
+        Object evalWithoutStore(@Nonnull EvaluationContext context);
+    }
+
+    /**
+     * A higher-order value representing a function that returns another function, enabling support for
+     * second-order functions in SQL and the query planner.
+     * <p>
+     * This interface extends {@link CompileTimeOnlyValue} because higher-order functions are resolved and
+     * applied during query compilation rather than at runtime. The resolution mechanism allows for flexible
+     * function invocation patterns where functions can be partially applied or configured before being
+     * invoked with their final arguments.
+     * </p>
+     * <p>
+     * Higher-order values have a result type of {@link Type#FUNCTION}, indicating that evaluating this value
+     * produces another function rather than a scalar value. This allows for function composition and
+     * partial application patterns commonly found in functional programming.
+     * </p>
+     * <p>
+     * When evaluated at compile-time using {@link #evalWithoutStore(EvaluationContext)}, a higher-order value
+     * returns a {@link BuiltInFunction} that can then be invoked with additional arguments.
+     * </p>
+     * <p>
+     * This interface is primarily used to support window functions like {@code ROW_NUMBER()} that can be
+     * configured with runtime options before being applied to data. The higher-order nature allows these
+     * functions to accept optional named parameters for configuration while maintaining SQL compatibility.
+     * </p>
+     * <p>
+     * The function resolver employs a fallback mechanism (similar to C++ SFINAE) when resolving higher-order
+     * functions. It attempts direct resolution first, and if that fails, it tries resolving the function
+     * as a higher-order value and then applying additional arguments to the returned function. This
+     * enables flexible syntax where {@code f(args)} and {@code f()(args)} can both work depending on
+     * the function's definition.
+     * </p>
+     *
+     * @see CompileTimeOnlyValue for the compile-time evaluation constraint
+     * @see BuiltInFunction for the function type returned by evaluation
+     */
+    @API(API.Status.EXPERIMENTAL)
+    interface HighOrderValue extends CompileTimeOnlyValue {
         @Nonnull
         @Override
         default Type getResultType() {

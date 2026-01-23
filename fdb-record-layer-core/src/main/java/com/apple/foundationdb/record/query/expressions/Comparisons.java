@@ -1793,7 +1793,8 @@ public class Comparisons {
         }
 
         public DistanceRankValueComparison(@Nonnull final Type type, @Nonnull final Value comparandValue,
-                                           @Nonnull final Value limitValue, @Nullable  final Integer efSearch, @Nullable final Boolean isReturningVectors) {
+                                           @Nonnull final Value limitValue, @Nullable final Integer efSearch,
+                                           @Nullable final Boolean isReturningVectors) {
             this(type, comparandValue, ParameterRelationshipGraph.unbound(), limitValue, efSearch, isReturningVectors);
         }
 
@@ -1847,7 +1848,6 @@ public class Comparisons {
             if (replacedLimitValueMaybe.isEmpty()) {
                 return Optional.empty();
             }
-
 
             if (replacedComparandValueMaybe.get() == getComparandValue() &&
                     replacedLimitValueMaybe.get() == getLimitValue()) {

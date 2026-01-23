@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -112,7 +111,6 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         }
         this.ranges = rangeConstraintsBuilder.build();
         this.rangesCompileTimeChecker = () -> ranges.stream().allMatch(RangeConstraints::isCompileTime);
-        this.isIndexOnlySupplier = Suppliers.memoize(() -> getValue().isIndexOnly());
     }
 
     /**
@@ -126,7 +124,6 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         this.value = value;
         this.ranges = ImmutableSet.copyOf(ranges);
         this.rangesCompileTimeChecker = () -> ranges.stream().allMatch(RangeConstraints::isCompileTime);
-        this.isIndexOnlySupplier = Suppliers.memoize(() -> getValue().isIndexOnly());
     }
 
     @Override
@@ -147,8 +144,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     }
 
     @Override
-    public boolean isIndexOnly() {
-        return isIndexOnlySupplier.get();
+    protected boolean computeIsIndexOnly() {
+        return getValue().isIndexOnly();
     }
 
     @Nonnull

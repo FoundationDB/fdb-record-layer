@@ -88,9 +88,9 @@ public class DistanceValue extends AbstractValue {
      * @param leftChild The left child (typically a vector field).
      * @param rightChild The right child (typically a query vector).
      */
-    public DistanceValue(@Nonnull DistanceOperator operator,
-                         @Nonnull Value leftChild,
-                         @Nonnull Value rightChild) {
+    private DistanceValue(@Nonnull DistanceOperator operator,
+                          @Nonnull Value leftChild,
+                          @Nonnull Value rightChild) {
         this.operator = operator;
         this.leftChild = leftChild;
         this.rightChild = rightChild;
@@ -98,7 +98,6 @@ public class DistanceValue extends AbstractValue {
 
     @Nullable
     @Override
-    @SuppressWarnings("java:S6213")
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final RealVector left = (RealVector)leftChild.eval(store, context);
         final RealVector right = (RealVector)rightChild.eval(store, context);
@@ -222,11 +221,8 @@ public class DistanceValue extends AbstractValue {
 
         final Optional<DistanceOperator> operatorOptional = Enums.getIfPresent(DistanceOperator.class, functionName.toUpperCase(Locale.ROOT)).toJavaUtil();
         Verify.verify(operatorOptional.isPresent());
-        final DistanceOperator logicalOperator = operatorOptional.get();
-
-        return new DistanceValue(logicalOperator, (Value)arg0, (Value)arg1);
+        return new DistanceValue(operatorOptional.get(), (Value)arg0, (Value)arg1);
     }
-
 
     /**
      * Operators for various distance metric functors.

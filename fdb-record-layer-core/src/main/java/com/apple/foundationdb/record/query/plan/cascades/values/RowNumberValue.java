@@ -45,9 +45,122 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.COSINE_DISTANCE;
 import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.EUCLIDEAN_DISTANCE;
 
+/**
+ * A windowed value representing the {@code ROW_NUMBER()} window function, which assigns sequential
+ * integer row numbers to rows within partitions based on a specified ordering.
+ * <p>
+ * This class extends {@link WindowedValue} to provide window function semantics and implements
+ * {@link Value.IndexOnlyValue} because row numbers are computed during index traversal for
+ * vector similarity searches and cannot be reconstructed from base records alone.
+ * </p>
+ *
+ * <h2>Primary Use Case: Vector Similarity Search</h2>
+ * <p>
+ * While {@code ROW_NUMBER()} is a standard SQL window function, this implementation is specifically
+ * designed for K-nearest neighbor (K-NN) vector similarity searches using HNSW indexes. The function
+ * assigns rank positions to vectors based on their distance from a query vector, enabling efficient
+ * "top-K" result limiting through the {@code QUALIFY} clause.
+ * </p>
+ * <p>
+ * <strong>Typical Query Pattern:</strong>
+ * <pre>
+ * SELECT docId, title
+ * FROM documents
+ * WHERE category = 'tech'
+ * QUALIFY ROW_NUMBER() OVER (
+ *   PARTITION BY category
+ *   ORDER BY euclidean_distance(embedding, [0.1, 0.2, 0.3])
+ *   OPTIONS ef_search = 100
+ * ) &lt;= 10
+ * </pre>
+ * This query finds the 10 nearest documents in the 'tech' category to the query vector {@code [0.1, 0.2, 0.3]}.
+ * </p>
+ *
+ * <h2>Configuration Parameters</h2>
+ * <ul>
+ *   <li><strong>efSearch</strong> ({@code Integer}, optional): Controls the HNSW index search quality.
+ *       Higher values increase recall (accuracy) but decrease performance. Corresponds to the
+ *       {@code ef_search} parameter in the {@code OPTIONS} clause. When {@code null}, the index's
+ *       default value is used.</li>
+ *   <li><strong>isReturningVectors</strong> ({@code Boolean}, optional): Determines whether the
+ *       index scan should return actual vector values in addition to distances. When {@code true},
+ *       vectors are returned; when {@code false} or {@code null}, only distances and document IDs
+ *       are returned, reducing data transfer overhead.</li>
+ * </ul>
+ *
+ * <h2>Comparison Transformation</h2>
+ * <p>
+ * The {@link #transformComparisonMaybe(Comparisons.Type, Value)} method performs critical pattern
+ * matching to enable HNSW index usage. When a comparison like {@code ROW_NUMBER() <= 10} is detected,
+ * it transforms the predicate into a {@link Comparisons.DistanceRankValueComparison} that the query
+ * planner recognizes as a K-NN search pattern.
+ * </p>
+ * <p>
+ * <strong>Transformation Example:</strong>
+ * <pre>
+ * // Original predicate
+ * ROW_NUMBER() OVER (ORDER BY euclidean_distance(embedding, queryVec)) &lt;= 10
+ *
+ * // Transformed to
+ * ValuePredicate(
+ *   EuclideanDistanceRowNumberValue(partitions, indexField),
+ *   DistanceRankValueComparison(queryVec, k=10, efSearch, isReturningVectors)
+ * )
+ * </pre>
+ * This transformation allows {@link com.apple.foundationdb.record.query.plan.cascades.VectorIndexScanMatchCandidate}
+ * to recognize and satisfy the pattern using an HNSW index scan.
+ * </p>
+ *
+ * <h2>Class Hierarchy</h2>
+ * <ul>
+ *   <li><strong>{@link RowNumberValue}</strong> (this class) - Base window function implementation</li>
+ *   <li><strong>{@link EuclideanDistanceRowNumberValue}</strong> - Specialized for Euclidean distance ordering</li>
+ *   <li><strong>{@link CosineDistanceRowNumberValue}</strong> - Specialized for Cosine distance ordering</li>
+ * </ul>
+ * <p>
+ * The specialized subclasses are created during comparison transformation to explicitly capture the
+ * distance metric being used, enabling the query planner to match against appropriately-configured
+ * HNSW indexes.
+ * </p>
+ *
+ * <h2>Integration with Higher-Order Functions</h2>
+ * <p>
+ * {@code ROW_NUMBER()} is resolved as a higher-order function through {@link RowNumberHighOrderValue}.
+ * The resolution process is:
+ * <ol>
+ *   <li>Parser encounters {@code ROW_NUMBER(ef_search: 100)}</li>
+ *   <li>{@link RowNumberHighOrderFn} creates {@link RowNumberHighOrderValue} with configuration</li>
+ *   <li>Higher-order value is evaluated to produce a curried function</li>
+ *   <li>Curried function is applied with partition and ordering arguments</li>
+ *   <li>Final {@code RowNumberValue} is produced with configuration baked in</li>
+ * </ol>
+ * This multi-stage resolution enables flexible syntax where configuration parameters can be specified
+ * separately from the window specification.
+ * </p>
+ *
+ * <h2>Index-Only Semantics</h2>
+ * <p>
+ * This class implements {@link Value.IndexOnlyValue} because row numbers are computed during the
+ * HNSW index traversal based on distance rankings. These rankings cannot be reconstructed from the
+ * base record data alone - they fundamentally depend on the index's graph structure and search
+ * algorithm. This constraint ensures that:
+ * <ul>
+ *   <li>The query planner doesn't attempt to compute row numbers outside of index scans</li>
+ *   <li>No covering index optimizations at the moment</li>
+ *   <li>Plan validation catches attempts to use {@code ROW_NUMBER()} without an appropriate index</li>
+ * </ul>
+ * </p>
+ *
+ * @see WindowedValue for the window function base class
+ * @see RowNumberHighOrderValue for the higher-order function wrapper
+ * @see RowNumberHighOrderFn for the function definition and resolution
+ * @see EuclideanDistanceRowNumberValue for Euclidean distance specialization
+ * @see CosineDistanceRowNumberValue for Cosine distance specialization
+ * @see Comparisons.DistanceRankValueComparison for the transformed comparison type
+ * @see com.apple.foundationdb.record.query.plan.cascades.VectorIndexScanMatchCandidate for index matching
+ */
 public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValue {
 
     @Nonnull

@@ -684,12 +684,10 @@ message PRankValue {
 
 message PEuclideanDistanceRowNumberValue {
   optional PWindowedValue super = 1;
-  repeated PRuntimeOption runtime_options = 2;
 }
 
 message PCosineDistanceRowNumberValue {
   optional PWindowedValue super = 1;
-  repeated PRuntimeOption runtime_options = 2;
 }
 
 message PRecordConstructorValue {
@@ -2337,12 +2335,4 @@ message PRecordQueryRecursiveDfsJoinPlan {
   optional PPhysicalQuantifier child_quantifier = 2;
   optional string prior_value_correlation = 3;
   optional PDfsTraversalStrategy dfs_traversal_strategy = 4;
-}
-
-//
-// PRuntimeOption
-//
-message PRuntimeOption {
-  optional string name = 1;
-  optional PValue value = 2;
 }

@@ -1,5 +1,5 @@
 /*
- * RowNumberValue.java
+ * RowNumberHighOrderValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -42,6 +42,16 @@ import javax.annotation.Nullable;
 import java.util.Locale;
 import java.util.function.Supplier;
 
+/**
+ * A higher-order value representing a partially-applied {@code ROW_NUMBER()} window function with
+ * optional configuration parameters.
+ * <p>
+ * This class implements {@link Value.HighOrderValue} to support flexible invocation patterns for the
+ * {@code ROW_NUMBER()} function. Rather than being directly invoked with partition keys and ordering
+ * expressions, the function can first be configured with runtime options (like {@code ef_search} for
+ * HNSW vector search) and then subsequently invoked with its actual arguments.
+ * </p>
+ */
 public class RowNumberHighOrderValue extends AbstractValue implements Value.HighOrderValue, LeafValue  {
 
     @Nonnull

@@ -49,7 +49,7 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
 
     private final Supplier<Integer> heightSupplier;
 
-    protected Supplier<Boolean> isIndexOnlySupplier;
+    private final Supplier<Boolean> isIndexOnlySupplier;
 
     @SuppressWarnings("unused")
     protected AbstractQueryPredicate(@Nonnull final PlanSerializationContext serializationContext,
@@ -122,7 +122,7 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
         return isIndexOnlySupplier.get();
     }
 
-    private boolean computeIsIndexOnly() {
+    protected boolean computeIsIndexOnly() {
         return StreamSupport.stream(getChildren().spliterator(), false).anyMatch(QueryPredicate::isIndexOnly);
     }
 

@@ -3354,6 +3354,18 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
     }
 
+    /**
+     * A marker type representing an opaque function type used exclusively during compile-time type resolution
+     * and higher-order function evaluation.
+     * <p>
+     * This type serves as a placeholder in the type system to indicate that a value represents a function rather
+     * than a concrete data type. It is used during the semantic analysis phase when resolving higher-order
+     * functions (functions that return functions) and has no runtime representation. Values of this type should
+     * never appear in executable query plans or serialized protobuf messages.
+     * </p>
+     *
+     * @see com.apple.foundationdb.record.query.plan.cascades.values.Value.HighOrderValue for values that produce this type
+     */
     class Function implements Type {
         @Override
         public TypeCode getTypeCode() {
@@ -3374,7 +3386,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public boolean isUnresolved() {
-            return true;
+            return false;
         }
 
         @Override

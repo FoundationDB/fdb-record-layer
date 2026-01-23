@@ -48,7 +48,7 @@ import java.util.stream.IntStream;
  * {@link com.apple.foundationdb.record.RecordMetaDataProto.MetaData}
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class CatalogedFunction implements Typed {
+public abstract class CatalogedFunction {
     @Nonnull
     protected final String functionName;
 
@@ -171,12 +171,6 @@ public abstract class CatalogedFunction implements Typed {
 
     public int getDefaultValuesCount() {
         return parameterDefaults.size();
-    }
-
-    @Nonnull
-    @Override
-    public Type getResultType() {
-        return Type.any();
     }
 
     /**

@@ -99,7 +99,7 @@ public abstract class AbstractValue implements Value {
     }
 
     private boolean computeIsIndexOnly() {
-        return Value.super.isIndexOnly();
+        return preOrderStream().anyMatch(IndexOnlyValue.class::isInstance);
     }
 
     @Override

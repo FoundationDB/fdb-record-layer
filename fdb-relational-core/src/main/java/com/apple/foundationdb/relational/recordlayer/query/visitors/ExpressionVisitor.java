@@ -267,14 +267,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
         final var partitionExpressions = windowSpecExpression.getPartitions();
         final var partitionValues = Streams.stream(partitionExpressions.underlying()).collect(ImmutableList.toImmutableList());
-        final var partitionArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(partitionValues);
+        final var partitionArray = partitionValues.isEmpty() ? AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray(Type.any())
+                                                             : AbstractArrayConstructorValue.LightArrayConstructorValue.of(partitionValues);
 
         final var orderByExpressions = windowSpecExpression.getOrderByExpressions();
         final var orderByValues = StreamSupport.stream(orderByExpressions.spliterator(), false).map(r -> r.getExpression().getUnderlying())
                 .collect(ImmutableList.toImmutableList());
 
         final ImmutableList.Builder<Expression> argumentsBuilder = ImmutableList.builder();
-        final var orderByArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(orderByValues);
+        final var orderByArray = orderByValues.isEmpty() ? AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray(Type.any())
+                                                         :  AbstractArrayConstructorValue.LightArrayConstructorValue.of(orderByValues);
         argumentsBuilder.add(Expression.ofUnnamed(partitionArray)).add(Expression.ofUnnamed(orderByArray));
 
         final var higherOrderArgumentsBuilder = ImmutableList.<Expressions>builder();
