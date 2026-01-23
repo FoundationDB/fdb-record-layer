@@ -26,21 +26,16 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.KeyRange;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerCombinationProvider;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerRegistryImpl;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerType;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
-import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
-import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePartitionInfoProto;
@@ -50,25 +45,19 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
-import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.CursorFactory;
-import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ItemHandler;
-import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
-import com.apple.foundationdb.util.CloseException;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -202,13 +191,16 @@ public class FDBDirectoryManager implements AutoCloseable {
         try {
             mergeIndexWithContext(groupingKey, partitionId, agilityContext);
         } finally {
-            // Here: drain this partition's queue and clear the "use queue" indicator
-            drainPendingQueue(groupingKey, partitionId, agilityContext);
-
-            // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
-            // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
-            // but that should be rare.
-            agilityContext.flushAndClose();
+            try {
+                // Here: drain this partition's queue and clear the "use queue" indicator
+                // If the drain had failed, we still wish to drain the queue and release the ongoing merge indicator. Merge can be retried by another process.
+                drainPendingQueue(groupingKey, partitionId, agilityContext);
+            } finally {
+                // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
+                // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
+                // but that should be rare.
+                agilityContext.flushAndClose();
+            }
         }
     }
 
@@ -241,120 +233,12 @@ public class FDBDirectoryManager implements AutoCloseable {
                                    @Nullable final Integer partitionId,
                                    @Nonnull final AgilityContext agilityContext) {
         try (FDBDirectoryWrapper directoryWrapper = createDirectoryWrapper(groupingKey, partitionId, agilityContext)) {
-            drainPendingQueueWithRetries(groupingKey, partitionId, agilityContext, directoryWrapper);
+            directoryWrapper.drainPendingQueue(groupingKey, partitionId);
         } catch (IOException e) {
             throw LuceneExceptions.toRecordCoreException("Drain pending queue failed", e,
                     LuceneLogMessageKeys.GROUP, groupingKey,
                     LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
         }
-    }
-
-    private void drainPendingQueueWithRetries(@Nonnull final Tuple groupingKey,
-                                              @Nullable final Integer partitionId,
-                                              @Nonnull final AgilityContext agilityContext,
-                                              FDBDirectoryWrapper directoryWrapper) {
-        if (LOGGER.isInfoEnabled()) {
-            LOGGER.info(KeyValueLogMessage.of("Drain pending queue",
-                    LogMessageKeys.GROUPING_KEY, groupingKey,
-                    LogMessageKeys.PARTITION_ID, partitionId));
-        }
-        final int maxRetries = 10;
-        for (int retries = 0; ; retries ++) {
-            try {
-                agilityContext.flush(); // before potentially long drain
-                drainPendingQueueNow(groupingKey, partitionId, agilityContext, directoryWrapper);
-                directoryWrapper.clearOngoingMergeIndicator();
-                agilityContext.flush(); // commit clear indicator
-                return;
-            } catch (RuntimeException ex) {
-                if (retries >= maxRetries) {
-                    throw new PendingQueueDrainException(ex);
-                }
-                if (LOGGER.isWarnEnabled()) {
-                    LOGGER.warn(KeyValueLogMessage.of("Failed to drain queue, retrying",
-                            LogMessageKeys.RETRY_COUNT, retries,
-                            LogMessageKeys.GROUPING_KEY, groupingKey,
-                            LogMessageKeys.PARTITION_ID, partitionId
-                    ), ex);
-                }
-            }
-        }
-    }
-
-    private void drainPendingQueueNow(@Nonnull final Tuple groupingKey,
-                                      @Nullable final Integer partitionId,
-                                      @Nonnull final AgilityContext agilityContext,
-                                      @Nonnull FDBDirectoryWrapper directoryWrapper) {
-        // Note - since this directory wrapper was already created, agility context should be unused in the next line's path
-        final PendingWriteQueue pendingWriteQueue = directoryWrapper.getPendingWriteQueue();
-        try (ThrottledRetryingIterator<PendingWriteQueue.QueueEntry> iterator = ThrottledRetryingIterator.builder(
-                        state.context.getDatabase(),
-                        cursorFactory(pendingWriteQueue),
-                        handleOneItemFactory(pendingWriteQueue, groupingKey, partitionId))
-                .withMdcContext(MDC.getCopyOfContextMap())
-                .withCommitWhenDone(true)
-                .build()) {
-            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DRAIN_PENDING_QUEUE,
-                    iterator.iterateAll(state.store.asBuilder()));
-        } catch (CloseException e) {
-            throw new PendingQueueDrainException(e);
-        }
-
-    }
-
-    private CursorFactory<PendingWriteQueue.QueueEntry> cursorFactory(PendingWriteQueue pendingWriteQueue) {
-        return (@Nonnull FDBRecordStore store, @Nullable RecordCursorResult<PendingWriteQueue.QueueEntry> lastResult, int rowLimit) -> {
-            byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
-            ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
-            // Note: null could have been used instead of continuation as the preceding items should have been deleted. However,
-            // using a continuation will prevent an infinite loop in case of a bug that doesn't clear items.
-            return pendingWriteQueue.getQueueCursor(store.getContext(), scanProperties, continuation);
-        };
-    }
-
-    private ItemHandler<PendingWriteQueue.QueueEntry> handleOneItemFactory(PendingWriteQueue pendingWriteQueue,
-                                                                           @Nonnull final Tuple groupingKey,
-                                                                           @Nullable final Integer partitionId) {
-        return (store, lastResult, quotamanager) -> {
-            final PendingWriteQueue.QueueEntry queueEntry = lastResult.get();
-            if (queueEntry == null) {
-                return AsyncUtil.DONE;
-            }
-
-            try {
-                final LuceneIndexMaintainer maintainer = (LuceneIndexMaintainer)store.getIndexMaintainer(state.index);
-                CompletableFuture<Void> oneItemFuture = AsyncUtil.DONE;
-                switch (queueEntry.getOperationType()) {
-                    case UPDATE:
-                    case INSERT:
-                        if (store.isIndexWriteOnly(state.index)) {
-                            // Here: covering a (rare) case of index becoming write-only after the item was queued.
-                            // We could have been nice to avoid pushing the DELETE new record item in tryDeleteInWriteOnlyMode if queueing, but
-                            // adding and processing this extra DELETE item in a background job seems easy enough.
-                            maintainer.deleteDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed());
-                        }
-                        maintainer.writeDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed(), queueEntry.getDocumentFieldsParsed());
-                        break;
-                    case DELETE:
-                        final int countDeleted = maintainer.deleteDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed());
-                        if (partitionId != null) {
-                            oneItemFuture = maintainer.postDeleteUpdatePartitionCounter(groupingKey, partitionId, countDeleted)
-                                    .thenApply(ignore -> null);
-                        }
-                        break;
-                    default:
-                        if (LOGGER.isWarnEnabled()) {
-                            LOGGER.warn(KeyValueLogMessage.of("unknown queue entry",
-                                    LogMessageKeys.PRIMARY_KEY, queueEntry.getPrimaryKey()));
-                        }
-                        break;
-                }
-                pendingWriteQueue.clearEntry(store.getContext(), queueEntry);
-                return oneItemFuture;
-            } catch (IOException ex) {
-                throw new RecordCoreException("Lucene IOException", ex);
-            }
-        };
     }
 
 
@@ -553,15 +437,4 @@ public class FDBDirectoryManager implements AutoCloseable {
                 .count());
     }
 
-    /**
-     * thrown if pending queue drain had failed.
-     */
-    @SuppressWarnings("java:S110")
-    public static class PendingQueueDrainException extends RecordCoreException {
-        private static final long serialVersionUID = 10;
-
-        public PendingQueueDrainException(final Throwable cause) {
-            super("Pending queue drain had failed", cause);
-        }
-    }
 }

@@ -1156,7 +1156,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 pendingQueueMergeFromMaintainer(schemaSetup, index)
         );
 
-        final FDBDirectoryManager.PendingQueueDrainException queueDrainException = TestHelpers.findCause(thrownException, FDBDirectoryManager.PendingQueueDrainException.class);
+        final FDBDirectoryWrapper.PendingQueueDrainException queueDrainException = TestHelpers.findCause(thrownException, FDBDirectoryWrapper.PendingQueueDrainException.class);
         assertNotNull(queueDrainException);
         assertThat(thrownException.getMessage(), containsString("Pending queue drain had failed"));
     }

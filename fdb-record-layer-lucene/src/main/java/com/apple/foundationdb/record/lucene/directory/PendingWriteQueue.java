@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -196,10 +195,6 @@ public class PendingWriteQueue {
      */
     @Nonnull
     public CompletableFuture<Boolean> isQueueEmpty(@Nonnull FDBRecordContext context) {
-
-        // Add queue subspace range to conflict list
-        final Range queueRange = queueSubspace.range();
-        context.ensureActive().addReadConflictRange(queueRange.begin, queueRange.end);
 
         // Return true if empty
         return context.ensureActive()
