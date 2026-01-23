@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.LoggableTimeoutException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -98,6 +99,7 @@ import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
@@ -788,12 +790,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
 
         // call merge - this should call drain and remove the ongoing merge indicator
-        try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-            final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
-            indexMaintainer.mergeIndex().join();
-            commit(context);
-        }
+        pendingQueueMergeFromMaintainer(schemaSetup, index);
 
         // Verify empty queue
         pendingQueueVerifyClearQueueAndIndicator(schemaSetup, index, null, null);
@@ -869,12 +866,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
 
         // Call merge - this should drain the queue and remove the queue indicator
-        try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-            final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
-            indexMaintainer.mergeIndex().join();
-            commit(context);
-        }
+        pendingQueueMergeFromMaintainer(schemaSetup, index);
 
         // Verify empty queue and correct final state
         pendingQueueVerifyClearQueueAndIndicator(schemaSetup, index, null, null);
@@ -974,14 +966,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
 
         // Merge index - drains all partition queues
-        try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-            final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
-            // unlike real life, this test sets the "ongoing merge indicator" ahead of the real merge. Merge allows
-            // the indicator being set as a way to recover from a leftover set indicator - which also enables this test.
-            indexMaintainer.mergeIndex().join();
-            commit(context);
-        }
+        // Note: This test sets the "ongoing merge indicator" ahead of the real merge. Merge allows
+        // the indicator being set as a way to recover from a leftover set indicator - which also enables this test.
+        pendingQueueMergeFromMaintainer(schemaSetup, index);
 
         // Verify both queues are empty and indicators are cleared
         try (FDBRecordContext context = openContext()) {
@@ -1067,12 +1054,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
 
         // Merge and verify
-        try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-            final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
-            indexMaintainer.mergeIndex().join();
-            commit(context);
-        }
+        pendingQueueMergeFromMaintainer(schemaSetup, index);
 
         // Verify queue cleared
         pendingQueueVerifyClearQueueAndIndicator(schemaSetup, index, null, null);
@@ -1138,15 +1120,45 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
 
         // Merge
-        try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-            final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
-            indexMaintainer.mergeIndex().join();
-            commit(context);
-        }
+        pendingQueueMergeFromMaintainer(schemaSetup, index);
 
         // Verify queue cleared
         pendingQueueVerifyClearQueueAndIndicator(schemaSetup, index, null, null);
+    }
+
+    @Test
+    void pendingQueueTestDrainException() {
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Enable queue
+        pendingQueueSetPendingQueueIndicator(schemaSetup, index, null, null);
+
+        // Set merge indicator and write corrupted queue entry
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+            // Write invalid protobuf directly to queue subspace
+            Subspace queueSubspace = recordStore.indexSubspace(index)
+                    .subspace(Tuple.from(FDBDirectory.PENDING_WRITE_QUEUE_SUBSPACE));
+            context.ensureActive().set(queueSubspace.pack(Tuple.from(0L)),
+                    new byte[]{(byte)0xFF, (byte)0xFF}); // Corrupted protobuf
+
+            commit(context);
+        }
+
+        // Merge attempts to drain corrupted queue and throws PendingQueueDrainException
+        CompletionException thrownException = assertThrows(CompletionException.class, () ->
+                pendingQueueMergeFromMaintainer(schemaSetup, index)
+        );
+
+        final FDBDirectoryManager.PendingQueueDrainException queueDrainException = TestHelpers.findCause(thrownException, FDBDirectoryManager.PendingQueueDrainException.class);
+        assertNotNull(queueDrainException);
+        assertThat(thrownException.getMessage(), containsString("Pending queue drain had failed"));
     }
 
     private void pendingQueueVerifyClearQueueAndIndicator(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index, @Nullable Tuple groupingKey, @Nullable Integer partitionId) {
@@ -1178,6 +1190,15 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
             FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
             directory.setPendingQueueIndicator();
+            commit(context);
+        }
+    }
+
+    private void pendingQueueMergeFromMaintainer(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index) {
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
+            indexMaintainer.mergeIndex().join();
             commit(context);
         }
     }
