@@ -72,11 +72,12 @@ preparedStatement
     ;
 
 administrationStatement
-    : setStatement 
-    | showStatement 
+    : setStatement
+    | showStatement
     | killStatement
     | resetStatement
     | executeContinuationStatement
+    | copyStatement
     ;
 
 utilityStatement
@@ -673,6 +674,11 @@ resetStatement
 executeContinuationStatement
     : EXECUTE CONTINUATION packageBytes=continuationAtom
       queryOptions?
+    ;
+
+copyStatement
+    : COPY path                                    #copyExportStatement
+    | COPY path FROM preparedStatementParameter    #copyImportStatement
     ;
 
 // details

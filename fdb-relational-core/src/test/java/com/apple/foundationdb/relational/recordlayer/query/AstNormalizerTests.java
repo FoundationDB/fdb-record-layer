@@ -1327,6 +1327,37 @@ public class AstNormalizerTests {
                 Map.of(constantId(5), "apple"));
     }
 
+    @Test
+    void parseCopyExport() throws Exception {
+        validate(List.of("copy /test/foo/bar",
+                        "  copy   /test/foo/bar  "),
+                PreparedParams.empty(),
+                // the canonical representation isn't super important because we're not caching, but it is part of the
+                // standard validate helper method
+                "copy \"/TEST/FOO/BAR\" ",
+                List.of(Map.of(), Map.of()),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_ADMIN_STATEMENT,
+                        AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION));
+    }
+
+    @Test
+    void parseCopyImport() throws Exception {
+        validate(List.of("copy /test/foo/bar from ?",
+                        "  copy /test/foo/bar   from   ?"),
+                PreparedParams.of(Map.of(1, new byte[0]), Map.of()),
+                // the canonical representation isn't super important because we're not caching, but it is part of the
+                // standard validate helper method
+                "copy \"/TEST/FOO/BAR\" from ? ",
+                List.of(Map.of(constantId(3), ByteString.empty()),
+                        Map.of(constantId(3), ByteString.empty())),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_ADMIN_STATEMENT,
+                        AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION));
+    }
+
     @Nonnull
     private String normalizeQuery(@Nonnull final String functionDdl) throws RelationalException {
         final var normalizer = AstNormalizer.normalizeAst(fakeSchemaTemplate,
