@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -162,8 +161,8 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     @Nonnull
     @Override
     public CompletableFuture<AbstractNode<N>> fetchNode(@Nonnull final ReadTransaction readTransaction,
-                                                        @Nonnull final AffineOperator storageTransform,
-                                                        int layer, @Nonnull Tuple primaryKey) {
+                                                        @Nonnull final StorageTransform storageTransform,
+                                                        final int layer, @Nonnull Tuple primaryKey) {
         return fetchNodeInternal(readTransaction, storageTransform, layer, primaryKey).thenApply(this::checkNode);
     }
 
@@ -185,7 +184,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      */
     @Nonnull
     protected abstract CompletableFuture<AbstractNode<N>> fetchNodeInternal(@Nonnull ReadTransaction readTransaction,
-                                                                            @Nonnull AffineOperator storageTransform,
+                                                                            @Nonnull StorageTransform storageTransform,
                                                                             int layer, @Nonnull Tuple primaryKey);
 
     /**

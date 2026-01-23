@@ -59,7 +59,6 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         this.normalizedDescription = normalizedDescription;
         this.name = name;
         this.isTemporary = isTemporary;
-        // TODO this used to be memoized
         this.userDefinedFunctionProvider = MemoizedFunction.memoize(userDefinedFunctionProvider::apply);
         this.serializableFunction = serializableFunction;
     }

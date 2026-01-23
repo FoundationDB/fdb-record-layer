@@ -59,6 +59,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -77,7 +78,6 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -103,6 +103,8 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
     private final Supplier<PartiallyOrderedSet<CorrelationIdentifier>> correlationOrderSupplier;
     @Nonnull
     private final Supplier<Set<Set<CorrelationIdentifier>>> independentQuantifiersPartitioningSupplier;
+    @Nonnull
+    private final Supplier<QueryPredicate> conjunctedPredicateSupplier;
 
     public SelectExpression(@Nonnull Value resultValue,
                             @Nonnull List<? extends Quantifier> children,
@@ -115,6 +117,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         this.aliasToQuantifierMapSupplier = Suppliers.memoize(() -> Quantifiers.aliasToQuantifierMap(children));
         this.correlationOrderSupplier = Suppliers.memoize(this::computeCorrelationOrder);
         this.independentQuantifiersPartitioningSupplier = Suppliers.memoize(this::computeIndependentQuantifiersPartitioning);
+        this.conjunctedPredicateSupplier = Suppliers.memoize(this::computeConjunctedPredicate);
     }
 
     @Nonnull
@@ -294,6 +297,16 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
             }
         }
         return partitioning;
+    }
+
+    @Nonnull
+    public QueryPredicate getConjunctedPredicate() {
+        return conjunctedPredicateSupplier.get();
+    }
+
+    @Nonnull
+    private QueryPredicate computeConjunctedPredicate() {
+        return AndPredicate.and(getPredicates());
     }
 
     @Nonnull
@@ -617,17 +630,28 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
     @Nonnull
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
-        final var predicateString = "WHERE " + getPredicates().stream()
-                .map(Object::toString)
-                .collect(Collectors.joining(" AND "));
+        final var whereFormatter =
+                WithIndentationsExplainFormatter.forDot(7);
 
-        final var abbreviatedPredicateString = predicateString.length() > 30 ? String.format(Locale.ROOT, "%02x", predicateString.hashCode()) : predicateString;
+        final var predicateString =
+                "WHERE " + getConjunctedPredicate().explain()
+                        .getExplainTokens()
+                        .render(whereFormatter);
+
+        final var selectFormatter =
+                WithIndentationsExplainFormatter.forDot(5);
+
+        final var resultString =
+                "SELECT " + resultValue.explain()
+                        .getExplainTokens()
+                        .render(selectFormatter);
+
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
-                        "SELECT " + resultValue,
+                        resultString,
                         getPredicates().isEmpty()
                         ? ImmutableList.of()
-                        : ImmutableList.of(abbreviatedPredicateString),
+                        : ImmutableList.of(predicateString),
                         ImmutableMap.of()),
                 childGraphs);
     }
