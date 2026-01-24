@@ -82,6 +82,10 @@ public class DataTypeUtils {
                 final var asEnum = (Type.Enum) type;
                 final var enumValues = asEnum.getEnumValues().stream().map(v -> DataType.EnumType.EnumValue.of(v.getName(), v.getNumber())).collect(Collectors.toList());
                 return DataType.EnumType.from(asEnum.getName() == null ? ProtoUtils.uniqueName("id") : asEnum.getName(), enumValues, asEnum.isNullable());
+            case FUNCTION:
+                // function type is an artificial type used as a bridge for resolving higher-order functions, therefore
+                // we do not have a representation of this type in the relational type system.
+                return DataType.UnknownType.instance();
             default:
                 Assert.failUnchecked(String.format(Locale.ROOT, "unexpected type %s", type));
                 return null; // make compiler happy.

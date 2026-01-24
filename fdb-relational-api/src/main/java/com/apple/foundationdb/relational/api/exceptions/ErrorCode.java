@@ -79,12 +79,17 @@ public enum ErrorCode {
 
     // Class 22 - Data Exception
     CANNOT_CONVERT_TYPE("22000"),
+    /** LIMIT clause is given an invalid value (e.g. negative). */
     INVALID_ROW_COUNT_IN_LIMIT_CLAUSE("2201W"),
     INVALID_PARAMETER("22023"),
     ARRAY_ELEMENT_ERROR("2202E"),
     INVALID_BINARY_REPRESENTATION("22F03"),
     INVALID_ARGUMENT_FOR_FUNCTION("22F00"),
     INVALID_CAST("22F3H"),
+    /** Data cannot be serialized/deserialized as part of COPY import/export. */
+    COPY_SERIALIZATION_ERROR("22F04"),
+    /** COPY import data doesn't belong to target path. */
+    COPY_IMPORT_VALIDATION_ERROR("22F08"),
 
     // Class 23 - Integrity Constraint Violation
     NOT_NULL_VIOLATION("23502"),
@@ -127,6 +132,7 @@ public enum ErrorCode {
     UNKNOWN_TYPE("42F18"),
     INVALID_RECURSION("42F19"),
     INCOMPATIBLE_TABLE_ALIAS("42F20"),
+    WINDOWING_ERROR("42F21"),
     /**
      * Indicates that a schema with the given name is already mapped to a schema template.
      */

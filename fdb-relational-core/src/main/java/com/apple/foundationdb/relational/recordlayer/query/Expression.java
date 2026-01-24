@@ -95,7 +95,7 @@ public class Expression {
 
     @Nonnull
     public Value getUnderlying() {
-        return underlying.get();
+        return Assert.castUnchecked(underlying.get(), Value.class);
     }
 
     @Nonnull
@@ -223,7 +223,7 @@ public class Expression {
      */
     @Nonnull
     public Expressions dereferenced(@Nonnull Literals literals) {
-        return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(underlying.get().replace(value -> {
+        return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(getUnderlying().replace(value -> {
             if (value instanceof ConstantObjectValue) {
                 final ConstantObjectValue constantObjectValue = (ConstantObjectValue) value;
                 return new LiteralValue<>(constantObjectValue.getResultType(), literals.asMap().get(constantObjectValue.getConstantId()));
@@ -305,15 +305,13 @@ public class Expression {
                                                            @Nonnull final Set<CorrelationIdentifier> localAliases,
                                                            boolean forDdl) {
             final var value = Assert.castUnchecked(expression.getUnderlying(), BooleanValue.class);
+            final Optional<QueryPredicate> result;
             if (forDdl) {
-                final var result = value.toQueryPredicate(ParseHelpers.EMPTY_TYPE_REPOSITORY, localAliases);
-                Assert.thatUnchecked(result.isPresent());
-                return result.get();
+                result = value.toQueryPredicate(ParseHelpers.EMPTY_TYPE_REPOSITORY, localAliases);
             } else {
-                final var result = value.toQueryPredicate(null, localAliases);
-                Assert.thatUnchecked(result.isPresent());
-                return result.get();
+                result = value.toQueryPredicate(null, localAliases);
             }
+            return Assert.optionalUnchecked(result);
         }
     }
 

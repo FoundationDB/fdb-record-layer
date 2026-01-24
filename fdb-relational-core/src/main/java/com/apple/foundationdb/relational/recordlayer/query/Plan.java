@@ -76,7 +76,8 @@ public abstract class Plan<T> {
     }
 
     /**
-     * Determine if the plan is an update plan.
+     * Determine if the plan is an update plan, an update plan must not return a valuable result set, i.e.
+     * {@code INSERT .... RETURN id} is not an update plan, even though it updates data.
      *
      * @return {@code true} if the plan is an insert, update, or delete plan, {@code false} otherwise.
      */
