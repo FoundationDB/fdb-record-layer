@@ -953,7 +953,7 @@ public class SemanticAnalyzer {
      * @return A {@link LogicalOperator} representing the semantics of the requested SQL table function.
      */
     @Nonnull
-    public LogicalOperator resolveTableFunction(@Nonnull final Identifier functionName, @Nonnull Optional<Identifier> alias, @Nonnull final Expressions arguments,
+    public LogicalOperator resolveTableFunction(@Nonnull final Identifier functionName, @Nonnull final Expressions arguments,
                                                 boolean flattenSingleItemRecords) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName.getName()), ErrorCode.UNDEFINED_FUNCTION,
                 () -> String.format(Locale.ROOT, "Unknown function %s", functionName));
@@ -981,7 +981,7 @@ public class SemanticAnalyzer {
         }
         final var tableExpression = Assert.castUnchecked(resultingValue, RelationalExpression.class);
         final var topQun = Quantifier.forEach(Reference.initialOf(tableExpression));
-        return LogicalOperator.newNamedOperator(functionName, Expressions.fromQuantifier(topQun), topQun).withNewSharedReferenceAndAlias(alias);
+        return LogicalOperator.newNamedOperator(functionName, Expressions.fromQuantifier(topQun), topQun);
     }
 
     @Nonnull
