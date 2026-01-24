@@ -614,7 +614,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @SuppressWarnings("PMD.CloseResource")
     private boolean shouldUseQueue(Tuple groupingKey, Integer partitionId) {
         FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
-        // Check the standard Lucene IndexWriter lock
         return directory.shouldUseQueue();
     }
 

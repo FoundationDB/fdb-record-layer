@@ -512,12 +512,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                 switch (queueEntry.getOperationType()) {
                     case UPDATE:
                     case INSERT:
-                        if (store.isIndexWriteOnly(state.index)) {
-                            // Here: covering a (rare) case of index becoming write-only after the item was queued.
-                            // We could have been nice to avoid pushing the DELETE new record item in tryDeleteInWriteOnlyMode if queueing, but
-                            // adding and processing this extra DELETE item in a background job seems easy enough.
-                            maintainer.deleteDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed());
-                        }
                         maintainer.writeDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed(), queueEntry.getDocumentFieldsParsed());
                         break;
                     case DELETE:
@@ -528,11 +522,10 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                         }
                         break;
                     default:
-                        if (LOGGER.isWarnEnabled()) {
-                            LOGGER.warn(KeyValueLogMessage.of("unknown queue entry",
-                                    LogMessageKeys.PRIMARY_KEY, queueEntry.getPrimaryKey()));
-                        }
-                        break;
+                        throw new PendingQueueDrainException("Unknown operation type",
+                                LogMessageKeys.GROUPING_KEY, groupingKey,
+                                LogMessageKeys.PARTITION_ID, partitionId,
+                                LogMessageKeys.CODE, queueEntry.getOperationType());
                 }
                 pendingWriteQueue.clearEntry(store.getContext(), queueEntry);
                 return oneItemFuture;
@@ -551,6 +544,10 @@ public class FDBDirectoryWrapper implements AutoCloseable {
 
         public PendingQueueDrainException(final Throwable cause) {
             super("Pending queue drain had failed", cause);
+        }
+
+        public PendingQueueDrainException(@Nonnull final String msg, @Nullable final Object... keyValues) {
+            super(msg, keyValues);
         }
     }
 
