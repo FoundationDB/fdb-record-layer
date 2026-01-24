@@ -1,0 +1,204 @@
+---
+options:
+  supported_version: 4.9.1.0
+---
+schema_template:
+    create table products(id bigint, name string, category string, price bigint, rating bigint, supplier string, stock bigint, primary key(id))
+    create table sales(id bigint, category string, region string, amount bigint, quantity bigint, primary key(id))
+    create index idx_price as select price from products order by price
+    create index idx_category_price as select category, price, name from products order by category, price
+    create index idx_sales_by_category as select category, sum(amount) from sales group by category
+    create index idx_count_by_region as select region, count(*) from sales group by region
+    create index idx_max_by_category as select category, max(amount) from sales group by category order by category, max(amount)
+    create index idx_price_desc as select price from products order by price desc
+    create index idx_category_desc_price_asc as select category, price from products order by category desc, price asc
+    create index idx_rating_nulls_last as select rating from products order by rating asc nulls last
+    create index idx_on_price on products(price)
+    create index idx_on_category_price on products(category, price)
+    create index idx_on_category_price_covering on products(category, price) include(name, stock)
+    create index idx_on_category_desc on products(category desc, price asc)
+    create index idx_on_rating_nulls_last on products(rating asc nulls last)
+    create index idx_on_supplier_desc_nulls_first on products(supplier desc nulls first)
+    create index idx_on_stock_nulls_last on products(stock nulls last)
+    create index idx_on_complex on products(category asc nulls first, price desc nulls last, name asc)
+---
+setup:
+  steps:
+    # Setup products data
+    - query: insert into products
+            values (1, 'Widget A', 'Electronics', 100, 5, 'SupplierA', 50),
+                   (2, 'Widget B', 'Electronics', 150, 4, 'SupplierB', 30),
+                   (3, 'Gadget X', 'Electronics', 200, NULL, 'SupplierA', 20),
+                   (4, 'Tool A', 'Hardware', 80, 3, NULL, 100),
+                   (5, 'Tool B', 'Hardware', 120, NULL, 'SupplierC', NULL)
+
+    # Setup sales data
+    - query: insert into sales
+            values (1, 'Electronics', 'North', 500, 10),
+                   (2, 'Electronics', 'South', 300, 5),
+                   (3, 'Hardware', 'North', 200, 3),
+                   (4, 'Electronics', 'North', 700, 15),
+                   (5, 'Hardware', 'South', 400, 8)
+---
+test_block:
+  name: index-documentation-tests
+  preset: single_repetition_ordered
+  tests:
+    # INDEX AS SELECT - Simple Value Index
+    -
+      - query: SELECT price
+              FROM products
+              ORDER BY price
+      - result: [{price: 80},
+                 {price: 100},
+                 {price: 120},
+                 {price: 150},
+                 {price: 200}]
+
+    # INDEX AS SELECT - Covering Value Index
+    -
+      - query: SELECT category, price, name
+              FROM products
+              ORDER BY category, price
+      - result: [{category: "Electronics", price: 100, name: "Widget A"},
+                 {category: "Electronics", price: 150, name: "Widget B"},
+                 {category: "Electronics", price: 200, name: "Gadget X"},
+                 {category: "Hardware", price: 80, name: "Tool A"},
+                 {category: "Hardware", price: 120, name: "Tool B"}]
+
+    # INDEX AS SELECT - Aggregate Index (SUM)
+    -
+      - query: SELECT category, SUM(amount) as total
+              FROM sales
+              GROUP BY category
+              ORDER BY category
+      - result: [{category: "Electronics", total: 1500},
+                 {category: "Hardware", total: 600}]
+
+    # INDEX AS SELECT - Aggregate Index (COUNT)
+    -
+      - query: SELECT region, COUNT(*) as cnt
+              FROM sales
+              GROUP BY region
+              ORDER BY region
+      - result: [{region: "North", cnt: 3},
+                 {region: "South", cnt: 2}]
+
+    # INDEX AS SELECT - Aggregate Index (MAX)
+    -
+      - query: SELECT category, MAX(amount) as max_amt
+              FROM sales
+              GROUP BY category
+              ORDER BY category, MAX(amount)
+      - result: [{category: "Electronics", max_amt: 700},
+                 {category: "Hardware", max_amt: 400}]
+
+    # INDEX AS SELECT - Descending Order
+    -
+      - query: SELECT price
+              FROM products
+              ORDER BY price DESC
+      - result: [{price: 200},
+                 {price: 150},
+                 {price: 120},
+                 {price: 100},
+                 {price: 80}]
+
+    # INDEX AS SELECT - Mixed Ordering
+    -
+      - query: SELECT category, price
+              FROM products
+              ORDER BY category DESC, price ASC
+      - result: [{category: "Hardware", price: 80},
+                 {category: "Hardware", price: 120},
+                 {category: "Electronics", price: 100},
+                 {category: "Electronics", price: 150},
+                 {category: "Electronics", price: 200}]
+
+    # INDEX ON - Simple Value Index
+    -
+      - query: SELECT price
+              FROM products
+              ORDER BY price
+      - result: [{price: 80},
+                 {price: 100},
+                 {price: 120},
+                 {price: 150},
+                 {price: 200}]
+
+    # INDEX ON - Multi-Column Index
+    -
+      - query: SELECT category, price
+              FROM products
+              ORDER BY category, price
+      - result: [{category: "Electronics", price: 100},
+                 {category: "Electronics", price: 150},
+                 {category: "Electronics", price: 200},
+                 {category: "Hardware", price: 80},
+                 {category: "Hardware", price: 120}]
+
+    # INDEX ON - Covering Index with INCLUDE
+    -
+      - query: SELECT category, price, name, stock
+              FROM products
+              ORDER BY category, price
+      - result: [{category: "Electronics", price: 100, name: "Widget A", stock: 50},
+                 {category: "Electronics", price: 150, name: "Widget B", stock: 30},
+                 {category: "Electronics", price: 200, name: "Gadget X", stock: 20},
+                 {category: "Hardware", price: 80, name: "Tool A", stock: 100},
+                 {category: "Hardware", price: 120, name: "Tool B", stock: !null _}]
+
+    # INDEX ON - Custom Ordering (DESC/ASC)
+    -
+      - query: SELECT category, price
+              FROM products
+              ORDER BY category DESC, price ASC
+      - result: [{category: "Hardware", price: 80},
+                 {category: "Hardware", price: 120},
+                 {category: "Electronics", price: 100},
+                 {category: "Electronics", price: 150},
+                 {category: "Electronics", price: 200}]
+
+    # INDEX ON - NULL Ordering (ASC NULLS LAST)
+    -
+      - query: SELECT rating
+              FROM products
+              ORDER BY rating ASC NULLS LAST
+      - result: [{rating: 3},
+                 {rating: 4},
+                 {rating: 5},
+                 {rating: !null _},
+                 {rating: !null _}]
+
+    # INDEX ON - NULL Ordering (DESC NULLS FIRST)
+    -
+      - query: SELECT supplier
+              FROM products
+              ORDER BY supplier DESC NULLS FIRST
+      - result: [{supplier: !null _},
+                 {supplier: "SupplierC"},
+                 {supplier: "SupplierB"},
+                 {supplier: "SupplierA"},
+                 {supplier: "SupplierA"}]
+
+    # INDEX ON - NULL Semantics Only (implicit ASC)
+    -
+      - query: SELECT stock
+              FROM products
+              ORDER BY stock NULLS LAST
+      - result: [{stock: 20},
+                 {stock: 30},
+                 {stock: 50},
+                 {stock: 100},
+                 {stock: !null _}]
+
+    # INDEX ON - Mixed Ordering Across Multiple Columns
+    -
+      - query: SELECT category, price, name
+              FROM products
+              ORDER BY category ASC NULLS FIRST, price DESC NULLS LAST, name ASC
+      - result: [{category: "Electronics", price: 200, name: "Gadget X"},
+                 {category: "Electronics", price: 150, name: "Widget B"},
+                 {category: "Electronics", price: 100, name: "Widget A"},
+                 {category: "Hardware", price: 120, name: "Tool B"},
+                 {category: "Hardware", price: 80, name: "Tool A"}]

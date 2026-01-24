@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.continuation.ContinuationProto;
 
+import com.apple.foundationdb.relational.continuation.CopyPlan;
 import com.google.common.primitives.Ints;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -91,6 +92,15 @@ public final class ContinuationImpl implements Continuation {
 
     public boolean hasCompiledStatement() {
         return proto.hasCompiledStatement();
+    }
+
+    public boolean hasCopyPlan() {
+        return proto.hasCopyPlan();
+    }
+
+    @Nonnull
+    public CopyPlan getCopyPlan() {
+        return proto.getCopyPlan();
     }
 
     /**

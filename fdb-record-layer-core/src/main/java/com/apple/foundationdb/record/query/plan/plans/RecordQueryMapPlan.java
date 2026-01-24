@@ -40,12 +40,15 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -64,7 +67,7 @@ import java.util.Set;
  * method: Mapping one {@link Value} to another.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryMapPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild {
+public class RecordQueryMapPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild, ExplainPlannerGraphRewritable, InternalPlannerGraphRewritable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Map-Plan");
 
     @Nonnull
@@ -208,6 +211,32 @@ public class RecordQueryMapPlan extends AbstractRelationalExpressionWithChildren
     @Nonnull
     public Quantifier.Physical getInner() {
         return inner;
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewriteExplainPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return rewritePlannerGraph(childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        final var explainFormatter =
+                WithIndentationsExplainFormatter.forDot(1);
+
+        final var mapString =
+                "MAP " + getResultValue().explain()
+                        .getExplainTokens()
+                        .render(explainFormatter);
+
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.OperatorNodeWithInfo(
+                        this,
+                        NodeInfo.VALUE_COMPUTATION_OPERATOR,
+                        ImmutableList.of(mapString),
+                        ImmutableMap.of()),
+                childGraphs);
     }
 
     @Nonnull

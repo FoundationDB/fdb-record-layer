@@ -50,6 +50,11 @@ class DocumentationQueriesTests {
     }
 
     @TestTemplate
+    void indexDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/index-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     void isDistinctFromOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/is-distinct-from-operator-queries.yamsql");
     }
@@ -82,5 +87,10 @@ class DocumentationQueriesTests {
     @TestTemplate
     void withDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/with-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
+    void windowFunctionDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/window-function-documentation-queries.yamsql");
     }
 }

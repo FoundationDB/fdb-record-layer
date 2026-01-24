@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
+import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.ConstantFoldingValuePredicateRule;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -28,6 +29,7 @@ import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.utils.Ddl;
+import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.logging.log4j.Level;
@@ -290,6 +292,52 @@ public class ValueSpecificConstraintTests {
 
             // should get a plan cache hit when attempting to plan the query with the same options.
             preparedQueryShouldHitCache(connection, "select a + 43 from t where a = ?", map);
+        }
+    }
+
+    @Test
+    void hnswQueriesWithDifferentRuntimeOptionsAreCachedCorrectly() throws Exception {
+        final String schemaTemplate =
+                "CREATE TABLE photos(zone string, recordId string, name string, embedding vector(3, half), primary key (zone, recordId)) " +
+                "CREATE VIEW V1 AS SELECT embedding, zone, name from photos " +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON V1(embedding) PARTITION BY(zone, name)" +
+                " OPTIONS (METRIC = EUCLIDEAN_METRIC)";
+
+        final var queryVector = new HalfRealVector(new double[] {1.2f, -0.4f, 3.14f});
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension)
+                .schemaTemplate(schemaTemplate).schemaTemplateOptions((new SchemaTemplateRule.SchemaTemplateOptions(true, true))).build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+
+            // First query with EF_SEARCH = 100 and k = 10
+            preparedQueryShouldMissCache(connection,
+                    "SELECT * FROM photos WHERE zone = '1' and name = 'Alice' " +
+                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) DESC OPTIONS EF_SEARCH = 100) < ?",
+                    ImmutableMap.of(1, queryVector, 2, 10));
+
+            // Same query should hit cache
+            preparedQueryShouldHitCache(connection,
+                    "SELECT * FROM photos WHERE zone = '1' and name = 'Alice' " +
+                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) DESC OPTIONS EF_SEARCH = 100) < ?",
+                    ImmutableMap.of(1, queryVector, 2, 10));
+
+            // Different EF_SEARCH value should miss cache
+            preparedQueryShouldMissCache(connection,
+                    "SELECT * FROM photos WHERE zone = '1' and name = 'Alice' " +
+                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) DESC OPTIONS EF_SEARCH = 200) < ?",
+                    ImmutableMap.of(1, queryVector, 2, 10));
+
+            // Same EF_SEARCH = 200 should hit cache
+            preparedQueryShouldHitCache(connection,
+                    "SELECT * FROM photos WHERE zone = '1' and name = 'Alice' " +
+                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) DESC OPTIONS EF_SEARCH = 200) < ?",
+                    ImmutableMap.of(1, queryVector, 2, 10));
+
+            // Different k value (15 instead of 10) should miss cache
+            preparedQueryShouldHitCache(connection,
+                    "SELECT * FROM photos WHERE zone = '1' and name = 'Alice' " +
+                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) DESC OPTIONS EF_SEARCH = 200) < ?",
+                    ImmutableMap.of(1, queryVector, 2, 15));
         }
     }
 }

@@ -106,6 +106,16 @@ public class FloatRealVector extends AbstractRealVector {
         return vectorBytes;
     }
 
+    /**
+     * Returns a vector whose components are all zero.
+     * @param numDimensions number of dimensions
+     * @return a vector whose components are all zero
+     */
+    @Nonnull
+    public static FloatRealVector zeroVector(final int numDimensions) {
+        return new FloatRealVector(new float[numDimensions]);
+    }
+
     @Nonnull
     private static double[] computeDoubleData(@Nonnull Float[] floatData) {
         double[] result = new double[floatData.length];

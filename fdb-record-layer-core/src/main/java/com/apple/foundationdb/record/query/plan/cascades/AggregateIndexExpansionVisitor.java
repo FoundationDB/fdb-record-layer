@@ -161,7 +161,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 traversal,
                 placeHolderAliases,
                 recordTypes,
-                baseQuantifier.getFlowedObjectType(),
+                baseQuantifier.getFlowedObjectType().narrowRecordMaybe().orElseThrow(() -> new RecordCoreException("cannot create match candidate with non-record type")),
                 groupByQun.getRangesOver().get().getResultValue(),
                 selectHaving);
     }

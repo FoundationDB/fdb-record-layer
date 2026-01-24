@@ -39,6 +39,7 @@ import com.google.protobuf.DescriptorProtos;
 import org.assertj.core.api.Assertions;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -451,6 +452,53 @@ public class DdlTestUtil {
             }
             Assertions.fail("could not find table" + tableName);
             return null; // not reachable.
+        }
+    }
+
+    /**
+     * Enum to represent the different index creation syntaxes.
+     */
+    enum IndexSyntax {
+        INDEX_AS_SYNTAX, // CREATE INDEX AS SELECT ... FROM ... ORDER BY ...
+        INDEX_ON_SYNTAX // CREATE INDEX ON table(columns) ...
+    }
+
+    static class IndexedColumn {
+        String column;
+        String order = "";
+        String nullsOrder = "";
+
+        IndexedColumn(String column, @Nullable String order, @Nullable String nullsOrder) {
+            this.column = column;
+            this.order = order == null ? "" : " " + order;
+            this.nullsOrder = nullsOrder == null ? "" : " " + nullsOrder;
+        }
+
+        IndexedColumn(String column) {
+            this(column, null, null);
+        }
+
+        @Override
+        public String toString() {
+            return column + order + nullsOrder;
+        }
+    }
+
+    @Nonnull
+    static String generateIndexDdlStatement(@Nonnull final IndexSyntax indexSyntax, @Nonnull final String indexName,
+                                            @Nonnull final List<IndexedColumn> indexedColumns, @Nonnull final List<String> includedColumns,
+                                            @Nonnull final String tableName) {
+        final var indexedColumnsString = indexedColumns.stream().map(IndexedColumn::toString).collect(Collectors.joining(","));
+        final var includedColumnsString = String.join(",", includedColumns);
+        if (indexSyntax == IndexSyntax.INDEX_AS_SYNTAX) {
+            return " CREATE INDEX " + indexName +
+                    " AS SELECT " + indexedColumnsString + (includedColumns.isEmpty() ? "" : ", " + includedColumnsString) +
+                    " FROM " + tableName +
+                    (indexedColumns.size() > 1 || !includedColumns.isEmpty() ? " ORDER BY " + indexedColumnsString : "") + " ";
+        } else {
+            return " CREATE INDEX " + indexName +
+                    " ON " + tableName + "(" + indexedColumnsString + ") " +
+                    (includedColumns.isEmpty() ? "" : "INCLUDE (" + includedColumnsString + ")") + " ";
         }
     }
 }

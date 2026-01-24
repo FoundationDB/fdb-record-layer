@@ -65,6 +65,15 @@ interface MetricDefinition {
     }
 
     /**
+     * Method to be implemented by the specific metric.
+     * @return {@code true} iff for all {@link RealVector}s {@code x, y} and all translations T holds that
+     *         {@code distance(x, y) == distance(T(x), T(y))}
+     */
+    default boolean satisfiesPreservedUnderTranslation() {
+        return true;
+    }
+
+    /**
      * Convenience method that returns if all properties of a metric required to be a <i>true</i> metric are satisfied.
      * @return {@code true} iff this metric is a true metric.
      */
@@ -209,12 +218,18 @@ interface MetricDefinition {
      * <p>
      * This metric calculates a "distance" between two vectors {@code v1} and {@code v2} that ranges between
      * {@code 0.0d} and {@code 2.0d} that corresponds to {@code 1 - cos(v1, v2)}, meaning that if {@code v1 == v2},
-     * the distance is {@code 0} while if {@code v1} is orthogonal to {@code v2} it is {@code 1}.
+     * the distance is {@code 0} while if {@code v1} is orthogonal to {@code v2} it is {@code 1}. Note that the zero
+     * vector cannot be compared to any vector. We define the distance here to be {@link Double#NaN}.
      * @see MetricDefinition.CosineMetric
      */
     final class CosineMetric implements MetricDefinition {
         @Override
         public boolean satisfiesTriangleInequality() {
+            return false;
+        }
+
+        @Override
+        public boolean satisfiesPreservedUnderTranslation() {
             return false;
         }
 
@@ -274,6 +289,11 @@ interface MetricDefinition {
 
         @Override
         public boolean satisfiesTriangleInequality() {
+            return false;
+        }
+
+        @Override
+        public boolean satisfiesPreservedUnderTranslation() {
             return false;
         }
 
