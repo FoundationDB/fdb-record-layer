@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneFunctionNames;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
 import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LucenePartitionInfoProto;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.subspace.Subspace;
@@ -393,6 +395,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         final Map<String, String> options = Map.of(
                 ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, "true",
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(100));
 
         final Index index = complexPartitionedIndex(options);
@@ -412,9 +415,14 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
+        buildIndexNow(schemaSetup, index);
+
         final Tuple groupingKey = Tuple.from(1L);  // All documents in group 1
-        final Integer partition0 = 0;  // timestamp < 100
-        final Integer partition1 = 1;  // timestamp 100-199
+        // Expected partition count
+        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(3));
+
+        final Integer partition0 = 0;
+        final Integer partition1 = 1;
 
         // Enable queue mode for both partitions
         setOngoingMergeIndicator(schemaSetup, index, groupingKey, partition0);
@@ -433,6 +441,8 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1003L, "third document", 1L, 75L));
             commit(context);
         }
+
+        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(6));
 
         // Delete one document from partition 0
         try (FDBRecordContext context = openContext()) {
@@ -459,6 +469,9 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         // Verify both queues are empty and indicators are cleared
         verifyClearedQueueAndIndicator(schemaSetup, index, groupingKey, partition0);
         verifyClearedQueueAndIndicator(schemaSetup, index, groupingKey, partition1);
+
+        // Expected partition count - after the delete was drained from the queue the count should be reduced by 1
+        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(5));
     }
 
     @Test
@@ -632,6 +645,23 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         }
     }
 
+    private void verifyPartitionCount(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index, @Nullable Tuple groupingKey,
+                                      List<Integer> expectedCount) {
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            final LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)recordStore.getIndexMaintainer(index);
+            final LucenePartitioner partitioner = indexMaintainer.getPartitioner();
+
+            final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos =
+                    partitioner.getAllPartitionMetaInfo(groupingKey == null ? Tuple.from() : groupingKey).join();
+
+            assertEquals(expectedCount,
+                    partitionInfos.stream()
+                            .map(LucenePartitionInfoProto.LucenePartitionInfo::getCount)
+                            .collect(Collectors.toList()));
+        }
+    }
+
     private void setOngoingMergeIndicator(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index, @Nullable Tuple groupingKey, @Nullable Integer partitionId) {
         try (FDBRecordContext context = openContext()) {
             FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
@@ -654,6 +684,19 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
             commit(context);
         }
     }
+
+    private void buildIndexNow(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index) {
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .build()) {
+                indexBuilder.buildIndex();
+            }
+        }
+    }
+
 
     @Nonnull
     private static LuceneIndexMaintainer getIndexMaintainer(FDBRecordStore store, Index index) {
