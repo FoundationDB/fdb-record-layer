@@ -992,10 +992,13 @@ public class FDBDirectory extends Directory  {
     }
 
     /**
-     * Checks if the queue should be used during merge operations.
+     * Checks if the pending write queue should be used.
      * @return true if queue should be used
      */
     public boolean shouldUseQueue() {
+        if (!getBooleanIndexOption(LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, false)) {
+            return false;
+        }
         final byte[] tupleBytes = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_ONGOING_MERGE_INDICATOR,
                 agilityContext.get(ongoingMergeSubspace.pack()));
 
