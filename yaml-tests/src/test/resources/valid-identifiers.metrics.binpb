@@ -533,7 +533,7 @@ S
 }ı
 k
 update-delete-statementsOEXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" = 1Ö
-Á˝ã⁄í ≈“Ï(90ÂÓw8W@æCOVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA•digraph G {
+ÚäÉÃí áÆ(90Û÷8W@æCOVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA•digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -556,7 +556,7 @@ k
 }√
 ã
 update-delete-statementsoEXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" > 1 RETURNING "new"."foo.tableA.A1"≤
-†Ø◊ß† ”–Ô(90äÍ<8[@ÛCOVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)ùdigraph G {
+´Õ‡Æ† Õ˛ƒ(90Æâ&8[@ÛCOVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)ùdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

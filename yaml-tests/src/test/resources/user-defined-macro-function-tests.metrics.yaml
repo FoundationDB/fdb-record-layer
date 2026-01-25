@@ -103,17 +103,18 @@ user-defined-scalar-function-tests:
     insert_reused_count: 2
 -   query: EXPLAIN select t1.id_copy as A, t2.processed_id as B from table_func1(2)
         t1, table_func2(100) t2 where t1.id_copy = t2.processed_id
-    explain: ISCAN(I2 <,>) | FLATMAP q0 -> { ISCAN(I2 <,>) | FILTER q0.ID EQUALS _.ID
-        AND q0.ID LESS_THAN_OR_EQUALS promote(@c16 AS LONG) AND _.R.V.Z GREATER_THAN_OR_EQUALS
-        promote(@c22 AS LONG) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }
-    task_count: 912
-    task_total_time_ms: 128
-    transform_count: 215
-    transform_time_ms: 44
-    transform_yield_count: 72
-    insert_time_ms: 6
-    insert_new_count: 141
-    insert_reused_count: 6
+    explain: 'ISCAN(I2 <,>) | FLATMAP q0 -> { COVERING(I2 <,> -> [Q: [S: KEY:[2]],
+        R: [U: [W: KEY:[3]], V: [Z: KEY:[0]]]]) | FILTER _.R.V.Z GREATER_THAN_OR_EQUALS
+        promote(@c22 AS LONG) | FETCH | FILTER q0.ID EQUALS _.ID AND q0.ID LESS_THAN_OR_EQUALS
+        promote(@c16 AS LONG) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }'
+    task_count: 923
+    task_total_time_ms: 44
+    transform_count: 216
+    transform_time_ms: 11
+    transform_yield_count: 73
+    insert_time_ms: 1
+    insert_new_count: 142
+    insert_reused_count: 5
 -   query: EXPLAIN select self(id_copy) as A, z_val as B from table_func1(4)
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c15 AS LONG)
         | MAP (_.ID AS A, _.R.V.Z AS B)

@@ -1,17 +1,17 @@
 versions-dml:
 -   query: EXPLAIN UPDATE t3 SET col2 = col2 + 1 WHERE col1 = 'a' RETURNING "new".*
     explain: 'COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]])
-        | FILTER _.COL1 EQUALS promote(@c12 AS STRING) | FETCH | MAP (_.ID AS ID,
-        _.COL1 AS COL1, _.COL2 AS COL2) | DISTINCT BY PK | UPDATE T3 | MAP ((_.new).ID
+        | DISTINCT BY PK | FILTER _.COL1 EQUALS promote(@c12 AS STRING) | FETCH |
+        MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) | UPDATE T3 | MAP ((_.new).ID
         AS ID, (_.new).COL1 AS COL1, (_.new).COL2 AS COL2)'
-    task_count: 552
-    task_total_time_ms: 188
-    transform_count: 135
-    transform_time_ms: 108
-    transform_yield_count: 36
-    insert_time_ms: 11
-    insert_new_count: 61
-    insert_reused_count: 3
+    task_count: 679
+    task_total_time_ms: 8
+    transform_count: 153
+    transform_time_ms: 2
+    transform_yield_count: 41
+    insert_time_ms: 0
+    insert_new_count: 73
+    insert_reused_count: 4
 versions-queries:
 -   query: EXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 =
         10;

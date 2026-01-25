@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.Cardinalitie
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
 import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionDepthProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedResidualPredicateProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.PredicatesUnderFetchProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
@@ -201,6 +202,14 @@ public class PlanningCostModel implements CascadesCostModel {
             final int numFetchesCompare = Integer.compare(numFetchesA, numFetchesB);
             if (numFetchesCompare != 0) {
                 return numFetchesCompare;
+            }
+
+            // See if there are predicates that have been pushed below the fetch. Prefer plans with more such predicates
+            final int predicatesBelowFetchA = PredicatesUnderFetchProperty.predicatesUnderFetch().evaluate(a);
+            final int predicatesBelowFetchB = PredicatesUnderFetchProperty.predicatesUnderFetch().evaluate(b);
+            final int predicatesBelowFetchCompare = Integer.compare(predicatesBelowFetchB, predicatesBelowFetchA);
+            if (predicatesBelowFetchCompare != 0) {
+                return predicatesBelowFetchCompare;
             }
 
             final int fetchDepthB = fetchDepth().evaluate(b);
