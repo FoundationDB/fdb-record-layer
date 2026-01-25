@@ -23,11 +23,18 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.lucene.LuceneConcurrency;
+import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.assertj.core.api.Assertions;
 import org.hamcrest.Matchers;
@@ -41,6 +48,7 @@ import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
@@ -327,73 +335,101 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         Assertions.assertThat(finalKeys).isEmpty();
     }
 
-    @Test
-    void testQueueIndicatorLifecycle() {
-        // 1. Initially, shouldUseQueue should return false
-        assertFalse(directory.shouldUseQueue(),
-                "shouldUseQueue should return false when no indicator is set");
 
-        // 2. Set the queue indicator
+    @Test
+    void testQueueIndicatorDefaultFalse() {
+        // As a default, "shouldUseQueue" should always return false.
+        directory = createDirectory(subspace, context, null);
+
+        assertFalse(directory.shouldUseQueue());
+
         directory.setOngoingMergeIndicator();
 
-        // 3. After setting, shouldUseQueue should return true in same transaction
-        assertTrue(directory.shouldUseQueue(),
-                "shouldUseQueue should return true after setUseQueue is called");
+        // The ongoing merge indicator should be ignored
+        assertFalse(directory.shouldUseQueue());
+    }
 
-        // 4. Commit and verify persistence
+    @Test
+    void testQueueIndicatorWhenAllowed() {
+        directory = createDirectory(subspace, context, indexOptionAllowQueue());
+
+        assertFalse(directory.shouldUseQueue());
+
+        directory.setOngoingMergeIndicator();
+
+        assertTrue(directory.shouldUseQueue());
+    }
+
+    @Test
+    void testQueueIndicatorPersistency() {
+        directory = createDirectory(subspace, context, indexOptionAllowQueue());
+        assertFalse(directory.shouldUseQueue());
+        directory.setOngoingMergeIndicator();
+        assertTrue(directory.shouldUseQueue());
         context.commit();
 
-        // 5. Open new context and verify indicator persists
+        // Open a new context and verify indicator persists
         try (FDBRecordContext newContext = fdb.openContext()) {
-            FDBDirectory newDirectory = createDirectory(subspace, newContext, null);
+            FDBDirectory newDirectory = createDirectory(subspace, newContext, indexOptionAllowQueue());
+
+            assertTrue(newDirectory.shouldUseQueue(),
+                    "shouldUseQueue should return true in new transaction after commit");
+        }
+    }
+
+    @Test
+    void testQueueIndicatorLifeCycle() {
+
+        // Open a new context and add an item to the queue
+        try (FDBRecordContext newContext = fdb.openContext()) {
+            FDBDirectory newDirectory = createDirectory(subspace, newContext, indexOptionAllowQueue());
+            newDirectory.setOngoingMergeIndicator();
 
             assertTrue(newDirectory.shouldUseQueue(),
                     "shouldUseQueue should return true in new transaction after commit");
 
-            // 6. Attempt to clear with non-empty queue should fail
-            // First, add an item to the queue
             PendingWriteQueue queue = newDirectory.createPendingWritesQueue();
             queue.enqueueInsert(newContext,
-                    com.apple.foundationdb.tuple.Tuple.from("testDoc", 1),
+                    Tuple.from("testDoc", 1),
                     createTestFields());
             newContext.commit();
         }
 
-        // 7. Try to clear indicator with non-empty queue - should fail
+        // Try to clear indicator with non-empty queue - should fail
         try (FDBRecordContext newContext = fdb.openContext()) {
-            FDBDirectory newDirectory = createDirectory(subspace, newContext, null);
+            FDBDirectory newDirectory = createDirectory(subspace, newContext, indexOptionAllowQueue());
 
-            com.apple.foundationdb.record.RecordCoreException exception =
-                    assertThrows(com.apple.foundationdb.record.RecordCoreException.class,
+            RecordCoreException exception =
+                    assertThrows(RecordCoreException.class,
                             newDirectory::clearOngoingMergeIndicatorButFailIfNonEmpty,
                             "clearUseQueueFailIfNonEmpty should throw when queue is not empty");
 
             assertThat(exception.getMessage(),
-                    org.hamcrest.Matchers.containsString("pending write queue is not empty"));
+                    Matchers.containsString("pending write queue is not empty"));
 
             // Indicator should still be set
             assertTrue(newDirectory.shouldUseQueue(),
                     "shouldUseQueue should still return true after failed clear attempt");
         }
 
-        // 8. Clear the queue
+        // Clear the queue
         try (FDBRecordContext newContext = fdb.openContext()) {
             FDBDirectory newDirectory = createDirectory(subspace, newContext, null);
             PendingWriteQueue queue = newDirectory.createPendingWritesQueue();
 
             // Read and clear all queue entries
-            com.apple.foundationdb.record.RecordCursor<PendingWriteQueue.QueueEntry> cursor =
+            RecordCursor<PendingWriteQueue.QueueEntry> cursor =
                     queue.getQueueCursor(newContext,
-                            com.apple.foundationdb.record.ScanProperties.FORWARD_SCAN,
+                            ScanProperties.FORWARD_SCAN,
                             null);
 
             cursor.forEach(entry -> queue.clearEntry(newContext, entry)).join();
             newContext.commit();
         }
 
-        // 9. Now clearing the indicator should succeed
+        // Now clearing the indicator should succeed
         try (FDBRecordContext newContext = fdb.openContext()) {
-            FDBDirectory newDirectory = createDirectory(subspace, newContext, null);
+            FDBDirectory newDirectory = createDirectory(subspace, newContext, indexOptionAllowQueue());
 
             // Should still be set before clear
             assertTrue(newDirectory.shouldUseQueue(),
@@ -409,7 +445,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
             newContext.commit();
         }
 
-        // 10. Verify indicator remains cleared after commit
+        // Verify indicator remains cleared after commit
         try (FDBRecordContext newContext = fdb.openContext()) {
             FDBDirectory newDirectory = createDirectory(subspace, newContext, null);
 
@@ -418,12 +454,16 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         }
     }
 
-    private java.util.List<com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord.DocumentField> createTestFields() {
-        return java.util.List.of(
-                new com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord.DocumentField(
+    private Map<String, String> indexOptionAllowQueue() {
+        return Map.of(LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, "true");
+    }
+
+    private List<LuceneDocumentFromRecord.DocumentField> createTestFields() {
+        return List.of(
+                new LuceneDocumentFromRecord.DocumentField(
                         "testField",
                         "test value",
-                        com.apple.foundationdb.record.lucene.LuceneIndexExpressions.DocumentFieldType.TEXT,
+                        LuceneIndexExpressions.DocumentFieldType.TEXT,
                         false,
                         false,
                         java.util.Map.of()
