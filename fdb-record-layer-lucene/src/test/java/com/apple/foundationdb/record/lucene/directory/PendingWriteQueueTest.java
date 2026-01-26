@@ -466,7 +466,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
                 ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, "true",
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
                 LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true",
-                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(100));
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(3));
 
         final Index index = complexPartitionedIndex(options);
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
@@ -519,7 +519,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        // Verify empty queue in partition 1
+        // Verify empty queue in partition 1 - which does not exist yet
         verifyClearedQueueAndIndicator(schemaSetup, index, groupingKey, partition1);
 
         // Verify queue in partition 0
@@ -538,8 +538,8 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         verifyClearedQueueAndIndicator(schemaSetup, index, groupingKey, partition0);
         verifyClearedQueueAndIndicator(schemaSetup, index, groupingKey, partition1);
 
-        // Expected partition count - after the delete was drained from the queue the count should be reduced by 1
-        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(5));
+        // After the drain the count should be reduced by 1 to 5 + repartition should split partition 0
+        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(3, 2));
     }
 
     @Test
