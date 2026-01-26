@@ -193,7 +193,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         } finally {
             try {
                 // Here: drain this partition's queue and clear the "use queue" indicator
-                // If the drain had failed, we still wish to drain the queue and release the ongoing merge indicator. Merge can be retried by another process.
+                // If the merge had failed, we still wish to drain the queue and release the ongoing merge indicator. Merge can be retried by another process.
                 drainPendingQueue(groupingKey, partitionId, agilityContext);
             } finally {
                 // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its

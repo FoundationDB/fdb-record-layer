@@ -45,7 +45,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
-import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.subspace.Subspace;
@@ -297,6 +296,11 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         List<TestDocument> docs = createTestDocuments();
         PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
 
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(queue.isQueueEmpty(context).join());
+            commit(context);
+        }
+
         docs.forEach(doc -> {
             try (FDBRecordContext context = openContext()) {
                 queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields());
@@ -414,8 +418,6 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(2003L, "document zoo", 1L, 35L));
             commit(context);
         }
-
-        buildIndexNow(schemaSetup, index);
 
         final Tuple groupingKey = Tuple.from(1L);  // All documents in group 1
         // Expected partition count
@@ -684,19 +686,6 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
             commit(context);
         }
     }
-
-    private void buildIndexNow(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index) {
-        try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                    .setRecordStore(recordStore)
-                    .setIndex(index)
-                    .build()) {
-                indexBuilder.buildIndex();
-            }
-        }
-    }
-
 
     @Nonnull
     private static LuceneIndexMaintainer getIndexMaintainer(FDBRecordStore store, Index index) {

@@ -473,7 +473,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         // Note - since this directory wrapper was already created, agility context should be unused in the next line's path
         final PendingWriteQueue writeQueue = getPendingWriteQueue();
         try (ThrottledRetryingIterator<PendingWriteQueue.QueueEntry> iterator = ThrottledRetryingIterator.builder(
-                        state.context.getDatabase(),
+                        agilityContext.getCallerContext().getDatabase(),
                         cursorFactory(writeQueue),
                         handleOneItemFactory(writeQueue, groupingKey, partitionId))
                 .withMdcContext(MDC.getCopyOfContextMap())
