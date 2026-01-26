@@ -27,11 +27,15 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
+import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
+import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
+import com.apple.foundationdb.record.lucene.LuceneIndexMaintainerHelper;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
@@ -51,8 +55,11 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -213,23 +220,6 @@ public class PendingWriteQueue {
     }
 
     /**
-     * Return TRUE if the queue has any items.
-     * @param context the context to use
-     * @return a future that, when complete, will have TRUE if the queue has any entries, FALSE otherwise
-     */
-    @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Boolean> queueHasItems(FDBRecordContext context) {
-        ScanProperties scanProperties = ExecuteProperties.newBuilder()
-                .setReturnedRowLimit(1)
-                .build()
-                .asScanProperties(false);
-        // Scan for one item, to see if there are any results returned
-        RecordCursor<QueueEntry> cursor = getQueueCursor(context, scanProperties, null);
-        return cursor.onNext().thenApply(RecordCursorResult::hasNext).whenComplete((result, ex) -> cursor.close());
-    }
-
-
-    /**
      * Check if the pending write queue is empty.
      *
      * @param context the record context
@@ -245,7 +235,6 @@ public class PendingWriteQueue {
                 .thenApply(List::isEmpty);
     }
 
-    private QueueEntry toQueueEntry(final KeyValue kv) {
     /**
      * Replay all queued operations into the index.
      * This should be called before executing a query to ensure queued writes are visible.
@@ -290,17 +279,12 @@ public class PendingWriteQueue {
 
         try {
             switch (opType) {
-                case UPDATE:
-                    handleDeleteEntry(indexWriter, entry.getPrimaryKey());
-                    handleInsertEntry(indexWriter, entry);
-                    break;
-
                 case INSERT:
                     handleInsertEntry(indexWriter, entry);
                     break;
 
                 case DELETE:
-                    handleDeleteEntry(indexWriter, entry.getPrimaryKey());
+                    handleDeleteEntry(indexWriter, entry.getPrimaryKeyParsed());
                     break;
 
                 default:
@@ -319,7 +303,7 @@ public class PendingWriteQueue {
         // This is similar to LuceneIndexMaintainerHelper.writeDocument is done, but the PK references are not
         // as sophisticated since this document is only going to be used with a Lucene query (no PK lookup)
         Document document = new Document();
-        BytesRef ref = new BytesRef(entry.getPrimaryKey().pack());
+        BytesRef ref = new BytesRef(entry.getPrimaryKey());
         document.add(new StoredField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME, ref));
         document.add(new SortedDocValuesField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, ref));
 
@@ -409,8 +393,8 @@ public class PendingWriteQueue {
             return item.getOperationType();
         }
 
-        public Tuple getPrimaryKey() {
-            return Tuple.fromBytes(item.getPrimaryKey().toByteArray());
+        public byte[] getPrimaryKey() {
+            return item.getPrimaryKey().toByteArray();
         }
 
         public Tuple getPrimaryKeyParsed() {

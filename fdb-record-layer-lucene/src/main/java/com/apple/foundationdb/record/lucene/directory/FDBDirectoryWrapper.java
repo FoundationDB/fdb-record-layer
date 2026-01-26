@@ -282,8 +282,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
             PendingWriteQueue queue = getPendingWriteQueue();
             // Use the regular context to find out if the queue has anything
             final Boolean queueHasItems = LuceneConcurrency.asyncToSync(
-                    LuceneEvents.Waits.WAIT_COUNT_QUEUE_ITEMS,
-                    queue.queueHasItems(state.context),
+                    LuceneEvents.Waits.WAIT_LUCENE_READ_PENDING_QUEUE,
+                    queue.isQueueEmpty(state.context),
                     state.context);
             if (!queueHasItems) {
                 // Use the regular reader in case there is nothing in the queue
