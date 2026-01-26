@@ -98,12 +98,28 @@ public class Expression {
         return Assert.castUnchecked(underlying.get(), Value.class);
     }
 
+    /**
+     * Create a new instance of an {@link Expression} with the given name, type, and value.
+     * This is a {@code protected} method on the class so that subclasses can override it,
+     * allowing the various method for manipulating the fields of the expression to all
+     * return the same type as the original method.
+     *
+     * @param newName the new expression's name
+     * @param newDataType the new expression's data type
+     * @param newUnderlying the new expression's underlying value
+     * @return a new expression with the given name, type, and value
+     */
+    @Nonnull
+    protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying) {
+        return new Expression(newName, newDataType, newUnderlying);
+    }
+
     @Nonnull
     public Expression withName(@Nonnull Identifier name) {
         if (getName().isPresent() && getName().get().equals(name)) {
             return this;
         }
-        return new Expression(Optional.of(name), getDataType(), getUnderlying());
+        return createNew(Optional.of(name), getDataType(), getUnderlying());
     }
 
     @Nonnull
@@ -111,7 +127,7 @@ public class Expression {
         if (getUnderlying().semanticEquals(underlying, AliasMap.identitiesFor(underlying.getCorrelatedTo()))) {
             return this;
         }
-        return new Expression(getName(), DataTypeUtils.toRelationalType(underlying.getResultType()), underlying);
+        return createNew(getName(), DataTypeUtils.toRelationalType(underlying.getResultType()), underlying);
     }
 
     @Nonnull
@@ -123,7 +139,7 @@ public class Expression {
         if (!name.isQualified()) {
             return this;
         }
-        return new Expression(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying());
+        return createNew(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying());
     }
 
     @Nonnull
@@ -141,7 +157,7 @@ public class Expression {
         if (newNameMaybe.equals(name)) {
             return this;
         }
-        return new Expression(Optional.of(newNameMaybe), getDataType(), getUnderlying());
+        return createNew(Optional.of(newNameMaybe), getDataType(), getUnderlying());
     }
 
     @Nonnull
@@ -157,10 +173,10 @@ public class Expression {
             return this;
         }
         if (qualifier.isEmpty()) {
-            return new Expression(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying());
+            return createNew(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying());
         }
         final var newName = name.withQualifier(qualifier.get().fullyQualifiedName());
-        return new Expression(Optional.of(newName), getDataType(), getUnderlying());
+        return createNew(Optional.of(newName), getDataType(), getUnderlying());
     }
 
     public boolean isAggregate() {
