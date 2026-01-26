@@ -339,6 +339,9 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     @Test
     void testQueueIndicatorDefaultFalse() {
         // As a default, "shouldUseQueue" should always return false.
+        // Since the index option `ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE` is defaulted to false, shouldUseQueue() should
+        // return false regardless of the ongoing merge indicator.
+
         directory = createDirectory(subspace, context, null);
 
         assertFalse(directory.shouldUseQueue());
@@ -361,7 +364,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     }
 
     @Test
-    void testQueueIndicatorPersistency() {
+    void testOngoingMergeIndicator() {
         directory = createDirectory(subspace, context, indexOptionAllowQueue());
         assertFalse(directory.shouldUseQueue());
         directory.setOngoingMergeIndicator();
@@ -372,8 +375,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         try (FDBRecordContext newContext = fdb.openContext()) {
             FDBDirectory newDirectory = createDirectory(subspace, newContext, indexOptionAllowQueue());
 
-            assertTrue(newDirectory.shouldUseQueue(),
-                    "shouldUseQueue should return true in new transaction after commit");
+            assertTrue(newDirectory.shouldUseQueue());
         }
     }
 
