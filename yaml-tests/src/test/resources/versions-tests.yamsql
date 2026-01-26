@@ -249,6 +249,44 @@ test_block:
       - explain: "ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) AS _1)"
       - result: [{__ROW_VERSION: !not_null _, {ID: 6, COL1: 20, COL2: 6}}, {__ROW_VERSION: !not_null _, {ID: 7, COL1: 20, COL2: 7}}, {__ROW_VERSION: !not_null _, {ID: 8, COL1: 20, COL2: 8}}, {__ROW_VERSION: !not_null _, {ID: 9, COL1: 20, COL2: 9}}, {__ROW_VERSION: !not_null _, {ID: 10, COL1: 20, COL2: 10}}, {__ROW_VERSION: !not_null _, {ID: 11, COL1: 20, COL2: 11}}, {__ROW_VERSION: !not_null _, {ID: 12, COL1: 20, COL2: 12}}, {__ROW_VERSION: !not_null _, {ID: 13, COL1: 20, COL2: 13}}]
     -
+      # Non-version query that should be able to make use of the covering index
+      - query: select col1, id from t1 order by col1;
+      - explain: "COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | MAP (_.COL1 AS COL1, _.ID AS ID)"
+      - result: [
+          { col1: 10, id:  1 },
+          { col1: 10, id:  2 },
+          { col1: 10, id:  3 },
+          { col1: 10, id:  4 },
+          { col1: 10, id:  5 },
+          { col1: 20, id:  6 },
+          { col1: 20, id:  7 },
+          { col1: 20, id:  8 },
+          { col1: 20, id:  9 },
+          { col1: 20, id: 10 },
+          { col1: 20, id: 11 },
+          { col1: 20, id: 12 },
+          { col1: 20, id: 13 },
+        ]
+    -
+      # Same query as the previous one, but now it's projecting the "__ROW_VERSION". It should no longer be able to use the covering index
+      - query: select col1, id, "__ROW_VERSION" from t1 order by col1;
+      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)"
+      - result: [
+          { col1: 10, id:  1, '__ROW_VERSION': !not_null _ },
+          { col1: 10, id:  2, '__ROW_VERSION': !not_null _ },
+          { col1: 10, id:  3, '__ROW_VERSION': !not_null _ },
+          { col1: 10, id:  4, '__ROW_VERSION': !not_null _ },
+          { col1: 10, id:  5, '__ROW_VERSION': !not_null _ },
+          { col1: 20, id:  6, '__ROW_VERSION': !not_null _ },
+          { col1: 20, id:  7, '__ROW_VERSION': !not_null _ },
+          { col1: 20, id:  8, '__ROW_VERSION': !not_null _ },
+          { col1: 20, id:  9, '__ROW_VERSION': !not_null _ },
+          { col1: 20, id: 10, '__ROW_VERSION': !not_null _ },
+          { col1: 20, id: 11, '__ROW_VERSION': !not_null _ },
+          { col1: 20, id: 12, '__ROW_VERSION': !not_null _ },
+          { col1: 20, id: 13, '__ROW_VERSION': !not_null _ },
+        ]
+    -
       # Select all columns including the row-version at the end, which matches how the pseudo-field is added in internally
       - query: select t1.id, t1.col1, t1.col2, t1."__ROW_VERSION" from t1 where col1 = 20;
       - explain: "ISCAN(I1 [EQUALS promote(@c22 AS LONG)])"

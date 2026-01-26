@@ -183,6 +183,27 @@ versions-queries:
     insert_time_ms: 1
     insert_new_count: 79
     insert_reused_count: 6
+-   query: EXPLAIN select col1, id from t1 order by col1;
+    explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | MAP (_.COL1 AS COL1,
+        _.ID AS ID)'
+    task_count: 317
+    task_total_time_ms: 46
+    transform_count: 75
+    transform_time_ms: 21
+    transform_yield_count: 40
+    insert_time_ms: 2
+    insert_new_count: 33
+    insert_reused_count: 4
+-   query: EXPLAIN select col1, id, "__ROW_VERSION" from t1 order by col1;
+    explain: ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)
+    task_count: 261
+    task_total_time_ms: 24
+    transform_count: 68
+    transform_time_ms: 12
+    transform_yield_count: 36
+    insert_time_ms: 0
+    insert_new_count: 27
+    insert_reused_count: 4
 -   query: EXPLAIN select t1.id, t1.col1, t1.col2, t1."__ROW_VERSION" from t1 where
         col1 = 20;
     explain: ISCAN(I1 [EQUALS promote(@c22 AS LONG)])
