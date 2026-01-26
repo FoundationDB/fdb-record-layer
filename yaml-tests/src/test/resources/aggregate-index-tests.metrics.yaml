@@ -436,12 +436,12 @@ agg-index-tests:
         col1 in (10, 20) group by col1
     explain: 'AISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._0
         IN promote(@c22 AS ARRAY(LONG)) | MAP (_._0 AS G, _._1 AS S)'
-    task_count: 577
-    task_total_time_ms: 52
+    task_count: 568
+    task_total_time_ms: 56
     transform_count: 205
-    transform_time_ms: 25
+    transform_time_ms: 30
     transform_yield_count: 32
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 43
     insert_reused_count: 1
 -   query: EXPLAIN select sum(col2) from T1 where col1 <= 10 group by col1 having
@@ -631,153 +631,153 @@ agg-index-tests:
     insert_reused_count: 1
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') order by max(x), c
-    explain: '[IN @c34] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG),
-        EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
-        _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS
-        E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)'
-    task_count: 614
-    task_total_time_ms: 237
-    transform_count: 231
-    transform_time_ms: 208
-    transform_yield_count: 85
+    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c19
+        AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3:
+        KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D,
+        _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)'
+    task_count: 655
+    task_total_time_ms: 349
+    transform_count: 248
+    transform_time_ms: 290
+    transform_yield_count: 88
     insert_time_ms: 0
-    insert_new_count: 39
+    insert_new_count: 46
     insert_reused_count: 0
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') order by min(x), c
-    explain: '[IN @c34] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG),
-        EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
-        _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS
-        E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)'
-    task_count: 614
-    task_total_time_ms: 244
-    transform_count: 231
-    transform_time_ms: 212
-    transform_yield_count: 85
-    insert_time_ms: 0
-    insert_new_count: 39
+    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c19
+        AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3:
+        KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D,
+        _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)'
+    task_count: 655
+    task_total_time_ms: 330
+    transform_count: 248
+    transform_time_ms: 273
+    transform_yield_count: 88
+    insert_time_ms: 1
+    insert_new_count: 46
     insert_reused_count: 0
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') and d = 1 order by max(x), c
-    explain: '[IN @c34] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG),
-        EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
-        _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c42 AS LONG) | MAP
-        (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4,
-        _.C, _.B, _.D, _.E)'
-    task_count: 694
-    task_total_time_ms: 291
-    transform_count: 247
-    transform_time_ms: 235
-    transform_yield_count: 92
-    insert_time_ms: 0
-    insert_new_count: 51
+    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c19
+        AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3:
+        KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c42 AS LONG)
+        | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY
+        (_._4, _.C, _.B, _.D, _.E)'
+    task_count: 785
+    task_total_time_ms: 421
+    transform_count: 282
+    transform_time_ms: 342
+    transform_yield_count: 100
+    insert_time_ms: 1
+    insert_new_count: 62
     insert_reused_count: 0
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') and d = 1 order by min(x), c
-    explain: '[IN @c34] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG),
-        EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
-        _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c42 AS LONG) | MAP
-        (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4,
-        _.C, _.B, _.D, _.E)'
-    task_count: 694
-    task_total_time_ms: 266
-    transform_count: 247
-    transform_time_ms: 217
-    transform_yield_count: 92
-    insert_time_ms: 1
-    insert_new_count: 51
-    insert_reused_count: 0
--   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
-        d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c
-    explain: '[IN @c34] INUNION q0 -> { [IN promote(@c42 AS ARRAY(LONG))] INUNION
-        q1 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP ->
-        [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]])
-        | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E,
-        _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E) } COMPARE BY (_._4, _.C, _.B,
-        _.E)'
-    task_count: 2115
-    task_total_time_ms: 517
-    transform_count: 974
-    transform_time_ms: 348
-    transform_yield_count: 149
-    insert_time_ms: 28
-    insert_new_count: 152
-    insert_reused_count: 19
--   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
-        d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c
-    explain: '[IN @c34] INUNION q0 -> { [IN promote(@c42 AS ARRAY(LONG))] INUNION
-        q1 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP ->
-        [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]])
-        | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E,
-        _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E) } COMPARE BY (_._4, _.C, _.B,
-        _.E)'
-    task_count: 2115
-    task_total_time_ms: 424
-    transform_count: 974
-    transform_time_ms: 292
-    transform_yield_count: 149
-    insert_time_ms: 20
-    insert_new_count: 152
-    insert_reused_count: 19
--   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
-        d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c, e
-    explain: '[IN @c34] INUNION q0 -> { [IN promote(@c42 AS ARRAY(LONG))] INUNION
-        q1 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP ->
-        [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]])
-        | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E,
-        _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E,
-        _.B)'
-    task_count: 2041
-    task_total_time_ms: 466
-    transform_count: 954
-    transform_time_ms: 333
-    transform_yield_count: 135
-    insert_time_ms: 25
-    insert_new_count: 130
-    insert_reused_count: 23
--   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
-        d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c, e
-    explain: '[IN @c34] INUNION q0 -> { [IN promote(@c42 AS ARRAY(LONG))] INUNION
-        q1 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP ->
-        [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]])
-        | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E,
-        _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E,
-        _.B)'
-    task_count: 2041
-    task_total_time_ms: 478
-    transform_count: 954
-    transform_time_ms: 351
-    transform_yield_count: 135
-    insert_time_ms: 24
-    insert_new_count: 130
-    insert_reused_count: 23
--   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 and c = 0 group by
-        a, b, c, d, e having b IN ('foo', 'bar') order by max(x), d
-    explain: '[IN @c38] INUNION q0 -> { AISCAN(MV18 [EQUALS promote(@c19 AS LONG),
-        EQUALS q0, EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
-        _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2
-        AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C,
-        _.E)'
-    task_count: 733
-    task_total_time_ms: 212
-    transform_count: 261
-    transform_time_ms: 155
-    transform_yield_count: 94
+    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c19
+        AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3:
+        KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c42 AS LONG)
+        | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY
+        (_._4, _.C, _.B, _.D, _.E)'
+    task_count: 785
+    task_total_time_ms: 437
+    transform_count: 282
+    transform_time_ms: 349
+    transform_yield_count: 100
     insert_time_ms: 0
     insert_new_count: 62
     insert_reused_count: 0
+-   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
+        d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c
+    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { [IN arrayDistinct(promote(@c42
+        AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG),
+        EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
+        _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
+        AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E)
+        } COMPARE BY (_._4, _.C, _.B, _.E)'
+    task_count: 2173
+    task_total_time_ms: 801
+    transform_count: 914
+    transform_time_ms: 487
+    transform_yield_count: 175
+    insert_time_ms: 11
+    insert_new_count: 229
+    insert_reused_count: 34
+-   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
+        d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c
+    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { [IN arrayDistinct(promote(@c42
+        AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG),
+        EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
+        _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
+        AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E)
+        } COMPARE BY (_._4, _.C, _.B, _.E)'
+    task_count: 2173
+    task_total_time_ms: 403
+    transform_count: 914
+    transform_time_ms: 223
+    transform_yield_count: 175
+    insert_time_ms: 7
+    insert_new_count: 229
+    insert_reused_count: 34
+-   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
+        d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c, e
+    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { [IN arrayDistinct(promote(@c42
+        AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG),
+        EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
+        _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
+        AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D)
+        } COMPARE BY (_._4, _.C, _.E, _.B)'
+    task_count: 1865
+    task_total_time_ms: 694
+    transform_count: 836
+    transform_time_ms: 508
+    transform_yield_count: 140
+    insert_time_ms: 10
+    insert_new_count: 154
+    insert_reused_count: 38
+-   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
+        d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c, e
+    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { [IN arrayDistinct(promote(@c42
+        AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG),
+        EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
+        _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
+        AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D)
+        } COMPARE BY (_._4, _.C, _.E, _.B)'
+    task_count: 1865
+    task_total_time_ms: 692
+    transform_count: 836
+    transform_time_ms: 502
+    transform_yield_count: 140
+    insert_time_ms: 10
+    insert_new_count: 154
+    insert_reused_count: 38
+-   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 and c = 0 group by
+        a, b, c, d, e having b IN ('foo', 'bar') order by max(x), d
+    explain: '[IN arrayDistinct(@c38)] INUNION q0 -> { AISCAN(MV18 [EQUALS promote(@c19
+        AS LONG), EQUALS q0, EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1
+        AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D,
+        _.B, _.C, _.E)'
+    task_count: 833
+    task_total_time_ms: 400
+    transform_count: 296
+    transform_time_ms: 293
+    transform_yield_count: 100
+    insert_time_ms: 1
+    insert_new_count: 77
+    insert_reused_count: 0
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 and c = 0 group by
         a, b, c, d, e having b IN ('foo', 'bar') order by min(x), d
-    explain: '[IN @c38] INUNION q0 -> { AISCAN(MV19 [EQUALS promote(@c19 AS LONG),
-        EQUALS q0, EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
-        _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2
-        AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C,
-        _.E)'
-    task_count: 733
-    task_total_time_ms: 254
-    transform_count: 261
-    transform_time_ms: 187
-    transform_yield_count: 94
+    explain: '[IN arrayDistinct(@c38)] INUNION q0 -> { AISCAN(MV19 [EQUALS promote(@c19
+        AS LONG), EQUALS q0, EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1
+        AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D,
+        _.B, _.C, _.E)'
+    task_count: 833
+    task_total_time_ms: 434
+    transform_count: 296
+    transform_time_ms: 323
+    transform_yield_count: 100
     insert_time_ms: 1
-    insert_new_count: 62
+    insert_new_count: 77
     insert_reused_count: 0
