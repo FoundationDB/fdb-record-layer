@@ -557,8 +557,6 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
                 // outer ordering is not distinct
                 return outerOrdering.pullUp(resultValue, EvaluationContext.empty(),
                         AliasMap.ofAliases(flatMapPlan.getOuterQuantifier().getAlias(), Quantifier.current()), correlatedTo);
-//                return outerOrdering.pullUp(resultValue, EvaluationContext.empty(),
-//                        AliasMap.ofAliases(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.current()), correlatedTo);
             }
 
             //
