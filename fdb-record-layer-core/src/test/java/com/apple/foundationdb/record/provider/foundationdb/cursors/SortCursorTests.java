@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.record.EndpointType;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -34,6 +35,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.SortedRecordSerializer;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
+import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortKey;
+import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.apple.foundationdb.record.sorting.FileSortAdapter;
 import com.apple.foundationdb.record.sorting.FileSortCursor;
 import com.apple.foundationdb.record.sorting.MemorySortAdapter;
@@ -154,6 +160,32 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         public MemorySortComparator<Tuple> getComparator(@Nullable final Tuple minimumKey) {
             return new OrderComparator<>(this, minimumKey);
         }
+    }
+
+    @Test
+    public void basicSortPlan() throws Exception {
+        List<Integer> resultNums;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            final RecordQuerySortPlan sortPlan = new RecordQuerySortPlan(new RecordQueryScanPlan(ScanComparisons.EMPTY, false), new RecordQuerySortKey(Key.Expressions.field("num_value_2"), false));
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = sortPlan.execute(recordStore, EvaluationContext.EMPTY, null, ExecuteProperties.SERIAL_EXECUTE.setReturnedRowLimit(20))) {
+                resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
+            }
+        }
+        assertEquals(sortedNums.subList(0, 20), resultNums);
+    }
+
+    @Test
+    public void basicDamPlan() throws Exception {
+        List<Integer> resultNums;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            final RecordQueryDamPlan sortPlan = new RecordQueryDamPlan(new RecordQueryScanPlan(ScanComparisons.EMPTY, false), new RecordQuerySortKey(Key.Expressions.field("num_value_2"), false));
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = sortPlan.execute(recordStore, EvaluationContext.EMPTY, null, ExecuteProperties.SERIAL_EXECUTE.setReturnedRowLimit(20))) {
+                resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
+            }
+        }
+        assertEquals(insertedNums.subList(0, 20), resultNums);
     }
 
     @Test

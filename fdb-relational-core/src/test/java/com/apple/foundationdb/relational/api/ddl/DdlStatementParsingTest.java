@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
@@ -128,14 +128,17 @@ public class DdlStatementParsingTest {
     };
 
     @Nonnull
-    public static Stream<Arguments> columnTypePermutations() {
+    static Stream<List<String>> columnTypePermutations() {
         int numColumns = 2;
         final List<String> items = List.of(validPrimitiveDataTypes);
 
-        final PermutationIterator<String> permutations = PermutationIterator.generatePermutations(items, numColumns);
-        return permutations.stream()
-                .flatMap(permutation -> Arrays.stream(DdlTestUtil.IndexSyntax.values())
-                        .map(syntax -> Arguments.of(syntax, permutation)));
+        return PermutationIterator.generatePermutations(items, numColumns).stream();
+    }
+
+    @Nonnull
+    static Stream<Arguments> indexSyntaxAndColumnTypes() {
+        return columnTypePermutations().flatMap(permutation -> Arrays.stream(DdlTestUtil.IndexSyntax.values())
+                .map(syntax -> Arguments.of(syntax, permutation)));
     }
 
     void shouldFailWith(@Nonnull final String query, @Nullable final ErrorCode errorCode) throws Exception {
@@ -329,6 +332,17 @@ public class DdlStatementParsingTest {
         }
     }
 
+    @Test
+    void versionColumnTypeNotSupported() throws Exception {
+        // The Relational Type hierarchy supports fields with type "version", and it's the type associated with the
+        // built-in pseudo-field "__ROW_VERSION" if store_row_versions is enabled. This test validates that we can't
+        // create a column with this version type. If we did, we'd have to worry a little bit about the user creating
+        // a column that is called "__ROW_VERSION" and has type version, which would be indistinguishable from the
+        // pseudo-field.
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE bar (id bigint, foo_field version, PRIMARY KEY(id))";
+        shouldFailWith(stmt, ErrorCode.UNKNOWN_TYPE);
+    }
 
     @Test
     void failsToParseEmptyTemplateStatements() throws Exception {
@@ -539,8 +553,7 @@ public class DdlStatementParsingTest {
 
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
-    void createSchemaTemplateWithOutOfOrderDefinitionsWork(DdlTestUtil.IndexSyntax indexSyntax, List<String> columns) throws Exception {
-        Assumptions.assumeTrue(indexSyntax == DdlTestUtil.IndexSyntax.INDEX_AS_SYNTAX);
+    void createSchemaTemplateWithOutOfOrderDefinitionsWork(List<String> columns) throws Exception {
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
                 "CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false);
@@ -561,8 +574,7 @@ public class DdlStatementParsingTest {
     /*Schema Template tests*/
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
-    void createSchemaTemplates(DdlTestUtil.IndexSyntax indexSyntax, List<String> columns) throws Exception {
-        Assumptions.assumeTrue(indexSyntax == DdlTestUtil.IndexSyntax.INDEX_AS_SYNTAX);
+    void createSchemaTemplates(List<String> columns) throws Exception {
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 " CREATE TYPE AS STRUCT foo " + makeColumnDefinition(columns, false) +
                 " CREATE TABLE bar (col0 bigint, col1 foo, PRIMARY KEY(col0))";
@@ -588,8 +600,36 @@ public class DdlStatementParsingTest {
 
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
-    void createSchemaTemplateTableWithOnlyRecordType(DdlTestUtil.IndexSyntax indexSyntax, List<String> columns) throws Exception {
-        Assumptions.assumeTrue(indexSyntax == DdlTestUtil.IndexSyntax.INDEX_AS_SYNTAX);
+    void createSchemaTemplatesWithRowVersions(List<String> columns) throws Exception {
+        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                " CREATE TYPE AS STRUCT foo " + makeColumnDefinition(columns, false) +
+                " CREATE TABLE bar (col0 bigint, col1 foo, PRIMARY KEY(col0)) " +
+                " WITH OPTIONS(store_row_versions=true) ";
+        shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
+                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
+                Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
+                Assertions.assertTrue(template.isStoreRowVersions(), "Schema template should store row versions");
+                return txn -> {
+                    try {
+                        final DdlTestUtil.ParsedType type = schema.getType("foo");
+                        Assertions.assertFalse(type.getColumnStrings().contains("__ROW_VERSION"), "__ROW_VERSION column should not be in table definition");
+                        assertColumnsMatch(type, columns);
+                    } catch (Exception ve) {
+                        throw ExceptionUtil.toRelationalException(ve);
+                    }
+                };
+            }
+        });
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypePermutations")
+    void createSchemaTemplateTableWithOnlyRecordType(List<String> columns) throws Exception {
         final String baseTableDef = replaceLast(makeColumnDefinition(columns, false), ')', ", SINGLE ROW ONLY)");
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template  " +
                 "CREATE TABLE foo " + baseTableDef;
@@ -615,7 +655,7 @@ public class DdlStatementParsingTest {
     }
 
     @ParameterizedTest
-    @MethodSource("columnTypePermutations")
+    @MethodSource("indexSyntaxAndColumnTypes")
     void createSchemaTemplateWithDuplicateIndexesFails(DdlTestUtil.IndexSyntax indexSyntax, List<String> columns) throws Exception {
         final String baseTableDef = makeColumnDefinition(columns, true);
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
@@ -636,7 +676,7 @@ public class DdlStatementParsingTest {
     }
 
     @ParameterizedTest
-    @MethodSource("columnTypePermutations")
+    @MethodSource("indexSyntaxAndColumnTypes")
     void createSchemaTemplateWithIndex(DdlTestUtil.IndexSyntax indexSyntax, List<String> columns) throws Exception {
         final List<String> indexColumns = chooseIndexColumns(columns, n -> n % 2 == 0);
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template  " +
@@ -682,7 +722,7 @@ public class DdlStatementParsingTest {
     }
 
     @ParameterizedTest
-    @MethodSource("columnTypePermutations")
+    @MethodSource("indexSyntaxAndColumnTypes")
     void createSchemaTemplateWithIndexAndInclude(DdlTestUtil.IndexSyntax indexSyntax, List<String> columns) throws Exception {
         Assumptions.assumeTrue(columns.size() > 1); //the test only works with multiple columns
         final List<String> indexedColumns = chooseIndexColumns(columns, n -> n % 2 == 0); //choose every other column
@@ -791,8 +831,7 @@ public class DdlStatementParsingTest {
 
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
-    void createTable(DdlTestUtil.IndexSyntax indexSyntax, List<String> columns) throws Exception {
-        Assumptions.assumeTrue(indexSyntax == DdlTestUtil.IndexSyntax.INDEX_AS_SYNTAX);
+    void createTable(List<String> columns) throws Exception {
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template CREATE TABLE foo " +
                 makeColumnDefinition(columns, true);
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
@@ -817,8 +856,7 @@ public class DdlStatementParsingTest {
 
     @ParameterizedTest
     @MethodSource("columnTypePermutations")
-    void createTableAndType(DdlTestUtil.IndexSyntax indexSyntax, List<String> columns) throws Exception {
-        Assumptions.assumeTrue(indexSyntax == DdlTestUtil.IndexSyntax.INDEX_AS_SYNTAX);
+    void createTableAndType(List<String> columns) throws Exception {
         final String typeDef = "CREATE TYPE AS STRUCT typ " + makeColumnDefinition(columns, false);
         // current implementation of metadata prunes unused types in the serialization, this may or may not
         // be something we want to commit to long term.

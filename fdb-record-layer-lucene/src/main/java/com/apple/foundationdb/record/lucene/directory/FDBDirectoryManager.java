@@ -191,10 +191,16 @@ public class FDBDirectoryManager implements AutoCloseable {
         try {
             mergeIndexWithContext(groupingKey, partitionId, agilityContext);
         } finally {
-            // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
-            // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
-            // but that should be rare.
-            agilityContext.flushAndClose();
+            try {
+                // Here: drain this partition's queue and clear the "use queue" indicator
+                // If the merge had failed, we still wish to drain the queue and release the ongoing merge indicator. Merge can be retried by another process.
+                drainPendingQueue(groupingKey, partitionId, agilityContext);
+            } finally {
+                // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
+                // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
+                // but that should be rare.
+                agilityContext.flushAndClose();
+            }
         }
     }
 
@@ -203,6 +209,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                                       @Nonnull final AgilityContext agilityContext) {
         try (FDBDirectoryWrapper directoryWrapper = createDirectoryWrapper(groupingKey, partitionId, agilityContext)) {
             try {
+                directoryWrapper.setOngoingMergeIndicator();
                 directoryWrapper.mergeIndex();
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug(KeyValueLogMessage.of("Lucene merge success",
@@ -221,6 +228,19 @@ public class FDBDirectoryManager implements AutoCloseable {
                     LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
         }
     }
+
+    public void drainPendingQueue(@Nonnull final Tuple groupingKey,
+                                   @Nullable final Integer partitionId,
+                                   @Nonnull final AgilityContext agilityContext) {
+        try (FDBDirectoryWrapper directoryWrapper = createDirectoryWrapper(groupingKey, partitionId, agilityContext)) {
+            directoryWrapper.drainPendingQueue(groupingKey, partitionId);
+        } catch (IOException e) {
+            throw LuceneExceptions.toRecordCoreException("Drain pending queue failed", e,
+                    LuceneLogMessageKeys.GROUP, groupingKey,
+                    LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
+        }
+    }
+
 
     private static void closeOrAbortAgilityContext(AgilityContext agilityContext, Throwable ex) {
         if (ex == null) {
@@ -292,6 +312,10 @@ public class FDBDirectoryManager implements AutoCloseable {
                 iterator.remove();
             }
         }
+    }
+
+    public PendingWriteQueue getPendingWriteQueue(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
+        return getDirectoryWrapper(groupingKey, partitionId).getPendingWriteQueue();
     }
 
     @VisibleForTesting
@@ -417,4 +441,5 @@ public class FDBDirectoryManager implements AutoCloseable {
                 .filter(i -> LuceneIndexTypes.LUCENE.equals(i.getType()))
                 .count());
     }
+
 }

@@ -161,17 +161,14 @@ public final class LuceneIndexMaintainerHelper {
 
     @SuppressWarnings("PMD.CloseResource")
     public static void writeDocument(FDBRecordContext context,
-                                     FDBDirectoryManager directoryManager,
+                                     IndexWriter newWriter,
                                      Index index,
-                                     Tuple groupingKey,
-                                     Integer partitionId,
                                      Tuple primaryKey,
                                      List<LuceneDocumentFromRecord.DocumentField> fields
                                      ) throws IOException {
         // Partition count was increased preemptively by the index maintainer
         final long startTime = System.nanoTime();
         Document document = new Document();
-        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, partitionId);
         String formatString = index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
         LuceneIndexKeySerializer keySerializer = LuceneIndexKeySerializer.fromStringFormat(formatString);
 

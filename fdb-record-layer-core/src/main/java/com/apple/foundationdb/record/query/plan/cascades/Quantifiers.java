@@ -389,7 +389,7 @@ public class Quantifiers {
      *
      * Consider the following example:
      *
-     * Let's says we have {@link AliasMap}s for three given quantifiers:
+     * Let's say we have {@link AliasMap}s for three given quantifiers:
      *
      * <pre>{@code
      * q1: Iterable.of((a11 -> aa, a2 -> ab), (a11 -> ab, a2 -> aa), (a11 -> ac, a2 -> ad))

@@ -204,8 +204,8 @@ class VectorIndexScanComparisonsTest {
         assertThat(original.hasScanComparisons()).isTrue();
         final ScanComparisons scanComparisons = original.getScanComparisons();
         assertThat(scanComparisons.getEqualityComparisons()).isEqualTo(originalPrefixScanComparisons.getEqualityComparisons());
-        assertThat(scanComparisons.getInequalityComparisons()).hasSize(1)
-                .allSatisfy(comparison -> assertThat(comparison).isEqualTo(originalDistanceRankComparison));
+        // currently only prefix scan comparisons are returned, the distance rank comparison, which is added here as inequality, is discarded.
+        assertThat(scanComparisons.getInequalityComparisons()).isEmpty();
     }
 
     @Nonnull
@@ -255,14 +255,14 @@ class VectorIndexScanComparisonsTest {
     @Nonnull
     private static Comparisons.DistanceRankValueComparison randomDistanceRankComparison() {
         return new Comparisons.DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
-                getRandomVectorValue(), new LiteralValue<>(10));
+                getRandomVectorValue(), new LiteralValue<>(10), null, null);
     }
 
     @Nonnull
     private static Comparisons.DistanceRankValueComparison correlatedDistanceRankComparison() {
         return new Comparisons.DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
                 QuantifiedObjectValue.of(q3(), Type.Vector.of(false, 64, 128)),
-                QuantifiedObjectValue.of(q4(), Type.primitiveType(Type.TypeCode.INT, false)));
+                QuantifiedObjectValue.of(q4(), Type.primitiveType(Type.TypeCode.INT, false)), null, null);
     }
 
     @Nonnull

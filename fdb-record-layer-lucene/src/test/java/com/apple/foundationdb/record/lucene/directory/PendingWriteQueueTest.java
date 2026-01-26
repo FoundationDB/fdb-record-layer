@@ -21,18 +21,34 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestHelpers;
+import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneFunctionNames;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
+import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
+import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils;
+import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
+import com.apple.foundationdb.record.lucene.LucenePartitionInfoProto;
+import com.apple.foundationdb.record.lucene.LucenePartitioner;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
+import com.apple.foundationdb.record.lucene.LuceneScanBounds;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -44,16 +60,34 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE;
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -259,6 +293,498 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         // Ensure all documents show up in the results
         List<TestDocument> allDocs = Streams.concat(docs.stream(), moreDocs.stream()).collect(Collectors.toList());
         Assertions.assertThat(allResults).zipSatisfy(allDocs, (entry, doc) -> entryEquals(entry, doc, LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT));
+    }
+
+    @Test
+    void testIsQueueEmpty() {
+        List<TestDocument> docs = createTestDocuments();
+        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
+
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(queue.isQueueEmpty(context).join());
+            commit(context);
+        }
+
+        docs.forEach(doc -> {
+            try (FDBRecordContext context = openContext()) {
+                queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields());
+                commit(context);
+            }
+            // the enqueue is finalized only after the commit. Verifying should be done with another context
+            try (FDBRecordContext context = openContext()) {
+                assertFalse(queue.isQueueEmpty(context).join(), "Expected isQueueEmpty to return false");
+                commit(context);
+            }
+        });
+    }
+
+
+    @Test
+    void testPendingQueueSimple() {
+        // Test simple non-partitioned pending queue life cycle
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Set "ongoing merge" indicator
+        setOngoingMergeIndicator(schemaSetup, index, null, null);
+
+        // Write a record
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(
+                    LuceneIndexTestUtils.createSimpleDocument(1001L, "test document", 1)
+            );
+            commit(context);
+        }
+
+        // Verify record is in queue
+        verifyExpectedQueueAndIndicator(schemaSetup, index, null, null,
+                List.of(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT));
+
+        // call merge - this should call drain and remove the "ongoing merge" indicator
+        mergeIndexNow(schemaSetup, index);
+
+        // Verify empty queue
+        verifyClearedQueueAndIndicator(schemaSetup, index, null, null);
+    }
+
+    @Test
+    void testPendingQueueSimpleWithDelete() {
+        // Test pending queue with both INSERT and DELETE operations
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Set ongoing merge indicator
+        setOngoingMergeIndicator(schemaSetup, index, null, null);
+
+        // Write multiple records
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(
+                    LuceneIndexTestUtils.createSimpleDocument(1001L, "first document", 1)
+            );
+            recordStore.saveRecord(
+                    LuceneIndexTestUtils.createSimpleDocument(1002L, "second document", 1)
+            );
+            commit(context);
+        }
+
+        // Delete one of the records
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.deleteRecord(Tuple.from(1001L));
+            commit(context);
+        }
+
+        // Verify records are in queue (2 INSERTs + 1 DELETE)
+        verifyExpectedQueueAndIndicator(schemaSetup, index, null, null,
+                List.of(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE));
+
+        // Call merge - this should drain the queue and remove the ongoing merge indicator
+        mergeIndexNow(schemaSetup, index);
+
+        // Verify empty queue and correct final state
+        verifyClearedQueueAndIndicator(schemaSetup, index, null, null);
+    }
+
+    @Test
+    void testPendingQueueMultiDelete() {
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+
+        // Write multiple records
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(
+                    LuceneIndexTestUtils.createSimpleDocument(1001L, "first document", 1)
+            );
+            recordStore.saveRecord(
+                    LuceneIndexTestUtils.createSimpleDocument(1002L, "second document", 1)
+            );
+            commit(context);
+        }
+
+        // Set ongoing merge indicator
+        setOngoingMergeIndicator(schemaSetup, index, null, null);
+
+        // Write multiple records
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(
+                    LuceneIndexTestUtils.createSimpleDocument(1003L, "third document", 1)
+            );
+            recordStore.saveRecord(
+                    LuceneIndexTestUtils.createSimpleDocument(1004L, "fourth document", 1)
+            );
+            commit(context);
+        }
+
+        // Delete of two records, one written before and one during the merge
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.deleteRecord(Tuple.from(1001L));
+            recordStore.deleteRecord(Tuple.from(1004L));
+            commit(context);
+        }
+
+        // Verify records are in queue
+        verifyExpectedQueueAndIndicator(schemaSetup, index, null, null,
+                List.of(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE,
+                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE));
+
+        // Call merge - this should drain the queue and remove the ongoing merge indicator
+        mergeIndexNow(schemaSetup, index);
+
+        // Verify empty queue and correct final state
+        verifyClearedQueueAndIndicator(schemaSetup, index, null, null);
+
+        // Verify that only docs 1002L and 1003L remain in the index after merge
+        verifyExpectedDocIds(schemaSetup, index, Set.of(1002L, 1003L));
+    }
+
+    @Test
+    void pendingQueueTestMultiplePartitions() {
+        // Test pending queue with partitioned index - documents in different partitions
+        final Map<String, String> options = Map.of(
+                ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, "true",
+                INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(100));
+
+        final Index index = complexPartitionedIndex(options);
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.ComplexDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Insert a few documents when "ongoing merge" indicator is clear.
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(2001L, "document foo", 1L, 30L));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(2002L, "document bar", 1L, 130L));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(2003L, "document zoo", 1L, 35L));
+            commit(context);
+        }
+
+        final Tuple groupingKey = Tuple.from(1L);  // All documents in group 1
+        // Expected partition count
+        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(3));
+
+        final Integer partition0 = 0;
+        final Integer partition1 = 1;
+
+        // Enable queue mode for both partitions
+        setOngoingMergeIndicator(schemaSetup, index, groupingKey, partition0);
+
+        // Store primary keys for later deletion
+        Tuple primaryKey1;
+
+        // Insert documents when "ongoing merge" indicator is set.
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+            primaryKey1 = recordStore.saveRecord(
+                    LuceneIndexTestUtils.createComplexDocument(1001L, "first document", 1L, 50L)
+            ).getPrimaryKey();
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1002L, "second document", 1L, 150L));
+            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1003L, "third document", 1L, 75L));
+            commit(context);
+        }
+
+        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(6));
+
+        // Delete one document from partition 0
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.deleteRecord(primaryKey1);
+            commit(context);
+        }
+
+        // Verify empty queue in partition 1
+        verifyClearedQueueAndIndicator(schemaSetup, index, groupingKey, partition1);
+
+        // Verify queue in partition 0
+        verifyExpectedQueueAndIndicator(schemaSetup, index, groupingKey, partition0,
+                List.of(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE));
+
+        // Merge index - drains all partition queues
+        // Note: This test sets the "ongoing merge" indicator ahead of the real merge. Merge allows
+        // the indicator being set as a way to recover from a leftover set indicator - which also enables this test.
+        mergeIndexNow(schemaSetup, index);
+
+        // Verify both queues are empty and indicators are cleared
+        verifyClearedQueueAndIndicator(schemaSetup, index, groupingKey, partition0);
+        verifyClearedQueueAndIndicator(schemaSetup, index, groupingKey, partition1);
+
+        // Expected partition count - after the delete was drained from the queue the count should be reduced by 1
+        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(5));
+    }
+
+    @Test
+    void testPendingQueueWithUpdate() {
+        // Test update operation in pending queue
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Insert document before queue is enabled
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(
+                    LuceneIndexTestUtils.createSimpleDocument(1001L, "original text", 1)
+            );
+            commit(context);
+        }
+
+        // Mark "ongoing merge" indicator
+        setOngoingMergeIndicator(schemaSetup, index, null, null);
+
+        // Update the document
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(
+                    LuceneIndexTestUtils.createSimpleDocument(1001L, "updated text", 1)
+            );
+            commit(context);
+        }
+
+        // Verify INSERT and DELETE in queue
+        verifyExpectedQueueAndIndicator(schemaSetup, index, null, null,
+                List.of(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE,
+                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT));
+
+        // Merge and verify
+        mergeIndexNow(schemaSetup, index);
+
+        // Verify queue cleared
+        verifyClearedQueueAndIndicator(schemaSetup, index, null, null);
+    }
+
+    @Test
+    void testPendingQueueMixedOperations() {
+        // Test INSERT, UPDATE, DELETE sequence on same document
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Mark "ongoing merge" indicator
+        setOngoingMergeIndicator(schemaSetup, index, null, null);
+
+        // INSERT
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1001L, "version 1", 1));
+            commit(context);
+        }
+
+        // UPDATE (generates DELETE + INSERT since doc was inserted while queue was active)
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1001L, "version 2", 1));
+            commit(context);
+        }
+
+        // DELETE
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.deleteRecord(Tuple.from(1001L));
+            commit(context);
+        }
+
+        // Verify INSERT, DELETE, INSERT, DELETE in queue
+        verifyExpectedQueueAndIndicator(schemaSetup, index, null, null,
+                List.of(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE,
+                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE));
+
+        // Merge
+        mergeIndexNow(schemaSetup, index);
+
+        // Verify that the "ongoing merge" indicator is cleared
+        verifyClearedQueueAndIndicator(schemaSetup, index, null, null);
+    }
+
+    @Test
+    void pendingQueueTestDrainException() {
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Enable queue
+        setOngoingMergeIndicator(schemaSetup, index, null, null);
+
+        // Set "ongoing merge" indicator and write corrupted queue entry
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+            // Write invalid protobuf directly to queue subspace
+            Subspace queueSubspace = recordStore.indexSubspace(index)
+                    .subspace(Tuple.from(FDBDirectory.PENDING_WRITE_QUEUE_SUBSPACE));
+            context.ensureActive().set(queueSubspace.pack(Tuple.from(0L)),
+                    new byte[]{(byte)0xFF, (byte)0xFF}); // Corrupted protobuf
+
+            commit(context);
+        }
+
+        // Merge attempts to drain corrupted queue and throws PendingQueueDrainException
+        CompletionException thrownException = assertThrows(CompletionException.class, () ->
+                mergeIndexNow(schemaSetup, index)
+        );
+
+        final FDBDirectoryWrapper.PendingQueueDrainException queueDrainException = TestHelpers.findCause(thrownException, FDBDirectoryWrapper.PendingQueueDrainException.class);
+        assertNotNull(queueDrainException);
+        assertThat(thrownException.getMessage(), containsString("Pending queue drain had failed"));
+    }
+
+    private void verifyClearedQueueAndIndicator(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index, @Nullable Tuple groupingKey, @Nullable Integer partitionId) {
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+            FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
+
+            assertFalse(directory.shouldUseQueue(), "Ongoing merge indicator should be cleared");
+
+            PendingWriteQueue queue = directory.createPendingWritesQueue();
+            List<PendingWriteQueue.QueueEntry> entries = new ArrayList<>();
+            queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
+                    .forEach(entries::add).join();
+            assertTrue(entries.isEmpty(), "Pending queue should have been empty");
+            commit(context);
+        }
+    }
+
+    private void verifyExpectedQueueAndIndicator(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index, @Nullable Tuple groupingKey, @Nullable Integer partitionId,
+                                                 List<LucenePendingWriteQueueProto.PendingWriteItem.OperationType> expecteOperations) {
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+            FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
+
+            assertTrue(directory.shouldUseQueue(),
+                    "Ongoing merge indicator should have been set");
+
+            PendingWriteQueue queue = directory.createPendingWritesQueue();
+
+            RecordCursor<PendingWriteQueue.QueueEntry> queueCursor = queue.getQueueCursor(
+                    recordStore.getContext(), ScanProperties.FORWARD_SCAN, null);
+
+            assertEquals(expecteOperations,
+                    queueCursor.asList().join().stream()
+                            .map(PendingWriteQueue.QueueEntry::getOperationType)
+                            .collect(Collectors.toList()));
+
+            commit(context);
+        }
+    }
+
+    private void verifyPartitionCount(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index, @Nullable Tuple groupingKey,
+                                      List<Integer> expectedCount) {
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            final LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)recordStore.getIndexMaintainer(index);
+            final LucenePartitioner partitioner = indexMaintainer.getPartitioner();
+
+            final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos =
+                    partitioner.getAllPartitionMetaInfo(groupingKey == null ? Tuple.from() : groupingKey).join();
+
+            assertEquals(expectedCount,
+                    partitionInfos.stream()
+                            .map(LucenePartitionInfoProto.LucenePartitionInfo::getCount)
+                            .collect(Collectors.toList()));
+        }
+    }
+
+    private void verifyExpectedDocIds(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index,
+                                      Set<Long> expectedDocIds) {
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+            // Query all documents using wildcard search
+            LuceneScanBounds scanBounds = LuceneIndexTestUtils.fullTextSearch(recordStore, index, "*:*", false);
+
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, scanBounds, null, ScanProperties.FORWARD_SCAN)) {
+                List<Long> primaryKeys = cursor
+                        .map(IndexEntry::getPrimaryKey)
+                        .map(tuple -> tuple.getLong(0))
+                        .asList()
+                        .join();
+
+                assertEquals(expectedDocIds, new HashSet<>(primaryKeys));
+            }
+        }
+    }
+
+    private void setOngoingMergeIndicator(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index, @Nullable Tuple groupingKey, @Nullable Integer partitionId) {
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+            // Get directory and set ongoing merge indicator
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+            FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
+            directory.setOngoingMergeIndicator();
+            commit(context);
+        }
+    }
+
+    private void mergeIndexNow(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index) {
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
+            indexMaintainer.mergeIndex().join();
+            commit(context);
+        }
+    }
+
+    @Nonnull
+    private static LuceneIndexMaintainer getIndexMaintainer(FDBRecordStore store, Index index) {
+        return (LuceneIndexMaintainer)store.getIndexMaintainer(index);
+    }
+
+    @Nonnull
+    public static Index complexPartitionedIndex(final Map<String, String> options) {
+        return new Index("Complex$partitioned",
+                concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+                        function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))).groupBy(field("group")),
+                LuceneIndexTypes.LUCENE,
+                options);
     }
 
     private void assertQueueEntries(final PendingWriteQueue queue, final List<TestDocument> docs, LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType) {

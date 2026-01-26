@@ -21,16 +21,27 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
+import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LazyCloseable;
 import com.apple.foundationdb.record.lucene.codec.LazyOpener;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.CursorFactory;
+import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ItemHandler;
+import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.CloseException;
@@ -51,6 +62,7 @@ import org.apache.lucene.store.LockFactory;
 import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -504,14 +516,138 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         }
     }
 
-    public void mergeIndex() throws IOException {
-        getWriter().maybeMerge();
-    }
-
     @VisibleForTesting
     public Queue<LazyCloseable<DirectoryReader>> getReadersToClose() {
         return readersToClose;
     }
+
+    public void setOngoingMergeIndicator() {
+        getDirectory().setOngoingMergeIndicator();
+    }
+
+    public void mergeIndex() throws IOException {
+        getWriter().maybeMerge();
+    }
+
+    public void clearOngoingMergeIndicator() {
+        getDirectory().clearOngoingMergeIndicatorButFailIfNonEmpty();
+    }
+
+    public void drainPendingQueue(@Nonnull final Tuple groupingKey,
+                                  @Nullable final Integer partitionId) {
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.of("Drain pending queue",
+                    LogMessageKeys.GROUPING_KEY, groupingKey,
+                    LogMessageKeys.PARTITION_ID, partitionId));
+        }
+        final int maxRetries = 20;
+        for (int retries = 0; ; retries ++) {
+            // while draining the pending queue new updates may "refill" it and cause the clearance of the ongoing merge
+            // indicator to fail. Hence, the draining/indicator clearing process should be retried.
+            try {
+                agilityContext.flush(); // before potentially long drain (Note that the drain iteration does not use agilityContext)
+                drainPendingQueueNow(groupingKey, partitionId);
+                clearOngoingMergeIndicator();
+                agilityContext.flush(); // commit clear indicator
+                return;
+            } catch (RuntimeException ex) {
+                if (retries >= maxRetries) {
+                    throw new PendingQueueDrainException(ex);
+                }
+                if (LOGGER.isWarnEnabled()) {
+                    LOGGER.warn(KeyValueLogMessage.of("Failed to drain queue, retrying",
+                            LogMessageKeys.RETRY_COUNT, retries,
+                            LogMessageKeys.GROUPING_KEY, groupingKey,
+                            LogMessageKeys.PARTITION_ID, partitionId
+                    ), ex);
+                }
+            }
+        }
+    }
+
+    private void drainPendingQueueNow(@Nonnull final Tuple groupingKey,
+                                      @Nullable final Integer partitionId) {
+        // Note - since this directory wrapper was already created, agility context should be unused in the next line's path
+        final PendingWriteQueue writeQueue = getPendingWriteQueue();
+        try (ThrottledRetryingIterator<PendingWriteQueue.QueueEntry> iterator = ThrottledRetryingIterator.builder(
+                        agilityContext.getCallerContext().getDatabase(),
+                        cursorFactory(writeQueue),
+                        handleOneItemFactory(writeQueue, groupingKey, partitionId))
+                .withMdcContext(MDC.getCopyOfContextMap())
+                .withCommitWhenDone(true)
+                .build()) {
+            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DRAIN_PENDING_QUEUE,
+                    iterator.iterateAll(state.store.asBuilder()));
+        } catch (CloseException e) {
+            throw new PendingQueueDrainException(e);
+        }
+
+    }
+
+    private CursorFactory<PendingWriteQueue.QueueEntry> cursorFactory(PendingWriteQueue pendingWriteQueue) {
+        return (@Nonnull FDBRecordStore store, @Nullable RecordCursorResult<PendingWriteQueue.QueueEntry> lastResult, int rowLimit) -> {
+            byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
+            ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
+            // Note: null could have been used instead of continuation as the preceding items should have been deleted. However,
+            // using a continuation will prevent an infinite loop in case of a bug that doesn't clear items.
+            return pendingWriteQueue.getQueueCursor(store.getContext(), scanProperties, continuation);
+        };
+    }
+
+    private ItemHandler<PendingWriteQueue.QueueEntry> handleOneItemFactory(PendingWriteQueue pendingWriteQueue,
+                                                                           @Nonnull final Tuple groupingKey,
+                                                                           @Nullable final Integer partitionId) {
+        return (store, lastResult, quotamanager) -> {
+            final PendingWriteQueue.QueueEntry queueEntry = lastResult.get();
+            if (queueEntry == null) {
+                return AsyncUtil.DONE;
+            }
+
+            try {
+                final LuceneIndexMaintainer maintainer = (LuceneIndexMaintainer)store.getIndexMaintainer(state.index);
+                CompletableFuture<Void> oneItemFuture = AsyncUtil.DONE;
+                switch (queueEntry.getOperationType()) {
+                    case UPDATE:
+                    case INSERT:
+                        maintainer.writeDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed(), queueEntry.getDocumentFieldsParsed());
+                        break;
+                    case DELETE:
+                        final int countDeleted = maintainer.deleteDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed());
+                        if (partitionId != null) {
+                            oneItemFuture = maintainer.postDeleteUpdatePartitionCounter(groupingKey, partitionId, countDeleted)
+                                    .thenApply(ignore -> null);
+                        }
+                        break;
+                    default:
+                        throw new PendingQueueDrainException("Unknown operation type",
+                                LogMessageKeys.GROUPING_KEY, groupingKey,
+                                LogMessageKeys.PARTITION_ID, partitionId,
+                                LogMessageKeys.CODE, queueEntry.getOperationType());
+                }
+                pendingWriteQueue.clearEntry(store.getContext(), queueEntry);
+                return oneItemFuture;
+            } catch (IOException ex) {
+                throw new RecordCoreException("Lucene IOException", ex);
+            }
+        };
+    }
+
+    /**
+     * thrown if pending queue drain had failed.
+     */
+    @SuppressWarnings("java:S110")
+    public static class PendingQueueDrainException extends RecordCoreException {
+        private static final long serialVersionUID = 10;
+
+        public PendingQueueDrainException(final Throwable cause) {
+            super("Pending queue drain had failed", cause);
+        }
+
+        public PendingQueueDrainException(@Nonnull final String msg, @Nullable final Object... keyValues) {
+            super(msg, keyValues);
+        }
+    }
+
 
     private static class CloseableReadOnlyAgilityContext implements Closeable {
         private AgilityContext agilityContext;

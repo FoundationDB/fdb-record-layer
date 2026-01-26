@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,6 +50,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Set;
+
+import static com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions.HNSW_EF_SEARCH;
+import static com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions.HNSW_RETURN_VECTORS;
 
 /**
  * {@link ScanComparisons} for use in a multidimensional index scan.
@@ -98,19 +102,8 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
 
     @Override
     public ScanComparisons getScanComparisons() {
-        final var builder = new ScanComparisons.Builder();
-        builder.addAll(prefixScanComparisons.getEqualityComparisons(), ImmutableSet.of());
-        if (!prefixScanComparisons.isEquality()) {
-            builder.addAll(ImmutableList.of(), prefixScanComparisons.getInequalityComparisons());
-            return builder.build();
-        }
-        // only equalities coming from the prefix
-        if (getDistanceRankValueComparison().getType().isEquality()) {
-            builder.addEqualityComparison(getDistanceRankValueComparison());
-        } else {
-            builder.addInequalityComparison(getDistanceRankValueComparison());
-        }
-        return builder.build();
+        // todo: factor in distance rank comparisons.
+        return prefixScanComparisons;
     }
 
     @Nonnull
@@ -311,13 +304,28 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
     }
 
     @Nonnull
-    public static VectorIndexScanComparisons byDistance(@Nullable final ScanComparisons prefixScanComparisons,
+    public static VectorIndexScanComparisons byDistance(@Nullable ScanComparisons prefixScanComparisons,
+                                                        @Nonnull final DistanceRankValueComparison distanceRankValueComparison) {
+        if (prefixScanComparisons == null) {
+            prefixScanComparisons = ScanComparisons.EMPTY;
+        }
+
+        final var vectorIndexScanOptionsBuilder = VectorIndexScanOptions.builder();
+        if (distanceRankValueComparison.isReturningVectors() != null) {
+            vectorIndexScanOptionsBuilder.putOption(HNSW_RETURN_VECTORS, distanceRankValueComparison.isReturningVectors());
+        }
+        if (distanceRankValueComparison.getEfSearch() != null) {
+            vectorIndexScanOptionsBuilder.putOption(HNSW_EF_SEARCH, distanceRankValueComparison.getEfSearch());
+        }
+        return byDistance(prefixScanComparisons, distanceRankValueComparison, vectorIndexScanOptionsBuilder.build());
+    }
+
+    @Nonnull
+    @VisibleForTesting
+    public static VectorIndexScanComparisons byDistance(@Nonnull final ScanComparisons prefixScanComparisons,
                                                         @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
                                                         @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
-        return new VectorIndexScanComparisons(
-                prefixScanComparisons == null ? ScanComparisons.EMPTY : prefixScanComparisons,
-                distanceRankValueComparison,
-                vectorIndexScanOptions);
+        return new VectorIndexScanComparisons(prefixScanComparisons, distanceRankValueComparison, vectorIndexScanOptions);
     }
 
     /**

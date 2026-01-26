@@ -155,6 +155,24 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             // can be correlated (or not) to anything except the innermostAlias
             final Value leftChild = it.next();
             final Value rightChild = it.next();
+
+            // this gives either child a chance of consuming current predicate tree, effectively doing a rotation-like
+            // transformation:
+            //           ParentPredicate
+            //          /               \                =>      LeftComparand.transform(ParentPredicate, RightComparand)
+            //       LeftComparand     RightComparand
+            var absorbedMaybe = leftChild.transformComparisonMaybe(comparisonType, rightChild);
+            if (absorbedMaybe.isPresent()) {
+                return absorbedMaybe;
+            }
+            final var invertedComparison = Comparisons.invertComparisonType(comparisonType);
+            if (invertedComparison != null) {
+                absorbedMaybe = rightChild.transformComparisonMaybe(invertedComparison, leftChild);
+                if (absorbedMaybe.isPresent()) {
+                    return absorbedMaybe;
+                }
+            }
+
             final Set<CorrelationIdentifier> leftChildCorrelatedTo = leftChild.getCorrelatedTo();
             final Set<CorrelationIdentifier> rightChildCorrelatedTo = rightChild.getCorrelatedTo();
 

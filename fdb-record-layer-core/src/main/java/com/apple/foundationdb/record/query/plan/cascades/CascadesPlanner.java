@@ -400,6 +400,8 @@ public class CascadesPlanner implements QueryPlanner {
         if (logger.isDebugEnabled()) {
             logger.debug(KeyValueLogMessage.of("GML explain of plan",
                     "explain", PlannerGraphVisitor.explain(singleRoot)));
+            logger.debug(KeyValueLogMessage.of("DOT explain of plan",
+                    "explain", PlannerGraphVisitor.internalGraphicalExplain(singleRoot)));
             logger.debug(KeyValueLogMessage.of("string explain of plan",
                     "explain", ExplainPlanVisitor.toStringForDebugging((RecordQueryPlan)singleRoot)));
         }
@@ -415,6 +417,11 @@ public class CascadesPlanner implements QueryPlanner {
 
         final RelationalExpression expression = currentRoot.get();
         Debugger.withDebugger(debugger -> debugger.onQuery(expression.toString(), planContext));
+        if (logger.isDebugEnabled()) {
+            logger.debug(KeyValueLogMessage.of("DOT explain initial expression",
+                    "explain", PlannerGraphVisitor.internalGraphicalExplain(expression)));
+        }
+
         this.traversal = Traversal.withRoot(currentRoot);
         this.taskStack = new ArrayDeque<>();
         this.taskCount = 0;

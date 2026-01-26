@@ -29,12 +29,13 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PRecordTypeValue;
 import com.apple.foundationdb.record.planprotos.PValue;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -52,6 +53,13 @@ import java.util.function.Supplier;
 public class RecordTypeValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("RecordType-Value");
 
+    /**
+     * Record value from which to grab the record type value of. Ideally, this would be a {@link QuantifiedRecordValue},
+     * as we grab the record type key from the record type definition. However, there are some cases during the middle
+     * of planning where we sometimes make this a field value. That is probably broken, and the way to fix that
+     * is to introduce a {@link com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField} for the
+     * record type key and then phase out this value all together.
+     */
     @Nonnull
     private final Value in;
 
@@ -64,6 +72,12 @@ public class RecordTypeValue extends AbstractValue {
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var inRecord = in.eval(store, context);
+        if (inRecord instanceof FDBQueriedRecord<?>) {
+            return ((FDBQueriedRecord<?>)inRecord).getRecordType().getRecordTypeKey();
+        }
+
+        // The rest of this method is highly suspect. We should consider removing this, but it will be replaced
+        // entirely by using PseudoFields, ideally
         if (!(inRecord instanceof Message)) {
             return null;
         }
@@ -139,11 +153,20 @@ public class RecordTypeValue extends AbstractValue {
                                             @Nonnull final PRecordTypeValue recordTypeValueProto) {
         if (recordTypeValueProto.hasAlias()) {
             return new RecordTypeValue(
-                    QuantifiedObjectValue.of(
+                    QuantifiedRecordValue.of(
                             CorrelationIdentifier.of(Objects.requireNonNull(recordTypeValueProto.getAlias())),
                             new Type.AnyRecord(true)));
         } else {
-            return new RecordTypeValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(recordTypeValueProto.getIn())));
+            Value inValue = Value.fromValueProto(serializationContext, Objects.requireNonNull(recordTypeValueProto.getIn()));
+            if (inValue instanceof QuantifiedObjectValue) {
+                // We want to deserialize normal quantified object values as quantified record values. This
+                // allows us to avoid cross-version incompatibility when deserializing plans that are built
+                // on top of quantified object values. At that time, we didn't copy data into a dynamic
+                // message, so we were able to look up the record type key from the meta-data. That is no
+                // longer true, so update the type during deserialization
+                inValue = QuantifiedRecordValue.of(((QuantifiedObjectValue)inValue).getAlias(), inValue.getResultType());
+            }
+            return new RecordTypeValue(inValue);
 
         }
     }

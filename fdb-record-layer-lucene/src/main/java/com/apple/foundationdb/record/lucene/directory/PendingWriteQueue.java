@@ -32,10 +32,6 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
-import com.apple.foundationdb.record.lucene.LuceneExceptions;
-import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
-import com.apple.foundationdb.record.lucene.LuceneIndexMaintainerHelper;
-import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
@@ -55,8 +51,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -192,7 +188,8 @@ public class PendingWriteQueue {
 
     /**
      * Remove an entry from the queue.
-     * The {@link QueueEntry} given to this method (likely returned from the {@link #getQueueCursor(FDBRecordContext, ScanProperties, byte[])}
+     * The {@link QueueEntry} given to this method (likely returned from the
+     * {@link #getQueueCursor(FDBRecordContext, ScanProperties, byte[])}
      * cursor) will be removed from the queue. Note that the entry has to have a <pre>Complete</pre> versionStamp
      * (that means, it has to have been committed to the DB) before it can be removed.
      *
@@ -231,6 +228,24 @@ public class PendingWriteQueue {
         return cursor.onNext().thenApply(RecordCursorResult::hasNext).whenComplete((result, ex) -> cursor.close());
     }
 
+
+    /**
+     * Check if the pending write queue is empty.
+     *
+     * @param context the record context
+     * @return a future that resolves to {@code true} if the queue is empty, {@code false} otherwise
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> isQueueEmpty(@Nonnull FDBRecordContext context) {
+
+        // Return true if empty
+        return context.ensureActive()
+                .getRange(queueSubspace.range(), 1)
+                .asList()
+                .thenApply(List::isEmpty);
+    }
+
+    private QueueEntry toQueueEntry(final KeyValue kv) {
     /**
      * Replay all queued operations into the index.
      * This should be called before executing a query to ensure queued writes are visible.
@@ -398,12 +413,90 @@ public class PendingWriteQueue {
             return Tuple.fromBytes(item.getPrimaryKey().toByteArray());
         }
 
+        public Tuple getPrimaryKeyParsed() {
+            return Tuple.fromBytes(getPrimaryKey());
+        }
+
         public long getEnqueuedTimeStamp() {
             return item.getEnqueueTimestamp();
         }
 
         public List<LucenePendingWriteQueueProto.DocumentField> getDocumentFields() {
             return item.getFieldsList();
+        }
+
+        public List<LuceneDocumentFromRecord.DocumentField> getDocumentFieldsParsed() {
+            return convertFromProtoFields(getDocumentFields());
+        }
+
+        /**
+         * Convert protobuf DocumentField list back to LuceneDocumentFromRecord.DocumentField list.
+         */
+        private static List<LuceneDocumentFromRecord.DocumentField> convertFromProtoFields(
+                @Nonnull List<LucenePendingWriteQueueProto.DocumentField> protoFields) {
+
+            List<LuceneDocumentFromRecord.DocumentField> fields = new ArrayList<>();
+            for (LucenePendingWriteQueueProto.DocumentField protoField : protoFields) {
+                String fieldName = protoField.getFieldName();
+                Object value;
+                LuceneIndexExpressions.DocumentFieldType fieldType;
+
+                // Determine the value and type based on which field is set
+                if (protoField.hasStringValue()) {
+                    value = protoField.getStringValue();
+                    fieldType = LuceneIndexExpressions.DocumentFieldType.STRING;
+                } else if (protoField.hasTextValue()) {
+                    value = protoField.getTextValue();
+                    fieldType = LuceneIndexExpressions.DocumentFieldType.TEXT;
+                } else if (protoField.hasIntValue()) {
+                    value = protoField.getIntValue();
+                    fieldType = LuceneIndexExpressions.DocumentFieldType.INT;
+                } else if (protoField.hasLongValue()) {
+                    value = protoField.getLongValue();
+                    fieldType = LuceneIndexExpressions.DocumentFieldType.LONG;
+                } else if (protoField.hasDoubleValue()) {
+                    value = protoField.getDoubleValue();
+                    fieldType = LuceneIndexExpressions.DocumentFieldType.DOUBLE;
+                } else if (protoField.hasBooleanValue()) {
+                    value = protoField.getBooleanValue();
+                    fieldType = LuceneIndexExpressions.DocumentFieldType.BOOLEAN;
+                } else {
+                    throw new IllegalStateException("DocumentField has no value set: " + fieldName);
+                }
+
+                // Convert field_configs from proto map to Map<String, Object>
+                Map<String, Object> fieldConfigs = new HashMap<>();
+                if (protoField.getFieldConfigsCount() > 0) {
+                    for (Map.Entry<String, LucenePendingWriteQueueProto.FieldConfigValue> entry : protoField.getFieldConfigsMap().entrySet()) {
+                        Object configValue;
+                        LucenePendingWriteQueueProto.FieldConfigValue protoConfigValue = entry.getValue();
+                        switch (protoConfigValue.getValueCase()) {
+                            case STRING_VALUE:
+                                configValue = protoConfigValue.getStringValue();
+                                break;
+                            case BOOLEAN_VALUE:
+                                configValue = protoConfigValue.getBooleanValue();
+                                break;
+                            case INT_VALUE:
+                                configValue = protoConfigValue.getIntValue();
+                                break;
+                            case VALUE_NOT_SET:
+                            default:
+                                throw new IllegalStateException("FieldConfigValue has no value set for key: " + entry.getKey());
+                        }
+                        fieldConfigs.put(entry.getKey(), configValue);
+                    }
+                }
+
+                // Create DocumentField with stored, sorted, and field_configs from proto
+                boolean stored = protoField.getStored();
+                boolean sorted = protoField.getSorted();
+                LuceneDocumentFromRecord.DocumentField field =
+                        new LuceneDocumentFromRecord.DocumentField(fieldName, value, fieldType, stored, sorted, fieldConfigs);
+                fields.add(field);
+            }
+
+            return fields;
         }
     }
 
