@@ -88,4 +88,9 @@ class DocumentationQueriesTests {
     void withDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/with-documentation-queries.yamsql");
     }
+
+    @TestTemplate
+    void windowFunctionDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/window-function-documentation-queries.yamsql");
+    }
 }

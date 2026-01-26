@@ -102,7 +102,7 @@ public class OrPredicate extends AndOrPredicate {
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(Precedence.OR,
-                new ExplainTokens().addSequence(() -> new ExplainTokens().addWhitespace().addKeyword("OR").addWhitespace(),
+                new ExplainTokens().addSequence(() -> new ExplainTokens().addWhitespace().addKeyword("OR").addLinebreakOrWhitespace(),
                         () -> Streams.stream(explainSuppliers).map(Supplier::get)
                                 .map(Precedence.OR::parenthesizeChild).iterator()));
     }

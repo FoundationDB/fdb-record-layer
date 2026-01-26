@@ -137,7 +137,7 @@ public interface RealVector {
         final int numDimensions = getNumDimensions();
         double[] y = new double[numDimensions];
         if (n == 0.0 || !Double.isFinite(n)) {
-            return withData(y); // all zeros
+            throw new IllegalArgumentException("vector has an L2 norm of infinite, not a number, or 0");
         }
         double inv = 1.0 / n;
         for (int i = 0; i < numDimensions; i++) {

@@ -486,6 +486,18 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         return ctx.packageBytes.accept(this);
     }
 
+    @Override
+    public Object visitCopyExportStatement(final RelationalParser.CopyExportStatementContext ctx) {
+        queryCachingFlags.add(NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION);
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Object visitCopyImportStatement(final RelationalParser.CopyImportStatementContext ctx) {
+        queryCachingFlags.add(NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION);
+        return visitChildren(ctx);
+    }
+
     private void processArrayParameter(@Nonnull final Array param, @Nullable Integer unnamedParameterIndex,
                                        @Nullable String parameterName, final int tokenIndex) {
         try {

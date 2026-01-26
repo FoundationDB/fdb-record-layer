@@ -27,9 +27,11 @@ import com.apple.foundationdb.async.hnsw.TestHelpers.PrimaryKeyVectorAndDistance
 import com.apple.foundationdb.async.hnsw.TestHelpers.TestOnReadListener;
 import com.apple.foundationdb.async.hnsw.TestHelpers.TestOnWriteListener;
 import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.RealVectorTest;
 import com.apple.foundationdb.rabitq.EncodedRealVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.test.TestDatabaseExtension;
@@ -48,6 +50,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -170,7 +173,7 @@ class OperationsTest implements BaseTest {
                                     originalNeighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey));
                                     assertThat(neighbors).isEqualTo(originalNeighbors);
                                 }
-                        )).join());
+                )).join());
 
         assertThat(
                 TestHelpers.dumpLayer(getDb(), getSubspace(), HNSW.newConfigBuilder()
@@ -227,6 +230,42 @@ class OperationsTest implements BaseTest {
     }
 
     @Nonnull
+    private static Stream<Arguments> seedAndIsNormalized() {
+        return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0x1234567890L)
+                .flatMap(seed -> ImmutableSet.of(false, true).stream()
+                        .map(isNormalized -> Arguments.of(seed, isNormalized)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("seedAndIsNormalized")
+    void testStorageTransform(final long seed, final boolean isNormalized) {
+        final Random random = new Random(seed);
+        final int numDimensions = random.nextInt(128);
+        final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);
+        final RealVector translation = RealVectorTest.createRandomDoubleVector(random, numDimensions);
+
+        final StorageTransform storageTransform =
+                new StorageTransform(rotator, translation, isNormalized);
+
+        Assertions.assertThat(storageTransform.getNumDimensions()).isEqualTo(numDimensions);
+
+        final RealVector x = RealVectorTest.createRandomDoubleVector(random, numDimensions);
+
+        if (isNormalized) {
+            final RealVector y = storageTransform.apply(x);
+            final RealVector z = storageTransform.invertedApply(y);
+
+            Assertions.assertThat(Metric.EUCLIDEAN_METRIC.distance(x.normalize(), z))
+                    .isCloseTo(0, within(2E-10));
+        } else {
+            final RealVector y = storageTransform.apply(x);
+            final RealVector z = storageTransform.invertedApply(y);
+
+            Assertions.assertThat(Metric.EUCLIDEAN_METRIC.distance(x, z)).isCloseTo(0, within(2E-10));
+        }
+    }
+
+    @Nonnull
     private static Stream<Arguments> differentConfigsAndMetrics() {
         return Streams.concat(differentConfigs(), differentMetrics());
     }
@@ -259,8 +298,8 @@ class OperationsTest implements BaseTest {
     @Nonnull
     private static Stream<Arguments> differentMetrics() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL)
-                .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(Metric.EUCLIDEAN_METRIC,
-                                Metric.EUCLIDEAN_SQUARE_METRIC)).stream()
+                .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(Metric.COSINE_METRIC,
+                                Metric.EUCLIDEAN_METRIC, Metric.EUCLIDEAN_SQUARE_METRIC)).stream()
                         .map(arguments -> Arguments.of(ObjectArrays.concat(seed,
                                 new Object[] {HNSW.newConfigBuilder()
                                         .setMetric(arguments.get(0))
@@ -268,7 +307,7 @@ class OperationsTest implements BaseTest {
                                         .setEfRepair(64)
                                         .setExtendCandidates(false)
                                         .setKeepPrunedConnections(false)
-                                        .setUseRaBitQ(true)
+                                        .setUseRaBitQ(false)
                                         .setRaBitQNumExBits(5)
                                         .setSampleVectorStatsProbability(1.0d)
                                         .setMaintainStatsProbability(0.1d)
@@ -499,7 +538,7 @@ class OperationsTest implements BaseTest {
 
         final var accessInfo =
                 db.run(transaction -> StorageAdapter.fetchAccessInfo(hnsw.getConfig(),
-                        transaction, hnsw.getSubspace(), OnReadListener.NOOP).join(), hnsw.getExecutor());
+                        transaction, hnsw.getSubspace(), OnReadListener.NOOP).join());
         assertThat(accessInfo).isNull();
     }
 
@@ -627,7 +666,6 @@ class OperationsTest implements BaseTest {
                     while (it.hasNext()) {
                         resultsBuilder.add(it.next());
                     }
-                    it.cancel();
                     return resultsBuilder.build();
                 });
 

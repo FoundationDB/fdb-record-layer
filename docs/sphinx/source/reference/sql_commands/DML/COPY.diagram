@@ -1,0 +1,10 @@
+Diagram(
+    Terminal('COPY'),
+    NonTerminal('path'),
+    Optional(
+      Sequence(
+        Terminal('FROM'),
+        NonTerminal('preparedStatementParameter')
+      )
+    )
+)

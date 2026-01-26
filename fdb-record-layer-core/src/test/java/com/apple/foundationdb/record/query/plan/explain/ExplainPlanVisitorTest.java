@@ -52,11 +52,17 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.rules.QueryPredicateSimplificationRuleTest.RandomPredicateGenerator;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -87,6 +93,7 @@ import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -94,6 +101,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Message;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
@@ -105,6 +113,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -532,6 +541,15 @@ public class ExplainPlanVisitorTest {
         assertEquals(planAndString.getRight(), ExplainPlanVisitor.toStringForDebugging(planAndString.getLeft()));
     }
 
+    @ParameterizedTest(name = "randomPlanDotRepresentation[seed={0}]")
+    @MethodSource("randomPlanRepresentation")
+    void randomPlanDotRepresentation(long seed) {
+        Random r = new Random(seed);
+        logger.info("randomPlanDotRepresentation seed {}", seed);
+        NonnullPair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
+        logger.info("dot={}", PlannerGraphVisitor.internalGraphicalExplain(planAndString.getLeft()));
+    }
+
     @Nonnull
     static Stream<Long> shrinkPlansToFit() {
         long seedSeed = RandomizedTestUtils.includeRandomTests() ? System.nanoTime() : 0x0fdb5ca1eL;
@@ -599,6 +617,48 @@ public class ExplainPlanVisitorTest {
         String lengthLimitedString =
                 ExplainPlanVisitor.toStringForExternalExplain(unorderedUnionPlan, ExplainLevel.STRUCTURE, minLength);
         assertEquals(withoutUnstringable.substring(0, minLength) + "...", lengthLimitedString);
+    }
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    void testDotExplainForPredicates(final long seed) {
+        final WithIndentationsExplainFormatter formatter = WithIndentationsExplainFormatter.forDot(4);
+        final RandomPredicateGenerator randomPredicateGenerator = new RandomPredicateGenerator(new Random(seed));
+        final QueryPredicate randomPredicate = randomPredicateGenerator.generate().getPredicateUnderTest();
+        final var explainTokens = randomPredicate.explain().getExplainTokens();
+        final String predicateString = explainTokens.render(formatter).toString();
+        final String defaultExplainPredicateString = explainTokens.render(new DefaultExplainFormatter(DefaultExplainSymbolMap::new)).toString();
+        assertEquals(defaultExplainPredicateString.replaceAll("\\s+", ""),
+                predicateString.replaceAll("\\s+", ""));
+    }
+
+    @Test
+    void testDotExplainForCorrelatedPredicates() {
+        final Type t =
+                Type.Record.fromFields(false, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("x"))));
+        final CorrelationIdentifier a = CorrelationIdentifier.of("a");
+        final QueryPredicate valuePredicate =
+                new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(a, t), "x"),
+                        new Comparisons.ValueComparison(Comparisons.Type.EQUALS, LiteralValue.ofScalar(0L)));
+        final var explainTokens = valuePredicate.explain().getExplainTokens();
+        final String defaultExplainPredicateString =
+                explainTokens.render(new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, 0,
+                        50, 4)).toString();
+        assertEquals("a.x EQUALS 0l", defaultExplainPredicateString); // triggers an alias rendering case
+
+        String selfContainedExplainPredicateString =
+                explainTokens.render(new WithIndentationsExplainFormatter(ExplainSelfContainedSymbolMap::new, 0,
+                        50, 4)).toString();
+        assertEquals("?a?.x EQUALS 0l", selfContainedExplainPredicateString); // triggers an error case
+
+        final ExplainTokens explainTokensWithAliasDefinition =
+                new ExplainTokens().addToString("defined:")
+                        .addAliasDefinition(a).addWhitespace().addNested(explainTokens);
+        selfContainedExplainPredicateString =
+                explainTokensWithAliasDefinition.render(
+                        new WithIndentationsExplainFormatter(ExplainSelfContainedSymbolMap::new, 0,
+                                50, 4)).toString();
+        assertEquals("defined:q0 q0.x EQUALS 0l", selfContainedExplainPredicateString);
     }
 
     /**

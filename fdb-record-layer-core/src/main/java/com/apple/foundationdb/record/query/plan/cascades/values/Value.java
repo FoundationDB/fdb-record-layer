@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -165,6 +166,20 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     /**
+     * Checks whether this {@link Value} or any of its child values in the expression tree is an
+     * {@link IndexOnlyValue}.
+     * <p>
+     * An index-only value is a scalar value that can only be fetched from an index and cannot be fetched from
+     * the base record nor computed on-the-fly. This method performs a pre-order traversal of the value expression
+     * tree to determine if any node is marked as index-only.
+     * </p>
+     *
+     * @return {@code true} if this value or any of its children is an {@link IndexOnlyValue}, {@code false} otherwise.
+     * @see IndexOnlyValue
+     */
+    boolean isIndexOnly();
+
+    /**
      * evaluates computation of the expression without a store and returns the result immediately.
      *
      * @param context The execution context.
@@ -267,6 +282,48 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
         return preOrderStream().filter(value -> value instanceof QuantifiedValue)
                 .allMatch(quantifiedValue -> quantifiedValue.isFunctionallyDependentOn(otherValue));
+    }
+
+    /**
+     * Attempts to transform a comparison predicate involving this value into a specialized predicate that may
+     * enable more efficient query execution through the use of specialized indexes or execution strategies.
+     * <p>
+     * This method provides a hook for {@link Value} implementations to participate in comparison transformation
+     * during query planning. When a comparison predicate (e.g., {@code value <= constant}) is encountered, this
+     * method can pattern-match the structure and potentially transform it into a more specialized form that the
+     * query planner can optimize.
+     * </p>
+     * <p>
+     * <strong>Current Implementation:</strong><br>
+     * As of now, only {@link RowNumberValue} provides a non-trivial implementation of this method. It transforms
+     * comparisons involving {@code ROW_NUMBER()} window functions ordered by distance metrics into specialized
+     * {@link Comparisons.DistanceRankValueComparison} predicates that can leverage vector similarity indexes
+     * (such as HNSW indexes) for efficient K-nearest neighbor searches.
+     * </p>
+     * <p>
+     * This transformation mechanism is somewhat nuanced and operates at the {@link Value} level rather than as
+     * part of the systematic rewriting optimizer framework. While this approach provides immediate utility for
+     * specific use cases (like HNSW-backed semantic search), it creates a fragmented transformation model:
+     * <ul>
+     *   <li>Transformations are scattered across individual {@link Value} implementations rather than
+     *       centralized in rewrite rules</li>
+     *   <li>The pattern-matching logic is ad-hoc and specific to each implementation</li>
+     *   <li>There is no declarative specification of the transformation patterns</li>
+     *   <li>Testing and debugging transformations requires examining individual {@link Value} classes</li>
+     * </ul>
+     * </p>
+     * @param comparisonType the type of comparison being performed (e.g., {@code EQUALS}, {@code LESS_THAN},
+     *                       {@code LESS_THAN_OR_EQUALS}, etc.)
+     * @param comparand the value being compared against (the right-hand side of the comparison)
+     * @return an {@link Optional} containing the transformed {@link QueryPredicate} if this value recognizes
+     *         the comparison pattern and can transform it; {@link Optional#empty()} otherwise
+     *
+     * @see RowNumberValue#transformComparisonMaybe(Comparisons.Type, Value) for the primary implementation example
+     */
+    @Nonnull
+    default Optional<QueryPredicate> transformComparisonMaybe(@Nonnull final Comparisons.Type comparisonType,
+                                                              @Nonnull final Value comparand) {
+        return Optional.empty();
     }
 
     @Nonnull
@@ -769,6 +826,72 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                                                 @Nonnull final EvaluationContext context) {
             throw new RecordCoreException("value cannot be evaluated");
         }
+    }
+
+    /**
+     * A scalar {@link Value} that cannot be evaluated at runtime; it can only be evaluated at compile-time
+     * using {@link Value#evalWithoutStore(EvaluationContext)}.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    interface CompileTimeOnlyValue extends Value {
+        @Nullable
+        @Override
+        default <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
+                                                @Nonnull final EvaluationContext context) {
+            throw new RecordCoreException("compile-time value can not be evaluated at runtime");
+        }
+
+        @Nullable
+        @Override
+        @SuppressWarnings({"java:S2637", "ConstantConditions"})
+        Object evalWithoutStore(@Nonnull EvaluationContext context);
+    }
+
+    /**
+     * A higher-order value representing a function that returns another function, enabling support for
+     * second-order functions in SQL and the query planner.
+     * <p>
+     * This interface extends {@link CompileTimeOnlyValue} because higher-order functions are resolved and
+     * applied during query compilation rather than at runtime. The resolution mechanism allows for flexible
+     * function invocation patterns where functions can be partially applied or configured before being
+     * invoked with their final arguments.
+     * </p>
+     * <p>
+     * Higher-order values have a result type of {@link Type#FUNCTION}, indicating that evaluating this value
+     * produces another function rather than a scalar value. This allows for function composition and
+     * partial application patterns commonly found in functional programming.
+     * </p>
+     * <p>
+     * When evaluated at compile-time using {@link #evalWithoutStore(EvaluationContext)}, a higher-order value
+     * returns a {@link BuiltInFunction} that can then be invoked with additional arguments.
+     * </p>
+     * <p>
+     * This interface is primarily used to support window functions like {@code ROW_NUMBER()} that can be
+     * configured with runtime options before being applied to data. The higher-order nature allows these
+     * functions to accept optional named parameters for configuration while maintaining SQL compatibility.
+     * </p>
+     * <p>
+     * The function resolver employs a fallback mechanism (similar to C++ SFINAE) when resolving higher-order
+     * functions. It attempts direct resolution first, and if that fails, it tries resolving the function
+     * as a higher-order value and then applying additional arguments to the returned function. This
+     * enables flexible syntax where {@code f(args)} and {@code f()(args)} can both work depending on
+     * the function's definition.
+     * </p>
+     *
+     * @see CompileTimeOnlyValue for the compile-time evaluation constraint
+     * @see BuiltInFunction for the function type returned by evaluation
+     */
+    @API(API.Status.EXPERIMENTAL)
+    interface HighOrderValue extends CompileTimeOnlyValue {
+        @Nonnull
+        @Override
+        default Type getResultType() {
+            return Type.FUNCTION;
+        }
+
+        @Nullable
+        @Override
+        BuiltInFunction<? extends Value> evalWithoutStore(@Nonnull EvaluationContext context);
     }
 
     /**

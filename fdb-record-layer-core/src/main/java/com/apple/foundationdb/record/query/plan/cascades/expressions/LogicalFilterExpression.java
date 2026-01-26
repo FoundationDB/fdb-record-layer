@@ -24,15 +24,16 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -43,6 +44,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A relational planner expression that represents an unimplemented filter on the records produced by its inner
@@ -50,16 +52,19 @@ import java.util.Set;
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalFilterExpression extends AbstractRelationalExpressionWithChildren implements RelationalExpressionWithPredicates, PlannerGraphRewritable {
+public class LogicalFilterExpression extends AbstractRelationalExpressionWithChildren implements RelationalExpressionWithPredicates, InternalPlannerGraphRewritable {
     @Nonnull
     private final List<QueryPredicate> queryPredicates;
     @Nonnull
     private final Quantifier inner;
+    @Nonnull
+    private final Supplier<QueryPredicate> conjunctedPredicateSupplier;
 
     public LogicalFilterExpression(@Nonnull Iterable<? extends QueryPredicate> queryPredicates,
                                    @Nonnull Quantifier inner) {
         this.queryPredicates = ImmutableList.copyOf(queryPredicates);
         this.inner = inner;
+        this.conjunctedPredicateSupplier = Suppliers.memoize(this::computeConjunctedPredicate);
     }
 
     @Nonnull
@@ -83,6 +88,16 @@ public class LogicalFilterExpression extends AbstractRelationalExpressionWithChi
     @VisibleForTesting
     public Quantifier getInner() {
         return inner;
+    }
+
+    @Nonnull
+    public QueryPredicate getConjunctedPredicate() {
+        return conjunctedPredicateSupplier.get();
+    }
+
+    @Nonnull
+    private QueryPredicate computeConjunctedPredicate() {
+        return AndPredicate.and(getPredicates());
     }
 
     @Nonnull
@@ -150,15 +165,23 @@ public class LogicalFilterExpression extends AbstractRelationalExpressionWithChi
         return Objects.hash(getPredicates());
     }
 
-    @Override
     @Nonnull
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    @Override
+    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        final var explainFormatter =
+                WithIndentationsExplainFormatter.forDot(7);
+
+        final var predicateString =
+                "WHERE " + getConjunctedPredicate().explain()
+                        .getExplainTokens()
+                        .render(explainFormatter);
+
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(
                         this,
                         NodeInfo.PREDICATE_FILTER_OPERATOR,
-                        ImmutableList.of("WHERE {{pred}}"),
-                        ImmutableMap.of("pred", Attribute.gml(AndPredicate.and(getPredicates()).toString()))),
+                        ImmutableList.of(predicateString),
+                        ImmutableMap.of()),
                 childGraphs);
     }
 }
