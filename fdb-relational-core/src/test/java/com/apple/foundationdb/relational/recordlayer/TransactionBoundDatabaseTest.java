@@ -288,7 +288,7 @@ public class TransactionBoundDatabaseTest {
                                     .addSubdirectory(new KeySpaceDirectory("schema2", KeySpaceDirectory.KeyType.LONG, 1L)))));
 
     @Test
-    void copyOtherPath() throws RelationalException, SQLException {
+    void copyExportImport() throws RelationalException, SQLException {
         final EmbeddedRelationalConnection embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
         final KeySpacePath sourcePath = KEY_SPACE.path("root")
                 .add("test", UUID.randomUUID().toString())
@@ -359,7 +359,7 @@ public class TransactionBoundDatabaseTest {
     }
 
     @Test
-    void copyOtherPathWithStore() throws RelationalException, SQLException, Descriptors.DescriptorValidationException {
+    void copyMultipleStores() throws RelationalException, SQLException, Descriptors.DescriptorValidationException {
         final EmbeddedRelationalConnection embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
         final KeySpacePath sourcePath = KEY_SPACE.path("root")
                 .add("test", UUID.randomUUID().toString())
