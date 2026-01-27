@@ -281,11 +281,11 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         } else {
             PendingWriteQueue queue = getPendingWriteQueue();
             // Use the regular context to find out if the queue has anything
-            final Boolean queueHasItems = LuceneConcurrency.asyncToSync(
+            final Boolean queueIsEmpty = LuceneConcurrency.asyncToSync(
                     LuceneEvents.Waits.WAIT_LUCENE_READ_PENDING_QUEUE,
                     queue.isQueueEmpty(state.context),
                     state.context);
-            if (!queueHasItems) {
+            if (queueIsEmpty) {
                 // Use the regular reader in case there is nothing in the queue
                 return StandardDirectoryReaderOptimization.open(directory, null, null,
                         state.context.getExecutor(),
@@ -516,6 +516,10 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         }
     }
 
+    public void mergeIndex() throws IOException {
+        getWriter().maybeMerge();
+    }
+
     @VisibleForTesting
     public Queue<LazyCloseable<DirectoryReader>> getReadersToClose() {
         return readersToClose;
@@ -523,10 +527,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
 
     public void setOngoingMergeIndicator() {
         getDirectory().setOngoingMergeIndicator();
-    }
-
-    public void mergeIndex() throws IOException {
-        getWriter().maybeMerge();
     }
 
     public void clearOngoingMergeIndicator() {
