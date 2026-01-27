@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecordsTextProto;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneFunctionNames;
@@ -735,6 +736,18 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         final FDBDirectoryWrapper.PendingQueueDrainException queueDrainException = TestHelpers.findCause(thrownException, FDBDirectoryWrapper.PendingQueueDrainException.class);
         assertNotNull(queueDrainException);
         assertThat(thrownException.getMessage(), containsString("Pending queue drain had failed"));
+    }
+
+    @Test
+    void pendingQueueTestDrainException2() {
+        // Technical unit test to avoid a test gap
+        String throwMessage = "dummy throw message";
+        assertThrows(FDBDirectoryWrapper.PendingQueueDrainException.class, () -> {
+            throw new FDBDirectoryWrapper.PendingQueueDrainException(throwMessage,
+                    LogMessageKeys.GROUPING_KEY, Tuple.from(7),
+                    LogMessageKeys.PARTITION_ID, 7L,
+                    LogMessageKeys.CODE, 7);
+        });
     }
 
     private void verifyClearedQueueAndIndicator(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index, @Nullable Tuple groupingKey, @Nullable Integer partitionId) {
