@@ -648,7 +648,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         }
     }
 
-
     private static class CloseableReadOnlyAgilityContext implements Closeable {
         private AgilityContext agilityContext;
 
