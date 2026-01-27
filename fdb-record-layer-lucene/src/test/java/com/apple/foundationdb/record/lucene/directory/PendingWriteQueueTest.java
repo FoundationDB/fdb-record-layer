@@ -55,6 +55,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.Streams;
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -100,6 +101,9 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     @EnumSource
     void testEnqueueAndIterate(LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType) {
+        // don't deal with the "unspecified" operation type
+        Assumptions.assumeFalse(operationType.equals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.OPERATION_TYPE_UNSPECIFIED));
+
         List<TestDocument> docs = createTestDocuments();
         PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
 
@@ -112,6 +116,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
                     case DELETE:
                         queue.enqueueDelete(context, doc.getPrimaryKey());
                         break;
+                    case OPERATION_TYPE_UNSPECIFIED:
                     default:
                         throw new IllegalArgumentException("Unknown operation " + operationType);
                 }

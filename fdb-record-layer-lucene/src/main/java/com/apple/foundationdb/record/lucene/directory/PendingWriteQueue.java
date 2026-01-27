@@ -268,6 +268,7 @@ public class PendingWriteQueue {
                     handleDeleteEntry(indexWriter, entry.getPrimaryKeyParsed());
                     break;
 
+                case OPERATION_TYPE_UNSPECIFIED:
                 default:
                     throw new RecordCoreInternalException("Unknown queue operation type", LuceneLogMessageKeys.OPERATION_TYPE, opType);
             }

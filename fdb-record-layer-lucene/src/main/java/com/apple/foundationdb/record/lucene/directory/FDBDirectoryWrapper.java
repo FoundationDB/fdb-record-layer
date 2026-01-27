@@ -617,6 +617,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                                     .thenApply(ignore -> null);
                         }
                         break;
+                    case OPERATION_TYPE_UNSPECIFIED:
                     default:
                         throw new PendingQueueDrainException("Unknown operation type",
                                 LogMessageKeys.GROUPING_KEY, groupingKey,
