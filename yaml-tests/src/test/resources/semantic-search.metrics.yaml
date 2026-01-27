@@ -246,3 +246,116 @@ semantic-search-tests:
     insert_time_ms: 6
     insert_new_count: 152
     insert_reused_count: 23
+-   query: EXPLAIN select docId, title, euclidean_distance(embedding, ?) from multiTypePartitionDocs
+        where zoneId = 1 and bookshelf = 'fiction' qualify row_number() over (partition
+        by zoneId, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1
+    explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c17 AS LONG), EQUALS
+        promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c39: @c17}:[]
+        BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance
+        @c39 AS _2)'
+    task_count: 228
+    task_total_time_ms: 8
+    transform_count: 67
+    transform_time_ms: 5
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId from multiTypePartitionDocs where zoneId = 1 and bookshelf
+        = 'science' qualify row_number() over (partition by zoneId, bookshelf order
+        by euclidean_distance(embedding, ?) asc) <= 2
+    explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12
+        AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE)
+        | MAP (_.DOCID AS DOCID)'
+    task_count: 228
+    task_total_time_ms: 9
+    transform_count: 67
+    transform_time_ms: 6
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId from multiTypePartitionDocs where zoneId = 2 and bookshelf
+        = 'fiction' qualify row_number() over (partition by zoneId, bookshelf order
+        by euclidean_distance(embedding, ?) asc) < 2
+    explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12
+        AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c8}:[] BY_DISTANCE) | MAP (_.DOCID
+        AS DOCID)'
+    task_count: 228
+    task_total_time_ms: 9
+    transform_count: 67
+    transform_time_ms: 5
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId, cosine_distance(embedding, ?) from multiTypePartitionDocs
+        where zoneId = 1 and bookshelf = 'fiction' qualify row_number() over (partition
+        by zoneId, bookshelf order by cosine_distance(embedding, ?) asc) <= 3
+    explain: 'ISCAN(MULTITYPECOSINEINDEX [EQUALS promote(@c15 AS LONG), EQUALS promote(@c19
+        AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[] BY_DISTANCE)
+        | MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c37 AS _1)'
+    task_count: 228
+    task_total_time_ms: 7
+    transform_count: 67
+    transform_time_ms: 4
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId from multiTypePartitionDocs where zoneId = 2 and bookshelf
+        = 'science' qualify row_number() over (partition by zoneId, bookshelf order
+        by euclidean_distance(embedding, ?) asc options ef_search = 100) <= 1
+    explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12
+        AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[hnswEfSearch: 100]
+        BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
+    task_count: 228
+    task_total_time_ms: 7
+    transform_count: 67
+    transform_time_ms: 4
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId, title from multiTypePartitionDocs where zoneId =
+        ? and bookshelf = 'fiction' qualify row_number() over (partition by zoneId,
+        bookshelf order by euclidean_distance(embedding, ?) asc) <= ?
+    explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c10 AS LONG), EQUALS
+        promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c10}:[]
+        BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)'
+    task_count: 228
+    task_total_time_ms: 9
+    transform_count: 67
+    transform_time_ms: 5
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId, title from multiTypePartitionDocs where zoneId =
+        ? and bookshelf = 'fiction' qualify row_number() over (partition by zoneId,
+        bookshelf order by euclidean_distance(embedding, ?) asc nulls first) <= ?
+    explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c10 AS LONG), EQUALS
+        promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c10}:[]
+        BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)'
+    task_count: 228
+    task_total_time_ms: 8
+    transform_count: 67
+    transform_time_ms: 5
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId, title from multiTypePartitionDocs where zoneId =
+        ? and bookshelf = 'fiction' qualify row_number() over (partition by zoneId,
+        bookshelf order by euclidean_distance(embedding, ?) nulls first) <= ?
+    explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c10 AS LONG), EQUALS
+        promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c10}:[]
+        BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)'
+    task_count: 228
+    task_total_time_ms: 7
+    transform_count: 67
+    transform_time_ms: 4
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
