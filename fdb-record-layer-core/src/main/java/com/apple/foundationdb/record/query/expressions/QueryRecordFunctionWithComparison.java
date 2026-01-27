@@ -36,11 +36,10 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionV
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -163,7 +162,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
                     Quantifier.existential(Reference.initialOf(rankSelectExpression));
             return GraphExpansion.ofExists(rankComparisonQuantifier);
         } else if (function instanceof StoreRecordFunction<?> && FunctionNames.VERSION.equals(function.getName())) {
-            final Value versionValue = FieldValue.ofFieldNameAndFuseIfPossible(baseQuantifier.getFlowedObjectValue(), PseudoField.ROW_VERSION.getFieldName());
+            final VersionValue versionValue = new VersionValue(QuantifiedRecordValue.of(baseQuantifier));
             return GraphExpansion.builder()
                     .addPredicate(new ValuePredicate(versionValue, comparison))
                     .build();
