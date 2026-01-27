@@ -34,11 +34,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -210,7 +209,7 @@ public class VersionValue extends AbstractValue {
 
     @Nonnull
     private static Value encapsulate(@Nonnull final List<? extends Typed> arguments) {
-        final var childRecordValue = Iterables.getOnlyElement(arguments);
-        return FieldValue.ofFieldNameAndFuseIfPossible((Value) childRecordValue, PseudoField.ROW_VERSION.getFieldName());
+        final var childQuantifiedRecordValue = (QuantifiedRecordValue)Iterables.getOnlyElement(arguments);
+        return new VersionValue(childQuantifiedRecordValue);
     }
 }
