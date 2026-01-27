@@ -141,19 +141,14 @@ public final class KeySpaceUtils {
                 break;
             case STRING:
                 pathValue = pathElem;
-                // empty string in URI represents NULL value, and empty value is invalid for directory with String KeyType
-                if (pathElem.isEmpty()) {
-                    return null;
-                } else if (directory.isConstant() && !Objects.equals(dirVal, pathElem)) {
+                if (directory.isConstant() && !Objects.equals(dirVal, pathElem)) {
                     return null;
                 }
                 break;
             case LONG:
                 if (directory instanceof DirectoryLayerDirectory) {
                     pathValue = pathElem;
-                    if (pathElem.isEmpty()) {
-                        return null;
-                    } else if (directory.isConstant() && !Objects.equals(dirVal, pathElem)) {
+                    if (directory.isConstant() && !Objects.equals(dirVal, pathElem)) {
                         return null;
                     }
                 } else {
