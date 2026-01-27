@@ -64,7 +64,7 @@ public final class KeySpaceUtils {
         return uriPath;
     }
 
-    @API(API.Status.INTERNAL)
+    @API(API.Status.DEPRECATED)
     @Nonnull
     public static KeySpacePath toKeySpacePath(@Nonnull URI url, @Nonnull KeySpace keySpace) throws RelationalException {
         return toKeySpacePath(url, keySpace, false);

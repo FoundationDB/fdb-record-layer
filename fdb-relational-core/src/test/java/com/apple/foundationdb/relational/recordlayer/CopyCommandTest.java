@@ -83,7 +83,8 @@ public class CopyCommandTest {
         final String pathId = "/TEST/" + uuidForPath(quoted);
         // Use the shared KeySpace from RelationalKeyspaceProvider
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
-        final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(URI.create(pathId + "/1"), keySpace);
+        URI url = URI.create(pathId + "/1");
+        final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(url, keySpace, true);
 
         // Write some test data using the connection's FDB context
         writeTestData(testPath, Map.of("key1", "value1", "key2", "value2"));
@@ -100,8 +101,10 @@ public class CopyCommandTest {
         final String sourcePath = "/TEST/" + uuidForPath(namedAndQuoted);
         final String destPath = "/TEST/" + uuidForPath(namedAndQuoted);
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
-        final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(sourcePath + "/1"), keySpace);
-        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(destPath + "/1"), keySpace);
+        URI url1 = URI.create(sourcePath + "/1");
+        final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(url1, keySpace, true);
+        URI url = URI.create(destPath + "/1");
+        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(url, keySpace, true);
 
         writeTestData(sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
         List<byte[]> exportedData = exportData(sourcePath, namedAndQuoted);
@@ -121,7 +124,8 @@ public class CopyCommandTest {
         final String sourcePath = "/TEST/" + uuidForPath(false);
         final String destPath = "/TEST/" + uuidForPath(false);
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
-        final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(sourcePath + "/1"), keySpace);
+        URI url1 = URI.create(sourcePath + "/1");
+        final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(url1, keySpace, true);
 
         writeTestData(sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
         List<byte[]> exportedData1 = exportData(sourcePath, false);
@@ -160,7 +164,8 @@ public class CopyCommandTest {
         });
         assertEquals(withExecutionContext ? 3 : 2, importedCount);
 
-        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(destPath + "/1"), keySpace);
+        URI url = URI.create(destPath + "/1");
+        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(url, keySpace, true);
         if (withExecutionContext) {
             verifyTestData(destTestPath, Map.of("key1", "newValueX", "key2", "value2",
                     "key3", "value3"));
@@ -240,8 +245,10 @@ public class CopyCommandTest {
         final int destLength = sourceIsLonger ? 3 : 2;
 
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
-        final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(String.join("/", source)), keySpace);
-        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(String.join("/", dest.subList(0, 2))), keySpace);
+        URI url1 = URI.create(String.join("/", source));
+        final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(url1, keySpace, true);
+        URI url = URI.create(String.join("/", dest.subList(0, 2)));
+        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(url, keySpace, true);
 
         writeTestData(sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
         List<byte[]> exportedData = exportData(String.join("/", source.subList(0, sourceLength)), false);
@@ -267,7 +274,8 @@ public class CopyCommandTest {
         // Test COPY export with Statement.setMaxRows() limiting (unquoted path)
         final String pathId = "/TEST/" + UUID.randomUUID().toString().replace("-", "_").toUpperCase(Locale.ROOT);
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
-        final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(URI.create(pathId + "/1"), keySpace);
+        URI url = URI.create(pathId + "/1");
+        final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(url, keySpace, true);
 
         // Export with max rows limit
         // Write 10 records
@@ -301,7 +309,8 @@ public class CopyCommandTest {
     void invalidContinuationPlanHash() throws RelationalException, SQLException {
         final String pathId = "/TEST/" + UUID.randomUUID().toString().replace("-", "_").toUpperCase(Locale.ROOT);
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
-        final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(URI.create(pathId + "/1"), keySpace);
+        URI url = URI.create(pathId + "/1");
+        final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(url, keySpace, true);
 
         // Export with max rows limit
         // Write 10 records
