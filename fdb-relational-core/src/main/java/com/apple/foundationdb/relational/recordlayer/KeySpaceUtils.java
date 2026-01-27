@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
@@ -30,8 +29,8 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirect
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
-import com.google.common.annotations.VisibleForTesting;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -41,6 +40,7 @@ import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
 public final class KeySpaceUtils {
+    private static final Logger log = LoggerFactory.getLogger(KeySpaceUtils.class);
 
     @Nonnull
     public static URI pathToUri(@Nonnull KeySpacePath dbPath) {
@@ -64,9 +64,15 @@ public final class KeySpaceUtils {
         return uriPath;
     }
 
-    @VisibleForTesting
+    @API(API.Status.INTERNAL)
     @Nonnull
-    public static KeySpacePath toKeySpacePath(@Nonnull URI url, KeySpace keySpace) throws RelationalException {
+    public static KeySpacePath toKeySpacePath(@Nonnull URI url, @Nonnull KeySpace keySpace) throws RelationalException {
+        return toKeySpacePath(url, keySpace, false);
+    }
+
+    @API(API.Status.INTERNAL)
+    @Nonnull
+    public static KeySpacePath toKeySpacePath(@Nonnull URI url, @Nonnull KeySpace keySpace, final boolean strict) throws RelationalException {
         String path = getPath(url);
         if (path.length() < 1) {
             throw new RelationalException("<" + url + "> is an invalid database path", ErrorCode.INVALID_PATH);
@@ -86,9 +92,22 @@ public final class KeySpaceUtils {
         KeySpaceDirectory directory = keySpace.getRoot();
         KeySpacePath thePath = null;
         for (KeySpaceDirectory sub : directory.getSubdirectories()) {
-            thePath = uriToPathRecursive(keySpace, sub, keySpace.path(sub.getName()), pathElems, 1);
-            if (thePath != null) {
-                break;
+            KeySpacePath path2 = uriToPathRecursive(keySpace, sub, keySpace.path(sub.getName()), pathElems, 1, strict, url);
+            if (path2 != null) {
+                log.debug("Found path " + path2);
+            } else {
+                log.debug("Could not fit " + pathElems[1] + " in " + sub.getName() + "(" + sub.getKeyType() + ")[" + sub.getValue() + "]");
+            }
+
+            if (path2 != null) {
+                if (!strict) {
+                    thePath = path2;
+                    break;
+                } else if (thePath != null) {
+                    throw new RelationalException("<" + url + "> is ambigous", ErrorCode.INVALID_PATH);
+                } else {
+                    thePath = path2;
+                }
             }
         }
 
@@ -108,13 +127,16 @@ public final class KeySpaceUtils {
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static KeySpacePath uriToPathRecursive(@Nonnull KeySpace keySpace,
-                                    @Nonnull KeySpaceDirectory directory,
-                                    KeySpacePath parentPath,
-                                    @Nonnull String[] pathElems,
-                                    int position) throws OperationUnsupportedException {
+                                                   @Nonnull KeySpaceDirectory directory,
+                                                   KeySpacePath parentPath,
+                                                   @Nonnull String[] pathElems,
+                                                   int position,
+                                                   final boolean strict,
+                                                   @Nonnull final URI url) throws RelationalException {
         if (position >= pathElems.length) {
             return parentPath;
         }
+        log.debug("Checking " + pathElems[position] + " in " + directory.getName() + "(" + directory.getKeyType() + ")[" + directory.getValue() + "]");
         String pathElem = pathElems[position];
         String pathName = directory.getName();
         Object dirVal = directory.getValue();
@@ -131,31 +153,40 @@ public final class KeySpaceUtils {
                 // empty string in URI represents NULL value, and empty value is invalid for directory with String KeyType
                 if (pathElem.isEmpty()) {
                     return null;
-                } else if (Objects.equals(dirVal, KeySpaceDirectory.ANY_VALUE)) {
-                    break;
-                } else if (!Objects.equals(dirVal, pathElem)) {
+                } else if (directory.isConstant() && !Objects.equals(dirVal, pathElem)) {
                     return null;
                 }
                 break;
             case LONG:
                 if (directory instanceof DirectoryLayerDirectory) {
                     pathValue = pathElem;
+                    if (pathElem.isEmpty()) {
+                        return null;
+                    } else if (directory.isConstant() && !Objects.equals(dirVal, pathElem)) {
+                        return null;
+                    }
                 } else {
                     try {
                         long l = Long.parseLong(pathElem);
                         pathValue = l;
-                        if (Objects.equals(dirVal, KeySpaceDirectory.ANY_VALUE)) {
+                        if (directory.isConstant()) {
+                            if (dirVal instanceof Number) {
+                                if (((Number)dirVal).longValue() != l) {
+                                    // perhaps this should throw if dirVal is not a number
+                                    return null;
+                                } else {
+                                    break;
+                                }
+                            } else {
+                                return null;
+                            }
+                        } else {
                             break;
-                        } else if (!Objects.equals(dirVal, l)) {
-                            return null;
                         }
                     } catch (NumberFormatException nfe) {
                         //the field isn't a long, so can't match this directory
                         return null;
                     }
-                }
-                if (!Objects.equals(dirVal, KeySpaceDirectory.ANY_VALUE) && !Objects.equals(dirVal, pathValue)) {
-                    return null;
                 }
                 break;
             default:
@@ -175,17 +206,35 @@ public final class KeySpaceUtils {
         }
 
         if (directory.isLeaf()) {
-            return parentPath; //we found the path!
+            if (position == pathElems.length - 1) {
+                return parentPath; //we found the path!
+            } else {
+                return null;
+            }
         }
 
+        KeySpacePath thePath = null;
         for (KeySpaceDirectory dir : directory.getSubdirectories()) {
-            KeySpacePath childPath = uriToPathRecursive(keySpace, dir, parentPath, pathElems, position + 1);
-            if (childPath != null) {
-                return childPath;
+            KeySpacePath path2 = uriToPathRecursive(keySpace, dir, parentPath, pathElems, position + 1, strict, url);
+            if (path2 != null) {
+                log.debug("Found path " + path2);
+            } else {
+                log.debug("Could not fit " + pathElems[position + 1] + " in " + dir.getName() + "(" + dir.getKeyType() + ")[" + dir.getValue() + "]");
+            }
+
+            if (path2 != null) {
+                if (!strict) {
+                    thePath = path2;
+                    break;
+                } else if (thePath != null) {
+                    throw new RelationalException("<" + url + "> is ambigous", ErrorCode.INVALID_PATH);
+                } else {
+                    thePath = path2;
+                }
             }
         }
         //no valid path
-        return null;
+        return thePath;
     }
 
     private KeySpaceUtils() {

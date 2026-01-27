@@ -757,6 +757,14 @@ public class KeySpaceDirectory {
         return value;
     }
 
+    /**
+     * Whether this directory has a constant value, or can be any value.
+     * @return {@code true} if this directory has a constant value, or {@code false} if it can accept any value.
+     */
+    public boolean isConstant() {
+        return value != ANY_VALUE;
+    }
+
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // we use ref
     protected static boolean areEqual(@Nullable Object o1, @Nullable Object o2) {
         if (o1 == null) {
