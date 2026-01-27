@@ -124,15 +124,6 @@ public class KeySpacePathParsingTest {
     }
 
     @Test
-    void testUrlWithEmptyForStringType() {
-        // Default keySpace doesn't have directory with null type
-        final URI expected = URI.create("//testApp/12345");
-        RelationalAssertions.assertThrows(
-                () -> KeySpaceUtils.toKeySpacePath(expected, testSpace, true))
-                .hasErrorCode(ErrorCode.INVALID_PATH);
-    }
-
-    @Test
     void testUrlWithDoubleSlashAtBeginning() throws RelationalException {
         KeySpace keySpace = new KeySpace(
                 new KeySpaceDirectory("Environment", KeySpaceDirectory.KeyType.NULL)
@@ -301,19 +292,6 @@ public class KeySpacePathParsingTest {
                 KeySpaceUtils.toKeySpacePath(url, keySpace, true));
     }
 
-    @ParameterizedTest
-    @BooleanSource({"constant", "directory"})
-    void emptyString(boolean constant, boolean directory) {
-        // we don't allow empty strings
-        final KeySpaceDirectory root = new KeySpaceDirectory("testRoot", KeySpaceDirectory.KeyType.STRING)
-                .addSubdirectory(createStringLikeDirectory("STRING", directory, constant, ""));
-        KeySpace keySpace = new KeySpace(root);
-        final URI uri = URI.create("/root/");
-        RelationalAssertions.assertThrows(
-                        () -> KeySpaceUtils.toKeySpacePath(uri, keySpace, true))
-                .hasErrorCode(ErrorCode.INVALID_PATH);
-    }
-
     static Stream<Arguments> findAtPosition() {
         return ParameterizedTestUtils.cartesianProduct(
                 ParameterizedTestUtils.booleans("atRoot"),
@@ -348,18 +326,44 @@ public class KeySpacePathParsingTest {
         Assertions.assertEquals(expected, KeySpaceUtils.toKeySpacePath(uri, keySpace, true));
     }
 
+
     @ParameterizedTest
     @BooleanSource({"constant", "directory"})
-    void emptyStringMiddle(boolean constant, boolean directory) {
+    void emptyStringBeginning(boolean constant, boolean directory) throws RelationalException {
+        // we only allow empty strings if they are not ambiguous
+        final KeySpaceDirectory root = createStringLikeDirectory("STRING", directory, constant, "")
+                .addSubdirectory(createStringLikeDirectory("STRING2", directory, constant, "Y"));
+        KeySpace keySpace = new KeySpace(root);
+        final URI uri = URI.create("//Y");
+        Assertions.assertEquals(keySpace.path("STRING", "").add("STRING2", "Y"),
+                KeySpaceUtils.toKeySpacePath(uri, keySpace, true));
+    }
+
+    @ParameterizedTest
+    @BooleanSource({"constant", "directory"})
+    void emptyStringMiddle(boolean constant, boolean directory) throws RelationalException {
         // we don't allow empty strings
         final KeySpaceDirectory root = new KeySpaceDirectory("testRoot", KeySpaceDirectory.KeyType.STRING)
                 .addSubdirectory(createStringLikeDirectory("STRING", directory, constant, "")
                         .addSubdirectory(createStringLikeDirectory("STRING2", directory, constant, "Y")));
         KeySpace keySpace = new KeySpace(root);
         final URI uri = URI.create("/root//Y");
-        RelationalAssertions.assertThrows(
-                        () -> KeySpaceUtils.toKeySpacePath(uri, keySpace, true))
-                .hasErrorCode(ErrorCode.INVALID_PATH);
+        Assertions.assertEquals(keySpace.path("testRoot", "root")
+                        .add("STRING", "")
+                        .add("STRING2", "Y"),
+                KeySpaceUtils.toKeySpacePath(uri, keySpace, true));
+    }
+
+    @ParameterizedTest
+    @BooleanSource({"constant", "directory"})
+    void emptyStringEnd(boolean constant, boolean directory) throws RelationalException {
+        // we only allow empty strings if they are not ambiguous
+        final KeySpaceDirectory root = new KeySpaceDirectory("testRoot", KeySpaceDirectory.KeyType.STRING)
+                .addSubdirectory(createStringLikeDirectory("STRING", directory, constant, ""));
+        KeySpace keySpace = new KeySpace(root);
+        final URI uri = URI.create("/root/");
+        Assertions.assertEquals(keySpace.path("testRoot", "root").add("STRING", ""),
+                KeySpaceUtils.toKeySpacePath(uri, keySpace, true));
     }
 
     @Test
@@ -385,7 +389,13 @@ public class KeySpacePathParsingTest {
                                 ambiguousHalf(KeySpaceDirectory.KeyType.STRING, "banana")),
                         new AmbiguousScenario("/12345",
                                 ambiguousHalf(KeySpaceDirectory.KeyType.STRING, "12345"),
-                                ambiguousHalf(KeySpaceDirectory.KeyType.LONG, 12345))
+                                ambiguousHalf(KeySpaceDirectory.KeyType.LONG, 12345)),
+                        new AmbiguousScenario("/",
+                                ambiguousHalf(KeySpaceDirectory.KeyType.NULL, null),
+                                ambiguousHalf(KeySpaceDirectory.KeyType.STRING, "")),
+                        new AmbiguousScenario("/",
+                                ambiguousHalf(KeySpaceDirectory.KeyType.NULL, null),
+                                directoryAmbiguousHalf(""))
                 ).flatMap(scenario -> Stream.of(scenario, scenario.reversed())),
                 ParameterizedTestUtils.booleans("firstIsConstant"),
                 ParameterizedTestUtils.booleans("secondIsConstant")
