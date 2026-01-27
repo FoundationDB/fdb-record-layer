@@ -385,6 +385,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void versionsWithSingleTypeTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("versions-with-single-type-tests.yamsql");
+    }
+
+    @TestTemplate
     public void viewsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("views.yamsql");
     }

@@ -516,10 +516,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         }
     }
 
-    public void mergeIndex() throws IOException {
-        getWriter().maybeMerge();
-    }
-
     @VisibleForTesting
     public Queue<LazyCloseable<DirectoryReader>> getReadersToClose() {
         return readersToClose;
@@ -527,6 +523,10 @@ public class FDBDirectoryWrapper implements AutoCloseable {
 
     public void setOngoingMergeIndicator() {
         getDirectory().setOngoingMergeIndicator();
+    }
+
+    public void mergeIndex() throws IOException {
+        getWriter().maybeMerge();
     }
 
     public void clearOngoingMergeIndicator() {

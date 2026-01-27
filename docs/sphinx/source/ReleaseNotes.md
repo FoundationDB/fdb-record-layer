@@ -7,6 +7,39 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.9
 
+### 4.9.4.0
+
+<h4> Bug Fixes </h4>
+
+* Plans performing record scans now enrich their results with pseudo-fields (like the row version) - [PR #3870](https://github.com/FoundationDB/fdb-record-layer/pull/3870)
+* Support mixed-type partition columns in HNSW indexes and validate sort order specifications. - [PR #3873](https://github.com/FoundationDB/fdb-record-layer/pull/3873)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Prohibit yaml debugger in CI - [PR #3865](https://github.com/FoundationDB/fdb-record-layer/pull/3865)
+* Reverted: ~Update to minor version 4.10 as continuations are no longer compatible with 4.8~ - [PR #3868](https://github.com/FoundationDB/fdb-record-layer/pull/3868)
+* Reverted: ~Fix internal errors from version queries: Part 2~ - [PR #3800](https://github.com/FoundationDB/fdb-record-layer/pull/3800)
+
+</details>
+
+
+**[Full Changelog (4.9.3.0...4.9.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.9.3.0...4.9.4.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.8.11.0`, ❌`4.8.12.0`, ❌`4.8.13.0`, ❌`4.8.14.0`, ❌`4.8.15.0`, ❌`4.8.16.0`, ❌`4.8.17.0`, ✅`4.9.1.0`, ✅`4.9.2.0`, ✅`4.9.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/21407612344)
+
+
+
 ### 4.9.3.0
 
 <h4> New Features </h4>

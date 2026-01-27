@@ -50,7 +50,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
@@ -179,7 +178,7 @@ public final class MaterializedViewIndexGenerator {
         Assert.thatUnchecked(simplifiedValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof IndexableAggregateValue || sv instanceof VersionValue || sv instanceof ArithmeticValue));
         final var aggregateValues = simplifiedValues.stream().filter(sv -> sv instanceof IndexableAggregateValue).collect(toList());
         final var fieldValues = simplifiedValues.stream().filter(sv -> !(sv instanceof IndexableAggregateValue)).collect(toList());
-        final var versionValues = simplifiedValues.stream().filter(sv -> sv instanceof FieldValue && sv.getResultType().equals(PseudoField.ROW_VERSION.getType())).collect(toList());
+        final var versionValues = simplifiedValues.stream().filter(sv -> sv instanceof VersionValue).map(sv -> (VersionValue) sv).collect(toList());
         Assert.thatUnchecked(versionValues.size() <= 1, ErrorCode.UNSUPPORTED_OPERATION, "Cannot have index with more than one version column");
         final Map<Value, String> orderingFunctions = new IdentityHashMap<>();
         final var orderByValues = getOrderByValues(relationalExpression, orderingFunctions);
@@ -537,7 +536,7 @@ public final class MaterializedViewIndexGenerator {
         if (value instanceof VersionValue) {
             return VersionKeyExpression.VERSION;
         } else if (value instanceof FieldValue) {
-            final FieldValue fieldValue = (FieldValue) value;
+            FieldValue fieldValue = (FieldValue) value;
             return toKeyExpression(fieldValue.getFieldPath().getFieldAccessors().iterator());
         } else if (value instanceof ArithmeticValue) {
             var children = value.getChildren();
@@ -573,16 +572,15 @@ public final class MaterializedViewIndexGenerator {
         final var exprConstituents = childrenMap.entrySet().stream().map(nodeEntry -> {
             final FieldValue.ResolvedAccessor accessor = nodeEntry.getKey();
             final FieldValueTrieNode node = nodeEntry.getValue();
-            final KeyExpression expr = toFieldKeyExpression(accessor.getField());
+            final FieldKeyExpression fieldExpr = toFieldKeyExpression(accessor.getField());
             if (node.getChildrenMap() != null) {
-                final FieldKeyExpression fieldExpr = Assert.castUnchecked(expr, FieldKeyExpression.class);
                 return fieldExpr.nest(toKeyExpression(node, orderingFunctions));
             } else if (orderingFunctions.containsKey(node.getValue())) {
-                return function(orderingFunctions.get(node.getValue()), expr);
+                return function(orderingFunctions.get(node.getValue()), fieldExpr);
             } else {
-                return expr;
+                return fieldExpr;
             }
-        }).collect(toList());
+        }).map(v -> (KeyExpression) v).collect(toList());
         if (exprConstituents.size() == 1) {
             return exprConstituents.get(0);
         } else {
@@ -756,13 +754,12 @@ public final class MaterializedViewIndexGenerator {
     private KeyExpression toKeyExpression(@Nonnull Iterator<FieldValue.ResolvedAccessor> resolvedAccessors) {
         Assert.thatUnchecked(resolvedAccessors.hasNext(), "cannot resolve empty list");
         final Type.Record.Field field = resolvedAccessors.next().getField();
-        final KeyExpression expression = toFieldKeyExpression(field);
+        final FieldKeyExpression fieldExpression = toFieldKeyExpression(field);
         if (resolvedAccessors.hasNext()) {
             KeyExpression childExpression = toKeyExpression(resolvedAccessors);
-            final FieldKeyExpression fieldExpression = Assert.castUnchecked(expression, FieldKeyExpression.class);
             return fieldExpression.nest(childExpression);
         } else {
-            return expression;
+            return fieldExpression;
         }
     }
 
@@ -779,14 +776,11 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nonnull
-    private static KeyExpression toFieldKeyExpression(@Nonnull Type.Record.Field fieldType) {
+    private static FieldKeyExpression toFieldKeyExpression(@Nonnull Type.Record.Field fieldType) {
         Assert.notNullUnchecked(fieldType.getFieldStorageName());
         final var fanType = fieldType.getFieldType().getTypeCode() == Type.TypeCode.ARRAY ?
                 KeyExpression.FanType.FanOut :
                 KeyExpression.FanType.None;
-        if (PseudoField.ROW_VERSION.getType().equals(fieldType.getFieldType()) && PseudoField.ROW_VERSION.getFieldName().equals(fieldType.getFieldName())) {
-            return VersionKeyExpression.VERSION;
-        }
         // At this point, we need to use the storage field name as that will be the name referenced
         // in Protobuf storage
         return field(fieldType.getFieldStorageName(), fanType);

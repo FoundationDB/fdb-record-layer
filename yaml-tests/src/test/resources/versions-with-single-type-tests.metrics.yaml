@@ -1,0 +1,44 @@
+single-type-versions-queries:
+-   query: EXPLAIN select * from t1;
+    explain: SCAN(<,>) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
+    task_count: 146
+    task_total_time_ms: 116
+    transform_count: 40
+    transform_time_ms: 73
+    transform_yield_count: 13
+    insert_time_ms: 2
+    insert_new_count: 12
+    insert_reused_count: 2
+-   query: EXPLAIN select *, "__ROW_VERSION" from t1;
+    explain: SCAN(<,>) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2, version([_])
+        AS __ROW_VERSION)
+    task_count: 146
+    task_total_time_ms: 109
+    transform_count: 40
+    transform_time_ms: 90
+    transform_yield_count: 13
+    insert_time_ms: 1
+    insert_new_count: 12
+    insert_reused_count: 2
+-   query: EXPLAIN select "__ROW_VERSION", * from t1 where col1 = 20;
+    explain: SCAN(<,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (version([_])
+        AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
+    task_count: 206
+    task_total_time_ms: 120
+    transform_count: 59
+    transform_time_ms: 92
+    transform_yield_count: 15
+    insert_time_ms: 2
+    insert_new_count: 18
+    insert_reused_count: 2
+-   query: EXPLAIN select * from t1_v(10)
+    explain: SCAN(<,>) | FILTER _.COL1 EQUALS promote(@c6 AS LONG) | MAP (version([_])
+        AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
+    task_count: 358
+    task_total_time_ms: 115
+    transform_count: 88
+    transform_time_ms: 74
+    transform_yield_count: 28
+    insert_time_ms: 7
+    insert_new_count: 48
+    insert_reused_count: 2
