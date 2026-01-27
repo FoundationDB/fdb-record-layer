@@ -29,8 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirect
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -40,7 +38,6 @@ import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
 public final class KeySpaceUtils {
-    private static final Logger log = LoggerFactory.getLogger(KeySpaceUtils.class);
 
     @Nonnull
     public static URI pathToUri(@Nonnull KeySpacePath dbPath) {
@@ -93,11 +90,6 @@ public final class KeySpaceUtils {
         KeySpacePath thePath = null;
         for (KeySpaceDirectory sub : directory.getSubdirectories()) {
             KeySpacePath path2 = uriToPathRecursive(keySpace, sub, keySpace.path(sub.getName()), pathElems, 1, strict, url);
-            if (path2 != null) {
-                log.debug("Found path " + path2);
-            } else {
-                log.debug("Could not fit " + pathElems[1] + " in " + sub.getName() + "(" + sub.getKeyType() + ")[" + sub.getValue() + "]");
-            }
 
             if (path2 != null) {
                 if (!strict) {
@@ -136,7 +128,6 @@ public final class KeySpaceUtils {
         if (position >= pathElems.length) {
             return parentPath;
         }
-        log.debug("Checking " + pathElems[position] + " in " + directory.getName() + "(" + directory.getKeyType() + ")[" + directory.getValue() + "]");
         String pathElem = pathElems[position];
         String pathName = directory.getName();
         Object dirVal = directory.getValue();
@@ -216,11 +207,6 @@ public final class KeySpaceUtils {
         KeySpacePath thePath = null;
         for (KeySpaceDirectory dir : directory.getSubdirectories()) {
             KeySpacePath path2 = uriToPathRecursive(keySpace, dir, parentPath, pathElems, position + 1, strict, url);
-            if (path2 != null) {
-                log.debug("Found path " + path2);
-            } else {
-                log.debug("Could not fit " + pathElems[position + 1] + " in " + dir.getName() + "(" + dir.getKeyType() + ")[" + dir.getValue() + "]");
-            }
 
             if (path2 != null) {
                 if (!strict) {
