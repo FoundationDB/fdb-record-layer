@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-  supported_version: 4.9.3.0
+  supported_version: !current_version
 ---
 schema_template:
     create table documents(zone string, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zone, docId))
@@ -26,6 +26,10 @@ schema_template:
     create vector index documentsEuclideanIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, rabitq_num_ex_bits = 3, use_rabitq = true)
     create vector index documentsCosineIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = cosine_metric)
     create table reviews(reviewId string, zone string, docId string, rating bigint, reviewText string, primary key (reviewId))
+    create table multiTypePartitionDocs(zoneId bigint, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zoneId, docId))
+    create view multiTypePartitionView as select embedding, zoneId, bookshelf, docId, title from multiTypePartitionDocs
+    create vector index multiTypeEuclideanIndex using hnsw on multiTypePartitionView(embedding) partition by(zoneId, bookshelf) options (metric = euclidean_metric)
+    create vector index multiTypeCosineIndex using hnsw on multiTypePartitionView(embedding) partition by(zoneId, bookshelf) options (metric = cosine_metric)
 ---
 test_block:
   preset: single_repetition_ordered
@@ -211,7 +215,7 @@ test_block:
           join documents d2 on d2.zone = d1.zone and d2.bookshelf = 'science'
           where r.zone = 'zone1'
           qualify row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 2
-      - explain: "SCAN(<,>) | TFILTER REVIEWS | FLATMAP q0 -> { SCAN(<,>) | TFILTER DOCUMENTS | FILTER q0.ZONE EQUALS _.ZONE AND q0.ZONE EQUALS promote(@c57 AS STRING) AND q0.DOCID EQUALS _.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS q1.ZONE, EQUALS promote(@c51 AS STRING)]:{DISTANCE_RANK_LESS_THAN q1.EMBEDDING: @c92}:[hnswEfSearch: 100] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWID AS REVIEWID, q2.DOCID AS DOCID, q2.TITLE AS TITLE) }"
+      - explain: "SCAN(<,>) | TFILTER DOCUMENTS | FLATMAP q0 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS q0.ZONE, EQUALS promote(@c51 AS STRING)]:{DISTANCE_RANK_LESS_THAN q0.EMBEDDING: @c92}:[hnswEfSearch: 100] BY_DISTANCE) | FLATMAP q1 -> { SCAN(<,>) | TFILTER REVIEWS | FILTER _.ZONE EQUALS q0.ZONE AND _.ZONE EQUALS promote(@c57 AS STRING) AND _.DOCID EQUALS q0.DOCID AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.REVIEWID AS REVIEWID, q3._1.DOCID AS DOCID, q3._1.TITLE AS TITLE) }"
       - unorderedResult: [
           {'r1', 'd10', 'Relativity'},
           {'r2', 'd10', 'Relativity'},
@@ -226,3 +230,98 @@ test_block:
           where r.zone = 'zone1'
           qualify row_number() over (partition by d2.zone, d2.bookshelf order by manhattan_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 2
       - error: "0AF00"
+# Test HNSW index with mixed-type partition columns (bigint and string)
+    -
+      - query:
+          insert into multiTypePartitionDocs values
+          (1, 'd1', 'fiction', 'The Great Gatsby', !! !v16 [1.0, 0.0, 0.0] !!),
+          (1, 'd2', 'fiction', '1984', !! !v16 [0.9, 0.1, 0.0] !!),
+          (1, 'd3', 'fiction', 'To Kill a Mockingbird', !! !v16 [0.8, 0.2, 0.0] !!),
+          (1, 'd4', 'science', 'A Brief History of Time', !! !v16 [0.0, 1.0, 0.0] !!),
+          (1, 'd5', 'science', 'Cosmos', !! !v16 [0.1, 0.9, 0.0] !!),
+          (2, 'd6', 'fiction', 'Moby Dick', !! !v16 [0.0, 0.0, 1.0] !!),
+          (2, 'd7', 'fiction', 'War and Peace', !! !v16 [0.0, 0.1, 0.9] !!),
+          (2, 'd8', 'science', 'The Gene', !! !v16 [0.5, 0.5, 0.0] !!),
+          (2, 'd9', 'science', 'Sapiens', !! !v16 [0.4, 0.4, 0.2] !!)
+      - count: 9
+    -
+      - query:
+          select docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from multiTypePartitionDocs
+          where zoneId = 1 and bookshelf = 'fiction'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+      - explain: "ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c17 AS LONG), EQUALS promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c39: @c17}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c39 AS _2)"
+      - result: [{'d1', 'The Great Gatsby', 0.0}]
+    -
+      - query:
+          select docId from multiTypePartitionDocs
+          where zoneId = 1 and bookshelf = 'science'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc) <= 2
+      - explain: "ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
+      - result: [{'d4'}, {'d5'}]
+    -
+      - query:
+          select docId from multiTypePartitionDocs
+          where zoneId = 2 and bookshelf = 'fiction'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.0, 1.0] !!) asc) < 2
+      - explain: "ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c8}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
+      - result: [{'d6'}]
+    -
+      - query:
+          select docId, cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from multiTypePartitionDocs
+          where zoneId = 1 and bookshelf = 'fiction'
+          qualify row_number() over (partition by zoneId, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
+      - explain: "ISCAN(MULTITYPECOSINEINDEX [EQUALS promote(@c15 AS LONG), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c37 AS _1)"
+      - result: [{'d1', 0.0}, {'d2', 0.006114621302865664}, {'d3', 0.029857499854668124}]
+    -
+      - query:
+          select docId from multiTypePartitionDocs
+          where zoneId = 2 and bookshelf = 'science'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.5, 0.5, 0.0] !!) asc options ef_search = 100) <= 1
+      - explain: "ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[hnswEfSearch: 100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
+      - result: [{'d8'}]
+    -
+      - query:
+          select docId, title from multiTypePartitionDocs
+          where zoneId = !! 2 !! and bookshelf = 'fiction'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) asc) <= !! 2 !!
+      - explain: "ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c10 AS LONG), EQUALS promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c10}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)"
+      - result: [{'d7', 'War and Peace'}, {'d6', 'Moby Dick'}]
+# verify supported and unsupported sort specifications within window function.
+    -
+      - query:
+          select docId, title from multiTypePartitionDocs
+          where zoneId = !! 2 !! and bookshelf = 'fiction'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) asc nulls first) <= !! 2 !!
+      - explain: "ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c10 AS LONG), EQUALS promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c10}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)"
+      - result: [{'d7', 'War and Peace'}, {'d6', 'Moby Dick'}]
+    -
+      - query:
+          select docId, title from multiTypePartitionDocs
+          where zoneId = !! 2 !! and bookshelf = 'fiction'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) nulls first) <= !! 2 !!
+      - explain: "ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c10 AS LONG), EQUALS promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c10}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)"
+      - result: [{'d7', 'War and Peace'}, {'d6', 'Moby Dick'}]
+    -
+      - query:
+          select docId, title from multiTypePartitionDocs
+          where zoneId = !! 2 !! and bookshelf = 'fiction'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) desc) <= !! 2 !!
+      - error: "0AF01"
+    -
+      - query:
+          select docId, title from multiTypePartitionDocs
+          where zoneId = !! 2 !! and bookshelf = 'fiction'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) desc nulls first) <= !! 2 !!
+      - error: "0AF01"
+    -
+      - query:
+          select docId, title from multiTypePartitionDocs
+          where zoneId = !! 2 !! and bookshelf = 'fiction'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) desc nulls last) <= !! 2 !!
+      - error: "0AF01"
+    -
+      - query:
+          select docId, title from multiTypePartitionDocs
+          where zoneId = !! 2 !! and bookshelf = 'fiction'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) nulls last) <= !! 2 !!
+      - error: "0AF01"
