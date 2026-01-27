@@ -228,7 +228,6 @@ public class FDBDirectory extends Directory {
         this.fileLockSubspace = subspace.subspace(Tuple.from(FILE_LOCK_SUBSPACE));
         this.pendingWritesQueueSubspace = subspace.subspace(Tuple.from(PENDING_WRITE_QUEUE_SUBSPACE));
         this.ongoingMergeSubspace = subspace.subspace(Tuple.from(ONGOING_MERGE_INDICATOR_SUBSPACE));
-        this.ongoingMergeSubspace = subspace.subspace(Tuple.from(ONGOING_MERGE_INDICATOR_SUBSPACE));
         this.lockFactory = (lockFactory != null) ? lockFactory : defaultLockFactory(agilityContext);
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -997,52 +996,6 @@ public class FDBDirectory extends Directory {
         if ((lastLock != null) && (lastLock instanceof FDBDirectoryLockFactory.FDBDirectoryLock)) {
             ((FDBDirectoryLockFactory.FDBDirectoryLock)lastLock).fileLockClearIfLocked();
         }
-    }
-
-    /**
-     * Checks if the pending write queue should be used.
-     * @return true if queue should be used
-     */
-    public boolean shouldUseQueue() {
-        if (!getBooleanIndexOption(LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, false)) {
-            return false;
-        }
-        final byte[] tupleBytes = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_ONGOING_MERGE_INDICATOR,
-                agilityContext.get(ongoingMergeSubspace.pack()));
-
-        // return true if the tuple exists, and not empty
-        return tupleBytes != null && !Tuple.fromBytes(tupleBytes).isEmpty();
-    }
-
-    /**
-     * Sets the ongoing merge indicator.
-     */
-    public void setOngoingMergeIndicator() {
-        final long nowMillis = System.currentTimeMillis();
-        final Tuple indicatorTuple = Tuple.from(nowMillis);
-        agilityContext.set(ongoingMergeSubspace.pack(), indicatorTuple.pack());
-    }
-
-    /**
-     * Clears the ongoing merge indicator, throw exception if the queue is not empty.
-     *
-     * @throws RecordCoreException if the pending write queue is not empty
-     */
-    public void clearOngoingMergeIndicatorButFailIfNonEmpty() {
-        agilityContext.accept(context -> {
-            // Verify that the pending write queue subspace is empty
-            final CompletableFuture<Boolean> isEmptyFuture = createPendingWritesQueue().isQueueEmpty(context);
-            boolean isEmptyQueue =
-                    Boolean.TRUE.equals(LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_PENDING_QUEUE,
-                            isEmptyFuture, context));
-
-            if (!isEmptyQueue) {
-                throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
-            }
-
-            // Clear the ongoing merge indicator
-            context.ensureActive().clear(ongoingMergeSubspace.pack());
-        });
     }
 
     /**
