@@ -79,7 +79,8 @@ public class RelationalKeyspaceProviderTest {
     @Test
     void schemaInDomain() throws RelationalException {
         registerDefaultDomain();
-        var schemaPath = KeySpaceUtils.toKeySpacePath(URI.create("/" + defaultDomain + "/theDatabase/theSchema"), keyspaceProvider.getKeySpace());
+        URI url = URI.create("/" + defaultDomain + "/theDatabase/theSchema");
+        var schemaPath = KeySpaceUtils.toKeySpacePath(url, keyspaceProvider.getKeySpace(), true);
         Assertions.assertThat(schemaPath)
                 .isInstanceOf(RelationalKeyspaceProvider.RelationalSchemaPath.class)
                 .isEqualTo(keyspaceProvider.getKeySpace().path(defaultDomain).add(RelationalKeyspaceProvider.DB_NAME_DIR, "theDatabase").add(RelationalKeyspaceProvider.SCHEMA_DIR, "theSchema"));
@@ -90,7 +91,8 @@ public class RelationalKeyspaceProviderTest {
     @Test
     void defaultSchemaInDomain() throws RelationalException {
         registerDefaultDomain();
-        var schemaPath = KeySpaceUtils.toKeySpacePath(URI.create("/" + defaultDomain + "/theDatabase/"), keyspaceProvider.getKeySpace());
+        URI url = URI.create("/" + defaultDomain + "/theDatabase/");
+        var schemaPath = KeySpaceUtils.toKeySpacePath(url, keyspaceProvider.getKeySpace(), true);
         Assertions.assertThat(schemaPath)
                 .isInstanceOf(RelationalKeyspaceProvider.RelationalSchemaPath.class)
                 .isEqualTo(keyspaceProvider.getKeySpace().path(defaultDomain).add(RelationalKeyspaceProvider.DB_NAME_DIR, "theDatabase").add(RelationalKeyspaceProvider.SCHEMA_DIR, ""));
