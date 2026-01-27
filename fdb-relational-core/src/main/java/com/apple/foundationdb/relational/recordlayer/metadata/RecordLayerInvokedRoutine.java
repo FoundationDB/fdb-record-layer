@@ -20,13 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
-import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
+import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.recordlayer.util.MemoizedFunction;
 import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -37,6 +38,9 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
 
     @Nonnull
     private final String normalizedDescription;
+
+    @Nullable
+    private final Literals literals;
 
     @Nonnull
     private final String name;
@@ -52,12 +56,14 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     public RecordLayerInvokedRoutine(@Nonnull final String description,
                                      @Nonnull final String normalizedDescription,
                                      @Nonnull final String name,
+                                     @Nonnull final Literals literals,
                                      boolean isTemporary,
                                      @Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider,
                                      @Nonnull final UserDefinedFunction serializableFunction) {
         this.description = description;
         this.normalizedDescription = normalizedDescription;
         this.name = name;
+        this.literals = literals;
         this.isTemporary = isTemporary;
         this.userDefinedFunctionProvider = MemoizedFunction.memoize(userDefinedFunctionProvider::apply);
         this.serializableFunction = serializableFunction;
@@ -73,6 +79,11 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     @Override
     public String getNormalizedDescription() {
         return normalizedDescription;
+    }
+
+    @Nullable
+    public Literals getLiterals() {
+        return literals;
     }
 
     @Nonnull
@@ -94,11 +105,6 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     @Nonnull
     public UserDefinedFunction asSerializableFunction() {
         return serializableFunction;
-    }
-
-    @Nonnull
-    public RawSqlFunction asRawFunction() {
-        return new RawSqlFunction(getName(), getDescription());
     }
 
     @Override
@@ -135,13 +141,14 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
                 .setDescription(getDescription())
                 .setNormalizedDescription(getNormalizedDescription())
                 .setTemporary(isTemporary())
-                .withUserDefinedRoutine(getUserDefinedFunctionProvider())
+                .withUserDefinedFunctionProvider(getUserDefinedFunctionProvider())
                 .withSerializableFunction(asSerializableFunction());
     }
 
     public static final class Builder {
         private String description;
         private String normalizedDescription;
+        private Literals literals;
         private String name;
         private Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider;
         private UserDefinedFunction serializableFunction;
@@ -169,7 +176,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         }
 
         @Nonnull
-        public Builder withUserDefinedRoutine(@Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider) {
+        public Builder withUserDefinedFunctionProvider(@Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider) {
             this.userDefinedFunctionProvider = userDefinedFunctionProvider;
             return this;
         }
@@ -177,6 +184,12 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         @Nonnull
         public Builder withSerializableFunction(@Nonnull final UserDefinedFunction serializableFunction) {
             this.serializableFunction = serializableFunction;
+            return this;
+        }
+
+        @Nonnull
+        public Builder setLiterals(@Nonnull final Literals literals) {
+            this.literals = literals;
             return this;
         }
 
@@ -192,7 +205,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
             Assert.notNullUnchecked(description);
             Assert.notNullUnchecked(userDefinedFunctionProvider);
             Assert.notNullUnchecked(serializableFunction);
-            return new RecordLayerInvokedRoutine(description, normalizedDescription, name, isTemporary,
+            return new RecordLayerInvokedRoutine(description, normalizedDescription, name, literals, isTemporary,
                     userDefinedFunctionProvider, serializableFunction);
         }
     }

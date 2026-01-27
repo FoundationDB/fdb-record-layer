@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -79,6 +80,9 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     private final URI dbUri;
 
+    @Nullable
+    private final AstNormalizer.NormalizationResult astResult;
+
     @Nonnull
     protected Optional<LogicalPlanFragment> currentPlanFragment;
 
@@ -111,11 +115,13 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
                        @Nonnull DdlQueryFactory ddlQueryFactory,
                        @Nonnull MetadataOperationsFactory metadataOperationsFactory,
                        @Nonnull URI dbUri,
+                       @Nullable AstNormalizer.NormalizationResult astResult,
                        boolean caseSensitive) {
         this.mutablePlanGenerationContext = mutablePlanGenerationContext;
         this.metadata = metadata;
         this.ddlQueryFactory = ddlQueryFactory;
         this.dbUri = dbUri;
+        this.astResult = astResult;
         this.currentPlanFragment = Optional.empty();
         this.caseSensitive = caseSensitive;
         this.expressionVisitor = ExpressionVisitor.of(this);
@@ -1746,5 +1752,10 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     public URI getDbUri() {
         return dbUri;
+    }
+
+    @Nonnull
+    public Optional<AstNormalizer.NormalizationResult> getAstResultMaybe() {
+        return Optional.ofNullable(astResult);
     }
 }

@@ -33,9 +33,9 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
@@ -195,16 +195,20 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitCreateTempFunction(final RelationalParser.CreateTempFunctionContext ctx) {
-        final var functionName = ctx.tempSqlInvokedFunction().functionSpecification().schemaQualifiedRoutineName.getText();
+        final var functionName = normalizeString(ctx.tempSqlInvokedFunction().functionSpecification().schemaQualifiedRoutineName.getText());
         queryHasherContextBuilder.getLiteralsBuilder().setScope(functionName);
         return visitChildren(ctx);
     }
 
     @Override
     public Value visitUid(@Nonnull RelationalParser.UidContext ctx) {
-        String uid = SemanticAnalyzer.normalizeString(ctx.getText(), caseSensitive);
+        String uid = normalizeString(ctx.getText());
         sqlCanonicalizer.append("\"").append(uid).append("\"").append(" ");
         return null;
+    }
+
+    private String normalizeString(@Nonnull String string) {
+        return SemanticAnalyzer.normalizeString(string, caseSensitive);
     }
 
     public int getHash() {
@@ -630,11 +634,20 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 continue;
             }
             final var recordLayerRoutine = (RecordLayerInvokedRoutine)temporaryRoutine;
-            // immediate materialization of temporary function, this is required to collect any auxiliary literals discovered
-            // during plan generation of the temporary function. The literals and combined with query literals and provided
-            // for the execution of a (cached) physical plan.
-            final var compiledFunction = (CompiledSqlFunction)recordLayerRoutine.getUserDefinedFunctionProvider().apply(caseSensitive);
-            astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(compiledFunction.getAuxiliaryLiterals());
+            var literals = recordLayerRoutine.getLiterals();
+            // See if the literals are there in the InvokedRoutine
+            if (literals == null) {
+                final var userDefinedFunction = recordLayerRoutine.getUserDefinedFunctionProvider().apply(caseSensitive);
+                if (userDefinedFunction instanceof CompiledSqlFunction) {
+                    // immediate materialization of temporary function, this is required to collect any auxiliary literals discovered
+                    // during plan generation of the temporary function. The literals and combined with query literals and provided
+                    // for the execution of a (cached) physical plan.
+                    astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(((CompiledSqlFunction) userDefinedFunction).getAuxiliaryLiterals());
+                }
+            } else {
+                astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(literals);
+            }
+
         }
         return new NormalizationResult(
                 recordLayerSchemaTemplate.getName(),

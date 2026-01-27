@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -29,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
@@ -283,20 +281,20 @@ public final class PlanContext {
                     .withDbUri(database.getURI());
         }
 
-        private void verify() throws RelationalException {
-            Assert.notNull(metaData);
-            Assert.notNull(schemaTemplate);
-            Assert.notNull(plannerConfiguration);
-            Assert.notNull(metadataOperationsFactory);
-            Assert.notNull(ddlQueryFactory);
-            Assert.notNull(dbUri);
+        private void verify() {
+            Assert.notNullUnchecked(metaData);
+            Assert.notNullUnchecked(schemaTemplate);
+            Assert.notNullUnchecked(plannerConfiguration);
+            Assert.notNullUnchecked(metadataOperationsFactory);
+            Assert.notNullUnchecked(ddlQueryFactory);
+            Assert.notNullUnchecked(dbUri);
             if (preparedStatementParameters == null) {
                 preparedStatementParameters = PreparedParams.empty();
             }
         }
 
         @Nonnull
-        public PlanContext build() throws RelationalException {
+        public PlanContext build() {
             verify();
             return new PlanContext(metaData, metricCollector, schemaTemplate, plannerConfiguration, metadataOperationsFactory,
                     ddlQueryFactory, dbUri, preparedStatementParameters, userVersion, isCaseSensitive);

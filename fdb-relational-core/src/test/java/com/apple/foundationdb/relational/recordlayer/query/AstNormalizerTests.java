@@ -406,8 +406,9 @@ public class AstNormalizerTests {
                         .setTemporary(isTemporary)
                         .setDescription(functionDdl)
                         .setNormalizedDescription(canonicalFunctionDdl)
+                        .setLiterals(Literals.empty())
                         // invoking the compiled routine should only happen during plan generation.
-                        .withUserDefinedRoutine(ignored -> new CompiledSqlFunction("", List.of(), List.of(),
+                        .withUserDefinedFunctionProvider(ignored -> new CompiledSqlFunction("", List.of(), List.of(),
                                 List.of(), Optional.empty(), null, Literals.empty()) {
                             @Nonnull
                             @Override
@@ -1135,14 +1136,14 @@ public class AstNormalizerTests {
         final var function2 = "create function function2(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
         final var tmpFunction5 = "create temporary function tmpFunction5(in x bigint) on commit drop function as x ";
         final var function3 = "create function function3(in x bigint) returns bigint as x ";
-        var schemaTemplate = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction1", tmpFunction1, true);
-        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction2", tmpFunction2, true);
-        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "function1", function1, false);
-        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction3", tmpFunction3, true);
-        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction4", tmpFunction4, true);
-        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "function2", function2, false);
-        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction5", tmpFunction5, true);
-        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "function3", function3, false);
+        var schemaTemplate = schemaTemplateWithFunction(fakeSchemaTemplate, "TMPFUNCTION1", tmpFunction1, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "TMPFUNCTION2", tmpFunction2, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "FUNCTION1", function1, false);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "TMPFUNCTION3", tmpFunction3, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "TMPFUNCTION4", tmpFunction4, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "FUNCTION2", function2, false);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "TMPFUNCTION5", tmpFunction5, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "FUNCTION3", function3, false);
 
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
@@ -1162,16 +1163,16 @@ public class AstNormalizerTests {
         final var tmpFunction2 = "create temporary function tmpFunction2(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
         final var function1 = "create function function1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
         final var tmpFunction3 = "create temporary function tmpFunction3(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
-        var schemaTemplate1 = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction1", tmpFunction1, true);
-        schemaTemplate1 = schemaTemplateWithFunction(schemaTemplate1, "tmpFunction2", tmpFunction2, true);
-        schemaTemplate1 = schemaTemplateWithFunction(schemaTemplate1, "function1", function1, false);
-        schemaTemplate1 = schemaTemplateWithFunction(schemaTemplate1, "tmpFunction3", tmpFunction3, true);
+        var schemaTemplate1 = schemaTemplateWithFunction(fakeSchemaTemplate, "TMPFUNCTION1", tmpFunction1, true);
+        schemaTemplate1 = schemaTemplateWithFunction(schemaTemplate1, "TMPFUNCTION2", tmpFunction2, true);
+        schemaTemplate1 = schemaTemplateWithFunction(schemaTemplate1, "FUNCTION1", function1, false);
+        schemaTemplate1 = schemaTemplateWithFunction(schemaTemplate1, "TMPFUNCTION3", tmpFunction3, true);
 
 
-        var schemaTemplate2 = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction3", tmpFunction1, true);
-        schemaTemplate2 = schemaTemplateWithFunction(schemaTemplate2, "function1", function1, false);
-        schemaTemplate2 = schemaTemplateWithFunction(schemaTemplate2, "tmpFunction1", tmpFunction2, true);
-        schemaTemplate2 = schemaTemplateWithFunction(schemaTemplate2, "tmpFunction2", tmpFunction3, true);
+        var schemaTemplate2 = schemaTemplateWithFunction(fakeSchemaTemplate, "TMPFUNCTION3", tmpFunction1, true);
+        schemaTemplate2 = schemaTemplateWithFunction(schemaTemplate2, "FUNCTION1", function1, false);
+        schemaTemplate2 = schemaTemplateWithFunction(schemaTemplate2, "TMPFUNCTION1", tmpFunction2, true);
+        schemaTemplate2 = schemaTemplateWithFunction(schemaTemplate2, "TMPFUNCTION2", tmpFunction3, true);
 
         validate(List.of("select * from t1 where col1 > 42", "select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
@@ -1224,7 +1225,7 @@ public class AstNormalizerTests {
         validate(List.of("create temporary function tmpFunction1(in x bigint) on commit drop function as select * from t1 where a < 40 + x "),
                 PreparedParams.empty(),
                 "create temporary function \"TMPFUNCTION1\" ( in \"X\" bigint ) on commit drop function as select * from \"T1\" where \"A\" < ? + \"X\" ",
-                List.of(Map.of(constantId(21, Optional.of("tmpFunction1")), 40)),
+                List.of(Map.of(constantId(21, Optional.of("TMPFUNCTION1")), 40)),
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT),
@@ -1238,9 +1239,9 @@ public class AstNormalizerTests {
                 PreparedParams.ofNamed(ImmutableMap.of("param1", "bla", "param2", 500)),
                 "create temporary function \"TMPFUNCTION1\" ( in \"X\" bigint ) " +
                         "on commit drop function as select * from \"T1\" where \"A\" < ? + \"X\" and \"B\" > ?param1 and \"C\" < ?param2 ",
-                List.of(Map.of(constantId(21, Optional.of("tmpFunction1")), 40,
-                        constantId(27, Optional.of("tmpFunction1")), "bla",
-                        constantId(31, Optional.of("tmpFunction1")), 500)),
+                List.of(Map.of(constantId(21, Optional.of("TMPFUNCTION1")), 40,
+                        constantId(27, Optional.of("TMPFUNCTION1")), "bla",
+                        constantId(31, Optional.of("TMPFUNCTION1")), 500)),
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT),
@@ -1254,11 +1255,11 @@ public class AstNormalizerTests {
                 PreparedParams.ofNamed(ImmutableMap.of("param1", "bla", "param2", 500)),
                 "create temporary function \"TMPFUNCTION1\" ( in \"X\" bigint default ? , in \"Y\" string default ? ) " +
                         "on commit drop function as select * from \"T1\" where \"A\" < ? + \"X\" and \"B\" > ?param1 and \"C\" < ?param2 ",
-                List.of(Map.of(constantId(9, Optional.of("tmpFunction1")), 1000,
-                        constantId(15, Optional.of("tmpFunction1")), "bla",
-                        constantId(29, Optional.of("tmpFunction1")), 40,
-                        constantId(35, Optional.of("tmpFunction1")), "bla",
-                        constantId(39, Optional.of("tmpFunction1")), 500)),
+                List.of(Map.of(constantId(9, Optional.of("TMPFUNCTION1")), 1000,
+                        constantId(15, Optional.of("TMPFUNCTION1")), "bla",
+                        constantId(29, Optional.of("TMPFUNCTION1")), 40,
+                        constantId(35, Optional.of("TMPFUNCTION1")), "bla",
+                        constantId(39, Optional.of("TMPFUNCTION1")), 500)),
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT),

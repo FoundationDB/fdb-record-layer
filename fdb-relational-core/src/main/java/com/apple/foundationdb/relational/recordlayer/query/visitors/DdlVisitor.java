@@ -511,20 +511,29 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             QueryParser.validateNoPreparedParams(functionCtx);
         }
 
-        // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
-        final var userDefinedFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
-
         RecordLayerInvokedRoutine.Builder builder = RecordLayerInvokedRoutine.newBuilder()
                 .setName(functionName)
                 .setDescription(functionDefinition)
-                .withUserDefinedRoutine(ignored -> userDefinedFunction)
-                .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
-                .setTemporary(isTemporary);
-        // 4. Return it.
-        if (userDefinedFunction instanceof UserDefinedMacroFunction) {
-            return builder.withSerializableFunction(userDefinedFunction).build();
+                .setTemporary(isTemporary)
+                .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString());
+
+        boolean isScalar = functionSpecCtx.returnsClause() != null &&
+                functionSpecCtx.returnsClause().returnsType().returnsTableType() == null;
+        if (!isScalar && isTemporary) {
+            builder.setLiterals(getDelegate().getAstResultMaybe().orElseThrow().getQueryExecutionContext().getLiterals());
+            // Delay the compilation of table-valued functions for later
+            return builder
+                    .withUserDefinedFunctionProvider(ignore -> visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary))
+                    .withSerializableFunction(new RawSqlFunction(functionName, functionDefinition))
+                    .build();
         } else {
-            return builder.withSerializableFunction(new RawSqlFunction(functionName, functionDefinition)).build();
+            final var userDefinedFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
+            builder.withUserDefinedFunctionProvider(ignore -> userDefinedFunction);
+            if (isScalar) {
+                return builder.withSerializableFunction(userDefinedFunction).build();
+            } else {
+                return builder.withSerializableFunction(new RawSqlFunction(functionName, functionDefinition)).build();
+            }
         }
     }
 

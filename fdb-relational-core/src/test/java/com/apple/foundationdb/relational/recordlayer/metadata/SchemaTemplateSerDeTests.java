@@ -584,7 +584,7 @@ public class SchemaTemplateSerDeTests {
                 .setName(funcName)
                 .setDescription(funcDescription)
                 .setTemporary(true)
-                .withUserDefinedRoutine(ignored -> new CompiledFunctionStub())
+                .withUserDefinedFunctionProvider(ignored -> new CompiledFunctionStub())
                 .withSerializableFunction(new RawSqlFunction(funcName, funcDescription))
                 .build());
 
@@ -628,7 +628,7 @@ public class SchemaTemplateSerDeTests {
             schemaTemplateBuilder.addInvokedRoutine(RecordLayerInvokedRoutine.newBuilder()
                     .setName(functionName)
                     .setDescription(functionDescription)
-                    .withUserDefinedRoutine(igored -> new CompiledFunctionStub())
+                    .withUserDefinedFunctionProvider(igored -> new CompiledFunctionStub())
                     .withSerializableFunction(new RawSqlFunction(functionName, functionDescription))
                     .build());
         }

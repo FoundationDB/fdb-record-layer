@@ -1060,8 +1060,10 @@ public class TemporaryFunctionTests {
             connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, false);
 
             try (var statement = connection.createStatement()) {
-                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create temporary function sq1(in x bigint) " +
-                                "on commit drop function as select * from t1 where a < 40 + x "))
+                // create temporary function succeeds getting registered, as we do not (yet) compile it.
+                statement.execute("create temporary function sq1(in x bigint) " +
+                        "on commit drop function as select * from t1 where a < 40 + x ");
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from sq1(34)"))
                         .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
                         .hasMessageContaining("Unknown table T1");
             }
@@ -1082,8 +1084,10 @@ public class TemporaryFunctionTests {
             connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true);
 
             try (var statement = connection.createStatement()) {
-                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create temporary function sq1(in x bigint) " +
-                                "on commit drop function as select * from t1 where a < 40 + x "))
+                // create temporary function succeeds getting registered, as we do not (yet) compile it.
+                statement.execute("create temporary function sq1(in x bigint) " +
+                        "on commit drop function as select * from t1 where a < 40 + x ");
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from sq1(23)"))
                         .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
                         .hasMessageContaining("Unknown table t1");
             }
