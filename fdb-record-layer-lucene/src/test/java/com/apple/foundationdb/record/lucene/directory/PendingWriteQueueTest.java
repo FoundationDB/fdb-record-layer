@@ -109,9 +109,6 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
                     case INSERT:
                         queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields());
                         break;
-                    case UPDATE:
-                        queue.enqueueUpdate(context, doc.getPrimaryKey(), doc.getFields());
-                        break;
                     case DELETE:
                         queue.enqueueDelete(context, doc.getPrimaryKey());
                         break;

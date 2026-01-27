@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
-import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -45,7 +44,6 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.StoredField;
@@ -132,25 +130,6 @@ public class PendingWriteQueue {
         enqueueOperationInternal(
                 context,
                 LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
-                primaryKey,
-                fields);
-    }
-
-    /**
-     * Enqueue an UPDATE operation.
-     *
-     * @param context the record context to use for the operation
-     * @param primaryKey the record's primary key
-     * @param fields the new document fields to index
-     */
-    public void enqueueUpdate(
-            @Nonnull FDBRecordContext context,
-            @Nonnull Tuple primaryKey,
-            @Nonnull List<LuceneDocumentFromRecord.DocumentField> fields) {
-
-        enqueueOperationInternal(
-                context,
-                LucenePendingWriteQueueProto.PendingWriteItem.OperationType.UPDATE,
                 primaryKey,
                 fields);
     }
@@ -325,17 +304,6 @@ public class PendingWriteQueue {
                 LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME,
                 new BytesRef(primaryKey.pack()));
         indexWriter.deleteDocuments(updateDeleteQuery);
-    }
-
-    private QueueEntry toQueueEntry(final KeyValue kv) {
-        try {
-            Tuple keyTuple = queueSubspace.unpack(kv.getKey());
-            final Versionstamp versionstamp = keyTuple.getVersionstamp(0);
-            LucenePendingWriteQueueProto.PendingWriteItem item = LucenePendingWriteQueueProto.PendingWriteItem.parseFrom(kv.getValue());
-            return new QueueEntry(versionstamp, item);
-        } catch (InvalidProtocolBufferException e) {
-            throw new RecordCoreInternalException("Failed to parse queue item", e);
-        }
     }
 
     private void enqueueOperationInternal(

@@ -607,7 +607,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                 final LuceneIndexMaintainer maintainer = (LuceneIndexMaintainer)store.getIndexMaintainer(state.index);
                 CompletableFuture<Void> oneItemFuture = AsyncUtil.DONE;
                 switch (queueEntry.getOperationType()) {
-                    case UPDATE:
                     case INSERT:
                         maintainer.writeDocumentBypassQueue(groupingKey, partitionId, queueEntry.getPrimaryKeyParsed(), queueEntry.getDocumentFieldsParsed());
                         break;
