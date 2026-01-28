@@ -23,7 +23,7 @@ schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))
 ---
 include:
-    include-block/includes/include-1.yamsql
+    include-block/includes/include-with-explain.yamsql
 ---
 include:
     include-block/includes/include-2.yamsql

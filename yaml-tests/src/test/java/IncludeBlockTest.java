@@ -48,7 +48,7 @@ public class IncludeBlockTest {
 
     private static final SemanticVersion VERSION = SemanticVersion.parse("4.4.8.0");
     private static final YamlTestConfig config = new EmbeddedConfig(FDBTestEnvironment.randomClusterFile());
-    private static final boolean CORRECT_METRICS = true;
+    private static final boolean CORRECT_METRICS = false;
     private static final String CLUSTER_FILE = FDBTestEnvironment.randomClusterFile();
 
     @BeforeAll
@@ -87,10 +87,10 @@ public class IncludeBlockTest {
 
     static Stream<String> includesShouldFail() {
         return Stream.of(
-                "include-1",
+                "include-with-explain",
                 "include-2",
-                "include-3",
-                "include-4",
+                "include-with-include",
+                "include-has-options",
                 "include-recursion",
                 "include-global-uri-as-default"
         );
@@ -121,7 +121,9 @@ public class IncludeBlockTest {
                 "options-in-included",
                 "cycle-in-include",
                 "include-scope-not-visible-outside",
-                "include-non-existent"
+                "include-scope-not-visible-outside",
+                "include-non-existent",
+                "simple-include-with-wrong-metric"
         );
     }
 

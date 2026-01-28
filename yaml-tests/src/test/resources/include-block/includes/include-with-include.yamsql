@@ -1,5 +1,5 @@
 #
-# include-4.yamsql
+# include-with-include.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -17,13 +17,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should fail in itself due to the lack of proper setup.
----
-options:
-    supported_version: 3.0.17.0
+# This test should fail in itself due to the lack of proper setup. However, when included with "single-connection.yamsql",
+# these queries should run and pass.
 ---
 setup:
-  connect: 1
+  connect: (global) 1
   steps:
     - query: INSERT INTO t1 VALUES (10, 20), (30, 40), (50, 60), (70, 80)
 ---

@@ -2,7 +2,7 @@ transactions-tests:
 -   query: EXPLAIN select * from t2
     setup:
     - create temporary function t2() on commit drop function AS SELECT * FROM t1;
-    ref: nested-includes.yamsql:25 > include-3.yamsql:35
+    ref: nested-includes.yamsql:25 > include-with-include.yamsql:35
     explain: SCAN(<,>)
     task_count: 166
     task_total_time_ms: 126
@@ -16,7 +16,7 @@ transactions-tests:
     setup:
     - create temporary function t2() on commit drop function AS SELECT * FROM t1 where
         id < 50;
-    ref: nested-includes.yamsql:25 > include-3.yamsql:45
+    ref: nested-includes.yamsql:25 > include-with-include.yamsql:45
     explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@cT218 AS LONG)
     task_count: 189
     task_total_time_ms: 140
@@ -27,7 +27,7 @@ transactions-tests:
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN select * from t1 where id < 50
-    ref: nested-includes.yamsql:25 > include-3.yamsql:47 > include-2.yamsql:27
+    ref: nested-includes.yamsql:25 > include-with-include.yamsql:47 > include-2.yamsql:27
     explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@c8 AS LONG)
     task_count: 163
     task_total_time_ms: 31

@@ -24,5 +24,5 @@ schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))
 ---
 include:
-    include-block/includes/include-4.yamsql
+    include-block/includes/include-has-options.yamsql
 ...

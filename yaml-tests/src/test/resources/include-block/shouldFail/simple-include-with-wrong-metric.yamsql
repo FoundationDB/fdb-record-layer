@@ -1,5 +1,5 @@
 #
-# multiple-includes.yamsql
+# simple-include-with-wrong-metrics.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -17,14 +17,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should pass
+# This yamsql file has an include that has an explain in it. The metrics of that explain will be part of this file's
+# metric file. However, that metric file is forged - hence, the test should fail due to metrics mismatch.
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))
 ---
 include:
     include-block/includes/include-with-explain.yamsql
----
-include:
-    include-block/includes/include-2.yamsql
 ...
