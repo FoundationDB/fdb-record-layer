@@ -98,19 +98,6 @@ class DistanceValueTest {
                                 new DoubleRealVector(new double[] {1.0, 2.0, 2.0}).getData(),
                                 new DoubleRealVector(new double[] {4.0, 5.0, 6.0}).getData())),
 
-                // Manhattan distance tests
-                // Manhattan distance from (1,0,0) to (0,1,0) = |1-0| + |0-1| + |0-0| = 2.0
-                Arguments.of(VECTOR_1_0_0, VECTOR_0_1_0, new DistanceValue.ManhattanDistanceFn(), 2.0),
-                // Manhattan distance from (3,4,0) to (0,0,0) = |3| + |4| + |0| = 7.0
-                Arguments.of(VECTOR_3_4_0, VECTOR_0_0_0, new DistanceValue.ManhattanDistanceFn(), 7.0),
-                // Manhattan distance from same vector to itself = 0.0
-                Arguments.of(VECTOR_1_0_0, VECTOR_1_0_0, new DistanceValue.ManhattanDistanceFn(), 0.0),
-                // Manhattan distance with double vectors
-                Arguments.of(VECTOR_DOUBLE_1_2_2, VECTOR_DOUBLE_4_5_6, new DistanceValue.ManhattanDistanceFn(),
-                        new Metric.ManhattanMetric().distance(
-                                new DoubleRealVector(new double[] {1.0, 2.0, 2.0}).getData(),
-                                new DoubleRealVector(new double[] {4.0, 5.0, 6.0}).getData())),
-
                 // Cosine distance tests
                 // Cosine distance between orthogonal vectors (1,0,0) and (0,1,0) = 1.0
                 Arguments.of(VECTOR_1_0_0, VECTOR_0_1_0, new DistanceValue.CosineDistanceFn(), 1.0),
@@ -142,11 +129,6 @@ class DistanceValueTest {
                 // Euclidean square distance with half vectors
                 Arguments.of(VECTOR_HALF_2_3_6, VECTOR_HALF_5_6_9, new DistanceValue.EuclideanSquareDistanceFn(),
                         new Metric.EuclideanSquareMetric().distance(
-                                new HalfRealVector(new double[] {2.0, 3.0, 6.0}).getData(),
-                                new HalfRealVector(new double[] {5.0, 6.0, 9.0}).getData())),
-                // Manhattan distance with half vectors
-                Arguments.of(VECTOR_HALF_2_3_6, VECTOR_HALF_5_6_9, new DistanceValue.ManhattanDistanceFn(),
-                        new Metric.ManhattanMetric().distance(
                                 new HalfRealVector(new double[] {2.0, 3.0, 6.0}).getData(),
                                 new HalfRealVector(new double[] {5.0, 6.0, 9.0}).getData())),
                 // Cosine distance with half vectors
@@ -186,11 +168,6 @@ class DistanceValueTest {
                 Arguments.of(VECTOR_NULL, VECTOR_1_0_0, new DistanceValue.EuclideanSquareDistanceFn()),
                 Arguments.of(VECTOR_1_0_0, VECTOR_NULL, new DistanceValue.EuclideanSquareDistanceFn()),
 
-                // Manhattan distance with null vectors
-                Arguments.of(VECTOR_NULL, VECTOR_NULL, new DistanceValue.ManhattanDistanceFn()),
-                Arguments.of(VECTOR_NULL, VECTOR_1_0_0, new DistanceValue.ManhattanDistanceFn()),
-                Arguments.of(VECTOR_1_0_0, VECTOR_NULL, new DistanceValue.ManhattanDistanceFn()),
-
                 // Cosine distance with null vectors
                 Arguments.of(VECTOR_NULL, VECTOR_NULL, new DistanceValue.CosineDistanceFn()),
                 Arguments.of(VECTOR_NULL, VECTOR_0_1_0, new DistanceValue.CosineDistanceFn()),
@@ -208,7 +185,6 @@ class DistanceValueTest {
         return Stream.of(
                 new DistanceValue.EuclideanDistanceFn(),
                 new DistanceValue.EuclideanSquareDistanceFn(),
-                new DistanceValue.ManhattanDistanceFn(),
                 new DistanceValue.CosineDistanceFn(),
                 new DistanceValue.DotProductDistanceFn()
         );
@@ -282,14 +258,9 @@ class DistanceValueTest {
 
         final DistanceValue euclideanValue = (DistanceValue) new DistanceValue.EuclideanDistanceFn().encapsulate(arguments);
         final DistanceValue cosineValue = (DistanceValue) new DistanceValue.CosineDistanceFn().encapsulate(arguments);
-        final DistanceValue manhattanValue = (DistanceValue) new DistanceValue.ManhattanDistanceFn().encapsulate(arguments);
 
         // Different distance functions should produce non-equal values even with same arguments
         Assertions.assertNotEquals(euclideanValue, cosineValue,
                 "Euclidean and Cosine distance values should not be equal");
-        Assertions.assertNotEquals(euclideanValue, manhattanValue,
-                "Euclidean and Manhattan distance values should not be equal");
-        Assertions.assertNotEquals(cosineValue, manhattanValue,
-                "Cosine and Manhattan distance values should not be equal");
     }
 }

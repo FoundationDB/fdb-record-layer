@@ -135,6 +135,7 @@ public class LuceneIndexTestUtils {
         final Map<String, String> options = new HashMap<>();
         options.put(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME);
         options.put(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true");
+        options.put(LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, "true");
         optionsBuilder.accept(options);
         return new Index("Simple$text_suffixes",
                 function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
@@ -255,6 +256,7 @@ public class LuceneIndexTestUtils {
         Map<String, String> options = new HashMap<>();
         options.put(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME);
         options.put(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true");
+        options.put(LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, "true");
         optionsBuilder.accept(options);
         return new Index(
                 "Simple$test_stored_complex",

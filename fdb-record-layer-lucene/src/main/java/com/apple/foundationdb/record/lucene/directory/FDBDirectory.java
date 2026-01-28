@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
@@ -133,6 +134,7 @@ public class FDBDirectory extends Directory  {
     @VisibleForTesting
     public static final int FILE_LOCK_SUBSPACE = 7;
     public static final int PENDING_WRITE_QUEUE_SUBSPACE = 8;
+    public static final int ONGOING_MERGE_INDICATOR_SUBSPACE = 9;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     @Nonnull
     private final Map<String, String> indexOptions;
@@ -143,6 +145,7 @@ public class FDBDirectory extends Directory  {
     protected final Subspace storedFieldsSubspace;
     private final Subspace fileLockSubspace;
     private final Subspace pendingWritesQueueSubspace;
+    private final Subspace ongoingMergeSubspace;
     private final byte[] sequenceSubspaceKey;
 
     private final FDBDirectoryLockFactory lockFactory;
@@ -220,6 +223,7 @@ public class FDBDirectory extends Directory  {
         this.storedFieldsSubspace = subspace.subspace(Tuple.from(STORED_FIELDS_SUBSPACE));
         this.fileLockSubspace = subspace.subspace(Tuple.from(FILE_LOCK_SUBSPACE));
         this.pendingWritesQueueSubspace = subspace.subspace(Tuple.from(PENDING_WRITE_QUEUE_SUBSPACE));
+        this.ongoingMergeSubspace = subspace.subspace(Tuple.from(ONGOING_MERGE_INDICATOR_SUBSPACE));
         this.lockFactory = new FDBDirectoryLockFactory(this, Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS), 0));
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
@@ -985,6 +989,52 @@ public class FDBDirectory extends Directory  {
         if (lastLock != null) {
             lastLock.fileLockClearIfLocked();
         }
+    }
+
+    /**
+     * Checks if the pending write queue should be used.
+     * @return true if queue should be used
+     */
+    public boolean shouldUseQueue() {
+        if (!getBooleanIndexOption(LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, false)) {
+            return false;
+        }
+        final byte[] tupleBytes = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_ONGOING_MERGE_INDICATOR,
+                agilityContext.get(ongoingMergeSubspace.pack()));
+
+        // return true if the tuple exists, and not empty
+        return tupleBytes != null && !Tuple.fromBytes(tupleBytes).isEmpty();
+    }
+
+    /**
+     * Sets the ongoing merge indicator.
+     */
+    public void setOngoingMergeIndicator() {
+        final long nowMillis = System.currentTimeMillis();
+        final Tuple indicatorTuple = Tuple.from(nowMillis);
+        agilityContext.set(ongoingMergeSubspace.pack(), indicatorTuple.pack());
+    }
+
+    /**
+     * Clears the ongoing merge indicator, throw exception if the queue is not empty.
+     *
+     * @throws RecordCoreException if the pending write queue is not empty
+     */
+    public void clearOngoingMergeIndicatorButFailIfNonEmpty() {
+        agilityContext.accept(context -> {
+            // Verify that the pending write queue subspace is empty
+            final CompletableFuture<Boolean> isEmptyFuture = createPendingWritesQueue().isQueueEmpty(context);
+            boolean isEmptyQueue =
+                    Boolean.TRUE.equals(LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_PENDING_QUEUE,
+                            isEmptyFuture, context));
+
+            if (!isEmptyQueue) {
+                throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
+            }
+
+            // Clear the ongoing merge indicator
+            context.ensureActive().clear(ongoingMergeSubspace.pack());
+        });
     }
 
     public PendingWriteQueue createPendingWritesQueue() {

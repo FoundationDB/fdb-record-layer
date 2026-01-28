@@ -215,6 +215,12 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
             if (Iterables.isEmpty(newChildren)) {
                 return this;
             }
+            if (getElementType().isAny()) {
+                if (elementsArePairwiseReferenceEqual(newChildren, getChildren())) {
+                    return this;
+                }
+                return LightArrayConstructorValue.of(ImmutableList.copyOf(newChildren), getElementType());
+            }
             Verify.verify(resolveElementType(newChildren).equals(getElementType()));
             final var newChildrenPromoted = injectPromotions(newChildren, getElementType());
             if (elementsArePairwiseReferenceEqual(newChildrenPromoted, getChildren())) {

@@ -1119,7 +1119,7 @@ public class IndexTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"EUCLIDEAN_METRIC", "MANHATTAN_METRIC", "DOT_PRODUCT_METRIC", "EUCLIDEAN_SQUARE_METRIC", "COSINE_METRIC"})
+    @ValueSource(strings = {"EUCLIDEAN_METRIC", "EUCLIDEAN_SQUARE_METRIC", "DOT_PRODUCT_METRIC", "COSINE_METRIC"})
     void createVectorIndexWithAllMetricTypesWorksCorrectly(String metric) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T(p bigint, b vector(512, float), primary key(p))" +

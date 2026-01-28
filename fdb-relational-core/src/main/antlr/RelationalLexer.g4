@@ -1052,8 +1052,6 @@ MAINTAIN_STATS_PROBABILITY:          'MAINTAIN_STATS_PROBABILITY';
 MAKEDATE:                            'MAKEDATE';
 MAKETIME:                            'MAKETIME';
 MAKE_SET:                            'MAKE_SET';
-MANHATTEN_DISTANCE:                  'MANHATTEN_DISTANCE';
-MANHATTAN_METRIC:                    'MANHATTAN_METRIC';
 MASTER_POS_WAIT:                     'MASTER_POS_WAIT';
 MBRCONTAINS:                         'MBRCONTAINS';
 MBRDISJOINT:                         'MBRDISJOINT';
