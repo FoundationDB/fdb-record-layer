@@ -60,6 +60,7 @@ public class RelationalKeyspaceProvider {
     public static final String CATALOG = "CATALOG";
     public static final String DB_NAME_DIR = "dbName";
     public static final String SCHEMA_DIR = "schema";
+    public static final String DEFAULT_SCHEMA_DIR = "defaultSchema";
     public static final String INTERNING_LAYER = "__internedStrings";
     public static final String INTERNING_LAYER_VALUE = "IL";
 
@@ -205,6 +206,7 @@ public class RelationalKeyspaceProvider {
 
         final var domainPath = (RelationalDomainPath) getKeySpace().path(domainName);
         domainDirectory.addSubdirectory(new DirectoryLayerDirectory(DB_NAME_DIR, RelationalDatabasePath::new, domainPath::generateScopeAsync, ResolverCreateHooks.getDefault())
+                .addSubdirectory(new KeySpaceDirectory(DEFAULT_SCHEMA_DIR, KeySpaceDirectory.KeyType.NULL, RelationalSchemaPath::new))
                 .addSubdirectory(new DirectoryLayerDirectory(SCHEMA_DIR, RelationalSchemaPath::new, domainPath::generateScopeAsync, ResolverCreateHooks.getDefault())));
     }
 
