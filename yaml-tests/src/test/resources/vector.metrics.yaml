@@ -203,3 +203,133 @@ vector-tests:
     insert_time_ms: 0
     insert_new_count: 21
     insert_reused_count: 2
+-   query: EXPLAIN select b = null from tHalfVector where a = 100
+    explain: SCAN(<,>) | TFILTER THALFVECTOR | FILTER _.A EQUALS promote(@c10 AS LONG)
+        | MAP (_.B equals NULL AS _0)
+    task_count: 230
+    task_total_time_ms: 5
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select null = b from tHalfVector where a = 100
+    explain: SCAN(<,>) | TFILTER THALFVECTOR | FILTER _.A EQUALS promote(@c10 AS LONG)
+        | MAP (NULL equals _.B AS _0)
+    task_count: 230
+    task_total_time_ms: 5
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select b != null from tHalfVector where a = 100
+    explain: SCAN(<,>) | TFILTER THALFVECTOR | FILTER _.A EQUALS promote(@c11 AS LONG)
+        | MAP (_.B notEquals NULL AS _0)
+    task_count: 230
+    task_total_time_ms: 6
+    transform_count: 61
+    transform_time_ms: 3
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select null != b from tHalfVector where a = 100
+    explain: SCAN(<,>) | TFILTER THALFVECTOR | FILTER _.A EQUALS promote(@c11 AS LONG)
+        | MAP (NULL notEquals _.B AS _0)
+    task_count: 230
+    task_total_time_ms: 5
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select a from tHalfVector where b = null
+    explain: SCAN(<,>) | TFILTER THALFVECTOR | FILTER null | MAP (_.A AS A)
+    task_count: 246
+    task_total_time_ms: 19
+    transform_count: 66
+    transform_time_ms: 3
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 25
+    insert_reused_count: 2
+-   query: EXPLAIN select a from tFloatVector where b != null
+    explain: SCAN(<,>) | TFILTER TFLOATVECTOR | FILTER _.B NOT_EQUALS NULL | MAP (_.A
+        AS A)
+    task_count: 246
+    task_total_time_ms: 5
+    transform_count: 66
+    transform_time_ms: 2
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 25
+    insert_reused_count: 2
+-   query: EXPLAIN select a from tHalfVector where null = b
+    explain: SCAN(<,>) | TFILTER THALFVECTOR | FILTER null | MAP (_.A AS A)
+    task_count: 246
+    task_total_time_ms: 4
+    transform_count: 66
+    transform_time_ms: 2
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 25
+    insert_reused_count: 2
+-   query: EXPLAIN select a from tFloatVector where null != b
+    explain: SCAN(<,>) | TFILTER TFLOATVECTOR | FILTER _.B NOT_EQUALS NULL | MAP (_.A
+        AS A)
+    task_count: 246
+    task_total_time_ms: 6
+    transform_count: 66
+    transform_time_ms: 2
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 25
+    insert_reused_count: 2
+-   query: EXPLAIN select a from tDoubleVector where b is distinct from null
+    explain: SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.B IS_DISTINCT_FROM NULL
+        | MAP (_.A AS A)
+    task_count: 230
+    task_total_time_ms: 4
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select a from tDoubleVector where b is not distinct from null
+    explain: SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.B NOT_DISTINCT_FROM NULL
+        | MAP (_.A AS A)
+    task_count: 230
+    task_total_time_ms: 4
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select a from tDoubleVector where null is distinct from b
+    explain: SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.B IS_DISTINCT_FROM NULL
+        | MAP (_.A AS A)
+    task_count: 230
+    task_total_time_ms: 4
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select a from tDoubleVector where null is not distinct from b
+    explain: SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.B NOT_DISTINCT_FROM NULL
+        | MAP (_.A AS A)
+    task_count: 230
+    task_total_time_ms: 13
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
