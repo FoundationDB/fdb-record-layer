@@ -405,6 +405,7 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Override
     @Nonnull
     public FDBRecordStore.Builder getStoreBuilder(final FDBRecordContext context, final RecordMetaData metaData) {
         return getStoreBuilder(context, metaData, path, formatVersion);
