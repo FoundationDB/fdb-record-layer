@@ -55,6 +55,8 @@ import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -332,6 +334,100 @@ class FDBDatabaseTest {
             context.commit();
         }
         assertEquals(2, counter.get());
+    }
+
+    @Test
+    void testPostCloseHookCalled() {
+        final FDBDatabase database = dbExtension.getDatabase();
+        final Set<String> called = new HashSet<>();
+
+        try (FDBRecordContext context = database.openContext()) {
+            context.addPostCloseHook("foo", () -> CompletableFuture.runAsync(() -> called.add("foo")));
+            context.addPostCloseHook("bar", () -> CompletableFuture.runAsync(() -> called.add("bar")));
+        }
+        assertEquals(Set.of("foo", "bar"), called);
+    }
+
+    @Test
+    void testPostCloseAndPostCommitHookCalled() {
+        final FDBDatabase database = dbExtension.getDatabase();
+        final Set<String> called = new HashSet<>();
+
+        try (FDBRecordContext context = database.openContext()) {
+            context.addPostCommit("commit-foo", () -> CompletableFuture.runAsync(() -> called.add("commit-foo")));
+            context.addPostCommit("commit-bar", () -> CompletableFuture.runAsync(() -> called.add("commit-bar")));
+            context.addPostCloseHook("close-foo", () -> CompletableFuture.runAsync(() -> called.add("close-foo")));
+            context.addPostCloseHook("close-bar", () -> CompletableFuture.runAsync(() -> called.add("close-bar")));
+            context.commit();
+        }
+        assertEquals(Set.of("commit-foo", "commit-bar", "close-foo", "close-bar"), called);
+    }
+
+    @Test
+    void testPostCommitNotCalled() {
+        final FDBDatabase database = dbExtension.getDatabase();
+        final Set<String> called = new HashSet<>();
+
+        try (FDBRecordContext context = database.openContext()) {
+            context.addPostCommit("commit-foo", () -> CompletableFuture.runAsync(() -> called.add("commit-foo")));
+            context.addPostCommit("commit-bar", () -> CompletableFuture.runAsync(() -> called.add("commit-bar")));
+            context.addPostCloseHook("close-foo", () -> CompletableFuture.runAsync(() -> called.add("close-foo")));
+            context.addPostCloseHook("close-bar", () -> CompletableFuture.runAsync(() -> called.add("close-bar")));
+            // Note no commit for the context
+        }
+        assertEquals(Set.of("close-foo", "close-bar"), called);
+    }
+
+    @Test
+    void testPostCommitSameNameFails() {
+        final FDBDatabase database = dbExtension.getDatabase();
+        final Set<String> called = new HashSet<>();
+
+        try (FDBRecordContext context = database.openContext()) {
+            context.addPostCloseHook("close-foo", () -> CompletableFuture.runAsync(() -> called.add("close-foo")));
+            assertThrows(RecordCoreArgumentException.class,
+                    () -> context.addPostCloseHook("close-foo", () -> CompletableFuture.runAsync(() -> called.add("close-foo-not-added"))));
+        }
+        assertEquals(Set.of("close-foo"), called);
+    }
+
+    @Test
+    void testPostCommitHookFails() {
+        // In this test, the execution of the hook fails, but since all hook results (futures) are in, they are all
+        // waited for, so the result contains all executed hooks
+        final FDBDatabase database = dbExtension.getDatabase();
+        final Set<String> called = new HashSet<>();
+
+        try (FDBRecordContext context = database.openContext()) {
+            context.addPostCloseHook("foo", () -> CompletableFuture.runAsync(() -> called.add("foo")));
+            context.addPostCloseHook("close-fails", () -> CompletableFuture.failedFuture(new RuntimeException("Blah")));
+            context.addPostCloseHook("bar", () -> CompletableFuture.runAsync(() -> called.add("bar")));
+
+            assertThrows(RuntimeException.class, context::close);
+        }
+        assertEquals(Set.of("foo", "bar"), called);
+    }
+
+    @Test
+    void testPostCommitHookFailsToCreate() {
+        // in this test, the creation of the future for the hook fails, so the chain of hooks is interrupted
+        // and only some are invoked
+        final FDBDatabase database = dbExtension.getDatabase();
+        final Set<String> called = new HashSet<>();
+
+        FDBRecordContext context = database.openContext();
+
+        context.addPostCloseHook("foo", () -> CompletableFuture.runAsync(() -> called.add("foo")));
+        context.addPostCloseHook("close-fails", () -> {
+            throw new RuntimeException("Blah");
+        } );
+        context.addPostCloseHook("bar", () -> CompletableFuture.runAsync(() -> called.add("bar")));
+
+        // Context now fails to close
+        assertThrows(RuntimeException.class, context::close);
+
+        // only some of the hooks got invoked
+        assertEquals(Set.of("foo"), called);
     }
 
     private long getReadVersionInRetryLoop(FDBDatabase database, Long minVersion, Long stalenessBoundMillis, boolean async) throws InterruptedException, ExecutionException {

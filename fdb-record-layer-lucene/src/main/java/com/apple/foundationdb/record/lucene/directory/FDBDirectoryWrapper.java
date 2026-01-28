@@ -516,6 +516,16 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         }
     }
 
+    /**
+     * Close the wrapper in case the transaction was not committed.
+     * This method would close resources that are needed to be closed when the overall transaction did not commit.
+     */
+    public void closeWithoutCommit() throws IOException {
+        // Roll back the readOnlyAgilityContext, which would close the transaction
+        replayedQueueContext.close();
+        // No need to close any of the other objects (writer, directory), since their data is all in memory
+    }
+
     @VisibleForTesting
     public Queue<LazyCloseable<DirectoryReader>> getReadersToClose() {
         return readersToClose;
