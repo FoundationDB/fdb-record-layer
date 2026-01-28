@@ -20,15 +20,21 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
-import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
+import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
-import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
+import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
+import com.apple.foundationdb.record.lucene.LuceneIndexMaintainerHelper;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
@@ -37,16 +43,19 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.SortedDocValuesField;
+import org.apache.lucene.document.StoredField;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -71,8 +80,19 @@ import java.util.concurrent.CompletableFuture;
  * <p>The key of each K/V queue entry will be a versionStamp to ensure uniqueness and ordering of the queue entries, which
  * should allow for conflict free insertion and removal of items. The value of the K/V will be an instance of PendingWriteItem proto.</p>
  */
+@API(API.Status.INTERNAL)
 public class PendingWriteQueue {
+    public static final int MAX_PENDING_ENTRIES_TO_REPLAY = 0;
+
     private static final Logger LOGGER = LoggerFactory.getLogger(PendingWriteQueue.class);
+
+    /**
+     * The maximum number of queue entries to replay into an {@link IndexWriter}.
+     * In case the queue has more than that number of entries, then a replay attempt will fail. This is meant as a
+     * protection against a query attempt taking too long to replay a huge number of elements.
+     * Default: 0 (unlimited)
+     */
+    private int maxEntriesToReplay;
 
     private final Subspace queueSubspace;
 
@@ -83,7 +103,12 @@ public class PendingWriteQueue {
      * as necessary
      */
     public PendingWriteQueue(@Nonnull Subspace queueSubspace) {
+        this(queueSubspace, MAX_PENDING_ENTRIES_TO_REPLAY);
+    }
+
+    public PendingWriteQueue(@Nonnull Subspace queueSubspace, int maxEntriesToReplay) {
         this.queueSubspace = queueSubspace;
+        this.maxEntriesToReplay = maxEntriesToReplay;
     }
 
     /**
@@ -101,25 +126,6 @@ public class PendingWriteQueue {
         enqueueOperationInternal(
                 context,
                 LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
-                primaryKey,
-                fields);
-    }
-
-    /**
-     * Enqueue an UPDATE operation.
-     *
-     * @param context the record context to use for the operation
-     * @param primaryKey the record's primary key
-     * @param fields the new document fields to index
-     */
-    public void enqueueUpdate(
-            @Nonnull FDBRecordContext context,
-            @Nonnull Tuple primaryKey,
-            @Nonnull List<LuceneDocumentFromRecord.DocumentField> fields) {
-
-        enqueueOperationInternal(
-                context,
-                LucenePendingWriteQueueProto.PendingWriteItem.OperationType.UPDATE,
                 primaryKey,
                 fields);
     }
@@ -161,7 +167,7 @@ public class PendingWriteQueue {
                 .setScanProperties(scanProperties)
                 .setContinuation(continuation)
                 .build();
-        return cursor.map(this::toQueueEntry);
+        return cursor.map(kv -> PendingWritesQueueHelper.toQueueEntry(queueSubspace, kv));
     }
 
     /**
@@ -184,8 +190,11 @@ public class PendingWriteQueue {
 
         // Record metrics
         context.increment(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_CLEAR);
-    }
 
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Cleared queue entry");
+        }
+    }
 
     /**
      * Check if the pending write queue is empty.
@@ -203,15 +212,95 @@ public class PendingWriteQueue {
                 .thenApply(List::isEmpty);
     }
 
-    private QueueEntry toQueueEntry(final KeyValue kv) {
-        try {
-            Tuple keyTuple = queueSubspace.unpack(kv.getKey());
-            final Versionstamp versionstamp = keyTuple.getVersionstamp(0);
-            LucenePendingWriteQueueProto.PendingWriteItem item = LucenePendingWriteQueueProto.PendingWriteItem.parseFrom(kv.getValue());
-            return new QueueEntry(versionstamp, item);
-        } catch (InvalidProtocolBufferException e) {
-            throw new RecordCoreInternalException("Failed to parse queue item", e);
+    /**
+     * Replay all queued operations into the index.
+     * This should be called before executing a query to ensure queued writes are visible.
+     *
+     * @param indexWriter the index writer to write to
+     *
+     * @return CompletableFuture that completes when all operations have been replayed
+     */
+    @Nonnull
+    public CompletableFuture<Void> replayQueuedOperations(FDBRecordContext context, IndexWriter indexWriter) {
+        ScanProperties scanProperties = ScanProperties.FORWARD_SCAN;
+        if (maxEntriesToReplay > 0) {
+            // create a limit for the cursor
+            scanProperties = ExecuteProperties.newBuilder()
+                    .setReturnedRowLimit(maxEntriesToReplay)
+                    .build()
+                    .asScanProperties(false);
         }
+
+        // Create a cursor over the allowed number of items, with no continuation.
+        // There is no need to replay with a continuation as all the replayed items need to make it into the
+        // current writer in the given transaction to be queried
+        return getQueueCursor(context, scanProperties, null).forEachResult(entry -> {
+            replayOperation(entry.get(), indexWriter);
+        }).thenAccept(lastResult -> {
+            if (lastResult.getNoNextReason().equals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED)) {
+                // Reached the row limit
+                if (LOGGER.isErrorEnabled()) {
+                    LOGGER.error(KeyValueLogMessage.of("Too many entries to be replayed into IndexWriter",
+                            LuceneLogMessageKeys.MAX_ENTRIES_TO_REPLAY, maxEntriesToReplay));
+                }
+                throw new TooManyPendingWritesException("Too many entries to replay into IndexWriter");
+            }
+        });
+    }
+
+    /**
+     * Replay a single queued operation directly to the IndexWriter.
+     */
+    private void replayOperation(@Nonnull QueueEntry entry, @Nonnull IndexWriter indexWriter) {
+        LucenePendingWriteQueueProto.PendingWriteItem.OperationType opType = entry.getOperationType();
+
+        try {
+            switch (opType) {
+                case INSERT:
+                    handleInsertEntry(indexWriter, entry);
+                    break;
+
+                case DELETE:
+                    handleDeleteEntry(indexWriter, entry.getPrimaryKeyParsed());
+                    break;
+
+                case OPERATION_TYPE_UNSPECIFIED:
+                default:
+                    throw new RecordCoreInternalException("Unknown queue operation type", LuceneLogMessageKeys.OPERATION_TYPE, opType);
+            }
+
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Replayed {} operation", opType);
+            }
+        } catch (IOException ex) {
+            throw LuceneExceptions.toRecordCoreException("failed to replay message on writer", ex);
+        }
+    }
+
+    private void handleInsertEntry(final @Nonnull IndexWriter indexWriter, final @Nonnull QueueEntry entry) throws IOException {
+        // This is similar to LuceneIndexMaintainerHelper.writeDocument is done, but the PK references are not
+        // as sophisticated since this document is only going to be used with a Lucene query (no PK lookup)
+        Document document = new Document();
+        BytesRef ref = new BytesRef(entry.getPrimaryKey());
+        document.add(new StoredField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME, ref));
+        document.add(new SortedDocValuesField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, ref));
+
+        // Add document fields
+        List<LuceneDocumentFromRecord.DocumentField> fields = PendingWritesQueueHelper.fromProtoFields(entry.getDocumentFields());
+        for (LuceneDocumentFromRecord.DocumentField field : fields) {
+            LuceneIndexMaintainerHelper.insertField(field, document);
+        }
+
+        indexWriter.addDocument(document);
+    }
+
+    private void handleDeleteEntry(final @Nonnull IndexWriter indexWriter, final Tuple primaryKey) throws IOException {
+        // Use SortedDocValuesField query for deletion
+        // TODO: can we use the segment primary key index to delete the doc directly?
+        Query updateDeleteQuery = SortedDocValuesField.newSlowExactQuery(
+                LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME,
+                new BytesRef(primaryKey.pack()));
+        indexWriter.deleteDocuments(updateDeleteQuery);
     }
 
     private void enqueueOperationInternal(
@@ -230,7 +319,7 @@ public class PendingWriteQueue {
         // Add fields for INSERT and UPDATE operations
         if (fields != null && !fields.isEmpty()) {
             for (LuceneDocumentFromRecord.DocumentField field : fields) {
-                builder.addFields(toProtoField(field));
+                builder.addFields(PendingWritesQueueHelper.toProtoField(field));
             }
         }
 
@@ -257,64 +346,6 @@ public class PendingWriteQueue {
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Enqueued {} operation", operationType);
         }
-    }
-
-    /**
-     * Convert DocumentField to protobuf DocumentField.
-     */
-    private LucenePendingWriteQueueProto.DocumentField toProtoField(@Nonnull LuceneDocumentFromRecord.DocumentField field) {
-
-        LucenePendingWriteQueueProto.DocumentField.Builder builder =
-                LucenePendingWriteQueueProto.DocumentField.newBuilder()
-                        .setFieldName(field.getFieldName())
-                        .setStored(field.isStored())
-                        .setSorted(field.isSorted());
-
-        // Add field_configs map
-        for (Map.Entry<String, Object> entry : field.getFieldConfigs().entrySet()) {
-            LucenePendingWriteQueueProto.FieldConfigValue.Builder configBuilder =
-                    LucenePendingWriteQueueProto.FieldConfigValue.newBuilder();
-
-            Object configValue = entry.getValue();
-            if (configValue instanceof String) {
-                configBuilder.setStringValue((String)configValue);
-            } else if (configValue instanceof Boolean) {
-                configBuilder.setBooleanValue((Boolean)configValue);
-            } else if (configValue instanceof Integer) {
-                configBuilder.setIntValue((Integer)configValue);
-            } else {
-                throw new RecordCoreArgumentException("Unsupported field config type: " + configValue.getClass().getSimpleName() + " for field " + entry.getKey());
-            }
-
-            builder.putFieldConfigs(entry.getKey(), configBuilder.build());
-        }
-
-        // Set the appropriate value type based on field type
-        Object value = field.getValue();
-        switch (field.getType()) {
-            case TEXT:
-                builder.setTextValue((String)value);
-                break;
-            case STRING:
-                builder.setStringValue((String)value);
-                break;
-            case INT:
-                builder.setIntValue((Integer)value);
-                break;
-            case LONG:
-                builder.setLongValue((Long)value);
-                break;
-            case DOUBLE:
-                builder.setDoubleValue((Double)value);
-                break;
-            case BOOLEAN:
-                builder.setBooleanValue((Boolean)value);
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported field type: " + field.getType() + " for field " + field.getFieldName());
-        }
-
-        return builder.build();
     }
 
     /**
@@ -357,77 +388,14 @@ public class PendingWriteQueue {
         }
 
         public List<LuceneDocumentFromRecord.DocumentField> getDocumentFieldsParsed() {
-            return convertFromProtoFields(getDocumentFields());
+            return PendingWritesQueueHelper.convertFromProtoFields(getDocumentFields());
         }
+    }
 
-        /**
-         * Convert protobuf DocumentField list back to LuceneDocumentFromRecord.DocumentField list.
-         */
-        private static List<LuceneDocumentFromRecord.DocumentField> convertFromProtoFields(
-                @Nonnull List<LucenePendingWriteQueueProto.DocumentField> protoFields) {
-
-            List<LuceneDocumentFromRecord.DocumentField> fields = new ArrayList<>();
-            for (LucenePendingWriteQueueProto.DocumentField protoField : protoFields) {
-                String fieldName = protoField.getFieldName();
-                Object value;
-                LuceneIndexExpressions.DocumentFieldType fieldType;
-
-                // Determine the value and type based on which field is set
-                if (protoField.hasStringValue()) {
-                    value = protoField.getStringValue();
-                    fieldType = LuceneIndexExpressions.DocumentFieldType.STRING;
-                } else if (protoField.hasTextValue()) {
-                    value = protoField.getTextValue();
-                    fieldType = LuceneIndexExpressions.DocumentFieldType.TEXT;
-                } else if (protoField.hasIntValue()) {
-                    value = protoField.getIntValue();
-                    fieldType = LuceneIndexExpressions.DocumentFieldType.INT;
-                } else if (protoField.hasLongValue()) {
-                    value = protoField.getLongValue();
-                    fieldType = LuceneIndexExpressions.DocumentFieldType.LONG;
-                } else if (protoField.hasDoubleValue()) {
-                    value = protoField.getDoubleValue();
-                    fieldType = LuceneIndexExpressions.DocumentFieldType.DOUBLE;
-                } else if (protoField.hasBooleanValue()) {
-                    value = protoField.getBooleanValue();
-                    fieldType = LuceneIndexExpressions.DocumentFieldType.BOOLEAN;
-                } else {
-                    throw new IllegalStateException("DocumentField has no value set: " + fieldName);
-                }
-
-                // Convert field_configs from proto map to Map<String, Object>
-                Map<String, Object> fieldConfigs = new HashMap<>();
-                if (protoField.getFieldConfigsCount() > 0) {
-                    for (Map.Entry<String, LucenePendingWriteQueueProto.FieldConfigValue> entry : protoField.getFieldConfigsMap().entrySet()) {
-                        Object configValue;
-                        LucenePendingWriteQueueProto.FieldConfigValue protoConfigValue = entry.getValue();
-                        switch (protoConfigValue.getValueCase()) {
-                            case STRING_VALUE:
-                                configValue = protoConfigValue.getStringValue();
-                                break;
-                            case BOOLEAN_VALUE:
-                                configValue = protoConfigValue.getBooleanValue();
-                                break;
-                            case INT_VALUE:
-                                configValue = protoConfigValue.getIntValue();
-                                break;
-                            case VALUE_NOT_SET:
-                            default:
-                                throw new IllegalStateException("FieldConfigValue has no value set for key: " + entry.getKey());
-                        }
-                        fieldConfigs.put(entry.getKey(), configValue);
-                    }
-                }
-
-                // Create DocumentField with stored, sorted, and field_configs from proto
-                boolean stored = protoField.getStored();
-                boolean sorted = protoField.getSorted();
-                LuceneDocumentFromRecord.DocumentField field =
-                        new LuceneDocumentFromRecord.DocumentField(fieldName, value, fieldType, stored, sorted, fieldConfigs);
-                fields.add(field);
-            }
-
-            return fields;
+    @SuppressWarnings("serial")
+    public static class TooManyPendingWritesException extends RecordCoreException {
+        protected TooManyPendingWritesException(final String message) {
+            super(message);
         }
     }
 }

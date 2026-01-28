@@ -473,7 +473,9 @@ public class FDBStoreTimer extends StoreTimer {
         /** Wait to perform validation of resolver reverse directory mapping. */
         WAIT_VALIDATE_RESOLVER("wait validating resolver"),
         /** wait to load partition metadata for one or more grouping key. */
-        WAIT_LOAD_LUCENE_PARTITION_METADATA("wait to load lucene partition metadata")
+        WAIT_LOAD_LUCENE_PARTITION_METADATA("wait to load lucene partition metadata"),
+        /** Wait to run all the postClose hooks. */
+        WAIT_RUN_CLOSE_HOOKS("Wait to run all postClose hooks"),
         ;
 
         private final String title;
