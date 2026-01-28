@@ -1007,6 +1007,18 @@ public class FDBDirectory extends Directory  {
     }
 
     /**
+     * Checks if the pending write queue should be used.
+     * @return future true if queue should be used
+     */
+    public CompletableFuture<Boolean> shouldUseQueueAsync() {
+        if (!getBooleanIndexOption(LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, false)) {
+            return AsyncUtil.READY_FALSE;
+        }
+        return agilityContext.get(ongoingMergeSubspace.pack())
+                .thenApply(tupleBytes -> tupleBytes != null && !Tuple.fromBytes(tupleBytes).isEmpty());
+    }
+
+    /**
      * Sets the ongoing merge indicator.
      */
     public void setOngoingMergeIndicator() {

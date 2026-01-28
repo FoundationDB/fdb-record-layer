@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -165,7 +164,6 @@ public class LuceneRepartitionPlanner {
     /**
      * Convenience collection of data needed for repartitioning.
      */
-    @VisibleForTesting
     public static class RepartitioningContext {
         @Nonnull Tuple groupingKey;
         @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo sourcePartition;
