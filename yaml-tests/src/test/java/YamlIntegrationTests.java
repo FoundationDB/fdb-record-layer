@@ -393,4 +393,9 @@ public class YamlIntegrationTests {
     public void viewsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("views.yamsql");
     }
+
+    @TestTemplate
+    public void testTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("debug2.yamsql");
+    }
 }

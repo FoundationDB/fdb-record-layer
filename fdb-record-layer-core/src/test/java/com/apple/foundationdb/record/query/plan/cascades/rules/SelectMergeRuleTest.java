@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
@@ -37,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -597,19 +597,9 @@ class SelectMergeRuleTest {
      *        (SELECT alpha, beta, gamma, delta FROM tau WHERE beta > x.b) y
      * }</pre>
      * <p>
-     * Note that the predicate {@code beta > x.b} makes a reference to the other leg of the join,
-     * so we can't merge the left leg of the join into the parent select without rewriting the
-     * right hand side. So, in this case, we end up merging just the right hand side:
-     * </p>
-     * <pre>{@code
-     * SELECT x.c, tau.gamma
-     *   FROM (SELECT b, c, d FROM t WHERE a = 42) x,
-     *        tau
-     *   WHERE tau.beta > x.b
-     * }</pre>
-     * <p>
-     * Now that the reference to {@code x} is pushed up to be within the select instead of down some
-     * tree, we <em>can</em> actually pull up the left hand side:
+     * Note that the predicate {@code beta > x.b} makes a reference to the other leg of the join.
+     * So, in this case, the logic works by merging the independent leg and then consequently rewriting the dependant
+     * leg and merge that. We get the following in a single step:
      * </p>
      * <pre>{@code
      * SELECT t.c, tau.gamma
@@ -635,14 +625,6 @@ class SelectMergeRuleTest {
                 .addResultColumn(projectColumn(rightQun, "gamma"))
                 .build().buildSelect();
 
-        final SelectExpression rightMerged = join(leftQun, tauQun)
-                .addResultColumn(projectColumn(leftQun, "c"))
-                .addResultColumn(projectColumn(tauQun, "gamma"))
-                .addPredicate(fieldPredicate(tauQun, "beta", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(leftQun, "b"))))
-                .build().buildSelect();
-
-        testHelper.assertYields(joined, rightMerged);
-
         final SelectExpression bothMerged = join(tQun, tauQun)
                 .addResultColumn(projectColumn(tQun, "c"))
                 .addResultColumn(projectColumn(tauQun, "gamma"))
@@ -650,14 +632,13 @@ class SelectMergeRuleTest {
                 .addPredicate(fieldPredicate(tauQun, "beta", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(tQun, "b"))))
                 .build().buildSelect();
 
-        testHelper.assertYields(rightMerged, bothMerged);
+        testHelper.assertYields(joined, bothMerged);
     }
 
     /**
-     * Similar to {@link #mergeWithCorrelationsBetweenSiblings()}, but in this case, no merging is possible.
-     * Here, we in a position where one child cannot be merged in because it is being referenced by
-     * another child, but the other child can't be merged in because it has a {@link LogicalDistinctExpression}
-     * getting in the way. That leads to no selection merging.
+     * Similar to {@link #mergeWithCorrelationsBetweenSiblings()}, but in this case, the dependant leg cannot be
+     * merged, being a {@link LogicalDistinctExpression}. Hence, the independent leg is merged and the dependant leg
+     * is appropriately rewritten.
      */
     @Test
     void cannotMergeDueToCorrelationsBetweenSiblings() {
@@ -680,17 +661,27 @@ class SelectMergeRuleTest {
                 .addResultColumn(projectColumn(rightQun, "gamma"))
                 .build().buildSelect();
 
-        testHelper.assertYieldsNothing(joined, true);
+        final Quantifier rebasedRightQun = forEach(new LogicalDistinctExpression(
+                forEach(selectWithPredicates(tauQun,
+                        ImmutableList.of("alpha", "beta", "gamma", "delta"),
+                        fieldPredicate(tauQun, "beta", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(tQun, "b")))
+                ))
+        ));
+
+        final SelectExpression expected = join(tQun, rebasedRightQun)
+                .addResultColumn(projectColumn(tQun, "c"))
+                .addResultColumn(projectColumn(rebasedRightQun, "gamma"))
+                .addPredicate(fieldPredicate(tQun, "a", EQUALS_42))
+                .build().buildSelect();
+
+        testHelper.assertYields(joined, expected);
     }
 
     /**
      * Validate a rather complicated join merges up values as referencing correlations are merged up.
      * In particular, we begin with a complicated tree of joins with correlations between the legs.
-     * At each step, the running the {@link SelectMergeRule} will choose a set of quantifiers that
-     * are not referenced by the other legs and merge it in to the top-level select. When it does
-     * so, some of the correlations become references to sibling quantifiers which can then be rewritten
-     * by merging additional values in. In so doing, we eventually collapse the tree into a single
-     * eight-way join.
+     * At each step, running the {@link SelectMergeRule} will work with all the quantifiers and merge
+     * their select expressions in to the top-level select.
      */
     @Test
     void shaveOffConnectedComponents() {
@@ -798,126 +789,39 @@ class SelectMergeRuleTest {
                 .addResultColumn(projectColumn(mixed4, "alpha4"))
                 .build().buildSelect();
 
-        // First step: merge in mixed4 as that is correlated to l2 and lambda1
+        // First step: All the 3 direct child select expressions are merged. They do have dependencies among themselves
+        // that are resolved and sub graphs are accordingly rebased. The resultant top level select now sources from
+        // the 7 quantifiers of the child expressions.
 
-        final SelectExpression mergeMixed4 = join(l2, lambda1, s4, sigma4)
-                .addResultColumn(projectColumn(l2, "a1"))
-                .addResultColumn(projectColumn(l2, "a2"))
-                .addResultColumn(projectColumn(l2, "a3"))
-                .addResultColumn(column(s4, "a", "a4"))
-                .addResultColumn(projectColumn(lambda1, "alpha1"))
-                .addResultColumn(projectColumn(lambda1, "alpha2"))
-                .addResultColumn(projectColumn(lambda1, "alpha3"))
-                .addResultColumn(column(sigma4, "alpha", "alpha4"))
-                .addPredicate(fieldPredicate(s4, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(sigma4, "alpha"))))
-                .build().buildSelect();
-        testHelper.assertYields(topJoin, mergeMixed4);
+        final Quantifier rebasedS4 = forEach(selectWithPredicates(t4,
+                fieldPredicate(t4, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov1)),
+                fieldPredicate(t4, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(s3, "c")))));
 
-        // Second step: merge up sigma 4
+        final Quantifier rebasedSigma4 = forEach(selectWithPredicates(tau4,
+                fieldPredicate(tau4, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov2)),
+                fieldPredicate(tau4, "gamma", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(rebasedS4, "c"))),
+                fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(sigma1, "alpha"))),
+                fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(sigma2, "alpha"))),
+                fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(sigma3, "alpha")))));
 
-        final SelectExpression mergeSigma4 = join(l2, lambda1, s4, tau4)
-                .addResultColumn(projectColumn(l2, "a1"))
-                .addResultColumn(projectColumn(l2, "a2"))
-                .addResultColumn(projectColumn(l2, "a3"))
-                .addResultColumn(column(s4, "a", "a4"))
-                .addResultColumn(projectColumn(lambda1, "alpha1"))
-                .addResultColumn(projectColumn(lambda1, "alpha2"))
-                .addResultColumn(projectColumn(lambda1, "alpha3"))
-                .addResultColumn(column(tau4, "alpha", "alpha4"))
-                .addPredicate(fieldPredicate(tau4, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov2)))
-                .addPredicate(fieldPredicate(tau4, "gamma", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(s4, "c"))))
-                .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(lambda1, "alpha1"))))
-                .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(lambda1, "alpha2"))))
-                .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(lambda1, "alpha3"))))
-                .addPredicate(fieldPredicate(s4, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tau4, "alpha"))))
-                .build().buildSelect();
-        testHelper.assertYields(mergeMixed4, mergeSigma4);
-
-        // Third step: merge up lambda1 and s4
-
-        final SelectExpression mergeLambda1S4 = join(l2, sigma1, sigma2, sigma3, t4, tau4)
-                .addResultColumn(projectColumn(l2, "a1"))
-                .addResultColumn(projectColumn(l2, "a2"))
-                .addResultColumn(projectColumn(l2, "a3"))
-                .addResultColumn(column(t4, "a", "a4"))
+        final SelectExpression firstMerge  = join(l1, s3, sigma1, sigma2, sigma3, rebasedS4, rebasedSigma4)
+                .addResultColumn(column(l1, "a1", "a1"))
+                .addResultColumn(column(l1, "a2", "a2"))
+                .addResultColumn(column(s3, "a", "a3"))
+                .addResultColumn(column(rebasedS4, "a", "a4"))
                 .addResultColumn(column(sigma1, "alpha", "alpha1"))
                 .addResultColumn(column(sigma2, "alpha", "alpha2"))
                 .addResultColumn(column(sigma3, "alpha", "alpha3"))
-                .addResultColumn(column(tau4, "alpha", "alpha4"))
-                .addPredicate(fieldPredicate(t4, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov1)))
-                .addPredicate(fieldPredicate(t4, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(l2, "c123"))))
-                .addPredicate(fieldPredicate(tau4, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov2)))
-                .addPredicate(fieldPredicate(tau4, "gamma", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(t4, "c"))))
-                .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(sigma1, "alpha"))))
-                .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(sigma2, "alpha"))))
-                .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(sigma3, "alpha"))))
-                .addPredicate(fieldPredicate(t4, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tau4, "alpha"))))
-                .build().buildSelect();
-        testHelper.assertYields(mergeSigma4, mergeLambda1S4);
-
-        // Fourth step: merge up l2, sigma1, and sigma3
-
-        final SelectExpression mergeL2Sigma1Sigma3 = join(l1, s3, tau1, sigma2, tau3, t4, tau4)
-                .addResultColumn(projectColumn(l1, "a1"))
-                .addResultColumn(projectColumn(l1, "a2"))
-                .addResultColumn(column(s3, "a", "a3"))
-                .addResultColumn(column(t4, "a", "a4"))
-                .addResultColumn(column(tau1, "alpha", "alpha1"))
-                .addResultColumn(column(sigma2, "alpha", "alpha2"))
-                .addResultColumn(column(tau3, "alpha", "alpha3"))
-                .addResultColumn(column(tau4, "alpha", "alpha4"))
+                .addResultColumn(column(rebasedSigma4, "alpha", "alpha4"))
                 .addPredicate(fieldPredicate(l1, "d1", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(l1, "d2"))))
-                .addPredicate(fieldPredicate(tau1, "alpha", EQUALS_42))
-                .addPredicate(fieldPredicate(tau1, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(sigma2, "delta"))))
-                .addPredicate(fieldPredicate(tau3, "alpha", new Comparisons.NullComparison(Comparisons.Type.IS_NULL)))
-                .addPredicate(fieldPredicate(sigma2, "gamma", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(tau3, "gamma"))))
-                .addPredicate(fieldPredicate(t4, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov1)))
-                .addPredicate(fieldPredicate(t4, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(s3, "c"))))
-                .addPredicate(fieldPredicate(tau4, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov2)))
-                .addPredicate(fieldPredicate(tau4, "gamma", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(t4, "c"))))
-                .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(tau1, "alpha"))))
-                .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(sigma2, "alpha"))))
-                .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(tau3, "alpha"))))
-                .addPredicate(fieldPredicate(t4, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tau4, "alpha"))))
+                .addPredicate(fieldPredicate(rebasedS4, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(rebasedSigma4, "alpha"))))
                 .build().buildSelect();
-        testHelper.assertYields(mergeLambda1S4, mergeL2Sigma1Sigma3);
+        testHelper.assertYields(topJoin, firstMerge);
 
-        // Fifth step: merge up l1 and sigma2
+        // Final step: In this step, all now 8 direct child select expressions are merged. These, too, have dependencies
+        // among themselves that are resolved and the enumeration order of quantifiers follow the dependency map.
 
-        final SelectExpression mergeL1Sigma2 = join(t1, t2, s3, tau1, tau2, tau3, t4, tau4)
-                .addResultColumn(column(t1, "a", "a1"))
-                .addResultColumn(column(t2, "a", "a2"))
-                .addResultColumn(column(s3, "a", "a3"))
-                .addResultColumn(column(t4, "a", "a4"))
-                .addResultColumn(column(tau1, "alpha", "alpha1"))
-                .addResultColumn(column(tau2, "alpha", "alpha2"))
-                .addResultColumn(column(tau3, "alpha", "alpha3"))
-                .addResultColumn(column(tau4, "alpha", "alpha4"))
-                .addPredicate(fieldPredicate(t1, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t2, "a"))))
-                .addPredicate(fieldPredicate(t1, "b", EQUALS_PARAM))
-                .addPredicate(fieldPredicate(t2, "b", EQUALS_PARAM))
-                .addPredicate(fieldPredicate(t1, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(s3, "c"))))
-                .addPredicate(fieldPredicate(t2, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(s3, "c"))))
-                .addPredicate(fieldPredicate(tau2, "beta", EQUALS_PARAM))
-                .addPredicate(fieldPredicate(t1, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t2, "d"))))
-                .addPredicate(fieldPredicate(tau1, "alpha", EQUALS_42))
-                .addPredicate(fieldPredicate(tau1, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tau2, "delta"))))
-                .addPredicate(fieldPredicate(tau3, "alpha", new Comparisons.NullComparison(Comparisons.Type.IS_NULL)))
-                .addPredicate(fieldPredicate(tau2, "gamma", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(tau3, "gamma"))))
-                .addPredicate(fieldPredicate(t4, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov1)))
-                .addPredicate(fieldPredicate(t4, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(s3, "c"))))
-                .addPredicate(fieldPredicate(tau4, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov2)))
-                .addPredicate(fieldPredicate(tau4, "gamma", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(t4, "c"))))
-                .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(tau1, "alpha"))))
-                .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(tau2, "alpha"))))
-                .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(tau3, "alpha"))))
-                .addPredicate(fieldPredicate(t4, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tau4, "alpha"))))
-                .build().buildSelect();
-        testHelper.assertYields(mergeL2Sigma1Sigma3, mergeL1Sigma2);
-
-        // Sixth step: merge up s3
-
-        final SelectExpression mergeS3 = join(t1, t2, t3, tau1, tau2, tau3, t4, tau4)
+        final SelectExpression finalMerge  = join(t3, t1, t2, t4, tau2, tau1, tau3, tau4)
                 .addResultColumn(column(t1, "a", "a1"))
                 .addResultColumn(column(t2, "a", "a2"))
                 .addResultColumn(column(t3, "a", "a3"))
@@ -932,26 +836,25 @@ class SelectMergeRuleTest {
                 .addPredicate(fieldPredicate(t2, "b", EQUALS_PARAM))
                 .addPredicate(fieldPredicate(t1, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t3, "c"))))
                 .addPredicate(fieldPredicate(t2, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t3, "c"))))
+                .addPredicate(fieldPredicate(t4, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov1)))
+                .addPredicate(fieldPredicate(t4, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t3, "c"))))
                 .addPredicate(fieldPredicate(tau2, "beta", EQUALS_PARAM))
-                .addPredicate(fieldPredicate(t1, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t2, "d"))))
                 .addPredicate(fieldPredicate(tau1, "alpha", EQUALS_42))
                 .addPredicate(fieldPredicate(tau1, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tau2, "delta"))))
                 .addPredicate(fieldPredicate(tau3, "alpha", new Comparisons.NullComparison(Comparisons.Type.IS_NULL)))
                 .addPredicate(fieldPredicate(tau2, "gamma", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(tau3, "gamma"))))
-                .addPredicate(fieldPredicate(t4, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov1)))
-                .addPredicate(fieldPredicate(t4, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t3, "c"))))
                 .addPredicate(fieldPredicate(tau4, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov2)))
                 .addPredicate(fieldPredicate(tau4, "gamma", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(t4, "c"))))
                 .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(tau1, "alpha"))))
                 .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(tau2, "alpha"))))
                 .addPredicate(fieldPredicate(tau4, "alpha", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(tau3, "alpha"))))
+                .addPredicate(fieldPredicate(t1, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t2, "d"))))
                 .addPredicate(fieldPredicate(t4, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tau4, "alpha"))))
                 .build().buildSelect();
-        testHelper.assertYields(mergeL1Sigma2, mergeS3);
+        testHelper.assertYields(firstMerge, finalMerge);
 
-        // Validate: last form is final
-
-        testHelper.assertYieldsNothing(mergeS3, true);
+        // No more merges!
+        testHelper.assertYieldsNothing(finalMerge, true);
     }
 
     /**

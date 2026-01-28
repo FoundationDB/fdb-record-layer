@@ -162,7 +162,7 @@ public class RuleTestHelper {
             // here for exploration rules as they attempt to share sub graphs which would then make the verification
             // of the result of the rule difficult.
             //
-            preExploreForRule(copiedOriginal, false);
+            preExploreForRule(copiedOriginal, true);
         }
         Reference ref = Reference.ofExploratoryExpression(PlannerStage.CANONICAL, copiedOriginal);
         PlanContext planContext = new FakePlanContext();
