@@ -22,6 +22,11 @@ package com.apple.foundationdb.relational.utils;
 
 import java.sql.SQLException;
 
+/**
+ * A supplier of objects that may throw {@link SQLException}, otherwise
+ * the same as {@link java.util.function.Supplier}.
+ * @param <T> the type of object to be returned by {@link #get()}
+ */
 @FunctionalInterface
 public interface SqlSupplier<T> {
 

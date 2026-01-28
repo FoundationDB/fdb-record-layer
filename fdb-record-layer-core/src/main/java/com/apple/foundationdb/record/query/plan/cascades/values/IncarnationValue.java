@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
@@ -48,7 +49,7 @@ import java.util.function.Supplier;
  * A value representing the incarnation number from the record store.
  */
 @API(API.Status.EXPERIMENTAL)
-public class IncarnationValue extends AbstractValue {
+public class IncarnationValue extends AbstractValue implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Incarnation-Value");
 
     public IncarnationValue() {
@@ -80,6 +81,12 @@ public class IncarnationValue extends AbstractValue {
     @Override
     public IncarnationValue withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
         // No children, so just return this
+        return this;
+    }
+
+    @Nonnull
+    @Override
+    public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
         return this;
     }
 

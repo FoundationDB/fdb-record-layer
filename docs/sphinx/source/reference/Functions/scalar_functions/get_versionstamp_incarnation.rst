@@ -19,6 +19,8 @@ Syntax
 Parameters
 ==========
 
+*This function does not take any parameters*
+
 
 Returns
 =======
