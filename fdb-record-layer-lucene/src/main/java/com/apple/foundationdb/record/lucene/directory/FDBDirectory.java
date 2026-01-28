@@ -999,11 +999,8 @@ public class FDBDirectory extends Directory  {
         if (!getBooleanIndexOption(LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, false)) {
             return false;
         }
-        final byte[] tupleBytes = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_ONGOING_MERGE_INDICATOR,
-                agilityContext.get(ongoingMergeSubspace.pack()));
-
-        // return true if the tuple exists, and not empty
-        return tupleBytes != null && !Tuple.fromBytes(tupleBytes).isEmpty();
+        return Boolean.TRUE.equals(asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_ONGOING_MERGE_INDICATOR,
+                shouldUseQueueAsync()));
     }
 
     /**
