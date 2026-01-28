@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
