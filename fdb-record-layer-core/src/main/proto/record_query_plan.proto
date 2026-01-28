@@ -439,8 +439,9 @@ message PDistanceValue {
   enum PDistanceOperator {
     EUCLIDEAN_DISTANCE = 1;
     EUCLIDEAN_SQUARE_DISTANCE = 2;
-    COSINE_DISTANCE = 3;
-    DOT_PRODUCT_DISTANCE = 4;
+    // 3 was reserved for a deprecated and removed operator, do not use this number.
+    COSINE_DISTANCE = 4;
+    DOT_PRODUCT_DISTANCE = 5;
   }
 
   optional PDistanceOperator operator = 1;

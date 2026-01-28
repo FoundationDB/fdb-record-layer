@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PRowNumberValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
@@ -350,16 +351,21 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
         distanceRankComparison = new Comparisons.DistanceRankValueComparison(distanceRankComparisonType, queryVector,
                 comparand, efSearch, isReturningVectors);
         final WindowedValue windowedValue;
-        if (operator == EUCLIDEAN_DISTANCE) {
-            windowedValue = new EuclideanDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
-        } else if (operator == EUCLIDEAN_SQUARE_DISTANCE) {
-            windowedValue = new EuclideanSquareDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
-        } else if (operator == COSINE_DISTANCE) {
-            windowedValue = new CosineDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
-        } else if (operator == DOT_PRODUCT_DISTANCE) {
-            windowedValue = new DotProductDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
-        } else {
-            return Optional.empty();
+        switch (operator) {
+            case EUCLIDEAN_DISTANCE:
+                windowedValue = new EuclideanDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
+                break;
+            case EUCLIDEAN_SQUARE_DISTANCE:
+                windowedValue = new EuclideanSquareDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
+                break;
+            case COSINE_DISTANCE:
+                windowedValue = new CosineDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
+                break;
+            case DOT_PRODUCT_DISTANCE:
+                windowedValue = new DotProductDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
+                break;
+            default:
+                throw new RecordCoreException("unexpected distance function " + operator.name());
         }
         return Optional.of(new ValuePredicate(windowedValue, distanceRankComparison));
     }

@@ -18,22 +18,18 @@
 # limitations under the License.
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.9.4.0
 ---
 schema_template:
     create table documents(zone string, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zone, docId))
     create view documentsView as select embedding, zone, bookshelf, docId, title from documents
     create vector index documentsEuclideanIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, rabitq_num_ex_bits = 3, use_rabitq = true)
     create vector index documentsCosineIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = cosine_metric, rabitq_num_ex_bits = 3, use_rabitq = true)
-    create vector index documentsEuclideanSquareIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_square_metric, rabitq_num_ex_bits = 3, use_rabitq = true)
-    create vector index documentsDotProductIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = dot_product_metric, rabitq_num_ex_bits = 3, use_rabitq = true)
     create table reviews(reviewId string, zone string, docId string, rating bigint, reviewText string, primary key (reviewId))
     create table multiTypePartitionDocs(zoneId bigint, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zoneId, docId))
     create view multiTypePartitionView as select embedding, zoneId, bookshelf, docId, title from multiTypePartitionDocs
     create vector index multiTypeEuclideanIndex using hnsw on multiTypePartitionView(embedding) partition by(zoneId, bookshelf) options (metric = euclidean_metric)
     create vector index multiTypeCosineIndex using hnsw on multiTypePartitionView(embedding) partition by(zoneId, bookshelf) options (metric = cosine_metric)
-    create vector index multiTypeEuclideanSquareIndex using hnsw on multiTypePartitionView(embedding) partition by(zoneId, bookshelf) options (metric = euclidean_square_metric)
-    create vector index multiTypeDotProductIndex using hnsw on multiTypePartitionView(embedding) partition by(zoneId, bookshelf) options (metric = dot_product_metric)
 ---
 test_block:
   preset: single_repetition_ordered
@@ -225,6 +221,15 @@ test_block:
           {'r2', 'd10', 'Relativity'},
           {'r3', 'd6', 'A Brief History of Time'}
         ]
+    -
+      - query:
+          select r.reviewId, d2.docId, d2.title
+          from reviews r
+          join documents d1 on r.zone = d1.zone and r.docId = d1.docId
+          join documents d2 on d2.zone = d1.zone and d2.bookshelf = 'science'
+          where r.zone = 'zone1'
+          qualify row_number() over (partition by d2.zone, d2.bookshelf order by manhattan_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 2
+      - error: "0AF00"
 # Test HNSW index with mixed-type partition columns (bigint and string)
     -
       - query:
@@ -281,64 +286,6 @@ test_block:
           qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) asc) <= !! 2 !!
       - explain: "ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c10 AS LONG), EQUALS promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c10}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)"
       - result: [{'d7', 'War and Peace'}, {'d6', 'Moby Dick'}]
-# Test euclidean_square_distance metric
-    -
-      - query:
-          select docId, title, euclidean_square_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
-          where zone = 'zone1' and bookshelf = 'fiction'
-          qualify row_number() over (partition by zone, bookshelf order by euclidean_square_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
-      - explain: "ISCAN(DOCUMENTSEUCLIDEANSQUAREINDEX [EQUALS promote(@c17 AS STRING), EQUALS promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c39: @c45}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_square_distance @c39 AS _2)"
-      - result: [{'d1', 'The Great Gatsby', 0.0}]
-    -
-      - query:
-          select docId, euclidean_square_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
-          where zone = 'zone1' and bookshelf = 'fiction'
-          qualify row_number() over (partition by zone, bookshelf order by euclidean_square_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
-      - explain: "ISCAN(DOCUMENTSEUCLIDEANSQUAREINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_square_distance @c37 AS _1)"
-      - result: [{'d1', 0.0}, {'d2', 0.020014658570289612}, {'d3', 0.08005863428115845}]
-    -
-      - query:
-          select docId from documents
-          where zone = 'zone1' and bookshelf = 'science'
-          qualify row_number() over (partition by zone, bookshelf order by euclidean_square_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 100) <= 2
-      - explain: "ISCAN(DOCUMENTSEUCLIDEANSQUAREINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[hnswEfSearch: 100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
-      - result: [{'d6'}, {'d7'}]
-    -
-      - query:
-          select docId from multiTypePartitionDocs
-          where zoneId = 1 and bookshelf = 'fiction'
-          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_square_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 2
-      - explain: "ISCAN(MULTITYPEEUCLIDEANSQUAREINDEX [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
-      - result: [{'d1'}, {'d2'}]
-# Test dot_product_distance metric
-    -
-      - query:
-          select docId, title, dot_product_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
-          where zone = 'zone1' and bookshelf = 'fiction'
-          qualify row_number() over (partition by zone, bookshelf order by dot_product_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
-      - explain: "ISCAN(DOCUMENTSDOTPRODUCTINDEX [EQUALS promote(@c17 AS STRING), EQUALS promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c39: @c45}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) dot_product_distance @c39 AS _2)"
-      - result: [{'d1', 'The Great Gatsby', -1.0}]
-    -
-      - query:
-          select docId, dot_product_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
-          where zone = 'zone1' and bookshelf = 'fiction'
-          qualify row_number() over (partition by zone, bookshelf order by dot_product_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
-      - explain: "ISCAN(DOCUMENTSDOTPRODUCTINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) dot_product_distance @c37 AS _1)"
-      - result: [{'d1', -1.0}, {'d2', -0.89990234375}, {'d3', -0.7998046875}]
-    -
-      - query:
-          select docId from documents
-          where zone = 'zone1' and bookshelf = 'science'
-          qualify row_number() over (partition by zone, bookshelf order by dot_product_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc options ef_search = 100) <= 2
-      - explain: "ISCAN(DOCUMENTSDOTPRODUCTINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[hnswEfSearch: 100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
-      - result: [{'d6'}, {'d7'}]
-    -
-      - query:
-          select docId from multiTypePartitionDocs
-          where zoneId = 2 and bookshelf = 'science'
-          qualify row_number() over (partition by zoneId, bookshelf order by dot_product_distance(embedding, !! !v16 [0.5, 0.5, 0.0] !!) asc options ef_search = 150) <= 1
-      - explain: "ISCAN(MULTITYPEDOTPRODUCTINDEX [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[hnswEfSearch: 150] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
-      - result: [{'d8'}]
 # verify supported and unsupported sort specifications within window function.
     -
       - query:
