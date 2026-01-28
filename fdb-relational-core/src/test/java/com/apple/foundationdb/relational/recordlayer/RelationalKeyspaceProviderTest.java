@@ -97,6 +97,6 @@ public class RelationalKeyspaceProviderTest {
                 .isInstanceOf(RelationalKeyspaceProvider.RelationalSchemaPath.class)
                 .isEqualTo(keyspaceProvider.getKeySpace().path(defaultDomain)
                         .add(RelationalKeyspaceProvider.DB_NAME_DIR, "theDatabase")
-                        .add(RelationalKeyspaceProvider.SCHEMA_DIR, ""));
+                        .add(RelationalKeyspaceProvider.DEFAULT_SCHEMA_DIR));
     }
 }
