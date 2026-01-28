@@ -333,6 +333,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void aliasTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("alias-tests.yamsql");
+    }
+
+    @TestTemplate
     public void transactionalCallsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("transactions-tests.yamsql");
     }
