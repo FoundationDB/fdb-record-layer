@@ -32,16 +32,6 @@ import javax.annotation.Nonnull;
  */
 public enum Metric implements MetricDefinition {
     /**
-     * Represents the Manhattan distance metric, implemented by {@link MetricDefinition.ManhattanMetric}.
-     * <p>
-     * This metric calculates a distance overlaying the multidimensional space with a grid-like structure only allowing
-     * orthogonal lines. In 2D this resembles the street structure in Manhattan where one would have to go {@code x}
-     * blocks north/south and {@code y} blocks east/west leading to a total distance of {@code x + y}.
-     * @see MetricDefinition.ManhattanMetric
-     */
-    MANHATTAN_METRIC(new MetricDefinition.ManhattanMetric()),
-
-    /**
      * Represents the Euclidean distance metric, implemented by {@link MetricDefinition.EuclideanMetric}.
      * <p>
      * This metric calculates the "ordinary" straight-line distance between two points
