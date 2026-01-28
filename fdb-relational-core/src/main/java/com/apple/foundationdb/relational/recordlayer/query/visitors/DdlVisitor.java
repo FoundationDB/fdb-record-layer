@@ -50,6 +50,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
@@ -521,6 +522,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 functionSpecCtx.returnsClause().returnsType().returnsTableType() == null;
         if (!isScalar && isTemporary) {
             builder.setLiterals(getDelegate().getAstResultMaybe().orElseThrow().getQueryExecutionContext().getLiterals());
+            builder.setPreparedParams(PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams()));
             // Delay the compilation of table-valued functions for later
             return builder
                     .withUserDefinedFunctionProvider(ignore -> visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary))
