@@ -45,9 +45,12 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import java.util.function.Function;
+
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Tag(Tags.RequiresFDB)
@@ -175,11 +178,18 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
 
     @Test
     void testClearFullStoreLock() {
+        // we also test getBypassFullStoreLockReason on the builder in this test
         final String lockReason = "Testing lock clearing";
+
+        final Function<FDBRecordContext, FDBRecordStore.Builder> createBuilder = context1 -> FDBRecordStore.newBuilder()
+                .setContext(context1)
+                .setMetaDataProvider(simpleMetaData(null))
+                .setSubspace(path.toSubspace(context1))
+                .setFormatVersion(formatVersion);
 
         // Test setting FULL_STORE lock
         try (FDBRecordContext context = openContext()) {
-            recordStore = openSimpleRecordStore(context, null, formatVersion);
+            recordStore = createBuilder.apply(context).create();
 
             recordStore.setStoreLockStateAsync(
                     RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
@@ -191,20 +201,17 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
 
         // Verify cannot open normally
         try (FDBRecordContext context = openContext()) {
-            assertThrows(StoreIsFullyLockedException.class, () -> {
-                openSimpleRecordStore(context, null, formatVersion);
-            });
+            final FDBRecordStore.Builder builder = createBuilder.apply(context);
+            assertNull(builder.getBypassFullStoreLockReason());
+            assertThrows(StoreIsFullyLockedException.class, builder::open);
         }
 
         // Open with bypass to clear the lock
         try (FDBRecordContext context = openContext()) {
-            recordStore = FDBRecordStore.newBuilder()
-                    .setContext(context)
-                    .setMetaDataProvider(simpleMetaData(null))
-                    .setSubspace(path.toSubspace(context))
-                    .setFormatVersion(formatVersion)
-                    .setBypassFullStoreLockReason(lockReason)
-                    .open();
+            final FDBRecordStore.Builder builder = createBuilder.apply(context)
+                    .setBypassFullStoreLockReason(lockReason);
+            assertEquals(lockReason, builder.getBypassFullStoreLockReason());
+            recordStore = builder.open();
 
             // Clear the lock
             recordStore.clearStoreLockStateAsync().join();
@@ -214,7 +221,7 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
 
         // Verify can now open normally
         try (FDBRecordContext context = openContext()) {
-            recordStore = openSimpleRecordStore(context, null, formatVersion);
+            recordStore = createBuilder.apply(context).open();
             commit(context);
         }
     }
