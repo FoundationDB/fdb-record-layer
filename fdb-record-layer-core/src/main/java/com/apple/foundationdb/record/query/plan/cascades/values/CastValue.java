@@ -248,7 +248,10 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         STRING_TO_ENUM(Type.TypeCode.STRING, Type.TypeCode.ENUM, ((descriptor, in) -> PromoteValue.PhysicalOperator.stringToEnumValue((Descriptors.EnumDescriptor)descriptor, (String)in))),
         STRING_TO_UUID(Type.TypeCode.STRING, Type.TypeCode.UUID, ((descriptor, in) -> PromoteValue.PhysicalOperator.stringToUuidValue((String) in))),
 
-        ARRAY_TO_VECTOR(Type.TypeCode.ARRAY, Type.TypeCode.VECTOR, CastValue::castArrayToVector);
+        ARRAY_TO_VECTOR(Type.TypeCode.ARRAY, Type.TypeCode.VECTOR, CastValue::castArrayToVector),
+
+        NULL_TO_BYTES(Type.TypeCode.NULL, Type.TypeCode.BYTES, ((descriptor, in) -> null)),
+        ;
 
         @Nonnull
         private final Type.TypeCode from;

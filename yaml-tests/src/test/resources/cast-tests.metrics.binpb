@@ -350,22 +350,23 @@ r
   4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}»
+}Þ
 k
-cast-operator-testsTEXPLAIN select id from test_cast where CAST(num_col AS STRING) = CAST(123 AS STRING)Ë
-æßˆ¼= ˆ¤—(0Ù¨8@oSCAN(<,>) | TFILTER TEST_CAST | FILTER CAST(_.NUM_COL AS STRING) EQUALS CAST(@c15 AS STRING) | MAP (_.ID AS ID)¼digraph G {
+cast-operator-testsTEXPLAIN select id from test_cast where CAST(num_col AS STRING) = CAST(123 AS STRING)î
+öð¼‡
+B ›Šã(0ÇÖ*8@‚SCAN(<,>) | TFILTER TEST_CAST | FILTER CAST(_.NUM_COL AS STRING) EQUALS promote(CAST(@c15 AS STRING) AS STRING) | MAP (_.ID AS ID)Ëdigraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q26.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE CAST(q2.NUM_COL AS STRING) EQUALS CAST(@c15 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, INT AS NUM_COL, STRING AS STR_COL, BOOLEAN AS BOOL_COL)" ];
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q27.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE CAST(q2.NUM_COL AS STRING) EQUALS promote(CAST(@c15 AS STRING) AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, INT AS NUM_COL, STRING AS STR_COL, BOOLEAN AS BOOL_COL)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [TEST_CAST]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, INT AS NUM_COL, STRING AS STR_COL, BOOLEAN AS BOOL_COL)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [TEST_CAST_ARRAYS, TEST_CAST]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q20> label="q20" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q27> label="q27" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }Å
 _
 cast-operator-testsHEXPLAIN select id from test_cast where CAST(bool_col AS INTEGER) + 1 > 1á
@@ -402,4 +403,66 @@ Z
   6 -> 5 [ label=<&nbsp;q25> label="q25" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ð
+ÿ
+cast-operator-testsçEXPLAIN select cast(null as integer) as a, cast(null as bigint) as b, cast(null as string) as c, cast(null as double) as d, cast(null as boolean) as e, cast(null as string) as f, cast(null as uuid) as g from values (1), (2) as X(X)Ë
+
+tÎŒò ÷Õ%(0®ó8	@ åEXPLODE array((@c67 AS X), (@c71 AS X)) | MAP (CAST(NULL AS INT) AS A, CAST(NULL AS LONG) AS B, CAST(NULL AS STRING) AS C, CAST(NULL AS DOUBLE) AS D, CAST(NULL AS BOOLEAN) AS E, CAST(NULL AS STRING) AS F, CAST(NULL AS UUID) AS G)Çdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (CAST(NULL AS INT) AS A, CAST(NULL AS LONG) AS B, CAST(NULL AS STRING) AS C, CAST(NULL AS DOUBLE) AS D, CAST(NULL AS BOOLEAN) AS E, CAST(NULL AS STRING) AS F, CAST(NULL AS UUID) AS G)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS A, LONG AS B, STRING AS C, DOUBLE AS D, BOOLEAN AS E, STRING AS F, UUID AS G)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c67 AS X), (@c71 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
+  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¤
+V
+cast-operator-tests?EXPLAIN select cast(null as float) from values (1), (2) as X(X)É
+tîÞ`  À(0†¾8	@ IEXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (CAST(NULL AS FLOAT) AS _0)ãdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (CAST(NULL AS FLOAT) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(FLOAT AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c11 AS X), (@c15 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
+  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¤
+V
+cast-operator-tests?EXPLAIN select cast(null as bytes) from values (1), (2) as X(X)É
+tœåO Š‘(0¯‘8	@ IEXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (CAST(NULL AS BYTES) AS _0)ãdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (CAST(NULL AS BYTES) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BYTES AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c11 AS X), (@c15 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
+  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Œ
+©
+cast-operator-tests‘EXPLAIN select cast(null as integer array) as a, cast(null as bigint array) as b, cast(null as string array) as c, cast(null as double array) as d, cast(null as boolean array) as e, cast(null as string array) as f, cast(null as uuid array) as g from values (1), (2) as X(X)Ý
+t¦œT ÖÊ(0Ê–8	@ –EXPLODE array((@c74 AS X), (@c78 AS X)) | MAP (CAST(NULL AS ARRAY(INT)) AS A, CAST(NULL AS ARRAY(LONG)) AS B, CAST(NULL AS ARRAY(STRING)) AS C, CAST(NULL AS ARRAY(DOUBLE)) AS D, CAST(NULL AS ARRAY(BOOLEAN)) AS E, CAST(NULL AS ARRAY(STRING)) AS F, CAST(NULL AS ARRAY(UUID)) AS G)©	digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (CAST(NULL AS ARRAY(INT)) AS A, CAST(NULL AS ARRAY(LONG)) AS B, CAST(NULL AS ARRAY(STRING)) AS C, CAST(NULL AS ARRAY(DOUBLE)) AS D, CAST(NULL AS ARRAY(BOOLEAN)) AS E, CAST(NULL AS ARRAY(STRING)) AS F, CAST(NULL AS ARRAY(UUID)) AS G)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(INT) AS A, ARRAY(LONG) AS B, ARRAY(STRING) AS C, ARRAY(DOUBLE) AS D, ARRAY(BOOLEAN) AS E, ARRAY(STRING) AS F, ARRAY(UUID) AS G)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c74 AS X), (@c78 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
+  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¿
+\
+cast-operator-testsEEXPLAIN select cast(null as float array) from values (1), (2) as X(X)Þ
+tàìA Äò
+(0ÈÃ8	@ PEXPLODE array((@c12 AS X), (@c16 AS X)) | MAP (CAST(NULL AS ARRAY(FLOAT)) AS _0)ñdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (CAST(NULL AS ARRAY(FLOAT)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(FLOAT) AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c12 AS X), (@c16 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
+  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¿
+\
+cast-operator-testsEEXPLAIN select cast(null as bytes array) from values (1), (2) as X(X)Þ
+t”¯f ¹Ë(0¸¸8	@ PEXPLODE array((@c12 AS X), (@c16 AS X)) | MAP (CAST(NULL AS ARRAY(BYTES)) AS _0)ñdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (CAST(NULL AS ARRAY(BYTES)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(BYTES) AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c12 AS X), (@c16 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
+  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }
