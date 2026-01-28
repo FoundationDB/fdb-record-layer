@@ -45,6 +45,7 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -71,18 +72,14 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
 
             // Add some records
             for (int i = 0; i < 10; i++) {
-                TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(i)
                         .setNumValue2(i * 100)
-                        .build();
-                recordStore.saveRecord(record);
+                        .build());
             }
 
             // Set FULL_STORE lock
-            recordStore.setStoreLockStateAsync(
-                    RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
-                    "Testing full store lock"
-            ).join();
+            setFullStoreLock("Testing full store lock");
 
             commit(context);
         }
@@ -157,10 +154,7 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             recordStore = openSimpleRecordStore(context, null, formatVersion);
 
-            recordStore.setStoreLockStateAsync(
-                    RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
-                    lockReason
-            ).join();
+            setFullStoreLock(lockReason);
 
             commit(context);
         }
@@ -191,10 +185,7 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             recordStore = createBuilder.apply(context).create();
 
-            recordStore.setStoreLockStateAsync(
-                    RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
-                    lockReason
-            ).join();
+            setFullStoreLock(lockReason);
 
             commit(context);
         }
@@ -234,27 +225,13 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         FDBRecordStoreStateCache cache = MetaDataVersionStampStoreStateCacheFactory.newInstance()
                 .getCache(fdb);
 
-        // Create store with cacheability enabled (no lock yet)
-        try (FDBRecordContext context = openContext()) {
-            context.setMetaDataVersionStamp();
-            recordStore = getStoreBuilder(context, cache).createOrOpen();
-            recordStore.setStateCacheabilityAsync(true).get();
-            commit(context);
-        }
-
-        // Prime the cache by opening once
-        try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, cache).open();
-        }
+        enableStoreStateCache(cache);
 
         // Now set the lock
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, cache).open();
 
-            recordStore.setStoreLockStateAsync(
-                    RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
-                    lockReason
-            ).join();
+            setFullStoreLock(lockReason);
 
             commit(context);
         }
@@ -295,6 +272,21 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         }
     }
 
+    private void enableStoreStateCache(final FDBRecordStoreStateCache cache) throws InterruptedException, ExecutionException {
+        // Create store with cacheability enabled (no lock yet)
+        try (FDBRecordContext context = openContext()) {
+            context.setMetaDataVersionStamp();
+            recordStore = getStoreBuilder(context, cache).createOrOpen();
+            recordStore.setStateCacheabilityAsync(true).get();
+            commit(context);
+        }
+
+        // Prime the cache by opening once
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, cache).open();
+        }
+    }
+
     @Test
     void testFullStoreLockWithIndexRebuild() {
         final String lockReason = "Performing index maintenance";
@@ -311,11 +303,10 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, metaData).createOrOpen();
             for (int i = 0; i < 20; i++) {
-                TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(i)
                         .setNumValue2(i * 100)
-                        .build();
-                recordStore.saveRecord(record);
+                        .build());
             }
             commit(context);
         }
@@ -330,10 +321,7 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         // Lock the store for maintenance
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, metaData).open();
-            recordStore.setStoreLockStateAsync(
-                    RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
-                    lockReason
-            ).join();
+            setFullStoreLock(lockReason);
             commit(context);
         }
 
@@ -403,6 +391,13 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
 
             commit(context);
         }
+    }
+
+    private void setFullStoreLock(final String lockReason) {
+        recordStore.setStoreLockStateAsync(
+                RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
+                lockReason
+        ).join();
     }
 
     @Override

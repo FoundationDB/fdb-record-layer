@@ -2753,7 +2753,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         final RecordMetaDataProto.DataStoreInfo.StoreLockState storeLockState = storeHeader.getStoreLockState();
         final RecordMetaDataProto.DataStoreInfo.StoreLockState.State lockState = storeLockState.getLockState();
-        final FormatVersion formatVersion = FormatVersion.getFormatVersion(storeHeader.getFormatVersion());
 
         // Check if store is fully locked (applies to all format versions)
         if (lockState.equals(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE)) {
@@ -2766,7 +2765,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         // All unknown states (including UNSPECIFIED) prevent opening
-        if (formatVersion.isAtLeast(FormatVersion.FULL_STORE_LOCK)) {
+        if (FormatVersion.getFormatVersion(storeHeader.getFormatVersion()).isAtLeast(FormatVersion.FULL_STORE_LOCK)) {
             if (lockState.equals(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.UNSPECIFIED)) {
                 throw new UnknownStoreLockStateException("Store has unknown lock state",
                         storeLockState.getUnknownFields(), subspaceProvider.logKey(), subspaceProvider);
