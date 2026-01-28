@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 
 /**
- * A scalar value type that has children.
+ * A scalar value type that has no children.
  */
 @API(API.Status.EXPERIMENTAL)
 public interface LeafValue extends Value {
