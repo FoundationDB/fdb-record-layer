@@ -207,7 +207,24 @@ test_block:
         ]
     -
       # Should not be able to select the row version from a sub-select
-      - query: select "__ROW_VERSION" from (select * from t1) a;
+      - query: select "__ROW_VERSION", a.id from (select * from t1) a;
+      - initialVersionLessThan: 4.9.1.0
+      - unorderedResult: [
+          { '__ROW_VERSION': !not_null _, ID:  1 },
+          { '__ROW_VERSION': !not_null _, ID:  2 },
+          { '__ROW_VERSION': !not_null _, ID:  3 },
+          { '__ROW_VERSION': !not_null _, ID:  4 },
+          { '__ROW_VERSION': !not_null _, ID:  5 },
+          { '__ROW_VERSION': !not_null _, ID:  6 },
+          { '__ROW_VERSION': !not_null _, ID:  7 },
+          { '__ROW_VERSION': !not_null _, ID:  8 },
+          { '__ROW_VERSION': !not_null _, ID:  9 },
+          { '__ROW_VERSION': !not_null _, ID: 10 },
+          { '__ROW_VERSION': !not_null _, ID: 11 },
+          { '__ROW_VERSION': !not_null _, ID: 12 },
+          { '__ROW_VERSION': !not_null _, ID: 13 },
+        ]
+      - initialVersionAtLeast: 4.9.1.0
       - error: 'XXXXX'
     -
       # Do not include __ROW_VERSION (as a pseudo-column) in nested (*) without identifier
