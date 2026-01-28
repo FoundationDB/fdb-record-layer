@@ -288,6 +288,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void semanticSearchTestAdvancedMetrics(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("semantic-search-advanced-metrics.yamsql");
+    }
+
+    @TestTemplate
     public void setupWithConnectionOptionsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("setup-with-connection-options.yamsql");
     }
