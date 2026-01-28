@@ -434,6 +434,17 @@ V
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (CAST(NULL AS BYTES) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BYTES AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c11 AS X), (@c15 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}“
+
+¥
+cast-operator-testsúEXPLAIN select cast(null as vector(10, half)) as a, cast(null as vector(15, float)) as b, cast(null as vector(30, double)) as c from values (1), (2) as X(X)ò	
+t¢—U ª€(0÷ 8	@ óEXPLODE array((@c46 AS X), (@c50 AS X)) | MAP (CAST(NULL AS VECTOR(16, 10)) AS A, CAST(NULL AS VECTOR(32, 15)) AS B, CAST(NULL AS VECTOR(64, 30)) AS C)„digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (CAST(NULL AS VECTOR(16, 10)) AS A, CAST(NULL AS VECTOR(32, 15)) AS B, CAST(NULL AS VECTOR(64, 30)) AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(VECTOR(16, 10) AS A, VECTOR(32, 15) AS B, VECTOR(64, 30) AS C)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c46 AS X), (@c50 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
+  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }å
 ©
 cast-operator-testsëEXPLAIN select cast(null as integer array) as a, cast(null as bigint array) as b, cast(null as string array) as c, cast(null as double array) as d, cast(null as boolean array) as e, cast(null as string array) as f, cast(null as uuid array) as g from values (1), (2) as X(X)›
@@ -464,5 +475,15 @@ V
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (CAST(NULL AS ARRAY(BYTES)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(BYTES) AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c12 AS X), (@c16 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
+  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}£
+∆
+cast-operator-testsÆEXPLAIN select cast(null as vector(10, half) array) as a, cast(null as vector(15, float) array) as b, cast(null as vector(30, double) array) as c from values (1), (2) as X(X)◊	
+t˙πO ﬁÒ(0·≠8	@ ¨EXPLODE array((@c49 AS X), (@c53 AS X)) | MAP (CAST(NULL AS ARRAY(VECTOR(16, 10))) AS A, CAST(NULL AS ARRAY(VECTOR(32, 15))) AS B, CAST(NULL AS ARRAY(VECTOR(64, 30))) AS C)çdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (CAST(NULL AS ARRAY(VECTOR(16, 10))) AS A, CAST(NULL AS ARRAY(VECTOR(32, 15))) AS B, CAST(NULL AS ARRAY(VECTOR(64, 30))) AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(VECTOR(16, 10)) AS A, ARRAY(VECTOR(32, 15)) AS B, ARRAY(VECTOR(64, 30)) AS C)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE array((@c49 AS X), (@c53 AS X))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS X)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }

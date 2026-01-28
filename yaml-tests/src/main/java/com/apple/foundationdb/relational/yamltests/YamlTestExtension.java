@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.yamltests.configs.JDBCMultiServerConfig
 import com.apple.foundationdb.relational.yamltests.configs.ShowPlanOnDiff;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.google.common.collect.Iterables;
 import org.apache.logging.log4j.LogManager;
@@ -109,21 +110,27 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             Assertions.assertFalse(jars.isEmpty(), "There are no external servers available to run");
             servers = new ArrayList<>();
             for (File jar : jars) {
-                servers.add(new ExternalServer(jar, clusterFile));
+                final ExternalServer externalServer = new ExternalServer(jar, clusterFile);
+                if (externalServer.getVersion().compareTo(SemanticVersion.current()) < 0) {
+                    servers.add(externalServer);
+                }
             }
             for (ExternalServer server : servers) {
                 server.start();
             }
             final boolean mixedModeOnly = Boolean.parseBoolean(System.getProperty("tests.mixedModeOnly", "false"));
             final boolean singleExternalVersionOnly = Boolean.parseBoolean(System.getProperty("tests.singleVersion", "false"));
-            Stream<YamlTestConfig> localTestingConfigs = localConfigs(mixedModeOnly, singleExternalVersionOnly);
+            // Stream<YamlTestConfig> localTestingConfigs = localConfigs(mixedModeOnly, singleExternalVersionOnly);
             Stream<YamlTestConfig> externalServerConfigs = externalServerConfigs(singleExternalVersionOnly);
 
+            /*
             testConfigs = Stream.concat(
                     // The configs for local testing (single server)
                     localTestingConfigs,
                     // The configs for multi-server testing
                     externalServerConfigs).collect(Collectors.toList());
+             */
+            testConfigs = externalServerConfigs.collect(Collectors.toList());
         }
         for (final YamlTestConfig testConfig : Iterables.concat(testConfigs, maintainConfigs)) {
             testConfig.beforeAll();

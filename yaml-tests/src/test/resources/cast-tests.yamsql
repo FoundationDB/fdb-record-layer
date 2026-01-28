@@ -202,6 +202,14 @@ test_block:
       - explain: "EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (CAST(NULL AS BYTES) AS _0)"
       - result: [{ !null _ }, { !null _ }]
     -
+      - query: select cast(null as vector(10, half)) as a, cast(null as vector(15, float)) as b, cast(null as vector(30, double)) as c from values (1), (2) as X(X)
+      - supported_version: !current_version
+      - explain: "EXPLODE array((@c46 AS X), (@c50 AS X)) | MAP (CAST(NULL AS VECTOR(16, 10)) AS A, CAST(NULL AS VECTOR(32, 15)) AS B, CAST(NULL AS VECTOR(64, 30)) AS C)"
+      - result: [
+          { A: !null _, B: !null _, C: !null _ },
+          { A: !null _, B: !null _, C: !null _ },
+        ]
+    -
       - query: select cast(null as integer array) as a, cast(null as bigint array) as b, cast(null as string array) as c, cast(null as double array) as d, cast(null as boolean array) as e, cast(null as string array) as f, cast(null as uuid array) as g from values (1), (2) as X(X)
       - explain: "EXPLODE array((@c74 AS X), (@c78 AS X)) | MAP (CAST(NULL AS ARRAY(INT)) AS A, CAST(NULL AS ARRAY(LONG)) AS B, CAST(NULL AS ARRAY(STRING)) AS C, CAST(NULL AS ARRAY(DOUBLE)) AS D, CAST(NULL AS ARRAY(BOOLEAN)) AS E, CAST(NULL AS ARRAY(STRING)) AS F, CAST(NULL AS ARRAY(UUID)) AS G)"
       - initialVersionLessThan: !current_version
@@ -227,4 +235,14 @@ test_block:
       - error: 'XXXXX'
       - initialVersionAtLeast: !current_version
       - result: [{ !null _ }, { !null _ }]
+    -
+      - query: select cast(null as vector(10, half) array) as a, cast(null as vector(15, float) array) as b, cast(null as vector(30, double) array) as c from values (1), (2) as X(X)
+      - explain: "EXPLODE array((@c49 AS X), (@c53 AS X)) | MAP (CAST(NULL AS ARRAY(VECTOR(16, 10))) AS A, CAST(NULL AS ARRAY(VECTOR(32, 15))) AS B, CAST(NULL AS ARRAY(VECTOR(64, 30))) AS C)"
+      - initialVersionLessThan: !current_version
+      - error: 'XXXXX'
+      - initialVersionAtLeast: !current_version
+      - result: [
+          { A: !null _, B: !null _, C: !null _ },
+          { A: !null _, B: !null _, C: !null _ },
+        ]
 ...
