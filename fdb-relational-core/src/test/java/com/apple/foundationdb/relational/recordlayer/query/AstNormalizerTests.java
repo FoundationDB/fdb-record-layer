@@ -1062,7 +1062,9 @@ public class AstNormalizerTests {
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
                 "select * from \"T1\" where \"COL1\" > ? ",
-                List.of(Map.of(constantId(7), 42)),
+                List.of(Map.of(
+                        constantId(7), 42,
+                        constantId(21, Optional.of("SQ1")), 40)),
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
@@ -1116,7 +1118,12 @@ public class AstNormalizerTests {
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
                 "select * from \"T1\" where \"COL1\" > ? ",
-                List.of(Map.of(constantId(7), 42)),
+                List.of(Map.of(
+                        constantId(7), 42,
+                        constantId(21, Optional.of("TMPFUNCTION1")), 40,
+                        constantId(21, Optional.of("TMPFUNCTION2")), 40,
+                        constantId(21, Optional.of("TMPFUNCTION3")), 40,
+                        constantId(21, Optional.of("TMPFUNCTION4")), 40)),
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
@@ -1147,7 +1154,12 @@ public class AstNormalizerTests {
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
                 "select * from \"T1\" where \"COL1\" > ? ",
-                List.of(Map.of(constantId(7), 42)),
+                List.of(Map.of(
+                        constantId(7), 42,
+                        constantId(21, Optional.of("TMPFUNCTION1")), 40,
+                        constantId(21, Optional.of("TMPFUNCTION2")), 40,
+                        constantId(21, Optional.of("TMPFUNCTION3")), 40,
+                        constantId(21, Optional.of("TMPFUNCTION4")), 40)),
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
@@ -1173,10 +1185,15 @@ public class AstNormalizerTests {
         schemaTemplate2 = schemaTemplateWithFunction(schemaTemplate2, "TMPFUNCTION1", tmpFunction2, true);
         schemaTemplate2 = schemaTemplateWithFunction(schemaTemplate2, "TMPFUNCTION2", tmpFunction3, true);
 
+        final Map<String, Object> bindings = Map.of(
+                constantId(7), 42,
+                constantId(21, Optional.of("TMPFUNCTION1")), 40,
+                constantId(21, Optional.of("TMPFUNCTION2")), 40,
+                constantId(21, Optional.of("TMPFUNCTION3")), 40);
         validate(List.of("select * from t1 where col1 > 42", "select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
                 "select * from \"T1\" where \"COL1\" > ? ",
-                List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
+                List.of(bindings, bindings),
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
@@ -1197,7 +1214,7 @@ public class AstNormalizerTests {
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
                 "select * from \"T1\" where \"COL1\" > ? ",
-                List.of(Map.of(constantId(7), 42)),
+                List.of(Map.of(constantId(7), 42, constantId(21, Optional.of("TMPFUNCTIONZ")), 40, constantId(21, Optional.of("TMPFUNCTIONA")), 40)),
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
