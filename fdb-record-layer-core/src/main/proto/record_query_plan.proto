@@ -280,6 +280,8 @@ message PValue {
     PCosineDistanceRowNumberValue cosine_distance_row_number_value = 57;
     PRowNumberHighOrderValue row_number_high_order_value = 58;
     PDistanceValue distance_value = 59;
+    PEuclideanSquareDistanceRowNumberValue euclidean_square_distance_row_number_value = 60;
+    PDotProductDistanceRowNumberValue dot_product_distance_row_number_value = 61;
   }
 }
 
@@ -437,9 +439,8 @@ message PDistanceValue {
   enum PDistanceOperator {
     EUCLIDEAN_DISTANCE = 1;
     EUCLIDEAN_SQUARE_DISTANCE = 2;
-    MANHATTAN_DISTANCE = 3;
-    COSINE_DISTANCE = 4;
-    DOT_PRODUCT_DISTANCE = 5;
+    COSINE_DISTANCE = 3;
+    DOT_PRODUCT_DISTANCE = 4;
   }
 
   optional PDistanceOperator operator = 1;
@@ -686,7 +687,15 @@ message PEuclideanDistanceRowNumberValue {
   optional PWindowedValue super = 1;
 }
 
+message PEuclideanSquareDistanceRowNumberValue {
+  optional PWindowedValue super = 1;
+}
+
 message PCosineDistanceRowNumberValue {
+  optional PWindowedValue super = 1;
+}
+
+message PDotProductDistanceRowNumberValue {
   optional PWindowedValue super = 1;
 }
 

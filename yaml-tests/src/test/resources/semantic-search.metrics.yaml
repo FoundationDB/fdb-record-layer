@@ -6,12 +6,12 @@ semantic-search-tests:
         promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c39: @c45}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance
         @c39 AS _2)'
-    task_count: 228
-    task_total_time_ms: 193
-    transform_count: 67
-    transform_time_ms: 152
-    transform_yield_count: 28
-    insert_time_ms: 9
+    task_count: 252
+    task_total_time_ms: 191
+    transform_count: 75
+    transform_time_ms: 153
+    transform_yield_count: 40
+    insert_time_ms: 8
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId, euclidean_distance(embedding, ?) from documents where
@@ -21,11 +21,11 @@ semantic-search-tests:
         promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c37
         AS _1)'
-    task_count: 228
+    task_count: 252
     task_total_time_ms: 25
-    transform_count: 67
-    transform_time_ms: 16
-    transform_yield_count: 28
+    transform_count: 75
+    transform_time_ms: 18
+    transform_yield_count: 40
     insert_time_ms: 1
     insert_new_count: 20
     insert_reused_count: 1
@@ -35,11 +35,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[hnswEfSearch:
         100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 228
-    task_total_time_ms: 22
-    transform_count: 67
-    transform_time_ms: 14
-    transform_yield_count: 28
+    task_count: 252
+    task_total_time_ms: 24
+    transform_count: 75
+    transform_time_ms: 16
+    transform_yield_count: 40
     insert_time_ms: 1
     insert_new_count: 20
     insert_reused_count: 1
@@ -49,12 +49,12 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c39}:[hnswEfSearch:
         200] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 228
-    task_total_time_ms: 20
-    transform_count: 67
-    transform_time_ms: 13
-    transform_yield_count: 28
-    insert_time_ms: 1
+    task_count: 252
+    task_total_time_ms: 16
+    transform_count: 75
+    transform_time_ms: 10
+    transform_yield_count: 40
+    insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
 -   query: EXPLAIN select docId from documents where zone = 'zone2' and bookshelf
@@ -63,11 +63,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c35}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID)'
-    task_count: 228
+    task_count: 252
     task_total_time_ms: 18
-    transform_count: 67
-    transform_time_ms: 10
-    transform_yield_count: 28
+    transform_count: 75
+    transform_time_ms: 12
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -77,11 +77,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c37 AS _1)'
-    task_count: 228
-    task_total_time_ms: 18
-    transform_count: 67
+    task_count: 252
+    task_total_time_ms: 17
+    transform_count: 75
     transform_time_ms: 11
-    transform_yield_count: 28
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -91,11 +91,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[hnswEfSearch: 150]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 228
-    task_total_time_ms: 16
-    transform_count: 67
+    task_count: 252
+    task_total_time_ms: 15
+    transform_count: 75
     transform_time_ms: 10
-    transform_yield_count: 28
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -105,11 +105,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 228
-    task_total_time_ms: 14
-    transform_count: 67
-    transform_time_ms: 10
-    transform_yield_count: 28
+    task_count: 252
+    task_total_time_ms: 12
+    transform_count: 75
+    transform_time_ms: 8
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -121,11 +121,11 @@ semantic-search-tests:
         promote(@c23 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c41: @c47}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance
         @c41 AS DIST)'
-    task_count: 228
-    task_total_time_ms: 16
-    transform_count: 67
-    transform_time_ms: 10
-    transform_yield_count: 28
+    task_count: 252
+    task_total_time_ms: 13
+    transform_count: 75
+    transform_time_ms: 9
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -135,11 +135,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 228
-    task_total_time_ms: 14
-    transform_count: 67
-    transform_time_ms: 8
-    transform_yield_count: 28
+    task_count: 252
+    task_total_time_ms: 13
+    transform_count: 75
+    transform_time_ms: 9
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -149,11 +149,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 228
-    task_total_time_ms: 14
-    transform_count: 67
-    transform_time_ms: 10
-    transform_yield_count: 28
+    task_count: 252
+    task_total_time_ms: 12
+    transform_count: 75
+    transform_time_ms: 8
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -163,11 +163,11 @@ semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 228
-    task_total_time_ms: 14
-    transform_count: 67
-    transform_time_ms: 10
-    transform_yield_count: 28
+    task_count: 252
+    task_total_time_ms: 12
+    transform_count: 75
+    transform_time_ms: 8
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -180,11 +180,11 @@ semantic-search-tests:
         ∪ ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37}:[] BY_DISTANCE)
         COMPARE BY (recordType([_]), _.DOCID) | MAP (_.TITLE AS TITLE)'
-    task_count: 485
-    task_total_time_ms: 66
-    transform_count: 143
-    transform_time_ms: 45
-    transform_yield_count: 49
+    task_count: 525
+    task_total_time_ms: 67
+    transform_count: 155
+    transform_time_ms: 48
+    transform_yield_count: 69
     insert_time_ms: 3
     insert_new_count: 47
     insert_reused_count: 6
@@ -199,12 +199,12 @@ semantic-search-tests:
         [EQUALS q1.ZONE, EQUALS q1.BOOKSHELF]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL q1.EMBEDDING:
         @c95}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWID AS REVIEWID,
         q0.RATING AS RATING, q2.DOCID AS DOCID, q2.TITLE AS TITLE) }'
-    task_count: 2092
-    task_total_time_ms: 180
-    transform_count: 906
-    transform_time_ms: 113
-    transform_yield_count: 149
-    insert_time_ms: 15
+    task_count: 2180
+    task_total_time_ms: 193
+    transform_count: 932
+    transform_time_ms: 124
+    transform_yield_count: 193
+    insert_time_ms: 18
     insert_new_count: 178
     insert_reused_count: 26
 -   query: EXPLAIN select r.reviewText, d2.title from reviews r join documents d1
@@ -218,12 +218,12 @@ semantic-search-tests:
         [EQUALS q1.ZONE, EQUALS promote(@c47 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL
         q1.EMBEDDING: @c86}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWTEXT
         AS REVIEWTEXT, q2.TITLE AS TITLE) }'
-    task_count: 2756
-    task_total_time_ms: 136
-    transform_count: 1216
-    transform_time_ms: 78
-    transform_yield_count: 178
-    insert_time_ms: 17
+    task_count: 2860
+    task_total_time_ms: 124
+    transform_count: 1246
+    transform_time_ms: 74
+    transform_yield_count: 230
+    insert_time_ms: 12
     insert_new_count: 211
     insert_reused_count: 41
 -   query: EXPLAIN select r.reviewId, d2.docId, d2.title from reviews r join documents
@@ -231,18 +231,18 @@ semantic-search-tests:
         = d1.zone and d2.bookshelf = 'science' where r.zone = 'zone1' qualify row_number()
         over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding,
         d1.embedding) asc options ef_search = 100) < 2
-    explain: 'SCAN(<,>) | TFILTER REVIEWS | FLATMAP q0 -> { SCAN(<,>) | TFILTER DOCUMENTS
-        | FILTER q0.ZONE EQUALS _.ZONE AND q0.ZONE EQUALS promote(@c57 AS STRING)
-        AND q0.DOCID EQUALS _.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX
-        [EQUALS q1.ZONE, EQUALS promote(@c51 AS STRING)]:{DISTANCE_RANK_LESS_THAN
-        q1.EMBEDDING: @c92}:[hnswEfSearch: 100] BY_DISTANCE) AS q2 RETURN q2 } AS
-        q2 RETURN (q0.REVIEWID AS REVIEWID, q2.DOCID AS DOCID, q2.TITLE AS TITLE)
-        }'
-    task_count: 1932
-    task_total_time_ms: 94
-    transform_count: 879
-    transform_time_ms: 62
-    transform_yield_count: 140
+    explain: 'SCAN(<,>) | TFILTER DOCUMENTS | FLATMAP q0 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX
+        [EQUALS q0.ZONE, EQUALS promote(@c51 AS STRING)]:{DISTANCE_RANK_LESS_THAN
+        q0.EMBEDDING: @c92}:[hnswEfSearch: 100] BY_DISTANCE) | FLATMAP q1 -> { SCAN(<,>)
+        | TFILTER REVIEWS | FILTER _.ZONE EQUALS q0.ZONE AND _.ZONE EQUALS promote(@c57
+        AS STRING) AND _.DOCID EQUALS q0.DOCID AS q2 RETURN (q2 AS _0, q1 AS _1) }
+        AS q3 RETURN (q3._0.REVIEWID AS REVIEWID, q3._1.DOCID AS DOCID, q3._1.TITLE
+        AS TITLE) }'
+    task_count: 2020
+    task_total_time_ms: 90
+    transform_count: 905
+    transform_time_ms: 58
+    transform_yield_count: 184
     insert_time_ms: 6
     insert_new_count: 152
     insert_reused_count: 23
@@ -253,11 +253,11 @@ semantic-search-tests:
         promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c39: @c17}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance
         @c39 AS _2)'
-    task_count: 228
-    task_total_time_ms: 8
-    transform_count: 67
-    transform_time_ms: 5
-    transform_yield_count: 28
+    task_count: 252
+    task_total_time_ms: 9
+    transform_count: 75
+    transform_time_ms: 6
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -267,11 +267,11 @@ semantic-search-tests:
     explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID)'
-    task_count: 228
-    task_total_time_ms: 9
-    transform_count: 67
-    transform_time_ms: 6
-    transform_yield_count: 28
+    task_count: 252
+    task_total_time_ms: 8
+    transform_count: 75
+    transform_time_ms: 5
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -281,11 +281,11 @@ semantic-search-tests:
     explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c8}:[] BY_DISTANCE) | MAP (_.DOCID
         AS DOCID)'
-    task_count: 228
-    task_total_time_ms: 9
-    transform_count: 67
+    task_count: 252
+    task_total_time_ms: 8
+    transform_count: 75
     transform_time_ms: 5
-    transform_yield_count: 28
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -295,11 +295,11 @@ semantic-search-tests:
     explain: 'ISCAN(MULTITYPECOSINEINDEX [EQUALS promote(@c15 AS LONG), EQUALS promote(@c19
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c37 AS _1)'
-    task_count: 228
-    task_total_time_ms: 7
-    transform_count: 67
-    transform_time_ms: 4
-    transform_yield_count: 28
+    task_count: 252
+    task_total_time_ms: 8
+    transform_count: 75
+    transform_time_ms: 5
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -309,11 +309,11 @@ semantic-search-tests:
     explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[hnswEfSearch: 100]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 228
-    task_total_time_ms: 7
-    transform_count: 67
-    transform_time_ms: 4
-    transform_yield_count: 28
+    task_count: 252
+    task_total_time_ms: 9
+    transform_count: 75
+    transform_time_ms: 6
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -323,11 +323,130 @@ semantic-search-tests:
     explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c10 AS LONG), EQUALS
         promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c10}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)'
-    task_count: 228
-    task_total_time_ms: 9
-    transform_count: 67
+    task_count: 252
+    task_total_time_ms: 8
+    transform_count: 75
     transform_time_ms: 5
-    transform_yield_count: 28
+    transform_yield_count: 40
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId, title, euclidean_square_distance(embedding, ?) from
+        documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number()
+        over (partition by zone, bookshelf order by euclidean_square_distance(embedding,
+        ?) asc) <= 1
+    explain: 'ISCAN(DOCUMENTSEUCLIDEANSQUAREINDEX [EQUALS promote(@c17 AS STRING),
+        EQUALS promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c39: @c45}:[]
+        BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_square_distance
+        @c39 AS _2)'
+    task_count: 252
+    task_total_time_ms: 8
+    transform_count: 75
+    transform_time_ms: 5
+    transform_yield_count: 40
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId, euclidean_square_distance(embedding, ?) from documents
+        where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over (partition
+        by zone, bookshelf order by euclidean_square_distance(embedding, ?) asc) <=
+        3
+    explain: 'ISCAN(DOCUMENTSEUCLIDEANSQUAREINDEX [EQUALS promote(@c15 AS STRING),
+        EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[]
+        BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_square_distance
+        @c37 AS _1)'
+    task_count: 252
+    task_total_time_ms: 10
+    transform_count: 75
+    transform_time_ms: 6
+    transform_yield_count: 40
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
+        = 'science' qualify row_number() over (partition by zone, bookshelf order
+        by euclidean_square_distance(embedding, ?) asc options ef_search = 100) <=
+        2
+    explain: 'ISCAN(DOCUMENTSEUCLIDEANSQUAREINDEX [EQUALS promote(@c8 AS STRING),
+        EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[hnswEfSearch:
+        100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
+    task_count: 252
+    task_total_time_ms: 9
+    transform_count: 75
+    transform_time_ms: 6
+    transform_yield_count: 40
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId from multiTypePartitionDocs where zoneId = 1 and bookshelf
+        = 'fiction' qualify row_number() over (partition by zoneId, bookshelf order
+        by euclidean_square_distance(embedding, ?) asc) <= 2
+    explain: 'ISCAN(MULTITYPEEUCLIDEANSQUAREINDEX [EQUALS promote(@c8 AS LONG), EQUALS
+        promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
+        BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
+    task_count: 252
+    task_total_time_ms: 8
+    transform_count: 75
+    transform_time_ms: 4
+    transform_yield_count: 40
+    insert_time_ms: 1
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId, title, dot_product_distance(embedding, ?) from documents
+        where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over (partition
+        by zone, bookshelf order by dot_product_distance(embedding, ?) asc) <= 1
+    explain: 'ISCAN(DOCUMENTSDOTPRODUCTINDEX [EQUALS promote(@c17 AS STRING), EQUALS
+        promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c39: @c45}:[]
+        BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) dot_product_distance
+        @c39 AS _2)'
+    task_count: 252
+    task_total_time_ms: 7
+    transform_count: 75
+    transform_time_ms: 4
+    transform_yield_count: 40
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId, dot_product_distance(embedding, ?) from documents
+        where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over (partition
+        by zone, bookshelf order by dot_product_distance(embedding, ?) asc) <= 3
+    explain: 'ISCAN(DOCUMENTSDOTPRODUCTINDEX [EQUALS promote(@c15 AS STRING), EQUALS
+        promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[]
+        BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) dot_product_distance @c37
+        AS _1)'
+    task_count: 252
+    task_total_time_ms: 8
+    transform_count: 75
+    transform_time_ms: 5
+    transform_yield_count: 40
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
+        = 'science' qualify row_number() over (partition by zone, bookshelf order
+        by dot_product_distance(embedding, ?) asc options ef_search = 100) <= 2
+    explain: 'ISCAN(DOCUMENTSDOTPRODUCTINDEX [EQUALS promote(@c8 AS STRING), EQUALS
+        promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[hnswEfSearch:
+        100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
+    task_count: 252
+    task_total_time_ms: 10
+    transform_count: 75
+    transform_time_ms: 7
+    transform_yield_count: 40
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select docId from multiTypePartitionDocs where zoneId = 2 and bookshelf
+        = 'science' qualify row_number() over (partition by zoneId, bookshelf order
+        by dot_product_distance(embedding, ?) asc options ef_search = 150) <= 1
+    explain: 'ISCAN(MULTITYPEDOTPRODUCTINDEX [EQUALS promote(@c8 AS LONG), EQUALS
+        promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[hnswEfSearch:
+        150] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
+    task_count: 252
+    task_total_time_ms: 7
+    transform_count: 75
+    transform_time_ms: 4
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -337,11 +456,11 @@ semantic-search-tests:
     explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c10 AS LONG), EQUALS
         promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c10}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)'
-    task_count: 228
-    task_total_time_ms: 8
-    transform_count: 67
-    transform_time_ms: 5
-    transform_yield_count: 28
+    task_count: 252
+    task_total_time_ms: 6
+    transform_count: 75
+    transform_time_ms: 4
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1
@@ -351,11 +470,11 @@ semantic-search-tests:
     explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c10 AS LONG), EQUALS
         promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c10}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)'
-    task_count: 228
+    task_count: 252
     task_total_time_ms: 7
-    transform_count: 67
+    transform_count: 75
     transform_time_ms: 4
-    transform_yield_count: 28
+    transform_yield_count: 40
     insert_time_ms: 0
     insert_new_count: 20
     insert_reused_count: 1

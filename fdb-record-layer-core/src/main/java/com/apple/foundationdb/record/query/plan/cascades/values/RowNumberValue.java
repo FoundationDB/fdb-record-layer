@@ -45,7 +45,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.COSINE_DISTANCE;
+import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.DOT_PRODUCT_DISTANCE;
 import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.EUCLIDEAN_DISTANCE;
+import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.EUCLIDEAN_SQUARE_DISTANCE;
 
 /**
  * A windowed value representing the {@code ROW_NUMBER()} window function, which assigns sequential
@@ -335,29 +338,25 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
                 return Optional.empty();
         }
 
-        WindowedValue windowedValue;
         Comparisons.DistanceRankValueComparison distanceRankComparison;
         final var distanceValue = (DistanceValue)argument;
-        switch (distanceValue.getOperator()) {
-            case EUCLIDEAN_DISTANCE:
-            // TODO enable once supported by the index:
-            // case EUCLIDEAN_SQUARE_DISTANCE:
-            // case MANHATTAN_DISTANCE:
-            // case DOT_PRODUCT_DISTANCE:
-            case COSINE_DISTANCE:
-                final var distanceValueArgs = ImmutableList.copyOf(distanceValue.getChildren());
-                final var indexVector = distanceValueArgs.get(0);
-                final var queryVector = distanceValueArgs.get(1);
-                distanceRankComparison = new Comparisons.DistanceRankValueComparison(distanceRankComparisonType, queryVector,
-                        comparand, efSearch, isReturningVectors);
-                if (distanceValue.getOperator() == EUCLIDEAN_DISTANCE) {
-                    windowedValue = new EuclideanDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
-                } else {
-                    windowedValue = new CosineDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
-                }
-                break;
-            default:
-                return Optional.empty();
+        final var distanceValueArgs = ImmutableList.copyOf(distanceValue.getChildren());
+        final var indexVector = distanceValueArgs.get(0);
+        final var queryVector = distanceValueArgs.get(1);
+        final var operator = distanceValue.getOperator();
+        distanceRankComparison = new Comparisons.DistanceRankValueComparison(distanceRankComparisonType, queryVector,
+                comparand, efSearch, isReturningVectors);
+        final WindowedValue windowedValue;
+        if (operator == EUCLIDEAN_DISTANCE) {
+            windowedValue = new EuclideanDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
+        } else if (operator == EUCLIDEAN_SQUARE_DISTANCE) {
+            windowedValue = new EuclideanSquareDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
+        } else if (operator == COSINE_DISTANCE) {
+            windowedValue = new CosineDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
+        } else if (operator == DOT_PRODUCT_DISTANCE) {
+            windowedValue = new DotProductDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
+        } else {
+            return Optional.empty();
         }
         return Optional.of(new ValuePredicate(windowedValue, distanceRankComparison));
     }

@@ -348,8 +348,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                     indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_SQUARE_METRIC.name());
                 } else if (option.metric.COSINE_METRIC() != null) {
                     indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.COSINE_METRIC.name());
-                } else if (option.metric.MANHATTAN_METRIC() != null) {
-                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.MANHATTAN_METRIC.name());
                 } else {
                     Assert.failUnchecked("metric " + option.metric.getText() + " is not currently supported");
                 }
