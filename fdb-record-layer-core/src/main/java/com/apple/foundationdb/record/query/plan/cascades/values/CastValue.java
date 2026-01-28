@@ -331,6 +331,17 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
                         .addNested(castToType.describe())));
     }
 
+    @Override
+    public boolean canResultInType(@Nonnull final Type type) {
+        return type.isNullable() && castToType.nullable().equals(type);
+    }
+
+    @Nonnull
+    @Override
+    public Value with(@Nonnull final Type type) {
+        return new CastValue(child, type, physicalOperator);
+    }
+
     @Nonnull
     @Override
     public Value getChild() {

@@ -264,14 +264,14 @@ cast-operator-tests:
 -   query: EXPLAIN select id from test_cast where CAST(num_col AS STRING) = CAST(123
         AS STRING)
     explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER CAST(_.NUM_COL AS STRING) EQUALS
-        promote(CAST(@c15 AS STRING) AS STRING) | MAP (_.ID AS ID)
-    task_count: 246
-    task_total_time_ms: 21
-    transform_count: 66
-    transform_time_ms: 5
-    transform_yield_count: 17
+        CAST(@c15 AS STRING) | MAP (_.ID AS ID)
+    task_count: 230
+    task_total_time_ms: 6
+    transform_count: 61
+    transform_time_ms: 3
+    transform_yield_count: 15
     insert_time_ms: 0
-    insert_new_count: 25
+    insert_new_count: 21
     insert_reused_count: 2
 -   query: EXPLAIN select id from test_cast where CAST(bool_col AS INTEGER) + 1 >
         1

@@ -161,7 +161,7 @@ test_block:
     -
       # Multiple CAST operations in WHERE clause
       - query: select id from test_cast where CAST(num_col AS STRING) = CAST(123 AS STRING)
-      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER CAST(_.NUM_COL AS STRING) EQUALS promote(CAST(@c15 AS STRING) AS STRING) | MAP (_.ID AS ID)"
+      - explain: "SCAN(<,>) | TFILTER TEST_CAST | FILTER CAST(_.NUM_COL AS STRING) EQUALS CAST(@c15 AS STRING) | MAP (_.ID AS ID)"
       - result: [{1}]
     -
       # CAST with boolean arithmetic and comparison
