@@ -516,14 +516,13 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .setName(functionName)
                 .setDescription(functionDefinition)
                 .setTemporary(isTemporary)
+                .setPreparedParams(PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams()))
                 .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString());
 
         boolean isScalar = functionSpecCtx.returnsClause() != null &&
                 functionSpecCtx.returnsClause().returnsType().returnsTableType() == null;
         if (!isScalar && isTemporary) {
-            builder.setLiterals(getDelegate().getAstResultMaybe().orElseThrow().getQueryExecutionContext().getLiterals());
-            builder.setPreparedParams(PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams()));
-            // Delay the compilation of table-valued functions for later
+            // delay the compilation of table-valued temporary functions for later
             return builder
                     .withUserDefinedFunctionProvider(ignore -> visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary))
                     .withSerializableFunction(new RawSqlFunction(functionName, functionDefinition))

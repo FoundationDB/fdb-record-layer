@@ -34,7 +34,6 @@ schema_template:
     CREATE FUNCTION table_func1(IN limit_val bigint) AS SELECT id, self(id) as id_copy, z(r) as z_val FROM nested WHERE id <= limit_val
     CREATE FUNCTION table_func2(IN threshold bigint) AS SELECT self(id) as processed_id, z(r) as z_val FROM nested WHERE z(r) >= threshold
     CREATE FUNCTION table_func3(IN x bigint, IN y bigint) AS SELECT self(a) as a_val, self(a) as a_copy FROM simple_table WHERE a BETWEEN x AND y
-    CREATE FUNCTION table_func4() AS SELECT id, self(id) as id_copy, z(r) as z_val FROM nested WHERE id <= 3434
 ---
 setup:
   steps:

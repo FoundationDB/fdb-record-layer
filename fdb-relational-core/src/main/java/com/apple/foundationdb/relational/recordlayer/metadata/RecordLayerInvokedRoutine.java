@@ -22,13 +22,11 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
-import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.util.MemoizedFunction;
 import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -42,9 +40,6 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
 
     @Nonnull
     private final PreparedParams preparedParams;
-
-    @Nullable
-    private final Literals literals;
 
     @Nonnull
     private final String name;
@@ -60,7 +55,6 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     public RecordLayerInvokedRoutine(@Nonnull final String description,
                                      @Nonnull final String normalizedDescription,
                                      @Nonnull final String name,
-                                     @Nonnull final Literals literals,
                                      @Nonnull final PreparedParams preparedParams,
                                      boolean isTemporary,
                                      @Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider,
@@ -68,7 +62,6 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         this.description = description;
         this.normalizedDescription = normalizedDescription;
         this.name = name;
-        this.literals = literals;
         this.preparedParams = preparedParams;
         this.isTemporary = isTemporary;
         this.userDefinedFunctionProvider = MemoizedFunction.memoize(userDefinedFunctionProvider::apply);
@@ -85,11 +78,6 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     @Override
     public String getNormalizedDescription() {
         return normalizedDescription;
-    }
-
-    @Nullable
-    public Literals getLiterals() {
-        return literals;
     }
 
     @Nonnull
@@ -159,7 +147,6 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     public static final class Builder {
         private String description;
         private String normalizedDescription;
-        private Literals literals;
         private PreparedParams preparedParams;
         private String name;
         private Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider;
@@ -200,12 +187,6 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         }
 
         @Nonnull
-        public Builder setLiterals(@Nonnull final Literals literals) {
-            this.literals = literals;
-            return this;
-        }
-
-        @Nonnull
         public Builder setPreparedParams(@Nonnull final PreparedParams preparedParams) {
             this.preparedParams = preparedParams;
             return this;
@@ -226,8 +207,8 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
             if (preparedParams == null) {
                 preparedParams = PreparedParams.empty();
             }
-            return new RecordLayerInvokedRoutine(description, normalizedDescription, name, literals, preparedParams,
-                    isTemporary, userDefinedFunctionProvider, serializableFunction);
+            return new RecordLayerInvokedRoutine(description, normalizedDescription, name, preparedParams, isTemporary,
+                    userDefinedFunctionProvider, serializableFunction);
         }
     }
 }

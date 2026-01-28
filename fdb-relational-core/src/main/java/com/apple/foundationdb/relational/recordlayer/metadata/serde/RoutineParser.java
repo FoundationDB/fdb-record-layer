@@ -82,23 +82,13 @@ public interface RoutineParser {
                                @Nonnull final BiFunction<BaseVisitor, P, T> visit,
                                boolean isCaseSensitive) {
             final var parsed = parse.apply(query);
-//            final var astNormalizer = AstNormalizer.normalizeAst(
-//                    metaData,
-//                    parsed,
-//                    preparedParams,
-//                    userVersion,
-//                    PlannerConfiguration.of(),
-//                    isCaseSensitive,
-//                    PlanHashable.PlanHashMode.VC0,
-//                    query);
             final var planGenerationContext = new MutablePlanGenerationContext(preparedParams,
                     PlanHashable.PlanHashMode.VC0, query, query, 0);
             if (scope != null) {
                 planGenerationContext.getLiteralsBuilder().setScope(scope);
             }
-
             final var visitor = new BaseVisitor(planGenerationContext, metaData, new NoOpQueryFactory(),
-                    NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), null, isCaseSensitive);
+                    NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), isCaseSensitive);
             return visit.apply(visitor, parsed);
         }
     }

@@ -37,7 +37,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
-import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
@@ -195,20 +194,16 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitCreateTempFunction(final RelationalParser.CreateTempFunctionContext ctx) {
-        final var functionName = normalizeString(ctx.tempSqlInvokedFunction().functionSpecification().schemaQualifiedRoutineName.getText());
+        final var functionName = SemanticAnalyzer.normalizeString(ctx.tempSqlInvokedFunction().functionSpecification().schemaQualifiedRoutineName.getText(), caseSensitive);
         queryHasherContextBuilder.getLiteralsBuilder().setScope(functionName);
         return visitChildren(ctx);
     }
 
     @Override
     public Value visitUid(@Nonnull RelationalParser.UidContext ctx) {
-        String uid = normalizeString(ctx.getText());
+        String uid = SemanticAnalyzer.normalizeString(ctx.getText(), caseSensitive);
         sqlCanonicalizer.append("\"").append(uid).append("\"").append(" ");
         return null;
-    }
-
-    private String normalizeString(@Nonnull String string) {
-        return SemanticAnalyzer.normalizeString(string, caseSensitive);
     }
 
     public int getHash() {
@@ -635,30 +630,15 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                     continue;
                 }
                 final var recordLayerRoutine = (RecordLayerInvokedRoutine)temporaryRoutine;
-
-                final var functionString = recordLayerRoutine.getDescription();
-                final var rootTemporaryFunctionContext = QueryParser.parse(functionString).getRootContext();
-                normalizeAst(schemaTemplate,
-                        rootTemporaryFunctionContext,
+                final var functionAstResult = normalizeAst(schemaTemplate,
+                        QueryParser.parse(recordLayerRoutine.getDescription()).getRootContext(),
                         recordLayerRoutine.getPreparedParams(),
                         userVersion,
                         plannerConfiguration,
                         caseSensitive,
                         currentPlanHashMode,
-                        functionString);
-                var literals = recordLayerRoutine.getLiterals();
-                // See if the literals are there in the InvokedRoutine
-                if (literals == null) {
-                    final var userDefinedFunction = recordLayerRoutine.getUserDefinedFunctionProvider().apply(caseSensitive);
-                    if (userDefinedFunction instanceof CompiledSqlFunction) {
-                        // immediate materialization of temporary function, this is required to collect any auxiliary literals discovered
-                        // during plan generation of the temporary function. The literals and combined with query literals and provided
-                        // for the execution of a (cached) physical plan.
-                        astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(((CompiledSqlFunction) userDefinedFunction).getAuxiliaryLiterals());
-                    }
-                } else {
-                    astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(literals);
-                }
+                        recordLayerRoutine.getDescription());
+                astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(functionAstResult.queryExecutionContext.getLiterals());
             }
         }
         return new NormalizationResult(

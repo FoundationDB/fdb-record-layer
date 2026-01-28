@@ -237,7 +237,7 @@ public final class PlanGenerator {
         try {
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
                     new BaseVisitor(planGenerationContext, metadata, planContext.getDdlQueryFactory(),
-                            planContext.getConstantActionFactory(), planContext.getDbUri(), ast, caseSensitive)
+                            planContext.getConstantActionFactory(), planContext.getDbUri(), caseSensitive)
                             .generateLogicalPlan(ast.getParseTree()));
             return maybePlan.optimize(planner, planContext, currentPlanHashMode);
         } catch (ProtoUtils.InvalidNameException ine) {
