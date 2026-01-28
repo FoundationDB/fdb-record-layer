@@ -550,6 +550,89 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void testPendingQueueAcrossFivePartitions() {
+        // Test pending queue in one of 5 partitions
+        final Map<String, String> options = Map.of(
+                ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, "true",
+                INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(4));  // 4 docs per partition
+
+        final Index index = complexPartitionedIndex(options);
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.ComplexDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        final Tuple groupingKey = Tuple.from(1L);
+        final int numPartitions = 5; // if changed, other parts of the test should be modified
+
+        // Write initial documents to create 5 partitions (before queue enabled)
+        // Each partition gets 4 documents with different timestamp ranges
+        Map<Integer, List<Tuple>> partitionPrimaryKeys = new HashMap<>();
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+            for (int partition = 0; partition < numPartitions; partition++) {
+                List<Tuple> keys = new ArrayList<>();
+                long baseTimestamp = 1000L + (partition * 100);
+                long baseDocId = 5000L + (partition * 1000);
+
+                for (int doc = 0; doc < 4; doc++) {
+                    long docId = baseDocId + doc;
+                    long timestamp = baseTimestamp + doc;
+                    Tuple primaryKey = recordStore.saveRecord(
+                            LuceneIndexTestUtils.createComplexDocument(docId, "doc p" + partition + "-" + doc, 1L, timestamp)
+                    ).getPrimaryKey();
+                    keys.add(primaryKey);
+                }
+                partitionPrimaryKeys.put(partition, keys);
+            }
+            commit(context);
+        }
+
+        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(4 * numPartitions));
+        // now rebalance partitions
+        mergeIndexNow(schemaSetup, index);
+        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(4, 4, 4, 4, 4));
+
+        // Set ongoing merge indicator in partition 3 only
+        setOngoingMergeIndicator(schemaSetup, index, groupingKey, 3);
+
+        // Delete one document from each partition (partition 3 will be queued)
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            for (int partition = 0; partition < numPartitions; partition++) {
+                // Delete first document from each partition
+                recordStore.deleteRecord(partitionPrimaryKeys.get(partition).get(0));
+            }
+            commit(context);
+        }
+
+        // Verify queue 3 contain DELETE operation
+        verifyExpectedQueueAndIndicator(schemaSetup, index, groupingKey, 3,
+                List.of(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE));
+        // ... and that the other partitions do not
+        for (int partition = 0; partition < numPartitions; partition++) {
+            if (partition != 3) {
+                verifyClearedQueueAndIndicator(schemaSetup, index, groupingKey, partition);
+            }
+        }
+
+        // Merge - drains all pending queues
+        mergeIndexNow(schemaSetup, index);
+
+        // Verify all queues cleared and indicators removed
+        for (int partition = 0; partition < numPartitions; partition++) {
+            verifyClearedQueueAndIndicator(schemaSetup, index, groupingKey, partition);
+        }
+
+        // Verify final document counts: 3 docs remaining in each partition
+        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(3, 3, 3, 3, 3));
+    }
+
+    @Test
     void testPendingQueueAcrossMultiplePartitions() {
         // Test pending queue with operations queued across multiple partitions
         final Map<String, String> options = Map.of(
