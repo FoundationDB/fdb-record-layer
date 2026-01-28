@@ -132,7 +132,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * For additional tests, see {@link com.apple.foundationdb.record.provider.foundationdb.indexes.VersionIndexTest}.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
+class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
     private static final Index VERSION_INDEX = new Index("versionIndex", version(), IndexTypes.VERSION);
     private static final Index VERSION_BY_NUM_VALUE_2_INDEX = new Index("versionByNumValue2Index", concat(field("num_value_2"), version()), IndexTypes.VERSION);
 
