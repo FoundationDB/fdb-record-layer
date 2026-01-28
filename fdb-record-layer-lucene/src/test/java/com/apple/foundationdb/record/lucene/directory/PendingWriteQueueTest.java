@@ -539,8 +539,14 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         verifyClearedQueueAndIndicator(schemaSetup, index, groupingKey, partition0);
         verifyClearedQueueAndIndicator(schemaSetup, index, groupingKey, partition1);
 
+        // After the drain the count should be reduced by 1 to 5, repartitioning should have been blocked during this merge
+        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(5));
+
+        // Merge again without "active pending queue" to run a repartitioning
+        mergeIndexNow(schemaSetup, index);
+
         // After the drain the count should be reduced by 1 to 5 + repartition should split partition 0
-        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(3, 2));
+        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(2, 3));
     }
 
     @Test
