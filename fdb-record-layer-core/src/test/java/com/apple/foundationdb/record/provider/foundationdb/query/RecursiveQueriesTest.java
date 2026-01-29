@@ -427,7 +427,25 @@ class RecursiveQueriesTest extends TempTableTestBase {
                  */
                 Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 15L)), PREORDER, List.of(List.of(73L, 42L, 89L, 15L), List.of(56L, 28L))),
                 Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 15L)), POSTORDER, List.of(List.of(15L, 89L, 42L, 73L), List.of(28L, 56L))),
-                Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 15L)), LEVEL, List.of(List.of(73L, 56L, 42L, 28L), List.of(89L, 15L, 56L, 28L)))
+                Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 15L)), LEVEL, List.of(List.of(73L, 56L, 42L, 28L), List.of(89L, 15L, 56L, 28L))),
+
+                /*
+                 * Scenario 6: Reparent node 56 under node 89 in a forest with two chains using unsorted random values
+                 *
+                 * Initial hierarchy:          After reparenting:
+                 *        73      56                  73
+                 *        │       │                   │
+                 *        42      28                  42
+                 *        │                           │
+                 *        89                          89
+                 *        │                          ┌─┴─┐
+                 *        15                        15  56
+                 *                                      │
+                 *                                      28
+                 */
+                Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 89L)), PREORDER, List.of(List.of(73L, 42L, 89L, 15L), List.of(56L, 28L, 56L, 28L))),
+                Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 89L)), POSTORDER, List.of(List.of(15L, 89L, 42L, 73L), List.of(28L, 56L))),
+                Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 89L)), LEVEL, List.of(List.of(73L, 56L, 42L, 28L), List.of(89L, 15L, 56L, 28L)))
         );
     }
 
