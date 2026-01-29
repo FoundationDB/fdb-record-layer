@@ -1075,7 +1075,7 @@ public class LucenePartitioner {
                 // situation with the partition metadata keys.
                 records.forEach(r -> {
                     try {
-                        indexMaintainer.deleteDocument(groupingKey, partitionInfo.getId(), r.getPrimaryKey());
+                        indexMaintainer.deleteDocumentBypassQueue(groupingKey, partitionInfo.getId(), r.getPrimaryKey());
                     } catch (IOException e) {
                         throw LuceneExceptions.toRecordCoreException(e.getMessage(), e);
                     }
@@ -1113,7 +1113,7 @@ public class LucenePartitioner {
             for (FDBIndexableRecord<Message> rec : records) {
                 LuceneDocumentFromRecord.getRecordFields(state.index.getRootExpression(), rec)
                         .entrySet().forEach(entry -> {
-                            indexMaintainer.writeDocument(rec, entry, destinationPartitionId);
+                            indexMaintainer.writeDocumentBypassQueue(rec, entry, destinationPartitionId);
                             addToAndSavePartitionMetadata(rec, groupingKey, destinationPartitionId);
                         });
             }

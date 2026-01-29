@@ -312,31 +312,31 @@ public class ValueSpecificConstraintTests {
             // First query with EF_SEARCH = 100 and k = 10
             preparedQueryShouldMissCache(connection,
                     "SELECT * FROM photos WHERE zone = '1' and name = 'Alice' " +
-                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) DESC OPTIONS EF_SEARCH = 100) < ?",
+                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) ASC OPTIONS EF_SEARCH = 100) < ?",
                     ImmutableMap.of(1, queryVector, 2, 10));
 
             // Same query should hit cache
             preparedQueryShouldHitCache(connection,
                     "SELECT * FROM photos WHERE zone = '1' and name = 'Alice' " +
-                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) DESC OPTIONS EF_SEARCH = 100) < ?",
+                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) ASC OPTIONS EF_SEARCH = 100) < ?",
                     ImmutableMap.of(1, queryVector, 2, 10));
 
             // Different EF_SEARCH value should miss cache
             preparedQueryShouldMissCache(connection,
                     "SELECT * FROM photos WHERE zone = '1' and name = 'Alice' " +
-                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) DESC OPTIONS EF_SEARCH = 200) < ?",
+                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) ASC OPTIONS EF_SEARCH = 200) < ?",
                     ImmutableMap.of(1, queryVector, 2, 10));
 
             // Same EF_SEARCH = 200 should hit cache
             preparedQueryShouldHitCache(connection,
                     "SELECT * FROM photos WHERE zone = '1' and name = 'Alice' " +
-                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) DESC OPTIONS EF_SEARCH = 200) < ?",
+                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) ASC OPTIONS EF_SEARCH = 200) < ?",
                     ImmutableMap.of(1, queryVector, 2, 10));
 
             // Different k value (15 instead of 10) should miss cache
             preparedQueryShouldHitCache(connection,
                     "SELECT * FROM photos WHERE zone = '1' and name = 'Alice' " +
-                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) DESC OPTIONS EF_SEARCH = 200) < ?",
+                    "qualify row_number() OVER (PARTITION BY zone, name ORDER BY euclidean_distance(embedding, ?) ASC OPTIONS EF_SEARCH = 200) < ?",
                     ImmutableMap.of(1, queryVector, 2, 15));
         }
     }

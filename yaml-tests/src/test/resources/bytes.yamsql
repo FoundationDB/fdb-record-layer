@@ -55,6 +55,18 @@ test_block:
     -
       - query: select a from lb where b IS NOT NULL
       - unorderedResult: [ { 1 }, { 2 } ]
+    -
+      - query: select a from lb where b = null
+      - supported_version: !current_version
+      - result: []
+    -
+      - query: select a from lb where b is not distinct from null
+      - supported_version: !current_version
+      - result: [ { 3 } ]
+    -
+      - query: select a from lb where b is distinct from null
+      - supported_version: !current_version
+      - unorderedResult: [ { 1 }, { 2 } ]
 ---
 test_block:
   tests:

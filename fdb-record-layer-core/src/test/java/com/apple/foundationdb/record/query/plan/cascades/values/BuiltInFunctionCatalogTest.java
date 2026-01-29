@@ -86,17 +86,6 @@ class BuiltInFunctionCatalogTest {
     }
 
     @Test
-    void testGetFunctionSingletonForManhattanDistance() {
-        final Optional<BuiltInFunction<? extends Typed>> singleton = BuiltInFunctionCatalog.getFunctionSingleton(DistanceValue.ManhattanDistanceFn.class);
-
-        Assertions.assertTrue(singleton.isPresent(), "ManhattanDistanceFn singleton should be found");
-        Assertions.assertInstanceOf(DistanceValue.ManhattanDistanceFn.class, singleton.get(),
-                "Singleton should be instance of ManhattanDistanceFn");
-        Assertions.assertEquals("manhattan_distance", singleton.get().getFunctionName(),
-                "Function name should be manhattan_distance");
-    }
-
-    @Test
     void testGetFunctionSingletonForEuclideanSquareDistance() {
         final Optional<BuiltInFunction<? extends Typed>> singleton = BuiltInFunctionCatalog.getFunctionSingleton(DistanceValue.EuclideanSquareDistanceFn.class);
 
@@ -177,18 +166,18 @@ class BuiltInFunctionCatalogTest {
     void testMultipleFunctionsCanBeResolved() {
         final Optional<BuiltInFunction<? extends Typed>> euclidean = BuiltInFunctionCatalog.resolve("euclidean_distance", 2);
         final Optional<BuiltInFunction<? extends Typed>> cosine = BuiltInFunctionCatalog.resolve("cosine_distance", 2);
-        final Optional<BuiltInFunction<? extends Typed>> manhattan = BuiltInFunctionCatalog.resolve("manhattan_distance", 2);
+        final Optional<BuiltInFunction<? extends Typed>> euclideanSquare = BuiltInFunctionCatalog.resolve("euclidean_square_distance", 2);
 
         Assertions.assertTrue(euclidean.isPresent(), "euclidean_distance should be found");
         Assertions.assertTrue(cosine.isPresent(), "cosine_distance should be found");
-        Assertions.assertTrue(manhattan.isPresent(), "manhattan_distance should be found");
+        Assertions.assertTrue(euclideanSquare.isPresent(), "euclidean_square_distance should be found");
 
         // Verify they are different instances
         Assertions.assertNotSame(euclidean.get(), cosine.get(),
                 "Different functions should have different instances");
-        Assertions.assertNotSame(euclidean.get(), manhattan.get(),
+        Assertions.assertNotSame(euclidean.get(), euclideanSquare.get(),
                 "Different functions should have different instances");
-        Assertions.assertNotSame(cosine.get(), manhattan.get(),
+        Assertions.assertNotSame(cosine.get(), euclideanSquare.get(),
                 "Different functions should have different instances");
     }
 

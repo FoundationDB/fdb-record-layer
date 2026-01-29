@@ -46,6 +46,17 @@ test_block:
       - query: SELECT CAST([] AS INTEGER ARRAY) AS empty_int_array FROM arrays WHERE id = 1
       - result: [{empty_int_array: []}]
 
+    # Null Value Casting
+    -
+      - query: SELECT CAST(null AS string) AS null_string FROM data WHERE id = 1
+      - initialVersionLessThan: !current_version
+      - error: 'XXXXX'
+      - initialVersionAtLeast: !current_version
+      - result: [{null_string: !null _ }]
+    -
+      - query: SELECT str_value FROM data WHERE str_value IS DISTINCT FROM null
+      - result: [{str_value: "123" }, {str_value: "invalid"}]
+
     # Nested Conversions
     -
       - query: SELECT CAST(CAST(value AS STRING) AS DOUBLE) AS nested_cast FROM numbers WHERE id = 1

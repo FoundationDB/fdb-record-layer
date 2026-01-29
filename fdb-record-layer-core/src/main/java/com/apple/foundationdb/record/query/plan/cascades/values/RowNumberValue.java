@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PRowNumberValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
@@ -45,7 +46,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.COSINE_DISTANCE;
+import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.DOT_PRODUCT_DISTANCE;
 import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.EUCLIDEAN_DISTANCE;
+import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.EUCLIDEAN_SQUARE_DISTANCE;
 
 /**
  * A windowed value representing the {@code ROW_NUMBER()} window function, which assigns sequential
@@ -220,10 +224,12 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
      * that can leverage vector similarity indexes for more efficient query execution.
      * <p>
      * This method performs a pattern-matching transformation on queries involving {@code ROW_NUMBER()} window
-     * functions ordered by distance metrics (Euclidean or Cosine distance). When the pattern matches, it converts
-     * the comparison into a {@link Comparisons.DistanceRankValueComparison} wrapped in either an
-     * {@link EuclideanDistanceRowNumberValue} or {@link CosineDistanceRowNumberValue}, which enables the query
-     * planner to use specialized vector similarity search indexes (such as HNSW indexes).
+     * functions ordered by distance metrics (Euclidean, Euclidean square, Cosine, or Dot product distance). When
+     * the pattern matches, it converts the comparison into a {@link Comparisons.DistanceRankValueComparison} wrapped
+     * in the appropriate distance-specific {@code RowNumberValue} ({@link EuclideanDistanceRowNumberValue},
+     * {@link EuclideanSquareDistanceRowNumberValue}, {@link CosineDistanceRowNumberValue}, or
+     * {@link DotProductDistanceRowNumberValue}), which enables the query planner to use specialized vector
+     * similarity search indexes (such as HNSW indexes).
      * </p>
      * <p>
      * <strong>Matched Pattern:</strong>
@@ -237,7 +243,7 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
      * </pre>
      * Where:
      * <ul>
-     *   <li><strong>Distance</strong> = {@link ArithmeticValue} with {@code EUCLIDEAN_DISTANCE} or {@code COSINE_DISTANCE} operator</li>
+     *   <li><strong>Distance</strong> = {@link ArithmeticValue} with {@code EUCLIDEAN_DISTANCE}, {@code EUCLIDEAN_SQUARE_DISTANCE}, {@code COSINE_DISTANCE}, or {@code DOT_PRODUCT_DISTANCE} operator</li>
      *   <li><strong>Field</strong> = {@link FieldValue} representing the indexed vector field to search</li>
      *   <li><strong>Vector</strong> = Constant value ({@link ConstantObjectValue} or {@link LiteralValue}) representing the query vector</li>
      *   <li><strong>Constant</strong> = Constant value representing the k in "top-k" nearest neighbor search</li>
@@ -286,9 +292,10 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
      * <strong>Supported Distance Metrics:</strong>
      * <ul>
      *   <li>{@link com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator#EUCLIDEAN_DISTANCE}
+     *   <li>{@link com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator#EUCLIDEAN_SQUARE_DISTANCE}</li>
      *   <li>{@link com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator#COSINE_DISTANCE}</li>
+     *   <li>{@link com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator#DOT_PRODUCT_DISTANCE}</li>
      * </ul>
-     * Future support may include {@code EUCLIDEAN_SQUARE_DISTANCE}, {@code MANHATTAN_DISTANCE}, and {@code DOT_PRODUCT_DISTANCE}.
      * </p>
      * <p>
      * <strong>Requirements for Transformation:</strong>
@@ -335,29 +342,30 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
                 return Optional.empty();
         }
 
-        WindowedValue windowedValue;
         Comparisons.DistanceRankValueComparison distanceRankComparison;
         final var distanceValue = (DistanceValue)argument;
-        switch (distanceValue.getOperator()) {
+        final var distanceValueArgs = ImmutableList.copyOf(distanceValue.getChildren());
+        final var indexVector = distanceValueArgs.get(0);
+        final var queryVector = distanceValueArgs.get(1);
+        final var operator = distanceValue.getOperator();
+        distanceRankComparison = new Comparisons.DistanceRankValueComparison(distanceRankComparisonType, queryVector,
+                comparand, efSearch, isReturningVectors);
+        final WindowedValue windowedValue;
+        switch (operator) {
             case EUCLIDEAN_DISTANCE:
-            // TODO enable once supported by the index:
-            // case EUCLIDEAN_SQUARE_DISTANCE:
-            // case MANHATTAN_DISTANCE:
-            // case DOT_PRODUCT_DISTANCE:
+                windowedValue = new EuclideanDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
+                break;
+            case EUCLIDEAN_SQUARE_DISTANCE:
+                windowedValue = new EuclideanSquareDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
+                break;
             case COSINE_DISTANCE:
-                final var distanceValueArgs = ImmutableList.copyOf(distanceValue.getChildren());
-                final var indexVector = distanceValueArgs.get(0);
-                final var queryVector = distanceValueArgs.get(1);
-                distanceRankComparison = new Comparisons.DistanceRankValueComparison(distanceRankComparisonType, queryVector,
-                        comparand, efSearch, isReturningVectors);
-                if (distanceValue.getOperator() == EUCLIDEAN_DISTANCE) {
-                    windowedValue = new EuclideanDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
-                } else {
-                    windowedValue = new CosineDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
-                }
+                windowedValue = new CosineDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
+                break;
+            case DOT_PRODUCT_DISTANCE:
+                windowedValue = new DotProductDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
                 break;
             default:
-                return Optional.empty();
+                throw new RecordCoreException("unexpected distance function " + operator.name());
         }
         return Optional.of(new ValuePredicate(windowedValue, distanceRankComparison));
     }

@@ -128,7 +128,6 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
                 .put("bitmap_construct_agg", argumentsCount -> BuiltInFunctionCatalog.resolve("BITMAP_CONSTRUCT_AGG", argumentsCount))
                 .put("euclidean_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("euclidean_distance", argumentsCount))
                 .put("euclidean_square_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("euclidean_square_distance", argumentsCount))
-                .put("manhattan_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("manhattan_distance", argumentsCount))
                 .put("cosine_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("cosine_distance", argumentsCount))
                 .put("dot_product_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("dot_product_distance", argumentsCount))
                 .put("not", argumentsCount -> BuiltInFunctionCatalog.resolve("not", argumentsCount))

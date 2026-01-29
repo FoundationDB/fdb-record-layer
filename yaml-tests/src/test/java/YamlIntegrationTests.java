@@ -293,6 +293,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void semanticSearchTestAdvancedMetrics(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("semantic-search-advanced-metrics.yamsql");
+    }
+
+    @TestTemplate
     public void setupWithConnectionOptionsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("setup-with-connection-options.yamsql");
     }
@@ -387,6 +392,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void versionsTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("versions-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void versionsWithSingleTypeTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("versions-with-single-type-tests.yamsql");
     }
 
     @TestTemplate

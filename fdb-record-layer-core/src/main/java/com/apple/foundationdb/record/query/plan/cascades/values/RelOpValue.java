@@ -1189,7 +1189,11 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         IS_NOT_NULL_NT(Comparisons.Type.NOT_NULL, Type.TypeCode.NULL, Objects::nonNull),
 
         IS_NULL_VECTOR(Comparisons.Type.IS_NULL, Type.TypeCode.VECTOR, Objects::isNull),
-        IS_NOT_NULL_VECTOR(Comparisons.Type.NOT_NULL, Type.TypeCode.VECTOR, Objects::nonNull);
+        IS_NOT_NULL_VECTOR(Comparisons.Type.NOT_NULL, Type.TypeCode.VECTOR, Objects::nonNull),
+
+        IS_NULL_VERSION(Comparisons.Type.IS_NULL, Type.TypeCode.VERSION, Objects::isNull),
+        IS_NOT_NULL_VERSION(Comparisons.Type.NOT_NULL, Type.TypeCode.VERSION, Objects::nonNull),
+        ;
 
         @Nonnull
         private static final Supplier<BiMap<UnaryPhysicalOperator, PUnaryPhysicalOperator>> protoEnumBiMapSupplier =
