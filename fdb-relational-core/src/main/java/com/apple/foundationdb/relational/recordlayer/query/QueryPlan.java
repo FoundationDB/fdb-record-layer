@@ -128,6 +128,13 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         private final QueryExecutionContext queryExecutionContext;
 
+        /**
+         * Semantic type structure captured during semantic analysis.
+         * Complete StructType with field names and nested struct type names preserved.
+         */
+        @Nonnull
+        private final DataType.StructType semanticStructType;
+
         public PhysicalQueryPlan(@Nonnull final RecordQueryPlan recordQueryPlan,
                                  @Nullable final StatsMaps plannerStatsMaps,
                                  @Nonnull final TypeRepository typeRepository,
@@ -135,7 +142,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                  @Nonnull final QueryPlanConstraint continuationConstraint,
                                  @Nonnull final QueryExecutionContext queryExecutionContext,
                                  @Nonnull final String query,
-                                 @Nonnull final PlanHashMode currentPlanHashMode) {
+                                 @Nonnull final PlanHashMode currentPlanHashMode,
+                                 @Nonnull final DataType.StructType semanticStructType) {
             super(query);
             this.recordQueryPlan = recordQueryPlan;
             this.plannerStatsMaps = plannerStatsMaps;
@@ -145,6 +153,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             this.queryExecutionContext = queryExecutionContext;
             this.currentPlanHashMode = currentPlanHashMode;
             this.planHashSupplier = Suppliers.memoize(() -> recordQueryPlan.planHash(currentPlanHashMode));
+            this.semanticStructType = semanticStructType;
         }
 
         @Nonnull
@@ -192,7 +201,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 return this;
             }
             return new PhysicalQueryPlan(recordQueryPlan, plannerStatsMaps, typeRepository, constraint,
-                    continuationConstraint, queryExecutionContext, query, queryExecutionContext.getPlanHashMode());
+                    continuationConstraint, queryExecutionContext, query, queryExecutionContext.getPlanHashMode(),
+                    semanticStructType);
         }
 
         @Nonnull
@@ -404,10 +414,10 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             parsedContinuation.getExecutionState(),
                             executeProperties));
             final var currentPlanHashMode = OptionsUtils.getCurrentPlanHashMode(options);
-            final var dataType = (DataType.StructType) DataTypeUtils.toRelationalType(type);
+
             return executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.CREATE_RESULT_SET_ITERATOR, () -> {
                 final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
-                return new RecordLayerResultSet(RelationalStructMetaData.of(dataType), iterator, connection,
+                return new RecordLayerResultSet(RelationalStructMetaData.of(semanticStructType), iterator, connection,
                         (continuation, reason) -> enrichContinuation(continuation,
                                 currentPlanHashMode, reason));
             });
@@ -450,8 +460,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     i++;
                 }
 
-                compiledStatementBuilder.setPlanConstraint(getContinuationConstraint().toProto(serializationContext));
-
+                compiledStatementBuilder.setPlanConstraint(getContinuationConstraint().toProto(serializationContext))
+                        .setQueryMetadata(DataTypeUtils.toRecordLayerType(semanticStructType).toTypeProto(serializationContext));
                 continuationBuilder.withCompiledStatement(compiledStatementBuilder.build());
             }
             return continuationBuilder.build();
@@ -476,9 +486,10 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                           @Nonnull final QueryExecutionContext queryExecutionParameters,
                                           @Nonnull final String query,
                                           @Nonnull final PlanHashMode currentPlanHashMode,
-                                          @Nonnull final PlanHashMode serializedPlanHashMode) {
+                                          @Nonnull final PlanHashMode serializedPlanHashMode,
+                                          @Nonnull final DataType.StructType semanticStructType) {
             super(recordQueryPlan, null, typeRepository, QueryPlanConstraint.noConstraint(),
-                    continuationConstraint, queryExecutionParameters, query, currentPlanHashMode);
+                    continuationConstraint, queryExecutionParameters, query, currentPlanHashMode, semanticStructType);
             this.serializedPlanHashMode = serializedPlanHashMode;
             this.serializedPlanHashSupplier = Suppliers.memoize(() -> recordQueryPlan.planHash(serializedPlanHashMode));
         }
@@ -488,15 +499,29 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             return serializedPlanHashMode;
         }
 
-        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        /**
+         * Returns a plan with updated execution context.
+         *
+         * <p>Note: This method is never called in production because ContinuedPhysicalQueryPlan instances
+         * are not cached - each EXECUTE CONTINUATION deserializes the plan fresh from the continuation blob.
+         * However, we must override to satisfy the Plan interface contract.
+         *
+         * <p>TODO: Refactor the class hierarchy to eliminate this dead code. Potential approaches:
+         * <ul>
+         *   <li>Collapse ContinuedPhysicalQueryPlan into PhysicalQueryPlan with a flag</li>
+         *   <li>Use composition instead of inheritance</li>
+         *   <li>Make Plan.withExecutionContext() optional with default implementation</li>
+         * </ul>
+         *
+         * @param queryExecutionContext The new execution context (ignored - never called)
+         * @return This instance (since continuation plans are never cached)
+         */
         @Override
         @Nonnull
         public PhysicalQueryPlan withExecutionContext(@Nonnull final QueryExecutionContext queryExecutionContext) {
-            if (queryExecutionContext == this.getQueryExecutionContext()) {
-                return this;
-            }
-            return new ContinuedPhysicalQueryPlan(getRecordQueryPlan(), getTypeRepository(), getContinuationConstraint(),
-                    queryExecutionContext, query, queryExecutionContext.getPlanHashMode(), getSerializedPlanHashMode());
+            // This method is never called in production - continuation plans bypass the cache.
+            // Return this to avoid maintaining dead code.
+            return this;
         }
 
         @Override
@@ -549,18 +574,27 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         private final String query;
 
+        /**
+         * Semantic type structure captured during semantic analysis.
+         * Preserves struct type names - will be merged with planner field names after planning.
+         */
+        @Nonnull
+        private final DataType.StructType semanticStructType;
+
         @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
         @Nonnull
         private Optional<PhysicalQueryPlan> optimizedPlan;
 
         private LogicalQueryPlan(@Nonnull final RelationalExpression relationalExpression,
                                  @Nonnull final MutablePlanGenerationContext context,
-                                 @Nonnull final String query) {
+                                 @Nonnull final String query,
+                                 @Nonnull final DataType.StructType semanticStructType) {
             super(query);
             this.relationalExpression = relationalExpression;
             this.context = context;
             this.optimizedPlan = Optional.empty();
             this.query = query;
+            this.semanticStructType = semanticStructType;
         }
 
         @Override
@@ -609,7 +643,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
                 optimizedPlan = Optional.of(
                         new PhysicalQueryPlan(minimizedPlan, statsMaps, builder.build(),
-                                constraint, continuationConstraint, context, query, currentPlanHashMode));
+                                constraint, continuationConstraint, context, query, currentPlanHashMode,
+                                semanticStructType));
                 return optimizedPlan.get();
             });
         }
@@ -657,8 +692,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         public static LogicalQueryPlan of(@Nonnull final RelationalExpression relationalExpression,
                                           @Nonnull final MutablePlanGenerationContext context,
-                                          @Nonnull final String query) {
-            return new LogicalQueryPlan(relationalExpression, context, query);
+                                          @Nonnull final String query,
+                                          @Nonnull final DataType.StructType semanticStructType) {
+            return new LogicalQueryPlan(relationalExpression, context, query, semanticStructType);
         }
 
         @Nonnull
