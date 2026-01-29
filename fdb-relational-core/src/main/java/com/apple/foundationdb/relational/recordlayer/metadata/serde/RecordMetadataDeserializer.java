@@ -169,7 +169,7 @@ public class RecordMetadataDeserializer {
                 .setName(name)
                 .setDescription(body)
                 .setTemporary(false)
-                .withUserDefinedRoutine(getSqlFunctionCompiler(name, metadata, body))
+                .withUserDefinedFunctionProvider(getSqlFunctionCompiler(name, metadata, body))
                 .withSerializableFunction(new RawSqlFunction(name, body));
     }
 
@@ -180,7 +180,7 @@ public class RecordMetadataDeserializer {
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(name)
                 .setDescription(body)
-                .withUserDefinedRoutine(ignored -> userDefinedScalarFunction)
+                .withUserDefinedFunctionProvider(ignored -> userDefinedScalarFunction)
                 .withSerializableFunction(userDefinedScalarFunction);
     }
 
