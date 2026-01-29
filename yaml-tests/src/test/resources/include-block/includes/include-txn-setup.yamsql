@@ -17,9 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This yamsql file only has the transaction_setups block - no test_block(s). Hence, it should fail when trying to
-# execute independently. However, if included in other file, the includer file should be able to reference the setups
-# defined in this file.
+# This yamsql file only has the transaction_setups block. It will pass as there is nothing to execute.
+# If included in other file, the includer file should be able to reference the setups defined in this file.
 ---
 transaction_setups:
     func_on_t1: create temporary function func_t1() on commit drop function AS

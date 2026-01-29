@@ -17,7 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should fail in itself as it has only `setup` block - no `test_block`(s).
+# This test should fail in itself as it has only `setup` block but no available database connections.
 # However, it will work if included correctly to other files.
 ---
 setup:

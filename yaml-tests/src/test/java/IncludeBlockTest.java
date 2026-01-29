@@ -95,7 +95,6 @@ public class IncludeBlockTest {
                 "include-no-explain",
                 "include-recursion",
                 "include-with-explain",
-                "include-txn-setup",
                 "include-setup-insert",
                 "include-with-a-test-block",
                 "include-with-include"
@@ -107,7 +106,8 @@ public class IncludeBlockTest {
     // should be successful as they have all the ingredients for setup.
     static Stream<String> includesShouldPass() {
         return Stream.of(
-                "include-scoped"
+                "include-scoped",
+                "include-txn-setup"
         );
     }
 

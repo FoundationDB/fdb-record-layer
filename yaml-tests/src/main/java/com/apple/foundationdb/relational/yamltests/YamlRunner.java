@@ -21,13 +21,13 @@
 package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.block.IncludeBlock;
 import com.apple.foundationdb.relational.yamltests.block.TestBlock;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -62,15 +62,15 @@ public final class YamlRunner {
                     testBlocks.add((TestBlock)block);
                 }
             }
-            Assert.thatUnchecked(!testBlocks.isEmpty(), "No test blocks found!");
             for (final var block: allBlocks) {
                 logger.debug("⚪️ Executing {} at {}", block.getClass().getSimpleName(), block.getReference());
                 block.execute();
             }
             evaluateTestBlockResults(testBlocks);
             executionContext.replaceFilesIfRequired();
-        } catch (Throwable e) {
-            throw YamlExecutionContext.wrapContext(e, () -> "‼️ running test file '" + baseResource.getPath() + "' was not successful", "<root>", baseResource.withLineNumber(0));
+        } catch (RelationalException | IOException e) {
+            logger.error("‼️ running test file '{}' was not successful", baseResource.getPath(), e);
+            throw e;
         }
     }
 
