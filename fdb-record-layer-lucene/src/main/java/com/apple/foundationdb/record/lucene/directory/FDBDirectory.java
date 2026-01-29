@@ -996,9 +996,6 @@ public class FDBDirectory extends Directory  {
      * @return true if queue should be used
      */
     public boolean shouldUseQueue() {
-        if (!getBooleanIndexOption(LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, false)) {
-            return false;
-        }
         return Boolean.TRUE.equals(asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_ONGOING_MERGE_INDICATOR,
                 shouldUseQueueAsync()));
     }

@@ -618,7 +618,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Boolean> shouldUseQueueAsync(Tuple groupingKey, Integer partitionId) {
+    public CompletableFuture<Boolean> shouldUseQueueAsync(Tuple groupingKey, @Nullable Integer partitionId) {
         FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
         return directory.shouldUseQueueAsync();
     }

@@ -620,7 +620,23 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
             }
         }
 
-        // Merge - drains all pending queues
+        // Add a few docs to partition 4
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            long partition = 4;
+            long baseTimestamp = 1000L + (partition * 100);
+            long baseDocId = 5000L + (partition * 1000);
+            for (int doc = 10; doc < 14; doc++) {
+                long docId = baseDocId + doc;
+                long timestamp = baseTimestamp + doc;
+                recordStore.saveRecord(
+                        LuceneIndexTestUtils.createComplexDocument(docId, "doc p" + partition + "-" + doc, 1L, timestamp)
+                );
+            }
+            commit(context);
+        }
+
+        // Merge - drains all pending queues (no repartitioning)
         mergeIndexNow(schemaSetup, index);
 
         // Verify all queues cleared and indicators removed
@@ -628,8 +644,12 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
             verifyClearedQueueAndIndicator(schemaSetup, index, groupingKey, partition);
         }
 
-        // Verify final document counts: 3 docs remaining in each partition
-        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(3, 3, 3, 3, 3));
+        // Verify document counts
+        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(7, 3, 3, 3, 3));
+
+        // Merge again to repartition and verify final document count
+        mergeIndexNow(schemaSetup, index);
+        verifyPartitionCount(schemaSetup, index, groupingKey, List.of(3, 4, 3, 3, 3, 3));
     }
 
     @Test
