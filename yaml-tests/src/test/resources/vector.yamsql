@@ -156,15 +156,19 @@ test_block:
     # EQUALS NULL tests for vectors
     -
       - query: select b = null from tHalfVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER THALFVECTOR | FILTER _.A EQUALS promote(@c10 AS LONG) | MAP (_.B equals NULL AS _0)"
       - result: [{!null _}]
     -
       - query: select null = b from tHalfVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER THALFVECTOR | FILTER _.A EQUALS promote(@c10 AS LONG) | MAP (NULL equals _.B AS _0)"
       - result: [{!null _}]
     -
       - query: select b != null from tHalfVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER THALFVECTOR | FILTER _.A EQUALS promote(@c11 AS LONG) | MAP (_.B notEquals NULL AS _0)"
       - result: [{!null _}]
     -
       - query: select null != b from tHalfVector where a = 100
+      - explain: "SCAN(<,>) | TFILTER THALFVECTOR | FILTER _.A EQUALS promote(@c11 AS LONG) | MAP (NULL notEquals _.B AS _0)"
       - result: [{!null _}]
     # IS NOT NULL tests for vectors
     -
@@ -244,6 +248,47 @@ test_block:
     -
       - query: select a from tDoubleVector where b is not null
       - result: [{100}]
+    # Filter using comparison with NULL
+    -
+      - query: select a from tHalfVector where b = null
+      - supported_version: !current_version
+      - explain: "SCAN(<,>) | TFILTER THALFVECTOR | FILTER null | MAP (_.A AS A)"
+      - result: []
+    -
+      - query: select a from tFloatVector where b != null
+      - supported_version: !current_version
+      - explain: "SCAN(<,>) | TFILTER TFLOATVECTOR | FILTER _.B NOT_EQUALS NULL | MAP (_.A AS A)"
+      - result: []
+    -
+      - query: select a from tHalfVector where null = b
+      - supported_version: !current_version
+      - explain: "SCAN(<,>) | TFILTER THALFVECTOR | FILTER null | MAP (_.A AS A)"
+      - result: []
+    -
+      - query: select a from tFloatVector where null != b
+      - supported_version: !current_version
+      - explain: "SCAN(<,>) | TFILTER TFLOATVECTOR | FILTER _.B NOT_EQUALS NULL | MAP (_.A AS A)"
+      - result: []
+    -
+      - query: select a from tDoubleVector where b is distinct from null
+      - supported_version: !current_version
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.B IS_DISTINCT_FROM NULL | MAP (_.A AS A)"
+      - result: [{100}]
+    -
+      - query: select a from tDoubleVector where b is not distinct from null
+      - supported_version: !current_version
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.B NOT_DISTINCT_FROM NULL | MAP (_.A AS A)"
+      - result: [{200}]
+    -
+      - query: select a from tDoubleVector where null is distinct from b
+      - supported_version: !current_version
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.B IS_DISTINCT_FROM NULL | MAP (_.A AS A)"
+      - result: [{100}]
+    -
+      - query: select a from tDoubleVector where null is not distinct from b
+      - supported_version: !current_version
+      - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.B NOT_DISTINCT_FROM NULL | MAP (_.A AS A)"
+      - result: [{200}]
     # Vector equality tests (VEC = VEC)
     -
       - query: insert into tHalfVector values (300, !! !v16 [1.3, 1.4, 1.6] !!)

@@ -131,6 +131,10 @@ public class TypeRepository {
         return new TypeRepository(FileDescriptorSet.parseFrom(schemaDescBuf), Maps.newHashMap());
     }
 
+    public boolean containsType(@Nonnull Type type) {
+        return typeToNameMap.containsKey(canonicalizeNullability(type));
+    }
+
     /**
      * Creates a new dynamic message builder for the given message type.
      *

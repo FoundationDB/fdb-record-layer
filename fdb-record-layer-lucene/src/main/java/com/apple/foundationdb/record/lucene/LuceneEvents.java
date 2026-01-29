@@ -176,6 +176,12 @@ public class LuceneEvents {
         WAIT_LUCENE_FILE_LOCK_GET("lucene get file lock"),
         /** Clear a file lock. */
         WAIT_LUCENE_FILE_LOCK_CLEAR("lucene clear file lock"),
+        /** read the ongoing merge indicator. */
+        WAIT_LUCENE_READ_ONGOING_MERGE_INDICATOR("lucene read the ongoing merge indicator"),
+        /** Wait to drain the pending queue. */
+        WAIT_LUCENE_DRAIN_PENDING_QUEUE("lucene pending queue drain"),
+        /** Wait to for the pending queue. */
+        WAIT_LUCENE_READ_PENDING_QUEUE("lucene pending queue get item(s)"),
         ;
         private final String title;
         private final String logKey;
@@ -240,7 +246,11 @@ public class LuceneEvents {
         /** Count of times a rebalance was called. */
         LUCENE_REPARTITION_CALLS("Count of Lucene repartition calls", false),
         /** Count of the number of times a block was removed from the block cache. */
-        LUCENE_BLOCK_CACHE_REMOVE("Count of blocks removed from cache", false);
+        LUCENE_BLOCK_CACHE_REMOVE("Count of blocks removed from cache", false),
+        /** Count of the number of Writes to the pending writes queue. */
+        LUCENE_PENDING_QUEUE_WRITE("Count of Lucene Pending writes queue Writes", false),
+        /** Count of the number of Clears in the pending writes queue. */
+        LUCENE_PENDING_QUEUE_CLEAR("Count of Lucene Pending writes queue Clears", false);
 
         private final String title;
         private final boolean isSize;

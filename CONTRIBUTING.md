@@ -13,6 +13,7 @@ The following guide outlines the basics of how to get involved.
   * [Issues to Track Changes](#issues-to-track-changes)
   * [Opening a Pull Request](#opening-a-pull-request)
   * [Reporting Issues](#reporting-issues)
+  * [Running tests](#running-tests)
 * [Project Communication](#project-communication)
   * [Community Forums](#community-forums)
   * [Using GitHub Issues and Community Forums](#using-github-issues-and-community-forums)
@@ -114,6 +115,75 @@ Please refer to the section below on [using GitHub issues and the community foru
 To report a security issue, please **DO NOT** start by filing a public issue 
 or posting to the forums; instead send a private email to 
 [fdb-oss-security@group.apple.com](mailto:fdb-oss-security@group.apple.com).
+
+### Running tests
+
+We have a variety of different testing configurations:
+
+#### test
+
+Standard test target for the majority of our tests; and the standard way of running tests
+in gradle `./gradlew test`
+
+#### destructiveTest
+
+Some tests have to work with global state in FDB, and need to wipe the entire database
+while running (or in `@Before*`/`@After*`). Those tests are annotated with `@Tag(Tags.WipesFDB)`,
+and are only run when you do `./gradlew destructiveTest`
+
+#### performanceTest
+
+For tests that gather performance numbers, and aren't focused on correctness.
+We don't currently run these in any sort of regular cadence, or automatically, but once written,
+it's valuable to keep the code, and run again if you touch the associated production code. These tests are annotated
+with `@Tag(Tags.Performance)` and can be run with `./gradlew performanceTest`.
+
+#### quickTest
+
+For tests that use `@YamlTest`, they generally run with a mixture of different configurations
+(e.g. force continuations / external servers). The `quickTest` target runs just the embedded
+configuration, and is most useful when you are developing new features & tests to make sure
+it works in an `Embedded` configuration without having to run the failing test a bunch of times for the other configurations.
+This can be run with `./gradlew quickTest`
+
+#### rpcTest
+
+Similar to `quickTest` above, except instead of running with an
+`EmbeddedRelationalConnection` it runs against JDBC-In-Process, which can be helpful if
+you are working on an aspect of the RPC protocol. This can be run with `./gradlew rpcTest`
+
+#### singleVersionTest
+
+For tests that use `@YamlTest`, this will run all the tests with the test connecting just
+to multiple external servers of the same version (unlike its normal behavior which is to alternate between the
+external server and the current embedded connection).
+This can be run with `./gradlew singleVersionTest`
+
+#### Nightly
+
+We have a [nightly action](https://github.com/FoundationDB/fdb-record-layer/actions/workflows/nightly.yml)
+that we run every night, and include tests that are exceptionally slow (annotated with `@SuperSlow`) or have
+randomness (ideally using `RandomizedTestUtils`).
+
+To mimic the test run in our nightly GitHub action you'll need to attach the following properties, but
+you don't always need all of them. You can add this to a standard `./gradlew test` run.
+
+- `-Ptests.nightly`:
+  - It will gnore failures (since these tests are more likely to be flaky, we want to make sure we run all tests in all
+    sub modules, and not abort if an early one fails.
+  - It will run tests that are annotated with `@SuperSlow`, which have a higher timeout of 20 minutes.
+  - It will run test parameters that are wrapped in `TestConfigurationUtils.onlyNightly`
+- `-Ptests.includeRandom`:
+  - It will include tests tagged with `@Tag(Tags.Random)`
+  - It will set the system locale to a randomly chosen one (to help catch issues where we assume the default locale is
+    `en-US`)
+- `-Ptests.iterations=2`: For tests using `RandomizedTestUtils` to generate random seeds, this specifies the number of
+  seeds to use. If `-Ptests.includeRandom` is not set, it still won't add any random seeds. This defaults to `0`.
+
+
+Note: We also utilize the `lucene-test-framework` to get additional coverage of our file format extensions and directory.
+Those tests have randomness, but also use JUnit4, unlike all of our tests which use JUnit5. We translate the randomness
+controls above into the appropriate properties so that it has matching behavior.
 
 ## Project Communication
 

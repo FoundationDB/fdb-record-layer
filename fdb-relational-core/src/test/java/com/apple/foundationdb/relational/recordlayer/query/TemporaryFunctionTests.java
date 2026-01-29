@@ -20,16 +20,34 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.ddl.ConstantAction;
+import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
+import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
+import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.ddl.CreateTemporaryFunctionConstantAction;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
@@ -41,10 +59,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * This is for testing different aspects of temporary SQL functions. This test suite can migrate to YAML once we have
@@ -215,6 +237,41 @@ public class TemporaryFunctionTests {
             }
             connection.rollback();
         }
+    }
+
+    @Test
+    void temporaryFunctionIsMemoizedAcrossInvocations() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            // at least 1 function is defined
+            try (var statement = connection.createStatement()) {
+                statement.execute("create or replace temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ");
+
+                final var firstCall = getUserDefinedFunction(connection, "SQ1");
+                Assertions.assertInstanceOf(CompiledSqlFunction.class, firstCall);
+
+                // more calls
+                Assertions.assertSame(firstCall, getUserDefinedFunction(connection, "SQ1"));
+                Assertions.assertSame(firstCall, getUserDefinedFunction(connection, "SQ1"));
+                Assertions.assertSame(firstCall, getUserDefinedFunction(connection, "SQ1"));
+            }
+            connection.rollback();
+        }
+    }
+
+    private UserDefinedFunction getUserDefinedFunction(@Nonnull RelationalConnection connection, @Nonnull String name) throws RelationalException {
+        final var boundSchemaTemplateMaybe = ((EmbeddedRelationalConnection) connection).getTransaction().getBoundSchemaTemplateMaybe();
+        Assertions.assertTrue(boundSchemaTemplateMaybe.isPresent());
+        final var invokedRoutineMaybe = boundSchemaTemplateMaybe.get().findInvokedRoutineByName(name);
+        Assertions.assertTrue(invokedRoutineMaybe.isPresent());
+        Assertions.assertTrue(invokedRoutineMaybe.get().isTemporary());
+        Assertions.assertInstanceOf(RecordLayerInvokedRoutine.class, invokedRoutineMaybe.get());
+        return ((RecordLayerInvokedRoutine) invokedRoutineMaybe.get()).getUserDefinedFunctionProvider().apply(true);
     }
 
     @Test
@@ -1020,8 +1077,10 @@ public class TemporaryFunctionTests {
             connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, false);
 
             try (var statement = connection.createStatement()) {
-                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create temporary function sq1(in x bigint) " +
-                                "on commit drop function as select * from t1 where a < 40 + x "))
+                // create temporary function succeeds getting registered, as we do not (yet) compile it.
+                statement.execute("create temporary function sq1(in x bigint) " +
+                        "on commit drop function as select * from t1 where a < 40 + x ");
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from sq1(34)"))
                         .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
                         .hasMessageContaining("Unknown table T1");
             }
@@ -1042,13 +1101,58 @@ public class TemporaryFunctionTests {
             connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true);
 
             try (var statement = connection.createStatement()) {
-                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create temporary function sq1(in x bigint) " +
-                                "on commit drop function as select * from t1 where a < 40 + x "))
+                // create temporary function succeeds getting registered, as we do not (yet) compile it.
+                statement.execute("create temporary function sq1(in x bigint) " +
+                        "on commit drop function as select * from t1 where a < 40 + x ");
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from sq1(23)"))
                         .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
                         .hasMessageContaining("Unknown table t1");
             }
             connection.rollback();
         }
+    }
+
+    @Test
+    void createTemporaryFunctionDoNotParseBodyPreemptively() throws Exception {
+        final var statement = "CREATE TEMPORARY FUNCTION blah() ON COMMIT DROP FUNCTION AS SELECT * FROM FOO ";
+        final var schemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .addTable(RecordLayerTable.newBuilder(false)
+                        .addColumn(RecordLayerColumn.newBuilder()
+                                .setName("BAR")
+                                .setDataType(DataType.Primitives.INTEGER.type())
+                                .build())
+                        .setName("FOO").build()).build();
+        final var called = new AtomicBoolean(false);
+        final var metadataOperationsFactory = new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, final boolean throwIfExists, @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+                return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine);
+            }
+        };
+        final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, statement, statement, 42),
+                schemaTemplate, NoOpQueryFactory.INSTANCE, metadataOperationsFactory, URI.create("/FDB/FRL1"), false) {
+            @Override
+            public LogicalOperator visitStatementBody(final RelationalParser.StatementBodyContext ctx) {
+                called.set(true);
+                return null;
+            }
+        };
+
+        // Execute visitor and assert that the plan is actually a ProceduralPlan and the body of the temporary function is not yet processed.
+        final var plan = visitor.visit(QueryParser.parse(statement).getRootContext());
+        Assertions.assertInstanceOf(ProceduralPlan.class, plan);
+        Assertions.assertFalse(called.get());
+
+        // Now, try executing the plan and again asserting that the body is not processed.
+        final var mockedTransaction = Mockito.mock(Transaction.class);
+        Mockito.when(mockedTransaction.getBoundSchemaTemplateMaybe()).thenReturn(Optional.empty());
+        ArgumentCaptor<SchemaTemplate> captor = ArgumentCaptor.forClass(SchemaTemplate.class);
+        final var executionContext = Plan.ExecutionContext.of(mockedTransaction, Options.none(), Mockito.mock(RelationalConnection.class), Mockito.mock(MetricCollector.class));
+        ((ProceduralPlan) plan).executeInternal(executionContext);
+        Mockito.verify(mockedTransaction).setBoundSchemaTemplate(captor.capture());
+        Assertions.assertFalse(captor.getValue().getTemporaryInvokedRoutines().isEmpty());
+        Assertions.assertFalse(called.get());
     }
 
     @Test

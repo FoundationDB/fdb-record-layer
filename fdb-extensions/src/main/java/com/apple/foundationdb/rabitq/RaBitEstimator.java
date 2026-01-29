@@ -49,15 +49,23 @@ public class RaBitEstimator implements Estimator {
 
     @Override
     public double distance(@Nonnull final RealVector query, @Nonnull final RealVector storedVector) {
+        final double distance;
         if (!(query instanceof EncodedRealVector) && storedVector instanceof EncodedRealVector) {
-            // only use the estimator if the first (by convention) vector is not encoded, but the second is
-            return distance(query, (EncodedRealVector)storedVector);
+            // use the estimator if the first vector is not encoded, but the second is
+            distance = distance(query, (EncodedRealVector)storedVector);
+        } else if (query instanceof EncodedRealVector && !(storedVector instanceof EncodedRealVector)) {
+            // use the estimator if the second vector is not encoded, but the first is
+            distance = distance(storedVector, (EncodedRealVector)query);
+        } else {
+            // use the regular metric for all other cases
+            distance = metric.distance(query, storedVector);
         }
-        if (query instanceof EncodedRealVector && !(storedVector instanceof EncodedRealVector)) {
-            return distance(storedVector, (EncodedRealVector)query);
+
+        // if the distance is not finite, raise an exception
+        if (!Double.isFinite(distance)) {
+            throw new IllegalArgumentException("distance is infinite or not a number");
         }
-        // use the regular metric for all other cases
-        return metric.distance(query, storedVector);
+        return distance;
     }
 
     private double distance(@Nonnull final RealVector query, @Nonnull final EncodedRealVector encodedVector) {
@@ -67,21 +75,57 @@ public class RaBitEstimator implements Estimator {
     @Nonnull
     public Result estimateDistanceAndErrorBound(@Nonnull final RealVector query,
                                                 @Nonnull final EncodedRealVector encodedVector) {
+        if (metric == Metric.COSINE_METRIC) {
+            //
+            // In cosine metric there is a special case that conventionally if one vector is the zero vector, the
+            // distance is NaN as the norm of the zero vector is 0, and we therefore divide by zero.
+            //
+            final double qNormSqr = query.dot(query);
+            if (!(qNormSqr > 0.0) || !Double.isFinite(qNormSqr)) {
+                return new Result(Double.NaN, 0.0);
+            }
+        }
+
         final double cb = (1 << numExBits) - 0.5;
         final double gAdd = query.dot(query);
         final double gError = Math.sqrt(gAdd);
+
         final RealVector totalCode = new DoubleRealVector(encodedVector.getEncodedData());
         final RealVector xuc = totalCode.subtract(cb);
         final double dot = query.dot(xuc);
 
+        final double euclideanSquare = encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot;
+        final double euclideanSquareError = encodedVector.getErrorEx() * gError;
+
         switch (metric) {
+            case COSINE_METRIC:
+                //
+                // We derive the result from the Euclidean square metric:
+                // ||v - q||^2 = (v - q) * (v - q)
+                //             = v^2 - 2 * v * q + q^2
+                //             = ||v||^2 + ||q||^2 - 2 * v * q
+                // (||v||^2 == 1 ^ ||q||^2 == 1) ==>
+                //             == 2 - 2 * v * q
+                // ==> v * q = (2 - ||v - q||^2) / 2 = 1 - 1/2 * ||v - q||^2
+                // ==> 1 - v * q = 1/2 * ||v - q||^2
+                //
+                return new Result(0.5 * euclideanSquare, 0.5 * euclideanSquareError);
             case DOT_PRODUCT_METRIC:
+                //
+                // We derive the result from the Euclidean square metric:
+                // ||v - q||^2 = (v - q) * (v - q)
+                //             = v^2 - 2 * v * q + q^2
+                //             = ||v||^2 + ||q||^2 - 2 * v * q
+                // (||v||^2 == 1 ^ ||q||^2 == 1) ==>
+                //             == 2 - 2 * v * q
+                // ==> v * q = (2 - ||v - q||^2) / 2 = 1 - 1/2 * ||v - q||^2
+                // ==> - v * q = 1/2 * ||v - q||^2 - 1
+                //
+                return new Result(0.5 * euclideanSquare - 1, 0.5 * euclideanSquareError);
             case EUCLIDEAN_SQUARE_METRIC:
-                return new Result(encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot,
-                        encodedVector.getErrorEx() * gError);
+                return new Result(euclideanSquare, euclideanSquareError);
             case EUCLIDEAN_METRIC:
-                return new Result(Math.sqrt(encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot),
-                        Math.sqrt(encodedVector.getErrorEx() * gError));
+                return new Result(Math.sqrt(euclideanSquare), Math.sqrt(euclideanSquareError));
             default:
                 throw new UnsupportedOperationException("metric not supported by quantizer");
         }

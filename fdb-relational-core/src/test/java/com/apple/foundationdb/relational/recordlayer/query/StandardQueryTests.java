@@ -57,8 +57,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.util.stream.Stream;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
@@ -73,6 +71,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
@@ -87,8 +86,8 @@ public class StandardQueryTests {
                     " CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)" +
                     " CREATE TABLE RestaurantComplexRecord (rest_no bigint, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
                     " CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
-                    " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
-                    " CREATE INDEX reviewer_name_idx as select name from RestaurantReviewer" +
+                    " CREATE INDEX record_name_idx ON RestaurantComplexRecord(name)" +
+                    " CREATE INDEX reviewer_name_idx ON RestaurantReviewer(name)" +
                     " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
                     " CREATE INDEX mv2 AS SELECT endo.\"endorsementText\" FROM RestaurantComplexRecord rec, (SELECT X.\"endorsementText\" FROM rec.reviews rev, (SELECT \"endorsementText\" from rev.endorsements) X) endo";
 
@@ -100,8 +99,8 @@ public class StandardQueryTests {
                     " CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)" +
                     " CREATE TABLE RestaurantComplexRecord (rest_no bigint, name string, location Location, reviews RestaurantComplexReview ARRAY NOT NULL, tags RestaurantTag array NOT NULL, customer string array NOT NULL, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
                     " CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
-                    " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
-                    " CREATE INDEX reviewer_name_idx as select name from RestaurantReviewer" +
+                    " CREATE INDEX record_name_idx ON RestaurantComplexRecord(name)" +
+                    " CREATE INDEX reviewer_name_idx ON RestaurantReviewer(name)" +
                     " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
                     " CREATE INDEX mv2 AS SELECT endo.\"endorsementText\" FROM RestaurantComplexRecord rec, (SELECT X.\"endorsementText\" FROM rec.reviews rev, (SELECT \"endorsementText\" from rev.endorsements) X) endo";
 
@@ -1245,19 +1244,17 @@ public class StandardQueryTests {
     }
 
     @Test
-    void testNamingStructWithNameOfTableIsPermitted() throws Exception {
+    void testNamingStructWithNameOfTableIsNotPermitted() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
-                Assertions.assertTrue(statement.execute("select a, 42, struct T1 (b, c) as X from t1"));
-                try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                    Assertions.assertTrue(resultSet.next());
-                    final var col3 = resultSet.getStruct(3);
-                    Assertions.assertEquals("T1", col3.getMetaData().getTypeName());
-                    Assertions.assertEquals("X", resultSet.getMetaData().getColumnLabel(3));
-                    Assertions.assertFalse(resultSet.next());
-                }
+                ContextualSQLException err = Assertions.assertThrows(ContextualSQLException.class, () -> statement.execute("select a, 42, struct T1 (b, c) as X from t1"));
+                assertThat((Exception) err)
+                        .hasMessageContaining("Name T1 is already registered with a different type");
+                assertThat(err.getSQLState())
+                        // Perhaps this should be a better error code
+                        .isEqualTo(ErrorCode.UNKNOWN.getErrorCode());
             }
         }
     }

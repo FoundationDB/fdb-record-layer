@@ -20,10 +20,11 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.linear.AffineOperator;
-import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.LinearOperator;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.VectorOperator;
 import com.apple.foundationdb.rabitq.EncodedRealVector;
 
 import javax.annotation.Nonnull;
@@ -34,15 +35,25 @@ import javax.annotation.Nullable;
  * (pre-rotated) centroid. This operator is used inside the HNSW to transform back and forth between the coordinate
  * system of the client and the coordinate system that is currently employed in the HNSW.
  */
-class StorageTransform extends AffineOperator {
-    public StorageTransform(final long seed, final int numDimensions,
-                            @Nonnull final RealVector translationVector) {
-        this(new FhtKacRotator(seed, numDimensions, 10), translationVector);
-    }
+@SpotBugsSuppressWarnings(value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR", justification = "Singleton designation is a false positive")
+class StorageTransform implements VectorOperator {
+    private static final StorageTransform IDENTITY_STORAGE_TRANSFORM =
+            new StorageTransform(null, null, false);
+
+    @Nonnull
+    private final AffineOperator affineOperator;
+    private final boolean normalizeVectors;
 
     public StorageTransform(@Nullable final LinearOperator linearOperator,
-                            @Nullable final RealVector translationVector) {
-        super(linearOperator, translationVector);
+                            @Nullable final RealVector translationVector,
+                            final boolean normalizeVectors) {
+        this.affineOperator = new AffineOperator(linearOperator, translationVector);
+        this.normalizeVectors = normalizeVectors;
+    }
+
+    @Override
+    public int getNumDimensions() {
+        return affineOperator.getNumDimensions();
     }
 
     @Nonnull
@@ -59,12 +70,27 @@ class StorageTransform extends AffineOperator {
         if (vector instanceof EncodedRealVector) {
             return vector;
         }
-        return super.apply(vector);
+        return affineOperator.apply(normalizeVectors ? vector.normalize() : vector);
     }
 
     @Nonnull
     @Override
     public RealVector invertedApply(@Nonnull final RealVector vector) {
-        return super.invertedApply(vector);
+        //
+        // Only invertApply(.) the vector, do not also un-normalize (which is impossible to do as we don't have the
+        // original L2-norm stored anywhere) using the following reasoning:
+        // 1. In order to make any difference at all, normalizeVectors must have been set, if it is not set
+        //    we are storing unnormalized vectors anyway and un-normalizing is not necessary
+        // 2. If we originally had normalized the vector, we still do not un-normalize it as the metric that is used
+        //    (e.g. cosine metric) is not dependent on the L2 norm of the vectors. Note that we do not store the
+        //    vectors for the sake of returning the vectors in a query; we store the vectors so they can power our
+        //    distance computation/estimation.
+        //
+        return affineOperator.invertedApply(vector);
+    }
+
+    @Nonnull
+    public static StorageTransform identity() {
+        return IDENTITY_STORAGE_TRANSFORM;
     }
 }

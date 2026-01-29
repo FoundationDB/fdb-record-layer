@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 
 import java.util.HashSet;
@@ -29,9 +30,11 @@ import java.util.Set;
  * Some store's indexes may need merging on some occasions. This helper module should allow the caller
  * to set and probe the merge policy and merge requests.
  */
+@API(API.Status.EXPERIMENTAL)
 public class IndexDeferredMaintenanceControl {
     private Set<Index> mergeRequiredIndexes = null;
     private boolean autoMergeDuringCommit = false;
+    private boolean explicitMergePath = false;
     private long mergesLimit = 0;
     private long mergesFound;
     private long mergesTried;
@@ -89,6 +92,22 @@ public class IndexDeferredMaintenanceControl {
      */
     public void setAutoMergeDuringCommit(final boolean autoMergeDuringCommit) {
         this.autoMergeDuringCommit = autoMergeDuringCommit;
+    }
+
+    /**
+     * If auto merge during commit is not allowed, indicate an explicit merge.
+     * @return true if merge was explicitly called in this path
+     */
+    public boolean isExplicitMergePath() {
+        return explicitMergePath;
+    }
+
+    /**
+     * Allow indicating that merge is called explicitly when auto-merge during commit is not allowed.
+     * @param explicitMergePath set to true if merge is explicitly called in this path
+     */
+    public void setExplicitMergePath(final boolean explicitMergePath) {
+        this.explicitMergePath = explicitMergePath;
     }
 
     /**

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.hnsw.Config;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -34,6 +35,11 @@ import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.query.plan.cascades.ExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.IndexExpansionInfo;
+import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.MatchCandidateExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.VectorIndexExpansionVisitor;
 import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
@@ -65,6 +71,15 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
     @Nonnull
     public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
         return new VectorIndexMaintainer(state);
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<MatchCandidate> createMatchCandidates(@Nonnull final RecordMetaData metaData, @Nonnull final Index index, final boolean reverse) {
+        final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, reverse);
+        final ExpansionVisitor<?> expansionVisitor = new VectorIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes());
+        return MatchCandidateExpansion.optionalToIterable(
+                MatchCandidateExpansion.expandIndexMatchCandidate(info, info.getCommonPrimaryKeyForTypes(), expansionVisitor));
     }
 
     /**
@@ -137,8 +152,6 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
                 final Config newOptions = VectorIndexHelper.getConfig(index);
 
                 // do not allow changing any of the following
-                disallowChange(changedOptions, IndexOptions.HNSW_DETERMINISTIC_SEEDING,
-                        oldOptions, newOptions, Config::isDeterministicSeeding);
                 disallowChange(changedOptions, IndexOptions.HNSW_METRIC,
                         oldOptions, newOptions, Config::getMetric);
                 disallowChange(changedOptions, IndexOptions.HNSW_NUM_DIMENSIONS,
@@ -153,6 +166,8 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
                         oldOptions, newOptions, Config::getMMax0);
                 disallowChange(changedOptions, IndexOptions.HNSW_EF_CONSTRUCTION,
                         oldOptions, newOptions, Config::getEfConstruction);
+                disallowChange(changedOptions, IndexOptions.HNSW_EF_REPAIR,
+                        oldOptions, newOptions, Config::getEfRepair);
                 disallowChange(changedOptions, IndexOptions.HNSW_EXTEND_CANDIDATES,
                         oldOptions, newOptions, Config::isExtendCandidates);
                 disallowChange(changedOptions, IndexOptions.HNSW_KEEP_PRUNED_CONNECTIONS,
@@ -168,6 +183,7 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
                 changedOptions.remove(IndexOptions.HNSW_STATS_THRESHOLD);
                 changedOptions.remove(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES);
                 changedOptions.remove(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES);
+                changedOptions.remove(IndexOptions.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER);
             }
             super.validateChangedOptions(oldIndex, changedOptions);
         }

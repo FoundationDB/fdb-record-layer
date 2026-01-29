@@ -27,12 +27,17 @@ import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.TestRecordsUuidProto;
+import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.TypeTestProto;
+import com.apple.foundationdb.record.evolution.TestHeaderAsGroupProto;
 import com.apple.foundationdb.record.planprotos.PType;
+import com.apple.foundationdb.record.planprotos.PType.PFunctionType;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.RandomUtil;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -55,6 +60,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -88,7 +94,8 @@ class TypeTest {
         private static final Random random = new Random(seed);
 
         @Override
-        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) throws Exception {
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
             return Stream.of(
                     Arguments.of(
                             "TestRecords4WrapperProto.RestaurantRecord", TestRecords4WrapperProto.RestaurantRecord.newBuilder()
@@ -226,7 +233,8 @@ class TypeTest {
     static class TypesProvider implements ArgumentsProvider {
 
         @Override
-        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) throws Exception {
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) throws Exception {
             final var listOfNulls = new LinkedList<Integer>();
             listOfNulls.add(null);
             final var listOfNullsAndNonNulls = new LinkedList<Integer>();
@@ -311,6 +319,105 @@ class TypeTest {
     void testTypeLifting(@Nullable final Object object, @Nonnull final Type expectedType) {
         final Type typeFromObject = Type.fromObject(object);
         Assertions.assertEquals(expectedType, typeFromObject);
+    }
+
+    @Test
+    void normalizeFieldRetainsNumbersIfSet() {
+        final List<Type.Record.Field> originalFields = List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a")), // 1
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("b")), // 2
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("c"), Optional.of(100)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("d")), // 4
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("e"), Optional.of(6)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("f")), // would be 6, but taken, so given 7
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("g"), Optional.of(8)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("h")), // 9
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("i")), // would be, but 10 and 11 are both taken (ahead), so given 12
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("j"), Optional.of(10)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("k"), Optional.of(11))
+        );
+
+        final List<Type.Record.Field> numberedFields = List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"), Optional.of(1)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("b"), Optional.of(2)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("c"), Optional.of(100)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("d"), Optional.of(4)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("e"), Optional.of(6)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("f"), Optional.of(7)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("g"), Optional.of(8)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("h"), Optional.of(9)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("i"), Optional.of(12)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("j"), Optional.of(10)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("k"), Optional.of(11))
+        );
+
+        // Double check that the numbered fields all have the same number as the original (if set)
+        for (int i = 0; i < originalFields.size(); i++) {
+            final Optional<Integer> originalIndex = originalFields.get(i).getFieldIndexOptional();
+            if (originalIndex.isPresent()) {
+                assertThat(numberedFields.get(i).getFieldIndexOptional())
+                        .isEqualTo(originalIndex);
+            }
+        }
+
+        assertNormalizedFieldsHaveNumbers(originalFields, numberedFields);
+    }
+
+    @Test
+    void normalizeRemovesDuplicateFieldIndexes() {
+        final List<Type.Record.Field> originalFields = List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a")), // 1
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("b")), // 2
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("c"), Optional.of(10)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("d")), // 4
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("e"), Optional.of(6)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("f")), // would be 6, but taken, so would be given 7
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("g"), Optional.of(6)) // dupe!
+        );
+        final List<Type.Record.Field> numberedFields = List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"), Optional.of(1)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("b"), Optional.of(2)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("c"), Optional.of(3)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("d"), Optional.of(4)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("e"), Optional.of(5)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("f"), Optional.of(6)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("g"), Optional.of(7))
+        );
+
+        assertNormalizedFieldsHaveNumbers(originalFields, numberedFields);
+    }
+
+    private void assertNormalizedFieldsHaveNumbers(@Nonnull List<Type.Record.Field> originalFields, @Nonnull List<Type.Record.Field> numberedFields) {
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            final Type.Record fromOriginal = Type.Record.fromFields(originalFields);
+            final Type.Record fromNumbered = Type.Record.fromFields(numberedFields);
+            softly.assertThat(fromOriginal)
+                    .isEqualTo(fromNumbered)
+                    .hasSameHashCodeAs(fromNumbered);
+
+            final Type.Record withPseudoFields = fromOriginal.addPseudoFields();
+            softly.assertThat(fromOriginal)
+                    .isNotEqualTo(withPseudoFields)
+                    .doesNotHaveSameHashCodeAs(withPseudoFields);
+
+            // All the field indexes should match the indexes in the numbered list.
+            for (int i = 0; i < fromOriginal.getFields().size(); i++) {
+                final Type.Record.Field fromOriginalField = fromOriginal.getField(i);
+                final Optional<Integer> expectedIndex = numberedFields.get(i).getFieldIndexOptional();
+                softly.assertThat(fromOriginalField.getFieldIndexOptional())
+                        .isEqualTo(expectedIndex)
+                        .isEqualTo(fromNumbered.getField(i).getFieldIndexOptional())
+                        .isEqualTo(withPseudoFields.getField(i).getFieldIndexOptional());
+            }
+
+            // Double check that there are not duplicate indexes assigned to different fields
+            softly.assertThat(fromOriginal.getFields().stream().map(Type.Record.Field::getFieldIndex).collect(Collectors.toList()))
+                    .doesNotHaveDuplicates();
+            softly.assertThat(fromNumbered.getFields().stream().map(Type.Record.Field::getFieldIndex).collect(Collectors.toList()))
+                    .doesNotHaveDuplicates();
+            softly.assertThat(withPseudoFields.getFields().stream().map(Type.Record.Field::getFieldIndex).collect(Collectors.toList()))
+                    .doesNotHaveDuplicates();
+        }
     }
 
     @Nonnull
@@ -559,6 +666,28 @@ class TypeTest {
         final Type.Enum fromProto = Type.Enum.fromDescriptor(enumType.isNullable(), enumDescriptor);
         assertThat(fromProto)
                 .isEqualTo(enumType);
+    }
+
+    @Test
+    void translatesGroupTypeAsRecord() {
+        final Type.Record fromGroup = Type.Record.fromDescriptor(TestHeaderAsGroupProto.MyRecord.getDescriptor());
+        final Type.Record fromNested = Type.Record.fromDescriptor(TestRecordsWithHeaderProto.MyRecord.getDescriptor());
+
+        assertThat(fromGroup)
+                .isEqualTo(fromNested)
+                .hasSameHashCodeAs(fromNested);
+
+        final Type.Record headerType = Type.Record.fromFields(false, ImmutableList.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("rec_no")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("path")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("num"))
+        ));
+
+        assertThat(fromGroup.getFieldNameFieldMap())
+                .hasEntrySatisfying("header", field ->
+                        assertThat(field.getFieldType())
+                                .isEqualTo(headerType)
+                                .hasSameHashCodeAs(headerType));
     }
 
     @ParameterizedTest(name = "enumEqualsIgnoresName[{0}]")
@@ -972,5 +1101,264 @@ class TypeTest {
     private static <T extends Type> T roundTrip(@Nonnull T type) {
         return (T) Type.fromTypeProto(PlanSerializationContext.newForCurrentMode(),
                 type.toTypeProto(PlanSerializationContext.newForCurrentMode()));
+    }
+
+    @Test
+    void testComputeFieldIndexToOrdinal() {
+        // Test with sequential field indexes (1, 2, 3, 4)
+        final List<Type.Record.Field> sequentialFields = List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"), Optional.of(1)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("b"), Optional.of(2)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("c"), Optional.of(3)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("d"), Optional.of(4))
+        );
+
+        final Type.Record sequentialRecord = Type.Record.fromFields(sequentialFields);
+        final Map<Integer, Integer> sequentialMapping = sequentialRecord.getFieldIndexToOrdinalMap();
+
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            softly.assertThat(sequentialMapping)
+                    .hasSize(4)
+                    .containsEntry(1, 0) // Field index 1 -> ordinal 0
+                    .containsEntry(2, 1) // Field index 2 -> ordinal 1
+                    .containsEntry(3, 2) // Field index 3 -> ordinal 2
+                    .containsEntry(4, 3); // Field index 4 -> ordinal 3
+
+            // Test with non-sequential field indexes (100, 6, 8, 10, 11)
+            final List<Type.Record.Field> nonSequentialFields = List.of(
+                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"), Optional.of(1)),
+                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("b"), Optional.of(2)),
+                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("c"), Optional.of(100)),
+                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("d"), Optional.of(4)),
+                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("e"), Optional.of(6)),
+                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("f"), Optional.of(7)),
+                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("g"), Optional.of(8)),
+                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("h"), Optional.of(9)),
+                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("i"), Optional.of(12)),
+                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("j"), Optional.of(10)),
+                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("k"), Optional.of(11))
+            );
+
+            final Type.Record nonSequentialRecord = Type.Record.fromFields(nonSequentialFields);
+            final Map<Integer, Integer> nonSequentialMapping = nonSequentialRecord.getFieldIndexToOrdinalMap();
+
+            softly.assertThat(nonSequentialMapping)
+                    .hasSize(11)
+                    .containsEntry(1, 0)    // Field index 1 -> ordinal 0
+                    .containsEntry(2, 1)    // Field index 2 -> ordinal 1
+                    .containsEntry(100, 2)  // Field index 100 -> ordinal 2
+                    .containsEntry(4, 3)    // Field index 4 -> ordinal 3
+                    .containsEntry(6, 4)    // Field index 6 -> ordinal 4
+                    .containsEntry(7, 5)    // Field index 7 -> ordinal 5
+                    .containsEntry(8, 6)    // Field index 8 -> ordinal 6
+                    .containsEntry(9, 7)    // Field index 9 -> ordinal 7
+                    .containsEntry(12, 8)   // Field index 12 -> ordinal 8
+                    .containsEntry(10, 9)   // Field index 10 -> ordinal 9
+                    .containsEntry(11, 10); // Field index 11 -> ordinal 10
+
+            // Test with single field
+            final List<Type.Record.Field> singleField = List.of(
+                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("single"), Optional.of(42))
+            );
+
+            final Type.Record singleFieldRecord = Type.Record.fromFields(singleField);
+            final Map<Integer, Integer> singleFieldMapping = singleFieldRecord.getFieldIndexToOrdinalMap();
+
+            softly.assertThat(singleFieldMapping)
+                    .hasSize(1)
+                    .containsEntry(42, 0); // Field index 42 -> ordinal 0
+
+            // Verify the mapping is consistent with getField() access
+            for (int ordinal = 0; ordinal < nonSequentialRecord.getFields().size(); ordinal++) {
+                final Type.Record.Field field = nonSequentialRecord.getField(ordinal);
+                final int fieldIndex = field.getFieldIndex();
+                softly.assertThat(nonSequentialMapping.get(fieldIndex))
+                        .as("Field index %d should map to ordinal %d", fieldIndex, ordinal)
+                        .isEqualTo(ordinal);
+            }
+        }
+    }
+
+    @Test
+    void testFunctionTypeBasics() {
+        final Type.Function functionType = Type.FUNCTION;
+
+        Assertions.assertNotNull(functionType, "Function type should not be null");
+        Assertions.assertEquals(Type.TypeCode.FUNCTION, functionType.getTypeCode(),
+                "Function type should have FUNCTION type code");
+        Assertions.assertFalse(functionType.isNullable(),
+                "Function type should not be nullable");
+        Assertions.assertTrue(functionType.isFunction(),
+                "Function type should return true for isFunction()");
+        Assertions.assertFalse(functionType.isUnresolved(),
+                "Function type should not be unresolved");
+    }
+
+    @Test
+    void testFunctionTypeDescribe() {
+        final Type.Function functionType = Type.FUNCTION;
+        final ExplainTokens tokens = functionType.describe();
+
+        Assertions.assertNotNull(tokens, "describe() should not return null");
+        final String description = tokens.render(DefaultExplainFormatter.forDebugging()).toString();
+        Assertions.assertNotNull(description, "Rendered description should not be null");
+        Assertions.assertTrue(description.contains("FUNCTION"),
+                "Description should contain 'FUNCTION' keyword");
+    }
+
+    @Test
+    void testFunctionTypeToString() {
+        final Type.Function functionType = Type.FUNCTION;
+        final String toString = functionType.toString();
+
+        Assertions.assertNotNull(toString, "toString() should not return null");
+        Assertions.assertFalse(toString.isEmpty(), "toString() should not be empty");
+        Assertions.assertTrue(toString.contains("FUNCTION"),
+                "toString() should contain 'FUNCTION'");
+    }
+
+    @Test
+    void testFunctionTypeToProto() {
+        final Type.Function functionType = Type.FUNCTION;
+        final PlanSerializationContext context = PlanSerializationContext.newForCurrentMode();
+
+        final PFunctionType proto = functionType.toProto(context);
+        Assertions.assertNotNull(proto, "toProto() should not return null");
+    }
+
+    @Test
+    void testFunctionTypeToTypeProto() {
+        final Type.Function functionType = Type.FUNCTION;
+        final PlanSerializationContext context = PlanSerializationContext.newForCurrentMode();
+
+        final PType typeProto = functionType.toTypeProto(context);
+        Assertions.assertNotNull(typeProto, "toTypeProto() should not return null");
+        Assertions.assertTrue(typeProto.hasFunctionType(),
+                "Type proto should have functionType field set");
+    }
+
+    @Test
+    void testFunctionTypeFromProtoStatic() {
+        final Type.Function original = Type.FUNCTION;
+        final PlanSerializationContext serContext = PlanSerializationContext.newForCurrentMode();
+        final PFunctionType proto = original.toProto(serContext);
+
+        final Type.Function deserialized = Type.Function.fromProto(serContext, proto);
+        Assertions.assertNotNull(deserialized, "fromProto() should not return null");
+        Assertions.assertSame(Type.FUNCTION, deserialized,
+                "fromProto() should return the FUNCTION singleton");
+    }
+
+    @Test
+    void testFunctionTypeDeserializer() {
+        final Type.Function original = Type.FUNCTION;
+        final PlanSerializationContext serContext = PlanSerializationContext.newForCurrentMode();
+        final PFunctionType proto = original.toProto(serContext);
+
+        final Type.Function.Deserializer deserializer = new Type.Function.Deserializer();
+        Assertions.assertNotNull(deserializer, "Deserializer should not be null");
+
+        final Type.Function deserialized = deserializer.fromProto(serContext, proto);
+        Assertions.assertNotNull(deserialized, "Deserializer.fromProto() should not return null");
+        Assertions.assertSame(Type.FUNCTION, deserialized,
+                "Deserializer should return the FUNCTION singleton");
+    }
+
+    @Test
+    void testFunctionTypeDeserializerGetProtoMessageClass() {
+        final Type.Function.Deserializer deserializer = new Type.Function.Deserializer();
+        final Class<?> protoClass = deserializer.getProtoMessageClass();
+
+        Assertions.assertNotNull(protoClass, "Proto message class should not be null");
+        Assertions.assertEquals(PFunctionType.class, protoClass,
+                "Proto class should be PFunctionType");
+    }
+
+    @Test
+    void testFunctionTypeSerializationRoundTrip() {
+        final Type.Function original = Type.FUNCTION;
+        final PlanSerializationContext serContext = PlanSerializationContext.newForCurrentMode();
+
+        // Serialize
+        final PType typeProto = original.toTypeProto(serContext);
+        Assertions.assertTrue(typeProto.hasFunctionType(),
+                "Serialized proto should have functionType");
+
+        // Deserialize
+        final PlanSerializationContext deserContext = PlanSerializationContext.newForCurrentMode();
+        final Type recreated = Type.fromTypeProto(deserContext, typeProto);
+
+        Assertions.assertNotNull(recreated, "Deserialized type should not be null");
+        Assertions.assertInstanceOf(Type.Function.class, recreated,
+                "Deserialized type should be a Function");
+        Assertions.assertSame(Type.FUNCTION, recreated,
+                "Deserialized type should be the FUNCTION singleton");
+    }
+
+    @Test
+    void testFunctionTypeEquals() {
+        final Type.Function function1 = Type.FUNCTION;
+        final Type.Function function2 = new Type.Function();
+
+        // Reflexive: a type should equal itself
+        Assertions.assertEquals(function1, function1,
+                "Function type should equal itself");
+
+        // Symmetric: function types should be equal to each other
+        Assertions.assertEquals(function1, function2,
+                "All Function instances should be equal");
+        Assertions.assertEquals(function2, function1,
+                "Equals should be symmetric");
+
+        // Not equal to null
+        Assertions.assertNotEquals(null, function1,
+                "Function type should not equal null");
+
+        // Not equal to different types
+        Assertions.assertNotEquals(function1, Type.primitiveType(Type.TypeCode.INT),
+                "Function type should not equal INT type");
+        Assertions.assertNotEquals(function1, Type.primitiveType(Type.TypeCode.STRING),
+                "Function type should not equal STRING type");
+        Assertions.assertNotEquals(function1, Type.any(),
+                "Function type should not equal ANY type");
+        Assertions.assertNotEquals(function1, "not a type",
+                "Function type should not equal a string");
+    }
+
+    @Test
+    void testFunctionTypeHashCode() {
+        final Type.Function function1 = Type.FUNCTION;
+        final Type.Function function2 = new Type.Function();
+
+        Assertions.assertEquals(function1.hashCode(), function2.hashCode(),
+                "Equal Function instances should have same hash code");
+
+        // Hash code should be consistent across calls
+        final int hash1 = function1.hashCode();
+        final int hash2 = function1.hashCode();
+        Assertions.assertEquals(hash1, hash2,
+                "Hash code should be consistent across multiple calls");
+    }
+
+    @Test
+    void testFunctionTypeWithNullability() {
+        final Type.Function functionType = Type.FUNCTION;
+
+        // Function type should not support nullable variation
+        Assertions.assertSame(functionType, functionType.withNullability(false),
+                "withNullability(false) should return the same instance");
+
+        // Attempting to make it nullable should throw VerifyException
+        Assertions.assertThrows(VerifyException.class, () -> functionType.withNullability(true),
+                "withNullability(true) should throw VerifyException");
+    }
+
+    @Test
+    void testFunctionTypeIsSingleton() {
+        final Type.Function function1 = Type.FUNCTION;
+        final Type.Function function2 = Type.FUNCTION;
+
+        Assertions.assertSame(function1, function2,
+                "Type.FUNCTION should be a singleton");
     }
 }

@@ -214,6 +214,17 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         var where = Optional.ofNullable(simpleTableContext.fromClause().whereExpr() == null ?
                 null :
                 visitWhereExpr(simpleTableContext.fromClause().whereExpr()));
+
+        // for now, conjunct qualify predicates (if any) with where in a single condition.
+        if (simpleTableContext.qualifyClause() != null) {
+            final var qualifyExpr = visitQualifyClause(simpleTableContext.qualifyClause());
+            where = where.map(exp -> getDelegate().resolveFunction("and", exp, qualifyExpr)).or(() -> Optional.of(qualifyExpr));
+        }
+
+        for (final var expression : getDelegate().getCurrentPlanFragment().getInnerJoinExpressions()) {
+            where = where.map(e -> getDelegate().resolveFunction("and", e, expression)).or(() -> Optional.of(expression));
+        }
+
         Expressions selectExpressions;
         List<OrderByExpression> orderBys = List.of();
         if (simpleTableContext.groupByClause() != null || hasAggregations(simpleTableContext.selectElements())) {
@@ -304,17 +315,28 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Void visitTableSources(@Nonnull RelationalParser.TableSourcesContext ctx) {
         for (final var tableSource : ctx.tableSource()) {
-            final var logicalOperator = Assert.castUnchecked(tableSource.accept(this), LogicalOperator.class);
-            getDelegate().getCurrentPlanFragment().addOperator(logicalOperator);
+            tableSource.accept(this);
         }
         return null;
     }
 
-    @Nonnull
+    @Nullable
     @Override
-    public LogicalOperator visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx) {
-        Assert.thatUnchecked(ctx.joinPart().isEmpty(), "explicit join types are not supported");
-        return Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class);
+    public Void visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx) {
+        getDelegate().getCurrentPlanFragment().addOperator(Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class));
+        for (final var joinPart : ctx.joinPart()) {
+            joinPart.accept(this);
+        }
+        return null;
+    }
+
+    @Nullable
+    @Override
+    public Void visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
+        Assert.isNullUnchecked(ctx.uidList(), ErrorCode.UNSUPPORTED_QUERY, "using is not yet supported for inner join");
+        getDelegate().getCurrentPlanFragment().addOperator(Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class));
+        getDelegate().getCurrentPlanFragment().addInnerJoinExpression(Assert.castUnchecked(ctx.expression().accept(this), Expression.class));
+        return null;
     }
 
     @Nonnull
@@ -461,6 +483,9 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final LogicalOperator tableAccess = getDelegate().getLogicalOperatorCatalog().lookupTableAccess(tableId, semanticAnalyzer);
 
         getDelegate().pushPlanFragment().setOperator(tableAccess);
+        // Note: doing an expansion here means that we don't have access to the pseudo-columns during the update
+        // (and wouldn't have access to the invisible columns, see: https://github.com/FoundationDB/fdb-record-layer/pull/3787)
+        // That also means that the target type of the update expression needs to match
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
 
         Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
@@ -477,7 +502,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
         final var updateExpression = new UpdateExpression(Assert.castUnchecked(updateSource.getQuantifier(), Quantifier.ForEach.class),
                 Assert.notNullUnchecked(tableType.getStorageName(), "Update target type must have storage type name available"),
-                tableType,
+                Type.Record.fromFields(tableType.getFields()), // Remove the type name from the update target type to avoid clashes with the table type in the update source
                 transformMapBuilder.build());
         final var updateQuantifier = Quantifier.forEach(Reference.initialOf(updateExpression));
         final var resultingUpdate = LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(updateQuantifier), updateQuantifier);
@@ -587,8 +612,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             final var matchingExpressionMaybe = isAliasMaybe.flatMap(alias -> semanticAnalyzer.lookupAlias(visitFullId(alias), validSelectAliases));
             matchingExpressionMaybe.ifPresentOrElse(
                     matchingExpression -> {
-                        final var descending = ParseHelpers.isDescending(orderByExpression);
-                        final var nullsLast = ParseHelpers.isNullsLast(orderByExpression, descending);
+                        final var descending = ParseHelpers.isDescending(orderByExpression.orderClause());
+                        final var nullsLast = ParseHelpers.isNullsLast(orderByExpression.orderClause(), descending);
                         orderBysBuilder.add(OrderByExpression.of(matchingExpression, descending, nullsLast));
                     },
                     () -> orderBysBuilder.add(visitOrderByExpression(orderByExpression))

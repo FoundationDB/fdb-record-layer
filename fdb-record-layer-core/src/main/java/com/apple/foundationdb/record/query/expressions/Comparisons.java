@@ -1777,25 +1777,37 @@ public class Comparisons {
         @Nonnull
         private final Value limitValue;
 
+        @Nullable
+        private final Integer efSearch;
+
+        @Nullable
+        private final Boolean isReturningVectors;
+
         protected DistanceRankValueComparison(@Nonnull PlanSerializationContext serializationContext,
                                               @Nonnull final PDistanceRankValueComparison distanceRankValueComparisonProto) {
             super(serializationContext, distanceRankValueComparisonProto.getSuper());
             this.limitValue = Value.fromValueProto(serializationContext,
                     Objects.requireNonNull(distanceRankValueComparisonProto.getLimitValue()));
+            this.efSearch = distanceRankValueComparisonProto.hasEfSearch() ? distanceRankValueComparisonProto.getEfSearch() : null;
+            this.isReturningVectors = distanceRankValueComparisonProto.hasIsReturningVectors() ? distanceRankValueComparisonProto.getIsReturningVectors() : null;
         }
 
         public DistanceRankValueComparison(@Nonnull final Type type, @Nonnull final Value comparandValue,
-                                           @Nonnull final Value limitValue) {
-            this(type, comparandValue, ParameterRelationshipGraph.unbound(), limitValue);
+                                           @Nonnull final Value limitValue, @Nullable final Integer efSearch,
+                                           @Nullable final Boolean isReturningVectors) {
+            this(type, comparandValue, ParameterRelationshipGraph.unbound(), limitValue, efSearch, isReturningVectors);
         }
 
         public DistanceRankValueComparison(@Nonnull final Type type, @Nonnull final Value comparandValue,
                                            @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph,
-                                           @Nonnull final Value limitValue) {
+                                           @Nonnull final Value limitValue, @Nullable  final Integer efSearch,
+                                           @Nullable final Boolean isReturningVectors) {
             super(type, comparandValue, parameterRelationshipGraph);
             Verify.verify(type == Type.DISTANCE_RANK_LESS_THAN ||
                     type == Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL);
             this.limitValue = limitValue;
+            this.efSearch = efSearch;
+            this.isReturningVectors = isReturningVectors;
         }
 
         @Nonnull
@@ -1810,7 +1822,7 @@ public class Comparisons {
                 return this;
             }
             return new DistanceRankValueComparison(newType, getComparandValue(), parameterRelationshipGraph,
-                    getLimitValue());
+                    getLimitValue(), getEfSearch(), isReturningVectors());
         }
 
         @Nonnull
@@ -1820,23 +1832,29 @@ public class Comparisons {
             if (getComparandValue() == value) {
                 return this;
             }
-            return new DistanceRankValueComparison(getType(), value, parameterRelationshipGraph, getLimitValue());
+            return new DistanceRankValueComparison(getType(), value, parameterRelationshipGraph, getLimitValue(),
+                    getEfSearch(), isReturningVectors());
         }
 
         @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
-            return replacementFunction.apply(getComparandValue())
-                    .flatMap(replacedComparandValue ->
-                            replacementFunction.apply(getLimitValue()).map(replacedLimitValue -> {
-                                if (replacedComparandValue == getComparandValue() &&
-                                        replacedLimitValue == getLimitValue()) {
-                                    return this;
-                                }
-                                return new DistanceRankValueComparison(getType(), replacedComparandValue,
-                                        parameterRelationshipGraph, replacedLimitValue);
-                            }));
+            final var replacedComparandValueMaybe = replacementFunction.apply(getComparandValue());
+            if (replacedComparandValueMaybe.isEmpty()) {
+                return Optional.empty();
+            }
+            final var replacedLimitValueMaybe = replacementFunction.apply(getLimitValue());
+            if (replacedLimitValueMaybe.isEmpty()) {
+                return Optional.empty();
+            }
+
+            if (replacedComparandValueMaybe.get() == getComparandValue() &&
+                    replacedLimitValueMaybe.get() == getLimitValue()) {
+                return Optional.of(this);
+            }
+            return Optional.of(new DistanceRankValueComparison(getType(), replacedComparandValueMaybe.get(),
+                    parameterRelationshipGraph, replacedLimitValueMaybe.get(), getEfSearch(), isReturningVectors()));
         }
 
         @Nonnull
@@ -1855,7 +1873,8 @@ public class Comparisons {
             return new DistanceRankValueComparison(getType(),
                     getComparandValue().translateCorrelations(translationMap, shouldSimplifyValues),
                     parameterRelationshipGraph,
-                    getLimitValue().translateCorrelations(translationMap, shouldSimplifyValues));
+                    getLimitValue().translateCorrelations(translationMap, shouldSimplifyValues),
+                    getEfSearch(), isReturningVectors());
         }
 
         @Nonnull
@@ -1870,10 +1889,16 @@ public class Comparisons {
         @Nonnull
         @Override
         public ConstrainedBoolean semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+            if (!(other instanceof DistanceRankValueComparison)) {
+                return ConstrainedBoolean.falseValue();
+            }
+
             return super.semanticEqualsTyped(other, valueEquivalence)
                     .compose(ignored -> getLimitValue()
                             .semanticEquals(((DistanceRankValueComparison)other).getLimitValue(),
-                                    valueEquivalence));
+                                    valueEquivalence))
+                    .compose(ignored -> ConstrainedBoolean.ofBoolean(Objects.equals(getEfSearch(), ((DistanceRankValueComparison)other).getEfSearch())))
+                    .compose(ignored -> ConstrainedBoolean.ofBoolean(Objects.equals(isReturningVectors(), ((DistanceRankValueComparison)other).isReturningVectors())));
         }
 
         @Nullable
@@ -1929,16 +1954,22 @@ public class Comparisons {
         public DistanceRankValueComparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
             return new DistanceRankValueComparison(getType(), getComparandValue(), parameterRelationshipGraph,
-                    getLimitValue());
+                    getLimitValue(), getEfSearch(), isReturningVectors());
         }
 
         @Nonnull
         @Override
         public PDistanceRankValueComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return PDistanceRankValueComparison.newBuilder()
+            final var distanceRankValueComparisonProtoBuilder = PDistanceRankValueComparison.newBuilder()
                     .setSuper(super.toValueComparisonProto(serializationContext))
-                    .setLimitValue(getLimitValue().toValueProto(serializationContext))
-                    .build();
+                    .setLimitValue(getLimitValue().toValueProto(serializationContext));
+            if (getEfSearch() != null) {
+                distanceRankValueComparisonProtoBuilder.setEfSearch(Verify.verifyNotNull(getEfSearch()));
+            }
+            if (isReturningVectors() != null) {
+                distanceRankValueComparisonProtoBuilder.setIsReturningVectors(Verify.verifyNotNull(isReturningVectors()));
+            }
+            return distanceRankValueComparisonProtoBuilder.build();
         }
 
         @Nonnull
@@ -1963,6 +1994,16 @@ public class Comparisons {
         public static DistanceRankValueComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                             @Nonnull final PDistanceRankValueComparison distanceRankValueComparisonProto) {
             return new DistanceRankValueComparison(serializationContext, distanceRankValueComparisonProto);
+        }
+
+        @Nullable
+        public Integer getEfSearch() {
+            return efSearch;
+        }
+
+        @Nullable
+        public Boolean isReturningVectors() {
+            return isReturningVectors;
         }
 
         /**

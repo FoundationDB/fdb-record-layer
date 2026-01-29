@@ -49,10 +49,6 @@ public final class VectorIndexHelper {
     @Nonnull
     public static Config getConfig(@Nonnull final Index index) {
         final ConfigBuilder builder = HNSW.newConfigBuilder();
-        final String hnswRandomSeedOption = index.getOption(IndexOptions.HNSW_DETERMINISTIC_SEEDING);
-        if (hnswRandomSeedOption != null) {
-            builder.setDeterministicSeeding(Boolean.parseBoolean(hnswRandomSeedOption));
-        }
         final String hnswMetricOption = index.getOption(IndexOptions.HNSW_METRIC);
         if (hnswMetricOption != null) {
             builder.setMetric(Metric.valueOf(hnswMetricOption));
@@ -83,6 +79,10 @@ public final class VectorIndexHelper {
         final String hnswEfConstructionOption = index.getOption(IndexOptions.HNSW_EF_CONSTRUCTION);
         if (hnswEfConstructionOption != null) {
             builder.setEfConstruction(Integer.parseInt(hnswEfConstructionOption));
+        }
+        final String hnswEfRepairOption = index.getOption(IndexOptions.HNSW_EF_REPAIR);
+        if (hnswEfRepairOption != null) {
+            builder.setEfRepair(Integer.parseInt(hnswEfRepairOption));
         }
         final String hnswExtendCandidatesOption = index.getOption(IndexOptions.HNSW_EXTEND_CANDIDATES);
         if (hnswExtendCandidatesOption != null) {
@@ -119,6 +119,10 @@ public final class VectorIndexHelper {
         final String hnswMaxNumConcurrentNeighborhoodFetchesOption = index.getOption(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES);
         if (hnswMaxNumConcurrentNeighborhoodFetchesOption != null) {
             builder.setMaxNumConcurrentNeighborhoodFetches(Integer.parseInt(hnswMaxNumConcurrentNeighborhoodFetchesOption));
+        }
+        final String hnswMaxNumConcurrentDeleteFromLayerOption = index.getOption(IndexOptions.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER);
+        if (hnswMaxNumConcurrentDeleteFromLayerOption != null) {
+            builder.setMaxNumConcurrentDeleteFromLayer(Integer.parseInt(hnswMaxNumConcurrentDeleteFromLayerOption));
         }
         return builder.build(numDimensions);
     }

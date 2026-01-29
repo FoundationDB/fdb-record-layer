@@ -206,6 +206,10 @@ public final class YamlExecutionContext {
         this.isDirtyMetrics = true;
     }
 
+    public boolean isInCI() {
+        return Boolean.parseBoolean(System.getProperty(YamlRunner.TEST_CI, "false"));
+    }
+
     public boolean isNightly() {
         return Boolean.parseBoolean(System.getProperty(YamlRunner.TEST_NIGHTLY, "false"));
     }
