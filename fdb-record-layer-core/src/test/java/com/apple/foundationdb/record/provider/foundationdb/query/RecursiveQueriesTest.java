@@ -195,6 +195,50 @@ class RecursiveQueriesTest extends TempTableTestBase {
                 .build();
     }
 
+    /**
+     * Sample forest with two simple chains, visually looking like the following.
+     * <pre>
+     * {@code
+     *     1 -> 2 -> 3 -> 4
+     *     5 -> 6
+     * }
+     * </pre>
+     * @return a sample forest represented by a list of {@code child -> parent} edges.
+     */
+    @Nonnull
+    private static Map<Long, Long> sampleForest2() {
+        return ImmutableMap.<Long, Long>builder()
+                .put(1L, -1L)
+                .put(2L, 1L)
+                .put(3L, 2L)
+                .put(4L, 3L)
+                .put(5L, -1L)
+                .put(6L, 5L)
+                .build();
+    }
+
+    /**
+     * Sample forest with two chains using random unsorted node values, visually looking like the following.
+     * <pre>
+     * {@code
+     *     73 -> 42 -> 89 -> 15
+     *     56 -> 28
+     * }
+     * </pre>
+     * @return a sample forest represented by a list of {@code child -> parent} edges.
+     */
+    @Nonnull
+    private static Map<Long, Long> sampleForest3() {
+        return ImmutableMap.<Long, Long>builder()
+                .put(73L, -1L)
+                .put(42L, 73L)
+                .put(89L, 42L)
+                .put(15L, 89L)
+                .put(56L, -1L)
+                .put(28L, 56L)
+                .build();
+    }
+
     static Stream<Arguments> ancestorsOfNodeParameters() {
         return Stream.of(
             Arguments.of(ImmutableMap.of(250L, 50L), LEVEL, List.of(250L, 50L, 10L, 1L)),
@@ -343,7 +387,47 @@ class RecursiveQueriesTest extends TempTableTestBase {
                  */
                 Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(3, 5, -1), List.of(Pair.of(10L, 20L), Pair.of(50L, 210L)), PREORDER, List.of(List.of(1L, 10L, 40L), List.of(20L, 10L, 40L, 50L, 250L), List.of(70L, 100L, 210L, 50L, 250L))),
                 Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(3, 5, -1), List.of(Pair.of(10L, 20L), Pair.of(50L, 210L)), POSTORDER, List.of(List.of(40L, 250L, 50L), List.of(40L, 250L, 50L, 70L, 10L), List.of(100L, 250L, 50L, 210L, 20L, 1L))),
-                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(3, 5, -1), List.of(Pair.of(10L, 20L), Pair.of(50L, 210L)), LEVEL, List.of(List.of(1L, 10L, 20L), List.of(40L, 50L, 70L, 10L, 100L), List.of(210L, 250L, 40L, 70L, 50L, 250L)))
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(3, 5, -1), List.of(Pair.of(10L, 20L), Pair.of(50L, 210L)), LEVEL, List.of(List.of(1L, 10L, 20L), List.of(40L, 50L, 70L, 10L, 100L), List.of(210L, 250L, 40L, 70L, 50L, 250L))),
+
+                /*
+                 * Scenario 4: Reparent node 5 under node 4 in a forest with two chains
+                 *
+                 * Initial hierarchy:          After reparenting:
+                 *         1       5                   1
+                 *         │       │                   │
+                 *         2       6                   2
+                 *         │                           │
+                 *         3                           3
+                 *         │                           │
+                 *         4                           4
+                 *                                     │
+                 *                                     5
+                 *                                     │
+                 *                                     6
+                 */
+                Arguments.of(sampleForest2(), ImmutableMap.of(1L, -1L, 5L, -1L), List.of(4, -1), List.of(Pair.of(5L, 4L)), PREORDER, List.of(List.of(1L, 2L, 3L, 4L), List.of(5L, 6L))),
+                Arguments.of(sampleForest2(), ImmutableMap.of(1L, -1L, 5L, -1L), List.of(4, -1), List.of(Pair.of(5L, 4L)), POSTORDER, List.of(List.of(4L, 3L, 2L, 1L), List.of(6L, 5L))),
+                Arguments.of(sampleForest2(), ImmutableMap.of(1L, -1L, 5L, -1L), List.of(4, -1), List.of(Pair.of(5L, 4L)), LEVEL, List.of(List.of(1L, 5L, 2L, 6L), List.of(3L, 4L, 5L, 6L))),
+
+                /*
+                 * Scenario 5: Reparent node 56 under node 15 in a forest with two chains using unsorted random values
+                 *
+                 * Initial hierarchy:          After reparenting:
+                 *        73      56                  73
+                 *        │       │                   │
+                 *        42      28                  42
+                 *        │                           │
+                 *        89                          89
+                 *        │                           │
+                 *        15                          15
+                 *                                    │
+                 *                                    56
+                 *                                    │
+                 *                                    28
+                 */
+                Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 15L)), PREORDER, List.of(List.of(73L, 42L, 89L, 15L), List.of(56L, 28L))),
+                Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 15L)), POSTORDER, List.of(List.of(15L, 89L, 42L, 73L), List.of(28L, 56L))),
+                Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 15L)), LEVEL, List.of(List.of(73L, 56L, 42L, 28L), List.of(89L, 15L, 56L, 28L)))
         );
     }
 
