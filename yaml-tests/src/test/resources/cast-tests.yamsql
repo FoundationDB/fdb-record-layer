@@ -180,15 +180,24 @@ test_block:
 
     # Cast null
     -
-      - query: select cast(null as integer) as a, cast(null as bigint) as b, cast(null as string) as c, cast(null as double) as d, cast(null as boolean) as e, cast(null as string) as f, cast(null as uuid) as g from values (1), (2) as X(X)
-      - explain: "EXPLODE array((@c67 AS X), (@c71 AS X)) | MAP (CAST(NULL AS INT) AS A, CAST(NULL AS LONG) AS B, CAST(NULL AS STRING) AS C, CAST(NULL AS DOUBLE) AS D, CAST(NULL AS BOOLEAN) AS E, CAST(NULL AS STRING) AS F, CAST(NULL AS UUID) AS G)"
+      - query: select cast(null as integer) as a, cast(null as bigint) as b, cast(null as string) as c, cast(null as double) as d, cast(null as boolean) as e, cast(null as string) as f from values (1), (2) as X(X)
+      - explain: "EXPLODE array((@c58 AS X), (@c62 AS X)) | MAP (CAST(NULL AS INT) AS A, CAST(NULL AS LONG) AS B, CAST(NULL AS STRING) AS C, CAST(NULL AS DOUBLE) AS D, CAST(NULL AS BOOLEAN) AS E, CAST(NULL AS STRING) AS F)"
       - initialVersionLessThan: !current_version
       - error: 'XXXXX'
       - initialVersionAtLeast: !current_version
       - result: [
-          { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _, G: !null _, },
-          { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _, G: !null _, },
+          { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _ },
+          { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _ },
         ]
+    -
+      - query: select cast(null as uuid) from values (1), (2) as X(X)
+      # UUID types had non-stable plan hashes before 4.9.1.0
+      - supported_version: 4.9.1.0
+      - explain: "EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (CAST(NULL AS UUID) AS _0)"
+      - initialVersionLessThan: !current_version
+      - error: 'XXXXX'
+      - initialVersionAtLeast: !current_version
+      - result: [{ !null _ }, { !null _ }]
     -
       # Floats are only supported starting with !current_version because the JDBC façade was missing support for them
       - query: select cast(null as float) from values (1), (2) as X(X)
@@ -210,15 +219,24 @@ test_block:
           { A: !null _, B: !null _, C: !null _ },
         ]
     -
-      - query: select cast(null as integer array) as a, cast(null as bigint array) as b, cast(null as string array) as c, cast(null as double array) as d, cast(null as boolean array) as e, cast(null as string array) as f, cast(null as uuid array) as g from values (1), (2) as X(X)
-      - explain: "EXPLODE array((@c74 AS X), (@c78 AS X)) | MAP (CAST(NULL AS ARRAY(INT)) AS A, CAST(NULL AS ARRAY(LONG)) AS B, CAST(NULL AS ARRAY(STRING)) AS C, CAST(NULL AS ARRAY(DOUBLE)) AS D, CAST(NULL AS ARRAY(BOOLEAN)) AS E, CAST(NULL AS ARRAY(STRING)) AS F, CAST(NULL AS ARRAY(UUID)) AS G)"
+      - query: select cast(null as integer array) as a, cast(null as bigint array) as b, cast(null as string array) as c, cast(null as double array) as d, cast(null as boolean array) as e, cast(null as string array) as f from values (1), (2) as X(X)
+      - explain: "EXPLODE array((@c64 AS X), (@c68 AS X)) | MAP (CAST(NULL AS ARRAY(INT)) AS A, CAST(NULL AS ARRAY(LONG)) AS B, CAST(NULL AS ARRAY(STRING)) AS C, CAST(NULL AS ARRAY(DOUBLE)) AS D, CAST(NULL AS ARRAY(BOOLEAN)) AS E, CAST(NULL AS ARRAY(STRING)) AS F)"
       - initialVersionLessThan: !current_version
       - error: 'XXXXX'
       - initialVersionAtLeast: !current_version
       - result: [
-          { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _, G: !null _, },
-          { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _, G: !null _, },
+          { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _, },
+          { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _, },
         ]
+    -
+      - query: select cast(null as uuid array) from values (1), (2) as X(X)
+      # UUID types had non-stable plan hashes before 4.9.1.0
+      - supported_version: 4.9.1.0
+      - explain: "EXPLODE array((@c12 AS X), (@c16 AS X)) | MAP (CAST(NULL AS ARRAY(UUID)) AS _0)"
+      - initialVersionLessThan: !current_version
+      - error: 'XXXXX'
+      - initialVersionAtLeast: !current_version
+      - result: [{ !null _ }, { !null _ }]
     -
       # Unlike float scalars, float arrays are supported on versions older than !current_version when continuing
       - query: select cast(null as float array) from values (1), (2) as X(X)
