@@ -144,6 +144,7 @@ test_block:
   preset: multi_repetition_ordered
   tests:
     -
-      - query: update ta set e = !! [10, 100, 1000] !! where a = 1 returning "new".e
+      - query: update ta set e = !! [10, 100, 1000] !! where a = 1 returning NEW.e
+      - supported_version: !current_version
       - result: [{[10, 100, 1000]}]
 ...

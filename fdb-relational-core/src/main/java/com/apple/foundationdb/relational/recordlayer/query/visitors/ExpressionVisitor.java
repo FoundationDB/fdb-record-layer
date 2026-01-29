@@ -140,7 +140,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitSelectStarElement(@Nonnull RelationalParser.SelectStarElementContext ignored) {
-        return getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
+        return getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators(),
+                getDelegate().getCurrentPlanFragmentMaybe());
     }
 
     @Nonnull
