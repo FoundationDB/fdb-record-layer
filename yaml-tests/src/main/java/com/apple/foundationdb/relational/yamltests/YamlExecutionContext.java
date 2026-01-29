@@ -117,7 +117,7 @@ public final class YamlExecutionContext {
     @Nonnull
     private Options connectionOptions = Options.NONE;
 
-        public static class YamlExecutionError extends RuntimeException {
+    public static class YamlExecutionError extends RuntimeException {
 
         private static final long serialVersionUID = 10L;
 

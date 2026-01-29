@@ -95,6 +95,8 @@ public class IncludeBlockTest {
                 "include-no-explain",
                 "include-recursion",
                 "include-with-explain",
+                "include-txn-setup",
+                "include-setup-insert",
                 "include-with-a-test-block",
                 "include-with-include"
         );
@@ -130,7 +132,8 @@ public class IncludeBlockTest {
                 "include-non-existent",
                 "include-scope-not-visible-outside",
                 "options-in-included",
-                "simple-include-with-wrong-metric"
+                "simple-include-with-wrong-metric",
+                "verify-all-includes-execute"
         );
     }
 
@@ -145,6 +148,7 @@ public class IncludeBlockTest {
         return Stream.of(
                 "include-falls-back-to-global-available-uri",
                 "include-prioritize-local-uri",
+                "include-with-txn-setup-included",
                 "multiple-includes",
                 "multiple-same-includes",
                 "nested-includes",

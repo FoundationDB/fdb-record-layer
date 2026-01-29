@@ -1,5 +1,5 @@
 #
-# include-no-explain.yamsql
+# include-with-txn-setup-included.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -17,25 +17,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should fail in itself due to lack of available database to connect to - its tries to connect to 1st
-# available database (in global scope) but none available.
-# However, it will pass when included in a file with an appropriate available database.
+# This test should pass. It has an include that defines the transaction setup block that defines a few references.
+# This file should be able to reference them!
+---
+schema_template:
+    create table t1(id bigint, col1 bigint, primary key(id))
+---
+include:
+    include-block/includes/include-txn-setup.yamsql
 ---
 setup:
-  connect: (global) 1
   steps:
     - query: INSERT INTO t1 VALUES (10, 20), (30, 40), (50, 60), (70, 80)
 ---
 test_block:
-  name: transactions-tests
-  tests:
-    -
-      - query: select * from t2
-      - setup: create temporary function t2() on commit drop function AS
-          SELECT * FROM t1;
-      - result: [
-        {id: 10, col1: 20},
-        {id: 30, col1: 40},
-        {id: 50, col1: 60},
-        {id: 70, col1: 80}]
+    tests:
+      -
+        - query: select * from func_t1;
+        - setupReference: func_on_t1
+        - result: [{10, 20}, {30, 40}]
 ...

@@ -1,5 +1,5 @@
 #
-# include-no-explain.yamsql
+# verify-all-includes-execute.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -17,25 +17,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should fail in itself due to lack of available database to connect to - its tries to connect to 1st
-# available database (in global scope) but none available.
-# However, it will pass when included in a file with an appropriate available database.
+# This yamsql file has an include that has an explain in it. The metrics of that explain will be part of this file's
+# metric file. However, that metric file is forged - hence, the test should fail due to metrics mismatch.
+# As a takeaway, this also verifies that an include can use to populate data to the table.
+---
+schema_template:
+    create table t1(id bigint, col1 bigint, primary key(id))
 ---
 setup:
   connect: (global) 1
   steps:
     - query: INSERT INTO t1 VALUES (10, 20), (30, 40), (50, 60), (70, 80)
 ---
+# adds a new row (90, 100)
+include:
+    include-block/includes/include-setup-insert.yamsql
+---
+# verify that the previous include succeeded in putting to the table.
+---
 test_block:
-  name: transactions-tests
   tests:
     -
-      - query: select * from t2
-      - setup: create temporary function t2() on commit drop function AS
-          SELECT * FROM t1;
-      - result: [
-        {id: 10, col1: 20},
-        {id: 30, col1: 40},
-        {id: 50, col1: 60},
-        {id: 70, col1: 80}]
+      - query: select * from t1
+      - result: [{10, 20}, {30, 40}, {50, 60}, {70, 80}, {90, 100}]
+---
+# tries to add the same row again, but fails
+include:
+    include-block/includes/include-setup-insert.yamsql
 ...

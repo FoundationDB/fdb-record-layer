@@ -17,8 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should fail in itself due to the lack of proper setup. However, when included with "single-connection.yamsql",
-# these queries should run and pass.
+# This test should fail in itself due to the lack of available database to connect to.
+# However, it will pass when included in a file with an appropriate available database.
 ---
 setup:
   connect: (global) 1

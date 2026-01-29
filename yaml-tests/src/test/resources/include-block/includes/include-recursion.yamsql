@@ -17,7 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should fail in itself due to recursion.
+# This test should fail in itself due to recursion - that is, this file tries to include itself.
+# It will also lead to files failing if this file is included in them, due to recursion.
 ---
 schema_template:
     create table t2(id bigint, col1 bigint, primary key(id))

@@ -17,8 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should pass because the included yamsql file can connect to the database with schema template defined in
-# this file.
+# This test should pass. This file creates a database with the given schema. The available database is connected to by
+# blocks in `include-connects-to-global-connection.yamsql` to execute their tasks.
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))

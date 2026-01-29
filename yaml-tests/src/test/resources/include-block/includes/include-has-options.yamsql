@@ -17,7 +17,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This include should fail because it has options block, which is not allowed in included yamsql.
+# This include has an options block. Hence, the top-level file will fail if it includes this file as options block
+# is (currently) not allowed in included file.
+# However, if this file runs independently, it would fail due to lack of available database connections.
 ---
 options:
     supported_version: 3.0.17.0
