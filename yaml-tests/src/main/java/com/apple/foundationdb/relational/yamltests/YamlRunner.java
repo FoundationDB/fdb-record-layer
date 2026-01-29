@@ -32,7 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-@SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
+@SuppressWarnings({"PMD.GuardLogStatement", "PMD.AvoidCatchingThrowable"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlRunner {
 
     private static final Logger logger = LogManager.getLogger(YamlRunner.class);
