@@ -186,6 +186,9 @@ message PPrimitiveCoercionBiFunction {
     NULL_TO_ENUM = 16;
     STRING_TO_ENUM = 17;
     STRING_TO_UUID = 18;
+    NULL_TO_BYTES = 19;
+    NULL_TO_VECTOR = 20;
+    NULL_TO_VERSION = 21;
   }
   optional PPhysicalOperator operator = 1;
 }
@@ -1298,6 +1301,9 @@ message PUnaryRelOpValue {
 
       IS_NULL_VECTOR = 23;
       IS_NOT_NULL_VECTOR = 24;
+
+      IS_NULL_VERSION = 25;
+      IS_NOT_NULL_VERSION = 26;
   }
   optional PRelOpValue super = 1;
   optional PUnaryPhysicalOperator operator = 2;
@@ -1422,6 +1428,10 @@ message PCastValue {
 
     // ARRAY to VECTOR conversion
     ARRAY_TO_VECTOR = 38;
+
+    NULL_TO_BYTES = 39;
+    NULL_TO_VECTOR = 40;
+    NULL_TO_VERSION = 41;
   }
   optional PValue child = 1;
   optional PType cast_to_type = 2;
