@@ -61,6 +61,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void aliasTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("alias-tests.yamsql");
+    }
+
+    @TestTemplate
     void arrays(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("arrays.yamsql");
     }
@@ -330,11 +335,6 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void tableFunctionsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("table-functions.yamsql");
-    }
-
-    @TestTemplate
-    public void aliasTest(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("alias-tests.yamsql");
     }
 
     @TestTemplate

@@ -22,6 +22,8 @@ schema_template:
     create table table_t1(id bigint, a bigint, b string, c integer, primary key(id))
     create table table_t2(id bigint, col1 bigint, col2 string, primary key(id))
     create table table_hierarchy(id bigint, parent_id bigint, name string, primary key(id))
+    create view view_t1_filtered as select id, a, b, c from table_t1 where a <= 30
+    create view view_joined as select t1.id as t1_id, t1.a, t1.b, t1.c, t2.id as t2_id, t2.col1, t2.col2 from table_t1 t1, table_t2 t2 where t1.c = t2.col1
 ---
 # Define reusable transaction setups for temporary functions
 transaction_setups:
@@ -29,7 +31,7 @@ transaction_setups:
   tvf_sq1: create temporary function sq1(in x bigint) on commit drop function AS
     SELECT * FROM table_t1 WHERE a < 40 + x
 
-  # Another table-valued function with similar logic
+  # Another temporary table-valued function with similar logic just different names
   tvf_tmpFunction1: create temporary function tmpFunction1(in x bigint) on commit drop function AS
     SELECT * FROM table_t1 WHERE a < 40 + x
 
@@ -142,42 +144,6 @@ test_block:
           {GRANDPARENT: 'root', GRANDCHILD: 'grandchild1'},
           {GRANDPARENT: 'root', GRANDCHILD: 'grandchild2'},
           {GRANDPARENT: 'root', GRANDCHILD: 'grandchild3'}]
-    -
-      # Test aliasing a view-like function (parameterless function) - simple alias
-      - query: SELECT * FROM T1 AS t1_view
-      - supported_version: !current_version
-      - setupReference: tvf_T1
-      - unorderedResult: [
-          {ID: 1, A: 10, B: 'test1', C: 100},
-          {ID: 2, A: 20, B: 'test2', C: 200},
-          {ID: 3, A: 30, B: 'test3', C: 300}]
-    -
-      # Test aliasing a view with column selection using the alias
-      - query: SELECT t1_view.a, t1_view.b FROM T1 AS t1_view
-      - supported_version: !current_version
-      - setupReference: tvf_T1
-      - unorderedResult: [
-          {A: 10, B: 'test1'},
-          {A: 20, B: 'test2'},
-          {A: 30, B: 'test3'}]
-    -
-      # Test aliasing a view with WHERE condition on the alias
-      - query: SELECT t1_view.id, t1_view.a FROM T1 AS t1_view WHERE t1_view.a >= 20
-      - supported_version: !current_version
-      - setupReference: tvf_T1
-      - unorderedResult: [
-          {ID: 2, A: 20},
-          {ID: 3, A: 30}]
-    -
-      # Test aliasing both views in a join
-      - query: SELECT v1.a, v2.col2 FROM T1 AS v1, T2 AS v2 WHERE v1.c = v2.col1
-      - supported_version: !current_version
-      - setupReference: tvf_T1
-      - setupReference: tvf_T2
-      - unorderedResult: [
-          {A: 10, COL2: 'data1'},
-          {A: 20, COL2: 'data2'},
-          {A: 30, COL2: 'data3'}]
     -
       # Test aliasing a parameterized function
       - query: SELECT f.id, f.a, f.b FROM sq1(10) AS f
@@ -374,4 +340,140 @@ test_block:
       - unorderedResult: [
           {ID: 1, A: 10},
           {ID: 2, A: 20}]
+    -
+      # Test basic view aliasing with column selection
+      - query: SELECT v.id, v.a, v.b FROM view_t1_filtered AS v
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 1, A: 10, B: 'test1'},
+          {ID: 2, A: 20, B: 'test2'},
+          {ID: 3, A: 30, B: 'test3'}]
+    -
+      # Test view alias with WHERE clause referencing alias
+      - query: SELECT v.id, v.a FROM view_t1_filtered AS v WHERE v.c > 100
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 2, A: 20},
+          {ID: 3, A: 30}]
+    -
+      # Test view alias with complex WHERE conditions using alias
+      - query: SELECT v.id, v.a, v.c FROM view_t1_filtered AS v WHERE v.a >= 20 AND v.c < 300
+      - supported_version: !current_version
+      - unorderedResult: [{ID: 2, A: 20, C: 200}]
+    -
+      # Test aliasing joined view with column references
+      - query: SELECT vj.t1_id, vj.a, vj.col2 FROM view_joined AS vj
+      - supported_version: !current_version
+      - unorderedResult: [
+          {T1_ID: 1, A: 10, COL2: 'data1'},
+          {T1_ID: 2, A: 20, COL2: 'data2'},
+          {T1_ID: 3, A: 30, COL2: 'data3'}]
+    -
+      # Test joined view alias in WHERE clause
+      - query: SELECT vj.t1_id, vj.col1, vj.col2 FROM view_joined AS vj WHERE vj.a >= 20
+      - supported_version: !current_version
+      - unorderedResult: [
+          {T1_ID: 2, COL1: 200, COL2: 'data2'},
+          {T1_ID: 3, COL1: 300, COL2: 'data3'}]
+    -
+      # Test self-join on same view with different aliases
+      - query: SELECT v1.id AS id1, v2.id AS id2, v1.a AS a1, v2.a AS a2 FROM view_t1_filtered AS v1, view_t1_filtered AS v2 WHERE v1.a < v2.a
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID1: 1, ID2: 2, A1: 10, A2: 20},
+          {ID1: 1, ID2: 3, A1: 10, A2: 30},
+          {ID1: 2, ID2: 3, A1: 20, A2: 30}]
+    -
+      # Test joining two different views with aliases
+      - query: SELECT vf.id, vf.a, vj.col2 FROM view_t1_filtered AS vf, view_joined AS vj WHERE vf.id = vj.t1_id
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 1, A: 10, COL2: 'data1'},
+          {ID: 2, A: 20, COL2: 'data2'},
+          {ID: 3, A: 30, COL2: 'data3'}]
+    -
+      # Test joining view alias with table alias
+      - query: SELECT v.id, v.a, t.col2 FROM view_t1_filtered AS v, table_t2 AS t WHERE v.c = t.col1
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 1, A: 10, COL2: 'data1'},
+          {ID: 2, A: 20, COL2: 'data2'},
+          {ID: 3, A: 30, COL2: 'data3'}]
+    -
+      # Test view alias with arithmetic expressions
+      - query: SELECT v.id, v.a * 2 AS doubled_a, v.c - v.a AS diff FROM view_t1_filtered AS v WHERE v.a <= 20
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 1, DOUBLED_A: 20, DIFF: 90},
+          {ID: 2, DOUBLED_A: 40, DIFF: 180}]
+    -
+      # Test view alias in subquery
+      - query: SELECT outer_v.id, outer_v.a FROM (SELECT v.id, v.a, v.c FROM view_t1_filtered AS v WHERE v.a >= 20) AS outer_v
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 2, A: 20},
+          {ID: 3, A: 30}]
+    -
+      # Test multiple view aliases in nested subquery
+      - query: SELECT sub.id FROM (SELECT v1.id, v1.a FROM view_t1_filtered AS v1, view_t1_filtered AS v2 WHERE v1.id = v2.id AND v1.a = 10) AS sub
+      - supported_version: !current_version
+      - unorderedResult: [{ID: 1}]
+    -
+      # Test view alias with CASE expression referencing alias
+      - query: SELECT v.id, CASE WHEN v.a < 20 THEN 'low' WHEN v.a < 30 THEN 'medium' ELSE 'high' END AS category FROM view_t1_filtered AS v
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 1, CATEGORY: 'low'},
+          {ID: 2, CATEGORY: 'medium'},
+          {ID: 3, CATEGORY: 'high'}]
+    -
+      # Test view alias in CTE
+      - query: WITH cte AS (SELECT v.id, v.a, v.b FROM view_t1_filtered AS v WHERE v.a <= 20) SELECT c.id, c.b FROM cte AS c
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 1, B: 'test1'},
+          {ID: 2, B: 'test2'}]
+    -
+      # Test multiple CTEs with different view aliases
+      - query: WITH cte1 AS (SELECT v1.id, v1.a FROM view_t1_filtered AS v1), cte2 AS (SELECT v2.t1_id, v2.col2 FROM view_joined AS v2) SELECT c1.id, c2.col2 FROM cte1 AS c1, cte2 AS c2 WHERE c1.id = c2.t1_id
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 1, COL2: 'data1'},
+          {ID: 2, COL2: 'data2'},
+          {ID: 3, COL2: 'data3'}]
+    -
+      # Test view alias with DISTINCT
+      - query: SELECT DISTINCT v.c / 100 AS category FROM view_t1_filtered AS v
+      - supported_version: !current_version
+      - unorderedResult: [
+          {CATEGORY: 1},
+          {CATEGORY: 2},
+          {CATEGORY: 3}]
+    -
+      # Test joining view alias with temporary function alias
+      - query: SELECT v.id AS view_id, v.a AS view_a, f.id AS func_id FROM view_t1_filtered AS v, T1 AS f WHERE v.id = f.id AND v.a >= 20
+      - supported_version: !current_version
+      - setupReference: tvf_T1
+      - unorderedResult: [
+          {VIEW_ID: 2, VIEW_A: 20, FUNC_ID: 2},
+          {VIEW_ID: 3, VIEW_A: 30, FUNC_ID: 3}]
+    -
+      # Test complex multi-way join with view aliases
+      - query: SELECT v1.id, v2.col2, t.b FROM view_t1_filtered AS v1, view_joined AS v2, table_t1 AS t WHERE v1.id = v2.t1_id AND v1.id = t.id AND v1.a = 10
+      - supported_version: !current_version
+      - unorderedResult: [{ID: 1, COL2: 'data1', B: 'test1'}]
+    -
+      # Test view alias in EXISTS subquery
+      - query: SELECT t.id, t.a FROM table_t1 AS t WHERE EXISTS (SELECT 1 FROM view_t1_filtered AS v WHERE v.id = t.id AND v.a <= 20)
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 1, A: 10},
+          {ID: 2, A: 20}]
+    -
+      # Test view alias with column arithmetic in WHERE
+      - query: SELECT v.id, v.a + v.c AS sum_val FROM view_t1_filtered AS v WHERE v.a + v.c > 200
+      - supported_version: !current_version
+      - unorderedResult: [
+          {ID: 2, SUM_VAL: 220},
+          {ID: 3, SUM_VAL: 330}]
 ...
