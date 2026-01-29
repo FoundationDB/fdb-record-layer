@@ -85,24 +85,31 @@ public class IncludeBlockTest {
         };
     }
 
+    // yamsql files that works if they are rightly included in their parent yamsql file (that is, the parent file has
+    // the include block that references these file). However, when run independently, they will not run successfully
+    // due to lack of proper setup block.
     static Stream<String> includesShouldFail() {
         return Stream.of(
-                "include-with-explain",
-                "include-2",
-                "include-with-include",
+                "include-connects-to-global-connection",
                 "include-has-options",
+                "include-no-explain",
                 "include-recursion",
-                "include-global-uri-as-default"
+                "include-with-explain",
+                "include-with-a-test-block",
+                "include-with-include"
         );
     }
 
-    
+    // yamsql files that works if they are rightly included in their parent yamsql file (that is, the parent file has
+    // the include block that references these file). These file can also work independently and hence, running them
+    // should be successful as they have all the ingredients for setup.
     static Stream<String> includesShouldPass() {
         return Stream.of(
                 "include-scoped"
         );
     }
 
+    // top-level yamsql files, with one or more includes, that do not run successfully.
     @ParameterizedTest
     @MethodSource("includesShouldFail")
     void includesShouldFail(String filename) {
@@ -110,6 +117,7 @@ public class IncludeBlockTest {
                 doRun("include-block/includes/" + filename + ".yamsql"));
     }
 
+    // top-level yamsql files, with one or more includes, that is expected to run successfully.
     @ParameterizedTest
     @MethodSource("includesShouldPass")
     void includesShouldPass(String filename) throws Exception {
@@ -118,11 +126,10 @@ public class IncludeBlockTest {
 
     static Stream<String> shouldFail() {
         return Stream.of(
-                "options-in-included",
                 "cycle-in-include",
-                "include-scope-not-visible-outside",
-                "include-scope-not-visible-outside",
                 "include-non-existent",
+                "include-scope-not-visible-outside",
+                "options-in-included",
                 "simple-include-with-wrong-metric"
         );
     }
@@ -136,12 +143,13 @@ public class IncludeBlockTest {
 
     static Stream<String> shouldPass() {
         return Stream.of(
-                "simple-include",
+                "include-falls-back-to-global-available-uri",
+                "include-prioritize-local-uri",
                 "multiple-includes",
                 "multiple-same-includes",
                 "nested-includes",
-                "include-prioritize-local-uri",
-                "include-falls-back-to-global-available-uri"
+                "simple-include",
+                "simple-include-different-env"
         );
     }
 

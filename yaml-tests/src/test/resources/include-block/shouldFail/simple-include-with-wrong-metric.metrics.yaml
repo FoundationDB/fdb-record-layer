@@ -5,11 +5,11 @@ transactions-tests:
     ref: simple-include-with-wrong-metric.yamsql:26 > include-with-explain.yamsql:35
     explain: SCAN(<,>)
     task_count: 0
-    task_total_time_ms: 151
+    task_total_time_ms: 156
     transform_count: 0
-    transform_time_ms: 109
+    transform_time_ms: 112
     transform_yield_count: 15
-    insert_time_ms: 11
+    insert_time_ms: 9
     insert_new_count: 0
     insert_reused_count: 2
 -   query: EXPLAIN select * from t2
@@ -19,10 +19,10 @@ transactions-tests:
     ref: simple-include-with-wrong-metric.yamsql:26 > include-with-explain.yamsql:45
     explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@cT218 AS LONG)
     task_count: 0
-    task_total_time_ms: 168
+    task_total_time_ms: 158
     transform_count: 0
-    transform_time_ms: 130
+    transform_time_ms: 124
     transform_yield_count: 16
-    insert_time_ms: 7
+    insert_time_ms: 6
     insert_new_count: 0
     insert_reused_count: 2

@@ -1,5 +1,5 @@
 #
-# include-prioritize-local-uri.yamsql
+# simple-include-different-env.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -17,29 +17,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should pass. The included yamsql has a schema template defined, so the tests in that file connect to the
-# database defined on that (locally defined) schema template. While the tests in this file connect to the database
-# defined on the schema template of this file.
+# This tests a single include block in the yaml file, and hence is 'similar' to simple-include.yamsql in that
+# perspective. However, it has a different schema template than the other file, by means of having more index which
+# means that the metrics would be different for the same queries that run in the other file.
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))
----
-setup:
-  connect: 1
-  steps:
-    - query: INSERT INTO t1 VALUES (10, 20), (30, 40), (50, 60), (70, 80)
+    create index i1 as select * from t1 where col1 > 1000 order by id
+    create index i2 as select * from t1 where id = 0 order by col1
+    create index i3 as select * from t1 where col1 > 50 and id < 53434 order by col1
 ---
 include:
-    include-block/includes/include-scoped.yamsql
----
-test_block:
-  name: transactions-tests
-  tests:
-    -
-      - query: select * from t1
-      - result: [
-        {id: 10, col1: 20},
-        {id: 30, col1: 40},
-        {id: 50, col1: 60},
-        {id: 70, col1: 80}]
+    include-block/includes/include-with-explain.yamsql
 ...

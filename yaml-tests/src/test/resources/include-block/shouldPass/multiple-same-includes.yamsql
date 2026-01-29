@@ -26,14 +26,14 @@ include:
     include-block/includes/include-with-explain.yamsql
 ---
 include:
-    include-block/includes/include-2.yamsql
+    include-block/includes/include-with-a-test-block.yamsql
 ---
 include:
-    include-block/includes/include-2.yamsql
+    include-block/includes/include-with-a-test-block.yamsql
 ---
 include:
-    include-block/includes/include-2.yamsql
+    include-block/includes/include-with-a-test-block.yamsql
 ---
 include:
-    include-block/includes/include-2.yamsql
+    include-block/includes/include-with-a-test-block.yamsql
 ...

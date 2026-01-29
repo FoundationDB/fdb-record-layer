@@ -5,11 +5,11 @@ transactions-tests:
     ref: nested-includes.yamsql:25 > include-with-include.yamsql:35
     explain: SCAN(<,>)
     task_count: 166
-    task_total_time_ms: 126
+    task_total_time_ms: 9
     transform_count: 46
-    transform_time_ms: 95
+    transform_time_ms: 3
     transform_yield_count: 15
-    insert_time_ms: 8
+    insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from t2
@@ -19,32 +19,32 @@ transactions-tests:
     ref: nested-includes.yamsql:25 > include-with-include.yamsql:45
     explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@cT218 AS LONG)
     task_count: 189
-    task_total_time_ms: 140
+    task_total_time_ms: 14
     transform_count: 50
-    transform_time_ms: 112
+    transform_time_ms: 6
     transform_yield_count: 16
-    insert_time_ms: 3
+    insert_time_ms: 0
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN select * from t1 where id < 50
-    ref: nested-includes.yamsql:25 > include-with-include.yamsql:47 > include-2.yamsql:27
+    ref: nested-includes.yamsql:25 > include-with-include.yamsql:47 > include-with-a-test-block.yamsql:27
     explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@c8 AS LONG)
     task_count: 163
-    task_total_time_ms: 31
+    task_total_time_ms: 12
     transform_count: 46
-    transform_time_ms: 10
+    transform_time_ms: 6
     transform_yield_count: 14
-    insert_time_ms: 5
+    insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from t1 where id < 50
-    ref: nested-includes.yamsql:28 > include-2.yamsql:27
+    ref: nested-includes.yamsql:28 > include-with-a-test-block.yamsql:27
     explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@c8 AS LONG)
     task_count: 163
-    task_total_time_ms: 31
+    task_total_time_ms: 12
     transform_count: 46
-    transform_time_ms: 10
+    transform_time_ms: 6
     transform_yield_count: 14
-    insert_time_ms: 5
+    insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2

@@ -66,7 +66,7 @@ public class YamlReference implements Comparable<YamlReference> {
             builder.add(current);
             current = current.getResource().parentRef;
         }
-        return builder.build().reverse();
+        return builder.build();
     }
 
     public YamlResource newResource(@Nonnull String path) {

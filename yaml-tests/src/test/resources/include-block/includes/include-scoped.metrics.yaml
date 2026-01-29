@@ -3,24 +3,26 @@ transactions-tests:
     setup:
     - create temporary function t2_func() on commit drop function AS SELECT * FROM
         t2;
+    ref: include-scoped.yamsql:38
     explain: SCAN(<,>)
     task_count: 166
     task_total_time_ms: 10
     transform_count: 46
-    transform_time_ms: 4
+    transform_time_ms: 3
     transform_yield_count: 15
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from t2_func
     setup:
     - create temporary function t2_func() on commit drop function AS SELECT * FROM
         t2 where id < 50;
+    ref: include-scoped.yamsql:48
     explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@cT2_FUNC18 AS LONG)
     task_count: 189
     task_total_time_ms: 15
     transform_count: 50
-    transform_time_ms: 6
+    transform_time_ms: 5
     transform_yield_count: 16
     insert_time_ms: 0
     insert_new_count: 18

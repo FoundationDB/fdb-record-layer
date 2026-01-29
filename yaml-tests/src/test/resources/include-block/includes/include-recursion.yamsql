@@ -17,7 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should fail in itself due to the lack of proper setup.
+# This test should fail in itself due to recursion.
 ---
 schema_template:
     create table t2(id bigint, col1 bigint, primary key(id))

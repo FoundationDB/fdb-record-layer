@@ -31,6 +31,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.Streams;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -116,7 +117,7 @@ public final class YamlExecutionContext {
     @Nonnull
     private Options connectionOptions = Options.NONE;
 
-    public static class YamlExecutionError extends RuntimeException {
+        public static class YamlExecutionError extends RuntimeException {
 
         private static final long serialVersionUID = 10L;
 
@@ -335,12 +336,12 @@ public final class YamlExecutionContext {
     }
 
     private List<String> getGlobalConnectionURIList(@Nonnull YamlReference.YamlResource resource) {
-        final var parentRef = resource.getParentRef();
         final var resourcesBuilder = ImmutableList.<YamlReference.YamlResource>builder();
-        if (parentRef != null) {
-            resourcesBuilder.addAll(parentRef.getCallStack().stream().map(YamlReference::getResource).iterator());
+        if (resource.getParentRef() != null) {
+            resourcesBuilder.addAll(resource.getParentRef().getCallStack().reverse().stream().map(YamlReference::getResource).iterator());
         }
         resourcesBuilder.add(resource);
+        resource.getParentRef().getCallStack().reverse();
         return resourcesBuilder.build().stream()
                 .flatMap(r -> connectionURIs.getOrDefault(r, List.of()).stream())
                 .collect(Collectors.toList());
@@ -403,14 +404,12 @@ public final class YamlExecutionContext {
 
     private static StackTraceElement[] composeStackTrace(@Nonnull YamlReference reference, @Nonnull String identifier) {
         final var refList = reference.getCallStack();
-        final var newStackTrace = new StackTraceElement[refList.size()];
-        for (int i = refList.size() - 2; i >= 0; i--) {
-            final var ref = refList.get(i);
-            newStackTrace[refList.size() - i - 1] = new StackTraceElement("YAML_FILE", IncludeBlock.INCLUDE, ref.getResource().getFileName(), ref.getLineNumber());
-        }
-        final var lastRef = refList.get(refList.size() - 1);
-        newStackTrace[0] = new StackTraceElement("YAML_FILE", identifier, lastRef.getResource().getFileName(), lastRef.getLineNumber());
-        return newStackTrace;
+        return Streams.mapWithIndex(refList.stream(),
+                (r, i) -> new StackTraceElement(
+                        "YAML_FILE", i == 0 ? identifier : IncludeBlock.INCLUDE,
+                        Objects.requireNonNull(r).getResource().getFileName(),
+                        r.getLineNumber()))
+                .toArray(StackTraceElement[]::new);
     }
 
     /**

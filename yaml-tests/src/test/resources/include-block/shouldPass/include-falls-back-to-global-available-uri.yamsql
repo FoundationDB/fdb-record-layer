@@ -17,11 +17,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should pass
+# This test should pass because the included yamsql file can connect to the database with schema template defined in
+# this file.
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))
 ---
 include:
-    include-block/includes/include-global-uri-as-default.yamsql
+    include-block/includes/include-connects-to-global-connection.yamsql
 ...

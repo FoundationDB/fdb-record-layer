@@ -2,11 +2,12 @@ transactions-tests:
 -   query: EXPLAIN select * from t2
     setup:
     - create temporary function t2() on commit drop function AS SELECT * FROM t1;
+    ref: multiple-same-includes.yamsql:25 > include-with-explain.yamsql:35
     explain: SCAN(<,>)
     task_count: 166
-    task_total_time_ms: 11
+    task_total_time_ms: 12
     transform_count: 46
-    transform_time_ms: 5
+    transform_time_ms: 4
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 14
@@ -15,51 +16,56 @@ transactions-tests:
     setup:
     - create temporary function t2() on commit drop function AS SELECT * FROM t1 where
         id < 50;
+    ref: multiple-same-includes.yamsql:25 > include-with-explain.yamsql:45
     explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@cT218 AS LONG)
     task_count: 189
-    task_total_time_ms: 19
+    task_total_time_ms: 16
     transform_count: 50
-    transform_time_ms: 9
+    transform_time_ms: 5
     transform_yield_count: 16
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN select * from t1 where id < 50
+    ref: multiple-same-includes.yamsql:28 > include-with-a-test-block.yamsql:27
     explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@c8 AS LONG)
     task_count: 163
-    task_total_time_ms: 14
+    task_total_time_ms: 11
     transform_count: 46
-    transform_time_ms: 7
+    transform_time_ms: 5
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from t1 where id < 50
+    ref: multiple-same-includes.yamsql:31 > include-with-a-test-block.yamsql:27
     explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@c8 AS LONG)
     task_count: 163
-    task_total_time_ms: 14
+    task_total_time_ms: 11
     transform_count: 46
-    transform_time_ms: 7
+    transform_time_ms: 5
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from t1 where id < 50
+    ref: multiple-same-includes.yamsql:34 > include-with-a-test-block.yamsql:27
     explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@c8 AS LONG)
     task_count: 163
-    task_total_time_ms: 14
+    task_total_time_ms: 11
     transform_count: 46
-    transform_time_ms: 7
+    transform_time_ms: 5
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14
     insert_reused_count: 2
 -   query: EXPLAIN select * from t1 where id < 50
+    ref: multiple-same-includes.yamsql:37 > include-with-a-test-block.yamsql:27
     explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@c8 AS LONG)
     task_count: 163
-    task_total_time_ms: 14
+    task_total_time_ms: 11
     transform_count: 46
-    transform_time_ms: 7
+    transform_time_ms: 5
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 14

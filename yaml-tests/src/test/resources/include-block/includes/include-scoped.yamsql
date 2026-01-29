@@ -18,8 +18,8 @@
 # limitations under the License.
 
 # This test should pass as it is self-sufficient. That is, it has a (local) connection for the schema template
-# definition. The following test block does not define connection, hence, should try to connect to locally
-# available connection, if any.
+# definition. The following test block does not define connection value, hence, should connect to the only local
+# available connection.
 ---
 schema_template:
     create table t2(id bigint, col1 bigint, primary key(id))
