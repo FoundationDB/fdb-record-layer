@@ -51,10 +51,12 @@ public class JDBCInProcessYamlConnectionFactory implements YamlConnectionFactory
         // Add name of the in-process running server to the connectPath.
         URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
         String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
-        LOG.info(KeyValueLogMessage.of("Rewrote connection string for in-process server",
-                "original", connectPath,
-                "rewritten", uriStr,
-                "server", server.getServerName()));
+        if (LOG.isInfoEnabled()) {
+            LOG.info(KeyValueLogMessage.of("Rewrote connection string for in-process server",
+                    "original", connectPath,
+                    "rewritten", uriStr,
+                    "server", server.getServerName()));
+        }
         return new SimpleYamlConnection(DriverManager.getConnection(uriStr), SemanticVersion.current(), "JDBC In-Process", clusterFile);
     }
 

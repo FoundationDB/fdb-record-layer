@@ -142,14 +142,16 @@ public class ExternalServer {
             Assertions.fail("Failed to start the external server");
         }
 
-        logger.info(KeyValueLogMessage.of("Started external server",
-                "jar", serverJar,
-                LogMessageKeys.VERSION, version,
-                "grpc_port", grpcPort,
-                "http_port", httpPort,
-                "out_file", outFile,
-                "err_file", errFile
-        ));
+        if (logger.isInfoEnabled()) {
+            logger.info(KeyValueLogMessage.of("Started external server",
+                    "jar", serverJar,
+                    LogMessageKeys.VERSION, version,
+                    "grpc_port", grpcPort,
+                    "http_port", httpPort,
+                    "out_file", outFile,
+                    "err_file", errFile
+            ));
+        }
     }
 
     /**
