@@ -60,6 +60,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.StoreIsLockedForRecordUpdates;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.cursors.DedupCursor;
@@ -97,7 +98,6 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.StoreIsLockedForRecordUpdates;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry;
@@ -3399,13 +3399,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return updateStoreHeaderAsync(RecordMetaDataProto.DataStoreInfo.Builder::clearStoreLockState);
     }
 
-    /**
-     * Get the current incarnation of the store.
-     * The incarnation is intended to be incremented when moving data from one cluster to another.
-     * By combining the incarnation with version information in indexes, you can maintain proper ordering
-     * of modifications even when data is moved between clusters with different version stamps.
-     * @return the current incarnation value, or 0 if not set
-     */
+    @Override
     public int getIncarnation() {
         if (!getFormatVersionEnum().isAtLeast(FormatVersion.INCARNATION)) {
             throw new RecordCoreException("Store does not support incarnation")
@@ -3419,14 +3413,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return storeHeader.hasIncarnation() ? storeHeader.getIncarnation() : 0;
     }
 
-    /**
-     * Update the incarnation of the store.
-     * The incarnation is intended to be incremented when moving data from one cluster to another.
-     * This should typically be called before moving data to ensure proper version ordering across clusters.
-     * @param updater a function that takes the current incarnation value and returns the new value (must be non-negative)
-     * @return a future that updates this incarnation
-     * @throws RecordCoreException if the updated incarnation is negative or the format version is too low
-     */
+    @Override
     public CompletableFuture<Void> updateIncarnation(@Nonnull IntFunction<Integer> updater) {
         if (!getFormatVersionEnum().isAtLeast(FormatVersion.INCARNATION)) {
             throw new RecordCoreException("Store does not support incarnation")
