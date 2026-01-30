@@ -61,9 +61,15 @@ import org.antlr.v4.runtime.ParserRuleContext;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.relational.generated.RelationalParser.ALL;
 
@@ -333,9 +339,36 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nullable
     @Override
     public Void visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
-        Assert.isNullUnchecked(ctx.uidList(), ErrorCode.UNSUPPORTED_QUERY, "using is not yet supported for inner join");
-        getDelegate().getCurrentPlanFragment().addOperator(Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class));
-        getDelegate().getCurrentPlanFragment().addInnerJoinExpression(Assert.castUnchecked(ctx.expression().accept(this), Expression.class));
+        final var rightTableSource = Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class);
+
+        if (ctx.uidList() != null && !ctx.uidList().isEmpty()) {    // JOIN with USING syntax
+            Map<Identifier, List<Expression>> rightOutputMap = new HashMap<>();
+            for (final var e : rightTableSource.getOutput()) {
+                if (e.getName().isPresent()) {
+                    rightOutputMap.getOrDefault(e.getName().get().withoutQualifier(), new ArrayList<>()).add(e);
+                }
+            }
+
+            for (final var uidContext : ctx.uidList().uid()) {
+                final var uid = visitUid(uidContext);
+                final var leftExpression = getDelegate().getSemanticAnalyzer().resolveIdentifier(uid, getDelegate().getCurrentPlanFragment().getLogicalOperators());
+
+                Assert.thatUnchecked(rightOutputMap.get(uid) != null, ErrorCode.UNDEFINED_COLUMN, () -> String.format(Locale.ROOT, "Unknown USING reference %s", uid));
+                Assert.thatUnchecked(rightOutputMap.get(uid).size() == 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous USING reference %s", uid));
+
+                final var rightExpression = rightOutputMap.get(uid).get(0).asEphemeral();
+                rightOutputMap.get(uid).set(0, rightExpression);
+
+                getDelegate().getCurrentPlanFragment().addInnerJoinExpression(getDelegate().resolveFunction("=", leftExpression, rightExpression));
+            }
+
+            getDelegate().getCurrentPlanFragment().addOperator(rightTableSource.withOutput(Expressions.of(rightOutputMap.values().stream().flatMap(Collection::stream).collect(Collectors.toList()))));
+        } else {    // JOIN with ON syntax
+            getDelegate().getCurrentPlanFragment().addInnerJoinExpression(Assert.castUnchecked(ctx.expression().accept(this), Expression.class));
+            getDelegate().getCurrentPlanFragment().addOperator(rightTableSource);
+        }
+
+
         return null;
     }
 
