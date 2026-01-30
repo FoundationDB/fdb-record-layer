@@ -18,13 +18,13 @@
 # limitations under the License.
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.9.4.0
 ---
 schema_template:
     create table documents(zone string, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zone, docId))
     create view documentsView as select embedding, zone, bookshelf, docId, title from documents
     create vector index documentsEuclideanIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, rabitq_num_ex_bits = 3, use_rabitq = true)
-    create vector index documentsCosineIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = cosine_metric)
+    create vector index documentsCosineIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = cosine_metric, rabitq_num_ex_bits = 3, use_rabitq = true)
     create table reviews(reviewId string, zone string, docId string, rating bigint, reviewText string, primary key (reviewId))
     create table multiTypePartitionDocs(zoneId bigint, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zoneId, docId))
     create view multiTypePartitionView as select embedding, zoneId, bookshelf, docId, title from multiTypePartitionDocs

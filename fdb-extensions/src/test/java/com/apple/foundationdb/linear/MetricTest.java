@@ -38,7 +38,6 @@ import static com.apple.foundationdb.linear.Metric.COSINE_METRIC;
 import static com.apple.foundationdb.linear.Metric.DOT_PRODUCT_METRIC;
 import static com.apple.foundationdb.linear.Metric.EUCLIDEAN_METRIC;
 import static com.apple.foundationdb.linear.Metric.EUCLIDEAN_SQUARE_METRIC;
-import static com.apple.foundationdb.linear.Metric.MANHATTAN_METRIC;
 
 class MetricTest {
     static Stream<Arguments> metricAndExpectedDistance() {
@@ -46,7 +45,6 @@ class MetricTest {
         final RealVector v1 = v(1.0, 2.0);
         final RealVector v2 = v(4.0, 6.0);
         return Stream.of(
-                Arguments.of(MANHATTAN_METRIC, v1, v2, 7.0),         // |1 - 4| + |2 - 6| = 7
                 Arguments.of(EUCLIDEAN_METRIC, v1, v2, 5.0),         // sqrt((1-4)^2 + (2-6)^2) = sqrt(9 + 16) = 5
                 Arguments.of(EUCLIDEAN_SQUARE_METRIC, v1, v2, 25.0), // (1-4)^2 + (2-6)^2 = 9 + 16 = 25
                 Arguments.of(COSINE_METRIC, v1, v2, 0.007722),       // ((1 * 4) + (2 * 6)) / (sqrt(1^2 + 2^2) * sqrt(4^2 + 6^2) = 16 / (sqrt(5) * sqrt(52)) ≈ 1 - 0.992277 ≈ 0.007722
@@ -65,8 +63,7 @@ class MetricTest {
         return RandomizedTestUtils.randomSeeds(12345, 987654, 423, 18378195)
                 .flatMap(seed ->
                         Sets.cartesianProduct(
-                                ImmutableSet.of(MANHATTAN_METRIC,
-                                        EUCLIDEAN_METRIC,
+                                ImmutableSet.of(EUCLIDEAN_METRIC,
                                         EUCLIDEAN_SQUARE_METRIC,
                                         COSINE_METRIC,
                                         DOT_PRODUCT_METRIC), ImmutableSet.of(3, 5, 128, 768)).stream()
@@ -76,8 +73,6 @@ class MetricTest {
 
     @Test
     void testMetricDefinitionBasics() {
-        Assertions.assertThat(MANHATTAN_METRIC.toString()).contains(MetricDefinition.ManhattanMetric.class.getSimpleName());
-        Assertions.assertThat(MANHATTAN_METRIC.isTrueMetric()).isTrue();
         Assertions.assertThat(EUCLIDEAN_METRIC.toString()).contains(MetricDefinition.EuclideanMetric.class.getSimpleName());
         Assertions.assertThat(EUCLIDEAN_METRIC.isTrueMetric()).isTrue();
         Assertions.assertThat(EUCLIDEAN_SQUARE_METRIC.toString()).contains(MetricDefinition.EuclideanSquareMetric.class.getSimpleName());

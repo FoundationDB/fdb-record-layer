@@ -231,12 +231,12 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         BOOLEAN_TO_INT(Type.TypeCode.BOOLEAN, Type.TypeCode.INT, (descriptor, in) -> ((Boolean) in) ? 1 : 0),
 
         // NULL conversions (same as PromoteValue)
-        NULL_TO_INT(Type.TypeCode.NULL, Type.TypeCode.INT, (descriptor, in) -> (Integer) null),
-        NULL_TO_LONG(Type.TypeCode.NULL, Type.TypeCode.LONG, (descriptor, in) -> (Long) null),
-        NULL_TO_FLOAT(Type.TypeCode.NULL, Type.TypeCode.FLOAT, (descriptor, in) -> (Float) null),
-        NULL_TO_DOUBLE(Type.TypeCode.NULL, Type.TypeCode.DOUBLE, (descriptor, in) -> (Double) null),
-        NULL_TO_BOOLEAN(Type.TypeCode.NULL, Type.TypeCode.BOOLEAN, (descriptor, in) -> (Boolean) null),
-        NULL_TO_STRING(Type.TypeCode.NULL, Type.TypeCode.STRING, (descriptor, in) -> (String) null),
+        NULL_TO_INT(Type.TypeCode.NULL, Type.TypeCode.INT, (descriptor, in) -> null),
+        NULL_TO_LONG(Type.TypeCode.NULL, Type.TypeCode.LONG, (descriptor, in) -> null),
+        NULL_TO_FLOAT(Type.TypeCode.NULL, Type.TypeCode.FLOAT, (descriptor, in) -> null),
+        NULL_TO_DOUBLE(Type.TypeCode.NULL, Type.TypeCode.DOUBLE, (descriptor, in) -> null),
+        NULL_TO_BOOLEAN(Type.TypeCode.NULL, Type.TypeCode.BOOLEAN, (descriptor, in) -> null),
+        NULL_TO_STRING(Type.TypeCode.NULL, Type.TypeCode.STRING, (descriptor, in) -> null),
         NULL_TO_ARRAY(Type.TypeCode.NULL, Type.TypeCode.ARRAY, (descriptor, in) -> null),
         NULL_TO_RECORD(Type.TypeCode.NULL, Type.TypeCode.RECORD, (descriptor, in) -> null),
         NULL_TO_ENUM(Type.TypeCode.NULL, Type.TypeCode.ENUM, (descriptor, in) -> null),
@@ -248,7 +248,13 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         STRING_TO_ENUM(Type.TypeCode.STRING, Type.TypeCode.ENUM, ((descriptor, in) -> PromoteValue.PhysicalOperator.stringToEnumValue((Descriptors.EnumDescriptor)descriptor, (String)in))),
         STRING_TO_UUID(Type.TypeCode.STRING, Type.TypeCode.UUID, ((descriptor, in) -> PromoteValue.PhysicalOperator.stringToUuidValue((String) in))),
 
-        ARRAY_TO_VECTOR(Type.TypeCode.ARRAY, Type.TypeCode.VECTOR, CastValue::castArrayToVector);
+        ARRAY_TO_VECTOR(Type.TypeCode.ARRAY, Type.TypeCode.VECTOR, CastValue::castArrayToVector),
+
+        // Additional NULL conversions
+        NULL_TO_BYTES(Type.TypeCode.NULL, Type.TypeCode.BYTES, ((descriptor, in) -> null)),
+        NULL_TO_VECTOR(Type.TypeCode.NULL, Type.TypeCode.VECTOR, ((descriptor, in) -> null)),
+        NULL_TO_VERSION(Type.TypeCode.NULL, Type.TypeCode.VERSION, (descriptor, in) -> null),
+        ;
 
         @Nonnull
         private final Type.TypeCode from;
@@ -323,6 +329,17 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("CAST",
                 childTokens.getExplainTokens().addWhitespace().addKeyword("AS").addWhitespace()
                         .addNested(castToType.describe())));
+    }
+
+    @Override
+    public boolean canResultInType(@Nonnull final Type type) {
+        return type.isNullable() && castToType.nullable().equals(type);
+    }
+
+    @Nonnull
+    @Override
+    public Value with(@Nonnull final Type type) {
+        return new CastValue(child, type, physicalOperator);
     }
 
     @Nonnull

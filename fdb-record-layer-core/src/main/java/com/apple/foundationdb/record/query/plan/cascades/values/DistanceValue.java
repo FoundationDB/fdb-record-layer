@@ -64,8 +64,8 @@ import java.util.function.Supplier;
 /**
  * A {@link Value} that applies a distance metric operation on vector expressions.
  * <p>
- * This class handles vector distance calculations such as Euclidean distance, cosine distance,
- * Manhattan distance, and dot product distance. All operations expect to work with vector types
+ * This class handles vector distance calculations such as Euclidean distance, Euclidean square distance,
+ * cosine distance, and dot product distance. All operations expect to work with vector types
  * ({@link TypeCode#VECTOR}).
  * <p>
  * Distance operations are commonly used in similarity search and nearest neighbor queries,
@@ -231,7 +231,6 @@ public class DistanceValue extends AbstractValue {
     public enum DistanceOperator {
         EUCLIDEAN_DISTANCE("euclidean_distance", Precedence.NEVER_PARENS, ((l, r) -> new Metric.EuclideanMetric().distance(l.getData(), r.getData()))),
         EUCLIDEAN_SQUARE_DISTANCE("euclidean_square_distance", Precedence.NEVER_PARENS, (l, r) -> new Metric.EuclideanSquareMetric().distance(l.getData(), r.getData())),
-        MANHATTAN_DISTANCE("manhattan_distance", Precedence.NEVER_PARENS, ((l, r) -> new Metric.ManhattanMetric().distance(l.getData(), r.getData()))),
         COSINE_DISTANCE("cosine_distance", Precedence.NEVER_PARENS, ((l, r) -> new Metric.CosineMetric().distance(l.getData(), r.getData()))),
         DOT_PRODUCT_DISTANCE("dot_product_distance", Precedence.NEVER_PARENS, ((l, r) -> new Metric.DotProductMetric().distance(l.getData(), r.getData())))
         ;
@@ -326,17 +325,6 @@ public class DistanceValue extends AbstractValue {
     public static class EuclideanSquareDistanceFn extends BuiltInFunction<Value> {
         public EuclideanSquareDistanceFn() {
             super("euclidean_square_distance",
-                    ImmutableList.of(Type.any(), Type.any()), DistanceValue::encapsulateInternal);
-        }
-    }
-
-    /**
-     * Manhattan distance function.
-     */
-    @AutoService(BuiltInFunction.class)
-    public static class ManhattanDistanceFn extends BuiltInFunction<Value> {
-        public ManhattanDistanceFn() {
-            super("manhattan_distance",
                     ImmutableList.of(Type.any(), Type.any()), DistanceValue::encapsulateInternal);
         }
     }

@@ -61,6 +61,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void aliasTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("alias-tests.yamsql");
+    }
+
+    @TestTemplate
     void arrays(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("arrays.yamsql");
     }
@@ -285,6 +290,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void semanticSearchTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("semantic-search.yamsql");
+    }
+
+    @TestTemplate
+    public void semanticSearchTestAdvancedMetrics(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("semantic-search-advanced-metrics.yamsql");
     }
 
     @TestTemplate

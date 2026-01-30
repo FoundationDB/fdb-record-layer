@@ -72,14 +72,13 @@ Supported Distance Functions
 The following distance functions are available for use with HNSW indexes:
 
 - ``euclidean_distance(vector1, vector2)`` - Euclidean (L2) distance
-- ``euclidean_square_distance(vector1, vector2)`` - Squared Euclidean distance
+- ``euclidean_square_distance(vector1, vector2)`` - Squared Euclidean distance (more efficient, preserves ordering)
 - ``cosine_distance(vector1, vector2)`` - Cosine distance (1 - cosine similarity)
-- ``dot_product_distance(vector1, vector2)`` - Dot product distance
-- ``manhattan_distance(vector1, vector2)`` - Manhattan (L1) distance
+- ``dot_product_distance(vector1, vector2)`` - Negative dot product (for maximum inner product search)
 
 .. note::
 
-   Not all distance functions may be supported with all HNSW index configurations. The distance function used in queries must match the metric specified when creating the HNSW index. See :ref:`vector_index_syntax` for more information about creating vector indexes and supported metrics.
+   The distance function used in queries must match the metric specified when creating the HNSW index. For example, if the index was created with ``metric = euclidean_metric``, use the ``euclidean_distance()`` function in queries. See :ref:`vector_index_syntax` for more information about creating vector indexes and supported metrics.
 
 Limitations
 -----------

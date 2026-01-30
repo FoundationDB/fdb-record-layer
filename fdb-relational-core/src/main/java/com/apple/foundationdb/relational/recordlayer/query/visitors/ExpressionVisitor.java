@@ -429,7 +429,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             // Cast does not currently support user-defined struct types.
             final var targetDataType = getDelegate().getSemanticAnalyzer().lookupBuiltInType(typeInfo);
             final var targetType = DataTypeUtils.toRecordLayerType(targetDataType);
-            final var castValue = CastValue.inject(sourceExpression.getUnderlying(), targetType);
+            final var underlyingType = sourceExpression.getUnderlying().getResultType();
+            final var castValue = CastValue.inject(sourceExpression.getUnderlying(), targetType.withNullability(underlyingType.isNullable()));
             return Expression.ofUnnamed(targetDataType, castValue);
         }
 
