@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.InListParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.ListParameter;
@@ -80,7 +81,8 @@ import static com.apple.foundationdb.relational.yamltests.Matchers.constructVect
 public final class QueryInterpreter {
     @Nonnull
     private final String query;
-    private final int lineNumber;
+    @Nonnull
+    private final YamlReference reference;
     @Nonnull
     private final YamlExecutionContext executionContext;
     /**
@@ -253,9 +255,9 @@ public final class QueryInterpreter {
         }
     }
 
-    private QueryInterpreter(int lineNumber, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
+    private QueryInterpreter(@Nonnull final YamlReference reference, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
         this.query = query;
-        this.lineNumber = lineNumber;
+        this.reference = reference;
         this.injections = getInjections(query);
         this.executionContext = executionContext;
     }
@@ -285,8 +287,8 @@ public final class QueryInterpreter {
         return lst;
     }
 
-    public static QueryInterpreter withQueryString(int lineNumber, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
-        return new QueryInterpreter(lineNumber, query, executionContext);
+    public static QueryInterpreter withQueryString(@Nonnull final YamlReference reference, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
+        return new QueryInterpreter(reference, query, executionContext);
     }
 
     /**
@@ -303,21 +305,21 @@ public final class QueryInterpreter {
     @Nonnull
     public QueryExecutor getExecutor(@Nullable Random random, boolean runAsPreparedStatement) {
         try {
-            final boolean forceContinuations = (boolean)executionContext.getOption(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, false);
+            final boolean forceContinuations = executionContext.getOption(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, false);
             if (random == null) {
                 // we do not allow prepared statements if the Random generator is not there
                 Assert.thatUnchecked(injections.isEmpty(), "Parameter injection is not allowed in query without a Random(generator)");
-                return new QueryExecutor(query, lineNumber, null, forceContinuations);
+                return new QueryExecutor(query, reference, null, forceContinuations);
             } else {
                 var boundInjections = injections.stream().map(i -> (Pair.of(i.getLeft(), i.getRight().bind(random)))).collect(Collectors.toList());
                 if (runAsPreparedStatement) {
-                    return new QueryExecutor(adaptToPreparedStatement(query, boundInjections), lineNumber, boundInjections.stream().map(Pair::getRight).collect(Collectors.toList()), forceContinuations);
+                    return new QueryExecutor(adaptToPreparedStatement(query, boundInjections), reference, boundInjections.stream().map(Pair::getRight).collect(Collectors.toList()), forceContinuations);
                 } else {
-                    return new QueryExecutor(adaptToSimpleStatement(query, boundInjections), lineNumber, null, forceContinuations);
+                    return new QueryExecutor(adaptToSimpleStatement(query, boundInjections), reference, null, forceContinuations);
                 }
             }
         } catch (Exception e) {
-            throw executionContext.wrapContext(e, () -> String.format(Locale.ROOT, "‼️ Error initializing query executor for query %s at line %d", query, lineNumber), "query", lineNumber);
+            throw executionContext.wrapContext(e, () -> String.format(Locale.ROOT, "‼️ Error initializing query executor for query %s at %s", query, reference), "query", reference);
         }
     }
 
