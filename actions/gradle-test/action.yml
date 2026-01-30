@@ -38,7 +38,7 @@ runs:
     run: |
        mkdir -p test-reports
        for d in fdb-java-annotations fdb-extensions fdb-test-utils fdb-record-layer-core fdb-record-layer-icu fdb-record-layer-spatial fdb-record-layer-lucene fdb-record-layer-jmh examples fdb-relational-api fdb-relational-core fdb-relational-cli fdb-relational-grpc fdb-relational-jdbc fdb-relational-server yaml-tests; do
-         if [[ -f "$d/.out/reports" ]] ; then
+         if [[ -d "$d/.out/reports" ]] ; then
            ln -s "../$d/.out/reports" "test-reports/$d"
          fi
        done
