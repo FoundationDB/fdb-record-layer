@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
@@ -37,7 +38,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class PendingWritesQueueHelper {
+@API(API.Status.INTERNAL)
+public final class PendingWritesQueueHelper {
     public static PendingWriteQueue.QueueEntry toQueueEntry(final Subspace queueSubspace, final KeyValue kv) {
         try {
             Tuple keyTuple = queueSubspace.unpack(kv.getKey());
@@ -47,76 +49,6 @@ public class PendingWritesQueueHelper {
         } catch (InvalidProtocolBufferException e) {
             throw new RecordCoreInternalException("Failed to parse queue item", e);
         }
-    }
-
-    /**
-     * Convert protobuf DocumentField list back to LuceneDocumentFromRecord.DocumentField list.
-     */
-    public static List<LuceneDocumentFromRecord.DocumentField> fromProtoFields(
-            @Nonnull List<LucenePendingWriteQueueProto.DocumentField> protoFields) {
-
-        List<LuceneDocumentFromRecord.DocumentField> fields = new ArrayList<>();
-        for (LucenePendingWriteQueueProto.DocumentField protoField : protoFields) {
-            String fieldName = protoField.getFieldName();
-            boolean stored = protoField.getStored();
-            boolean sorted = protoField.getSorted();
-            Object value;
-            LuceneIndexExpressions.DocumentFieldType fieldType;
-
-            // Determine the value and type based on which field is set
-            if (protoField.hasStringValue()) {
-                value = protoField.getStringValue();
-                fieldType = LuceneIndexExpressions.DocumentFieldType.STRING;
-            } else if (protoField.hasTextValue()) {
-                value = protoField.getTextValue();
-                fieldType = LuceneIndexExpressions.DocumentFieldType.TEXT;
-            } else if (protoField.hasIntValue()) {
-                value = protoField.getIntValue();
-                fieldType = LuceneIndexExpressions.DocumentFieldType.INT;
-            } else if (protoField.hasLongValue()) {
-                value = protoField.getLongValue();
-                fieldType = LuceneIndexExpressions.DocumentFieldType.LONG;
-            } else if (protoField.hasDoubleValue()) {
-                value = protoField.getDoubleValue();
-                fieldType = LuceneIndexExpressions.DocumentFieldType.DOUBLE;
-            } else if (protoField.hasBooleanValue()) {
-                value = protoField.getBooleanValue();
-                fieldType = LuceneIndexExpressions.DocumentFieldType.BOOLEAN;
-            } else {
-                throw new IllegalStateException("DocumentField has no value set: " + fieldName);
-            }
-
-            // Convert field_configs from proto map to Map<String, Object>
-            Map<String, Object> fieldConfigs = new HashMap<>();
-            if (protoField.getFieldConfigsCount() > 0) {
-                for (Map.Entry<String, LucenePendingWriteQueueProto.FieldConfigValue> entry : protoField.getFieldConfigsMap().entrySet()) {
-                    Object configValue;
-                    LucenePendingWriteQueueProto.FieldConfigValue protoConfigValue = entry.getValue();
-                    switch (protoConfigValue.getValueCase()) {
-                        case STRING_VALUE:
-                            configValue = protoConfigValue.getStringValue();
-                            break;
-                        case BOOLEAN_VALUE:
-                            configValue = protoConfigValue.getBooleanValue();
-                            break;
-                        case INT_VALUE:
-                            configValue = protoConfigValue.getIntValue();
-                            break;
-                        case VALUE_NOT_SET:
-                        default:
-                            throw new IllegalStateException("FieldConfigValue has no value set for key: " + entry.getKey());
-                    }
-                    fieldConfigs.put(entry.getKey(), configValue);
-                }
-            }
-
-            // Create DocumentField with stored, sorted, and field_configs from proto
-            LuceneDocumentFromRecord.DocumentField field =
-                    new LuceneDocumentFromRecord.DocumentField(fieldName, value, fieldType, stored, sorted, fieldConfigs);
-            fields.add(field);
-        }
-
-        return fields;
     }
 
     /**
@@ -180,7 +112,7 @@ public class PendingWritesQueueHelper {
     /**
      * Convert protobuf DocumentField list back to LuceneDocumentFromRecord.DocumentField list.
      */
-    public static List<LuceneDocumentFromRecord.DocumentField> convertFromProtoFields(
+    public static List<LuceneDocumentFromRecord.DocumentField> fromProtoFields(
             @Nonnull List<LucenePendingWriteQueueProto.DocumentField> protoFields) {
 
         List<LuceneDocumentFromRecord.DocumentField> fields = new ArrayList<>();
@@ -245,5 +177,9 @@ public class PendingWritesQueueHelper {
         }
 
         return fields;
+    }
+
+    // No constructor for utility class
+    private PendingWritesQueueHelper() {
     }
 }

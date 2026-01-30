@@ -62,6 +62,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -453,11 +454,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                             });
                         }
                     }
-                    if (contextType.equals(AgilityContextType.READ_ONLY)) {
-                        agilityContext.abortAndClose();
-                    } else {
-                        agilityContext.flush();
-                    }
+                    closeContext(contextType, agilityContext);
                 }
             });
         }
@@ -555,6 +552,76 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void testReadOnlyCommitDoesNotCommit() throws Exception {
+        byte[] written;
+        byte[] notWritten;
+
+        try (FDBRecordContext context = openContext()) {
+            final AgilityContext agilityContext = getAgilityContext(context, AgilityContextType.READ_ONLY);
+            final Subspace subspace = path.toSubspace(context);
+            written = subspace.pack(Tuple.from("Written"));
+            notWritten = subspace.pack(Tuple.from("NotWritten"));
+
+            context.ensureActive().set(written, "Hello".getBytes());
+            agilityContext.set(notWritten, "Hello".getBytes());
+
+            assertThrows(RecordCoreStorageException.class, agilityContext::flushAndClose);
+            context.commit();
+        }
+
+        // ensure content was not written
+        try (FDBRecordContext context = openContext()) {
+            assertArrayEquals(context.ensureActive().get(written).join(), "Hello".getBytes());
+            assertNull(context.ensureActive().get(notWritten).join());
+
+            context.commit();
+        }
+    }
+
+    @Test
+    void testReadOnlyHasCallerGrv() throws Exception {
+        byte[] key;
+
+        FDBRecordContext earlyContext = openContext();
+        final Subspace subspace = path.toSubspace(earlyContext);
+        key = subspace.pack(Tuple.from("something"));
+
+        try (FDBRecordContext laterContext = openContext()) {
+            // write to later context
+            laterContext.ensureActive().set(key, "Hello".getBytes());
+            laterContext.commit();
+        }
+
+        // read only context from early context does not see write
+        final AgilityContext agilityContext = getAgilityContext(earlyContext, AgilityContextType.READ_ONLY);
+        assertNull(earlyContext.ensureActive().get(key).join());
+        assertNull(agilityContext.get(key).join());
+
+        earlyContext.commit();
+        agilityContext.abortAndClose();
+    }
+
+    @Test
+    void testReadOnlyDoesNotSeeCallerContextWrites() throws Exception {
+        byte[] key;
+
+        try (FDBRecordContext context = openContext()) {
+            final Subspace subspace = path.toSubspace(context);
+            key = subspace.pack(Tuple.from("something"));
+
+            final AgilityContext agilityContext = getAgilityContext(context, AgilityContextType.READ_ONLY);
+
+            // write to caller context
+            context.ensureActive().set(key, "Hello".getBytes());
+            context.commit();
+
+            // this cannot be seen by agility context
+            assertNull(agilityContext.get(key).join());
+            agilityContext.abortAndClose();
+        }
+    }
+
+    @Test
     void testReadOnlyTransactionFailures() {
         try (FDBRecordContext context = openContext()) {
             AgilityContext readOnly = getAgilityContext(context, AgilityContextType.READ_ONLY);
@@ -585,11 +652,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                             }
                             napTime(3); // give a chance to other threads to run
                         });
-                        if (contextType.equals(AgilityContextType.READ_ONLY)) {
-                            agilityContext.abortAndClose();
-                        } else {
-                            agilityContext.flush();
-                        }
+                        closeContext(contextType, agilityContext);
                     }
                 } else {
                     napTime(3);
@@ -606,11 +669,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                                 assertEquals(values[0], values[j]);
                             }
                         });
-                        if (contextType.equals(AgilityContextType.READ_ONLY)) {
-                            agilityContext.abortAndClose();
-                        } else {
-                            agilityContext.flush();
-                        }
+                        closeContext(contextType, agilityContext);
                     }
                 }
             }
@@ -780,6 +839,13 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         }
     }
 
+    private static void closeContext(final AgilityContextType contextType, final AgilityContext agilityContext) {
+        if (contextType.equals(AgilityContextType.READ_ONLY)) {
+            agilityContext.abortAndClose();
+        } else {
+            agilityContext.flush();
+        }
+    }
 
     @SuppressWarnings("serial")
     private static class FailException extends RuntimeException {

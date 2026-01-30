@@ -441,7 +441,7 @@ public class FDBDirectoryManager implements AutoCloseable {
             FDBDirectoryManager newManager = managerSupplier.get();
             context.putInSessionIfAbsent(state.indexSubspace, newManager);
             // Since the manager is scoped to the transaction, close it once the transaction closes.
-            // call close() once the transaction commits
+            // call close() before the transaction commits to ensure Lucene has committed its in-memory structures back to FDB.
             context.addCommitCheck(() -> {
                 try {
                     newManager.close();

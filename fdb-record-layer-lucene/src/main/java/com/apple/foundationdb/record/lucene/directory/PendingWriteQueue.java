@@ -29,13 +29,14 @@ import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
-import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
 import com.apple.foundationdb.record.lucene.LuceneIndexMaintainerHelper;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
@@ -43,12 +44,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.protobuf.ByteString;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.SortedDocValuesField;
-import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -192,7 +188,7 @@ public class PendingWriteQueue {
         context.increment(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_CLEAR);
 
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Cleared queue entry");
+            LOGGER.debug(getLogMessage("Cleared queue entry"));
         }
     }
 
@@ -221,7 +217,7 @@ public class PendingWriteQueue {
      * @return CompletableFuture that completes when all operations have been replayed
      */
     @Nonnull
-    public CompletableFuture<Void> replayQueuedOperations(FDBRecordContext context, IndexWriter indexWriter) {
+    public CompletableFuture<Void> replayQueuedOperations(FDBRecordContext context, IndexWriter indexWriter, Index index) {
         ScanProperties scanProperties = ScanProperties.FORWARD_SCAN;
         if (maxEntriesToReplay > 0) {
             // create a limit for the cursor
@@ -235,15 +231,11 @@ public class PendingWriteQueue {
         // There is no need to replay with a continuation as all the replayed items need to make it into the
         // current writer in the given transaction to be queried
         return getQueueCursor(context, scanProperties, null).forEachResult(entry -> {
-            replayOperation(entry.get(), indexWriter);
+            replayOperation(context, entry.get(), indexWriter, index);
         }).thenAccept(lastResult -> {
             if (lastResult.getNoNextReason().equals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED)) {
                 // Reached the row limit
-                if (LOGGER.isErrorEnabled()) {
-                    LOGGER.error(KeyValueLogMessage.of("Too many entries to be replayed into IndexWriter",
-                            LuceneLogMessageKeys.MAX_ENTRIES_TO_REPLAY, maxEntriesToReplay));
-                }
-                throw new TooManyPendingWritesException("Too many entries to replay into IndexWriter");
+                throw new TooManyPendingWritesException("Too many entries to replay into IndexWriter", maxEntriesToReplay);
             }
         });
     }
@@ -251,17 +243,19 @@ public class PendingWriteQueue {
     /**
      * Replay a single queued operation directly to the IndexWriter.
      */
-    private void replayOperation(@Nonnull QueueEntry entry, @Nonnull IndexWriter indexWriter) {
+    private void replayOperation(FDBRecordContext context, @Nonnull QueueEntry entry, @Nonnull IndexWriter indexWriter, @Nonnull Index index) {
         LucenePendingWriteQueueProto.PendingWriteItem.OperationType opType = entry.getOperationType();
 
         try {
+            final Tuple primaryKey = entry.getPrimaryKeyParsed();
             switch (opType) {
                 case INSERT:
-                    handleInsertEntry(indexWriter, entry);
+                    List<LuceneDocumentFromRecord.DocumentField> fields = PendingWritesQueueHelper.fromProtoFields(entry.getDocumentFields());
+                    LuceneIndexMaintainerHelper.writeDocument(context, indexWriter, index, primaryKey, fields);
                     break;
 
                 case DELETE:
-                    handleDeleteEntry(indexWriter, entry.getPrimaryKeyParsed());
+                    LuceneIndexMaintainerHelper.deleteDocument(indexWriter, primaryKey, index);
                     break;
 
                 case OPERATION_TYPE_UNSPECIFIED:
@@ -270,37 +264,11 @@ public class PendingWriteQueue {
             }
 
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Replayed {} operation", opType);
+                LOGGER.debug(getLogMessage("Replayed operation", LuceneLogMessageKeys.OPERATION_TYPE, opType));
             }
         } catch (IOException ex) {
             throw LuceneExceptions.toRecordCoreException("failed to replay message on writer", ex);
         }
-    }
-
-    private void handleInsertEntry(final @Nonnull IndexWriter indexWriter, final @Nonnull QueueEntry entry) throws IOException {
-        // This is similar to LuceneIndexMaintainerHelper.writeDocument is done, but the PK references are not
-        // as sophisticated since this document is only going to be used with a Lucene query (no PK lookup)
-        Document document = new Document();
-        BytesRef ref = new BytesRef(entry.getPrimaryKey());
-        document.add(new StoredField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME, ref));
-        document.add(new SortedDocValuesField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, ref));
-
-        // Add document fields
-        List<LuceneDocumentFromRecord.DocumentField> fields = PendingWritesQueueHelper.fromProtoFields(entry.getDocumentFields());
-        for (LuceneDocumentFromRecord.DocumentField field : fields) {
-            LuceneIndexMaintainerHelper.insertField(field, document);
-        }
-
-        indexWriter.addDocument(document);
-    }
-
-    private void handleDeleteEntry(final @Nonnull IndexWriter indexWriter, final Tuple primaryKey) throws IOException {
-        // Use SortedDocValuesField query for deletion
-        // TODO: can we use the segment primary key index to delete the doc directly?
-        Query updateDeleteQuery = SortedDocValuesField.newSlowExactQuery(
-                LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME,
-                new BytesRef(primaryKey.pack()));
-        indexWriter.deleteDocuments(updateDeleteQuery);
     }
 
     private void enqueueOperationInternal(
@@ -344,8 +312,16 @@ public class PendingWriteQueue {
         context.increment(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_WRITE);
 
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Enqueued {} operation", operationType);
+            LOGGER.debug(getLogMessage("Enqueued operation",
+                    LuceneLogMessageKeys.OPERATION_TYPE, operationType,
+                    LogMessageKeys.SUBSPACE, queueSubspace));
         }
+    }
+
+    private String getLogMessage(final @Nonnull String staticMsg, final Object... keysAndValues) {
+        return KeyValueLogMessage.build(staticMsg, keysAndValues)
+                .addKeyAndValue(LogMessageKeys.SUBSPACE, queueSubspace)
+                .toString();
     }
 
     /**
@@ -388,14 +364,15 @@ public class PendingWriteQueue {
         }
 
         public List<LuceneDocumentFromRecord.DocumentField> getDocumentFieldsParsed() {
-            return PendingWritesQueueHelper.convertFromProtoFields(getDocumentFields());
+            return PendingWritesQueueHelper.fromProtoFields(getDocumentFields());
         }
     }
 
     @SuppressWarnings("serial")
     public static class TooManyPendingWritesException extends RecordCoreException {
-        protected TooManyPendingWritesException(final String message) {
+        protected TooManyPendingWritesException(final String message, int itemCount) {
             super(message);
+            addLogInfo(LuceneLogMessageKeys.MAX_ENTRIES_TO_REPLAY, itemCount);
         }
     }
 }

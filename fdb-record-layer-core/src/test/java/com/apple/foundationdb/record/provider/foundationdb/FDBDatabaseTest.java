@@ -379,7 +379,23 @@ class FDBDatabaseTest {
     }
 
     @Test
-    void testPostCommitSameNameFails() {
+    void testCommitCheckFails() {
+        // Test that the post commit hooks are invoked even if a commit check fails
+        final FDBDatabase database = dbExtension.getDatabase();
+        final Set<String> called = new HashSet<>();
+
+        try (FDBRecordContext context = database.openContext()) {
+            context.addCommitCheck("commit-check", new PreventCommitCheck(() -> new RecordCoreException("Blah")));
+            context.addPostCloseHook("close-foo", () -> CompletableFuture.runAsync(() -> called.add("close-foo")));
+            context.addPostCloseHook("close-bar", () -> CompletableFuture.runAsync(() -> called.add("close-bar")));
+
+            assertThrows(RecordCoreException.class, () -> context.commit());
+        }
+        assertEquals(Set.of("close-foo", "close-bar"), called);
+    }
+
+    @Test
+    void testPostCloseSameNameFails() {
         final FDBDatabase database = dbExtension.getDatabase();
         final Set<String> called = new HashSet<>();
 
@@ -392,7 +408,7 @@ class FDBDatabaseTest {
     }
 
     @Test
-    void testPostCommitHookFails() {
+    void testPostCloseHookFails() {
         // In this test, the execution of the hook fails, but since all hook results (futures) are in, they are all
         // waited for, so the result contains all executed hooks
         final FDBDatabase database = dbExtension.getDatabase();
@@ -409,9 +425,12 @@ class FDBDatabaseTest {
     }
 
     @Test
-    void testPostCommitHookFailsToCreate() {
+    void testPostCloseHookFailsToCreate() {
         // in this test, the creation of the future for the hook fails, so the chain of hooks is interrupted
-        // and only some are invoked
+        // and only some are invoked.
+        // This tests exemplifies the behavior described in https://github.com/FoundationDB/fdb-record-layer/issues/3899
+        // and should be corrected once the issue is fixed. This is consistent with the behavior of postCommit and is done
+        // for consistency until both are fixed.
         final FDBDatabase database = dbExtension.getDatabase();
         final Set<String> called = new HashSet<>();
 

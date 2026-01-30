@@ -59,6 +59,7 @@ import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.StandardDirectoryReaderOptimization;
 import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.store.LockFactory;
+import org.apache.lucene.store.NoLockFactory;
 import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -175,7 +176,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         this.state = state;
         this.key = key;
         this.directory = directory;
-        this.blockCacheMaximumSize = directory.getBlockCacheMaximumSise();
+        this.blockCacheMaximumSize = directory.getBlockCacheMaximumSize();
         this.agilityContext = agilityContext;
         this.mergeDirectoryCount = mergeDirectoryCount;
         this.analyzerWrapper = analyzerWrapper;
@@ -191,6 +192,12 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     @Nonnull
     private IndexWriter createIndexWriter(final Exception exceptionAtCreation) throws IOException {
         useWriter = true;
+        IndexWriterConfig indexWriterConfig = createIndexWriterConfig(exceptionAtCreation);
+        return new IndexWriter(this.directory, indexWriterConfig);
+    }
+
+    @Nonnull
+    private IndexWriterConfig createIndexWriterConfig(final Exception exceptionAtCreation) {
         final IndexDeferredMaintenanceControl mergeControl = this.state.store.getIndexDeferredMaintenanceControl();
         TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(mergeControl, this.agilityContext,
                 this.state.indexSubspace, this.key, exceptionAtCreation)
@@ -206,7 +213,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
 
         // Merge is required when creating an index writer (do we have a better indicator for a required merge?)
         mergeControl.setMergeRequiredIndexes(this.state.index);
-        return new IndexWriter(this.directory, indexWriterConfig);
+        return indexWriterConfig;
     }
 
     @Nonnull
@@ -302,24 +309,18 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     private IndexWriter createIndexWriterWithReplayedQueue() throws IOException {
         final AgilityContext readOnlyContext = replayedQueueContext.get().getAgilityContext();
         // Create a read-only directory with read-only context and no-op lock factory
-        final FDBDirectory readOnlyDirectory = createFDBDirectory(state, key, readOnlyContext, NoOpLockFactory.INSTANCE, blockCacheMaximumSize);
-        // Create a minimal IndexWriterConfig for the read-only writer
-        IndexWriterConfig config = new IndexWriterConfig(this.analyzerWrapper.getAnalyzer())
-                .setCodec(CODEC)
-                .setUseCompoundFile(USE_COMPOUND_FILE)
-                .setCommitOnClose(false);
+        final FDBDirectory readOnlyDirectory = createFDBDirectory(state, key, readOnlyContext, NoLockFactory.INSTANCE, blockCacheMaximumSize);
+        IndexWriterConfig config = createIndexWriterConfig(null);
         IndexWriter readOnlyIndexWriter = new IndexWriter(readOnlyDirectory, config);
 
         // Get the queue and apply changes
         // This is using the read-only agility context as this is the one to be used for the query that is to be executed
-        readOnlyContext.apply(context -> {
-            return CompletableFuture.completedFuture(LuceneConcurrency.asyncToSync(
+        readOnlyContext.accept(context -> {
+            LuceneConcurrency.asyncToSync(
                     LuceneEvents.Waits.WAIT_LUCENE_REPLAY_QUEUE,
-                    getPendingWriteQueue().replayQueuedOperations(context, readOnlyIndexWriter),
-                    context));
-            // Block until replay completes: Since the returned future is completed with the result of the asyncToSync, the
-            // join() will return immediately.
-        }).join();
+                    getPendingWriteQueue().replayQueuedOperations(context, readOnlyIndexWriter, state.index),
+                    context);
+        });
         return readOnlyIndexWriter;
     }
 
@@ -658,7 +659,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         }
     }
 
-    private static class CloseableReadOnlyAgilityContext implements Closeable {
+    private static final class CloseableReadOnlyAgilityContext implements Closeable {
         private AgilityContext agilityContext;
 
         private CloseableReadOnlyAgilityContext(final AgilityContext agilityContext) {

@@ -101,6 +101,25 @@ public final class LuceneIndexMaintainerHelper {
                         LuceneLogMessageKeys.SEGMENTS, segmentIndex.findSegments(primaryKey)));
             }
         }
+        deleteDocument(indexWriter, primaryKey, index);
+        LuceneEvents.Events event = isWriteOnlyMode ?
+                                    LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE :
+                                    LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY;
+        context.record(event, System.nanoTime() - startTime);
+
+        // if we delete by query, we aren't certain whether the document was actually deleted (if, for instance, it wasn't in Lucene
+        // to begin with)
+        return 0;
+    }
+
+    /**
+     * Delete a document in the index writer.
+     * @param indexWriter the index writer to use
+     * @param primaryKey the document to delete
+     * @param index the index used (for options)
+     * @throws IOException in case of error
+     */
+    public static void deleteDocument(final IndexWriter indexWriter, final Tuple primaryKey, final Index index) throws IOException {
         Query query;
         // null format means don't use BinaryPoint for the index primary key
         String formatString = index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
@@ -123,14 +142,6 @@ public final class LuceneIndexMaintainerHelper {
         }
 
         indexWriter.deleteDocuments(query);
-        LuceneEvents.Events event = isWriteOnlyMode ?
-                                    LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE :
-                                    LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY;
-        context.record(event, System.nanoTime() - startTime);
-
-        // if we delete by query, we aren't certain whether the document was actually deleted (if, for instance, it wasn't in Lucene
-        // to begin with)
-        return 0;
     }
 
     /**

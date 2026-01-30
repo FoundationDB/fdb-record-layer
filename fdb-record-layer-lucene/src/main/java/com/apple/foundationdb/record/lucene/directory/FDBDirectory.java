@@ -151,7 +151,7 @@ public class FDBDirectory extends Directory {
 
     private final LockFactory lockFactory;
     private final int maxPendingWritesToReplay;
-    private final int blockCacheMaximumSise;
+    private final int blockCacheMaximumSize;
     private Lock lastLock = null;
     private final int blockSize;
 
@@ -231,7 +231,7 @@ public class FDBDirectory extends Directory {
         this.lockFactory = (lockFactory != null) ? lockFactory : defaultLockFactory(agilityContext);
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
-        this.blockCacheMaximumSise = blockCacheMaximumSize;
+        this.blockCacheMaximumSize = blockCacheMaximumSize;
         this.blockCache = CacheBuilder.newBuilder()
                 .concurrencyLevel(concurrencyLevel)
                 .initialCapacity(initialCapacity)
@@ -992,7 +992,8 @@ public class FDBDirectory extends Directory {
     }
 
     private void clearLockIfLocked() {
-        // There can be other kinds of locks on occasion, so ensure it is of the right type
+        // There are several lock types that can be obtained, for example, a NoLockFactory.NoLock can be returned
+        // when configured as such (e.g. when the context is read only), so we need to ensure this is the right one
         if ((lastLock != null) && (lastLock instanceof FDBDirectoryLockFactory.FDBDirectoryLock)) {
             ((FDBDirectoryLockFactory.FDBDirectoryLock)lastLock).fileLockClearIfLocked();
         }
@@ -1048,8 +1049,8 @@ public class FDBDirectory extends Directory {
         return new PendingWriteQueue(pendingWritesQueueSubspace, maxPendingWritesToReplay);
     }
 
-    public int getBlockCacheMaximumSise() {
-        return blockCacheMaximumSise;
+    public int getBlockCacheMaximumSize() {
+        return blockCacheMaximumSize;
     }
 
     /**
