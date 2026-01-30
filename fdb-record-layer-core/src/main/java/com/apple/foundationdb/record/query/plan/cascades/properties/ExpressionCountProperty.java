@@ -1,5 +1,5 @@
 /*
- * ExpressionDepthProperty.java
+ * ExpressionCountProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -38,9 +38,8 @@ import java.util.Objects;
 import java.util.function.Predicate;
 
 /**
- * A property representing the minimum depth of any of a set of relational planner expression types in a relational
- * planner expression: that is, the smallest integer such that one of those types is exactly that many relational
- * planner expressions away from the root expression.
+ * A property representing the count of any of a set of relational planner expression types in a relational
+ * planner expression: that is, the number of times one of those types appears in the DAG of the root expression.
  */
 public class ExpressionCountProperty implements ExpressionProperty<Integer> {
     @Nonnull
