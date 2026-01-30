@@ -431,15 +431,16 @@ public class SemanticAnalyzer {
                 if (attribute.getName().isEmpty()) {
                     continue;
                 }
-                if (!referenceIdentifier.isQualified() && attribute instanceof EphemeralExpression) {
-                    continue;
-                }
                 final var attributeIdentifier = attribute.getName().get();
                 if (attributeIdentifier.equals(referenceIdentifier)) {
                     matchedAttributes.add(attribute);
                     checkForPseudoColumns = false;
                     continue;
-                } else if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
+                }
+                if (!referenceIdentifier.isQualified() && attribute instanceof EphemeralExpression) {
+                    continue;
+                }
+                if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
                     matchedAttributes.add(attribute);
                     checkForPseudoColumns = false;
                     continue;
