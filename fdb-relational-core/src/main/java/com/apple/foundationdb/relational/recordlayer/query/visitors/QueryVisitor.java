@@ -345,7 +345,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             Map<Identifier, List<Expression>> rightOutputMap = new HashMap<>();
             for (final var e : rightTableSource.getOutput()) {
                 if (e.getName().isPresent()) {
-                    rightOutputMap.getOrDefault(e.getName().get().withoutQualifier(), new ArrayList<>()).add(e);
+                    rightOutputMap.computeIfAbsent(e.getName().get().withoutQualifier(), k -> new ArrayList<>()).add(e);
                 }
             }
 
@@ -364,8 +364,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
             getDelegate().getCurrentPlanFragment().addOperator(rightTableSource.withOutput(Expressions.of(rightOutputMap.values().stream().flatMap(Collection::stream).collect(Collectors.toList()))));
         } else {    // JOIN with ON syntax
-            getDelegate().getCurrentPlanFragment().addInnerJoinExpression(Assert.castUnchecked(ctx.expression().accept(this), Expression.class));
             getDelegate().getCurrentPlanFragment().addOperator(rightTableSource);
+            getDelegate().getCurrentPlanFragment().addInnerJoinExpression(Assert.castUnchecked(ctx.expression().accept(this), Expression.class));
         }
 
 
