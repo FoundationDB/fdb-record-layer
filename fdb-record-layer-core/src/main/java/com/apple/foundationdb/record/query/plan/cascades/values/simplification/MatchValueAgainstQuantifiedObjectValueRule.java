@@ -22,16 +22,19 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -42,7 +45,7 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, QuantifiedObjectValue> {
+public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, List<ValueCompensation>>, QuantifiedObjectValue> {
     @Nonnull
     private static final BindingMatcher<QuantifiedObjectValue> rootMatcher =
             ValueMatchers.quantifiedObjectValue();
@@ -52,7 +55,7 @@ public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputation
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, ValueCompensation>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, List<ValueCompensation>>> call) {
         final var bindings = call.getBindings();
         final var quantifiedObjectValue = bindings.get(rootMatcher);
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
@@ -60,7 +63,7 @@ public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputation
         final var matchedValuesMap =
                 resultPairFromChild == null ? null : resultPairFromChild.getRight();
 
-        final var newMatchedValuesMap = new LinkedIdentityMap<Value, ValueCompensation>();
+        final var newMatchedValuesMap = new LinkedIdentityMap<Value, List<ValueCompensation>>();
 
         for (final var toBePulledUpValue : toBePulledUpValues) {
             if (toBePulledUpValue instanceof FieldValue ||
@@ -82,18 +85,22 @@ public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputation
 
             final var alias = Iterables.getOnlyElement(correlatedTo);
 
-            newMatchedValuesMap.put(toBePulledUpValue,
+            if (!alias.equals(Quantifier.current()) && !alias.equals(quantifiedObjectValue.getAlias())) {
+                continue;
+            }
+
+            newMatchedValuesMap.put(toBePulledUpValue, ImmutableList.of(
                     ((value) -> {
                         final var translationMapBuilder = TranslationMap.regularBuilder();
                         translationMapBuilder.when(alias).then(((sourceAlias, leafValue) -> value));
                         return toBePulledUpValue.translateCorrelations(translationMapBuilder.build());
-                    }));
+                    })));
         }
         call.yieldValue(quantifiedObjectValue, newMatchedValuesMap);
     }
 
-    private static void inheritMatchedMapEntry(@Nullable final Map<Value, ValueCompensation> matchedValuesMap,
-                                               @Nonnull final Map<Value, ValueCompensation> newMatchedValuesMap,
+    private static void inheritMatchedMapEntry(@Nullable final Map<Value, List<ValueCompensation>> matchedValuesMap,
+                                               @Nonnull final Map<Value, List<ValueCompensation>> newMatchedValuesMap,
                                                @Nonnull final Value toBePulledUpValue) {
         if (matchedValuesMap != null && matchedValuesMap.containsKey(toBePulledUpValue)) {
             newMatchedValuesMap.put(toBePulledUpValue, matchedValuesMap.get(toBePulledUpValue));

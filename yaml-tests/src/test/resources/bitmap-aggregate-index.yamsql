@@ -22,8 +22,6 @@ schema_template:
       CREATE TABLE T1(id bigint, category string, PRIMARY KEY(id))
       create index bitmapIndex1 as select bitmap_construct_agg(bitmap_bit_position(id)), bitmap_bucket_offset(id) from T1 group by bitmap_bucket_offset(id)
       create index bitmapIndex2 as select bitmap_construct_agg(bitmap_bit_position(id)), category, bitmap_bucket_offset(id) from T1 group by category, bitmap_bucket_offset(id)
-      create index bitmapIndex3 as select bitmap_construct_agg(bitmap_bit_position(id)), bitmap_bucket_offset(id), bitmap_bucket_offset(id), bitmap_bucket_offset(id) from T1 group by bitmap_bucket_offset(id), bitmap_bucket_offset(id), bitmap_bucket_offset(id)
-      create index bitmapIndex4 as select bitmap_construct_agg(bitmap_bit_position(id)), bitmap_bucket_offset(id), category, bitmap_bucket_offset(id) from T1 group by bitmap_bucket_offset(id), category, bitmap_bucket_offset(id)
 
       CREATE TABLE T2(id bigint, category string, PRIMARY KEY(id))
       create index agg_index_1 as select bitmap_bucket_offset(id) from T2 order by bitmap_bucket_offset(id)
@@ -59,14 +57,18 @@ test_block:
                           {BITMAP: xStartsWith_1250'0400008', 'CATEGORY': 'world', 'OFFSET':0}]
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY bitmap_bucket_offset(id), bitmap_bucket_offset(id), bitmap_bucket_offset(id)
-      - explain: "AISCAN(BITMAPINDEX1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS BITMAP, _._0 AS OFFSET)"
+      - initialVersionLessThan: !current_version
       - unorderedResult: [{BITMAP: xStartsWith_1250'060000c', 'OFFSET':0}, {BITMAP: xStartsWith_1250'02', 'OFFSET':10000}]
+      - initialVersionAtLeast: !current_version
+      - error: "42702"
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, category, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY bitmap_bucket_offset(id), category, bitmap_bucket_offset(id)
-      - explain: "AISCAN(BITMAPINDEX2 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS BITMAP, _._0 AS CATEGORY, _._1 AS OFFSET)"
+      - initialVersionLessThan: !current_version
       - unorderedResult: [{BITMAP: xStartsWith_1250'0200004', 'CATEGORY': 'hello', 'OFFSET':0},
                           {BITMAP: xStartsWith_1250'02', 'CATEGORY': 'hello', 'OFFSET':10000},
                           {BITMAP: xStartsWith_1250'0400008', 'CATEGORY': 'world', 'OFFSET':0}]
+      - initialVersionAtLeast: !current_version
+      - error: "42702"
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, bitmap_bucket_offset(id) as offset FROM T2 GROUP BY bitmap_bucket_offset(id)
       - explain: "ISCAN(AGG_INDEX_1 <,>) | MAP (_ AS _0) | AGG (bitmap_construct_agg_l((_._0.ID) bitmap_bit_position 10000) AS _0) GROUP BY ((_._0.ID) bitmap_bucket_offset 10000 AS _0) | MAP (_._1._0 AS BITMAP, _._0._0 AS OFFSET)"

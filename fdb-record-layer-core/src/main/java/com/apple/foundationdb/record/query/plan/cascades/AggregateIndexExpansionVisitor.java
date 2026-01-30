@@ -53,6 +53,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
@@ -246,7 +247,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 throw new RecordCoreException("could not pull grouped value " + groupedValue)
                         .addLogInfo(LogMessageKeys.VALUE, groupedValue);
             }
-            argument = result.get(groupedValue);
+            argument = Iterables.getOnlyElement(result.get(groupedValue));
         } else {
             throw new RecordCoreException("unable to plan group by with non-field value")
                     .addLogInfo(LogMessageKeys.VALUE, groupedValue);
@@ -272,7 +273,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 throw new RecordCoreException("could not pull grouping value " + groupingValue)
                         .addLogInfo(LogMessageKeys.VALUE, groupingValue);
             }
-            return pulledUpGroupingValuesMap.get(groupingValue);
+            return Iterables.getOnlyElement(pulledUpGroupingValuesMap.get(groupingValue));
         }).collect(ImmutableList.toImmutableList());
 
         final var groupingColsValue = RecordConstructorValue.ofUnnamed(pulledUpGroupingValues);
