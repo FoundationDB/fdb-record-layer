@@ -436,7 +436,11 @@ public class SemanticAnalyzer {
                     matchedAttributes.add(attribute);
                     checkForPseudoColumns = false;
                     continue;
-                } else if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
+                }
+                if (!referenceIdentifier.isQualified() && attribute instanceof EphemeralExpression) {
+                    continue;
+                }
+                if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
                     matchedAttributes.add(attribute);
                     checkForPseudoColumns = false;
                     continue;
