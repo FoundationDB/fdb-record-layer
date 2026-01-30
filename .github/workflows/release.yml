@@ -80,6 +80,7 @@ jobs:
         with:
           gradle_command: mixedModeTest
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
+          report_name: mixed-mode-test-reports
       # We don't commit the incremented version, but we use this to know the version when generating
       # the resulting markdown
       - name: Increment version
