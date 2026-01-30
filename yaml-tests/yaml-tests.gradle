@@ -216,6 +216,18 @@ test {
         // we may want to decrease this multiplying factor.
         systemProperties['tests.yaml.iterations'] = Integer.parseInt(project.getProperty('tests.iterations')) * 20
     }
+
+    if (project.hasProperty("tests.ci") || project.hasProperty("tests.saveServerLogs")) {
+        systemProperties['tests.saveServerLogs'] = "true"
+    }
+
+    doLast {
+        copy {
+            from(".out/tmp-test")
+            include "*.log"
+            into(".out/reports/logs")
+        }
+    }
 }
 
 tasks.register('runDebug', JavaExec) {
