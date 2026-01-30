@@ -996,14 +996,20 @@ public class FDBDirectory extends Directory  {
      * @return true if queue should be used
      */
     public boolean shouldUseQueue() {
-        if (!getBooleanIndexOption(LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, false)) {
-            return false;
-        }
-        final byte[] tupleBytes = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_ONGOING_MERGE_INDICATOR,
-                agilityContext.get(ongoingMergeSubspace.pack()));
+        return Boolean.TRUE.equals(asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_ONGOING_MERGE_INDICATOR,
+                shouldUseQueueAsync()));
+    }
 
-        // return true if the tuple exists, and not empty
-        return tupleBytes != null && !Tuple.fromBytes(tupleBytes).isEmpty();
+    /**
+     * Checks if the pending write queue should be used.
+     * @return future true if queue should be used
+     */
+    public CompletableFuture<Boolean> shouldUseQueueAsync() {
+        if (!getBooleanIndexOption(LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, false)) {
+            return AsyncUtil.READY_FALSE;
+        }
+        return agilityContext.get(ongoingMergeSubspace.pack())
+                .thenApply(tupleBytes -> tupleBytes != null && !Tuple.fromBytes(tupleBytes).isEmpty());
     }
 
     /**

@@ -32,6 +32,7 @@ import java.util.List;
 /**
  * Manage repartitioning details (merging small partitions and splitting large ones).
  */
+@VisibleForTesting
 @API(API.Status.EXPERIMENTAL)
 public class LuceneRepartitionPlanner {
     private final int indexPartitionLowWatermark;
@@ -165,7 +166,6 @@ public class LuceneRepartitionPlanner {
     /**
      * Convenience collection of data needed for repartitioning.
      */
-    @VisibleForTesting
     public static class RepartitioningContext {
         @Nonnull Tuple groupingKey;
         @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo sourcePartition;
