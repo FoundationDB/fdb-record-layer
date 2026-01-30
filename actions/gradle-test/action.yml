@@ -12,6 +12,10 @@ inputs:
   gradle_args:
     description: 'Gradle arguments for running'
     required: true
+  report_name:
+    description: 'Test report artifact name'
+    required: false
+    default: "test-reports"
 
 runs:
   using: "composite"
@@ -30,5 +34,34 @@ runs:
     run: cat .out/reports/test-failures.md > $GITHUB_STEP_SUMMARY
   - name: Copy Test Reports
     shell: bash
-    if: always()
-    run: mkdir -p test-reports && for d in fdb-java-annotations fdb-extensions fdb-test-utils fdb-record-layer-core fdb-record-layer-icu fdb-record-layer-spatial fdb-record-layer-lucene fdb-record-layer-jmh examples fdb-relational-api fdb-relational-core fdb-relational-cli fdb-relational-grpc fdb-relational-jdbc fdb-relational-server yaml-tests; do ln -s ../$d/.out/reports test-reports/$d; done
+    if: ${{ !cancelled() }}
+    run: |
+       mkdir -p test-reports
+       for d in fdb-java-annotations fdb-extensions fdb-test-utils fdb-record-layer-core fdb-record-layer-icu fdb-record-layer-spatial fdb-record-layer-lucene fdb-record-layer-jmh examples fdb-relational-api fdb-relational-core fdb-relational-cli fdb-relational-grpc fdb-relational-jdbc fdb-relational-server yaml-tests; do
+         if [[ -f "$d/.out/reports" ]] ; then
+           ln -s "../$d/.out/reports" "test-reports/$d"
+         fi
+       done
+  - name: Publish Test Reports
+    if: ${{ !cancelled() }}
+    uses: actions/upload-artifact@v4.6.0
+    with:
+      name: ${{ inputs.report_name }}
+      if-no-files-found: ignore
+      path: |
+            test-reports/fdb-java-annotations/
+            test-reports/fdb-extensions/
+            test-reports/fdb-test-utils/
+            test-reports/fdb-record-layer-core/
+            test-reports/fdb-record-layer-icu/
+            test-reports/fdb-record-layer-spatial/
+            test-reports/fdb-record-layer-lucene/
+            test-reports/fdb-record-layer-jmh/
+            test-reports/examples/
+            test-reports/fdb-relational-api/
+            test-reports/fdb-relational-core/
+            test-reports/fdb-relational-cli/
+            test-reports/fdb-relational-grpc/
+            test-reports/fdb-relational-jdbc/
+            test-reports/fdb-relational-server/
+            test-reports/yaml-tests/
