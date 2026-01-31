@@ -163,6 +163,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private final Map<String, CommitCheckAsync> commitChecks = new LinkedHashMap<>();
     @Nonnull
     private final Map<String, PostCommit> postCommits = new LinkedHashMap<>();
+    @Nonnull
+    private final Map<String, PostCommit> postClose = new LinkedHashMap<>();
     private boolean dirtyStoreState;
     private boolean dirtyMetaDataVersionStamp;
     private long trackOpenTimeNanos;
@@ -421,7 +423,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     @Override
     public void close() {
-        closeTransaction(false);
+        try {
+            closeTransaction(false);
+        } finally {
+            asyncToSync(FDBStoreTimer.Waits.WAIT_RUN_CLOSE_HOOKS, runPostClose());
+        }
     }
 
     synchronized void closeTransaction(boolean openTooLong) {
@@ -515,7 +521,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                     }
                 }
             } finally {
-                close();
+                // close the transaction but don't run the postClose hooks - close() should run them
+                closeTransaction(false);
                 if (timer != null) {
                     timer.recordSinceNanoTime(event, startTimeNanos);
                 }
@@ -964,6 +971,21 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         addAnonymousCommitHookToMap(postCommits, postCommit);
     }
 
+    /**
+     * Install a named post-close hook. These hooks will get called once the transaction closes.
+     * <p>
+     * Note: These hooks are unrelated to the postCommit hooks. If a hook is registered to a commit
+     * and one is also registered for a close, and the transaction is committed, both will be called.
+     * If the transaction is not committed, only the close hook will be called.
+     * A Developer must be prepared for the cases where both commit and close hooks are called.
+     * </p>
+     * @param name the (unique per transaction) name for the hook
+     * @param postCloseHook the hook to invoke
+     */
+    public void addPostCloseHook(@Nonnull String name, @Nonnull PostCommit postCloseHook) {
+        addCommitHook(postClose, name, postCloseHook);
+    }
+
     private <T> void addAnonymousCommitHookToMap(@Nonnull Map<String, T> map, @Nonnull T item) {
         synchronized (map) {
             String name;
@@ -1021,14 +1043,24 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     @Nonnull
     private CompletableFuture<Void> runPostCommits() {
-        synchronized (postCommits) {
-            if (postCommits.isEmpty()) {
+        return runPostCommits(postCommits);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> runPostClose() {
+        return runPostCommits(postClose);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> runPostCommits(Map<String, PostCommit> hooksToRun) {
+        synchronized (hooksToRun) {
+            if (hooksToRun.isEmpty()) {
                 return AsyncUtil.DONE;
             }
-            List<CompletableFuture<Void>> work = postCommits.values().stream()
+            List<CompletableFuture<Void>> work = hooksToRun.values().stream()
                     .map(PostCommit::get)
                     .collect(Collectors.toList());
-            postCommits.clear();
+            hooksToRun.clear();
             return AsyncUtil.whenAll(work);
         }
     }

@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryLockFactory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryWrapper;
+import com.apple.foundationdb.record.lucene.directory.NonAgileContext;
 import com.apple.foundationdb.record.lucene.directory.PendingWriteQueue;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.FixedZeroKeyManager;
@@ -563,7 +564,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             byte[] fileLockKey = subspace.pack(Tuple.from("write.lock"));
             FDBDirectoryLockFactory lockFactory = new FDBDirectoryLockFactory(null, 10_000);
 
-            Lock testLock = lockFactory.obtainLock(new AgilityContext.NonAgile(context), fileLockKey, "write.lock");
+            Lock testLock = lockFactory.obtainLock(new NonAgileContext(context), fileLockKey, "write.lock");
             testLock.ensureValid();
             commit(context);
         }

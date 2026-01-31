@@ -30,10 +30,12 @@ option java_outer_classname = "LucenePendingWriteQueueProto";
 message PendingWriteItem {
   /**
    * The type of operation queued.
+   * Note: The operations here correspond to the way documents are handled by the LuceneIndexMaintainer. UPDATE,
+   * in particular, is simply a DELETE followed by an INSERT, so no explicit UPDATE here.
    */
   enum OperationType {
-    INSERT = 0;   // Insert new document
-    UPDATE = 1;   // Update existing document
+    OPERATION_TYPE_UNSPECIFIED = 0; // Default value for backwards compatibility
+    INSERT = 1;   // Insert new document
     DELETE = 2;   // Delete document
   }
 
