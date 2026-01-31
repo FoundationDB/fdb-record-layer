@@ -398,6 +398,13 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         return new Builder<>(database, FDBRecordContextConfig.newBuilder(), cursorCreator, singleItemHandler);
     }
 
+    public static <T> Builder<T> builder(FDBDatabase database,
+                                         FDBRecordContextConfig.Builder contextConfigBuilder,
+                                         CursorFactory<T> cursorCreator,
+                                         ItemHandler<T> singleItemHandler) {
+        return new Builder<>(database, contextConfigBuilder, cursorCreator, singleItemHandler);
+    }
+
     /**
      * A builder class for the iterator.
      *
