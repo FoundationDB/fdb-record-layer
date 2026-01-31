@@ -69,14 +69,14 @@ test_block:
           select docId, title, euclidean_square_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by euclidean_square_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
-      - explain: "ISCAN(DOCUMENTSEUCLIDEANSQUAREINDEX [EQUALS promote(@c17 AS STRING), EQUALS promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c39: @c45}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_square_distance @c39 AS _2)"
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANSQUAREINDEX [EQUALS promote(@c17 AS STRING), EQUALS promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c10: @c45}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_square_distance @c10 AS _2)"
       - result: [{'d1', 'The Great Gatsby', 0.0}]
     -
       - query:
           select docId, euclidean_square_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by euclidean_square_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
-      - explain: "ISCAN(DOCUMENTSEUCLIDEANSQUAREINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_square_distance @c37 AS _1)"
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANSQUAREINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c8: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_square_distance @c8 AS _1)"
       - result: [{'d1', 0.0}, {'d2', 0.020014658570289612}, {'d3', 0.08005863428115845}]
     -
       - query:
@@ -105,14 +105,14 @@ test_block:
           select docId, title, dot_product_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by dot_product_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
-      - explain: "ISCAN(DOCUMENTSDOTPRODUCTINDEX [EQUALS promote(@c17 AS STRING), EQUALS promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c39: @c45}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) dot_product_distance @c39 AS _2)"
+      - explain: "ISCAN(DOCUMENTSDOTPRODUCTINDEX [EQUALS promote(@c17 AS STRING), EQUALS promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c10: @c45}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) dot_product_distance @c10 AS _2)"
       - result: [{'d1', 'The Great Gatsby', -1.0}]
     -
       - query:
           select docId, dot_product_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by dot_product_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
-      - explain: "ISCAN(DOCUMENTSDOTPRODUCTINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) dot_product_distance @c37 AS _1)"
+      - explain: "ISCAN(DOCUMENTSDOTPRODUCTINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c8: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) dot_product_distance @c8 AS _1)"
       - result: [{'d1', -1.0}, {'d2', -0.89990234375}, {'d3', -0.7998046875}]
     -
       - query:

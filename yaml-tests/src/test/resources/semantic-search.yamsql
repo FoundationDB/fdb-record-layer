@@ -35,7 +35,7 @@ test_block:
   preset: single_repetition_ordered
   options:
     statement_type: prepared
-  name: semantic-search-tests
+  name: semantic-search-insert-data
   tests:
     -
       - query:
@@ -75,10 +75,29 @@ test_block:
       - count: 5
     -
       - query:
+          insert into multiTypePartitionDocs values
+          (1, 'd1', 'fiction', 'The Great Gatsby', !! !v16 [1.0, 0.0, 0.0] !!),
+          (1, 'd2', 'fiction', '1984', !! !v16 [0.9, 0.1, 0.0] !!),
+          (1, 'd3', 'fiction', 'To Kill a Mockingbird', !! !v16 [0.8, 0.2, 0.0] !!),
+          (1, 'd4', 'science', 'A Brief History of Time', !! !v16 [0.0, 1.0, 0.0] !!),
+          (1, 'd5', 'science', 'Cosmos', !! !v16 [0.1, 0.9, 0.0] !!),
+          (2, 'd6', 'fiction', 'Moby Dick', !! !v16 [0.0, 0.0, 1.0] !!),
+          (2, 'd7', 'fiction', 'War and Peace', !! !v16 [0.0, 0.1, 0.9] !!),
+          (2, 'd8', 'science', 'The Gene', !! !v16 [0.5, 0.5, 0.0] !!),
+          (2, 'd9', 'science', 'Sapiens', !! !v16 [0.4, 0.4, 0.2] !!)
+      - count: 9
+---
+test_block:
+  options:
+    statement_type: prepared
+  name: semantic-search-queries
+  tests:
+    -
+      - query:
           select docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
-      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c17 AS STRING), EQUALS promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c39: @c45}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c39 AS _2)"
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c17 AS STRING), EQUALS promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c10: @c45}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c10 AS _2)"
       - result: [{'d1', 'The Great Gatsby', 0.0}]
     -
       # defining window function in WHERE clause is not allowed, as per SQL standard.
@@ -92,7 +111,7 @@ test_block:
           select docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
-      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c37 AS _1)"
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c8: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c8 AS _1)"
       - result: [{'d1', 0.0}, {'d2', 0.14147317261689443}, {'d3', 0.28294634523378887}]
     -
       - query:
@@ -127,7 +146,7 @@ test_block:
           select docId, cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 2
-      - explain: "ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c37 AS _1)"
+      - explain: "ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c8: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c8 AS _1)"
       - result: [{'d1', 0.0}, {'d2', 0.006114621302865664}]
     -
       - query:
@@ -149,7 +168,7 @@ test_block:
           from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
-      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c19 AS STRING), EQUALS promote(@c23 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c41: @c47}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c41 AS DIST)"
+      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c19 AS STRING), EQUALS promote(@c23 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c10: @c47}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c10 AS DIST)"
       - result: [{'d1', 'The Great Gatsby', 0.0}]
     -
       - query:
@@ -222,6 +241,17 @@ test_block:
           {'r3', 'd6', 'A Brief History of Time'}
         ]
     -
+# slightly different vector in the projection list, should be handled correctly.
+# in previous versions, the literals were flipped, that's why the scalar function
+# euclidean_distance in the projection
+      - query:
+          select docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.001, 0.0] !!) as dist
+          from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+      - supported_version: !current_version
+      - result: [{'d1', 'The Great Gatsby', 9.9945068359375E-4}]
+    -
       - query:
           select r.reviewId, d2.docId, d2.title
           from reviews r
@@ -233,23 +263,10 @@ test_block:
 # Test HNSW index with mixed-type partition columns (bigint and string)
     -
       - query:
-          insert into multiTypePartitionDocs values
-          (1, 'd1', 'fiction', 'The Great Gatsby', !! !v16 [1.0, 0.0, 0.0] !!),
-          (1, 'd2', 'fiction', '1984', !! !v16 [0.9, 0.1, 0.0] !!),
-          (1, 'd3', 'fiction', 'To Kill a Mockingbird', !! !v16 [0.8, 0.2, 0.0] !!),
-          (1, 'd4', 'science', 'A Brief History of Time', !! !v16 [0.0, 1.0, 0.0] !!),
-          (1, 'd5', 'science', 'Cosmos', !! !v16 [0.1, 0.9, 0.0] !!),
-          (2, 'd6', 'fiction', 'Moby Dick', !! !v16 [0.0, 0.0, 1.0] !!),
-          (2, 'd7', 'fiction', 'War and Peace', !! !v16 [0.0, 0.1, 0.9] !!),
-          (2, 'd8', 'science', 'The Gene', !! !v16 [0.5, 0.5, 0.0] !!),
-          (2, 'd9', 'science', 'Sapiens', !! !v16 [0.4, 0.4, 0.2] !!)
-      - count: 9
-    -
-      - query:
           select docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from multiTypePartitionDocs
           where zoneId = 1 and bookshelf = 'fiction'
           qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
-      - explain: "ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c17 AS LONG), EQUALS promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c39: @c17}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c39 AS _2)"
+      - explain: "ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c17 AS LONG), EQUALS promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c10: @c17}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c10 AS _2)"
       - result: [{'d1', 'The Great Gatsby', 0.0}]
     -
       - query:
@@ -270,7 +287,7 @@ test_block:
           select docId, cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from multiTypePartitionDocs
           where zoneId = 1 and bookshelf = 'fiction'
           qualify row_number() over (partition by zoneId, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
-      - explain: "ISCAN(MULTITYPECOSINEINDEX [EQUALS promote(@c15 AS LONG), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c37: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c37 AS _1)"
+      - explain: "ISCAN(MULTITYPECOSINEINDEX [EQUALS promote(@c15 AS LONG), EQUALS promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c8: @c43}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c8 AS _1)"
       - result: [{'d1', 0.0}, {'d2', 0.006114621302865664}, {'d3', 0.029857499854668124}]
     -
       - query:
