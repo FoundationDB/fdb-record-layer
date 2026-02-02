@@ -380,7 +380,7 @@ class FDBDatabaseTest {
 
     @Test
     void testCommitCheckFails() {
-        // Test that the post commit hooks are invoked even if a commit check fails
+        // Test that the post close hooks are invoked even if a commit check fails
         final FDBDatabase database = dbExtension.getDatabase();
         final Set<String> called = new HashSet<>();
 
@@ -415,9 +415,14 @@ class FDBDatabaseTest {
         final Set<String> called = new HashSet<>();
 
         try (FDBRecordContext context = database.openContext()) {
-            context.addPostCloseHook("foo", () -> CompletableFuture.runAsync(() -> called.add("foo")));
-            context.addPostCloseHook("close-fails", () -> CompletableFuture.failedFuture(new RuntimeException("Blah")));
-            context.addPostCloseHook("bar", () -> CompletableFuture.runAsync(() -> called.add("bar")));
+            context.addPostCloseHook("foo", () -> CompletableFuture.runAsync(() -> {
+                called.add("foo");
+                throw new RuntimeException("Blah");
+            }));
+            context.addPostCloseHook("bar", () -> CompletableFuture.runAsync(() -> {
+                called.add("bar");
+                throw new RuntimeException("Blah");
+            }));
 
             assertThrows(RuntimeException.class, context::close);
         }

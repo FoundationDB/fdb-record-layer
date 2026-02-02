@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -40,6 +41,7 @@ import java.util.function.Function;
 /**
  * A floating window (agile) context - create sub contexts and commit them as they reach their time/size quota.
  */
+@API(API.Status.INTERNAL)
 public class AgileContext implements AgilityContext {
     static final Logger LOGGER = LoggerFactory.getLogger(AgileContext.class);
     private final FDBRecordContextConfig.Builder contextConfigBuilder;

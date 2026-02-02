@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -38,7 +39,8 @@ import java.util.function.Function;
  * the same transaction start point), and makes the usable context read-only (commit will fail).
  * The created context is closed once this instance is closed, but the caller context is not.
  */
-public class ReadOnlyNonAgileContext implements AgilityContext {
+@API(API.Status.INTERNAL)
+class ReadOnlyNonAgileContext implements AgilityContext {
     private final FDBRecordContext callerContext;
     private final FDBRecordContext readOnlyContext;
     private boolean closed = false;

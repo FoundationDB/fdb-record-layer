@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 
@@ -31,6 +32,7 @@ import java.util.function.Function;
 /**
  * A non-agile context - plainly use caller's context as context and never commit.
  */
+@API(API.Status.INTERNAL)
 public class NonAgileContext implements AgilityContext {
     private final FDBRecordContext callerContext;
     private boolean closed = false;
