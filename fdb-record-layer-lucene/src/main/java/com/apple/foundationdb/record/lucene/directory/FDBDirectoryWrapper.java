@@ -60,7 +60,6 @@ import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -477,7 +476,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                         agilityContext.getCallerContext().getConfig().toBuilder(),
                         cursorFactory(writeQueue),
                         handleOneItemFactory(writeQueue, groupingKey, partitionId))
-                .withMdcContext(MDC.getCopyOfContextMap())
                 .withCommitWhenDone(true)
                 .build()) {
             agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DRAIN_PENDING_QUEUE,
