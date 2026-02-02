@@ -56,8 +56,8 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeScheduler;
 import org.apache.lucene.index.MergeTrigger;
+import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.index.StandardDirectoryReaderOptimization;
-import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.store.LockFactory;
 import org.apache.lucene.store.NoLockFactory;
 import org.apache.lucene.util.IOUtils;
@@ -198,21 +198,27 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     @Nonnull
     private IndexWriterConfig createIndexWriterConfig(final Exception exceptionAtCreation) {
         final IndexDeferredMaintenanceControl mergeControl = this.state.store.getIndexDeferredMaintenanceControl();
-        TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(mergeControl, this.agilityContext,
-                this.state.indexSubspace, this.key, exceptionAtCreation)
-                .setMaxMergedSegmentMB(this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
-                .setSegmentsPerTier(this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
-        tieredMergePolicy.setNoCFSRatio(1.00);
+        final MergePolicy mergePolicy;
+        if (mergeControl.shouldAutoMergeDuringCommit() || mergeControl.isExplicitMergePath()) {
+            mergePolicy = new FDBTieredMergePolicy(mergeControl, this.agilityContext,
+                    this.state.indexSubspace, this.key, exceptionAtCreation)
+                    .setMaxMergedSegmentMB(this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
+                    .setSegmentsPerTier(this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
+        } else {
+            mergePolicy = NoMergePolicy.INSTANCE;
+            // Deferred merge is required
+            mergeControl.setMergeRequiredIndexes(this.state.index);
+        }
+
+        mergePolicy.setNoCFSRatio(1.00);
         IndexWriterConfig indexWriterConfig = new IndexWriterConfig(this.analyzerWrapper.getAnalyzer())
                 .setUseCompoundFile(USE_COMPOUND_FILE)
-                .setMergePolicy(tieredMergePolicy)
+                .setMergePolicy(mergePolicy)
                 .setMergeScheduler(getMergeScheduler(this.state, this.mergeDirectoryCount, this.agilityContext, this.key))
                 .setCodec(CODEC)
                 .setInfoStream(new LuceneLoggerInfoStream(LOGGER));
 
-        // Merge is required when creating an index writer (do we have a better indicator for a required merge?)
-        mergeControl.setMergeRequiredIndexes(this.state.index);
-        return indexWriterConfig;
+        return new IndexWriter(this.directory, indexWriterConfig);
     }
 
     @Nonnull
