@@ -251,42 +251,42 @@ test_block:
     # Filter using comparison with NULL
     -
       - query: select a from tHalfVector where b = null
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - explain: "SCAN(<,>) | TFILTER THALFVECTOR | FILTER null | MAP (_.A AS A)"
       - result: []
     -
       - query: select a from tFloatVector where b != null
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - explain: "SCAN(<,>) | TFILTER TFLOATVECTOR | FILTER _.B NOT_EQUALS NULL | MAP (_.A AS A)"
       - result: []
     -
       - query: select a from tHalfVector where null = b
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - explain: "SCAN(<,>) | TFILTER THALFVECTOR | FILTER null | MAP (_.A AS A)"
       - result: []
     -
       - query: select a from tFloatVector where null != b
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - explain: "SCAN(<,>) | TFILTER TFLOATVECTOR | FILTER _.B NOT_EQUALS NULL | MAP (_.A AS A)"
       - result: []
     -
       - query: select a from tDoubleVector where b is distinct from null
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.B IS_DISTINCT_FROM NULL | MAP (_.A AS A)"
       - result: [{100}]
     -
       - query: select a from tDoubleVector where b is not distinct from null
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.B NOT_DISTINCT_FROM NULL | MAP (_.A AS A)"
       - result: [{200}]
     -
       - query: select a from tDoubleVector where null is distinct from b
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.B IS_DISTINCT_FROM NULL | MAP (_.A AS A)"
       - result: [{100}]
     -
       - query: select a from tDoubleVector where null is not distinct from b
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - explain: "SCAN(<,>) | TFILTER TDOUBLEVECTOR | FILTER _.B NOT_DISTINCT_FROM NULL | MAP (_.A AS A)"
       - result: [{200}]
     # Vector equality tests (VEC = VEC)

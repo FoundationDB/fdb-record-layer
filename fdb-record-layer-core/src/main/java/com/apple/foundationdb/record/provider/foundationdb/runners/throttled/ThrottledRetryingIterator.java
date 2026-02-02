@@ -441,7 +441,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
             this.maxRecordScannedPerSec = 0;
             this.maxRecordDeletesPerSec = 0;
             this.numOfRetries = NUMBER_OF_RETRIES;
-            this.commitWhenDone = false;
+            this.commitWhenDone = true;
         }
 
         /**
@@ -535,7 +535,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
          * Set whether to commit the transaction when done.
          * Setting this to TRUE will commit every transaction created before creating a new one. Setting to FALSE will
          * roll back the transactions.
-         * Defaults to FALSE.
+         * Defaults to TRUE.
          * @param commitWhenDone whether to commit or roll back the transactions created
          * @return this builder
          */

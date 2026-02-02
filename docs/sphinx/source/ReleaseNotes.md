@@ -7,6 +7,52 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.9
 
+### 4.9.6.0
+
+<h4> New Features </h4>
+
+* Lucene: Prevent repartitioning during a potential write pending queue - [PR #3886](https://github.com/FoundationDB/fdb-record-layer/pull/3886)
+* Make ThrottledRetryingIterator use read-write transaction by default. - [PR #3890](https://github.com/FoundationDB/fdb-record-layer/pull/3890)
+* Avoid generating logical plans for temporary functions - [PR #3877](https://github.com/FoundationDB/fdb-record-layer/pull/3877)
+* Add support for casting and promoting `null` literals to `BYTES`, `VERSION`, and `VECTOR` types - [PR #3884](https://github.com/FoundationDB/fdb-record-layer/pull/3884)
+* Support `dot_product` and `euclidean_square` metrics and distance functions - [PR #3883](https://github.com/FoundationDB/fdb-record-layer/pull/3883)
+* Lucene: Apply pending queue entries during merge - [PR #3852](https://github.com/FoundationDB/fdb-record-layer/pull/3852)
+<h4> Bug Fixes </h4>
+
+* Fix prepared statement parameter ordering in `QUALIFY` clause - [PR #3900](https://github.com/FoundationDB/fdb-record-layer/pull/3900)
+* Resolve table functions when it has an alias - [PR #3833](https://github.com/FoundationDB/fdb-record-layer/pull/3833)
+*   Fix recursive cursor continuation handling - [PR #3805](https://github.com/FoundationDB/fdb-record-layer/pull/3805)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Publish external server logs in test reports published in CI - [PR #3897](https://github.com/FoundationDB/fdb-record-layer/pull/3897)
+* Remove 4.9.5.0 release notes as it was never published - [PR #3891](https://github.com/FoundationDB/fdb-record-layer/pull/3891)
+* Ensure nightly and release test runs publish their test reports - [PR #3892](https://github.com/FoundationDB/fdb-record-layer/pull/3892)
+* Fix the `cast-tests.yamsql` mixed mode test failures with versions older than 4.9 - [PR #3888](https://github.com/FoundationDB/fdb-record-layer/pull/3888)
+* Additional tests of scan plans with versions - [PR #3875](https://github.com/FoundationDB/fdb-record-layer/pull/3875)
+* Fix up `versions-test.yamsql` query that was failing in mixed mode - [PR #3879](https://github.com/FoundationDB/fdb-record-layer/pull/3879)
+* Updating !current_version in yamsql files to 4.9.4.0 - [PR #3880](https://github.com/FoundationDB/fdb-record-layer/pull/3880)
+
+</details>
+
+
+**[Full Changelog (4.9.4.0...4.9.6.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.9.4.0...4.9.6.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.8.12.0`, ✅`4.8.13.0`, ✅`4.8.14.0`, ✅`4.8.15.0`, ✅`4.8.16.0`, ✅`4.8.17.0`, ✅`4.9.1.0`, ✅`4.9.2.0`, ✅`4.9.3.0`, ✅`4.9.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/21584641587)
+
+
+
 ### 4.9.4.0
 
 <h4> Bug Fixes </h4>
