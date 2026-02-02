@@ -560,10 +560,9 @@ Distance Metrics
     The distance metric used for similarity search. Available options:
 
     - ``EUCLIDEAN_METRIC`` - L2 distance (default)
-    - ``MANHATTAN_METRIC`` - L1 distance
-    - ``DOT_PRODUCT_METRIC`` - Dot product (for normalized vectors)
-    - ``EUCLIDEAN_SQUARE_METRIC`` - Squared L2 distance
+    - ``EUCLIDEAN_SQUARE_METRIC`` - Squared L2 distance (more efficient, preserves ordering)
     - ``COSINE_METRIC`` - Cosine similarity (recommended for embeddings)
+    - ``DOT_PRODUCT_METRIC`` - Negative dot product (for maximum inner product search)
 
 RabitQ Quantization Options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

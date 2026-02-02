@@ -163,6 +163,26 @@ test_block:
       - explain: "ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS VERSION, _.COL2 AS COL2)"
       - result: [{VERSION: !not_null _, COL2: 1}, {VERSION: !not_null _, COL2: 2}, {VERSION: !not_null _, COL2: 3}, {VERSION: !not_null _, COL2: 4}, {VERSION: !not_null _, COL2: 5}]
     -
+      - query: select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10 and "__ROW_VERSION" is not null;
+      - supported_version: !current_version
+      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c14 AS LONG), [NOT_NULL]]) | MAP (version([_]) AS VERSION, _.COL2 AS COL2)"
+      - unorderedResult: [{VERSION: !not_null _, COL2: 1}, {VERSION: !not_null _, COL2: 2}, {VERSION: !not_null _, COL2: 3}, {VERSION: !not_null _, COL2: 4}, {VERSION: !not_null _, COL2: 5}]
+    -
+      - query: select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10 and "__ROW_VERSION" is null;
+      - supported_version: !current_version
+      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c14 AS LONG), IS_NULL]) | MAP (version([_]) AS VERSION, _.COL2 AS COL2)"
+      - result: []
+    -
+      - query: select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10 and "__ROW_VERSION" is distinct from null;
+      - supported_version: !current_version
+      - explain: "ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | FILTER version([_]) IS_DISTINCT_FROM NULL | MAP (version([_]) AS VERSION, _.COL2 AS COL2)"
+      - unorderedResult: [{VERSION: !not_null _, COL2: 1}, {VERSION: !not_null _, COL2: 2}, {VERSION: !not_null _, COL2: 3}, {VERSION: !not_null _, COL2: 4}, {VERSION: !not_null _, COL2: 5}]
+    -
+      - query: select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10 and "__ROW_VERSION" is not distinct from null;
+      - supported_version: !current_version
+      - explain: "ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | FILTER version([_]) NOT_DISTINCT_FROM NULL | MAP (version([_]) AS VERSION, _.COL2 AS COL2)"
+      - result: []
+    -
       # Do not include __ROW_VERSION (as a pseudo-column) with labeled *
       - query: select t1.* from t1 where col1 = 10;
       - explain: "ISCAN(I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
@@ -207,7 +227,24 @@ test_block:
         ]
     -
       # Should not be able to select the row version from a sub-select
-      - query: select "__ROW_VERSION" from (select * from t1) a;
+      - query: select "__ROW_VERSION", a.id from (select * from t1) a;
+      - initialVersionLessThan: 4.9.1.0
+      - unorderedResult: [
+          { '__ROW_VERSION': !not_null _, ID:  1 },
+          { '__ROW_VERSION': !not_null _, ID:  2 },
+          { '__ROW_VERSION': !not_null _, ID:  3 },
+          { '__ROW_VERSION': !not_null _, ID:  4 },
+          { '__ROW_VERSION': !not_null _, ID:  5 },
+          { '__ROW_VERSION': !not_null _, ID:  6 },
+          { '__ROW_VERSION': !not_null _, ID:  7 },
+          { '__ROW_VERSION': !not_null _, ID:  8 },
+          { '__ROW_VERSION': !not_null _, ID:  9 },
+          { '__ROW_VERSION': !not_null _, ID: 10 },
+          { '__ROW_VERSION': !not_null _, ID: 11 },
+          { '__ROW_VERSION': !not_null _, ID: 12 },
+          { '__ROW_VERSION': !not_null _, ID: 13 },
+        ]
+      - initialVersionAtLeast: 4.9.1.0
       - error: 'XXXXX'
     -
       # Do not include __ROW_VERSION (as a pseudo-column) in nested (*) without identifier

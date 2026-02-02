@@ -617,6 +617,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return directory.shouldUseQueue();
     }
 
+    @SuppressWarnings("PMD.CloseResource")
+    public CompletableFuture<Boolean> shouldUseQueueAsync(Tuple groupingKey, @Nullable Integer partitionId) {
+        FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
+        return directory.shouldUseQueueAsync();
+    }
+
     @Nullable
     @Override
     public IndexScrubbingTools<?> getIndexScrubbingTools(final IndexScrubbingTools.ScrubbingType type) {
