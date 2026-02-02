@@ -255,46 +255,46 @@ all-tests:
         | TFILTER my__1adjacency__1list | FILTER _.me EQUALS promote(@c8 AS LONG)
         AS q1 RETURN (q0.me AS _0, q0.my__parent AS _1, q1.me AS _2, q1.my__parent
         AS _3) }
-    task_count: 1405
-    task_total_time_ms: 43
+    task_count: 1383
+    task_total_time_ms: 180
     transform_count: 301
-    transform_time_ms: 17
-    transform_yield_count: 110
-    insert_time_ms: 5
-    insert_new_count: 289
-    insert_reused_count: 13
+    transform_time_ms: 63
+    transform_yield_count: 108
+    insert_time_ms: 19
+    insert_new_count: 267
+    insert_reused_count: 15
 -   query: EXPLAIN select * from "$yay"(5);
     explain: SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c6
         AS LONG) | MAP (_.foo.tableE.E1 AS _$x.id)
     task_count: 382
-    task_total_time_ms: 9
+    task_total_time_ms: 123
     transform_count: 90
-    transform_time_ms: 3
+    transform_time_ms: 85
     transform_yield_count: 28
-    insert_time_ms: 0
-    insert_new_count: 51
+    insert_time_ms: 8
+    insert_new_count: 50
     insert_reused_count: 2
 -   query: EXPLAIN select * from "__2yay"(6);
     explain: SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c6
         AS LONG) | MAP (_.foo.tableE.E1 AS _$y.id)
     task_count: 382
-    task_total_time_ms: 10
+    task_total_time_ms: 18
     transform_count: 90
-    transform_time_ms: 6
+    transform_time_ms: 9
     transform_yield_count: 28
-    insert_time_ms: 0
-    insert_new_count: 51
+    insert_time_ms: 1
+    insert_new_count: 50
     insert_reused_count: 2
 -   query: EXPLAIN select * from "नमस्त"(4);
     explain: SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c6
         AS LONG) | MAP (_.foo.tableE.E1 AS _$z.id)
     task_count: 382
-    task_total_time_ms: 8
+    task_total_time_ms: 15
     transform_count: 90
-    transform_time_ms: 3
+    transform_time_ms: 6
     transform_yield_count: 28
-    insert_time_ms: 0
-    insert_new_count: 51
+    insert_time_ms: 1
+    insert_new_count: 50
     insert_reused_count: 2
 -   query: EXPLAIN select * from "$yay__view";
     explain: SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 4
@@ -602,12 +602,12 @@ unnamed-12:
     explain: SCAN(<,>) | TFILTER __T3 | FILTER _.__T3$COL2 EQUALS promote(@c6 AS LONG)
         | MAP (_.__T3$COL1 AS c.1, _.__T3$COL3 AS c.2)
     task_count: 382
-    task_total_time_ms: 13
+    task_total_time_ms: 12
     transform_count: 90
     transform_time_ms: 5
     transform_yield_count: 28
-    insert_time_ms: 0
-    insert_new_count: 51
+    insert_time_ms: 1
+    insert_new_count: 50
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM T4
     explain: SCAN(<,>) | TFILTER T4

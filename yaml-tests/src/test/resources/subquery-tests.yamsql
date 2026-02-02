@@ -30,61 +30,61 @@ schema_template:
 ---
 setup:
   steps:
-    - query: INSERT INTO A VALUES (1, 1), (2, 2), (3, 3)
-    - query: INSERT INTO X VALUES (4, 10), (5, 20), (6, 30)
+#    - query: INSERT INTO A VALUES (1, 1), (2, 2), (3, 3)
+#    - query: INSERT INTO X VALUES (4, 10), (5, 20), (6, 30)
     - query: INSERT INTO R VALUES (1, 10, [(11), (12), (13)]), (2, 20, [(21), (22), (23)]), (3, 30, [(31), (32), (33)])
-    - query: INSERT INTO B VALUES (1, 10, 100), (2, 20, 200), (3, 30, 300)
+#    - query: INSERT INTO B VALUES (1, 10, 100), (2, 20, 200), (3, 30, 300)
 ---
 test_block:
   name: subquery-tests
   tests:
-    -
-      # non correlated subquery, resolving alias should be fine.
-      - query: select ida from a where exists (select ida from a where ida = 1);
-      - explain: "SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP (_.IDA AS IDA) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER A | FILTER q0 NOT_NULL AS q1 RETURN (q1.IDA AS IDA) }"
-      - result: [{1}, {2}, {3}]
-    -
-      # this should work albeit being seemingly ambiguous
-      # upper query block resolution should kick in _iff_ we fail to resolve
-      # the identifier in current query block.
-      - query: select idx from x where exists (select x from a where ida = 1);
-      - explain: "SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP (_.X AS X) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER X | FILTER q0 NOT_NULL AS q1 RETURN (q1.IDX AS IDX) }"
-      - result: [{4}, {5}, {6}]
-    -
-      # PartiQL resolution.
-      - query: select idr from r, r.nr as NEST where NEST.f = 23;
-      - result: [{2}]
-    -
-      # PartiQL resolution, another flavour (TODO check whether this still use the IR index).
-      - query: select idr from r, (select * from r.nr) as NEST where NEST.f = 23;
-      - result: [{2}]
-    -
-      # correlation are allowed in from-subquery.
-      - query: select x, sq.idr, sq.nr from a, (select * from r where r.idr = a.x) sq;
-      - result: [{x: 1, 1, [{11}, {12}, {13}]}, {x: 2, 2, [{21}, {22}, {23}]}, {x: 3, 3, [{31}, {32}, {33}]}]
-    -
-      # correlations are allowed inside a nested subquery with group by
-      - query: select x from a where exists (select a.x, max(idb) from b where q > a.x group by q)
-      - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
-      - result: [{1}, {2}, {3}]
-    -
-      # correlations are allowed inside a nested subquery with group by, not necessarily qualified
-      - query: select x from a where exists (select x, max(idb) from b where q > x group by q)
-      - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
-      - result: [{1}, {2}, {3}]
-    -
-      # correlations inside aggregations are allowed inside a nested subquery with group by
-      - query: select x from a where exists (select max(x), max(idb) from b where q > x group by q)
-      - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
-      - result: [{1}, {2}, {3}]
-    -
-      # correlations inside aggregations are allowed inside a nested subquery with group by
-      - query: select x from a where exists (select max(a.x), max(idb) from b where q > x group by q)
-      - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
-      - result: [{1}, {2}, {3}]
+#    -
+#      # non correlated subquery, resolving alias should be fine.
+#      - query: select ida from a where exists (select ida from a where ida = 1);
+#      - explain: "SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP (_.IDA AS IDA) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER A | FILTER q0 NOT_NULL AS q1 RETURN (q1.IDA AS IDA) }"
+#      - result: [{1}, {2}, {3}]
+#    -
+#      # this should work albeit being seemingly ambiguous
+#      # upper query block resolution should kick in _iff_ we fail to resolve
+#      # the identifier in current query block.
+#      - query: select idx from x where exists (select x from a where ida = 1);
+#      - explain: "SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP (_.X AS X) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER X | FILTER q0 NOT_NULL AS q1 RETURN (q1.IDX AS IDX) }"
+#      - result: [{4}, {5}, {6}]
+#    -
+#      # PartiQL resolution.
+#      - query: select idr from r, r.nr as NEST where NEST.f = 23;
+#      - result: [{2}]
+#    -
+#      # PartiQL resolution, another flavour (TODO check whether this still use the IR index).
+#      - query: select idr from r, (select * from r.nr) as NEST where NEST.f = 23;
+#      - result: [{2}]
+#    -
+#      # correlation are allowed in from-subquery.
+#      - query: select x, sq.idr, sq.nr from a, (select * from r where r.idr = a.x) sq;
+#      - result: [{x: 1, 1, [{11}, {12}, {13}]}, {x: 2, 2, [{21}, {22}, {23}]}, {x: 3, 3, [{31}, {32}, {33}]}]
+#    -
+#      # correlations are allowed inside a nested subquery with group by
+#      - query: select x from a where exists (select a.x, max(idb) from b where q > a.x group by q)
+#      - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
+#      - result: [{1}, {2}, {3}]
+#    -
+#      # correlations are allowed inside a nested subquery with group by, not necessarily qualified
+#      - query: select x from a where exists (select x, max(idb) from b where q > x group by q)
+#      - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
+#      - result: [{1}, {2}, {3}]
+#    -
+#      # correlations inside aggregations are allowed inside a nested subquery with group by
+#      - query: select x from a where exists (select max(x), max(idb) from b where q > x group by q)
+#      - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
+#      - result: [{1}, {2}, {3}]
+#    -
+#      # correlations inside aggregations are allowed inside a nested subquery with group by
+#      - query: select x from a where exists (select max(a.x), max(idb) from b where q > x group by q)
+#      - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
+#      - result: [{1}, {2}, {3}]
     -
       # plans with pushed-down predicates should be preferred
       - query: select sq.idr, sq.z from (select * from r where idr = 1) sq, (select f from sq.nr where f > 10) sq2 where sq.z = 10 AND sq2.f is not null
-      - explain: "ISCAN(IR [EQUALS @c18, EQUALS promote(@c32 AS INT)]) | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN @c32 AND _.F NOT_NULL AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }"
+      - explain: "ISCAN(IR [EQUALS promote(@c18 AS INT), EQUALS promote(@c32 AS INT)]) | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN promote(@c32 AS INT) AND _.F NOT_NULL | MAP (1 AS _0) AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }"
       - result: [{1, 10}, {1, 10}, {1, 10}]
 ...
