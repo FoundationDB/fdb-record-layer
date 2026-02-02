@@ -98,7 +98,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private final FDBDirectoryManager directoryManager;
     private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
     public static final String PRIMARY_KEY_FIELD_NAME = "_p";
-    protected static final String PRIMARY_KEY_SEARCH_NAME = "_s";
+    public static final String PRIMARY_KEY_SEARCH_NAME = "_s";
     protected static final String PRIMARY_KEY_BINARY_POINT_NAME = "_b";
     private final Executor executor;
     LuceneIndexKeySerializer keySerializer;

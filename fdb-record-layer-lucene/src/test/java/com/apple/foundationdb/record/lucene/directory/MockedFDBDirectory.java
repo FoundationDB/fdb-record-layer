@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.store.LockFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -51,8 +52,8 @@ import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepo
 public class MockedFDBDirectory extends FDBDirectory {
     private InjectedFailureRepository injectedFailures;
 
-    public MockedFDBDirectory(final Subspace subspace, final Map<String, String> options, final FDBDirectorySharedCacheManager sharedCacheManager, final Tuple sharedCacheKey, final boolean useCompoundFile, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
-        super(subspace, options, sharedCacheManager, sharedCacheKey, useCompoundFile, agilityContext, blockCacheMaximumSize);
+    public MockedFDBDirectory(final Subspace subspace, final Map<String, String> options, final FDBDirectorySharedCacheManager sharedCacheManager, final Tuple sharedCacheKey, final boolean useCompoundFile, final AgilityContext agilityContext, @Nullable LockFactory lockFactory, final int blockCacheMaximumSize) {
+        super(subspace, options, sharedCacheManager, sharedCacheKey, useCompoundFile, agilityContext, lockFactory, blockCacheMaximumSize);
     }
 
     public MockedFDBDirectory(@Nonnull final Subspace subspace, @Nonnull final FDBRecordContext context, @Nullable final Map<String, String> indexOptions) {

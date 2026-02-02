@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.PendingWriteQueue;
 import com.apple.foundationdb.record.provider.common.SerializationKeyManager;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
@@ -133,4 +134,8 @@ public final class LuceneRecordContextProperties {
      * Lucene async to sync behavior: Whether to use the legacy async to sync calls or the non-exception-mapping behavior.
      */
     public static final RecordLayerPropertyKey<Boolean> LUCENE_USE_LEGACY_ASYNC_TO_SYNC = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.exception.mapping.enabled", true);
+    /**
+     * Lucene max number of pending writes that can be replayed for a query.
+     */
+    public static final RecordLayerPropertyKey<Integer> LUCENE_MAX_PENDING_WRITES_REPLAYED_FOR_QUERY = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.max.pending.writes.replay", PendingWriteQueue.MAX_PENDING_ENTRIES_TO_REPLAY);
 }

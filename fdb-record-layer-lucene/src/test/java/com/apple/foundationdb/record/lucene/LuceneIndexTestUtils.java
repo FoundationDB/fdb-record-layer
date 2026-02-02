@@ -41,12 +41,14 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -665,8 +667,12 @@ public class LuceneIndexTestUtils {
     }
 
     public static LuceneScanBounds fullTextSearch(FDBRecordStore recordStore, Index index, String search, boolean highlight, int snippetSize) {
+        return fullTextSearch(recordStore, index, search, highlight, snippetSize, null);
+    }
+
+    public static LuceneScanBounds fullTextSearch(FDBRecordStore recordStore, Index index, String search, boolean highlight, int snippetSize, @Nullable Object group) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
-                ScanComparisons.EMPTY,
+                (group != null) ? Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, group))) : ScanComparisons.EMPTY,
                 new LuceneQueryMultiFieldSearchClause(highlight
                                                       ? LuceneQueryType.QUERY_HIGHLIGHT
                                                       : LuceneQueryType.QUERY, search, false),
