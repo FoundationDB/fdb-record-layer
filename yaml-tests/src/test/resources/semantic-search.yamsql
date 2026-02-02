@@ -249,7 +249,7 @@ test_block:
           from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - result: [{'d1', 'The Great Gatsby', 9.9945068359375E-4}]
     -
       - query:

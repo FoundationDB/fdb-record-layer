@@ -49,9 +49,9 @@ test_block:
     # Null Value Casting
     -
       - query: SELECT CAST(null AS string) AS null_string FROM data WHERE id = 1
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.9.6.0
       - error: 'XXXXX'
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.9.6.0
       - result: [{null_string: !null _ }]
     -
       - query: SELECT str_value FROM data WHERE str_value IS DISTINCT FROM null

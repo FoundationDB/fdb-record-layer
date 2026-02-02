@@ -88,7 +88,7 @@ test_block:
       # T2 returns rows from table_t2 where col1 >= 100
       # Join on X.c = Y.col1 (table_t1.c matches table_t2.col1)
       - query: SELECT X.id AS x_id, X.a, X.b, X.c, Y.id AS y_id, Y.col1, Y.col2 FROM T1 AS X, T2 AS Y WHERE X.c = Y.col1
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - setupReference: tvf_T2
       - unorderedResult: [
@@ -98,7 +98,7 @@ test_block:
     -
       # Test the same join selecting fewer columns
       - query: SELECT X.a, Y.col2 FROM T1 AS X, T2 AS Y WHERE X.c = Y.col1
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - setupReference: tvf_T2
       - unorderedResult: [
@@ -108,7 +108,7 @@ test_block:
     -
       # Join with additional WHERE conditions
       - query: SELECT X.id, X.a, Y.col1 FROM T1 AS X, T2 AS Y WHERE X.c = Y.col1 AND X.a >= 20
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - setupReference: tvf_T2
       - unorderedResult: [
@@ -118,7 +118,7 @@ test_block:
       # Self-join: find all parent-child relationships
       # Join Nodes with itself where parent.id = child.parent_id
       - query: SELECT parent.id AS parent_id, parent.name AS parent_name, child.id AS child_id, child.name AS child_name FROM Nodes AS parent, Nodes AS child WHERE parent.id = child.parent_id
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_Nodes
       - unorderedResult: [
           {PARENT_ID: 1, PARENT_NAME: 'root', CHILD_ID: 2, CHILD_NAME: 'child1'},
@@ -129,7 +129,7 @@ test_block:
     -
       # Self-join: find only direct children of root (id=1)
       - query: SELECT parent.name AS parent_name, child.name AS child_name FROM Nodes AS parent, Nodes AS child WHERE parent.id = child.parent_id AND parent.id = 1
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_Nodes
       - unorderedResult: [
           {PARENT_NAME: 'root', CHILD_NAME: 'child1'},
@@ -138,7 +138,7 @@ test_block:
       # Self-join: find grandparent-grandchild relationships (skip a generation)
       # grandparent.id = parent.parent_id AND parent.id = grandchild.parent_id
       - query: SELECT grandparent.name AS grandparent, grandchild.name AS grandchild FROM Nodes AS grandparent, Nodes AS parent, Nodes AS grandchild WHERE grandparent.id = parent.parent_id AND parent.id = grandchild.parent_id
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_Nodes
       - unorderedResult: [
           {GRANDPARENT: 'root', GRANDCHILD: 'grandchild1'},
@@ -147,7 +147,7 @@ test_block:
     -
       # Test aliasing a parameterized function
       - query: SELECT f.id, f.a, f.b FROM sq1(10) AS f
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_sq1
       - unorderedResult: [
           {ID: 1, A: 10, B: 'test1'},
@@ -156,13 +156,13 @@ test_block:
     -
       # Test aliasing a parameterized function with WHERE clause
       - query: SELECT f.a, f.c FROM tmpFunction2(10) AS f WHERE f.c > 200
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_tmpFunction2
       - unorderedResult: [{A: 30, C: 300}]
     -
       # Test multiple aliases of the same function in self-join
       - query: SELECT v1.id AS id1, v2.id AS id2, v1.a AS a1, v2.a AS a2 FROM T1 AS v1, T1 AS v2 WHERE v1.a < v2.a
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {ID1: 1, ID2: 2, A1: 10, A2: 20},
@@ -171,7 +171,7 @@ test_block:
     -
       # Test aliasing with complex expression in SELECT
       - query: SELECT v.id, v.a * 2 AS doubled_a, v.c - 100 AS adjusted_c FROM T1 AS v WHERE v.a <= 20
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {ID: 1, DOUBLED_A: 20, ADJUSTED_C: 0},
@@ -179,7 +179,7 @@ test_block:
     -
       # Test aliasing with DISTINCT
       - query: SELECT DISTINCT v.c / 100 AS category FROM T1 AS v
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {CATEGORY: 1},
@@ -188,13 +188,13 @@ test_block:
     -
       # Test mixing aliased function with regular table in join
       - query: SELECT v.id, v.a, t.c FROM T1 AS v, table_t1 AS t WHERE v.id = t.id AND t.a > 20
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [{ID: 3, A: 30, C: 300}]
     -
       # Test aliasing with CASE expression
       - query: SELECT v.id, CASE WHEN v.a < 20 THEN 'low' WHEN v.a < 30 THEN 'medium' ELSE 'high' END AS category FROM T1 AS v
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {ID: 1, CATEGORY: 'low'},
@@ -203,7 +203,7 @@ test_block:
     -
       # Test aliasing two different parameterized functions with same parameter
       - query: SELECT f1.id AS id1, f2.id AS id2 FROM sq1(10) AS f1, tmpFunction1(10) AS f2 WHERE f1.id = f2.id
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_sq1
       - setupReference: tvf_tmpFunction1
       - unorderedResult: [
@@ -213,7 +213,7 @@ test_block:
     -
       # Test aliasing with column arithmetic in WHERE clause
       - query: SELECT v.id, v.a + v.c AS sum_val FROM T1 AS v WHERE v.a + v.c > 200
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {ID: 2, SUM_VAL: 220},
@@ -221,7 +221,7 @@ test_block:
     -
       # Test nested function calls with aliases
       - query: SELECT outer_v.id, outer_v.a FROM (SELECT * FROM T1 AS inner_v WHERE inner_v.a >= 20) AS outer_v
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {ID: 2, A: 20},
@@ -229,7 +229,7 @@ test_block:
     -
       # Test CTE with alias
       - query: WITH cte AS (SELECT * FROM T1) SELECT c.id, c.a FROM cte AS c
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {ID: 1, A: 10},
@@ -238,7 +238,7 @@ test_block:
     -
       # Test CTE with alias and WHERE clause
       - query: WITH cte AS (SELECT * FROM T1) SELECT c.id, c.a, c.b FROM cte AS c WHERE c.a >= 20
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {ID: 2, A: 20, B: 'test2'},
@@ -246,7 +246,7 @@ test_block:
     -
       # Test multiple CTEs with aliases
       - query: WITH cte1 AS (SELECT * FROM T1), cte2 AS (SELECT * FROM T2) SELECT c1.a, c2.col2 FROM cte1 AS c1, cte2 AS c2 WHERE c1.c = c2.col1
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - setupReference: tvf_T2
       - unorderedResult: [
@@ -256,7 +256,7 @@ test_block:
     -
       # Test CTE from parameterized function with alias
       - query: WITH cte AS (SELECT * FROM sq1(10)) SELECT c.id, c.a FROM cte AS c WHERE c.a <= 20
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_sq1
       - unorderedResult: [
           {ID: 1, A: 10},
@@ -264,7 +264,7 @@ test_block:
     -
       # Test CTE self-join with aliases
       - query: WITH cte AS (SELECT * FROM T1) SELECT c1.id AS id1, c2.id AS id2 FROM cte AS c1, cte AS c2 WHERE c1.a < c2.a AND c1.a = 10
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {ID1: 1, ID2: 2},
@@ -272,7 +272,7 @@ test_block:
     -
       # Test subquery in FROM with alias
       - query: SELECT sub.id, sub.a FROM (SELECT * FROM T1 WHERE a >= 20) AS sub
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {ID: 2, A: 20},
@@ -280,13 +280,13 @@ test_block:
     -
       # Test subquery with aggregate and alias
       - query: SELECT sub.max_a, sub.min_a FROM (SELECT MAX(a) AS max_a, MIN(a) AS min_a FROM T1) AS sub
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [{MAX_A: 30, MIN_A: 10}]
     -
       # Test join between subqueries with aliases
       - query: SELECT s1.id, s2.col1 FROM (SELECT * FROM T1 WHERE a <= 20) AS s1, (SELECT * FROM T2 WHERE col1 <= 200) AS s2 WHERE s1.c = s2.col1
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - setupReference: tvf_T2
       - unorderedResult: [
@@ -295,7 +295,7 @@ test_block:
     -
       # Test subquery from parameterized function with alias
       - query: SELECT sub.a, sub.c FROM (SELECT * FROM tmpFunction2(10) WHERE c >= 200) AS sub
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_tmpFunction2
       - unorderedResult: [
           {A: 20, C: 200},
@@ -303,7 +303,7 @@ test_block:
     -
       # Test nested subqueries with aliases
       - query: SELECT outer_sub.id, outer_sub.a FROM (SELECT * FROM (SELECT * FROM T1 WHERE a >= 10) AS inner_sub WHERE inner_sub.a <= 20) AS outer_sub
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {ID: 1, A: 10},
@@ -311,13 +311,13 @@ test_block:
     -
       # Test CTE joining with table and alias
       - query: WITH cte AS (SELECT * FROM T1) SELECT c.id, c.a, t.b FROM cte AS c, table_t1 AS t WHERE c.id = t.id AND c.a = 10
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [{ID: 1, A: 10, B: 'test1'}]
     -
       # Test subquery with DISTINCT and alias
       - query: SELECT sub.a FROM (SELECT DISTINCT a FROM T1 WHERE a >= 10) AS sub
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {A: 10},
@@ -326,7 +326,7 @@ test_block:
     -
       # Test CTE with CASE expression and alias
       - query: WITH cte AS (SELECT * FROM T1) SELECT c.id, CASE WHEN c.a < 20 THEN 'small' ELSE 'large' END AS size FROM cte AS c
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {ID: 1, SIZE: 'small'},
@@ -335,7 +335,7 @@ test_block:
     -
       # Test subquery in WHERE with EXISTS and alias
       - query: SELECT t.id, t.a FROM table_t1 AS t WHERE EXISTS (SELECT 1 FROM T1 AS v WHERE v.id = t.id AND v.a <= 20)
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {ID: 1, A: 10},
@@ -343,7 +343,7 @@ test_block:
     -
       # Test basic view aliasing with column selection
       - query: SELECT v.id, v.a, v.b FROM view_t1_filtered AS v
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {ID: 1, A: 10, B: 'test1'},
           {ID: 2, A: 20, B: 'test2'},
@@ -351,19 +351,19 @@ test_block:
     -
       # Test view alias with WHERE clause referencing alias
       - query: SELECT v.id, v.a FROM view_t1_filtered AS v WHERE v.c > 100
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {ID: 2, A: 20},
           {ID: 3, A: 30}]
     -
       # Test view alias with complex WHERE conditions using alias
       - query: SELECT v.id, v.a, v.c FROM view_t1_filtered AS v WHERE v.a >= 20 AND v.c < 300
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [{ID: 2, A: 20, C: 200}]
     -
       # Test aliasing joined view with column references
       - query: SELECT vj.t1_id, vj.a, vj.col2 FROM view_joined AS vj
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {T1_ID: 1, A: 10, COL2: 'data1'},
           {T1_ID: 2, A: 20, COL2: 'data2'},
@@ -371,14 +371,14 @@ test_block:
     -
       # Test joined view alias in WHERE clause
       - query: SELECT vj.t1_id, vj.col1, vj.col2 FROM view_joined AS vj WHERE vj.a >= 20
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {T1_ID: 2, COL1: 200, COL2: 'data2'},
           {T1_ID: 3, COL1: 300, COL2: 'data3'}]
     -
       # Test self-join on same view with different aliases
       - query: SELECT v1.id AS id1, v2.id AS id2, v1.a AS a1, v2.a AS a2 FROM view_t1_filtered AS v1, view_t1_filtered AS v2 WHERE v1.a < v2.a
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {ID1: 1, ID2: 2, A1: 10, A2: 20},
           {ID1: 1, ID2: 3, A1: 10, A2: 30},
@@ -386,7 +386,7 @@ test_block:
     -
       # Test joining two different views with aliases
       - query: SELECT vf.id, vf.a, vj.col2 FROM view_t1_filtered AS vf, view_joined AS vj WHERE vf.id = vj.t1_id
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {ID: 1, A: 10, COL2: 'data1'},
           {ID: 2, A: 20, COL2: 'data2'},
@@ -394,7 +394,7 @@ test_block:
     -
       # Test joining view alias with table alias
       - query: SELECT v.id, v.a, t.col2 FROM view_t1_filtered AS v, table_t2 AS t WHERE v.c = t.col1
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {ID: 1, A: 10, COL2: 'data1'},
           {ID: 2, A: 20, COL2: 'data2'},
@@ -402,26 +402,26 @@ test_block:
     -
       # Test view alias with arithmetic expressions
       - query: SELECT v.id, v.a * 2 AS doubled_a, v.c - v.a AS diff FROM view_t1_filtered AS v WHERE v.a <= 20
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {ID: 1, DOUBLED_A: 20, DIFF: 90},
           {ID: 2, DOUBLED_A: 40, DIFF: 180}]
     -
       # Test view alias in subquery
       - query: SELECT outer_v.id, outer_v.a FROM (SELECT v.id, v.a, v.c FROM view_t1_filtered AS v WHERE v.a >= 20) AS outer_v
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {ID: 2, A: 20},
           {ID: 3, A: 30}]
     -
       # Test multiple view aliases in nested subquery
       - query: SELECT sub.id FROM (SELECT v1.id, v1.a FROM view_t1_filtered AS v1, view_t1_filtered AS v2 WHERE v1.id = v2.id AND v1.a = 10) AS sub
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [{ID: 1}]
     -
       # Test view alias with CASE expression referencing alias
       - query: SELECT v.id, CASE WHEN v.a < 20 THEN 'low' WHEN v.a < 30 THEN 'medium' ELSE 'high' END AS category FROM view_t1_filtered AS v
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {ID: 1, CATEGORY: 'low'},
           {ID: 2, CATEGORY: 'medium'},
@@ -429,14 +429,14 @@ test_block:
     -
       # Test view alias in CTE
       - query: WITH cte AS (SELECT v.id, v.a, v.b FROM view_t1_filtered AS v WHERE v.a <= 20) SELECT c.id, c.b FROM cte AS c
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {ID: 1, B: 'test1'},
           {ID: 2, B: 'test2'}]
     -
       # Test multiple CTEs with different view aliases
       - query: WITH cte1 AS (SELECT v1.id, v1.a FROM view_t1_filtered AS v1), cte2 AS (SELECT v2.t1_id, v2.col2 FROM view_joined AS v2) SELECT c1.id, c2.col2 FROM cte1 AS c1, cte2 AS c2 WHERE c1.id = c2.t1_id
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {ID: 1, COL2: 'data1'},
           {ID: 2, COL2: 'data2'},
@@ -444,7 +444,7 @@ test_block:
     -
       # Test view alias with DISTINCT
       - query: SELECT DISTINCT v.c / 100 AS category FROM view_t1_filtered AS v
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {CATEGORY: 1},
           {CATEGORY: 2},
@@ -452,7 +452,7 @@ test_block:
     -
       # Test joining view alias with temporary function alias
       - query: SELECT v.id AS view_id, v.a AS view_a, f.id AS func_id FROM view_t1_filtered AS v, T1 AS f WHERE v.id = f.id AND v.a >= 20
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - unorderedResult: [
           {VIEW_ID: 2, VIEW_A: 20, FUNC_ID: 2},
@@ -460,19 +460,19 @@ test_block:
     -
       # Test complex multi-way join with view aliases
       - query: SELECT v1.id, v2.col2, t.b FROM view_t1_filtered AS v1, view_joined AS v2, table_t1 AS t WHERE v1.id = v2.t1_id AND v1.id = t.id AND v1.a = 10
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [{ID: 1, COL2: 'data1', B: 'test1'}]
     -
       # Test view alias in EXISTS subquery
       - query: SELECT t.id, t.a FROM table_t1 AS t WHERE EXISTS (SELECT 1 FROM view_t1_filtered AS v WHERE v.id = t.id AND v.a <= 20)
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {ID: 1, A: 10},
           {ID: 2, A: 20}]
     -
       # Test view alias with column arithmetic in WHERE
       - query: SELECT v.id, v.a + v.c AS sum_val FROM view_t1_filtered AS v WHERE v.a + v.c > 200
-      - supported_version: !current_version
+      - supported_version: 4.9.6.0
       - unorderedResult: [
           {ID: 2, SUM_VAL: 220},
           {ID: 3, SUM_VAL: 330}]
