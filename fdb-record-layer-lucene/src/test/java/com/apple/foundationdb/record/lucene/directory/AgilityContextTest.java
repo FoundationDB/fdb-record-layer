@@ -676,6 +676,38 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         });
     }
 
+    @ParameterizedTest
+    @EnumSource
+    void testSetCommitCheck(AgilityContextType contextType) {
+        AtomicInteger value = new AtomicInteger(0);
+
+        // assert that failing commit check fails commit
+        try (FDBRecordContext context = openContext()) {
+            final AgilityContext agilityContext = getAgilityContext(context, contextType);
+            agilityContext.setCommitCheck(ctx -> {
+                value.set(1);
+                return CompletableFuture.completedFuture(null);
+            });
+            // call set to create transaction
+            byte[] key = this.path.toSubspace(context).pack(Tuple.from(prefix, "a").pack());
+            agilityContext.set(key, "Hello".getBytes());
+            // commit the agility context
+            try {
+                agilityContext.flushAndClose();
+            } catch (Exception e) {
+                // do nothing
+            }
+            // Commit the regular context
+            context.commit();
+        }
+        if (contextType.equals(AgilityContextType.READ_ONLY)) {
+            assertEquals(0, value.get());
+        } else {
+            assertEquals(1, value.get());
+        }
+
+    }
+
     @Test
     void testCloseOnCommitFailure() {
         final byte[] key;
@@ -818,7 +850,6 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
             MatcherAssert.assertThat(secondOperation.get().getCommittedVersion(), Matchers.greaterThan(firstOperation.get().getCommittedVersion()));
         }
     }
-
 
     @ParameterizedTest
     @BooleanSource

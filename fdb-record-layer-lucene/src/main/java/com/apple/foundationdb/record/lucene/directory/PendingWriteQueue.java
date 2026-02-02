@@ -188,7 +188,7 @@ public class PendingWriteQueue {
         context.increment(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_CLEAR);
 
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug(getLogMessage("Cleared queue entry"));
+            LOGGER.debug(getLogMessage("Cleared queue entry").toString());
         }
     }
 
@@ -264,7 +264,9 @@ public class PendingWriteQueue {
             }
 
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(getLogMessage("Replayed operation", LuceneLogMessageKeys.OPERATION_TYPE, opType));
+                LOGGER.debug(getLogMessage("Replayed operation")
+                        .addKeyAndValue(LuceneLogMessageKeys.OPERATION_TYPE, opType)
+                        .toString());
             }
         } catch (IOException ex) {
             throw LuceneExceptions.toRecordCoreException("failed to replay message on writer", ex);
@@ -312,16 +314,16 @@ public class PendingWriteQueue {
         context.increment(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_WRITE);
 
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug(getLogMessage("Enqueued operation",
-                    LuceneLogMessageKeys.OPERATION_TYPE, operationType,
-                    LogMessageKeys.SUBSPACE, queueSubspace));
+            LOGGER.debug(getLogMessage("Enqueued operation")
+                    .addKeyAndValue(LuceneLogMessageKeys.OPERATION_TYPE, operationType)
+                    .addKeyAndValue(LogMessageKeys.SUBSPACE, queueSubspace)
+                    .toString());
         }
     }
 
-    private String getLogMessage(final @Nonnull String staticMsg, final Object... keysAndValues) {
-        return KeyValueLogMessage.build(staticMsg, keysAndValues)
-                .addKeyAndValue(LogMessageKeys.SUBSPACE, queueSubspace)
-                .toString();
+    private KeyValueLogMessage getLogMessage(final @Nonnull String staticMsg) {
+        return KeyValueLogMessage.build(staticMsg)
+                .addKeyAndValue(LogMessageKeys.SUBSPACE, queueSubspace);
     }
 
     /**
