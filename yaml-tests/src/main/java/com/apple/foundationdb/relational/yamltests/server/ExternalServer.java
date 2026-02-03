@@ -139,11 +139,7 @@ public class ExternalServer {
         }
 
         if (!startServer(processBuilder)) {
-            Assertions.fail("Failed to start the external server; see logs \n" +
-                    "out: file://" + stdoutFile + "\nerr: file://" + stderrFile);
-        } else {
-            stdoutFile.deleteOnExit();
-            stderrFile.deleteOnExit();
+            Assertions.fail("Failed to start the external server");
         }
 
         if (logger.isInfoEnabled()) {
