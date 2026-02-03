@@ -61,15 +61,9 @@ public final class KeySpaceUtils {
         return uriPath;
     }
 
-    @API(API.Status.DEPRECATED)
-    @Nonnull
-    public static KeySpacePath toKeySpacePath(@Nonnull URI url, @Nonnull KeySpace keySpace) throws RelationalException {
-        return toKeySpacePath(url, keySpace, false);
-    }
-
     @API(API.Status.INTERNAL)
     @Nonnull
-    public static KeySpacePath toKeySpacePath(@Nonnull URI url, @Nonnull KeySpace keySpace, final boolean strict) throws RelationalException {
+    public static KeySpacePath toKeySpacePath(@Nonnull URI url, @Nonnull KeySpace keySpace) throws RelationalException {
         String path = getPath(url);
         if (path.length() < 1) {
             throw new RelationalException("<" + url + "> is an invalid database path", ErrorCode.INVALID_PATH);
@@ -90,7 +84,7 @@ public final class KeySpaceUtils {
             pathElems[pathElems.length - 1] = "";
         }
         KeySpaceDirectory directory = keySpace.getRoot();
-        final KeySpacePath thePath = uriToPathRecursive2(url, keySpace, strict, directory, pathElems,
+        final KeySpacePath thePath = uriToPathRecursive2(url, keySpace, directory, pathElems,
                 0, null);
 
         if (thePath == null) {
@@ -113,7 +107,6 @@ public final class KeySpaceUtils {
                                                    @Nullable KeySpacePath parentPath,
                                                    @Nonnull String[] pathElems,
                                                    int position,
-                                                   final boolean strict,
                                                    @Nonnull final URI url) throws RelationalException {
         if (position >= pathElems.length) {
             throw new RelationalException("path is too deep", ErrorCode.INTERNAL_ERROR)
@@ -206,27 +199,23 @@ public final class KeySpaceUtils {
         }
 
         //no valid path
-        return uriToPathRecursive2(url, keySpace, strict, directory, pathElems,
+        return uriToPathRecursive2(url, keySpace, directory, pathElems,
                 position + 1, potentialPath);
     }
 
     @Nullable
     private static KeySpacePath uriToPathRecursive2(final @Nonnull URI url,
                                                     final @Nonnull KeySpace keySpace,
-                                                    final boolean strict,
                                                     final @Nonnull KeySpaceDirectory directory,
                                                     final @Nonnull String[] pathElems,
                                                     final int position,
                                                     final @Nullable KeySpacePath parentPath) throws RelationalException {
         KeySpacePath thePath = null;
         for (KeySpaceDirectory dir : directory.getSubdirectories()) {
-            KeySpacePath path2 = uriToPathRecursive(keySpace, dir, parentPath, pathElems, position, strict, url);
+            KeySpacePath path2 = uriToPathRecursive(keySpace, dir, parentPath, pathElems, position, url);
 
             if (path2 != null) {
-                if (!strict) {
-                    thePath = path2;
-                    break;
-                } else if (thePath != null) {
+                if (thePath != null) {
                     throw new RelationalException("<" + url + "> is ambigous", ErrorCode.INVALID_PATH)
                             .addContext("path1", thePath)
                             .addContext("path2", path2);

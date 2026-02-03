@@ -219,7 +219,7 @@ public class RelationalKeyspaceProvider {
     }
 
     public static RelationalKeyspaceProvider.RelationalDatabasePath toDatabasePath(@Nonnull URI url, KeySpace keyspace) throws RelationalException {
-        final var keySpacePath = KeySpaceUtils.toKeySpacePath(url, keyspace, true);
+        final var keySpacePath = KeySpaceUtils.toKeySpacePath(url, keyspace);
         // KeySpacePath is to the System database directory
         if (keySpacePath instanceof RelationalSystemDatabasePath) {
             return (RelationalSystemDatabasePath) keySpacePath;
