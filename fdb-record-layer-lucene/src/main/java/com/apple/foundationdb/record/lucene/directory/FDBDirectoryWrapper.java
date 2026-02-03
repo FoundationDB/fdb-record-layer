@@ -200,25 +200,25 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         final IndexDeferredMaintenanceControl mergeControl = this.state.store.getIndexDeferredMaintenanceControl();
         final MergePolicy mergePolicy;
         if (mergeControl.shouldAutoMergeDuringCommit() || mergeControl.isExplicitMergePath()) {
+            // Here: this function was called in an explicit merge path. Prepare an appropriate
+            // merge policy, and avoid requesting a deferred merge
             mergePolicy = new FDBTieredMergePolicy(mergeControl, this.agilityContext,
                     this.state.indexSubspace, this.key, exceptionAtCreation)
                     .setMaxMergedSegmentMB(this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
                     .setSegmentsPerTier(this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
         } else {
+            // Here: Not a merge path, optimize by using a "no merge" policy and request a deferred merge
             mergePolicy = NoMergePolicy.INSTANCE;
-            // Deferred merge is required
             mergeControl.setMergeRequiredIndexes(this.state.index);
         }
 
         mergePolicy.setNoCFSRatio(1.00);
-        IndexWriterConfig indexWriterConfig = new IndexWriterConfig(this.analyzerWrapper.getAnalyzer())
+        return new IndexWriterConfig(this.analyzerWrapper.getAnalyzer())
                 .setUseCompoundFile(USE_COMPOUND_FILE)
                 .setMergePolicy(mergePolicy)
                 .setMergeScheduler(getMergeScheduler(this.state, this.mergeDirectoryCount, this.agilityContext, this.key))
                 .setCodec(CODEC)
                 .setInfoStream(new LuceneLoggerInfoStream(LOGGER));
-
-        return new IndexWriter(this.directory, indexWriterConfig);
     }
 
     @Nonnull
