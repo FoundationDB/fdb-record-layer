@@ -77,14 +77,17 @@ public final class KeySpaceUtils {
         if (path.startsWith("/")) {
             path = path.substring(1);
         }
+        // If the user specifies just `__SYS` that should point to the database, not the domain
+        // or at least it did historically, as we develop the concept of domains more thoroughly we
+        // may want to change this
+        if (path.equals(RelationalKeyspaceProvider.SYS)) {
+            return keySpace.path(RelationalKeyspaceProvider.SYS).add(RelationalKeyspaceProvider.SYS);
+        }
         String[] pathElems = path.split("/");
         //TODO(bfines): this is super inefficient, we need to replace it with something more coherent
         if (path.endsWith("/")) {
             pathElems = Arrays.copyOf(pathElems, pathElems.length + 1);
             pathElems[pathElems.length - 1] = "";
-        }
-        if (pathElems.length == 2 && RelationalKeyspaceProvider.SYS.equals(pathElems[1])) {
-            return keySpace.path(RelationalKeyspaceProvider.SYS).add(RelationalKeyspaceProvider.SYS);
         }
         KeySpaceDirectory directory = keySpace.getRoot();
         final KeySpacePath thePath = uriToPathRecursive2(url, keySpace, strict, directory, pathElems,
