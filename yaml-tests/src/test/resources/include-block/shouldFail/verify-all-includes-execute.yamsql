@@ -34,7 +34,6 @@ include:
     include-block/includes/include-setup-insert.yamsql
 ---
 # verify that the previous include succeeded in putting to the table.
----
 test_block:
   tests:
     -
