@@ -441,11 +441,17 @@ class FDBDatabaseTest {
 
         FDBRecordContext context = database.openContext();
 
-        context.addPostCloseHook("foo", () -> CompletableFuture.runAsync(() -> called.add("foo")));
+        context.addPostCloseHook("foo", () -> {
+            called.add("foo");
+            return CompletableFuture.completedFuture(null);
+        });
         context.addPostCloseHook("close-fails", () -> {
             throw new RuntimeException("Blah");
         } );
-        context.addPostCloseHook("bar", () -> CompletableFuture.runAsync(() -> called.add("bar")));
+        context.addPostCloseHook("bar", () -> {
+            called.add("bar");
+            return CompletableFuture.completedFuture(null);
+        });
 
         // Context now fails to close
         assertThrows(RuntimeException.class, context::close);
