@@ -114,12 +114,6 @@ public final class KeySpaceUtils {
                     .addContext("path", Arrays.toString(pathElems));
         }
         String pathElem = pathElems[position];
-        String pathName = directory.getName();
-        Object dirVal = directory.getValue();
-        if ("".equals(dirVal)) {
-            throw new RelationalException("Directory contains constant empty string (\"\")", ErrorCode.INVALID_PATH)
-                    .addContext("directory", directory.getName());
-        }
 
         Object pathValue = null;
         switch (directory.getKeyType()) {
@@ -130,60 +124,27 @@ public final class KeySpaceUtils {
                 }
                 break;
             case STRING:
-                pathValue = pathElem;
-                // the empty string maps to null, and cannot be a string
-                if (pathElem.isEmpty()) {
-                    return null;
-                } else if (directory.isConstant() && !Objects.equals(dirVal, pathElem)) {
+                pathValue = matchPathElementToString(directory, pathElem);
+                if (pathValue == null) {
                     return null;
                 }
                 break;
             case LONG:
                 if (directory instanceof DirectoryLayerDirectory) {
-                    pathValue = pathElem;
-                    // the empty string maps to null, and cannot be a string
-                    if (pathElem.isEmpty()) {
-                        return null;
-                    } else if (directory.isConstant() && !Objects.equals(dirVal, pathElem)) {
-                        return null;
-                    }
+                    pathValue = matchPathElementToString(directory, pathElem);
                 } else {
-                    try {
-                        long l = Long.parseLong(pathElem);
-                        pathValue = l;
-                        if (directory.isConstant()) {
-                            if (dirVal instanceof Number) {
-                                if (((Number)dirVal).longValue() != l) {
-                                    // perhaps this should throw if dirVal is not a number
-                                    return null;
-                                } else {
-                                    break;
-                                }
-                            } else {
-                                return null;
-                            }
-                        } else {
-                            break;
-                        }
-                    } catch (NumberFormatException nfe) {
-                        //the field isn't a long, so can't match this directory
-                        return null;
-                    }
+                    pathValue = matchPathElementToLong(directory, pathElem);
+                }
+                if (pathValue == null) {
+                    return null;
                 }
                 break;
             default:
                 throw new OperationUnsupportedException("Key Space paths only supported for NULL, LONG and STRING");
         }
 
-        final KeySpacePath potentialPath;
-        try {
-            if (parentPath == null) {
-                potentialPath = keySpace.path(pathName, pathValue);
-            } else {
-                potentialPath = parentPath.add(pathName, pathValue);
-            }
-        } catch (NoSuchDirectoryException nsde) {
-            //safety valve--shouldn't really ever be used, but if it happens we know it's not a valid path
+        final KeySpacePath potentialPath = getSubPath(keySpace, parentPath, directory.getName(), pathValue);
+        if (potentialPath == null) {
             return null;
         }
 
@@ -199,8 +160,74 @@ public final class KeySpaceUtils {
         }
 
         //no valid path
-        return uriToPathRecursive2(url, keySpace, directory, pathElems,
-                position + 1, potentialPath);
+        return uriToPathRecursive2(url, keySpace, directory, pathElems, position + 1, potentialPath);
+    }
+
+    @Nullable
+    private static Object matchPathElementToLong(final @Nonnull KeySpaceDirectory directory, final String pathElem) throws RelationalException {
+        Long parsedLong = tryParseLong(pathElem);
+        if (parsedLong == null) {
+            return null;
+        }
+        final Object dirVal = getConstantValue(directory);
+        if (directory.isConstant()) {
+            if (dirVal instanceof Number) {
+                // perhaps this should throw if dirVal is not a number
+                if (((Number)dirVal).longValue() != parsedLong) {
+                    return null;
+                }
+            } else {
+                return null;
+            }
+        }
+        return parsedLong;
+    }
+
+    @Nullable
+    private static Long tryParseLong(final String pathElem) {
+        Long parsedLong;
+        try {
+            parsedLong = Long.parseLong(pathElem);
+        } catch (NumberFormatException nfe) {
+            //the field isn't a long, so can't match this directory
+            return null;
+        }
+        return parsedLong;
+    }
+
+    @Nullable
+    private static Object getConstantValue(final @Nonnull KeySpaceDirectory directory) throws RelationalException {
+        Object dirVal = directory.getValue();
+        if ("".equals(dirVal)) {
+            throw new RelationalException("Directory contains constant empty string (\"\")", ErrorCode.INVALID_PATH)
+                    .addContext("directory", directory.getName());
+        }
+        return dirVal;
+    }
+
+    @Nullable
+    private static KeySpacePath getSubPath(final @Nonnull KeySpace keySpace, final @Nullable KeySpacePath parentPath, final String pathName, final Object pathValue) {
+        try {
+            if (parentPath == null) {
+                return keySpace.path(pathName, pathValue);
+            } else {
+                return parentPath.add(pathName, pathValue);
+            }
+        } catch (NoSuchDirectoryException nsde) {
+            //safety valve--shouldn't really ever be used, but if it happens we know it's not a valid path
+            return null;
+        }
+    }
+
+    @Nullable
+    private static String matchPathElementToString(final @Nonnull KeySpaceDirectory directory, final String pathElem) throws RelationalException {
+        // the empty string maps to null, and cannot be a string
+        if (directory.isConstant() && !Objects.equals(getConstantValue(directory), pathElem)) {
+            return null;
+        } else if (pathElem.isEmpty()) {
+            return null;
+        }
+        return pathElem;
     }
 
     @Nullable
