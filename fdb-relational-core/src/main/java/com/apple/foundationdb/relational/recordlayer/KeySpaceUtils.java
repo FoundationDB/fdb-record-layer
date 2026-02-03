@@ -35,7 +35,6 @@ import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.function.Function;
 
 @API(API.Status.EXPERIMENTAL)
 public final class KeySpaceUtils {
@@ -75,8 +74,8 @@ public final class KeySpaceUtils {
         if (path.length() < 1) {
             throw new RelationalException("<" + url + "> is an invalid database path", ErrorCode.INVALID_PATH);
         }
-        if (!path.startsWith("/")) {
-            path = "/" + path;
+        if (path.startsWith("/")) {
+            path = path.substring(1);
         }
         String[] pathElems = path.split("/");
         //TODO(bfines): this is super inefficient, we need to replace it with something more coherent
@@ -89,7 +88,7 @@ public final class KeySpaceUtils {
         }
         KeySpaceDirectory directory = keySpace.getRoot();
         final KeySpacePath thePath = uriToPathRecursive2(url, keySpace, strict, directory, pathElems,
-                dir1 -> keySpace.path(dir1.getName()), 0);
+                0, null);
 
         if (thePath == null) {
             throw new RelationalException("<" + url + "> is an invalid database path", ErrorCode.INVALID_PATH);
@@ -108,13 +107,15 @@ public final class KeySpaceUtils {
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static KeySpacePath uriToPathRecursive(@Nonnull KeySpace keySpace,
                                                    @Nonnull KeySpaceDirectory directory,
-                                                   KeySpacePath parentPath,
+                                                   @Nullable KeySpacePath parentPath,
                                                    @Nonnull String[] pathElems,
                                                    int position,
                                                    final boolean strict,
                                                    @Nonnull final URI url) throws RelationalException {
         if (position >= pathElems.length) {
-            return parentPath;
+            throw new RelationalException("path is too deep", ErrorCode.INTERNAL_ERROR)
+                    .addContext("position", position)
+                    .addContext("path", Arrays.toString(pathElems));
         }
         String pathElem = pathElems[position];
         String pathName = directory.getName();
@@ -123,6 +124,7 @@ public final class KeySpaceUtils {
             throw new RelationalException("Directory contains constant empty string (\"\")", ErrorCode.INVALID_PATH)
                     .addContext("directory", directory.getName());
         }
+
         Object pathValue = null;
         switch (directory.getKeyType()) {
             case NULL:
@@ -177,12 +179,12 @@ public final class KeySpaceUtils {
                 throw new OperationUnsupportedException("Key Space paths only supported for NULL, LONG and STRING");
         }
 
+        final KeySpacePath potentialPath;
         try {
-            // Deliberate pointer-equality check here
-            if (directory.getParent() == keySpace.getRoot()) {
-                parentPath = keySpace.path(pathName, pathValue);
+            if (parentPath == null) {
+                potentialPath = keySpace.path(pathName, pathValue);
             } else {
-                parentPath = parentPath.add(pathName, pathValue);
+                potentialPath = parentPath.add(pathName, pathValue);
             }
         } catch (NoSuchDirectoryException nsde) {
             //safety valve--shouldn't really ever be used, but if it happens we know it's not a valid path
@@ -191,19 +193,18 @@ public final class KeySpaceUtils {
 
         if (directory.isLeaf()) {
             if (position == pathElems.length - 1) {
-                return parentPath; //we found the path!
+                return potentialPath; //we found the path!
             } else {
                 return null;
             }
         }
         if (position + 1 == pathElems.length) {
-            return parentPath;
+            return potentialPath;
         }
 
         //no valid path
-        final KeySpacePath finalParentPath = parentPath;
         return uriToPathRecursive2(url, keySpace, strict, directory, pathElems,
-                dir -> finalParentPath, position);
+                position + 1, potentialPath);
     }
 
     @Nullable
@@ -212,11 +213,11 @@ public final class KeySpaceUtils {
                                                     final boolean strict,
                                                     final @Nonnull KeySpaceDirectory directory,
                                                     final @Nonnull String[] pathElems,
-                                                    Function<KeySpaceDirectory, KeySpacePath> getParentPath,
-                                                    final int position) throws RelationalException {
+                                                    final int position,
+                                                    final @Nullable KeySpacePath parentPath) throws RelationalException {
         KeySpacePath thePath = null;
         for (KeySpaceDirectory dir : directory.getSubdirectories()) {
-            KeySpacePath path2 = uriToPathRecursive(keySpace, dir, getParentPath.apply(dir), pathElems, position + 1, strict, url);
+            KeySpacePath path2 = uriToPathRecursive(keySpace, dir, parentPath, pathElems, position, strict, url);
 
             if (path2 != null) {
                 if (!strict) {
