@@ -7,6 +7,38 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.9
 
+### 4.9.7.0
+
+<h4> New Features </h4>
+
+* Ensure calling context config is passed to ThrottledIterator - [PR #3895](https://github.com/FoundationDB/fdb-record-layer/pull/3895)
+* Handle queries when items are in the pending writes queue - [PR #3857](https://github.com/FoundationDB/fdb-record-layer/pull/3857)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Ensure logs get published in the test reports even if the tests themselves fail - [PR #3904](https://github.com/FoundationDB/fdb-record-layer/pull/3904)
+* Mark LuceneRepartitionPlanner as API INTERNAL - [PR #3894](https://github.com/FoundationDB/fdb-record-layer/pull/3894)
+
+</details>
+
+
+**[Full Changelog (4.9.6.0...4.9.7.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.9.6.0...4.9.7.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.8.13.0`, ✅`4.8.14.0`, ✅`4.8.15.0`, ✅`4.8.16.0`, ✅`4.8.17.0`, ✅`4.9.1.0`, ✅`4.9.2.0`, ✅`4.9.3.0`, ✅`4.9.4.0`, ✅`4.9.6.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/21616307541)
+
+
+
 ### 4.9.6.0
 
 <h4> New Features </h4>
