@@ -341,7 +341,6 @@ public final class YamlExecutionContext {
             resourcesBuilder.addAll(resource.getParentRef().getCallStack().reverse().stream().map(YamlReference::getResource).iterator());
         }
         resourcesBuilder.add(resource);
-        resource.getParentRef().getCallStack().reverse();
         return resourcesBuilder.build().stream()
                 .flatMap(r -> connectionURIs.getOrDefault(r, List.of()).stream())
                 .collect(Collectors.toList());

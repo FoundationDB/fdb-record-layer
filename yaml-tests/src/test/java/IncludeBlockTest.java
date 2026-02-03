@@ -111,7 +111,6 @@ public class IncludeBlockTest {
         );
     }
 
-    // top-level yamsql files, with one or more includes, that do not run successfully.
     @ParameterizedTest
     @MethodSource("includesShouldFail")
     void includesShouldFail(String filename) {
@@ -119,13 +118,13 @@ public class IncludeBlockTest {
                 doRun("include-block/includes/" + filename + ".yamsql"));
     }
 
-    // top-level yamsql files, with one or more includes, that is expected to run successfully.
     @ParameterizedTest
     @MethodSource("includesShouldPass")
     void includesShouldPass(String filename) throws Exception {
         doRun("include-block/includes/" + filename + ".yamsql");
     }
 
+    // top-level yamsql files, with one or more includes, that do not run successfully.
     static Stream<String> shouldFail() {
         return Stream.of(
                 "cycle-in-include",
@@ -144,6 +143,7 @@ public class IncludeBlockTest {
                 doRun("include-block/shouldFail/" + filename + ".yamsql"));
     }
 
+    // top-level yamsql files, with one or more includes, that is expected to run successfully.
     static Stream<String> shouldPass() {
         return Stream.of(
                 "include-falls-back-to-global-available-uri",

@@ -17,8 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This yamsql file has an include that has an explain in it. The metrics of that explain will be part of this file's
-# metric file. However, that metric file is forged - hence, the test should fail due to metrics mismatch.
+# This yamsql file should fail. It includes a file that tries to insert a row to the table. Then tests that the new
+# row is actually inserted. When trying to include that file again - that should fail as the row is already inserted.
 # As a takeaway, this also verifies that an include can use to populate data to the table.
 ---
 schema_template:
