@@ -43,10 +43,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
+import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -67,37 +65,20 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
     @Test
     void testFullStoreLockPreventsOpen() {
         // Create a store and set FULL_STORE lock, then verify it cannot be opened
-        try (FDBRecordContext context = openContext()) {
-            recordStore = openSimpleRecordStore(context, null, formatVersion);
-
-            // Add some records
-            for (int i = 0; i < 10; i++) {
-                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
-                        .setRecNo(i)
-                        .setNumValue2(i * 100)
-                        .build());
-            }
-
-            // Set FULL_STORE lock
-            setFullStoreLock("Testing full store lock");
-
-            commit(context);
-        }
+        withStore(getStoreBuilder(), store -> {
+            saveSomeRecords(store, 10);
+            setFullStoreLock(store, "Testing full store lock");
+        });
 
         // Attempt to open the store - should fail
-        try (FDBRecordContext context = openContext()) {
-            StoreIsFullyLockedException exception = assertThrows(StoreIsFullyLockedException.class, () -> {
-                openSimpleRecordStore(context, null, formatVersion);
-            });
-            assertNotNull(exception.getMessage());
-        }
+        assertCannotOpen();
     }
 
     @Test
     void testUnspecifiedLockStateFailsToOpen() {
         // With FULL_STORE_LOCK format version, UNSPECIFIED state should prevent opening
         try (FDBRecordContext context = openContext()) {
-            recordStore = openSimpleRecordStore(context, null, formatVersion);
+            recordStore = getStoreBuilder().setContext(context).create();
 
             // Explicitly set UNSPECIFIED
             recordStore.setStoreLockStateAsync(
@@ -110,9 +91,8 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
 
         // Attempt to open - should fail with UnknownStoreLockStateException
         try (FDBRecordContext context = openContext()) {
-            assertThrows(UnknownStoreLockStateException.class, () -> {
-                openSimpleRecordStore(context, null, formatVersion);
-            });
+            assertThrows(UnknownStoreLockStateException.class,
+                    () -> getStoreBuilder().setContext(context).open());
         }
     }
 
@@ -140,33 +120,8 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
 
         // Attempt to open - should fail with UnknownStoreLockStateException
         try (FDBRecordContext context = openContext()) {
-            assertThrows(UnknownStoreLockStateException.class, () -> {
-                openSimpleRecordStore(context, null, formatVersion);
-            });
-        }
-    }
-
-    @Test
-    void testFullStoreLockWithReason() {
-        // Verify that the reason and timestamp are properly stored and accessible
-        final String lockReason = "Store locked for maintenance";
-
-        try (FDBRecordContext context = openContext()) {
-            recordStore = openSimpleRecordStore(context, null, formatVersion);
-
-            setFullStoreLock(lockReason);
-
-            commit(context);
-        }
-
-        // Verify the lock state prevents opening and contains the reason
-        try (FDBRecordContext context = openContext()) {
-            StoreIsFullyLockedException exception = assertThrows(StoreIsFullyLockedException.class, () -> {
-                openSimpleRecordStore(context, null, formatVersion);
-            });
-            // The exception should have logged the reason and timestamp
-            assertNotNull(exception.getMessage());
-            assertNotNull(exception.getLogInfo());
+            assertThrows(UnknownStoreLockStateException.class,
+                    () -> openSimpleRecordStore(context, null, formatVersion));
         }
     }
 
@@ -175,31 +130,19 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         // we also test getBypassFullStoreLockReason on the builder in this test
         final String lockReason = "Testing lock clearing";
 
-        final Function<FDBRecordContext, FDBRecordStore.Builder> createBuilder = context1 -> FDBRecordStore.newBuilder()
-                .setContext(context1)
-                .setMetaDataProvider(simpleMetaData(null))
-                .setSubspace(path.toSubspace(context1))
-                .setFormatVersion(formatVersion);
-
         // Test setting FULL_STORE lock
-        try (FDBRecordContext context = openContext()) {
-            recordStore = createBuilder.apply(context).create();
-
-            setFullStoreLock(lockReason);
-
-            commit(context);
-        }
+        withStore(getStoreBuilder(), store -> setFullStoreLock(store, lockReason));
 
         // Verify cannot open normally
         try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore.Builder builder = createBuilder.apply(context);
+            final FDBRecordStore.Builder builder = getStoreBuilder().setContext(context);
             assertNull(builder.getBypassFullStoreLockReason());
             assertThrows(StoreIsFullyLockedException.class, builder::open);
         }
 
         // Open with bypass to clear the lock
         try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore.Builder builder = createBuilder.apply(context)
+            final FDBRecordStore.Builder builder = getStoreBuilder().setContext(context)
                     .setBypassFullStoreLockReason(lockReason);
             assertEquals(lockReason, builder.getBypassFullStoreLockReason());
             recordStore = builder.open();
@@ -212,7 +155,7 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
 
         // Verify can now open normally
         try (FDBRecordContext context = openContext()) {
-            recordStore = createBuilder.apply(context).open();
+            recordStore = getStoreBuilder().setContext(context).open();
             commit(context);
         }
     }
@@ -228,23 +171,23 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         enableStoreStateCache(cache);
 
         // Now set the lock
+        final FDBRecordStore.Builder builder = getStoreBuilder().setStoreStateCache(cache);
         try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, cache).open();
+            recordStore = builder.copyBuilder().setContext(context).open();
 
-            setFullStoreLock(lockReason);
+            setFullStoreLock(recordStore, lockReason);
 
             commit(context);
         }
 
         // Verify normal open fails
-        try (FDBRecordContext context = openContext()) {
-            assertThrows(StoreIsFullyLockedException.class, () -> getStoreBuilder(context, cache).open());
-        }
+        assertCannotOpen(builder.copyBuilder());
 
         // Open with bypass - should bypass the cache and succeed
         timer.reset();
         try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, cache)
+            recordStore = builder.copyBuilder()
+                    .setContext(context)
                     .setBypassFullStoreLockReason(lockReason)
                     .open();
 
@@ -259,14 +202,16 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         // Verify can now open normally (expect cache miss after header change)
         timer.reset();
         try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, cache).open();
+            recordStore = builder.copyBuilder()
+                    .setContext(context).open();
             assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
         }
 
         // Now we should get a cache hit on the next open
         timer.reset();
         try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, cache).open();
+            recordStore = builder.copyBuilder()
+                    .setContext(context).open();
             assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
             commit(context);
         }
@@ -276,14 +221,18 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         // Create store with cacheability enabled (no lock yet)
         try (FDBRecordContext context = openContext()) {
             context.setMetaDataVersionStamp();
-            recordStore = getStoreBuilder(context, cache).createOrOpen();
+            recordStore = getStoreBuilder()
+                    .setStoreStateCache(cache)
+                    .setContext(context).createOrOpen();
             recordStore.setStateCacheabilityAsync(true).get();
             commit(context);
         }
 
         // Prime the cache by opening once
         try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, cache).open();
+            recordStore = getStoreBuilder()
+                    .setStoreStateCache(cache)
+                    .setContext(context).open();
         }
     }
 
@@ -293,63 +242,29 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         final Index newIndex = new Index("newIndex", field("num_value_2"));
 
         // Create a store with a new index to rebuild
-        final RecordMetaDataHook hook = metaDataBuilder -> {
-            metaDataBuilder.addIndex("MySimpleRecord", newIndex);
-        };
+        final RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", newIndex);
 
         final RecordMetaData metaData = simpleMetaData(hook);
 
         // Populate some data
-        try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, metaData).createOrOpen();
-            for (int i = 0; i < 20; i++) {
-                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
-                        .setRecNo(i)
-                        .setNumValue2(i * 100)
-                        .build());
-            }
-            commit(context);
-        }
+        withStore(metaData, store -> saveSomeRecords(store, 20));
 
         // Verify index is readable before we start
-        try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, metaData).open();
-            assertEquals(IndexState.READABLE, recordStore.getRecordStoreState().getState(newIndex.getName()));
-            commit(context);
-        }
+        assertIndexState(getStoreBuilder(metaData), IndexState.READABLE, newIndex);
 
         // Lock the store for maintenance
-        try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, metaData).open();
-            setFullStoreLock(lockReason);
-            commit(context);
-        }
+        withStore(metaData, store -> setFullStoreLock(store, lockReason));
 
         // Verify normal open fails
-        try (FDBRecordContext context = openContext()) {
-            assertThrows(StoreIsFullyLockedException.class, () -> {
-                getStoreBuilder(context, metaData).open();
-            });
-        }
+        assertCannotOpen(getStoreBuilder(metaData));
 
-        final FDBRecordStore.Builder storeBuilderWithLockBypass;
+        final FDBRecordStore.Builder storeBuilderWithLockBypass = getStoreBuilder(metaData)
+                .setBypassFullStoreLockReason(lockReason);
         // Use bypass to mark the index as disabled
-        try (FDBRecordContext context = openContext()) {
-            storeBuilderWithLockBypass = getStoreBuilder(context, metaData)
-                    .setBypassFullStoreLockReason(lockReason);
-            recordStore = storeBuilderWithLockBypass.open();
-
-            recordStore.markIndexDisabled(newIndex).join();
-            commit(context);
-        }
+        withStore(storeBuilderWithLockBypass, store -> store.markIndexDisabled(newIndex).join());
 
         // Verify index is now disabled (using bypass)
-        try (FDBRecordContext context = openContext()) {
-            recordStore = storeBuilderWithLockBypass
-                    .setContext(context).open();
-
-            assertEquals(IndexState.DISABLED, recordStore.getRecordStoreState().getState(newIndex.getName()));
-        }
+        assertIndexState(storeBuilderWithLockBypass, IndexState.DISABLED, newIndex);
 
         // Rebuild the index using OnlineIndexer with bypass
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
@@ -361,59 +276,76 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         }
 
         // Verify index is now readable (using bypass)
-        try (FDBRecordContext context = openContext()) {
-            recordStore = storeBuilderWithLockBypass
-                    .setContext(context)
-                    .open();
-
-            assertEquals(IndexState.READABLE, recordStore.getRecordStoreState().getState(newIndex.getName()));
-        }
+        assertIndexState(storeBuilderWithLockBypass, IndexState.READABLE, newIndex);
 
         // Unlock the store
-        try (FDBRecordContext context = openContext()) {
-            recordStore = storeBuilderWithLockBypass
-                    .setContext(context)
-                    .open();
-
-            recordStore.clearStoreLockStateAsync().join();
-            commit(context);
-        }
+        withStore(storeBuilderWithLockBypass, store -> store.clearStoreLockStateAsync().join());
 
         // Verify can now open normally and index is still readable
-        try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, metaData).open();
-            assertEquals(IndexState.READABLE, recordStore.getRecordStoreState().getState(newIndex.getName()));
+        withStore(metaData, store -> {
+            assertEquals(IndexState.READABLE, store.getRecordStoreState().getState(newIndex.getName()));
 
             // Verify we can query the index, we don't really care about the results
-            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(newIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = store.scanIndex(newIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
                 cursor.asList().join();
             }
+        });
+    }
 
+    private void assertIndexState(final FDBRecordStore.Builder storeBuilderWithLockBypass, final IndexState disabled, final Index newIndex) {
+        withStore(storeBuilderWithLockBypass,
+                store -> assertEquals(disabled, store.getRecordStoreState().getState(newIndex.getName())));
+    }
+
+    private void withStore(@Nonnull final RecordMetaData metaData, @Nonnull final Consumer<FDBRecordStore> action) {
+        withStore(getStoreBuilder(metaData), action);
+    }
+
+    private void withStore(@Nonnull final FDBRecordStore.Builder storeBuilder, @Nonnull final Consumer<FDBRecordStore> action) {
+        try (FDBRecordContext context = openContext()) {
+            action.accept(storeBuilder.setContext(context).createOrOpen());
             commit(context);
         }
     }
 
-    private void setFullStoreLock(final String lockReason) {
-        recordStore.setStoreLockStateAsync(
+    private void assertCannotOpen() {
+        assertCannotOpen(getStoreBuilder());
+    }
+
+    private void assertCannotOpen(@Nonnull final FDBRecordStore.Builder storeBuilder) {
+        try (FDBRecordContext context = openContext()) {
+            StoreIsFullyLockedException exception = assertThrows(StoreIsFullyLockedException.class,
+                    () -> storeBuilder.setContext(context).open());
+            assertNotNull(exception.getMessage());
+        }
+    }
+
+    private static void saveSomeRecords(@Nonnull final FDBRecordStore recordStore, final int count) {
+        for (int i = 0; i < count; i++) {
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(i)
+                    .setNumValue2(i * 100)
+                    .build());
+        }
+    }
+
+    private static void setFullStoreLock(@Nonnull final FDBRecordStore store, @Nonnull final String lockReason) {
+        store.setStoreLockStateAsync(
                 RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
                 lockReason
         ).join();
     }
 
-    @Override
     @Nonnull
-    public FDBRecordStore.Builder getStoreBuilder(final FDBRecordContext context, final RecordMetaData metaData) {
-        return getStoreBuilder(context, metaData, path, formatVersion);
+    private FDBRecordStore.Builder getStoreBuilder() {
+        return getStoreBuilder(simpleMetaData(null));
     }
 
     @Nonnull
-    private FDBRecordStore.Builder getStoreBuilder(@Nonnull final FDBRecordContext context,
-                                                   @Nullable final FDBRecordStoreStateCache cache) {
+    private FDBRecordStore.Builder getStoreBuilder(@Nonnull final RecordMetaData metadata) {
         return FDBRecordStore.newBuilder()
-                .setContext(context)
-                .setMetaDataProvider(simpleMetaData(null))
-                .setSubspace(path.toSubspace(context))
                 .setFormatVersion(formatVersion)
-                .setStoreStateCache(cache);
+                .setKeySpacePath(path)
+                .setMetaDataProvider(metadata);
     }
 }
