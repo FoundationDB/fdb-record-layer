@@ -237,21 +237,22 @@ public class FDBTypedRecordStoreTest {
         final String lockReason = "Testing typed record store lock clearing";
         final FormatVersion formatVersion = FormatVersion.getMaximumSupportedVersion();
 
+        final var baseBuilder = BUILDER.copyBuilder()
+                .setKeySpacePath(path)
+                .setFormatVersion(formatVersion);
+
         // Create store with lock support and set FULL_STORE lock
         try (FDBRecordContext context = fdb.openContext()) {
-            recordStore = BUILDER.copyBuilder()
+            recordStore = baseBuilder
                     .setContext(context)
-                    .setKeySpacePath(path)
-                    .setFormatVersion(formatVersion)
                     .createOrOpen();
 
             // Add some test data
             for (int i = 0; i < 10; i++) {
-                TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(i)
                         .setStrValueIndexed("test_" + i)
-                        .build();
-                recordStore.saveRecord(record);
+                        .build());
             }
 
             // Set FULL_STORE lock
@@ -265,20 +266,15 @@ public class FDBTypedRecordStoreTest {
 
         // Verify cannot open normally
         try (FDBRecordContext context = fdb.openContext()) {
-            final var builder = BUILDER.copyBuilder()
-                    .setContext(context)
-                    .setKeySpacePath(path)
-                    .setFormatVersion(formatVersion);
+            final var builder = baseBuilder.setContext(context);
             assertNull(builder.getBypassFullStoreLockReason());
             assertThrows(StoreIsFullyLockedException.class, builder::open);
         }
 
         // Open with bypass to clear the lock
         try (FDBRecordContext context = fdb.openContext()) {
-            final var builder = BUILDER.copyBuilder()
+            final var builder = baseBuilder
                     .setContext(context)
-                    .setKeySpacePath(path)
-                    .setFormatVersion(formatVersion)
                     .setBypassFullStoreLockReason(lockReason);
             assertEquals(lockReason, builder.getBypassFullStoreLockReason());
             recordStore = builder.open();
@@ -291,10 +287,8 @@ public class FDBTypedRecordStoreTest {
 
         // Verify can now open normally and read the records
         try (FDBRecordContext context = fdb.openContext()) {
-            recordStore = BUILDER.copyBuilder()
+            recordStore = baseBuilder
                     .setContext(context)
-                    .setKeySpacePath(path)
-                    .setFormatVersion(formatVersion)
                     .open();
 
             // Verify we can still read the records
