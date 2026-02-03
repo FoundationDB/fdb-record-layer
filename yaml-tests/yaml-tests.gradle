@@ -198,6 +198,12 @@ singleVersionTest {
     systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
 }
 
+def copyTempLogs = tasks.register("copyTempLogs", Copy) {
+    from(".out/tmp-test")
+    include "*.log"
+    into(".out/reports/logs")
+}
+
 test {
     dependsOn "serverJars"
     systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
@@ -215,6 +221,11 @@ test {
         // The yaml tests are quite fast now, lets put a lot more repetition on the queries, if it gets larger
         // we may want to decrease this multiplying factor.
         systemProperties['tests.yaml.iterations'] = Integer.parseInt(project.getProperty('tests.iterations')) * 20
+    }
+
+    if (project.hasProperty("tests.ci") || project.hasProperty("tests.saveServerLogs")) {
+        systemProperties['tests.saveServerLogs'] = "true"
+        finalizedBy(copyTempLogs)
     }
 }
 

@@ -25,6 +25,54 @@ versions-queries:
     insert_time_ms: 3
     insert_new_count: 79
     insert_reused_count: 6
+-   query: EXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 =
+        10 and "__ROW_VERSION" is not null;
+    explain: ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c14 AS LONG), [NOT_NULL]])
+        | MAP (version([_]) AS VERSION, _.COL2 AS COL2)
+    task_count: 785
+    task_total_time_ms: 71
+    transform_count: 187
+    transform_time_ms: 29
+    transform_yield_count: 61
+    insert_time_ms: 2
+    insert_new_count: 86
+    insert_reused_count: 5
+-   query: EXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 =
+        10 and "__ROW_VERSION" is null;
+    explain: ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c14 AS LONG), IS_NULL])
+        | MAP (version([_]) AS VERSION, _.COL2 AS COL2)
+    task_count: 717
+    task_total_time_ms: 82
+    transform_count: 168
+    transform_time_ms: 39
+    transform_yield_count: 56
+    insert_time_ms: 2
+    insert_new_count: 79
+    insert_reused_count: 5
+-   query: EXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 =
+        10 and "__ROW_VERSION" is distinct from null;
+    explain: ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | FILTER version([_]) IS_DISTINCT_FROM
+        NULL | MAP (version([_]) AS VERSION, _.COL2 AS COL2)
+    task_count: 785
+    task_total_time_ms: 45
+    transform_count: 189
+    transform_time_ms: 13
+    transform_yield_count: 60
+    insert_time_ms: 1
+    insert_new_count: 87
+    insert_reused_count: 6
+-   query: EXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 =
+        10 and "__ROW_VERSION" is not distinct from null;
+    explain: ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | FILTER version([_]) NOT_DISTINCT_FROM
+        NULL | MAP (version([_]) AS VERSION, _.COL2 AS COL2)
+    task_count: 785
+    task_total_time_ms: 47
+    transform_count: 189
+    transform_time_ms: 16
+    transform_yield_count: 60
+    insert_time_ms: 2
+    insert_new_count: 87
+    insert_reused_count: 6
 -   query: EXPLAIN select t1.* from t1 where col1 = 10;
     explain: ISCAN(I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS
         COL1, _.COL2 AS COL2)

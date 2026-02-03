@@ -104,6 +104,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
                         .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuation));
             }
             final int totalDepth = parsed.getLevelsCount();
+            byte[] checkValueFromPrior = null;
             for (int depth = 0; depth < totalDepth; depth++) {
                 final RecordCursorProto.RecursiveContinuation.LevelCursor parentLevel = parsed.getLevels(depth);
                 final RecordCursorContinuation priorContinuation;
@@ -115,15 +116,9 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
                 if (depth == 0) {
                     nodes.add(RecursiveNode.forRoot(priorContinuation, rootCursorFunction.apply(priorContinuation.toBytes())));
                 } else {
-                    byte[] checkValue = null;
-                    if (checkValueFunction != null && depth < totalDepth - 1) {
-                        final RecordCursorProto.RecursiveContinuation.LevelCursor childLevel = parsed.getLevels(depth + 1);
-                        if (childLevel.hasCheckValue()) {
-                            checkValue = childLevel.getCheckValue().toByteArray();
-                        }
-                    }
-                    nodes.add(RecursiveNode.forContinuation(priorContinuation, checkValue));
+                    nodes.add(RecursiveNode.forContinuation(priorContinuation, checkValueFromPrior));
                 }
+                checkValueFromPrior = parentLevel.hasCheckValue() ? parentLevel.getCheckValue().toByteArray() : null;
             }
         }
         return new RecursiveCursor<>(childCursorFunction, checkValueFunction, nodes, isPreorder);

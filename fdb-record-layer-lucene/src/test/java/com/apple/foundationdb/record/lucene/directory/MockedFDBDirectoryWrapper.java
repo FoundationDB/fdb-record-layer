@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import org.apache.lucene.store.LockFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -52,8 +53,10 @@ public class MockedFDBDirectoryWrapper extends FDBDirectoryWrapper {
     protected FDBDirectory createFDBDirectory(final Subspace subspace, final Map<String, String> options,
                                               final FDBDirectorySharedCacheManager sharedCacheManager,
                                               final Tuple sharedCacheKey, final boolean useCompoundFile,
-                                              final AgilityContext agilityContext, final int blockCacheMaximumSize) {
+                                              final AgilityContext agilityContext,
+                                              final @Nullable LockFactory lockFactory,
+                                              final int blockCacheMaximumSize) {
         return new MockedFDBDirectory(subspace, options, sharedCacheManager, sharedCacheKey, useCompoundFile,
-                agilityContext, blockCacheMaximumSize);
+                agilityContext, lockFactory, blockCacheMaximumSize);
     }
 }

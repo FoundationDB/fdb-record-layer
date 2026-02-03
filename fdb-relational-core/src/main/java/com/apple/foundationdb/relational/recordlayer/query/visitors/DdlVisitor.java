@@ -50,6 +50,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
@@ -509,20 +510,29 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             QueryParser.validateNoPreparedParams(functionCtx);
         }
 
-        // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
-        final var userDefinedFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
-
         RecordLayerInvokedRoutine.Builder builder = RecordLayerInvokedRoutine.newBuilder()
                 .setName(functionName)
                 .setDescription(functionDefinition)
-                .withUserDefinedRoutine(ignored -> userDefinedFunction)
-                .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
-                .setTemporary(isTemporary);
-        // 4. Return it.
-        if (userDefinedFunction instanceof UserDefinedMacroFunction) {
-            return builder.withSerializableFunction(userDefinedFunction).build();
+                .setTemporary(isTemporary)
+                .setPreparedParams(PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams()))
+                .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString());
+
+        boolean isScalar = functionSpecCtx.returnsClause() != null &&
+                functionSpecCtx.returnsClause().returnsType().returnsTableType() == null;
+        if (!isScalar && isTemporary) {
+            // delay the compilation of table-valued temporary functions for later
+            return builder
+                    .withUserDefinedFunctionProvider(ignore -> visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary))
+                    .withSerializableFunction(new RawSqlFunction(functionName, functionDefinition))
+                    .build();
         } else {
-            return builder.withSerializableFunction(new RawSqlFunction(functionName, functionDefinition)).build();
+            final var userDefinedFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
+            builder.withUserDefinedFunctionProvider(ignore -> userDefinedFunction);
+            if (isScalar) {
+                return builder.withSerializableFunction(userDefinedFunction).build();
+            } else {
+                return builder.withSerializableFunction(new RawSqlFunction(functionName, functionDefinition)).build();
+            }
         }
     }
 
