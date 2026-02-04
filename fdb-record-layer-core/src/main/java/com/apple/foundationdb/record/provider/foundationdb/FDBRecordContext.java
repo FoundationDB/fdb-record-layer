@@ -173,7 +173,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nullable
     private List<Range> notCommittedConflictingKeys = null;
     @Nonnull
-    private final LockRegistry lockRegistry = new LockRegistry(this.getTimer());
+    private final LockRegistry lockRegistry;
     @Nonnull
     private final TempTable.Factory tempTableFactory = TempTable.Factory.instance();
 
@@ -190,11 +190,12 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         this.transactionId = getSanitizedId(config);
         this.openStackTrace = config.isSaveOpenStackTrace() ? new Throwable("Not really thrown") : null;
 
-        @Nonnull Transaction tr = ensureActive();
+        @Nonnull Transaction tr = transaction;
         if (this.transactionId != null) {
             tr.options().setDebugTransactionIdentifier(this.transactionId);
             if (config.isLogTransaction()) {
-                logTransaction();
+                tr.options().setLogTransaction();
+                logged = true;
             }
         }
         if (config.isServerRequestTracing()) {
@@ -238,6 +239,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             // If the value is DEFAULT_TR_TIMEOUT_MILLIS, then this uses the system default and does not need to be set here
             tr.options().setTimeout(timeoutMillis);
         }
+
+        lockRegistry = new LockRegistry(timer);
 
         this.dirtyStoreState = false;
     }
@@ -369,11 +372,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @see com.apple.foundationdb.TransactionOptions#setLogTransaction()
      * @see FDBRecordContextConfig.Builder#setLogTransaction(boolean)
      */
+    // TODO: Consider deprecating this method, as now called inline when constructing.
     public final void logTransaction() {
         if (transactionId == null) {
             throw new RecordCoreException("Cannot log transaction as ID is not set");
         }
-        // TODO: Consider deprecating this method and moving this inline.
         ensureActive().options().setLogTransaction();
         logged = true;
     }
