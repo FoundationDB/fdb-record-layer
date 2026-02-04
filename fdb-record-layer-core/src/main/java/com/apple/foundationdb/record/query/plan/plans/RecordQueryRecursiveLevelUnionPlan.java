@@ -107,6 +107,7 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
     @Nonnull
     private final Supplier<Integer> computeComplexitySupplier;
 
+    @SuppressWarnings("this-escape")
     public RecordQueryRecursiveLevelUnionPlan(@Nonnull final Quantifier.Physical initialStateQuantifier,
                                               @Nonnull final Quantifier.Physical recursiveStateQuantifier,
                                               @Nonnull final CorrelationIdentifier tempTableScanAlias,

@@ -93,6 +93,7 @@ public class RecordQueryFetchFromPartialRecordPlan extends AbstractRelationalExp
     @Nonnull
     private final Supplier<? extends Value> resultValueSupplier;
 
+    @SuppressWarnings("this-escape")
     protected RecordQueryFetchFromPartialRecordPlan(@Nonnull final PlanSerializationContext serializationContext,
                                                     @Nonnull final PRecordQueryFetchFromPartialRecordPlan recordQueryFetchFromPartialRecordPlanProto) {
         this.inner = Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryFetchFromPartialRecordPlanProto.getInner()));
@@ -111,6 +112,7 @@ public class RecordQueryFetchFromPartialRecordPlan extends AbstractRelationalExp
                 translateValueFunction, resultType, fetchIndexRecords);
     }
 
+    @SuppressWarnings("this-escape")
     public RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final TranslateValueFunction translateValueFunction, @Nonnull final Type resultType, @Nonnull final FetchIndexRecords fetchIndexRecords) {
         this.inner = inner;
         this.resultType = resultType;

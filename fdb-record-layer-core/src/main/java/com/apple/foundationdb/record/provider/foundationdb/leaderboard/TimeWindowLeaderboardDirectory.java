@@ -47,6 +47,7 @@ public class TimeWindowLeaderboardDirectory {
         this.highScoreFirst = highScoreFirst;
     }
 
+    @SuppressWarnings("this-escape")
     protected TimeWindowLeaderboardDirectory(TimeWindowLeaderboardProto.TimeWindowLeaderboardDirectory proto) {
         highScoreFirst = proto.getHighScoreFirst();
         updateTimestamp = proto.getUpdateTimestamp();

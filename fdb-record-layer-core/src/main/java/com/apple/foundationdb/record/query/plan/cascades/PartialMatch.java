@@ -121,6 +121,7 @@ public class PartialMatch {
     @Nonnull
     private final Map<QueryPredicate, Optional<PredicateMapping>> memoizedPulledUpPredicateMap;
 
+    @SuppressWarnings("this-escape")
     public PartialMatch(@Nonnull final AliasMap boundAliasMap,
                         @Nonnull final MatchCandidate matchCandidate,
                         @Nonnull final Reference queryRef,

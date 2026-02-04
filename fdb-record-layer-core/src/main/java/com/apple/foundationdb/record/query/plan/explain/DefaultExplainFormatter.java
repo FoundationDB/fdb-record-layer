@@ -40,6 +40,7 @@ public class DefaultExplainFormatter implements ExplainFormatter {
     @Nonnull
     private final Deque<ExplainSymbolMap> scopes;
 
+    @SuppressWarnings("this-escape")
     public DefaultExplainFormatter(@Nonnull final Supplier<ExplainSymbolMap> symbolMapSupplier) {
         this.symbolMapSupplier = symbolMapSupplier;
         this.scopes = new ArrayDeque<>();

@@ -75,6 +75,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
         this.isIndexOnlySupplier = Suppliers.memoize(() -> getValue().isIndexOnly());
     }
 
+    @SuppressWarnings("this-escape")
     public ValuePredicate(@Nonnull final Value value, @Nonnull final Comparison comparison) {
         super(false);
         this.value = value;

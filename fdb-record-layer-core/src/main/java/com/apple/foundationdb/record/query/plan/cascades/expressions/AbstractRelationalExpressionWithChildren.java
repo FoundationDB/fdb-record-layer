@@ -43,6 +43,7 @@ public abstract class AbstractRelationalExpressionWithChildren extends AbstractR
     @Nonnull
     private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
 
+    @SuppressWarnings("this-escape")
     protected AbstractRelationalExpressionWithChildren() {
         this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
     }

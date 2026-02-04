@@ -95,6 +95,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     @Nonnull
     private final SetMultimap<Map<ExpressionProperty<?>, ?>, E> partitioningPropertiesExpressionsMap;
 
+    @SuppressWarnings("this-escape")
     public ExpressionPropertiesMap(@Nonnull final Class<E> expressionClass,
                                    @Nonnull final Set<ExpressionProperty<?>> trackedPartitioningProperties,
                                    @Nonnull final Set<ExpressionProperty<?>> trackedNonPartitioningProperties,

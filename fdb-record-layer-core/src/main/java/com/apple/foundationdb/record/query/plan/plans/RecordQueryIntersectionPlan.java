@@ -95,6 +95,7 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
     @Nonnull
     private final Supplier<Value> resultValueSupplier;
 
+    @SuppressWarnings("this-escape")
     protected RecordQueryIntersectionPlan(@Nonnull final PlanSerializationContext serializationContext,
                                           @Nonnull final PRecordQueryIntersectionPlan recordQueryIntersectionPlanProto) {
         Verify.verify(recordQueryIntersectionPlanProto.hasReverse());
@@ -108,7 +109,7 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
         this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
     }
 
-    @SuppressWarnings("PMD.UnusedFormalParameter")
+    @SuppressWarnings({"PMD.UnusedFormalParameter", "this-escape"})
     protected RecordQueryIntersectionPlan(@Nonnull List<Quantifier.Physical> quantifiers,
                                           @Nonnull ComparisonKeyFunction comparisonKeyFunction,
                                           boolean reverse) {

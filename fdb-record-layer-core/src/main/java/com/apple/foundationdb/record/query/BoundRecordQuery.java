@@ -73,6 +73,7 @@ public class BoundRecordQuery {
         this(recordStoreState, recordQuery, ParameterRelationshipGraph.fromRecordQueryAndBindings(recordQuery, perBoundParameterBindings));
     }
 
+    @SuppressWarnings("this-escape")
     private BoundRecordQuery(@Nonnull final RecordStoreState recordStoreState, @Nonnull final RecordQuery recordQuery, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
         this.recordStoreState = recordStoreState;
         this.recordQuery = recordQuery;
