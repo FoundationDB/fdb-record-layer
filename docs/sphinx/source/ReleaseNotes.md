@@ -7,6 +7,36 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.9
 
+### 4.9.9.0
+
+<h4> Bug Fixes </h4>
+
+* Lucene: handle requests for deferred merges - [PR #3905](https://github.com/FoundationDB/fdb-record-layer/pull/3905)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Introduce "include" block in YAML testing framework - [PR #3819](https://github.com/FoundationDB/fdb-record-layer/pull/3819)
+
+</details>
+
+
+**[Full Changelog (4.9.8.0...4.9.9.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.9.8.0...4.9.9.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.8.15.0`, ✅`4.8.16.0`, ✅`4.8.17.0`, ✅`4.9.1.0`, ✅`4.9.2.0`, ✅`4.9.3.0`, ✅`4.9.4.0`, ✅`4.9.6.0`, ✅`4.9.7.0`, ✅`4.9.8.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/21681566971)
+
+
+
 ### 4.9.8.0
 
 <h4> New Features </h4>
