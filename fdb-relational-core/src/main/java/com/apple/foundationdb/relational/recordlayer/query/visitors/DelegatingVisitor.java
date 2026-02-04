@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
+import com.apple.foundationdb.relational.recordlayer.query.WindowSpecExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
@@ -245,6 +246,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitIndexType(final RelationalParser.IndexTypeContext ctx) {
         return getDelegate().visitIndexType(ctx);
+    }
+
+    @Override
+    public Object visitIndexPartitionClause(final RelationalParser.IndexPartitionClauseContext ctx) {
+        return getDelegate().visitIndexPartitionClause(ctx);
     }
 
     @Override
@@ -734,6 +740,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitHavingClause(ctx);
     }
 
+    @Override
+    public Expression visitQualifyClause(final RelationalParser.QualifyClauseContext ctx) {
+        return getDelegate().visitQualifyClause(ctx);
+    }
+
     @Nonnull
     @Override
     public Expression visitGroupByItem(@Nonnull RelationalParser.GroupByItemContext ctx) {
@@ -888,6 +899,18 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitExecuteContinuationStatement(@Nonnull RelationalParser.ExecuteContinuationStatementContext ctx) {
         return getDelegate().visitExecuteContinuationStatement(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public QueryPlan visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
+        return (QueryPlan) getDelegate().visitCopyExportStatement(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public QueryPlan visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
+        return (QueryPlan) getDelegate().visitCopyImportStatement(ctx);
     }
 
     @Nonnull
@@ -1294,6 +1317,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Expression visitNonAggregateFunctionCall(@Nonnull RelationalParser.NonAggregateFunctionCallContext ctx) {
+        return getDelegate().visitNonAggregateFunctionCall(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Object visitSpecificFunctionCall(@Nonnull RelationalParser.SpecificFunctionCallContext ctx) {
         return getDelegate().visitSpecificFunctionCall(ctx);
     }
@@ -1408,13 +1437,13 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Object visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx) {
+    public Expression visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx) {
         return getDelegate().visitNonAggregateWindowedFunction(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx) {
+    public WindowSpecExpression visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx) {
         return getDelegate().visitOverClause(ctx);
     }
 
@@ -1424,8 +1453,27 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitWindowName(ctx);
     }
 
+    @Nonnull
     @Override
-    public Object visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
+    public Object visitWindowSpec(final RelationalParser.WindowSpecContext ctx) {
+        return getDelegate().visitWindowSpec(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expressions visitWindowOptionsClause(final RelationalParser.WindowOptionsClauseContext ctx) {
+        return getDelegate().visitWindowOptionsClause(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitWindowOption(final RelationalParser.WindowOptionContext ctx) {
+        return getDelegate().visitWindowOption(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
         return getDelegate().visitPartitionClause(ctx);
     }
 

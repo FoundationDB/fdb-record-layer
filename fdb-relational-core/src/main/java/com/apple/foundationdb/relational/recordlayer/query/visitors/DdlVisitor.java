@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -47,14 +48,14 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
-import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
-import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
-import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
@@ -296,8 +297,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.isNullUnchecked(indexDefinitionContext.includeClause(), ErrorCode.UNSUPPORTED_OPERATION,
                 "INCLUDE clause is not supported for vector indexes");
 
-        if (indexDefinitionContext.partitionClause() != null) {
-            indexDefinitionContext.partitionClause().indexColumnSpec().forEach(colSpec ->
+        if (indexDefinitionContext.indexPartitionClause() != null) {
+            indexDefinitionContext.indexPartitionClause().indexColumnSpec().forEach(colSpec ->
                     indexGeneratorBuilder.addKeyColumn(OnSourceIndexGenerator.IndexedColumn
                             .parseColSpec(colSpec, getDelegate().getIdentifierVisitor())));
         }
@@ -340,7 +341,17 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             } else if (option.MAINTAIN_STATS_PROBABILITY() != null) {
                 indexOptionsBuilder.put(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY, option.maintainStatsProbability.getText());
             } else if (option.METRIC() != null) {
-                indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, option.metric.getText());
+                if (option.metric.DOT_PRODUCT_METRIC() != null) {
+                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.DOT_PRODUCT_METRIC.name());
+                } else if (option.metric.EUCLIDEAN_METRIC() != null) {
+                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name());
+                } else if (option.metric.EUCLIDEAN_SQUARE_METRIC() != null) {
+                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_SQUARE_METRIC.name());
+                } else if (option.metric.COSINE_METRIC() != null) {
+                    indexOptionsBuilder.put(IndexOptions.HNSW_METRIC, Metric.COSINE_METRIC.name());
+                } else {
+                    Assert.failUnchecked("metric " + option.metric.getText() + " is not currently supported");
+                }
             } else if (option.RABITQ_NUM_EX_BITS() != null) {
                 indexOptionsBuilder.put(IndexOptions.HNSW_RABITQ_NUM_EX_BITS, option.rabitQNumExBits.getText());
             } else if (option.SAMPLE_VECTOR_STATS_PROBABILITY() != null) {
@@ -499,20 +510,29 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             QueryParser.validateNoPreparedParams(functionCtx);
         }
 
-        // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
-        final var userDefinedFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
-
         RecordLayerInvokedRoutine.Builder builder = RecordLayerInvokedRoutine.newBuilder()
                 .setName(functionName)
                 .setDescription(functionDefinition)
-                .withUserDefinedRoutine(ignored -> userDefinedFunction)
-                .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
-                .setTemporary(isTemporary);
-        // 4. Return it.
-        if (userDefinedFunction instanceof UserDefinedMacroFunction) {
-            return builder.withSerializableFunction(userDefinedFunction).build();
+                .setTemporary(isTemporary)
+                .setPreparedParams(PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams()))
+                .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString());
+
+        boolean isScalar = functionSpecCtx.returnsClause() != null &&
+                functionSpecCtx.returnsClause().returnsType().returnsTableType() == null;
+        if (!isScalar && isTemporary) {
+            // delay the compilation of table-valued temporary functions for later
+            return builder
+                    .withUserDefinedFunctionProvider(ignore -> visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary))
+                    .withSerializableFunction(new RawSqlFunction(functionName, functionDefinition))
+                    .build();
         } else {
-            return builder.withSerializableFunction(new RawSqlFunction(functionName, functionDefinition)).build();
+            final var userDefinedFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
+            builder.withUserDefinedFunctionProvider(ignore -> userDefinedFunction);
+            if (isScalar) {
+                return builder.withSerializableFunction(userDefinedFunction).build();
+            } else {
+                return builder.withSerializableFunction(new RawSqlFunction(functionName, functionDefinition)).build();
+            }
         }
     }
 
@@ -556,7 +576,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 ctx.tempSqlInvokedFunction().routineBody(), getDelegate().getSchemaTemplate());
         var throwIfExists = ctx.REPLACE() == null;
         return ProceduralPlan.of(metadataOperationsFactory.getCreateTemporaryFunctionConstantAction(getDelegate().getSchemaTemplate(),
-                throwIfExists, invokedRoutine, PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams())));
+                throwIfExists, invokedRoutine));
     }
 
     @Override

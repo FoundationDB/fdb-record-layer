@@ -30,11 +30,13 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.cursors.FutureCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
+import com.apple.test.ParameterizedTestUtils;
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -778,16 +780,18 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
     }
 
     private static Stream<Arguments> mdcParams() {
-        return Stream.of(
-                Arguments.of("value", 10, 0, 1), // have MDC value, one transaction
-                Arguments.of(null, 10, 0, 1),    // null MDC, one transaction
-                Arguments.of("value", 10, 6, 2)  // have MDC, 2 transactions
-        );
+        return ParameterizedTestUtils.booleans("useMdc").flatMap(useMdc ->
+                Stream.of(
+                        Arguments.of(useMdc, "value", 10, 0, 1), // have MDC value, one transaction
+                        Arguments.of(useMdc, null, 10, 0, 1),    // null MDC, one transaction
+                        Arguments.of(useMdc, "value", 10, 6, 2)  // have MDC, 2 transactions
+        ));
     }
 
     @ParameterizedTest
     @MethodSource("mdcParams")
-    void testMdcContextPropagation(String mdcValue, int numRecords, int deletesPerTransaction, int expectedTransactions) throws Exception {
+    void testMdcContextPropagation(boolean useMdc, String mdcValue, int numRecords, int deletesPerTransaction, int expectedTransactions) throws Exception {
+        // In this test, "useMdc" of TRUE means set the MDC context directly, FALSE means set it in the ContextConfig
         String mdcKey = "mdckey";
         final Map<String, String> original = MDC.getCopyOfContextMap();
 
@@ -814,10 +818,15 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             }
 
             Map<String, String> mdcContext = (mdcValue == null) ? null : MDC.getCopyOfContextMap();
-            ThrottledRetryingIterator.Builder<Integer> builder =
-                    ThrottledRetryingIterator.builder(fdb, intCursor(numRecords, null), itemHandler)
-                            .withMdcContext(mdcContext);
-
+            ThrottledRetryingIterator.Builder<Integer> builder;
+            if (useMdc) {
+                builder = ThrottledRetryingIterator.builder(fdb, intCursor(numRecords, null), itemHandler)
+                        .withMdcContext(mdcContext);
+            } else {
+                FDBRecordContextConfig.Builder contextConfigBuilder = FDBRecordContextConfig.newBuilder()
+                        .setMdcContext(mdcContext);
+                builder = ThrottledRetryingIterator.builder(fdb, contextConfigBuilder, intCursor(numRecords, null), itemHandler);
+            }
             builder.withMaxRecordsDeletesPerTransaction(deletesPerTransaction)
                     .withTransactionInitNotification(transactionStart);
 

@@ -101,6 +101,25 @@ public final class LuceneIndexMaintainerHelper {
                         LuceneLogMessageKeys.SEGMENTS, segmentIndex.findSegments(primaryKey)));
             }
         }
+        deleteDocument(indexWriter, primaryKey, index);
+        LuceneEvents.Events event = isWriteOnlyMode ?
+                                    LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE :
+                                    LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY;
+        context.record(event, System.nanoTime() - startTime);
+
+        // if we delete by query, we aren't certain whether the document was actually deleted (if, for instance, it wasn't in Lucene
+        // to begin with)
+        return 0;
+    }
+
+    /**
+     * Delete a document in the index writer.
+     * @param indexWriter the index writer to use
+     * @param primaryKey the document to delete
+     * @param index the index used (for options)
+     * @throws IOException in case of error
+     */
+    public static void deleteDocument(final IndexWriter indexWriter, final Tuple primaryKey, final Index index) throws IOException {
         Query query;
         // null format means don't use BinaryPoint for the index primary key
         String formatString = index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
@@ -123,14 +142,6 @@ public final class LuceneIndexMaintainerHelper {
         }
 
         indexWriter.deleteDocuments(query);
-        LuceneEvents.Events event = isWriteOnlyMode ?
-                                    LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE :
-                                    LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY;
-        context.record(event, System.nanoTime() - startTime);
-
-        // if we delete by query, we aren't certain whether the document was actually deleted (if, for instance, it wasn't in Lucene
-        // to begin with)
-        return 0;
     }
 
     /**
@@ -161,17 +172,14 @@ public final class LuceneIndexMaintainerHelper {
 
     @SuppressWarnings("PMD.CloseResource")
     public static void writeDocument(FDBRecordContext context,
-                                     FDBDirectoryManager directoryManager,
+                                     IndexWriter newWriter,
                                      Index index,
-                                     Tuple groupingKey,
-                                     Integer partitionId,
                                      Tuple primaryKey,
                                      List<LuceneDocumentFromRecord.DocumentField> fields
                                      ) throws IOException {
         // Partition count was increased preemptively by the index maintainer
         final long startTime = System.nanoTime();
         Document document = new Document();
-        final IndexWriter newWriter = directoryManager.getIndexWriter(groupingKey, partitionId);
         String formatString = index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
         LuceneIndexKeySerializer keySerializer = LuceneIndexKeySerializer.fromStringFormat(formatString);
 
@@ -219,7 +227,7 @@ public final class LuceneIndexMaintainerHelper {
      * Insert a field into the document and add a suggestion into the suggester if needed.
      */
     @SuppressWarnings("java:S3776")
-    private static void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
+    public static void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
         final String fieldName = field.getFieldName();
         final Object value = field.getValue();
         final Field luceneField;

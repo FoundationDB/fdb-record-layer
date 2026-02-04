@@ -338,9 +338,6 @@ test_block:
       - error: "0AF00"
     -
       - query: select count(*) from T2;
-      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
-      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
-      - maxRows: 0
       - explain: "AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{0}]
     -
@@ -405,9 +402,6 @@ test_block:
     -
       - query: select count(col2) from T2;
       - explain: "AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
-      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
-      - maxRows: 0
       - result: [{0}]
     -
       - query: select count(col2) from T2 where col1 = 0;
@@ -479,10 +473,7 @@ test_block:
       # - subtract the indexed value when the corresponding tuple is removed from the base table.
       # - if the sum reaches zero, it keeps it in the sum index and does not remove the entry from there.
       - query: select sum(col1) from T2;
-      # Cannot support FORCE_CONTINUATIONS due to non-empty aggregate scan returning a begin continuation.
-      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3206
       - explain: "AISCAN(T2_I5 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      - maxRows: 0
       - result: [{0}]
     -
       - query: select sum(col1) from T2 where col1 = 0;

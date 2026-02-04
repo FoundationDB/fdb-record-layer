@@ -33,11 +33,10 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
-import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
@@ -195,7 +194,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitCreateTempFunction(final RelationalParser.CreateTempFunctionContext ctx) {
-        final var functionName = ctx.tempSqlInvokedFunction().functionSpecification().schemaQualifiedRoutineName.getText();
+        final var functionName = SemanticAnalyzer.normalizeString(ctx.tempSqlInvokedFunction().functionSpecification().schemaQualifiedRoutineName.getText(), caseSensitive);
         queryHasherContextBuilder.getLiteralsBuilder().setScope(functionName);
         return visitChildren(ctx);
     }
@@ -486,6 +485,18 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         return ctx.packageBytes.accept(this);
     }
 
+    @Override
+    public Object visitCopyExportStatement(final RelationalParser.CopyExportStatementContext ctx) {
+        queryCachingFlags.add(NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION);
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Object visitCopyImportStatement(final RelationalParser.CopyImportStatementContext ctx) {
+        queryCachingFlags.add(NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION);
+        return visitChildren(ctx);
+    }
+
     private void processArrayParameter(@Nonnull final Array param, @Nullable Integer unnamedParameterIndex,
                                        @Nullable String parameterName, final int tokenIndex) {
         try {
@@ -596,33 +607,39 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                    @Nonnull final PlannerConfiguration plannerConfiguration,
                                                    boolean caseSensitive,
                                                    @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
-                                                   @Nonnull final String query) {
+                                                   @Nonnull final String query) throws RelationalException {
         final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode);
         astNormalizer.visit(context);
         final var recordLayerSchemaTemplate = Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class);
 
-        // The generated plan of a query can reference an arbitrary number of nested temporary SQL functions.
-        // These references, when expanded to the respective temporary functions’ plans, can contain constant
-        // object value references (CoVs) scoped to the function definition. Therefore, all literals of the
-        // temporary functions must be attached to the query hasher context, which is used to generate the
-        // primary plan cache key.
-        // In addition, it is important to note that:
-        // 1. The temporary functions’ literals, including those from prepared parameters, are already bound. This means
-        // that the prepared statement semantics remain intact, ensuring that the customer prepares exactly the values
-        // immediately visible in the statement. Otherwise, it is an error.
-        // 2. It is possible to attach more (bound) literals than required. This is because the logic iterates over the
-        // functions and adds their literals, regardless of whether these functions are used or not. It is assumed that
-        // this is acceptable because the plan execution only cares about the required constant object references.
-        for (final var temporaryRoutine : recordLayerSchemaTemplate.getTemporaryInvokedRoutines()) {
-            if (!(temporaryRoutine instanceof RecordLayerInvokedRoutine)) {
-                continue;
+        if (!astNormalizer.queryCachingFlags.contains(NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT)) {
+            // The generated plan of a query can reference an arbitrary number of nested temporary SQL functions.
+            // These references, when expanded to the respective temporary functions’ plans, can contain constant
+            // object value references (CoVs) scoped to the function definition. Therefore, all literals of the
+            // temporary functions must be attached to the query hasher context, which is used to generate the
+            // primary plan cache key.
+            // In addition, it is important to note that:
+            // 1. The temporary functions’ literals, including those from prepared parameters, are already bound. This means
+            // that the prepared statement semantics remain intact, ensuring that the customer prepares exactly the values
+            // immediately visible in the statement. Otherwise, it is an error.
+            // 2. It is possible to attach more (bound) literals than required. This is because the logic iterates over the
+            // functions and adds their literals, regardless of whether these functions are used or not. It is assumed that
+            // this is acceptable because the plan execution only cares about the required constant object references.
+            for (final var temporaryRoutine : recordLayerSchemaTemplate.getTemporaryInvokedRoutines()) {
+                if (!(temporaryRoutine instanceof RecordLayerInvokedRoutine)) {
+                    continue;
+                }
+                final var recordLayerRoutine = (RecordLayerInvokedRoutine)temporaryRoutine;
+                final var functionAstResult = normalizeAst(schemaTemplate,
+                        QueryParser.parse(recordLayerRoutine.getDescription()).getRootContext(),
+                        recordLayerRoutine.getPreparedParams(),
+                        userVersion,
+                        plannerConfiguration,
+                        caseSensitive,
+                        currentPlanHashMode,
+                        recordLayerRoutine.getDescription());
+                astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(functionAstResult.queryExecutionContext.getLiterals());
             }
-            final var recordLayerRoutine = (RecordLayerInvokedRoutine)temporaryRoutine;
-            // immediate materialization of temporary function, this is required to collect any auxiliary literals discovered
-            // during plan generation of the temporary function. The literals and combined with query literals and provided
-            // for the execution of a (cached) physical plan.
-            final var compiledFunction = (CompiledSqlFunction)recordLayerRoutine.getUserDefinedFunctionProvider().apply(caseSensitive);
-            astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(compiledFunction.getAuxiliaryLiterals());
         }
         return new NormalizationResult(
                 recordLayerSchemaTemplate.getName(),

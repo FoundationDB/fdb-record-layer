@@ -104,6 +104,9 @@ public class KeySpacePathSerializer {
             path.getDirectory().getSubdirectory(entry.getName()).validateValue(value);
             path = path.add(entry.getName(), value);
         }
+        if (!path.getDirectory().isLeaf()) {
+            throw new DataNotAtLeafException(path);
+        }
 
         // Extract remainder if present
         Tuple remainder = null;
