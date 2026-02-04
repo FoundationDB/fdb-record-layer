@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Environment;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.apache.logging.log4j.LogManager;
@@ -79,48 +80,48 @@ public final class QueryCommand extends Command {
     }
 
     @Nonnull
-    public static Command parse(@Nonnull final Object object, @Nonnull final String blockName, @Nonnull final YamlExecutionContext executionContext) {
+    public static Command parse(@Nonnull final YamlReference.YamlResource resource, @Nonnull final Object object, @Nonnull final String blockName, @Nonnull final YamlExecutionContext executionContext) {
         final var queryCommand = Matchers.firstEntry(Matchers.first(Matchers.arrayList(object, "query command")), "query command");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(queryCommand.getKey(), () -> "Invalid command key-value pair: " + queryCommand);
-        final var lineNumber = Matchers.notNull(linedObject, "query").getLineNumber();
+        final var reference = resource.withLineNumber(Matchers.notNull(linedObject, "query").getLineNumber());
         try {
             if (Debugger.getDebugger() != null) {
                 Debugger.getDebugger().onSetup(); // clean all symbols before the next query.
             }
             final var queryString = Matchers.notNull(Matchers.string(queryCommand.getValue(), "query string"), "query string");
-            final var queryInterpreter = QueryInterpreter.withQueryString(lineNumber, queryString, executionContext);
+            final var queryInterpreter = QueryInterpreter.withQueryString(reference, queryString, executionContext);
             final List<?> queryConfigsWithValueList = Matchers.arrayList(object).stream().skip(1).collect(Collectors.toList());
             final var configs = queryConfigsWithValueList.isEmpty() ?
-                    List.of(QueryConfig.getNoCheckConfig(lineNumber, executionContext)) :
-                    QueryConfig.parseConfigs(blockName, lineNumber, queryConfigsWithValueList, executionContext);
+                    List.of(QueryConfig.getNoCheckConfig(reference)) :
+                    QueryConfig.parseConfigs(blockName, reference, queryConfigsWithValueList, executionContext);
 
             final List<QueryConfig> skipConfigs = configs.stream().filter(config -> config instanceof QueryConfig.SkipConfig)
                     .collect(Collectors.toList());
             Assert.thatUnchecked(skipConfigs.size() < 2, "Query should not have more than one skip");
             if (!skipConfigs.isEmpty()) {
-                return new SkippedCommand(lineNumber, executionContext,
+                return new SkippedCommand(reference, executionContext,
                         ((QueryConfig.SkipConfig)skipConfigs.get(0)).getMessage(),
                         queryInterpreter.getQuery());
             }
             final boolean hasDebuggerConfig =
                     configs.stream()
                             .anyMatch(config -> Objects.equals(config.getConfigName(), QueryConfig.QUERY_CONFIG_DEBUGGER));
-            return new QueryCommand(lineNumber, queryInterpreter, configs, executionContext, hasDebuggerConfig);
+            return new QueryCommand(reference, queryInterpreter, configs, executionContext, hasDebuggerConfig);
         } catch (Exception e) {
             throw executionContext.wrapContext(e,
-                    () -> "‼️ Error parsing query command at line " + lineNumber, "query", lineNumber);
+                    () -> "‼️ Error parsing query command at " + reference, "query", reference);
         }
     }
 
-    public static QueryCommand withQueryString(int lineNumber, @Nonnull String singleExecutableCommand,
+    public static QueryCommand withQueryString(@Nonnull final YamlReference reference, @Nonnull String singleExecutableCommand,
                                                @Nonnull final YamlExecutionContext executionContext) {
-        return new QueryCommand(lineNumber, QueryInterpreter.withQueryString(lineNumber, singleExecutableCommand, executionContext),
-                List.of(QueryConfig.getNoCheckConfig(lineNumber, executionContext)), executionContext, false);
+        return new QueryCommand(reference, QueryInterpreter.withQueryString(reference, singleExecutableCommand, executionContext),
+                List.of(QueryConfig.getNoCheckConfig(reference)), executionContext, false);
     }
 
-    private QueryCommand(int lineNumber, @Nonnull QueryInterpreter interpreter, @Nonnull List<QueryConfig> configs,
+    private QueryCommand(@Nonnull final YamlReference reference, @Nonnull QueryInterpreter interpreter, @Nonnull List<QueryConfig> configs,
                          @Nonnull final YamlExecutionContext executionContext, final boolean needsSerialEnvironment) {
-        super(lineNumber, executionContext);
+        super(reference, executionContext);
         if (Debugger.getDebugger() != null) {
             Debugger.getDebugger().onSetup(); // clean all symbols before the next query.
         }
@@ -128,7 +129,7 @@ public final class QueryCommand extends Command {
         this.queryConfigs = configs;
         this.needsSerialEnvironment = needsSerialEnvironment;
         Assert.thatUnchecked(queryConfigs.stream().noneMatch(config -> config instanceof QueryConfig.SkipConfig),
-                "SkipConfig should not have gotten into QueryCommand " + lineNumber);
+                "SkipConfig should not have gotten into QueryCommand " + reference);
     }
 
     public void execute(@Nonnull final YamlConnection connection, boolean checkCache, @Nonnull QueryExecutor executor) {
@@ -146,8 +147,8 @@ public final class QueryCommand extends Command {
         } catch (Throwable e) {
             if (maybeExecutionThrowable.get() == null) {
                 maybeExecutionThrowable.set(executionContext.wrapContext(e,
-                        () -> "‼️ Error executing query command at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),
-                        String.format(Locale.ROOT, "query [%s] ", executor), getLineNumber()));
+                        () -> "‼️ Error executing query command at " + getReference() + " against connection for versions " + connection.getVersions(),
+                        String.format(Locale.ROOT, "query [%s] ", executor), getReference()));
             }
         }
     }
@@ -226,11 +227,11 @@ public final class QueryCommand extends Command {
                 }
 
                 if (exhausted && (QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_UNORDERED_RESULT.equals(queryConfig.getConfigName()))) {
-                    Assert.fail(String.format(Locale.ROOT, "‼️ Expecting more results, however no more rows are available to fetch at line %d%n" +
+                    Assert.fail(String.format(Locale.ROOT, "‼️ Expecting more results, however no more rows are available to fetch at %s%n" +
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                             "%s%n" +
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
-                            queryConfig.getLineNumber(), queryConfig.getValueString()));
+                            queryConfig.getReference(), queryConfig.getValueString()));
                 }
                 continuation = executor.execute(connection, continuation, queryConfig, checkCache, maxRows);
                 if (continuation == null || continuation.atEnd()) {
@@ -238,8 +239,8 @@ public final class QueryCommand extends Command {
                     exhausted = true;
                 } else if (!queryConfigsIterator.hasNext()) {
                     queryIsRunning = false;
-                    Assert.fail(String.format(Locale.ROOT, "Query returned more results, but no more were expected after line %d",
-                            queryConfig.getLineNumber()));
+                    Assert.fail(String.format(Locale.ROOT, "Query returned more results, but no more were expected after %s",
+                            queryConfig.getReference()));
                 } else {
                     queryIsRunning = true;
                 }
