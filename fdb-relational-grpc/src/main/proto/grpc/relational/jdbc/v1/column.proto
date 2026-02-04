@@ -41,22 +41,24 @@ enum Type {
   STRUCT = 11;
   ARRAY = 12;
   NULL = 13;
+  VECTOR = 14;
 }
 
 message ColumnMetadata {
   string name = 1;
   string label = 2;
   //taken from java.sql.Types
-  int32 java_sql_types_code = 3;
+  int32 java_sql_types_code = 3 [deprecated = true];
   bool nullable = 4;
   // Indicates a column that isn't part of the DDL for a query, but is part of the returned
   // tuple (and therefore necessary to keep so that our positional ordering is intact)
   bool phantom = 5;
-  // If this column has a Struct or Array, or is of Enum type, their metadata is here.
+  // If this column has a Struct or Array, Enum, or Vector type, their metadata is here.
   oneof metadata {
     ListColumnMetadata structMetadata = 6;
     ColumnMetadata arrayMetadata = 7;
     EnumMetadata enumMetadata = 8;
+    VectorMetadata vectorMetadata = 10;
   }
   Type type = 9;
 }
@@ -129,4 +131,9 @@ message ListColumnMetadata {
 message EnumMetadata {
   string name = 1;
   repeated string values = 2;
+}
+
+message VectorMetadata {
+  int32 precision = 1;
+  int32 dimensions = 2;
 }

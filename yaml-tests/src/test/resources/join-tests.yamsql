@@ -58,8 +58,44 @@ test_block:
       - query: select sq2.y, sq1.x from (select ida as x from a) sq1, (select idb as y from b) sq2;
       - result: [{!l 4, !l 1}]
     -
+      # simple inner join
+      - query: select fname, lname, name from emp inner join dept on emp.dept_id = dept.id;
+      - supported_version: 4.9.1.0
+      - unorderedResult: [
+                {'Jack', 'Williams', 'Engineering'},
+                {'Thomas', 'Johnson', 'Engineering'},
+                {'Emily', 'Martinez', 'Engineering'},
+                {'Amelia', 'Johnson', 'Engineering'},
+                {'Daniel', 'Miller', 'Sales'},
+                {'Chloe', 'Jones', 'Sales'},
+                {'Charlotte', 'Garcia', 'Sales'},
+                {'Megan', 'Miller', 'Marketing'},
+                {'Harry', 'Smith', 'Marketing'}]
+    -
+      # as previous with table names
+      - query: select emp.fname, emp.lname, dept.name from emp inner join dept on emp.dept_id = dept.id;
+      - supported_version: 4.9.1.0
+      - unorderedResult: [
+                {'Jack', 'Williams', 'Engineering'},
+                {'Thomas', 'Johnson', 'Engineering'},
+                {'Emily', 'Martinez', 'Engineering'},
+                {'Amelia', 'Johnson', 'Engineering'},
+                {'Daniel', 'Miller', 'Sales'},
+                {'Chloe', 'Jones', 'Sales'},
+                {'Charlotte', 'Garcia', 'Sales'},
+                {'Megan', 'Miller', 'Marketing'},
+                {'Harry', 'Smith', 'Marketing'}]
+    -
       # Get names of people working in Engineering:
       - query: select fname, lname from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering';
+      - unorderedResult: [{"Jack", "Williams"},
+                          {"Thomas", "Johnson"},
+                          {"Emily", "Martinez"},
+                          {"Amelia", "Johnson"}]
+    -
+      # inner join version of previous
+      - query: select fname, lname from emp inner join dept on emp.dept_id = dept.id and dept.name = 'Engineering';
+      - supported_version: 4.9.1.0
       - unorderedResult: [{"Jack", "Williams"},
                           {"Thomas", "Johnson"},
                           {"Emily", "Martinez"},
@@ -71,6 +107,14 @@ test_block:
                           {"Daniel", "Miller"},
                           {"Megan", "Miller"}]
     -
+      # inner join version of previous
+      - query: select fname, lname from emp inner join project on project.emp_id = emp.id;
+      - supported_version: 4.9.1.0
+      - unorderedResult: [{"Emily", "Martinez"},
+                          {"Daniel", "Miller"},
+                          {"Megan", "Miller"}]
+
+    -
       # Get names of people working on a project in Sales department
       - query: select fname, lname from
                   (select fname, lname, dept_id from emp where exists (select * from project where emp_id = emp.id)) as sq,
@@ -78,14 +122,49 @@ test_block:
                where sq.dept_id = dept.id and dept.name = 'Sales';
       - unorderedResult: [{"Daniel", "Miller"}]
     -
+      # inner join version of previous
+      - query: select fname, lname from emp inner join project on emp_id = emp.id inner join dept on dept_id = dept.id and dept.name = 'Sales';
+      - supported_version: 4.9.1.0
+      - unorderedResult: [{"Daniel", "Miller"}]
+
+    -
       # three-way join to find which departments' corresponding projects.
       - query: select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id;
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
     -
+      # inner join version of previous
+      - query: select dept.name, project.name from emp inner join dept on emp.dept_id = dept.id inner join project on project.emp_id = emp.id;
+      - supported_version: 4.9.1.0
+      - unorderedResult: [{"Engineering", "OLAP"},
+                          {"Sales", "Feedback"},
+                          {"Marketing", "SEO"}]
+
+    -
       # two-level left-nested join to find which departments' corresponding projects.
       - query: select sq.name, project.name from (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq, project where project.emp_id = sq.id;
+      - unorderedResult: [{"Engineering", "OLAP"},
+                          {"Sales", "Feedback"},
+                          {"Marketing", "SEO"}]
+    -
+      # inner join version of previous #1
+      - query: select sq.name, project.name from (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq inner join project on project.emp_id = sq.id;
+      - supported_version: 4.9.1.0
+      - unorderedResult: [{"Engineering", "OLAP"},
+                          {"Sales", "Feedback"},
+                          {"Marketing", "SEO"}]
+    -
+      # inner join version of previous #2
+      - query: select sq.name, project.name from project inner join (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq on project.emp_id = sq.id;
+      - supported_version: 4.9.1.0
+      - unorderedResult: [{"Engineering", "OLAP"},
+                          {"Sales", "Feedback"},
+                          {"Marketing", "SEO"}]
+    -
+      # inner join version of previous #3
+      - query: select dept.name, project.name from emp inner join dept on emp.dept_id = dept.id inner join project on project.emp_id = emp.id;
+      - supported_version: 4.9.1.0
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -95,4 +174,142 @@ test_block:
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
+    -
+      # inner join version of previous
+      - query: select dept.name, project.name from project inner join emp on emp.id = project.emp_id inner join dept on emp.dept_id = dept.id;
+      - supported_version: 4.9.1.0
+      - unorderedResult: [{"Engineering", "OLAP"},
+                          {"Sales", "Feedback"},
+                          {"Marketing", "SEO"}]
+    -
+      # Join with NOT IN - get employees in Engineering excluding specific employee ids
+      - query: select emp.id, fname, lname from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering' and emp.id not in (1, 3)
+      - unorderedResult: [{ID: 2, FNAME: "Thomas", LNAME: "Johnson"},
+                          {ID: 4, FNAME: "Amelia", LNAME: "Johnson"}]
+    -
+      # inner join version of previous
+      - query: select emp.id, fname, lname from emp inner join dept on emp.dept_id = dept.id and dept.name = 'Engineering' and emp.id not in (1, 3)
+      - supported_version: 4.9.1.0
+      - unorderedResult: [{ID: 2, FNAME: "Thomas", LNAME: "Johnson"},
+                          {ID: 4, FNAME: "Amelia", LNAME: "Johnson"}]
+    -
+      # Join with NOT IN - get projects excluding certain project ids
+      - query: select project.id, project.name from emp, project where project.emp_id = emp.id and project.id not in (1, 2)
+      - unorderedResult: [{ID: 3, NAME: "Feedback"}]
+    -
+      # inner join version of previous
+      - query: select project.id, project.name from emp inner join project on project.emp_id = emp.id where project.id not in (1, 2)
+      - supported_version: 4.9.1.0
+      - unorderedResult: [{ID: 3, NAME: "Feedback"}]
+    -
+      # Three-way join with NOT IN - departments with projects, excluding specific departments
+      - query: select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (1)
+      - unorderedResult: [{ID: 2, "Sales", "Feedback"},
+                          {ID: 3, "Marketing", "SEO"}]
+    -
+      # inner join version of previous
+      - query: select dept.id, dept.name, project.name from emp inner join dept on emp.dept_id = dept.id and dept.id not in (1) inner join project on project.emp_id = emp.id
+      - supported_version: 4.9.1.0
+      - unorderedResult: [{ID: 2, "Sales", "Feedback"},
+                          {ID: 3, "Marketing", "SEO"}]
+    -
+      # Join with NOT IN - employees in Sales department excluding specific ids
+      - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 2 and emp.id not in (5, 6)
+      - unorderedResult: [{7}]
+    -
+      # inner join version of previous
+      - query: select emp.id from emp inner join dept on emp.dept_id = dept.id and dept.id = 2 and emp.id not in (5, 6)
+      - supported_version: 4.9.1.0
+      - unorderedResult: [{7}]
+    -
+      # Join with NOT IN - all employees except those in excluded departments
+      - query: select emp.id, fname from emp, dept where emp.dept_id = dept.id and dept.id not in (1, 3)
+      - unorderedResult: [{ID: 5, FNAME: "Daniel"},
+                          {ID: 6, FNAME: "Chloe"},
+                          {ID: 7, FNAME: "Charlotte"}]
+    -
+      # inner join version of previous
+      - query: select emp.id, fname from emp inner join dept on emp.dept_id = dept.id where dept.id not in (1, 3)
+      - supported_version: 4.9.1.0
+      - unorderedResult: [{ID: 5, FNAME: "Daniel"},
+                          {ID: 6, FNAME: "Chloe"},
+                          {ID: 7, FNAME: "Charlotte"}]
+    -
+      # Join with NOT IN on non-existent values (should return all matching rows)
+      - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id not in (10, 20, 30)
+      - unorderedResult: [{1}, {2}, {3}, {4}]
+    -
+      # inner join version of previous
+      - query: select emp.id from emp inner join dept on emp.dept_id = dept.id and dept.id = 1 and emp.id not in (10, 20, 30)
+      - supported_version: 4.9.1.0
+      - unorderedResult: [{1}, {2}, {3}, {4}]
+    -
+      # Subquery join with NOT IN
+      - query: select fname, lname from (select fname, lname, emp.id from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering') as sq where sq.id not in (1, 4)
+      - unorderedResult: [{"Thomas", "Johnson"},
+                          {"Emily", "Martinez"}]
+    -
+      # Join with multiple NOT IN conditions
+      - query: select project.id, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (3) and project.id not in (3)
+      - unorderedResult: [{ID: 1, NAME: "OLAP"}]
+    -
+      # Join with IN - get specific employees in Engineering
+      - query: select emp.id, fname, lname from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering' and emp.id in (1, 3)
+      - unorderedResult: [{ID: 1, FNAME: "Jack", LNAME: "Williams"},
+                          {ID: 3, FNAME: "Emily", LNAME: "Martinez"}]
+    -
+      # Join with IN - get specific projects
+      - query: select project.id, project.name from emp, project where project.emp_id = emp.id and project.id in (1, 2)
+      - unorderedResult: [{ID: 1, NAME: "OLAP"},
+                          {ID: 2, NAME: "SEO"}]
+    -
+      # Three-way join with IN - departments with projects, including only specific departments
+      - query: select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1, 2)
+      - unorderedResult: [{ID: 1, "Engineering", "OLAP"},
+                          {ID: 2, "Sales", "Feedback"}]
+    -
+      # Join with IN - employees in specific departments
+      - query: select emp.id, fname from emp, dept where emp.dept_id = dept.id and dept.id in (2, 3)
+      - unorderedResult: [{ID: 5, FNAME: "Daniel"},
+                          {ID: 6, FNAME: "Chloe"},
+                          {ID: 7, FNAME: "Charlotte"},
+                          {ID: 8, FNAME: "Megan"},
+                          {ID: 9, FNAME: "Harry"}]
+    -
+      # Join with IN - single value in list
+      - query: select emp.id, fname, lname from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id in (2)
+      - unorderedResult: [{ID: 2, FNAME: "Thomas", LNAME: "Johnson"}]
+    -
+      # Join with IN - employees in Sales department with specific ids
+      - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 2 and emp.id in (5, 6, 7)
+      - unorderedResult: [{5}, {6}, {7}]
+    -
+      # Subquery join with IN
+      - query: select fname, lname from (select fname, lname, emp.id from emp, dept where emp.dept_id = dept.id and dept.name = 'Engineering') as sq where sq.id in (1, 4)
+      - unorderedResult: [{"Jack", "Williams"},
+                          {"Amelia", "Johnson"}]
+    -
+      # inner join version of previous
+      - query: select fname, lname from (select fname, lname, emp.id from emp inner join dept on emp.dept_id = dept.id and dept.name = 'Engineering') as sq where sq.id in (1, 4)
+      - supported_version: 4.9.1.0
+      - unorderedResult: [{"Jack", "Williams"},
+                          {"Amelia", "Johnson"}]
+    -
+      # Join with both IN and NOT IN conditions
+      - query: select emp.id, fname from emp, dept where emp.dept_id = dept.id and dept.id in (1, 2) and emp.id not in (1, 5)
+      - unorderedResult: [{ID: 2, FNAME: "Thomas"},
+                          {ID: 3, FNAME: "Emily"},
+                          {ID: 4, FNAME: "Amelia"},
+                          {ID: 6, FNAME: "Chloe"},
+                          {ID: 7, FNAME: "Charlotte"}]
+    -
+      # Join with IN on non-existent values (should return empty)
+      - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id in (10, 20, 30)
+      - result: []
+
+    -
+      # inner join with using
+      - query: select fname, lname, name from emp inner join dept using (fname);
+      - supported_version: 4.9.1.0
+      - error: "0AF00"
 ...

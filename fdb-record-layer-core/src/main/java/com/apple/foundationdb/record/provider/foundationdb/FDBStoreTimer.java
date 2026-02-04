@@ -182,6 +182,8 @@ public class FDBStoreTimer extends StoreTimer {
         RANGE_SET_CONTAINS("range set contains key"),
         /** The amount of time checking if a {@link com.google.common.collect.RangeSet} is empty. */
         RANGE_SET_IS_EMPTY("range set is empty"),
+        /** The amount of time importing a single KeyValue into a path. */
+        IMPORT_DATA("import KeyValue"),
 
         /** The amount of time spent clearing the space taken by an index that has been removed from the meta-data. */
         REMOVE_FORMER_INDEX("remove former index"),
@@ -471,7 +473,9 @@ public class FDBStoreTimer extends StoreTimer {
         /** Wait to perform validation of resolver reverse directory mapping. */
         WAIT_VALIDATE_RESOLVER("wait validating resolver"),
         /** wait to load partition metadata for one or more grouping key. */
-        WAIT_LOAD_LUCENE_PARTITION_METADATA("wait to load lucene partition metadata")
+        WAIT_LOAD_LUCENE_PARTITION_METADATA("wait to load lucene partition metadata"),
+        /** Wait to run all the postClose hooks. */
+        WAIT_RUN_CLOSE_HOOKS("Wait to run all postClose hooks"),
         ;
 
         private final String title;
@@ -761,6 +765,14 @@ public class FDBStoreTimer extends StoreTimer {
         LOCKS_ATTEMPTED("number of attempts to register a lock", false),
         /** Count of the locks released. */
         LOCKS_RELEASED("number of locks released", false),
+        VECTOR_NODE_READS("intermediate nodes read", false),
+        VECTOR_NODE_READ_BYTES("intermediate node bytes read", true),
+        VECTOR_NODE0_READS("intermediate nodes read", false),
+        VECTOR_NODE0_READ_BYTES("intermediate node bytes read", true),
+        VECTOR_NODE_WRITES("intermediate nodes written", false),
+        VECTOR_NODE_WRITE_BYTES("intermediate node bytes written", true),
+        VECTOR_NODE0_WRITES("intermediate nodes written", false),
+        VECTOR_NODE0_WRITE_BYTES("intermediate node bytes written", true),
         ;
 
         private final String title;

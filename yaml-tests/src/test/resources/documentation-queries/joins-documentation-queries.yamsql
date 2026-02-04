@@ -1,0 +1,104 @@
+---
+options:
+  supported_version: 4.3.2.0
+---
+schema_template:
+    create table emp(id bigint, fname string, lname string, dept_id bigint, primary key(id))
+    create table dept(id bigint, name string, primary key(id))
+    create table project(id bigint, name string, dsc string, emp_id bigint, primary key(id))
+    create table t1(id bigint, col1 bigint, primary key(id))
+---
+setup:
+  steps:
+    - query: insert into emp
+            values (1, 'Jack', 'Williams', 1),
+                   (2, 'Thomas', 'Johnson', 1),
+                   (3, 'Emily', 'Martinez', 1),
+                   (5, 'Daniel', 'Miller', 2),
+                   (8, 'Megan', 'Miller', 3)
+    - query: insert into dept
+            values (1, 'Engineering'),
+                   (2, 'Sales'),
+                   (3, 'Marketing')
+    - query: insert into project
+            values (1, 'OLAP', 'Support OLAP queries', 3),
+                   (2, 'SEO', 'Increase visibility on search engines', 8),
+                   (3, 'Feedback', 'Turn customer feedback into items', 5)
+    - query: insert into t1
+            values (1, 10), (2, 10)
+---
+test_block:
+  name: joins-documentation-tests
+  preset: single_repetition_ordered
+  tests:
+    # Simple Two-Table Join
+    -
+      - query: SELECT fname, lname
+              FROM emp, dept
+              WHERE emp.dept_id = dept.id
+                AND dept.name = 'Engineering'
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{fname: "Jack", lname: "Williams"},
+                          {fname: "Thomas", lname: "Johnson"},
+                          {fname: "Emily", lname: "Martinez"}]
+
+    # Three-Way Join
+    -
+      - query: SELECT dept.name, project.name
+              FROM emp, dept, project
+              WHERE emp.dept_id = dept.id
+                AND project.emp_id = emp.id
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{"Engineering", "OLAP"},
+                          {"Sales", "Feedback"},
+                          {"Marketing", "SEO"}]
+
+    # Join with Subquery
+    -
+      - query: SELECT fname, lname
+              FROM (
+                  SELECT fname, lname, dept_id
+                  FROM emp
+                  WHERE EXISTS (SELECT * FROM project WHERE emp_id = emp.id)
+              ) AS sq, dept
+              WHERE sq.dept_id = dept.id
+                AND dept.name = 'Sales'
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{fname: "Daniel", lname: "Miller"}]
+
+    # Nested Joins
+    -
+      - query: SELECT sq.name, project.name
+              FROM (
+                  SELECT dept.name, emp.id
+                  FROM emp, dept
+                  WHERE emp.dept_id = dept.id
+              ) AS sq, project
+              WHERE project.emp_id = sq.id
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{"Engineering", "OLAP"},
+                          {"Sales", "Feedback"},
+                          {"Marketing", "SEO"}]
+
+    # Join with CTEs
+    -
+      - query: WITH c1(w, z) AS (SELECT id, col1 FROM t1),
+                    c2(a, b) AS (SELECT id, col1 FROM t1 WHERE id IN (1, 2))
+              SELECT * FROM c1, c2
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{w: 1, z: 10, a: 1, b: 10},
+                          {w: 2, z: 10, a: 1, b: 10},
+                          {w: 1, z: 10, a: 2, b: 10},
+                          {w: 2, z: 10, a: 2, b: 10}]
+
+    # Semi-Join with EXISTS
+    -
+      - query: SELECT fname, lname
+              FROM emp
+              WHERE EXISTS (
+                  SELECT * FROM project WHERE emp_id = emp.id
+              )
+      - supported_version: 4.3.2.0
+      - unorderedResult: [{fname: "Emily", lname: "Martinez"},
+                          {fname: "Daniel", lname: "Miller"},
+                          {fname: "Megan", lname: "Miller"}]

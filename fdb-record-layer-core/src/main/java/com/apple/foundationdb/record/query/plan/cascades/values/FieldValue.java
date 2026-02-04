@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.TupleFieldsProto;
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.planprotos.PFieldPath;
 import com.apple.foundationdb.record.planprotos.PFieldPath.PResolvedAccessor;
 import com.apple.foundationdb.record.planprotos.PFieldValue;
@@ -44,11 +46,13 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Fiel
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
+import com.apple.foundationdb.record.util.VectorUtils;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -61,6 +65,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -186,8 +191,18 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         } else if (type.getTypeCode() == Type.TypeCode.VERSION) {
             return FDBRecordVersion.fromBytes(((ByteString)fieldValue).toByteArray(), false);
         } else if (type.isUuid()) {
-            Verify.verify(fieldValue instanceof UUID);
-            return fieldValue;
+            if (fieldValue instanceof UUID) {
+                return fieldValue;
+            } else if (fieldValue instanceof Message) {
+                Message fieldMessage = (Message) fieldValue;
+                Verify.verify(fieldMessage.getDescriptorForType().equals(TupleFieldsProto.UUID.getDescriptor()));
+                return TupleFieldsHelper.fromProto(fieldMessage, TupleFieldsProto.UUID.getDescriptor());
+            }
+            throw new VerifyException("Unable to unwrap UUID type " + fieldValue.getClass());
+        } else if (type.isVector()) {
+            Verify.verify(fieldValue instanceof ByteString);
+            final var byteString = (ByteString) fieldValue;
+            return VectorUtils.parseVector(byteString, (Type.Vector)type);
         } else {
             // This also may need to turn ByteString's into byte[] for Type.TypeCode.BYTES
             return fieldValue;
@@ -279,7 +294,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
                 ordinal = accessor.getOrdinal();
             }
             currentType = field.getFieldType();
-            accessorPathBuilder.add(ResolvedAccessor.of(field.getFieldNameOptional().orElse(null), ordinal, currentType));
+            accessorPathBuilder.add(ResolvedAccessor.of(field, ordinal));
         }
         return new FieldPath(accessorPathBuilder.build());
     }
@@ -526,7 +541,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         @Nonnull
         private static List<Optional<String>> computeFieldNames(@Nonnull final List<ResolvedAccessor> fieldAccessors) {
             return fieldAccessors.stream()
-                    .map(accessor -> Optional.ofNullable(accessor.getName()))
+                    .map(accessor -> accessor.getField().getFieldStorageNameOptional())
                     .collect(ImmutableList.toImmutableList());
         }
 
@@ -545,8 +560,8 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         }
 
         @Nonnull
-        public static FieldPath ofSingle(@Nullable final String fieldName, @Nonnull final Type fieldType, @Nonnull final Integer fieldOrdinal) {
-            return new FieldPath(ImmutableList.of(ResolvedAccessor.of(fieldName, fieldOrdinal, fieldType)));
+        public static FieldPath ofSingle(@Nonnull Field field, @Nonnull final Integer fieldOrdinal) {
+            return new FieldPath(ImmutableList.of(ResolvedAccessor.of(field, fieldOrdinal)));
         }
 
         @Nonnull
@@ -628,24 +643,19 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
      * A resolved {@link Accessor} that now also holds the resolved {@link Type}.
      */
     public static class ResolvedAccessor implements PlanSerializable {
-        @Nullable
-        final String name;
-
+        @Nonnull
+        final Field field;
         final int ordinal;
 
-        @Nullable
-        private final Type type;
-
-        protected ResolvedAccessor(@Nullable final String name, final int ordinal, @Nullable final Type type) {
+        protected ResolvedAccessor(@Nonnull Field field, int ordinal) {
             Preconditions.checkArgument(ordinal >= 0);
-            this.name = name;
+            this.field = field;
             this.ordinal = ordinal;
-            this.type = type;
         }
 
         @Nullable
         public String getName() {
-            return name;
+            return field.getFieldNameOptional().orElse(null);
         }
 
         public int getOrdinal() {
@@ -653,8 +663,13 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         }
 
         @Nonnull
+        public Field getField() {
+            return field;
+        }
+
+        @Nonnull
         public Type getType() {
-            return Objects.requireNonNull(type);
+            return Objects.requireNonNull(field.getFieldType());
         }
 
         @Override
@@ -677,18 +692,21 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         @Nonnull
         @Override
         public String toString() {
-            return name + ';' + ordinal + ';' + type;
+            return getName() + ';' + ordinal + ';' + getType();
         }
 
         @Nonnull
         @Override
         public PResolvedAccessor toProto(@Nonnull final PlanSerializationContext serializationContext) {
             PResolvedAccessor.Builder builder = PResolvedAccessor.newBuilder();
-            builder.setName(name);
+            // Older serialization: write out the name, ordinal, and type manually
+            builder.setName(field.getFieldName());
             builder.setOrdinal(ordinal);
-            if (type != null) {
-                builder.setType(type.toTypeProto(serializationContext));
+            if (field.getFieldType() != null) {
+                builder.setType(getType().toTypeProto(serializationContext));
             }
+            // Newer serialization: write that information in a nested field
+            builder.setField(field.toProto(serializationContext));
             return builder.build();
         }
 
@@ -701,22 +719,37 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
             } else {
                 type = null;
             }
-            return new ResolvedAccessor(resolvedAccessorProto.getName(), resolvedAccessorProto.getOrdinal(), type);
+
+            final Field field;
+            if (resolvedAccessorProto.hasField()) {
+                // Newer serialization: use a single nested field. If both are set, we need to deserialize
+                // the field after reading the type information, as the type will be cached in the
+                // serialization context
+                field = Field.fromProto(serializationContext, resolvedAccessorProto.getField());
+            } else {
+                // Older serialization: get the name and type information from separate fields
+                field = Field.of(Objects.requireNonNull(type), Optional.of(resolvedAccessorProto.getName()));
+            }
+            return new ResolvedAccessor(field, resolvedAccessorProto.getOrdinal());
         }
 
         @Nonnull
         public static ResolvedAccessor of(@Nonnull final Field field, final int ordinal) {
-            return of(field.getFieldNameOptional().orElse(null), ordinal, field.getFieldType());
+            return new ResolvedAccessor(field, ordinal);
         }
 
         @Nonnull
         public static ResolvedAccessor of(@Nullable final String fieldName, final int ordinalFieldNumber, @Nonnull final Type type) {
-            return new ResolvedAccessor(fieldName, ordinalFieldNumber, type);
+            final Field field = Field.of(type, Optional.ofNullable(fieldName));
+            return new ResolvedAccessor(field, ordinalFieldNumber);
         }
 
         @Nonnull
-        public static ResolvedAccessor of(@Nullable final String fieldName, final int ordinalFieldNumber) {
-            return new ResolvedAccessor(fieldName, ordinalFieldNumber, null);
+        public static ResolvedAccessor of(@Nonnull final Type.Record recordType, @Nonnull final String fieldName, final int ordinalFieldNumber) {
+            final Map<String, Field> fieldNameMap = recordType.getFieldNameFieldMap();
+            Field field = fieldNameMap.get(fieldName);
+            SemanticException.check(field != null, SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
+            return new ResolvedAccessor(field, ordinalFieldNumber);
         }
     }
 

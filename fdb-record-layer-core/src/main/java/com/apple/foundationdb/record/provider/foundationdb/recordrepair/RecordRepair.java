@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.CursorFactory;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator;
 import com.apple.foundationdb.tuple.Tuple;
@@ -95,13 +96,17 @@ public abstract class RecordRepair implements AutoCloseable {
     private final ValidationKind validationKind;
     @Nonnull
     private final ThrottledRetryingIterator<Tuple> throttledIterator;
+    private final boolean allowRepair;
 
-    protected RecordRepair(@Nonnull final Builder config) {
+    protected RecordRepair(@Nonnull final Builder config, boolean allowRepair) {
         this.database = config.database;
         this.storeBuilder = config.getStoreBuilder();
         this.validationKind = config.getValidationKind();
-        ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder = ThrottledRetryingIterator.builder(database, cursorFactory(), this::handleOneItem);
-        throttledIterator = configureThrottlingIterator(iteratorBuilder, config).build();
+        ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
+                ThrottledRetryingIterator.builder(database, storeBuilder.getContext().getConfig().toBuilder(), cursorFactory(), this::handleOneItem);
+        this.allowRepair = allowRepair;
+        // This will also ensure the transaction only commits when needed
+        throttledIterator = configureThrottlingIterator(iteratorBuilder, config, allowRepair).build();
     }
 
     /**
@@ -168,7 +173,7 @@ public abstract class RecordRepair implements AutoCloseable {
         });
     }
 
-    private ThrottledRetryingIterator.Builder<Tuple> configureThrottlingIterator(ThrottledRetryingIterator.Builder<Tuple> builder, Builder config) {
+    private ThrottledRetryingIterator.Builder<Tuple> configureThrottlingIterator(ThrottledRetryingIterator.Builder<Tuple> builder, Builder config, boolean allowRepair) {
         return builder
                 .withTransactionInitNotification(this::logStartTransaction)
                 .withTransactionSuccessNotification(this::logCommitTransaction)
@@ -176,7 +181,8 @@ public abstract class RecordRepair implements AutoCloseable {
                 .withMaxRecordsDeletesPerTransaction(config.getMaxRecordDeletesPerTransaction())
                 .withMaxRecordsScannedPerSec(config.getMaxRecordScannedPerSec())
                 .withMaxRecordsDeletesPerSec(config.getMaxRecordDeletesPerSec())
-                .withNumOfRetries(config.getNumOfRetries());
+                .withNumOfRetries(config.getNumOfRetries())
+                .withCommitWhenDone(allowRepair);
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
@@ -188,7 +194,8 @@ public abstract class RecordRepair implements AutoCloseable {
 
     private void logCommitTransaction(ThrottledRetryingIterator.QuotaManager quotaManager) {
         if (logger.isDebugEnabled()) {
-            logger.debug(KeyValueLogMessage.of("RecordRepairRunner: transaction committed",
+            String message = allowRepair ? "RecordRepairRunner: transaction committed" : "RecordRepairRunner: transaction ended";
+            logger.debug(KeyValueLogMessage.of(message,
                     LogMessageKeys.RECORDS_SCANNED, quotaManager.getScannedCount(),
                     LogMessageKeys.RECORDS_DELETED, quotaManager.getDeletesCount()));
         }
@@ -212,6 +219,8 @@ public abstract class RecordRepair implements AutoCloseable {
         private int maxRecordScannedPerSec = 0;
         private int maxRecordDeletesPerSec = 1000;
         private int numOfRetries = 4;
+        private int userVersion;
+        private @Nullable FormatVersion minimumPossibleFormatVersion;
 
         /**
          * Constructor.
@@ -233,6 +242,7 @@ public abstract class RecordRepair implements AutoCloseable {
 
         /**
          * Finalize the build and create a repair  runner.
+         * @param allowRepair whether to repair the found issues (TRUE) or run in read-only mode (FALSE)
          * @return the newly created repair runner
          */
         public RecordRepairValidateRunner buildRepairRunner(boolean allowRepair) {
@@ -326,6 +336,23 @@ public abstract class RecordRepair implements AutoCloseable {
             return this;
         }
 
+        /**
+         * Set the store header repair parameters.
+         * If set, the runner will try to repair the store header (See {@link FDBRecordStore.Builder#repairMissingHeader(int, FormatVersion)})
+         * as part of the repair operation in case the store fails to open.
+         * If the runner is running in dry run mode (repair not allowed) then the operation will be rolled back once the run
+         * is complete, making no change to the header.
+         * @param userVersion the user version for the header repair
+         * @param minimumPossibleFormatVersion the minimum store format version to use for the repair
+         * Default: null minimumPossibleFormatVersion will not attempt to repair the header
+         * @return this builder
+         */
+        public Builder withHeaderRepairParameters(int userVersion, @Nullable FormatVersion minimumPossibleFormatVersion) {
+            this.userVersion = userVersion;
+            this.minimumPossibleFormatVersion = minimumPossibleFormatVersion;
+            return this;
+        }
+
         @Nonnull
         public FDBDatabase getDatabase() {
             return database;
@@ -333,7 +360,12 @@ public abstract class RecordRepair implements AutoCloseable {
 
         @Nonnull
         public FDBRecordStore.Builder getStoreBuilder() {
-            return storeBuilder;
+            if (minimumPossibleFormatVersion != null) {
+                // override the store builder to repair the header if necessary
+                return new StoreBuilderWithRepair(storeBuilder, userVersion, minimumPossibleFormatVersion);
+            } else {
+                return storeBuilder;
+            }
         }
 
         @Nonnull

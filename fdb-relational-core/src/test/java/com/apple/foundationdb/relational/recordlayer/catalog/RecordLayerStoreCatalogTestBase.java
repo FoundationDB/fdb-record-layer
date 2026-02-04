@@ -23,8 +23,8 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -37,7 +37,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
-
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -69,17 +69,16 @@ public abstract class RecordLayerStoreCatalogTestBase {
             Continuation continuation = ContinuationImpl.BEGIN;
             do {
                 try (RelationalResultSet result = storeCatalog.listSchemas(listTxn, continuation)) {
-                    if (result.next()) {
+                    // there should only ever be one entry, but by collecting them all we get a better error in the assertion
+                    while (result.next()) {
                         fullSchemaNames.add(result.getString("DATABASE_ID") + "?schema=" + result.getString("SCHEMA_NAME"));
                     }
                     continuation = result.getContinuation();
                 }
             } while (!continuation.atEnd());
         }
-        // assert
-        Assertions.assertEquals(1, fullSchemaNames.size());
         //the only entry should be the catalog
-        Assertions.assertTrue(fullSchemaNames.contains("/__SYS?schema=CATALOG"));
+        Assertions.assertEquals(Set.of("/__SYS?schema=CATALOG"), fullSchemaNames);
     }
 
     @Test
@@ -290,13 +289,27 @@ public abstract class RecordLayerStoreCatalogTestBase {
                                                 @Nonnull final String databaseId,
                                                 @Nonnull final String schemaTemplateName,
                                                 final int schemaTemplateVersion) {
-        final var template = generateTestSchemaTemplate(schemaTemplateName, schemaTemplateVersion);
+        return generateTestSchema(schemaName, databaseId, schemaTemplateName, schemaTemplateVersion, false);
+    }
+
+    @SuppressWarnings({"SameParameterValue"})
+    static RecordLayerSchema generateTestSchema(@Nonnull final String schemaName,
+                                                @Nonnull final String databaseId,
+                                                @Nonnull final String schemaTemplateName,
+                                                final int schemaTemplateVersion,
+                                                boolean withViews) {
+        final var template = generateTestSchemaTemplate(schemaTemplateName, schemaTemplateVersion, withViews);
         return template.generateSchema(databaseId, schemaName);
     }
 
     @Nonnull
     static RecordLayerSchemaTemplate generateTestSchemaTemplate(@Nonnull final String schemaTemplateName, int version) {
-        return RecordLayerSchemaTemplate
+        return generateTestSchemaTemplate(schemaTemplateName, version, false);
+    }
+
+    @Nonnull
+    static RecordLayerSchemaTemplate generateTestSchemaTemplate(@Nonnull final String schemaTemplateName, int version, boolean withViews) {
+        final var builder = RecordLayerSchemaTemplate
                 .newBuilder()
                 .addTable(
                         RecordLayerTable
@@ -321,7 +334,23 @@ public abstract class RecordLayerStoreCatalogTestBase {
                                 .setName("test_table2")
                                 .build())
                 .setVersion(version)
-                .setName(schemaTemplateName)
-                .build();
+                .setName(schemaTemplateName);
+
+        if (withViews) {
+            builder.addView(RecordLayerView
+                            .newBuilder()
+                            .setName("test_view1")
+                            .setDescription("select * from test_table1")
+                            .setViewCompiler(ignored -> null)
+                            .build()
+            ).addView(RecordLayerView
+                            .newBuilder()
+                            .setName("test_view2")
+                            .setDescription("select * from test_table2 where A = 'foo'")
+                            .setViewCompiler(ignored -> null)
+                            .build());
+        }
+
+        return builder.build();
     }
 }

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.yamltests.server;
 
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.relational.util.BuildVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -44,7 +46,6 @@ public class ExternalServer {
 
     private static final Logger logger = LogManager.getLogger(ExternalServer.class);
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
-    private static final boolean SAVE_SERVER_OUTPUT = false;
 
     @Nonnull
     private final File serverJar;
@@ -105,6 +106,10 @@ public class ExternalServer {
         return version;
     }
 
+    public String getClusterFile() {
+        return clusterFile;
+    }
+
     public void start() throws Exception {
         grpcPort = getAvailablePort(-1);
         final int httpPort = getAvailablePort(grpcPort);
@@ -113,12 +118,20 @@ public class ExternalServer {
                 // "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n",
                 "-jar", serverJar.getAbsolutePath(),
                 "--grpcPort", Integer.toString(grpcPort), "--httpPort", Integer.toString(httpPort));
-        ProcessBuilder.Redirect out = SAVE_SERVER_OUTPUT ?
-                                      ProcessBuilder.Redirect.to(File.createTempFile("JdbcServerOut-" + grpcPort, ".log")) :
-                                      ProcessBuilder.Redirect.DISCARD;
-        ProcessBuilder.Redirect err = SAVE_SERVER_OUTPUT ?
-                                      ProcessBuilder.Redirect.to(File.createTempFile("JdbcServerErr-" + grpcPort, ".log")) :
-                                      ProcessBuilder.Redirect.DISCARD;
+        boolean saveServerLogs = Boolean.parseBoolean(System.getProperty("tests.saveServerLogs", "false"));
+        @Nullable
+        File outFile;
+        @Nullable
+        File errFile;
+        if (saveServerLogs) {
+            outFile = File.createTempFile("fdb-relational-server-" + version + "-" + grpcPort + "-out.", ".log");
+            errFile = File.createTempFile("fdb-relational-server-" + version + "-" + grpcPort + "-err.", ".log");
+        } else {
+            outFile = null;
+            errFile = null;
+        }
+        ProcessBuilder.Redirect out = outFile == null ? ProcessBuilder.Redirect.DISCARD : ProcessBuilder.Redirect.to(outFile);
+        ProcessBuilder.Redirect err = errFile == null ? ProcessBuilder.Redirect.DISCARD : ProcessBuilder.Redirect.to(errFile);
         processBuilder.redirectOutput(out);
         processBuilder.redirectError(err);
         if (clusterFile != null) {
@@ -129,7 +142,16 @@ public class ExternalServer {
             Assertions.fail("Failed to start the external server");
         }
 
-        logger.info("Started {} Version: {}", serverJar, version);
+        if (logger.isInfoEnabled()) {
+            logger.info(KeyValueLogMessage.of("Started external server",
+                    "jar", serverJar,
+                    LogMessageKeys.VERSION, version,
+                    "grpc_port", grpcPort,
+                    "http_port", httpPort,
+                    "out_file", outFile,
+                    "err_file", errFile
+            ));
+        }
     }
 
     /**

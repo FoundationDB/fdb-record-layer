@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -34,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -47,6 +50,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
+import com.apple.foundationdb.relational.recordlayer.query.WindowSpecExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
@@ -54,6 +58,7 @@ import com.apple.foundationdb.relational.recordlayer.query.TautologicalValue;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ZeroCopyByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -69,6 +74,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * This visits expression tree parse nodes and generates a corresponding {@link Expression}.
@@ -119,12 +125,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var name = visitUid(ctx.key);
         final var expression = Assert.castUnchecked(visit(ctx.value), Expression.class);
         return expression.toNamedArgument(name);
-    }
-
-    @Nonnull
-    @Override
-    public Expression visitContinuation(@Nonnull RelationalParser.ContinuationContext ctx) {
-        return visitContinuationAtom(ctx.continuationAtom());
     }
 
     @Nonnull
@@ -199,8 +199,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public OrderByExpression visitOrderByExpression(@Nonnull RelationalParser.OrderByExpressionContext orderByExpressionContext) {
         final var expression = Assert.castUnchecked(orderByExpressionContext.expression().accept(this), Expression.class);
-        final var descending = ParseHelpers.isDescending(orderByExpressionContext);
-        final var nullsLast = ParseHelpers.isNullsLast(orderByExpressionContext, descending);
+        final var descending = ParseHelpers.isDescending(orderByExpressionContext.orderClause());
+        final var nullsLast = ParseHelpers.isNullsLast(orderByExpressionContext.orderClause(), descending);
         return OrderByExpression.of(expression, descending, nullsLast);
     }
 
@@ -256,6 +256,86 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public Expression visitNonAggregateFunctionCall(@Nonnull final RelationalParser.NonAggregateFunctionCallContext ctx) {
+        return getDelegate().visitNonAggregateWindowedFunction(ctx.nonAggregateWindowedFunction());
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitNonAggregateWindowedFunction(@Nonnull final RelationalParser.NonAggregateWindowedFunctionContext windowedFunctionContext) {
+        final String functionName = windowedFunctionContext.functionName.getText();
+        final WindowSpecExpression windowSpecExpression = getDelegate().visitOverClause(windowedFunctionContext.overClause());
+
+        final var partitionExpressions = windowSpecExpression.getPartitions();
+        final var partitionValues = Streams.stream(partitionExpressions.underlying()).collect(ImmutableList.toImmutableList());
+        final var partitionArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(partitionValues, Type.any());
+
+        final var orderByExpressions = windowSpecExpression.getOrderByExpressions();
+        final var allowedSortSpecs = StreamSupport.stream(orderByExpressions.spliterator(), false)
+                .allMatch(exp -> exp.toSortOrder() == OrderingPart.RequestedSortOrder.ASCENDING || exp.toSortOrder() == OrderingPart.RequestedSortOrder.ANY);
+        Assert.thatUnchecked(allowedSortSpecs, ErrorCode.UNSUPPORTED_SORT, "provided sort specification not supported with window function");
+        // TODO should pass down sort specification correctly.
+        final var orderByValues = StreamSupport.stream(orderByExpressions.spliterator(), false).map(r -> r.getExpression().getUnderlying())
+                .collect(ImmutableList.toImmutableList());
+
+        final ImmutableList.Builder<Expression> argumentsBuilder = ImmutableList.builder();
+        final var orderByArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(orderByValues, Type.any());
+        argumentsBuilder.add(Expression.ofUnnamed(partitionArray)).add(Expression.ofUnnamed(orderByArray));
+
+        final var higherOrderArgumentsBuilder = ImmutableList.<Expressions>builder();
+        if (!windowSpecExpression.getWindowOptions().isEmpty()) {
+            higherOrderArgumentsBuilder.add(windowSpecExpression.getWindowOptions());
+        }
+        higherOrderArgumentsBuilder.add(Expressions.of(argumentsBuilder.build()));
+        return getDelegate().getSemanticAnalyzer().resolveHighOrderScalarFunction(functionName, true, higherOrderArgumentsBuilder.build());
+    }
+
+    @Nonnull
+    @Override
+    public WindowSpecExpression visitOverClause(@Nonnull final RelationalParser.OverClauseContext ctx) {
+        Assert.isNullUnchecked(ctx.windowName(), ErrorCode.UNSUPPORTED_QUERY, "named window functions not supported");
+
+        @Nullable final var partitionClause = ctx.windowSpec().partitionClause();
+        final Expressions partitions = partitionClause == null ? Expressions.empty() : getDelegate().visitPartitionClause(partitionClause);
+
+        @Nullable final var orderByClause = ctx.windowSpec().orderByClause();
+        final List<OrderByExpression> orderByExpressions = orderByClause == null ? ImmutableList.of() : visitOrderByClause(orderByClause);
+
+        @Nullable final var windowOptionsClause = ctx.windowSpec().windowOptionsClause();
+        final Expressions windowOptions = windowOptionsClause == null ? Expressions.empty() : getDelegate().visitWindowOptionsClause(windowOptionsClause);
+
+        return WindowSpecExpression.of(partitions, orderByExpressions, windowOptions);
+    }
+
+    @Nonnull
+    @Override
+    public Expressions visitWindowOptionsClause(final RelationalParser.WindowOptionsClauseContext ctx) {
+        return Expressions.of(ImmutableSet.copyOf(ctx.windowOption().stream().map(option -> getDelegate().visitWindowOption(option))
+                .collect(ImmutableList.toImmutableList())));
+    }
+
+    @Nonnull
+    @Override
+    public Expressions visitPartitionClause(@Nonnull final RelationalParser.PartitionClauseContext ctx) {
+        final var partitionByExpressions = ctx.fullId().stream()
+                .map(fullId -> getDelegate().getSemanticAnalyzer()
+                        .resolveIdentifier(visitFullId(fullId), getDelegate().getCurrentPlanFragment()))
+                .collect(ImmutableList.toImmutableList());
+        return Expressions.of(partitionByExpressions);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitWindowOption(final RelationalParser.WindowOptionContext ctx) {
+        if (ctx.EF_SEARCH() != null) {
+            final var value = LiteralValue.ofScalar(Assert.castUnchecked(ParseHelpers.parseDecimal(ctx.efSearch.getText()), Integer.class));
+            return Expression.of(value, Identifier.of(VectorIndexScanOptions.HNSW_EF_SEARCH.getOptionName()));
+        }
+        throw Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "unexpected option " + ctx.getText());
+    }
+
+    @Nonnull
+    @Override
     public Expression visitAggregateFunctionCall(@Nonnull RelationalParser.AggregateFunctionCallContext functionCon) {
         return visitAggregateWindowedFunction(functionCon.aggregateWindowedFunction());
     }
@@ -307,6 +387,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
+        final var functionName = Identifier.of(getDelegate().normalizeString(ctx.userDefinedScalarFunctionName().getText()));
+
+        // final var functionName = ctx.userDefinedScalarFunctionName().getText();
+        Expressions arguments = visitFunctionArgs(ctx.functionArgs());
+        return getDelegate().resolveFunction(functionName.getName(), arguments.asList().toArray(new Expression[0]));
+    }
+
+    @Nonnull
+    @Override
     public Expression visitCaseFunctionCall(@Nonnull RelationalParser.CaseFunctionCallContext ctx) {
         final ImmutableList.Builder<Value> implications = ImmutableList.builder();
         final ImmutableList.Builder<Expression> pickerValues = ImmutableList.builder();
@@ -334,13 +424,13 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitDataTypeFunctionCall(@Nonnull RelationalParser.DataTypeFunctionCallContext ctx) {
         if (ctx.CAST() != null) {
             final var sourceExpression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
-            final var targetTypeString = ctx.convertedDataType().typeName.getText();
             final var isRepeated = ctx.convertedDataType().ARRAY() != null;
-            final var targetDataType = getDelegate().getSemanticAnalyzer().lookupType(
-                    Identifier.of(targetTypeString), false, isRepeated, ignored -> Optional.empty());
+            final var typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.convertedDataType().typeName, false, isRepeated);
+            // Cast does not currently support user-defined struct types.
+            final var targetDataType = getDelegate().getSemanticAnalyzer().lookupBuiltInType(typeInfo);
             final var targetType = DataTypeUtils.toRecordLayerType(targetDataType);
-
-            final var castValue = CastValue.inject(sourceExpression.getUnderlying(), targetType);
+            final var underlyingType = sourceExpression.getUnderlying().getResultType();
+            final var castValue = CastValue.inject(sourceExpression.getUnderlying(), targetType.withNullability(underlyingType.isNullable()));
             return Expression.ofUnnamed(targetDataType, castValue);
         }
 
@@ -560,6 +650,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitWhereExpr(@Nonnull RelationalParser.WhereExprContext ctx) {
+        final var expression = parseChild(ctx);
+        // verify no window functions
+        Assert.thatUnchecked(expression.getUnderlying().preOrderStream().noneMatch(v -> v instanceof WindowedValue),
+                ErrorCode.WINDOWING_ERROR, "window functions are not allowed in WHERE");
+        return expression;
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitQualifyClause(final RelationalParser.QualifyClauseContext ctx) {
         return parseChild(ctx);
     }
 
@@ -618,14 +718,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.mathOperator().getText(), left, right);
-    }
-
-    @Nonnull
-    @Override
-    public Expression visitExpressionWithName(@Nonnull RelationalParser.ExpressionWithNameContext ctx) {
-        final var expression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
-        final var name = visitUid(ctx.uid());
-        return expression.withName(name);
     }
 
     @Nonnull
@@ -762,7 +854,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                                 })
                         .collect(ImmutableMap.toImmutableMap(NonnullPair::getLeft, NonnullPair::getRight,
                                 (l, r) -> {
-                                    throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column '" + l + "'");
+                                    throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column " + l);
                                 }));
         return CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), uidMap);
     }
@@ -801,9 +893,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             final var resultValue = star.getUnderlying();
             return Expression.ofUnnamed(resultValue);
         }
-        final var expressions = (ctx.expressionWithName() != null) ?
-                parseRecordFieldsUnderReorderings(ImmutableList.of(ctx.expressionWithName())) :
-                parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
+        final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
         if (ctx.ofTypeClause() != null) {
             final var recordId = visitUid(ctx.ofTypeClause().uid());
             final var resultValue = RecordConstructorValue.ofColumnsAndName(expressions.underlyingAsColumns(), recordId.getName());

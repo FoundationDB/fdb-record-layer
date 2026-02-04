@@ -26,24 +26,31 @@ import com.apple.foundationdb.record.provider.foundationdb.BlockingInAsyncDetect
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactoryImpl;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.test.TestExecutors;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Extension that allows the user to specify the database. It ensures that FDB has been properly initialized
  * and that the {@link FDBDatabase} object used during a test does not leak between test runs. This registers
- * call backs that run before and after tests, so it is suggested that users use the {@link org.junit.jupiter.api.extension.RegisterExtension}
+ * call backs that run before and after tests, so it is suggested that users use the {@link RegisterExtension}
  * annotation to ensure that those callbacks run. Like so:
  *
  * <pre>{@code
@@ -65,8 +72,10 @@ public class FDBDatabaseExtension implements AfterEachCallback {
     private static volatile FDB fdb;
     @Nullable
     private FDBDatabaseFactory databaseFactory;
-    @Nullable
-    private FDBDatabase db;
+    @Nonnull
+    private final Map<String, FDBDatabase> databases = new HashMap<>();
+    private String defaultClusterFile = FDBTestEnvironment.randomClusterFile();
+
 
     public FDBDatabaseExtension() {
     }
@@ -96,9 +105,11 @@ public class FDBDatabaseExtension implements AfterEachCallback {
                     }
                     baseFactory.setAPIVersion(getAPIVersion());
                     baseFactory.setUnclosedWarning(true);
-                    FDBDatabase unused = baseFactory.getDatabase();
-                    unused.performNoOp(); // make sure FDB gets opened
-                    unused.close();
+                    for (final String clusterFile : FDBTestEnvironment.allClusterFiles()) {
+                        FDBDatabase unused = baseFactory.getDatabase(clusterFile);
+                        unused.performNoOp(); // make sure FDB gets opened
+                        unused.close(); // FDBDatabase does not implement AutoCloseable
+                    }
                     fdb = FDB.instance();
                 }
             }
@@ -139,26 +150,53 @@ public class FDBDatabaseExtension implements AfterEachCallback {
 
     @Nonnull
     public FDBDatabase getDatabase() {
-        if (db == null) {
-            db = getDatabaseFactory().getDatabase();
-        }
-        return db;
+        return getDatabase(defaultClusterFile);
+    }
+
+    public FDBDatabase getDatabase(int clusterIndex) {
+        return getDatabase(FDBTestEnvironment.getClusterFile(clusterIndex));
+    }
+
+    public FDBDatabase getDatabase(@Nullable String clusterFile) {
+        return databases.computeIfAbsent(Objects.requireNonNullElse(clusterFile, ""),
+                key -> {
+                    LOGGER.info("Connecting to cluster file: " + key);
+                    return getDatabaseFactory().getDatabase(key.isEmpty() ? null : key);
+                });
+    }
+
+    /**
+     * Return a random subset of the databases available.
+     * @param maxCount the number of desired databases
+     * @return a random subset of the databases available. This may be less than {@code maxCount} if there aren't that many
+     * databases available.
+     */
+    public List<FDBDatabase> getRandomDatabaseSubset(int maxCount) {
+        List<String> clusterFiles = new ArrayList<>(FDBTestEnvironment.allClusterFiles());
+        Collections.shuffle(clusterFiles);
+        return clusterFiles.stream().limit(maxCount).map(this::getDatabase).collect(Collectors.toList());
     }
 
     public void checkForOpenContexts() {
-        assertNotNull(db, "Should not check for open contexts on a null database");
-        assertEquals(0, db.warnAndCloseOldTrackedOpenContexts(0), "should not have left any contexts open");
+        for (final Map.Entry<String, FDBDatabase> clusterFileToDatabase : databases.entrySet()) {
+            assertEquals(0, clusterFileToDatabase.getValue().warnAndCloseOldTrackedOpenContexts(0),
+                    clusterFileToDatabase.getKey() + " should not have left any contexts open");
+        }
     }
 
     @Override
     public void afterEach(final ExtensionContext extensionContext) {
-        if (db != null) {
-            // Validate that the test closes all the transactions that it opens
-            checkForOpenContexts();
-            db.close();
-            db = null;
+        // Validate that the test closes all the transactions that it opens
+        checkForOpenContexts();
+        for (final FDBDatabase database : databases.values()) {
+            database.close();
+        }
+        databases.clear();
+        if (databaseFactory != null) {
             getDatabaseFactory().clear();
             databaseFactory = null;
         }
+        // we don't do this in a beforeEach, in case a test is accessing the database in the constructor.
+        defaultClusterFile = FDBTestEnvironment.randomClusterFile();
     }
 }

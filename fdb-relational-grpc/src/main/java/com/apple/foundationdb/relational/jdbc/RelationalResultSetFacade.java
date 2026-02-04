@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.StructResultSetMetaData;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
@@ -39,7 +38,6 @@ import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Types;
 import java.util.UUID;
@@ -162,10 +160,16 @@ class RelationalResultSetFacade implements RelationalResultSet {
         });
     }
 
-    @ExcludeFromJacocoGeneratedReport
     @Override
     public float getFloat(int oneBasedColumn) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return get(oneBasedColumn, column -> {
+            if (column.hasFloat()) {
+                this.wasNull = false;
+                return column.getFloat();
+            }
+            this.wasNull = true;
+            return Float.valueOf(NUMERIC_VALUE_WHEN_NULL);
+        });
     }
 
     @Override
@@ -335,6 +339,9 @@ class RelationalResultSetFacade implements RelationalResultSet {
             case Types.DOUBLE:
                 o = getDouble(oneBasedColumn);
                 break;
+            case Types.FLOAT:
+                o = getFloat(oneBasedColumn);
+                break;
             case Types.BOOLEAN:
                 o = getBoolean(oneBasedColumn);
                 break;
@@ -343,13 +350,25 @@ class RelationalResultSetFacade implements RelationalResultSet {
                 break;
             case Types.OTHER:
                 int index = PositionalIndex.toProtobuf(oneBasedColumn);
-                Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);
-                if (column.hasUuid()) {
-                    o = getUUID(oneBasedColumn);
-                } else {
-                    // Probably an enum, it's not clear exactly how we should handle this, but we currently only have one
-                    // thing which appears as OTHER
-                    o = getString(oneBasedColumn);
+                final var relationalType = getMetaData().getRelationalDataType().getFields().get(index).getType();
+                final var typeCode = relationalType.getCode();
+                switch (typeCode) {
+                    case UUID:
+                        o = getUUID(oneBasedColumn);
+                        break;
+                    case ENUM:
+                        o = getString(oneBasedColumn);
+                        break;
+                    case VECTOR: {
+                        final var bytes = getBytes(oneBasedColumn);
+                        if (wasNull()) {
+                            return null;
+                        }
+                        o = TypeConversion.parseVector(bytes, ((DataType.VectorType)relationalType).getPrecision());
+                    }
+                        break;
+                    default:
+                        throw new SQLException("Unsupported type " + type);
                 }
                 break;
             default:

@@ -106,13 +106,6 @@ public class KeySpacePathWrapper implements KeySpacePath {
         return inner.add(dirName, value);
     }
 
-    @Deprecated
-    @Override
-    @Nullable
-    public Tuple getRemainder() {
-        return inner.getRemainder();
-    }
-
     @Override
     @Nullable
     public KeySpacePath getParent() {
@@ -134,19 +127,6 @@ public class KeySpacePathWrapper implements KeySpacePath {
     @Override
     public Object getValue() {
         return inner.getValue();
-    }
-
-    @Deprecated
-    @Override
-    @Nonnull
-    public PathValue getStoredValue() {
-        return inner.getStoredValue();
-    }
-
-    @Deprecated
-    @Override
-    public boolean hasStoredValue() {
-        return inner.hasStoredValue();
     }
 
     @Override
@@ -179,17 +159,6 @@ public class KeySpacePathWrapper implements KeySpacePath {
         return inner.deleteAllDataAsync(context);
     }
 
-    @Deprecated
-    @Override
-    @Nonnull
-    public RecordCursor<KeySpacePath> listAsync(@Nonnull FDBRecordContext context,
-                                                @Nonnull String subdirName,
-                                                @Nullable ValueRange<?> range,
-                                                @Nullable byte[] continuation,
-                                                @Nonnull ScanProperties scanProperties) {
-        return inner.listAsync(context, subdirName, range, continuation, scanProperties);
-    }
-
     @Nonnull
     @Override
     public RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nonnull FDBRecordContext context,
@@ -205,7 +174,6 @@ public class KeySpacePathWrapper implements KeySpacePath {
     public CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context) {
         return inner.toResolvedPathAsync(context);
     }
-
 
     @Override
     public boolean equals(Object obj) {
@@ -225,5 +193,20 @@ public class KeySpacePathWrapper implements KeySpacePath {
     @Override
     public String toString(@Nonnull Tuple t) {
         return inner.toString(t);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
+                                                          @Nullable byte[] continuation,
+                                                          @Nonnull ScanProperties scanProperties) {
+        return inner.exportAllData(context, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
+                                              @Nonnull Iterable<DataInKeySpacePath> dataToImport) {
+        return inner.importData(context, dataToImport);
     }
 }

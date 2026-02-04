@@ -86,11 +86,6 @@ class AutoTestDescriptor extends ClassTestDescriptor {
     }
 
     @Override
-    public Type getType() {
-        return Type.CONTAINER;
-    }
-
-    @Override
     public boolean mayRegisterTests() {
         return true;
     }
@@ -114,7 +109,7 @@ class AutoTestDescriptor extends ClassTestDescriptor {
         MutableExtensionRegistry registry = context.getExtensionRegistry();
         ExtensionContext extensionContext = context.getExtensionContext();
         ThrowableCollector throwableCollector = context.getThrowableCollector();
-        final TestInstances testInstances = context.getTestInstancesProvider().getTestInstances(registry, throwableCollector);
+        final TestInstances testInstances = context.getTestInstancesProvider().getTestInstances(registry, context);
         JunitUtils.setTestInstances(extensionContext, testInstances);
 
         for (BeforeEachCallback callback : registry.getExtensions(BeforeEachCallback.class)) {
@@ -145,7 +140,7 @@ class AutoTestDescriptor extends ClassTestDescriptor {
 
     private void invokeWorkloadTests(JupiterEngineExecutionContext context, DynamicTestExecutor dynamicTestExecutor, JupiterConfiguration configuration) throws InterruptedException {
         Object instance = context.getTestInstancesProvider()
-                .getTestInstances(context.getExtensionRegistry(), context.getThrowableCollector())
+                .getTestInstances(context.getExtensionRegistry(), context)
                 .findInstance(getTestClass())
                 .orElseThrow();
 
@@ -173,7 +168,7 @@ class AutoTestDescriptor extends ClassTestDescriptor {
                 Collection<QuerySet> queries = queryInvoker.getQueries(instance, workload.getSchema(), context, executableInvoker);
                 queries.forEach(querySet -> {
                     UniqueId uid = parentId.append(DYNAMIC_CONTAINER_SEGMENT_TYPE, workload.getDisplayName() + "-" + querySet.getLabel());
-                    TestDescriptor descriptor = new WorkloadTestDescriptor(uid, getTestClass(), configuration, workload, querySet);
+                    TestDescriptor descriptor = new WorkloadTestDescriptor(uid, getTestClass(), this, configuration, workload, querySet);
                     dynamicTestExecutor.execute(descriptor);
                 });
             }));

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -187,7 +188,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             final var objects = (List<?>)field;
             final var elementType = Verify.verifyNotNull(((Type.Array)fieldType).getElementType());
             if (elementType.isPrimitive()) {
-                if (elementType.getTypeCode() == Type.TypeCode.BYTES || elementType.getTypeCode() == Type.TypeCode.VERSION) {
+                final var elementTypeCode = elementType.getTypeCode();
+                if (elementTypeCode == Type.TypeCode.VECTOR || elementTypeCode == Type.TypeCode.BYTES || elementTypeCode == Type.TypeCode.VERSION) {
                     var resultBuilder = ImmutableList.builderWithExpectedSize(objects.size());
                     for (Object object : objects) {
                         resultBuilder.add(protoObjectForPrimitive(elementType, object));
@@ -224,6 +226,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             }
         } else if (type.getTypeCode() == Type.TypeCode.VERSION) {
             return ZeroCopyByteString.wrap(((FDBRecordVersion)field).toBytes(false));
+        } else if (type.getTypeCode() == Type.TypeCode.VECTOR) {
+            return ZeroCopyByteString.wrap(((RealVector)field).getRawData());
         }
         return field;
     }
@@ -270,7 +274,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             }
 
             if (i + 1 < columns.size()) {
-                arguments.addCommaAndWhiteSpace();
+                arguments.addComma();
+                arguments.addLinebreakOrWhitespace();
             }
         }
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addOpeningParen().addOptionalWhitespace()

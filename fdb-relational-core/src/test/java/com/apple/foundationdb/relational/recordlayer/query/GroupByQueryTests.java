@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
-import java.util.Base64;
 
 import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1Record;
 import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1RecordColAIsNull;
@@ -54,7 +53,7 @@ public class GroupByQueryTests {
     void groupByWithScanLimit() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
+                        "CREATE INDEX idx1 ON t1(a, b, c)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var conn = ddl.setSchemaAndGetConnection()) {
                 Continuation continuation = null;
@@ -120,7 +119,7 @@ public class GroupByQueryTests {
     void groupByWithRowLimit() throws Exception {
         final String schemaTemplate =
                 "create table t1(pk bigint, a bigint, b bigint, c bigint, primary key(pk))\n" +
-                        "create index i1 as select a from t1";
+                        "create index i1 ON t1(a)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var conn = ddl.setSchemaAndGetConnection()) {
                 conn.setOption(Options.Name.MAX_ROWS, 1);
@@ -149,13 +148,15 @@ public class GroupByQueryTests {
                                 .hasNoNextRow();
                         continuation = resultSet.getContinuation();
                     }
-                    String postfix = " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
-                    Assertions.assertTrue(statement.execute(query + postfix), "Did not return a result set from a select statement!");
-                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                        ResultSetAssert.assertThat(resultSet).hasNextRow()
-                                .isRowExactly(9.5)
-                                .hasNoNextRow();
-                        continuation = resultSet.getContinuation();
+                    try (var ps = conn.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
+                        ps.setBytes("continuation", continuation.serialize());
+                        Assertions.assertTrue(ps.execute(), "Did not return a result set from a select statement!");
+                        try (final RelationalResultSet resultSet = ps.getResultSet()) {
+                            ResultSetAssert.assertThat(resultSet).hasNextRow()
+                                    .isRowExactly(9.5)
+                                    .hasNoNextRow();
+                            continuation = resultSet.getContinuation();
+                        }
                     }
                 }
             }
@@ -198,7 +199,7 @@ public class GroupByQueryTests {
     void groupByClauseWithPredicateWorks() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
+                        "CREATE INDEX idx1 ON t1(a, b, c)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
@@ -248,7 +249,7 @@ public class GroupByQueryTests {
     void groupByClauseWorks() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b from T1 order by a, b";
+                        "CREATE INDEX idx1 ON T1(a, b)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
@@ -277,7 +278,7 @@ public class GroupByQueryTests {
     void groupByClauseWorksWithSubquery() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b from T1 order by a, b";
+                        "CREATE INDEX idx1 ON T1(a, b)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
@@ -306,7 +307,7 @@ public class GroupByQueryTests {
     void groupByClauseWorksWithSubqueryAliases() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b from T1 order by a, b";
+                        "CREATE INDEX idx1 ON T1(a, b)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
@@ -335,7 +336,7 @@ public class GroupByQueryTests {
     void groupByClauseWorksWithSubqueryAliasesComplex() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b from t1 order by a, b";
+                        "CREATE INDEX idx1 ON t1(a, b)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
@@ -364,7 +365,7 @@ public class GroupByQueryTests {
     void groupByClauseWorksDifferentAggregations() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b from t1 order by a, b";
+                        "CREATE INDEX idx1 ON t1(a, b)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
@@ -393,7 +394,7 @@ public class GroupByQueryTests {
     void groupByClauseWorksComplexGrouping() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b from t1 order by a, b";
+                        "CREATE INDEX idx1 ON t1(a, b)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
@@ -422,7 +423,7 @@ public class GroupByQueryTests {
     void groupByClauseSingleGroup() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b from t1 order by a, b";
+                        "CREATE INDEX idx1 ON t1(a, b)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 2000);
@@ -443,7 +444,7 @@ public class GroupByQueryTests {
     void groupByClauseWithoutGroupingColumnsInProjectionList() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b from t1 order by a, b";
+                        "CREATE INDEX idx1 ON t1(a, b)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 2000);
@@ -464,7 +465,7 @@ public class GroupByQueryTests {
     void groupByClauseWithoutAggregationsInProjectionList() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b from t1 order by a, b";
+                        "CREATE INDEX idx1 ON t1(a, b)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 2000);
@@ -485,7 +486,7 @@ public class GroupByQueryTests {
     void groupByInSubSelectWorks() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b from t1 order by a, b";
+                        "CREATE INDEX idx1 ON t1(a, b)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 2000);
@@ -506,7 +507,7 @@ public class GroupByQueryTests {
     void groupByConstantColumn() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b from t1 order by a, b";
+                        "CREATE INDEX idx1 ON t1(a, b)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 2000);
@@ -527,7 +528,7 @@ public class GroupByQueryTests {
     void aggregationWithoutGroupBy() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b from t1 order by a, b";
+                        "CREATE INDEX idx1 ON t1(a, b)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 2000);
@@ -548,7 +549,7 @@ public class GroupByQueryTests {
     void nestedGroupByStatements() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b from t1 order by a, b";
+                        "CREATE INDEX idx1 ON t1(a, b)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 2000);
@@ -569,7 +570,7 @@ public class GroupByQueryTests {
     void groupByClauseWorksComplexAggregations() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
+                        "CREATE INDEX idx1 ON t1(a, b, c)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
@@ -598,7 +599,7 @@ public class GroupByQueryTests {
     void groupByClauseWithNestedAggregationsIsSupported() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
+                        "CREATE INDEX idx1 ON t1(a, b, c)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
@@ -627,7 +628,7 @@ public class GroupByQueryTests {
     void expansionOfStarWorks() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a from t1";
+                        "CREATE INDEX idx1 ON t1(a)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
@@ -654,7 +655,7 @@ public class GroupByQueryTests {
     void groupByClauseWithNamedGroupingColumns() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
+                        "CREATE INDEX idx1 ON t1(a, b, c)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
@@ -684,7 +685,7 @@ public class GroupByQueryTests {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
                         "CREATE TABLE T2(pk bigint, x bigint, y bigint, z bigint, primary key(pk))" +
-                        "CREATE INDEX idx1 AS SELECT B FROM T1";
+                        "CREATE INDEX idx1 ON T1(B)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
@@ -711,7 +712,7 @@ public class GroupByQueryTests {
     void groupByWithNamedGroups() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
-                        "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
+                        "CREATE INDEX idx1 ON t1(a, b, c)";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);

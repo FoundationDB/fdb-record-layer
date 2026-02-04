@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -211,7 +212,7 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
         } else if (o instanceof Enum<?>) {
             return ((Enum<?>) o).name();
         } else if (o instanceof Descriptors.EnumValueDescriptor) {
-            return ((Descriptors.EnumValueDescriptor) o).getName();
+            return ProtoUtils.toUserIdentifier(((Descriptors.EnumValueDescriptor) o).getName());
         } else if (o instanceof ByteString) {
             return ((ByteString) o).toString();
         } else {
@@ -258,7 +259,7 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             final var fieldValues = (Collection<?>) message.getField(fieldDescriptor);
             final var elements = new ArrayList<>();
             for (var fieldValue : fieldValues) {
-                final var sanitizedFieldValue = MessageTuple.sanitizeField(fieldValue);
+                final var sanitizedFieldValue = MessageTuple.sanitizeField(fieldValue, fieldDescriptor.getOptions());
                 if (sanitizedFieldValue instanceof Message) {
                     elements.add(new ImmutableRowStruct(new MessageTuple((Message) sanitizedFieldValue), arrayMetaData.getElementStructMetaData()));
                 }  else {

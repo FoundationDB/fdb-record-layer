@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.server;
 
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,8 +55,9 @@ class ExternalServerTest {
     @Test
     void startMultiple() throws Exception {
         final List<ExternalServer> servers = new ArrayList<>();
+        final String clusterFile = FDBTestEnvironment.randomClusterFile();
         for (int i = 0; i < 3; i++) {
-            servers.add(new ExternalServer(currentServerPath, null));
+            servers.add(new ExternalServer(currentServerPath, clusterFile));
         }
         try {
             for (final ExternalServer server : servers) {

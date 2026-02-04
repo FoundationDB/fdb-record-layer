@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -39,6 +40,7 @@ import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Base64;
 import java.util.Locale;
 import java.util.function.Supplier;
@@ -75,6 +77,9 @@ public final class ParseHelpers {
                 case 'd': // fallthrough
                 case 'D':
                     return Double.parseDouble(valueAsString.substring(0, lastCharIdx));
+                case 'h': // fallthrough
+                case 'H':
+                    return Half.valueOf(valueAsString.substring(0, lastCharIdx));
                 default:
                     return Double.parseDouble(valueAsString);
             }
@@ -159,13 +164,18 @@ public final class ParseHelpers {
         }
     }
 
-    public static boolean isDescending(@Nonnull RelationalParser.OrderByExpressionContext orderByExpressionContext) {
-        return (orderByExpressionContext.ASC() == null) && (orderByExpressionContext.DESC() != null);
+    public static boolean isNullsLast(@Nullable RelationalParser.OrderClauseContext orderClause, boolean isDescending) {
+        if (orderClause == null || orderClause.nulls == null) {
+            return isDescending; // Default behavior: ASC NULLS FIRST, DESC NULLS LAST
+        }
+        return orderClause.LAST() != null;
     }
 
-    public static boolean isNullsLast(@Nonnull RelationalParser.OrderByExpressionContext orderByExpressionContext, boolean isDescending) {
-        return orderByExpressionContext.nulls == null ? isDescending :
-                (orderByExpressionContext.FIRST() == null) && (orderByExpressionContext.LAST() != null);
+    public static boolean isDescending(@Nullable RelationalParser.OrderClauseContext orderClause) {
+        if (orderClause == null) {
+            return false; // Default is ASC
+        }
+        return orderClause.DESC() != null;
     }
 
     public static class ParseTreeLikeAdapter implements TreeLike<ParseTreeLikeAdapter> {

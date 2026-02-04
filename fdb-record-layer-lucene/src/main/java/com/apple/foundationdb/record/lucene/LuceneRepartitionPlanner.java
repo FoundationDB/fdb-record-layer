@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,7 +31,7 @@ import java.util.List;
 /**
  * Manage repartitioning details (merging small partitions and splitting large ones).
  */
-@API(API.Status.EXPERIMENTAL)
+@API(API.Status.INTERNAL)
 public class LuceneRepartitionPlanner {
     private final int indexPartitionLowWatermark;
     private final int indexPartitionHighWatermark;
@@ -74,6 +73,11 @@ public class LuceneRepartitionPlanner {
 
         // candidate partition's current doc count
         final int currentPartitionCount = candidatePartition.getCount();
+        if ((currentPartitionCount == 0) && ((olderPartition != null) || newerPartition != null)) {
+            // remove current empty partition
+            repartitioningContext.action = RepartitioningAction.REMOVE_EMPTY_PARTITION;
+            return repartitioningContext;
+        }
         if (currentPartitionCount >= indexPartitionLowWatermark && currentPartitionCount <= indexPartitionHighWatermark) {
             // repartitioning not required
             return repartitioningContext;
@@ -150,13 +154,16 @@ public class LuceneRepartitionPlanner {
         /**
          * partition is under the low watermark, but its immediate neighbors have no capacity to absorb it.
          */
-        NO_CAPACITY_FOR_MERGE
+        NO_CAPACITY_FOR_MERGE,
+        /**
+         * partition is empty, remove from metadata.
+         */
+        REMOVE_EMPTY_PARTITION
     }
 
     /**
      * Convenience collection of data needed for repartitioning.
      */
-    @VisibleForTesting
     public static class RepartitioningContext {
         @Nonnull Tuple groupingKey;
         @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo sourcePartition;

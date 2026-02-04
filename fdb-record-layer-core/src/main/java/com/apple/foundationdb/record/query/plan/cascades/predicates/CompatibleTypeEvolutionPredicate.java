@@ -132,8 +132,7 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
                 // type was dropped
                 return false;
             }
-            final Type.Record currentType =
-                    Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(ImmutableList.of(entry.getKey())));
+            final Type.Record currentType = recordMetaData.getPlannerType(entry.getKey());
             if (!isAccessCompatibleWithCurrentType(fieldAccessTrieNode, currentType)) {
                 return false;
             }
@@ -275,7 +274,7 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
                     Verify.verify(type.isRecord());
                     final var field = ((Type.Record)type).getField(fieldAccessor.getOrdinal());
                     currentTrieBuilder =
-                            currentTrieBuilder.compute(FieldValue.ResolvedAccessor.of(field.getFieldName(), fieldAccessor.getOrdinal(), fieldAccessor.getType()),
+                            currentTrieBuilder.compute(FieldValue.ResolvedAccessor.of(field, fieldAccessor.getOrdinal()),
                                     (resolvedAccessor, oldTrieBuilder) -> {
                                         if (oldTrieBuilder == null) {
                                             return new FieldAccessTrieNodeBuilder(null, null, field.getFieldType());

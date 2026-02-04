@@ -131,6 +131,15 @@ message DataStoreInfo {
     optional int64 timestamp = 3;
   }
   optional StoreLockState store_lock_state = 10;
+  // The incarnation of this store, which should be incremented when moving data from one cluster to another.
+  // The intended usage of this value is that you increment it when moving data between different FDB clusters.
+  // Then if any time you save or update a record in the store, you set a field (let's say "incr") in that record to
+  // this incarnation, and you create an index on `[field("incr"), version()]` that index will be ordered by when the
+  // records were last modified, regardless of when data may have been moved between clusters.
+  // This is important, because `version()` is not well ordered across clusters, and thus you could save records on
+  // the new cluster, and get much lower `version()` values. By combining with the incarnation, it won't matter that
+  // the new cluster is providing lower versionstamps.
+  optional int32 incarnation = 11;
 }
 
 message Index {
@@ -195,14 +204,20 @@ message MetaData {
   repeated JoinedRecordType joined_record_types = 12;
   repeated UnnestedRecordType unnested_record_types = 13;
   repeated PUserDefinedFunction user_defined_functions = 14;
+  repeated PView views = 15;
   extensions 1000 to 2000;
 }
 
 message PUserDefinedFunction {
   oneof specific_function {
-    com.apple.foundationdb.record.planprotos.PMacroFunctionValue macro_function = 1;
+    com.apple.foundationdb.record.planprotos.PUserDefinedMacroFunction user_defined_macro_function = 1;
     PRawSqlFunction sql_function = 2;
   }
+}
+
+message PView {
+  optional string name = 1;
+  optional string definition = 2;
 }
 
 message JoinedRecordType {

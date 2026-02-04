@@ -1,0 +1,323 @@
+#
+# index-ddl-values-only.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Test VALUES indexes with different orderings
+# Compares CREATE INDEX AS SELECT vs CREATE INDEX ON syntax
+# Both syntaxes should produce equivalent query plans
+
+---
+options:
+    supported_version: 4.9.1.0
+---
+schema_template:
+    create table products_mat_view(
+        id integer,
+        name string,
+        price double,
+        category string,
+        stock integer,
+        supplier string,
+        rating double,
+        primary key(id)
+    )
+
+    create index idx_mv_price as select price from products_mat_view order by price
+    create index idx_mv_category as select category from products_mat_view order by category
+
+    create index idx_mv_cat_price as select category, price from products_mat_view order by category, price
+    create index idx_mv_name_rating as select name, rating from products_mat_view order by name, rating
+
+    create index idx_mv_price_covering as select price, name, supplier from products_mat_view order by price
+    create index idx_mv_cat_price_covering as select category, price, name, stock from products_mat_view order by category, price
+
+    create index idx_mv_cat_desc_price_asc as select category, price from products_mat_view order by category desc, price asc
+    create index idx_mv_price_desc as select price from products_mat_view order by price desc
+
+    create index idx_mv_rating_nulls_first as select rating from products_mat_view order by rating asc nulls first
+    create index idx_mv_rating_nulls_last as select rating from products_mat_view order by rating asc nulls last
+    create index idx_mv_supplier_desc_nulls_first as select supplier from products_mat_view order by supplier desc nulls first
+
+    create index idx_mv_filtered_expensive as select name, price from products_mat_view where price > 20 order by price
+    create index idx_mv_filtered_electronics as select name, price, stock from products_mat_view where category = 'Electronics' order by name
+    create index idx_mv_filtered_multi as select category, price, stock from products_mat_view where price > 15 and stock > 60 order by category
+
+    create table products_index_on(
+        id integer,
+        name string,
+        price double,
+        category string,
+        stock integer,
+        supplier string,
+        rating double,
+        primary key(id)
+    )
+
+    create index idx_iot_price on products_index_on(price)
+    create index idx_iot_category on products_index_on(category)
+
+    create index idx_iot_cat_price on products_index_on(category, price)
+    create index idx_iot_name_rating on products_index_on(name, rating)
+
+    create index idx_iot_price_covering on products_index_on(price) include(name, supplier)
+    create index idx_iot_cat_price_covering on products_index_on(category, price) include(name, stock)
+
+    create index idx_iot_cat_desc_price_asc on products_index_on(category desc, price asc)
+    create index idx_iot_price_desc on products_index_on(price desc)
+
+    create index idx_iot_rating_nulls_first on products_index_on(rating asc nulls first)
+    create index idx_iot_rating_nulls_last on products_index_on(rating asc nulls last)
+    create index idx_iot_supplier_desc_nulls_first on products_index_on(supplier desc nulls first)
+
+    create view v_iot_expensive as select name, price from products_index_on where price > 20
+    create index idx_iot_filtered_expensive on v_iot_expensive(price)
+
+    create view v_iot_electronics as select name, price, stock from products_index_on where category = 'Electronics'
+    create index idx_iot_filtered_electronics on v_iot_electronics(name) include (price, stock)
+
+    create view v_iot_multi_filter as select category, price, stock from products_index_on where price > 15 and stock > 60
+    create index idx_iot_filtered_multi on v_iot_multi_filter(category) include(price, stock)
+
+---
+setup:
+  steps:
+    # Insert test data with NULLs to test NULLS ordering
+    # Additional rows added for filtered index tests
+    - query: INSERT INTO products_mat_view VALUES
+             (1, 'Widget A', 19.99, 'Electronics', 100, 'SupplierX', 4.5),
+             (2, 'Widget B', 29.99, 'Electronics', 50, 'SupplierY', NULL),
+             (3, 'Gadget C', NULL, 'Home', 75, NULL, 3.8),
+             (4, 'Tool D', 15.50, NULL, 200, 'SupplierZ', 4.2),
+             (5, 'Phone X', 799.99, 'Electronics', 120, 'SupplierX', 4.8),
+             (6, 'Tablet Y', 299.99, 'Electronics', 80, 'SupplierY', 4.3),
+             (7, 'Speaker Z', 89.99, 'Electronics', 150, 'SupplierZ', 4.1),
+             (8, 'Lamp A', 25.50, 'Home', 90, 'SupplierX', 3.9),
+             (9, 'Chair B', 12.99, 'Home', 30, 'SupplierY', 4.0)
+
+    - query: INSERT INTO products_index_on VALUES
+             (1, 'Widget A', 19.99, 'Electronics', 100, 'SupplierX', 4.5),
+             (2, 'Widget B', 29.99, 'Electronics', 50, 'SupplierY', NULL),
+             (3, 'Gadget C', NULL, 'Home', 75, NULL, 3.8),
+             (4, 'Tool D', 15.50, NULL, 200, 'SupplierZ', 4.2),
+             (5, 'Phone X', 799.99, 'Electronics', 120, 'SupplierX', 4.8),
+             (6, 'Tablet Y', 299.99, 'Electronics', 80, 'SupplierY', 4.3),
+             (7, 'Speaker Z', 89.99, 'Electronics', 150, 'SupplierZ', 4.1),
+             (8, 'Lamp A', 25.50, 'Home', 90, 'SupplierX', 3.9),
+             (9, 'Chair B', 12.99, 'Home', 30, 'SupplierY', 4.0)
+
+
+---
+test_block:
+  name: simple_value_index
+  tests:
+    # Test simple single-column value index on price
+    -
+      - query: select price from products_mat_view where price > 18.0 order by price
+      - explain: "COVERING(IDX_MV_PRICE_DESC [[LESS_THAN to_ordered_bytes(promote(@c8 AS DOUBLE), DESC_NULLS_LAST)]] REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)"
+      - result: [{ 19.99 }, { 25.50 }, { 29.99 }, { 89.99 }, { 299.99 }, { 799.99 }]
+    -
+      - query: select price from products_index_on where price > 18.0 order by price
+      - explain: "COVERING(IDX_IOT_PRICE_DESC [[LESS_THAN to_ordered_bytes(promote(@c8 AS DOUBLE), DESC_NULLS_LAST)]] REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)"
+      - result: [{ 19.99 }, { 25.50 }, { 29.99 }, { 89.99 }, { 299.99 }, { 799.99 }]
+
+    # Test simple single-column value index on category
+    -
+      - query: select category from products_mat_view where category = 'Electronics'
+      - explain: "COVERING(IDX_MV_CATEGORY [EQUALS promote(@c8 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[2]]) | MAP (_.CATEGORY AS CATEGORY)"
+      - result: [{ "Electronics" }, { "Electronics" }, { "Electronics" }, { "Electronics" }, { "Electronics" }]
+    -
+      - query: select category from products_index_on where category = 'Electronics'
+      - explain: "COVERING(IDX_IOT_CATEGORY [EQUALS promote(@c8 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[2]]) | MAP (_.CATEGORY AS CATEGORY)"
+      - result: [{ "Electronics" }, { "Electronics" }, { "Electronics" }, { "Electronics" }, { "Electronics" }]
+
+---
+test_block:
+  name: multi_column_value_index
+  tests:
+    # Test multi-column index (category, price)
+    -
+      - query: select category, price from products_mat_view where category = 'Electronics' order by category, price
+      - explain: "COVERING(IDX_MV_CAT_PRICE [EQUALS promote(@c10 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)"
+      - result: [{ "Electronics", 19.99 }, { "Electronics", 29.99 }, { "Electronics", 89.99 }, { "Electronics", 299.99 }, { "Electronics", 799.99 }]
+    -
+      - query: select category, price from products_index_on where category = 'Electronics' order by category, price
+      - explain: "COVERING(IDX_IOT_CAT_PRICE [EQUALS promote(@c10 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)"
+      - result: [{ "Electronics", 19.99 }, { "Electronics", 29.99 }, { "Electronics", 89.99 }, { "Electronics", 299.99 }, { "Electronics", 799.99 }]
+
+    # Test multi-column index (name, rating)
+    -
+      - query: select name, rating from products_mat_view where name = 'Widget A'
+      - explain: "COVERING(IDX_MV_NAME_RATING [EQUALS promote(@c10 AS STRING)] -> [ID: KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING AS RATING)"
+      - result: [{ "Widget A", 4.5 }]
+    -
+      - query: select name, rating from products_index_on where name = 'Widget A'
+      - explain: "COVERING(IDX_IOT_NAME_RATING [EQUALS promote(@c10 AS STRING)] -> [ID: KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING AS RATING)"
+      - result: [{ "Widget A", 4.5 }]
+
+---
+test_block:
+  name: covering_value_index
+  tests:
+    # Test covering index - price in key, name and supplier in values
+    -
+      - query: select price, name, supplier from products_mat_view where price > 15.0 order by price
+      - explain: "COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c12 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.PRICE AS PRICE, _.NAME AS NAME, _.SUPPLIER AS SUPPLIER)"
+      - result: [{ 15.50, "Tool D", "SupplierZ" }, { 19.99, "Widget A", "SupplierX" }, { 25.50, "Lamp A", "SupplierX" }, { 29.99, "Widget B", "SupplierY" }, { 89.99, "Speaker Z", "SupplierZ" }, { 299.99, "Tablet Y", "SupplierY" }, { 799.99, "Phone X", "SupplierX" }]
+    -
+      - query: select price, name, supplier from products_index_on where price > 15.0 order by price
+      - explain: "COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c12 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.PRICE AS PRICE, _.NAME AS NAME, _.SUPPLIER AS SUPPLIER)"
+      - result: [{ 15.50, "Tool D", "SupplierZ" }, { 19.99, "Widget A", "SupplierX" }, { 25.50, "Lamp A", "SupplierX" }, { 29.99, "Widget B", "SupplierY" }, { 89.99, "Speaker Z", "SupplierZ" }, { 299.99, "Tablet Y", "SupplierY" }, { 799.99, "Phone X", "SupplierX" }]
+
+    # Test covering index - category and price in key, name and stock in values
+    -
+      - query: select category, price, name, stock from products_mat_view where category = 'Electronics' order by category, price
+      - explain: "COVERING(IDX_MV_CAT_PRICE_COVERING [EQUALS promote(@c14 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], NAME: VALUE:[0], PRICE: KEY:[1], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.NAME AS NAME, _.STOCK AS STOCK)"
+      - result: [{ "Electronics", 19.99, "Widget A", 100 }, { "Electronics", 29.99, "Widget B", 50 }, { "Electronics", 89.99, "Speaker Z", 150 }, { "Electronics", 299.99, "Tablet Y", 80 }, { "Electronics", 799.99, "Phone X", 120 }]
+    -
+      - query: select category, price, name, stock from products_index_on where category = 'Electronics' order by category, price
+      - explain: "COVERING(IDX_IOT_CAT_PRICE_COVERING [EQUALS promote(@c14 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], NAME: VALUE:[0], PRICE: KEY:[1], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.NAME AS NAME, _.STOCK AS STOCK)"
+      - result: [{ "Electronics", 19.99, "Widget A", 100 }, { "Electronics", 29.99, "Widget B", 50 }, { "Electronics", 89.99, "Speaker Z", 150 }, { "Electronics", 299.99, "Tablet Y", 80 }, { "Electronics", 799.99, "Phone X", 120 }]
+
+---
+test_block:
+  name: mixed_asc_desc_ordering
+  tests:
+    # Test DESC ordering on price
+    -
+      - query: select price from products_mat_view order by price desc
+      - explain: "COVERING(IDX_MV_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)"
+      - result: [{ 799.99 }, { 299.99 }, { 89.99 }, { 29.99 }, { 25.50 }, { 19.99 }, { 15.50 }, { 12.99 }, { !null }]
+    -
+      - query: select price from products_index_on order by price desc
+      - explain: "COVERING(IDX_IOT_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)"
+      - result: [{ 799.99 }, { 299.99 }, { 89.99 }, { 29.99 }, { 25.50 }, { 19.99 }, { 15.50 }, { 12.99 }, { !null }]
+
+    # Test mixed ASC/DESC (category DESC, price ASC)
+    -
+      - query: select category, price from products_mat_view order by category desc, price asc
+      - explain: "COVERING(IDX_MV_CAT_DESC_PRICE_ASC <,> -> [CATEGORY: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)"
+      - result: [{ "Home", !null }, { "Home", 12.99 }, { "Home", 25.50 }, { "Electronics", 19.99 }, { "Electronics", 29.99 }, { "Electronics", 89.99 }, { "Electronics", 299.99 }, { "Electronics", 799.99 }, { !null , 15.50 }]
+    -
+      - query: select category, price from products_index_on order by category desc, price asc
+      - explain: "COVERING(IDX_IOT_CAT_DESC_PRICE_ASC <,> -> [CATEGORY: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)"
+      - result: [{ "Home", !null }, { "Home", 12.99 }, { "Home", 25.50 }, { "Electronics", 19.99 }, { "Electronics", 29.99 }, { "Electronics", 89.99 }, { "Electronics", 299.99 }, { "Electronics", 799.99 }, { !null , 15.50 }]
+
+---
+test_block:
+  name: nulls_ordering
+  tests:
+    # Test NULLS FIRST ordering on rating
+    -
+      - query: select rating from products_mat_view order by rating asc nulls first
+      - explain: "COVERING(IDX_MV_RATING_NULLS_FIRST <,> -> [ID: KEY:[2], RATING: KEY:[0]]) | MAP (_.RATING AS RATING)"
+      - result: [{ !null }, { 3.8 }, { 3.9 }, { 4.0 }, { 4.1 }, { 4.2 }, { 4.3 }, { 4.5 }, { 4.8 }]
+    -
+      - query: select rating from products_index_on order by rating asc nulls first
+      - explain: "COVERING(IDX_IOT_RATING_NULLS_FIRST <,> -> [ID: KEY:[2], RATING: KEY:[0]]) | MAP (_.RATING AS RATING)"
+      - result: [{ !null }, { 3.8 }, { 3.9 }, { 4.0 }, { 4.1 }, { 4.2 }, { 4.3 }, { 4.5 }, { 4.8 }]
+
+    # Test NULLS LAST ordering on rating
+    -
+      - query: select rating from products_mat_view order by rating asc nulls last
+      - explain: "COVERING(IDX_MV_RATING_NULLS_LAST <,> -> [ID: KEY:[2], RATING: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.RATING AS RATING)"
+      - result: [{ 3.8 }, { 3.9 }, { 4.0 }, { 4.1 }, { 4.2 }, { 4.3 }, { 4.5 }, { 4.8 }, { !null }]
+    -
+      - query: select rating from products_index_on order by rating asc nulls last
+      - explain: "COVERING(IDX_IOT_RATING_NULLS_LAST <,> -> [ID: KEY:[2], RATING: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.RATING AS RATING)"
+      - result: [{ 3.8 }, { 3.9 }, { 4.0 }, { 4.1 }, { 4.2 }, { 4.3 }, { 4.5 }, { 4.8 }, { !null }]
+
+    # Test DESC NULLS FIRST on supplier
+    -
+      - query: select supplier from products_mat_view order by supplier desc nulls first
+      - explain: "COVERING(IDX_MV_SUPPLIER_DESC_NULLS_FIRST <,> -> [ID: KEY:[2], SUPPLIER: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.SUPPLIER AS SUPPLIER)"
+      - result: [{ !null }, { "SupplierZ" }, { "SupplierZ" }, { "SupplierY" }, { "SupplierY" }, { "SupplierY" }, { "SupplierX" }, { "SupplierX" }, { "SupplierX" }]
+    -
+      - query: select supplier from products_index_on order by supplier desc nulls first
+      - explain: "COVERING(IDX_IOT_SUPPLIER_DESC_NULLS_FIRST <,> -> [ID: KEY:[2], SUPPLIER: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.SUPPLIER AS SUPPLIER)"
+      - result: [{ !null }, { "SupplierZ" }, { "SupplierZ" }, { "SupplierY" }, { "SupplierY" }, { "SupplierY" }, { "SupplierX" }, { "SupplierX" }, { "SupplierX" }]
+
+---
+test_block:
+  name: reverse_scan_tests
+  tests:
+    # Test reverse scan - query DESC on ASC index
+    -
+      - query: select price from products_mat_view order by price desc
+      - explain: "COVERING(IDX_MV_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)"
+      - result: [{ 799.99 }, { 299.99 }, { 89.99 }, { 29.99 }, { 25.50 }, { 19.99 }, { 15.50 }, { 12.99 }, { !null }]
+    -
+      - query: select price from products_index_on order by price desc
+      - explain: "COVERING(IDX_IOT_PRICE_DESC <,> -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)"
+      - result: [{ 799.99 }, { 299.99 }, { 89.99 }, { 29.99 }, { 25.50 }, { 19.99 }, { 15.50 }, { 12.99 }, { !null }]
+
+    # Test reverse scan - query ASC on DESC index
+    -
+      - query: select price from products_mat_view order by price asc
+      - explain: "COVERING(IDX_MV_PRICE_DESC <,> REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)"
+      - result: [{ !null }, { 12.99 }, { 15.50 }, { 19.99 }, { 25.50 }, { 29.99 }, { 89.99 }, { 299.99 }, { 799.99 }]
+    -
+      - query: select price from products_index_on order by price asc
+      - explain: "COVERING(IDX_IOT_PRICE_DESC <,> REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)"
+      - result: [{ !null }, { 12.99 }, { 15.50 }, { 19.99 }, { 25.50 }, { 29.99 }, { 89.99 }, { 299.99 }, { 799.99 }]
+
+---
+test_block:
+  name: filtered_indexes
+  tests:
+    # Test filtered index - expensive products (price > 20)
+    -
+      - query: select name, price from products_mat_view where price > 20 order by price
+      - explain: "COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c10 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)"
+      - result: [{ "Lamp A", 25.50 }, { "Widget B", 29.99 }, { "Speaker Z", 89.99 }, { "Tablet Y", 299.99 }, { "Phone X", 799.99 }]
+    -
+      - query: select name, price from products_index_on where price > 20 order by price
+      - explain: "COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c10 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)"
+      - result: [{ "Lamp A", 25.50 }, { "Widget B", 29.99 }, { "Speaker Z", 89.99 }, { "Tablet Y", 299.99 }, { "Phone X", 799.99 }]
+
+    # Test filtered index - electronics category
+    -
+      - query: select name, price, stock from products_mat_view where category = 'Electronics' order by name
+      - explain: "COVERING(IDX_MV_FILTERED_ELECTRONICS <,> -> [ID: KEY:[2], NAME: KEY:[0], PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE, _.STOCK AS STOCK)"
+      - result: [{ "Phone X", 799.99, 120 }, { "Speaker Z", 89.99, 150 }, { "Tablet Y", 299.99, 80 }, { "Widget A", 19.99, 100 }, { "Widget B", 29.99, 50 }]
+    -
+      - query: select name, price, stock from products_index_on where category = 'Electronics' order by name
+      - explain: "COVERING(IDX_IOT_FILTERED_ELECTRONICS <,> -> [ID: KEY:[2], NAME: KEY:[0], PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE, _.STOCK AS STOCK)"
+      - result: [{ "Phone X", 799.99, 120 }, { "Speaker Z", 89.99, 150 }, { "Tablet Y", 299.99, 80 }, { "Widget A", 19.99, 100 }, { "Widget B", 29.99, 50 }]
+
+    # Test filtered index - multiple predicates (price > 15 AND stock > 60)
+    -
+      - query: select category, price, stock from products_mat_view where price > 15 and stock > 60 order by category
+      - explain: "COVERING(IDX_MV_FILTERED_MULTI <,> -> [CATEGORY: KEY:[0], ID: KEY:[2], PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.STOCK AS STOCK)"
+      - unorderedResult: [{!null _, 15.5, 200}, { "Electronics", 19.99, 100 }, { "Electronics", 89.99, 150 }, { "Electronics", 299.99, 80 }, { "Electronics", 799.99, 120 }, { "Home", 25.50, 90 }]
+    -
+      - query: select category, price, stock from products_index_on where price > 15 and stock > 60 order by category
+      - explain: "COVERING(IDX_IOT_FILTERED_MULTI <,> -> [CATEGORY: KEY:[0], ID: KEY:[2], PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.STOCK AS STOCK)"
+      - unorderedResult: [{!null _, 15.5, 200}, { "Electronics", 19.99, 100 }, { "Electronics", 89.99, 150 }, { "Electronics", 299.99, 80 }, { "Electronics", 799.99, 120 }, { "Home", 25.50, 90 }]
+
+    # Test filtered index with additional filter in query
+    -
+      - query: select name, price from products_mat_view where price > 50 order by price
+      - explain: "COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c10 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)"
+      - result: [{ "Speaker Z", 89.99 }, { "Tablet Y", 299.99 }, { "Phone X", 799.99 }]
+    -
+      - query: select name, price from products_index_on where price > 50 order by price
+      - explain: "COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c10 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)"
+      - result: [{ "Speaker Z", 89.99 }, { "Tablet Y", 299.99 }, { "Phone X", 799.99 }]
+
+...
+

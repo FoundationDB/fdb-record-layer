@@ -192,10 +192,11 @@ public class FDBLuceneIndexFailureTest extends FDBLuceneTestBase {
         }
 
         // run partitioning without failure - make sure the index is still in good shape
+        timer.reset();
         explicitMergeIndex(index, contextProps, schemaSetup, false, 0);
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
-            assertEquals(2, getCounter(context, LuceneEvents.Counts.LUCENE_REPARTITION_CALLS).getCount());
+            assertEquals(1, getCounter(context, LuceneEvents.Counts.LUCENE_REPARTITION_CALLS).getCount());
         }
         partitionInfos = getPartitionMeta(index, groupingKey, contextProps, schemaSetup);
         // It should first move 6 from the most-recent to a new, older partition, then move 6 again into a partition

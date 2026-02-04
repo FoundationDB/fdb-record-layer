@@ -44,6 +44,7 @@ dependencies {
     testImplementation(libs.junit.platform)
     testImplementation(libs.protobuf.util)
     testCompileOnly(libs.spotbugs.annotations)
+    testImplementation(libs.snakeyaml)
 
     testAnnotationProcessor(libs.autoService)
 }
@@ -65,7 +66,6 @@ task testShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
                    'Multi-Release': 'true' // https://github.com/johnrengelman/shadow/issues/449
     }
     mergeServiceFiles()
-    exclude 'log4j.properties'
 }
 
 publishing {

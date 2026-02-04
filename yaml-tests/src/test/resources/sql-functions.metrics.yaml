@@ -102,13 +102,13 @@ basic-sql-function-tests:
         | FILTER q0.COL1 LESS_THAN promote(@c28 AS LONG) AND q0.COL2 EQUALS promote(@c30
         AS STRING) | FETCH AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y,
         q0.COL2 AS Z) }'
-    task_count: 1648
-    task_total_time_ms: 148
-    transform_count: 370
-    transform_time_ms: 47
-    transform_yield_count: 141
-    insert_time_ms: 6
-    insert_new_count: 252
+    task_count: 1642
+    task_total_time_ms: 171
+    transform_count: 369
+    transform_time_ms: 70
+    transform_yield_count: 140
+    insert_time_ms: 8
+    insert_new_count: 251
     insert_reused_count: 7
 -   query: EXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from
         f1(a => 103, b => 'b') A, f1(a => 103, b => 'b') B where A.col1 = B.col1
@@ -117,13 +117,13 @@ basic-sql-function-tests:
         | FILTER q0.COL1 LESS_THAN promote(@c30 AS LONG) AND q0.COL2 EQUALS promote(@c34
         AS STRING) | FETCH AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y,
         q0.COL2 AS Z) }'
-    task_count: 1648
-    task_total_time_ms: 138
-    transform_count: 370
-    transform_time_ms: 40
-    transform_yield_count: 141
-    insert_time_ms: 5
-    insert_new_count: 252
+    task_count: 1642
+    task_total_time_ms: 195
+    transform_count: 369
+    transform_time_ms: 72
+    transform_yield_count: 140
+    insert_time_ms: 16
+    insert_new_count: 251
     insert_reused_count: 7
 -   query: EXPLAIN with x(y, z) as (select * from f1(b => 'b', a => 103)) select *
         from x

@@ -72,8 +72,8 @@ public class PreparedStatementTests {
                     " CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)" +
                     " CREATE TABLE RestaurantComplexRecord (rest_no bigint, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, key bytes, PRIMARY KEY(rest_no))" +
                     " CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, secrets bytes array, PRIMARY KEY(id))" +
-                    " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
-                    " CREATE INDEX reviewer_name_idx as select name from RestaurantReviewer" +
+                    " CREATE INDEX record_name_idx ON RestaurantComplexRecord(name)" +
+                    " CREATE INDEX reviewer_name_idx ON RestaurantReviewer(name)" +
                     " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
                     " CREATE INDEX mv2 AS SELECT endo.\"endorsementText\" FROM RestaurantComplexRecord rec, (SELECT X.\"endorsementText\" FROM rec.reviews rev, (SELECT \"endorsementText\" from rev.endorsements) X) endo";
 
@@ -345,7 +345,8 @@ public class PreparedStatementTests {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
             }
             Continuation continuation;
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            try (var ps = connection.prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
                 ps.setMaxRows(2);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
@@ -355,7 +356,7 @@ public class PreparedStatementTests {
                     continuation = resultSet.getContinuation();
                 }
             }
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WITH CONTINUATION ?continuation")) {
+            try (var ps = connection.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
                 ps.setMaxRows(2);
                 ps.setBytes("continuation", continuation.serialize());
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
@@ -374,7 +375,7 @@ public class PreparedStatementTests {
             }
 
             // Same but with logs
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord OPTIONS(LOG QUERY)")) {
+            try (var ps = connection.prepareStatement("SELECT * FROM RestaurantComplexRecord OPTIONS(LOG QUERY)")) {
                 ps.setMaxRows(2);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
@@ -385,7 +386,7 @@ public class PreparedStatementTests {
                 }
             }
             Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord OPTIONS(LOG QUERY) WITH CONTINUATION ?continuation")) {
+            try (var ps = connection.prepareStatement("EXECUTE CONTINUATION ?continuation OPTIONS(LOG QUERY)")) {
                 ps.setMaxRows(2);
                 ps.setBytes("continuation", continuation.serialize());
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
@@ -395,14 +396,15 @@ public class PreparedStatementTests {
                             .hasNoNextRow();
                     continuation = resultSet.getContinuation();
                 }
-                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
+                // With EXECUTE CONTINUATION, the plan is embedded in the continuation, so cache is skipped
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"skip\"");
                 ps.setBytes("continuation", continuation.serialize());
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 14L)
                             .hasNoNextRow();
                 }
-                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"skip\"");
             }
         }
     }

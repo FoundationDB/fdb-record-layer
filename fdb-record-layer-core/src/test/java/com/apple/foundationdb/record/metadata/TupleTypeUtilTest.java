@@ -27,7 +27,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.apple.test.Tags;
-import com.google.common.base.Charsets;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -39,6 +38,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -78,7 +78,7 @@ public class TupleTypeUtilTest {
             Key.Evaluated.NullStandin.NOT_NULL,
             "hello",
             String.copyValueOf(new char[]{'h', 'e', 'l', 'l', 'o'}),
-            "hello".getBytes(Charsets.UTF_8),
+            "hello".getBytes(StandardCharsets.UTF_8),
             new byte[]{(byte)'h', (byte)'e', (byte)'l', (byte)'l', (byte)'o'},
             ByteString.copyFromUtf8("hello"),
             (byte)42,

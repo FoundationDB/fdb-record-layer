@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -40,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -70,6 +72,8 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -86,6 +90,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQuery
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEachWithNullOnEmpty;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullScan;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.logicalFilterExpressionWithPredicates;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.projectColumn;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.resultColumn;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.selectWithPredicates;
@@ -133,6 +138,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
+    @Nonnull
+    private static final Logger logger = LoggerFactory.getLogger(FDBSimpleQueryGraphTest.class);
+
     @RegisterExtension
     static RootLogLevelExtension logLevel = new RootLogLevelExtension(Level.TRACE);
 
@@ -336,6 +344,30 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 QueryResult result = results.get(0);
                 assertNull(result.getQueriedRecord());
             }
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testLogicalFilterExpression() {
+        CascadesPlanner cascadesPlanner = setUp();
+        var qun =
+                fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
+        qun =
+                forEachWithNullOnEmpty(logicalFilterExpressionWithPredicates(qun,
+                        fieldPredicate(qun, "name", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "not_in_db"))
+                ));
+        qun =
+                forEach(logicalFilterExpressionWithPredicates(qun,
+                        fieldPredicate(qun, "rest_no", new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1_000L))));
+        final var topExpression = LogicalSortExpression.unsorted(qun);
+
+        //
+        // We cannot plan this graph as a LogicalFilterExpression is exclusively created by the planner itself as an
+        // intermediate expression. This test case just makes sure we can graphically explain it.
+        //
+        if (logger.isDebugEnabled()) {
+            logger.debug(KeyValueLogMessage.of("DOT explain for top expression",
+                    "explain", PlannerGraphVisitor.internalGraphicalExplain(topExpression)));
         }
     }
 
@@ -828,24 +860,24 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         //
         var childrenMap = fieldAccessesRestaurantRecord.getChildrenMap();
         Assertions.assertNotNull(childrenMap);
-        var childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("name", 1));
+        var childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of(restaurantReviewerType, "name", 1));
         Assertions.assertNotNull(childFieldAccesses);
         var leafType = childFieldAccesses.getValue();
         Assertions.assertNotNull(leafType);
         Assertions.assertEquals(leafType, Type.primitiveType(Type.TypeCode.STRING, true));
 
-        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("reviews", 2));
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of(restaurantRecordType, "reviews", 2));
         Assertions.assertNotNull(childFieldAccesses);
         childrenMap = fieldAccessesRestaurantRecord.getChildrenMap();
         Assertions.assertNotNull(childrenMap);
-        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("reviewer", 0));
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of(reviewsType, "reviewer", 0));
         Assertions.assertNotNull(childFieldAccesses);
         leafType = childFieldAccesses.getValue();
         Assertions.assertNotNull(leafType);
         Assertions.assertEquals(leafType, Type.primitiveType(Type.TypeCode.LONG, false));
 
         childrenMap = fieldAccessesRestaurantRecord.getChildrenMap();
-        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("rest_no", 0));
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of(restaurantRecordType, "rest_no", 0));
         Assertions.assertNotNull(childFieldAccesses);
         leafType = childFieldAccesses.getValue();
         Assertions.assertNotNull(leafType);
@@ -861,13 +893,13 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         //
         childrenMap = fieldAccessesRestaurantReviewer.getChildrenMap();
         Assertions.assertNotNull(childrenMap);
-        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("name", 1));
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of(restaurantReviewerType, "name", 1));
         Assertions.assertNotNull(childFieldAccesses);
         leafType = childFieldAccesses.getValue();
         Assertions.assertNotNull(leafType);
         Assertions.assertEquals(leafType, Type.primitiveType(Type.TypeCode.STRING, false));
 
-        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("id", 0));
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of(restaurantReviewerType, "id", 0));
         Assertions.assertNotNull(childFieldAccesses);
         leafType = childFieldAccesses.getValue();
         Assertions.assertNotNull(leafType);

@@ -56,6 +56,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
@@ -75,12 +76,12 @@ import java.util.stream.Stream;
  */
 class BooleanValueTest {
 
-    private static final Type.Enum ENUM_TYPE_FOR_TEST = new Type.Enum(false, List.of(
-            new Type.Enum.EnumValue("SPADES", 0),
-            new Type.Enum.EnumValue("HEARTS", 1),
-            new Type.Enum.EnumValue("DIAMONDS", 2),
-            new Type.Enum.EnumValue("CLUBS", 3)
-    ), "enumTestType");
+    private static final Type.Enum ENUM_TYPE_FOR_TEST = Type.Enum.fromValuesWithName("enumTestType", false, List.of(
+            Type.Enum.EnumValue.from("SPADES", 0),
+            Type.Enum.EnumValue.from("HEARTS", 1),
+            Type.Enum.EnumValue.from("DIAMONDS", 2),
+            Type.Enum.EnumValue.from("CLUBS", 3)
+    ));
 
     private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c")
             .addTypeIfNeeded(ENUM_TYPE_FOR_TEST);
@@ -133,7 +134,8 @@ class BooleanValueTest {
 
     static class BinaryPredicateTestProvider implements ArgumentsProvider {
         @Override
-        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
             return Stream.of(
                     Arguments.of(List.of(BOOL_TRUE, BOOL_TRUE), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(BOOL_FALSE, BOOL_TRUE), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -885,7 +887,8 @@ class BooleanValueTest {
 
     static class LazyBinaryPredicateTestProvider implements ArgumentsProvider {
         @Override
-        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
             return Stream.of(
                     /* lazy evaluation tests */
                     Arguments.of(List.of(new RelOpValue.NotEqualsFn().encapsulate(List.of(INT_1, INT_1)),

@@ -16,4 +16,6 @@
               files=".*[\\/]generated[\\/].*"/>
     <suppress checks="Header"
               files=".*[\\/]com[\\/]google[\\/]common[\\/]graph[\\/].*"/>
+    <suppress checks="Header"
+              files=".*[\\/]com[\\/]apple[\\/]foundationdb[\\/]half[\\/].*"/>
 </suppressions>

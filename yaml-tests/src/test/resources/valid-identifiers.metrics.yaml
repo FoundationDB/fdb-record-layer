@@ -1,0 +1,818 @@
+all-tests:
+-   query: EXPLAIN select t.id from "foo.table$nested.repeated" as t where exists
+        (select * from t."level0.field1" as x where x."level1$field.3" = 20)
+    explain: 'COVERING(foo.table$nested.repeated.idx.field.1.3 [EQUALS promote(@c25
+        AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
+    task_count: 656
+    task_total_time_ms: 33
+    transform_count: 202
+    transform_time_ms: 20
+    transform_yield_count: 53
+    insert_time_ms: 1
+    insert_new_count: 68
+    insert_reused_count: 5
+-   query: EXPLAIN select t.id from "foo.table$nested.repeated" as t where exists
+        (select * from t."level0.field1" as x where x."level1$field.2"."level2$field.1"
+        = 91)
+    explain: 'COVERING(foo.table$nested.repeated.idx.field.1.2.1 [EQUALS promote(@c27
+        AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
+    task_count: 656
+    task_total_time_ms: 44
+    transform_count: 202
+    transform_time_ms: 25
+    transform_yield_count: 53
+    insert_time_ms: 2
+    insert_new_count: 68
+    insert_reused_count: 5
+-   query: EXPLAIN select t.id from "foo.table$nested.repeated" as t where exists
+        (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1"
+        = 10)
+    explain: 'COVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c27
+        AS LONG)] -> [ID: KEY[2]]) | MAP (_.ID AS ID)'
+    task_count: 914
+    task_total_time_ms: 64
+    transform_count: 322
+    transform_time_ms: 38
+    transform_yield_count: 69
+    insert_time_ms: 4
+    insert_new_count: 96
+    insert_reused_count: 9
+-   query: EXPLAIN select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested"
+        where id = 1
+    explain: 'COVERING(foo.table$nested.idx <,> -> [ID: KEY[2], level0__2field1: [level1__1field__21:
+        [level2__1field__21: KEY[0]]]]) | FILTER _.ID EQUALS promote(@c12 AS LONG)
+        | MAP (_.level0.field1.level1$field.1.level2$field.1 AS level2$field.1)'
+    task_count: 474
+    task_total_time_ms: 46
+    transform_count: 114
+    transform_time_ms: 27
+    transform_yield_count: 33
+    insert_time_ms: 3
+    insert_new_count: 52
+    insert_reused_count: 6
+-   query: EXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where
+        'foo' IN "foo.table$repeated"."field.1$array"
+    explain: SCAN(<,>) | TFILTER foo__2table__1repeated | FILTER @c8 IN _.field.1$array
+        | MAP (_.ID AS ID)
+    task_count: 404
+    task_total_time_ms: 15
+    transform_count: 121
+    transform_time_ms: 8
+    transform_yield_count: 27
+    insert_time_ms: 1
+    insert_new_count: 38
+    insert_reused_count: 4
+-   query: EXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where
+        exists (select 1 from "foo.table$repeated"."field.1$array" r where r = 'foo')
+    explain: 'COVERING(foo.table$repeated.2 [EQUALS @c20] -> [ID: KEY[2]]) | MAP (_.ID
+        AS ID)'
+    task_count: 476
+    task_total_time_ms: 14
+    transform_count: 139
+    transform_time_ms: 6
+    transform_yield_count: 36
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select t."field.1$array" from "foo.table$repeated" as t where 3
+        IN t."field.0$array"
+    explain: SCAN(<,>) | TFILTER foo__2table__1repeated | FILTER promote(@c10 AS LONG)
+        IN _.field.0$array | MAP (_.field.1$array AS field.1$array)
+    task_count: 404
+    task_total_time_ms: 10
+    transform_count: 121
+    transform_time_ms: 5
+    transform_yield_count: 27
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 4
+-   query: EXPLAIN select t."field.1$array" from "foo.table$repeated" as t where exists
+        (select 1 from t."field.0$array" r where r = 3)
+    explain: ISCAN(foo.table$repeated.1 [EQUALS promote(@c22 AS LONG)]) | MAP (_.field.1$array
+        AS field.1$array)
+    task_count: 448
+    task_total_time_ms: 17
+    transform_count: 135
+    transform_time_ms: 10
+    transform_yield_count: 34
+    insert_time_ms: 0
+    insert_new_count: 43
+    insert_reused_count: 2
+-   query: EXPLAIN select "foo.tableA".* from "foo.tableA";
+    explain: ISCAN(foo.tableA.idx3 <,>)
+    task_count: 329
+    task_total_time_ms: 92
+    transform_count: 85
+    transform_time_ms: 74
+    transform_yield_count: 41
+    insert_time_ms: 2
+    insert_new_count: 31
+    insert_reused_count: 10
+-   query: EXPLAIN select * from "foo.tableA";
+    explain: ISCAN(foo.tableA.idx3 <,>)
+    task_count: 329
+    task_total_time_ms: 21
+    transform_count: 85
+    transform_time_ms: 9
+    transform_yield_count: 41
+    insert_time_ms: 1
+    insert_new_count: 31
+    insert_reused_count: 10
+-   query: EXPLAIN select "_$$$".* from "foo.tableA" as "_$$$";
+    explain: ISCAN(foo.tableA.idx3 <,>)
+    task_count: 329
+    task_total_time_ms: 9
+    transform_count: 85
+    transform_time_ms: 4
+    transform_yield_count: 41
+    insert_time_ms: 0
+    insert_new_count: 31
+    insert_reused_count: 10
+-   query: EXPLAIN select "foo.tableA.A2", sum("foo.tableA.A1") from "foo.tableA"
+        group by "foo.tableA.A2";
+    explain: 'AISCAN(foo.tableA.idx2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
+        | MAP (_._0 AS foo.tableA.A2, _._1 AS _1)'
+    task_count: 408
+    task_total_time_ms: 26
+    transform_count: 117
+    transform_time_ms: 19
+    transform_yield_count: 44
+    insert_time_ms: 0
+    insert_new_count: 36
+    insert_reused_count: 3
+-   query: EXPLAIN select * from "foo.tableA", "foo.tableB" where "foo.tableA"."foo.tableA.A1"
+        = "foo.tableB"."foo.tableB.B1";
+    explain: SCAN(<,>) | TFILTER foo__2tableB | FLATMAP q0 -> { ISCAN(foo.tableA.idx
+        [EQUALS q0.foo.tableB.B1]) AS q1 RETURN (q1.foo.tableA.A1 AS foo.tableA.A1,
+        q1.foo.tableA.A2 AS foo.tableA.A2, q1.foo.tableA.A3 AS foo.tableA.A3, q0.foo.tableB.B1
+        AS foo.tableB.B1, q0.foo.tableB.B2 AS foo.tableB.B2, q0.foo.tableB.B3 AS foo.tableB.B3)
+        }
+    task_count: 798
+    task_total_time_ms: 34
+    transform_count: 214
+    transform_time_ms: 17
+    transform_yield_count: 69
+    insert_time_ms: 1
+    insert_new_count: 107
+    insert_reused_count: 8
+-   query: EXPLAIN select "foo$tableC$C2", sum("foo$tableC$C1") from "foo$tableC"
+        group by "foo$tableC$C2";
+    explain: 'AISCAN(foo$tableC$idx2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
+        | MAP (_._0 AS foo$tableC$C2, _._1 AS _1)'
+    task_count: 336
+    task_total_time_ms: 10
+    transform_count: 103
+    transform_time_ms: 6
+    transform_yield_count: 34
+    insert_time_ms: 0
+    insert_new_count: 24
+    insert_reused_count: 1
+-   query: EXPLAIN select "__foo__tableD".* from "__foo__tableD";
+    explain: ISCAN(__foo__tableD$idx <,>)
+    task_count: 248
+    task_total_time_ms: 15
+    transform_count: 65
+    transform_time_ms: 7
+    transform_yield_count: 29
+    insert_time_ms: 0
+    insert_new_count: 22
+    insert_reused_count: 6
+-   query: EXPLAIN select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3"
+        >= 2;
+    explain: 'COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2:
+        KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS
+        promote(@c11 AS LONG) | FETCH'
+    task_count: 346
+    task_total_time_ms: 18
+    transform_count: 83
+    transform_time_ms: 7
+    transform_yield_count: 33
+    insert_time_ms: 1
+    insert_new_count: 38
+    insert_reused_count: 5
+-   query: EXPLAIN select "__foo__tableD"."__foo__tableD$D1" from "__foo__tableD";
+    explain: 'COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY[0], __foo__0tableD__1D2:
+        KEY[1], __foo__0tableD__1D3: KEY[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1)'
+    task_count: 262
+    task_total_time_ms: 5
+    transform_count: 64
+    transform_time_ms: 3
+    transform_yield_count: 29
+    insert_time_ms: 0
+    insert_new_count: 28
+    insert_reused_count: 4
+-   query: EXPLAIN select "__foo__tableD$D1" from "__foo__tableD";
+    explain: 'COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY[0], __foo__0tableD__1D2:
+        KEY[1], __foo__0tableD__1D3: KEY[2]]) | MAP (_.__foo__tableD$D1 AS __foo__tableD$D1)'
+    task_count: 262
+    task_total_time_ms: 7
+    transform_count: 64
+    transform_time_ms: 4
+    transform_yield_count: 29
+    insert_time_ms: 0
+    insert_new_count: 28
+    insert_reused_count: 4
+-   query: EXPLAIN select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3"
+        >= 2 order by "__foo__tableD$D1";
+    explain: 'COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2:
+        KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS
+        promote(@c11 AS LONG) | FETCH'
+    task_count: 274
+    task_total_time_ms: 13
+    transform_count: 70
+    transform_time_ms: 5
+    transform_yield_count: 29
+    insert_time_ms: 0
+    insert_new_count: 28
+    insert_reused_count: 3
+-   query: EXPLAIN select "βήτα__f"("f__e"."foo.tableE.E3") AS "___h.1" from "foo.tableE"
+        as "f__e" where "alpha__f"("f__e"."foo.tableE.E3") = 5
+    explain: SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c22
+        AS LONG) | MAP (_.foo.tableE.E3.S2 AS ___h.1)
+    task_count: 230
+    task_total_time_ms: 5
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select "alpha__f"("f__e"."foo.tableE.E3") AS "___h.1" from "foo.tableE"
+        as "f__e" where "βήτα__f"("f__e"."foo.tableE.E3") >= 50
+    explain: SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S2 GREATER_THAN_OR_EQUALS
+        promote(@c23 AS LONG) | MAP (_.foo.tableE.E3.S1 AS ___h.1)
+    task_count: 230
+    task_total_time_ms: 3
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN select * from "__$func3"(10, 1, 1);
+    explain: SCAN(<,>) | TFILTER my__1adjacency__1list | FILTER _.me LESS_THAN promote(@c6
+        AS LONG) AND _.my__parent EQUALS promote(@c8 AS LONG) | FLATMAP q0 -> { SCAN(<,>)
+        | TFILTER my__1adjacency__1list | FILTER _.me EQUALS promote(@c8 AS LONG)
+        AS q1 RETURN (q0.me AS _0, q0.my__parent AS _1, q1.me AS _2, q1.my__parent
+        AS _3) }
+    task_count: 1405
+    task_total_time_ms: 43
+    transform_count: 301
+    transform_time_ms: 17
+    transform_yield_count: 110
+    insert_time_ms: 5
+    insert_new_count: 289
+    insert_reused_count: 13
+-   query: EXPLAIN select * from "$yay"(5);
+    explain: SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c6
+        AS LONG) | MAP (_.foo.tableE.E1 AS _$x.id)
+    task_count: 382
+    task_total_time_ms: 9
+    transform_count: 90
+    transform_time_ms: 3
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 51
+    insert_reused_count: 2
+-   query: EXPLAIN select * from "__2yay"(6);
+    explain: SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c6
+        AS LONG) | MAP (_.foo.tableE.E1 AS _$y.id)
+    task_count: 382
+    task_total_time_ms: 10
+    transform_count: 90
+    transform_time_ms: 6
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 51
+    insert_reused_count: 2
+-   query: EXPLAIN select * from "नमस्त"(4);
+    explain: SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c6
+        AS LONG) | MAP (_.foo.tableE.E1 AS _$z.id)
+    task_count: 382
+    task_total_time_ms: 8
+    transform_count: 90
+    transform_time_ms: 3
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 51
+    insert_reused_count: 2
+-   query: EXPLAIN select * from "$yay__view";
+    explain: SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 4
+        | MAP (_.foo.tableE.E1 AS _$x.id)
+    task_count: 322
+    task_total_time_ms: 18
+    transform_count: 82
+    transform_time_ms: 6
+    transform_yield_count: 19
+    insert_time_ms: 0
+    insert_new_count: 27
+    insert_reused_count: 2
+-   query: EXPLAIN select * from "__2yay__view";
+    explain: SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 5
+        | MAP (_.foo.tableE.E1 AS _$y.id)
+    task_count: 322
+    task_total_time_ms: 13
+    transform_count: 82
+    transform_time_ms: 3
+    transform_yield_count: 19
+    insert_time_ms: 0
+    insert_new_count: 27
+    insert_reused_count: 2
+-   query: EXPLAIN select * from "வணக்கம்";
+    explain: SCAN(<,>) | TFILTER foo__2tableE | FILTER _.foo.tableE.E3.S1 EQUALS 6
+        | MAP (_.foo.tableE.E1 AS _$z.id)
+    task_count: 322
+    task_total_time_ms: 15
+    transform_count: 82
+    transform_time_ms: 6
+    transform_yield_count: 19
+    insert_time_ms: 0
+    insert_new_count: 27
+    insert_reused_count: 2
+-   query: EXPLAIN select * from values (1, 2, 3), (4, 5, 6) as "_$$$$"("_$$$", "_$$",
+        "_$")
+    explain: EXPLODE array((@c6 AS _$$$, @c8 AS _$$, @c10 AS _$), (@c14 AS _$$$, @c16
+        AS _$$, @c18 AS _$))
+    task_count: 110
+    task_total_time_ms: 2
+    transform_count: 29
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 8
+    insert_reused_count: 0
+-   query: EXPLAIN select struct "x$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3")
+        from "foo.tableA"
+    explain: 'COVERING(foo.tableA.idx <,> -> [foo__2tableA__2A1: KEY[0], foo__2tableA__2A2:
+        KEY[1], foo__2tableA__2A3: KEY[2]]) | MAP ((_.foo.tableA.A1 AS foo.tableA.A1,
+        _.foo.tableA.A2 AS foo.tableA.A2, _.foo.tableA.A3 AS foo.tableA.A3) AS _0)'
+    task_count: 523
+    task_total_time_ms: 11
+    transform_count: 138
+    transform_time_ms: 5
+    transform_yield_count: 50
+    insert_time_ms: 0
+    insert_new_count: 54
+    insert_reused_count: 3
+-   query: EXPLAIN select struct "x$$" ("foo.tableA".*) from "foo.tableA"
+    explain: ISCAN(foo.tableA.idx3 <,>) | MAP (_ AS _0)
+    task_count: 301
+    task_total_time_ms: 18
+    transform_count: 75
+    transform_time_ms: 9
+    transform_yield_count: 37
+    insert_time_ms: 1
+    insert_new_count: 35
+    insert_reused_count: 6
+-   query: EXPLAIN select struct "x$$" ("foo.tableA.A2" + "foo.tableA.A1" as "__$$__")
+        from "foo.tableA"
+    explain: ISCAN(foo.tableA.idx3 <,>) | MAP ((_.foo.tableA.A2 + _.foo.tableA.A1
+        AS __$$__) AS _0)
+    task_count: 301
+    task_total_time_ms: 7
+    transform_count: 73
+    transform_time_ms: 4
+    transform_yield_count: 37
+    insert_time_ms: 0
+    insert_new_count: 35
+    insert_reused_count: 6
+-   query: EXPLAIN select * from "foo.enum.type";
+    explain: ISCAN(foo.enum.type$enum__1 <,>)
+    task_count: 240
+    task_total_time_ms: 92
+    transform_count: 61
+    transform_time_ms: 74
+    transform_yield_count: 25
+    insert_time_ms: 1
+    insert_new_count: 22
+    insert_reused_count: 6
+-   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__1" = 'B$C';
+    explain: ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1),
+        C.D(2), E__F(3), __G$H(4)>)])
+    task_count: 335
+    task_total_time_ms: 25
+    transform_count: 77
+    transform_time_ms: 11
+    transform_yield_count: 30
+    insert_time_ms: 1
+    insert_new_count: 34
+    insert_reused_count: 4
+-   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__1" = 'C.D';
+    explain: ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1),
+        C.D(2), E__F(3), __G$H(4)>)])
+    task_count: 335
+    task_total_time_ms: 25
+    transform_count: 77
+    transform_time_ms: 11
+    transform_yield_count: 30
+    insert_time_ms: 1
+    insert_new_count: 34
+    insert_reused_count: 4
+-   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__1" = 'A';
+    explain: ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1),
+        C.D(2), E__F(3), __G$H(4)>)])
+    task_count: 335
+    task_total_time_ms: 25
+    transform_count: 77
+    transform_time_ms: 11
+    transform_yield_count: 30
+    insert_time_ms: 1
+    insert_new_count: 34
+    insert_reused_count: 4
+-   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'B$C';
+    explain: ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS
+        promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)
+    task_count: 299
+    task_total_time_ms: 102
+    transform_count: 74
+    transform_time_ms: 80
+    transform_yield_count: 27
+    insert_time_ms: 1
+    insert_new_count: 32
+    insert_reused_count: 4
+-   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'C.D';
+    explain: ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS
+        promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)
+    task_count: 299
+    task_total_time_ms: 102
+    transform_count: 74
+    transform_time_ms: 80
+    transform_yield_count: 27
+    insert_time_ms: 1
+    insert_new_count: 32
+    insert_reused_count: 4
+-   query: EXPLAIN select * from "foo.enum.type" where "enum_type.enum__2" = 'A';
+    explain: ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS
+        promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)
+    task_count: 299
+    task_total_time_ms: 102
+    transform_count: 74
+    transform_time_ms: 80
+    transform_yield_count: 27
+    insert_time_ms: 1
+    insert_new_count: 32
+    insert_reused_count: 4
+update-delete-statements:
+-   query: EXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1"
+        = 1
+    explain: 'COVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1:
+        KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT
+        BY PK | FETCH | UPDATE foo__2tableA'
+    task_count: 743
+    task_total_time_ms: 18
+    transform_count: 146
+    transform_time_ms: 8
+    transform_yield_count: 57
+    insert_time_ms: 1
+    insert_new_count: 87
+    insert_reused_count: 6
+-   query: EXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1"
+        > 1 RETURNING "new"."foo.tableA.A1"
+    explain: 'COVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1:
+        KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT
+        BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)'
+    task_count: 800
+    task_total_time_ms: 13
+    transform_count: 160
+    transform_time_ms: 6
+    transform_yield_count: 57
+    insert_time_ms: 0
+    insert_new_count: 91
+    insert_reused_count: 6
+-   query: EXPLAIN DELETE FROM "foo.tableA" WHERE "foo.tableA.A1" = 1 RETURNING "foo.tableA.A1"
+        + "foo.tableA.A2" + "foo.tableA.A3"
+    explain: ISCAN(foo.tableA.idx [EQUALS promote(@c7 AS LONG)]) | DELETE | MAP (_.foo.tableA.A1
+        + _.foo.tableA.A2 + _.foo.tableA.A3 AS _0)
+    task_count: 598
+    task_total_time_ms: 11
+    transform_count: 134
+    transform_time_ms: 4
+    transform_yield_count: 53
+    insert_time_ms: 0
+    insert_new_count: 72
+    insert_reused_count: 5
+-   query: EXPLAIN DELETE FROM "foo.tableA" WHERE "foo.tableA.A2" = 100
+    explain: ISCAN(foo.tableA.idx3 [EQUALS promote(@c7 AS LONG)]) | DELETE
+    task_count: 483
+    task_total_time_ms: 8
+    transform_count: 112
+    transform_time_ms: 4
+    transform_yield_count: 47
+    insert_time_ms: 0
+    insert_new_count: 62
+    insert_reused_count: 5
+unnamed-12:
+-   query: EXPLAIN SELECT * FROM T1
+    explain: SCAN(<,>) | TFILTER T1
+    task_count: 159
+    task_total_time_ms: 2
+    transform_count: 41
+    transform_time_ms: 1
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 13
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM T1 WHERE "T1.COL2" > 3
+    explain: SCAN(<,>) | TFILTER T1 | FILTER _.T1.COL2 GREATER_THAN promote(@c8 AS
+        LONG)
+    task_count: 187
+    task_total_time_ms: 8
+    transform_count: 48
+    transform_time_ms: 3
+    transform_yield_count: 14
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT "T1.COL2" FROM T1 WHERE "T1.COL2" > 3
+    explain: SCAN(<,>) | TFILTER T1 | FILTER _.T1.COL2 GREATER_THAN promote(@c8 AS
+        LONG) | MAP (_.T1.COL2 AS T1.COL2)
+    task_count: 230
+    task_total_time_ms: 5
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM T2
+    explain: ISCAN(T2$T2.COL1 <,>)
+    task_count: 240
+    task_total_time_ms: 12
+    transform_count: 61
+    transform_time_ms: 6
+    transform_yield_count: 25
+    insert_time_ms: 0
+    insert_new_count: 22
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT * FROM T2 WHERE "T2$COL2" > 8
+    explain: ISCAN(T2$T2.COL1 <,>) | FILTER _.T2$COL2 GREATER_THAN promote(@c8 AS
+        LONG)
+    task_count: 299
+    task_total_time_ms: 9
+    transform_count: 74
+    transform_time_ms: 4
+    transform_yield_count: 27
+    insert_time_ms: 0
+    insert_new_count: 32
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT "T2$COL2" FROM T2 WHERE "T2$COL2" > 8
+    explain: ISCAN(T2$T2.COL1 <,>) | FILTER _.T2$COL2 GREATER_THAN promote(@c8 AS
+        LONG) | MAP (_.T2$COL2 AS T2$COL2)
+    task_count: 375
+    task_total_time_ms: 21
+    transform_count: 98
+    transform_time_ms: 12
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 39
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT * FROM "__T3"
+    explain: SCAN(<,>) | TFILTER __T3
+    task_count: 159
+    task_total_time_ms: 5
+    transform_count: 41
+    transform_time_ms: 1
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 13
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM "__T3" WHERE "__T3$COL2" > 13
+    explain: SCAN(<,>) | TFILTER __T3 | FILTER _.__T3$COL2 GREATER_THAN promote(@c8
+        AS LONG)
+    task_count: 187
+    task_total_time_ms: 3
+    transform_count: 48
+    transform_time_ms: 1
+    transform_yield_count: 14
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT "__T3$COL2" FROM "__T3" WHERE "__T3$COL2" > 13
+    explain: SCAN(<,>) | TFILTER __T3 | FILTER _.__T3$COL2 GREATER_THAN promote(@c8
+        AS LONG) | MAP (_.__T3$COL2 AS __T3$COL2)
+    task_count: 230
+    task_total_time_ms: 8
+    transform_count: 61
+    transform_time_ms: 3
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM "__func__T3$col2"(13)
+    explain: SCAN(<,>) | TFILTER __T3 | FILTER _.__T3$COL2 EQUALS promote(@c6 AS LONG)
+        | MAP (_.__T3$COL1 AS c.1, _.__T3$COL3 AS c.2)
+    task_count: 382
+    task_total_time_ms: 13
+    transform_count: 90
+    transform_time_ms: 5
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 51
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM T4
+    explain: SCAN(<,>) | TFILTER T4
+    task_count: 159
+    task_total_time_ms: 3
+    transform_count: 41
+    transform_time_ms: 1
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 13
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM T4 WHERE "T4.COL2" > 18
+    explain: SCAN(<,>) | TFILTER T4 | FILTER _.T4.COL2 GREATER_THAN promote(@c8 AS
+        LONG)
+    task_count: 187
+    task_total_time_ms: 7
+    transform_count: 48
+    transform_time_ms: 3
+    transform_yield_count: 14
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT "T4.COL2" FROM T4 WHERE "T4.COL2" > 18
+    explain: SCAN(<,>) | TFILTER T4 | FILTER _.T4.COL2 GREATER_THAN promote(@c8 AS
+        LONG) | MAP (_.T4.COL2 AS T4.COL2)
+    task_count: 230
+    task_total_time_ms: 7
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM "T4$view"
+    explain: SCAN(<,>) | TFILTER T4 | FILTER _.T4.COL1 GREATER_THAN 0 AND _.T4.COL2
+        GREATER_THAN 0 | MAP (_.T4.COL1 AS c__1, _.T4.COL2 AS c__2)
+    task_count: 322
+    task_total_time_ms: 10
+    transform_count: 82
+    transform_time_ms: 4
+    transform_yield_count: 19
+    insert_time_ms: 0
+    insert_new_count: 27
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT "___hidden"."a" FROM T4
+    explain: SCAN(<,>) | TFILTER T4 | MAP (_.___hidden.a AS a)
+    task_count: 159
+    task_total_time_ms: 9
+    transform_count: 41
+    transform_time_ms: 4
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 15
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM T5__UNESCAPED
+    explain: SCAN(<,>) | TFILTER T5__UNESCAPED
+    task_count: 159
+    task_total_time_ms: 7
+    transform_count: 41
+    transform_time_ms: 1
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 13
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM T5__UNESCAPED WHERE T5__COL1 = 10
+    explain: SCAN(<,>) | TFILTER T5__UNESCAPED | FILTER _.T5__COL1 EQUALS promote(@c8
+        AS LONG)
+    task_count: 187
+    task_total_time_ms: 10
+    transform_count: 48
+    transform_time_ms: 4
+    transform_yield_count: 14
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT ID, "__T5__COL2" FROM T5__UNESCAPED WHERE T5__COL1 = 10
+    explain: SCAN(<,>) | TFILTER T5__UNESCAPED | FILTER _.T5__COL1 EQUALS promote(@c10
+        AS LONG) | MAP (_.ID AS ID, _.__T5__COL2 AS __T5__COL2)
+    task_count: 230
+    task_total_time_ms: 6
+    transform_count: 61
+    transform_time_ms: 2
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM T5__UNESCAPED WHERE "__T5__COL2" < 10
+    explain: SCAN(<,>) | TFILTER T5__UNESCAPED | FILTER _.__T5__COL2 LESS_THAN promote(@c8
+        AS LONG)
+    task_count: 187
+    task_total_time_ms: 10
+    transform_count: 48
+    transform_time_ms: 3
+    transform_yield_count: 14
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT ID, "__T5__COL2" FROM T5__UNESCAPED WHERE "__T5__COL2" <
+        10
+    explain: SCAN(<,>) | TFILTER T5__UNESCAPED | FILTER _.__T5__COL2 LESS_THAN promote(@c10
+        AS LONG) | MAP (_.ID AS ID, _.__T5__COL2 AS __T5__COL2)
+    task_count: 230
+    task_total_time_ms: 11
+    transform_count: 61
+    transform_time_ms: 4
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED"
+    explain: ISCAN(T6$ENUM2 <,>)
+    task_count: 321
+    task_total_time_ms: 6
+    transform_count: 81
+    transform_time_ms: 3
+    transform_yield_count: 37
+    insert_time_ms: 0
+    insert_new_count: 31
+    insert_reused_count: 10
+-   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10
+    explain: ISCAN(T6$ENUM2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c8 AS LONG)
+    task_count: 411
+    task_total_time_ms: 21
+    transform_count: 100
+    transform_time_ms: 8
+    transform_yield_count: 40
+    insert_time_ms: 0
+    insert_new_count: 47
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__"
+        = 10
+    explain: ISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c10 AS LONG)
+        | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)
+    task_count: 520
+    task_total_time_ms: 21
+    transform_count: 136
+    transform_time_ms: 8
+    transform_yield_count: 41
+    insert_time_ms: 1
+    insert_new_count: 57
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10
+    explain: ISCAN(T6$COL2 [[LESS_THAN promote(@c8 AS LONG)]])
+    task_count: 447
+    task_total_time_ms: 14
+    transform_count: 104
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 49
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE"
+        < 10
+    explain: 'COVERING(T6$COL2 [[LESS_THAN promote(@c10 AS LONG)]] -> [ID: KEY[2],
+        __T6__2COL2__VALUE: KEY[0]]) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)'
+    task_count: 608
+    task_total_time_ms: 17
+    transform_count: 147
+    transform_time_ms: 7
+    transform_yield_count: 47
+    insert_time_ms: 1
+    insert_new_count: 66
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_1" = '__D.__'
+    explain: ISCAN(T6$ENUM2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c8 AS ENUM<A(0),
+        B__(1), C__(2), __D.__(3)>)
+    task_count: 411
+    task_total_time_ms: 23
+    transform_count: 100
+    transform_time_ms: 11
+    transform_yield_count: 40
+    insert_time_ms: 1
+    insert_new_count: 47
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT ID, "T6$__ENUM_2" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_1"
+        = '__D.__'
+    explain: ISCAN(T6$COL2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c10 AS ENUM<A(0),
+        B__(1), C__(2), __D.__(3)>) | MAP (_.ID AS ID, _.T6$__ENUM_2 AS T6$__ENUM_2)
+    task_count: 520
+    task_total_time_ms: 14
+    transform_count: 136
+    transform_time_ms: 5
+    transform_yield_count: 41
+    insert_time_ms: 0
+    insert_new_count: 57
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
+    explain: ISCAN(T6$ENUM2 [EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])
+    task_count: 447
+    task_total_time_ms: 15
+    transform_count: 103
+    transform_time_ms: 7
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 49
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT ID, "T6$__ENUM_1" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2"
+        = '__D.__'
+    explain: ISCAN(T6$ENUM2 [EQUALS promote(@c10 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])
+        | MAP (_.ID AS ID, _.T6$__ENUM_1 AS T6$__ENUM_1)
+    task_count: 549
+    task_total_time_ms: 23
+    transform_count: 139
+    transform_time_ms: 10
+    transform_yield_count: 43
+    insert_time_ms: 1
+    insert_new_count: 59
+    insert_reused_count: 5

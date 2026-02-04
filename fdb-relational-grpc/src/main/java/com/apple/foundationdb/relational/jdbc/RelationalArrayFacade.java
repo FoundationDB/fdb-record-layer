@@ -179,37 +179,14 @@ class RelationalArrayFacade implements RelationalArray {
         int count = getCount(askedForCount, this.delegate.getElementCount(), index);
         var resultSetBuilder = ResultSet.newBuilder();
 
-        final var componentType = this.delegateMetadata.getType();
-        final var componentSqlType = this.delegateMetadata.getJavaSqlTypesCode();
-        final var componentColumnBuilder = ColumnMetadata.newBuilder().setName("VALUE").setType(componentType).setJavaSqlTypesCode(componentSqlType);
-        if (componentType == Type.ARRAY) {
-            componentColumnBuilder.setArrayMetadata(this.delegateMetadata.getArrayMetadata());
-        } else if (componentType == Type.STRUCT) {
-            componentColumnBuilder.setStructMetadata(this.delegateMetadata.getStructMetadata());
-        }
+        final var columnMetadata = delegateMetadata.toBuilder().setName("VALUE").build();
         resultSetBuilder.setMetadata(ResultSetMetadata.newBuilder().setColumnMetadata(ListColumnMetadata.newBuilder()
-                .addColumnMetadata(ColumnMetadata.newBuilder().setName("INDEX").setType(Type.INTEGER).setJavaSqlTypesCode(Types.INTEGER).build())
-                .addColumnMetadata(componentColumnBuilder.build()).build()).build());
+                .addColumnMetadata(ColumnMetadata.newBuilder().setName("INDEX").setType(Type.INTEGER).build())
+                .addColumnMetadata(columnMetadata).build()).build());
         for (int i = index; i < count; i++) {
             final var listColumnBuilder = ListColumn.newBuilder();
             listColumnBuilder.addColumn(Column.newBuilder().setInteger(i + 1).build());
-            final var valueColumnBuilder = Column.newBuilder();
-            if (componentType == Type.STRUCT) {
-                valueColumnBuilder.setStruct(delegate.getElement(i).getStruct());
-            } else if (componentType == Type.INTEGER) {
-                valueColumnBuilder.setInteger(delegate.getElement(i).getInteger());
-            } else if (componentSqlType == Types.VARCHAR) {
-                valueColumnBuilder.setString(delegate.getElement(i).getString());
-            } else if (componentSqlType == Types.DOUBLE) {
-                valueColumnBuilder.setDouble(delegate.getElement(i).getDouble());
-            } else if (componentSqlType == Types.BOOLEAN) {
-                valueColumnBuilder.setBoolean(delegate.getElement(i).getBoolean());
-            } else {
-                Assert.failUnchecked(ErrorCode.UNKNOWN_TYPE, "Type not supported: " + componentType.name());
-            }
-            resultSetBuilder.addRow(Struct.newBuilder()
-                    .setColumns(listColumnBuilder
-                            .addColumn(valueColumnBuilder.build())).build());
+            resultSetBuilder.addRow(Struct.newBuilder().setColumns(listColumnBuilder.addColumn(delegate.getElement(i))).build());
         }
         return new RelationalResultSetFacade(resultSetBuilder.build());
     }
@@ -280,7 +257,7 @@ class RelationalArrayFacade implements RelationalArray {
 
         private void initOrCheckMetadata(ListColumnMetadata innerMetadata) {
             if (metadata == null) {
-                final var builder = ColumnMetadata.newBuilder().setName("ARRAY").setJavaSqlTypesCode(Types.STRUCT).setType(Type.STRUCT);
+                final var builder = ColumnMetadata.newBuilder().setName("ARRAY").setType(Type.STRUCT);
                 builder.setStructMetadata(innerMetadata);
                 metadata = builder.build();
             } else {

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -34,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
+import com.apple.foundationdb.relational.recordlayer.query.WindowSpecExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
@@ -148,10 +150,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    DataType visitPrimitiveType(@Nonnull RelationalParser.PrimitiveTypeContext ctx);
-
-    @Nonnull
-    @Override
     Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx);
 
     @Nonnull
@@ -168,7 +166,27 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    RecordLayerIndex visitIndexDefinition(@Nonnull RelationalParser.IndexDefinitionContext ctx);
+    RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx);
+
+    @Nonnull
+    @Override
+    RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx);
+
+    @Nonnull
+    @Override
+    RecordLayerIndex visitVectorIndexDefinition(RelationalParser.VectorIndexDefinitionContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitIndexColumnList(@Nonnull RelationalParser.IndexColumnListContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitIndexColumnSpec(@Nonnull RelationalParser.IndexColumnSpecContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitIncludeClause(@Nonnull RelationalParser.IncludeClauseContext ctx);
 
     @Override
     Object visitIndexAttributes(RelationalParser.IndexAttributesContext ctx);
@@ -183,13 +201,14 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     ProceduralPlan visitDropTempFunction(RelationalParser.DropTempFunctionContext ctx);
 
     @Override
-    CompiledSqlFunction visitCreateFunction(RelationalParser.CreateFunctionContext ctx);
-
-    @Override
     CompiledSqlFunction visitTempSqlInvokedFunction(RelationalParser.TempSqlInvokedFunctionContext ctx);
 
     @Override
-    CompiledSqlFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
+    UserDefinedFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
+
+    @Nonnull
+    @Override
+    Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx);
 
     @Override
     LogicalOperator visitStatementBody(RelationalParser.StatementBodyContext ctx);
@@ -270,10 +289,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Expression visitContinuation(RelationalParser.ContinuationContext ctx);
-
-    @Nonnull
-    @Override
     Expression visitContinuationAtom(@Nonnull RelationalParser.ContinuationAtomContext ctx);
 
     @Nonnull
@@ -316,9 +331,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nullable
     Void visitTableSources(@Nonnull RelationalParser.TableSourcesContext ctx);
 
-    @Nonnull
+    @Nullable
     @Override
-    LogicalOperator visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx);
+    Void visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx);
 
     @Nonnull
     @Override
@@ -347,7 +362,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     NonnullPair<String, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitInlineTableDefinition(RelationalParser.InlineTableDefinitionContext ctx);
 
-    @Nonnull
+    @Nullable
     @Override
     Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx);
 
@@ -402,6 +417,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Expression visitHavingClause(@Nonnull RelationalParser.HavingClauseContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitQualifyClause(RelationalParser.QualifyClauseContext ctx);
 
     @Nonnull
     @Override
@@ -744,10 +763,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Expression visitExpressionWithName(@Nonnull RelationalParser.ExpressionWithNameContext ctx);
-
-    @Nonnull
-    @Override
     Expression visitExpressionWithOptionalName(@Nonnull RelationalParser.ExpressionWithOptionalNameContext ctx);
 
     @Nonnull
@@ -761,6 +776,14 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Expression visitAggregateFunctionCall(@Nonnull RelationalParser.AggregateFunctionCallContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitNonAggregateFunctionCall(RelationalParser.NonAggregateFunctionCallContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx);
 
     @Nonnull
     @Override
@@ -840,15 +863,27 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Object visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx);
+    Expression visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx);
 
     @Nonnull
     @Override
-    Object visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx);
+    WindowSpecExpression visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx);
+
+    @Nonnull
+    @Override
+    Expressions visitPartitionClause(RelationalParser.PartitionClauseContext ctx);
 
     @Nonnull
     @Override
     Object visitWindowName(@Nonnull RelationalParser.WindowNameContext ctx);
+
+    @Nonnull
+    @Override
+    Expressions visitWindowOptionsClause(RelationalParser.WindowOptionsClauseContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitWindowOption(RelationalParser.WindowOptionContext ctx);
 
     @Nonnull
     @Override

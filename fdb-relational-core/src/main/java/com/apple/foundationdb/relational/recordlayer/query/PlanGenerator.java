@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -239,6 +240,8 @@ public final class PlanGenerator {
                             planContext.getConstantActionFactory(), planContext.getDbUri(), caseSensitive)
                             .generateLogicalPlan(ast.getParseTree()));
             return maybePlan.optimize(planner, planContext, currentPlanHashMode);
+        } catch (ProtoUtils.InvalidNameException ine) {
+            throw new RelationalException(ine.getMessage(), ErrorCode.INVALID_NAME, ine).toUncheckedWrappedException();
         } catch (MetaDataException mde) {
             // we need a better way for translating error codes between record layer and Relational SQL error codes
             throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde).toUncheckedWrappedException();
@@ -250,9 +253,9 @@ public final class PlanGenerator {
     }
 
     @Nonnull
-    private QueryPlan.PhysicalQueryPlan generatePhysicalPlanForExecuteContinuation(@Nonnull AstNormalizer.NormalizationResult ast,
-                                                                                   @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
-                                                                                   @Nonnull PlanHashable.PlanHashMode currentPlanHashMode)
+    private Plan<?> generatePhysicalPlanForExecuteContinuation(@Nonnull AstNormalizer.NormalizationResult ast,
+                                                               @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
+                                                               @Nonnull PlanHashable.PlanHashMode currentPlanHashMode)
             throws RelationalException {
         final var queryHasherContext = ast.getQueryExecutionContext();
         final var continuationProto = queryHasherContext.getContinuation();
@@ -263,7 +266,40 @@ public final class PlanGenerator {
             throw new RelationalException("unable to parse continuation",
                     ErrorCode.INTERNAL_ERROR, e);
         }
+        if (continuation.hasCompiledStatement()) {
+            return generatePhysicalPlanForCompiledStatementContinuation(ast, validPlanHashModes, currentPlanHashMode, continuation, continuationProto);
+        } else if (continuation.hasCopyPlan()) {
+            return generatePhysicalPlanForCopyContinuation(ast, currentPlanHashMode, continuation);
+        } else {
+            throw new RelationalException("Continuation does not have statement to continue",
+                    ErrorCode.INTERNAL_ERROR);
+        }
+    }
 
+    @Nonnull
+    private static CopyPlan generatePhysicalPlanForCopyContinuation(
+            @Nonnull final AstNormalizer.NormalizationResult ast,
+            @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
+            @Nonnull final ContinuationImpl continuation) throws PlanValidator.PlanValidationException {
+        final var planGenerationContext = new MutablePlanGenerationContext(PreparedParams.empty(),
+                currentPlanHashMode,
+                ast.getQuery(),
+                ast.getQueryCacheKey().getCanonicalQueryString(), Objects.requireNonNull(continuation.getBindingHash()));
+        final CopyPlan copyPlan = CopyPlan.fromContinuation(continuation.getCopyPlan(), continuation.getExecutionState(),
+                planGenerationContext);
+        if (!Objects.requireNonNull(continuation.getPlanHash()).equals(copyPlan.getPlanHash())) {
+            throw new PlanValidator.PlanValidationException("cannot continue query due to mismatch between serialized and actual plan hash");
+        }
+        return copyPlan;
+    }
+
+    @Nonnull
+    private static QueryPlan.ContinuedPhysicalQueryPlan generatePhysicalPlanForCompiledStatementContinuation(
+            final @Nonnull AstNormalizer.NormalizationResult ast,
+            final @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
+            final @Nonnull PlanHashable.PlanHashMode currentPlanHashMode,
+            final ContinuationImpl continuation,
+            final byte[] continuationProto) throws RelationalException {
         final var compiledStatement = Assert.notNullUnchecked(continuation.getCompiledStatement());
         final var serializedPlanHashMode =
                 PlanValidator.validateSerializedPlanSerializationMode(compiledStatement, validPlanHashModes);

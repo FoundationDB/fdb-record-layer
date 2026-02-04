@@ -72,11 +72,12 @@ preparedStatement
     ;
 
 administrationStatement
-    : setStatement 
-    | showStatement 
+    : setStatement
+    | showStatement
     | killStatement
     | resetStatement
     | executeContinuationStatement
+    | copyStatement
     ;
 
 utilityStatement
@@ -90,7 +91,7 @@ utilityStatement
 
 templateClause
     :
-        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction )
+        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction | viewDefinition )
     ;
 
 createStatement
@@ -138,7 +139,17 @@ columnType
     : primitiveType | customType=uid;
 
 primitiveType
-    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES | UUID;
+    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES | UUID | vectorType;
+
+vectorType
+    : VECTOR '(' dimensions=DECIMAL_LITERAL ',' elementType=vectorElementType ')'
+    ;
+
+vectorElementType
+    : FLOAT
+    | DOUBLE
+    | HALF
+    ;
 
 columnConstraint
     : nullNotnull                                                   #nullColumnConstraint
@@ -158,7 +169,61 @@ enumDefinition
     ;
 
 indexDefinition
-    : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?
+    : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?                                                                  #indexAsSelectDefinition
+    | (UNIQUE)? INDEX indexName=uid ON source=fullId indexColumnList includeClause? indexOptions?                                  #indexOnSourceDefinition
+    | VECTOR INDEX indexName=uid USING HNSW ON source=fullId indexColumnList includeClause? indexPartitionClause? vectorIndexOptions?   #vectorIndexDefinition
+    ;
+
+indexColumnList
+    : '(' indexColumnSpec (',' indexColumnSpec)* ')'
+    ;
+
+indexColumnSpec
+    : columnName=uid orderClause?
+    ;
+
+includeClause
+    : INCLUDE '(' uidList ')'
+    ;
+
+indexType
+    : UNIQUE | VECTOR
+    ;
+
+indexPartitionClause
+    : PARTITION BY '(' indexColumnSpec (',' indexColumnSpec)* ')'
+    ;
+
+indexOptions
+    : OPTIONS '(' indexOption (COMMA indexOption)* ')'
+    ;
+
+indexOption
+    : LEGACY_EXTREMUM_EVER
+    ;
+
+vectorIndexOptions
+    : OPTIONS '(' vectorIndexOption (COMMA vectorIndexOption)* ')'
+    ;
+
+vectorIndexOption
+    : EF_CONSTRUCTION '=' efConstruction=DECIMAL_LITERAL
+    | CONNECTIVITY '=' connectivity=DECIMAL_LITERAL
+    | M_MAX '=' mMax=DECIMAL_LITERAL
+    | M_MAX_0 '=' mMaxZero=DECIMAL_LITERAL
+    | MAINTAIN_STATS_PROBABILITY '=' maintainStatsProbability=REAL_LITERAL
+    | METRIC '=' metric=hnswMetric
+    | RABITQ_NUM_EX_BITS '=' rabitQNumExBits=DECIMAL_LITERAL
+    | SAMPLE_VECTOR_STATS_PROBABILITY '=' statsProbability=REAL_LITERAL
+    | STATS_THRESHOLD '=' statsThreshold=DECIMAL_LITERAL
+    | USE_RABITQ '=' useRabitQ=booleanLiteral
+    ;
+
+hnswMetric
+    : EUCLIDEAN_METRIC
+    | EUCLIDEAN_SQUARE_METRIC
+    | COSINE_METRIC
+    | DOT_PRODUCT_METRIC
     ;
 
 indexAttributes
@@ -177,8 +242,8 @@ dropTempFunction
     : DROP TEMPORARY FUNCTION (IF EXISTS)? schemaQualifiedRoutineName=fullId
     ;
 
-createFunction
-    : CREATE sqlInvokedFunction
+viewDefinition
+    : VIEW viewName=fullId AS viewQuery=query
     ;
 
 tempSqlInvokedFunction
@@ -265,6 +330,7 @@ dispatchClause
 
 routineBody
     : AS queryTerm         #statementBody
+    | AS fullId            #userDefinedScalarFunctionStatementBody
     | sqlReturnStatement   #expressionBody
     // | externalBodyReferences TODO
     ;
@@ -330,7 +396,7 @@ selectStatement
     ;
 
 query
-    : ctes? queryExpressionBody continuation?
+    : ctes? queryExpressionBody
     ;
 
 ctes
@@ -356,10 +422,6 @@ tableFunctionArgs
 
 tableFunctionName
     : fullId
-    ;
-
-continuation
-    : WITH CONTINUATION continuationAtom
     ;
 
 // done
@@ -391,7 +453,6 @@ updateStatement
       SET updatedElement (',' updatedElement)*
       (WHERE whereExpr)?
       (RETURNING selectElements)?
-      (WITH CONTINUATION continuationAtom)?
       queryOptions?
     ;
 
@@ -402,7 +463,12 @@ orderByClause
     ;
 
 orderByExpression
-    : expression order=(ASC | DESC)? (NULLS nulls=(FIRST | LAST))?
+    : expression orderClause?
+    ;
+
+orderClause
+    : order=(ASC | DESC) (NULLS nulls=(FIRST | LAST))?
+    | NULLS nulls=(FIRST | LAST)
     ;
 
 tableSources // done
@@ -458,6 +524,7 @@ queryTerm
     fromClause?
     groupByClause?
     havingClause?
+    qualifyClause?
     /*windowClause?*/
     orderByClause?
     limitClause?
@@ -494,6 +561,10 @@ havingClause
     :  HAVING havingExpr=expression
     ;
 
+qualifyClause
+    : QUALIFY expression
+    ;
+
 //commenting out Windows, because we'll want them eventually, but don't want to deal with them now
 // windowClause
 //     :  WINDOW windowName AS '(' windowSpec ')' (',' windowName AS '(' windowSpec ')')*
@@ -521,6 +592,7 @@ queryOption
     : NOCACHE
     | LOG QUERY
     | DRY RUN
+    | EF_SEARCH decimalLiteral
     ;
 
 // Transaction's Statements
@@ -611,6 +683,11 @@ resetStatement
 executeContinuationStatement
     : EXECUTE CONTINUATION packageBytes=continuationAtom
       queryOptions?
+    ;
+
+copyStatement
+    : COPY path                                    #copyExportStatement
+    | COPY path FROM preparedStatementParameter    #copyImportStatement
     ;
 
 // details
@@ -809,14 +886,7 @@ collectionOptions
     ;
 
 convertedDataType
-    :
-    (
-      typeName=(BINARY| NCHAR) lengthOneDimension?
-      | typeName=CHAR lengthOneDimension? (charSet charsetName)?
-      | typeName=(DATE | DATETIME | TIME | JSON | INT | INTEGER | STRING | DOUBLE | BOOLEAN | FLOAT | BIGINT | BYTES | UUID)
-      | typeName=DECIMAL lengthTwoOptionalDimension?
-      | (SIGNED | UNSIGNED) INTEGER?
-    ) ARRAY?
+    : typeName=primitiveType ARRAY?
     ;
 
 lengthOneDimension
@@ -875,7 +945,7 @@ recordConstructorForInlineTable
     ;
 
 recordConstructor
-    : ofTypeClause? '(' (uid DOT STAR | STAR | expressionWithName /* this can be removed */ | expressionWithOptionalName (',' expressionWithOptionalName)*) ')'
+    : ofTypeClause? '(' (uid DOT STAR | STAR | expressionWithOptionalName (',' expressionWithOptionalName)*) ')'
     ;
 
 ofTypeClause
@@ -909,10 +979,6 @@ expressionOrDefault
     : expression | DEFAULT
     ;
 
-expressionWithName
-    : expression AS uid
-    ;
-
 expressionWithOptionalName
     : expression (AS uid)?
     ;
@@ -928,8 +994,10 @@ ifNotExists
 
 functionCall
     : aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
+    | nonAggregateWindowedFunction                                  #nonAggregateFunctionCall // done
     | specificFunction                                              #specificFunctionCall //
     | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
+    | userDefinedScalarFunctionName '(' functionArgs? ')'           #userDefinedScalarFunctionCall
     ;
 
 specificFunction
@@ -1057,26 +1125,36 @@ aggregateWindowedFunction
     ;
 
 nonAggregateWindowedFunction
-    : (LAG | LEAD) '(' expression (',' decimalLiteral)? (',' decimalLiteral)? ')' overClause
-    | (FIRST_VALUE | LAST_VALUE) '(' expression ')' overClause
-    | (CUME_DIST | DENSE_RANK | PERCENT_RANK | RANK | ROW_NUMBER) '('')' overClause
-    | NTH_VALUE '(' expression ',' decimalLiteral ')' overClause
-    | NTILE '(' decimalLiteral ')' overClause
+    : functionName=(LAG | LEAD) '(' expression (',' decimalLiteral)? (',' decimalLiteral)? ')' overClause
+    | functionName=(FIRST_VALUE | LAST_VALUE) '(' expression ')' overClause
+    | functionName=(CUME_DIST | DENSE_RANK | PERCENT_RANK | RANK | ROW_NUMBER) '('')' overClause
+    | functionName=NTH_VALUE '(' expression ',' decimalLiteral ')' overClause
+    | functionName=NTILE '(' decimalLiteral ')' overClause
     ;
 
 overClause
-    : OVER (/* '(' windowSpec? ')' |*/ windowName)
+    : OVER ( '(' windowSpec ')' | windowName)
     ;
 
 windowName
     : uid
     ;
 
-//commented out until we want to support window functions
-/* 
 windowSpec
-    : windowName? partitionClause? orderByClause? frameClause?
+    : windowName? partitionClause? orderByClause? windowOptionsClause?
     ;
+
+windowOptionsClause
+    : OPTIONS windowOption (COMMA windowOption)*
+    ;
+
+windowOption
+    : EF_SEARCH '=' efSearch=DECIMAL_LITERAL
+    ;
+
+//commented out until we want to support window functions
+/*
+
 
 
 frameClause
@@ -1103,10 +1181,11 @@ frameRange
     | expression (PRECEDING | FOLLOWING)
     ;
 
-partitionClause
-    : PARTITION BY expression (',' expression)*
-    ;
 */
+
+partitionClause
+    : PARTITION BY fullId (',' fullId)*
+    ;
 
 scalarFunctionName
     : functionNameBase
@@ -1116,6 +1195,11 @@ scalarFunctionName
     | REPLACE | SUBSTR | SUBSTRING | SYSDATE | TRIM
     | UTC_DATE | UTC_TIME | UTC_TIMESTAMP
     | JAVA_CALL
+    ;
+
+userDefinedScalarFunctionName
+    : ID
+    | DOUBLE_QUOTE_ID
     ;
 
 functionArgs
@@ -1288,12 +1372,12 @@ functionNameBase
     | BUFFER | CEIL | CEILING | CENTROID | CHARACTER_LENGTH
     | CHARSET | CHAR_LENGTH | COERCIBILITY | COLLATION
     | COMPRESS | COALESCE | CONCAT | CONCAT_WS | CONNECTION_ID | CONV
-    | CONVERT_TZ | COS | COT | CRC32
+    | CONVERT_TZ | COS | COSINE_DISTANCE | COT | CRC32
     | CREATE_ASYMMETRIC_PRIV_KEY | CREATE_ASYMMETRIC_PUB_KEY
     | CREATE_DH_PARAMETERS | CREATE_DIGEST | CROSSES | CUME_DIST | DATABASE | DATE
     | DATEDIFF | DATE_FORMAT | DAY | DAYNAME | DAYOFMONTH
     | DAYOFWEEK | DAYOFYEAR | DECODE | DEGREES | DENSE_RANK | DES_DECRYPT
-    | DES_ENCRYPT | DIMENSION | DISJOINT | ELT | ENCODE
+    | DES_ENCRYPT | DIMENSION | DISJOINT | DOT_PRODUCT_DISTANCE | ELT | EUCLIDEAN_DISTANCE | EUCLIDEAN_SQUARE_DISTANCE | ENCODE
     | ENCRYPT | ENDPOINT | ENVELOPE | EQUALS | EXP | EXPORT_SET
     | EXTERIORRING | EXTRACTVALUE | FIELD | FIND_IN_SET | FIRST_VALUE | FLOOR
     | FORMAT | FOUND_ROWS | FROM_BASE64 | FROM_DAYS

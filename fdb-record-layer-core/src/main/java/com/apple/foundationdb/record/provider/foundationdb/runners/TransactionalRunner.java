@@ -98,11 +98,37 @@ public class TransactionalRunner implements AutoCloseable {
     @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
     public <T> CompletableFuture<T> runAsync(final boolean clearWeakReadSemantics,
                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> runnable) {
+        return runAsync(clearWeakReadSemantics, true, runnable);
+    }
+
+    /**
+     * A flavor of the {@link #runAsync(boolean, Function)} method that supports read-only transactions.
+     * @param clearWeakReadSemantics whether to clear the {@link FDBRecordContextConfig#getWeakReadSemantics()} before
+     * creating the transaction. These should be cleared if retrying a transaction, particularly in response to a
+     * conflict, because reusing the old read version would just cause it to re-conflict.
+     * @param commitWhenDone if FALSE the transaction will not be committed. If TRUE, behaves the same as described in {@link #runAsync(boolean, Function)}
+     * @param runnable some code to run that uses an {@link FDBRecordContext}
+     * @param <T> the type of the value returned by the future
+     * @return a future containing the result of the runnable, if successfully committed.
+     * Note: the future will not be {@code null}, but if the runnable returns a future containing {@code null} then
+     * so will the future returned here.
+     */
+    @Nonnull
+    @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
+    public <T> CompletableFuture<T> runAsync(final boolean clearWeakReadSemantics,
+                                              boolean commitWhenDone,
+                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> runnable) {
         FDBRecordContext context = openContext(clearWeakReadSemantics);
         boolean returnedFuture = false;
         try {
             CompletableFuture<T> future = runnable.apply(context)
-                    .thenCompose((T val) -> context.commitAsync().thenApply(vignore -> val));
+                    .thenCompose((T val) -> {
+                        if (commitWhenDone) {
+                            return context.commitAsync().thenApply(vignore -> val);
+                        } else {
+                            return CompletableFuture.completedFuture(val);
+                        }
+                    });
             returnedFuture = true;
             return future.whenComplete((result, exception) -> context.close());
         } finally {

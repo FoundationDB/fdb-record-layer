@@ -20,6 +20,10 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
@@ -49,6 +53,9 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -64,6 +71,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
@@ -78,8 +86,8 @@ public class StandardQueryTests {
                     " CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)" +
                     " CREATE TABLE RestaurantComplexRecord (rest_no bigint, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
                     " CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
-                    " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
-                    " CREATE INDEX reviewer_name_idx as select name from RestaurantReviewer" +
+                    " CREATE INDEX record_name_idx ON RestaurantComplexRecord(name)" +
+                    " CREATE INDEX reviewer_name_idx ON RestaurantReviewer(name)" +
                     " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
                     " CREATE INDEX mv2 AS SELECT endo.\"endorsementText\" FROM RestaurantComplexRecord rec, (SELECT X.\"endorsementText\" FROM rec.reviews rev, (SELECT \"endorsementText\" from rev.endorsements) X) endo";
 
@@ -91,8 +99,8 @@ public class StandardQueryTests {
                     " CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)" +
                     " CREATE TABLE RestaurantComplexRecord (rest_no bigint, name string, location Location, reviews RestaurantComplexReview ARRAY NOT NULL, tags RestaurantTag array NOT NULL, customer string array NOT NULL, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
                     " CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
-                    " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
-                    " CREATE INDEX reviewer_name_idx as select name from RestaurantReviewer" +
+                    " CREATE INDEX record_name_idx ON RestaurantComplexRecord(name)" +
+                    " CREATE INDEX reviewer_name_idx ON RestaurantReviewer(name)" +
                     " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
                     " CREATE INDEX mv2 AS SELECT endo.\"endorsementText\" FROM RestaurantComplexRecord rec, (SELECT X.\"endorsementText\" FROM rec.reviews rev, (SELECT \"endorsementText\" from rev.endorsements) X) endo";
 
@@ -376,15 +384,14 @@ public class StandardQueryTests {
                 RelationalStruct l43 = insertRestaurantComplexRecord(statement, 43L, "rest1");
                 RelationalStruct l44 = insertRestaurantComplexRecord(statement, 44L, "rest1");
                 RelationalStruct l45 = insertRestaurantComplexRecord(statement, 45L, "rest2");
-                final String initialQuery = "select * from RestaurantComplexRecord where rest_no > 40";
+                String query = "select * from RestaurantComplexRecord where rest_no > 40";
                 Continuation continuation = ContinuationImpl.BEGIN;
                 final List<RelationalStruct> expected = List.of(l42, l43, l44, l45);
                 int i = 0;
 
                 while (!continuation.atEnd()) {
-                    String query = initialQuery;
                     if (!continuation.atBeginning()) {
-                        query += " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
+                        query = "EXECUTE CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
                     }
                     try (final RelationalResultSet resultSet = statement.executeQuery(query)) {
                         // assert result matches expected
@@ -415,7 +422,7 @@ public class StandardQueryTests {
                         .hasErrorCode(ErrorCode.SYNTAX_ERROR);
                 final String end = "select * from RestaurantComplexRecord where rest_no > 40 with continuation b64''";
                 RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery(end))
-                        .hasErrorCode(ErrorCode.INVALID_CONTINUATION);
+                        .hasErrorCode(ErrorCode.SYNTAX_ERROR);
             }
         }
     }
@@ -883,6 +890,31 @@ public class StandardQueryTests {
     }
 
     @Test
+    void testIncorrectUserDefinedFunction() throws Exception {
+        final String schemaTemplate1 = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
+                "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
+                "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
+                "CREATE FUNCTION lat(IN x TYPE Location) RETURNS string AS x.coor.latitude\n"; // "coor" is wrong
+
+        // fail to build the MacroFunctionValue in the DDL step
+        Assertions.assertThrows(SQLException.class, () -> Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate1).build()).getMessage();
+
+        final String schemaTemplate3 = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
+                "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
+                "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
+                "CREATE FUNCTION name(IN x TYPE Location) RETURNS string AS x.name\n";  // name is a reserved word
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate3).build()) {
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE name(loc) = ?name")) {
+                ps.setString("name", "Apple Park Visitor Center");
+                final var errorMsg3 = Assertions.assertThrows(SQLException.class, ps::executeQuery).getMessage();
+                Assertions.assertTrue(errorMsg3.contains("syntax error"));
+            }
+        }
+    }
+
+
+    @Test
     void testBitmap() throws Exception {
         final String query = "SELECT BITMAP_CONSTRUCT_AGG(BITMAP_BIT_POSITION(uid)) as bitmap, category, BITMAP_BUCKET_OFFSET(uid) as offset FROM T1\n" +
                 "GROUP BY category, BITMAP_BUCKET_OFFSET(uid)\n";
@@ -1186,7 +1218,7 @@ public class StandardQueryTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
                 final var message = Assertions.assertThrows(SQLException.class, () -> statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c, a)) as X from t1")).getMessage();
-                Assertions.assertTrue(message.contains("value already present: DEF")); // we could improve this error message.
+                Assertions.assertTrue(message.contains("Name DEF is already registered with a different type")); // we could improve this error message.
             }
         }
     }
@@ -1212,19 +1244,17 @@ public class StandardQueryTests {
     }
 
     @Test
-    void testNamingStructWithNameOfTableIsPermitted() throws Exception {
+    void testNamingStructWithNameOfTableIsNotPermitted() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
-                Assertions.assertTrue(statement.execute("select a, 42, struct T1 (b, c) as X from t1"));
-                try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                    Assertions.assertTrue(resultSet.next());
-                    final var col3 = resultSet.getStruct(3);
-                    Assertions.assertEquals("T1", col3.getMetaData().getTypeName());
-                    Assertions.assertEquals("X", resultSet.getMetaData().getColumnLabel(3));
-                    Assertions.assertFalse(resultSet.next());
-                }
+                ContextualSQLException err = Assertions.assertThrows(ContextualSQLException.class, () -> statement.execute("select a, 42, struct T1 (b, c) as X from t1"));
+                assertThat((Exception) err)
+                        .hasMessageContaining("Name T1 is already registered with a different type");
+                assertThat(err.getSQLState())
+                        // Perhaps this should be a better error code
+                        .isEqualTo(ErrorCode.UNKNOWN.getErrorCode());
             }
         }
     }
@@ -1582,6 +1612,40 @@ public class StandardQueryTests {
                             .hasColumn("PK", 1L)
                             .hasColumn("A", actualUuidValue1)
                             .hasColumn("B", structWithUuid)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Nonnull
+    private static Stream<Arguments> vectorTypeProvider() {
+        return Stream.of(
+                Arguments.of("vector(3, half)", new HalfRealVector(new double[]{1.1d, 1.2d, 1.3d})),
+                Arguments.of("vector(3, float)", new FloatRealVector(new double[]{1.1d, 1.2d, 1.3d})),
+                Arguments.of("vector(3, double)", new DoubleRealVector(new double[]{1.1d, 1.2d, 1.3d}))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("vectorTypeProvider")
+    void vectorInsertSelectPrepared(String vectorType, RealVector vector) throws Exception {
+        final String schemaTemplate = String.format("CREATE TABLE T1(pk bigint, v %s, PRIMARY KEY(pk))", vectorType);
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var insert = ddl.setSchemaAndGetConnection().prepareStatement("insert into t1 values (?pk, ?v)")) {
+                insert.setLong("pk", 1L);
+                insert.setObject("v", vector);
+                final var numActualInserted = insert.executeUpdate();
+                Assertions.assertEquals(1, numActualInserted);
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                Assertions.assertTrue(statement.execute("select * from t1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("PK", 1L)
+                            .hasColumn("v", vector)
                             .hasNoNextRow();
                 }
             }

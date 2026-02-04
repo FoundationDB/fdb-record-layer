@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -53,6 +54,12 @@ import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.function.Consumer;
 
+import static com.apple.foundationdb.record.RecordMetaDataProto.Comparison;
+import static com.apple.foundationdb.record.RecordMetaDataProto.ComparisonType;
+import static com.apple.foundationdb.record.RecordMetaDataProto.Predicate;
+import static com.apple.foundationdb.record.RecordMetaDataProto.SimpleComparison;
+import static com.apple.foundationdb.record.RecordMetaDataProto.ValuePredicate;
+import static com.apple.foundationdb.record.expressions.RecordKeyExpressionProto.Value;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -61,6 +68,8 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValu
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.version;
 import static com.apple.foundationdb.relational.util.NullableArrayUtils.REPEATED_FIELD_NAME;
+
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 public class IndexTest {
     @RegisterExtension
@@ -110,7 +119,7 @@ public class IndexTest {
     }
 
     private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType,
-                         @Nonnull final Consumer<Index> validator) throws Exception {
+                         @Nonnull final Consumer<RecordLayerIndex> validator) throws Exception {
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
@@ -123,11 +132,12 @@ public class IndexTest {
                 Assertions.assertEquals(1, table.getIndexes().size(), "Incorrect number of indexes!");
                 final Index index = Assert.optionalUnchecked(table.getIndexes().stream().findFirst());
                 Assertions.assertInstanceOf(RecordLayerIndex.class, index);
+                final var recordLayerIndex = (RecordLayerIndex)index;
                 Assertions.assertEquals("MV1", index.getName(), "Incorrect index name!");
                 Assertions.assertEquals(indexType, index.getIndexType());
-                final KeyExpression actualKey = KeyExpression.fromProto(((RecordLayerIndex) index).getKeyExpression().toKeyExpression());
+                final KeyExpression actualKey = KeyExpression.fromProto((recordLayerIndex).getKeyExpression().toKeyExpression());
                 Assertions.assertEquals(expectedKey, actualKey);
-                validator.accept(index);
+                validator.accept(recordLayerIndex);
                 return txn -> {
                 };
             }
@@ -197,7 +207,7 @@ public class IndexTest {
     }
 
     @Test
-    void createdIndexWorksDeepNestingAndConcatCartesian() throws Exception {
+    void createdLegacyIndexWorksDeepNestingAndConcatCartesian() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TYPE AS STRUCT C(z bigint, k bigint) " +
@@ -219,7 +229,29 @@ public class IndexTest {
     }
 
     @Test
-    void createdIndexWorksDeepNestingAndNestedCartesianConcat() throws Exception {
+    void createdIndexWorksDeepNestingAndConcatCartesian() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x bigint) " +
+                "CREATE TYPE AS STRUCT C(z bigint, k bigint) " +
+                "CREATE TYPE AS STRUCT B(a A array, c C array) " +
+                "CREATE TABLE T(p bigint, b B array, primary key(p))" +
+                "CREATE VIEW v1 AS SELECT SQ1.x,SQ2.z, SQ2.k from " +
+                "  T AS t," +
+                "  (select M.x from t.b AS Y, (select x from Y.a) M) SQ1," +
+                "  (select M.z, M.k from t.b AS Y, (select z,k from Y.c) M) SQ2 " +
+                "CREATE INDEX MV1 ON v1(Z, K, X)";
+        indexIs(stmt,
+                concat(field("B").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)
+                                .nest(field("C").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)
+                                        .nest(concat(field("Z"), field("K")))))),
+                        field("B").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)
+                                .nest(field("A").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)
+                                        .nest(field("X")))))),
+                IndexTypes.VALUE);
+    }
+
+    @Test
+    void createdLegacyIndexWorksDeepNestingAndNestedCartesianConcat() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TYPE AS STRUCT C(z bigint) " +
@@ -235,14 +267,67 @@ public class IndexTest {
     }
 
     @Test
-    void createIndexWithPredicateIsSupported() throws Exception {
+    void createdIndexWorksDeepNestingAndNestedCartesianConcat() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x bigint) " +
+                "CREATE TYPE AS STRUCT C(z bigint) " +
+                "CREATE TYPE AS STRUCT B(a A array, c C array) " +
+                "CREATE TABLE T(p bigint, b B array, primary key(p))" +
+                "CREATE VIEW v1 AS SELECT SQ.x, SQ.z from T AS t, (select M.x, N.z from t.b AS Y, (select x from Y.a) M, (select z from Y.c) N) SQ  " +
+                "CREATE INDEX mv1 on v1(x, z)";
+        indexIs(stmt,
+                field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(
+                        concat(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))),
+                                field("C", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("Z", KeyExpression.FanType.None)))
+                        ))),
+                IndexTypes.VALUE);
+    }
+
+    @Test
+    void createLegacyIndexWithPredicateIsSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TYPE AS STRUCT B(y string) " +
                 "CREATE TABLE T(p bigint, a A array, b B array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT p FROM T where p > 10 order by p";
+        indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE, index -> {
+            assertThat(index.isUnique()).isFalse();
+            assertThat(index.getName()).isEqualTo("MV1");
+            assertThat(index.getPredicate()).isEqualTo(Predicate.newBuilder()
+                    .setValuePredicate(ValuePredicate.newBuilder().addValue("P")
+                            .setComparison(Comparison.newBuilder()
+                                    .setSimpleComparison(SimpleComparison.newBuilder()
+                                            .setType(ComparisonType.GREATER_THAN)
+                                            .setOperand(Value.newBuilder().setLongValue(10L).build())
+                                            .build())
+                                    .build())
+                            .build())
+                    .build());
+        });
+    }
+
+    @Test
+    void createIndexWithPredicateIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x bigint) " +
+                "CREATE TYPE AS STRUCT B(y string) " +
+                "CREATE TABLE T(p bigint, a A array, b B array, primary key(p))" +
+                "CREATE VIEW v AS SELECT p FROM T where p > 10 " +
+                "CREATE INDEX mv1 ON v(p)";
         // todo (yhatem) verify the predicate.
-        indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE);
+        indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE, index -> {
+            assertThat(index.isUnique()).isFalse();
+            assertThat(index.getPredicate()).isEqualTo(Predicate.newBuilder()
+                    .setValuePredicate(ValuePredicate.newBuilder().addValue("P")
+                            .setComparison(Comparison.newBuilder()
+                                    .setSimpleComparison(SimpleComparison.newBuilder()
+                                            .setType(ComparisonType.GREATER_THAN)
+                                            .setOperand(Value.newBuilder().setLongValue(10L).build())
+                                            .build())
+                                    .build())
+                            .build())
+                    .build());
+        });
     }
 
     @Test
@@ -621,7 +706,7 @@ public class IndexTest {
                 "CREATE TABLE T1(col1 bigint, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT t2.\"__ROW_VERSION\" FROM T1 AS t ORDER BY t2.\"__ROW_VERSION\" " +
                 "WITH OPTIONS(store_row_versions=true)";
-        shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN, "Attempting to query non existing column 'T2.__ROW_VERSION'");
+        shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN, "Attempting to query non existing column T2.__ROW_VERSION");
     }
 
     @Test
@@ -680,7 +765,7 @@ public class IndexTest {
                 "CREATE TABLE T1(col1 bigint, a A Array, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT X.col2, \"__ROW_VERSION\" FROM T1, (SELECT col2 FROM T1.A) X ORDER BY X.col2, \"__ROW_VERSION\" " +
                 "WITH OPTIONS(store_row_versions=true)";
-        shouldFailWith(stmt, ErrorCode.AMBIGUOUS_COLUMN, "Ambiguous reference '__ROW_VERSION'");
+        shouldFailWith(stmt, ErrorCode.AMBIGUOUS_COLUMN, "Ambiguous reference __ROW_VERSION");
     }
 
     @Test
@@ -703,7 +788,7 @@ public class IndexTest {
         indexIs(stmt,
                 field("COL2").groupBy(field("COL1")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
-                idx -> Assertions.assertEquals("0", ((RecordLayerIndex) idx).getOptions().get("permutedSize"))
+                idx -> Assertions.assertEquals("0", idx.getOptions().get("permutedSize"))
         );
     }
 
@@ -716,7 +801,7 @@ public class IndexTest {
         indexIs(stmt,
                 field("COL2").groupBy(field("COL1")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
-                idx -> Assertions.assertEquals("0", ((RecordLayerIndex) idx).getOptions().get("permutedSize"))
+                idx -> Assertions.assertEquals("0", idx.getOptions().get("permutedSize"))
         );
     }
 
@@ -729,7 +814,7 @@ public class IndexTest {
         indexIs(stmt,
                 field("COL2").groupBy(field("COL1")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
-                idx -> Assertions.assertEquals("0", ((RecordLayerIndex) idx).getOptions().get("permutedSize"))
+                idx -> Assertions.assertEquals("0", idx.getOptions().get("permutedSize"))
         );
     }
 
@@ -742,7 +827,21 @@ public class IndexTest {
         indexIs(stmt,
                 field("COL4").groupBy(concatenateFields("COL1", "COL2", "COL3")),
                 "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
-                idx -> Assertions.assertEquals("1", ((RecordLayerIndex) idx).getOptions().get("permutedSize"))
+                idx -> Assertions.assertEquals("1", idx.getOptions().get("permutedSize"))
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"MIN", "MAX"})
+    void createAggregateIndexOnSourceOnMinMaxWithPermutedOrdering(String index) throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
+                String.format(Locale.ROOT, "CREATE VIEW v1 AS SELECT col1, col2, col3, %s(col4) as agg FROM T1 group by col1, col2, col3 ", index) +
+                "CREATE INDEX mv1 ON v1(col1, col2, agg, col3)";
+        indexIs(stmt,
+                field("COL4").groupBy(concatenateFields("COL1", "COL2", "COL3")),
+                "MIN".equals(index) ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
+                idx -> Assertions.assertEquals("1", idx.getOptions().get("permutedSize"))
         );
     }
 
@@ -926,5 +1025,196 @@ public class IndexTest {
         indexIs(stmt,
                 concat(field("COL1"), function("order_desc_nulls_last", field("COL2")), function("order_asc_nulls_last", field("COL3"))),
                 IndexTypes.VALUE);
+    }
+
+    @Test
+    void createVectorIndexWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), c bigint, z bigint, primary key(p))" +
+                "CREATE VIEW V1 AS SELECT p, b, c, z from T where c > 50 " +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON V1(b) PARTITION BY(z)";
+        indexIs(stmt,
+                keyWithValue(concat(field("Z"), field("B")), 1),
+                IndexTypes.VECTOR,
+                idx -> {
+                    final var predicate = idx.getPredicate();
+                    assertThat(predicate).isEqualTo(Predicate.newBuilder()
+                            .setValuePredicate(ValuePredicate
+                                    .newBuilder()
+                                    .addValue("C")
+                                    .setComparison(Comparison
+                                            .newBuilder()
+                                            .setSimpleComparison(SimpleComparison.newBuilder()
+                                                    .setType(ComparisonType.GREATER_THAN)
+                                                    .setOperand(Value.newBuilder().setLongValue(50).build())
+                                                    .build())
+                                            .build())
+                                    .build())
+                            .build());
+                });
+    }
+
+
+    @Test
+    void createVectorIndexWithoutPartitionClauseWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), c bigint, z bigint, primary key(p))" +
+                "CREATE VIEW V1 AS SELECT p, b, c, z from T " +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON V1(b)";
+        indexIs(stmt,
+                keyWithValue(field("B"), 0),
+                IndexTypes.VECTOR);
+    }
+
+    @Test
+    void createVectorIndexWithOptionsWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), c bigint, primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p) " +
+                "OPTIONS (CONNECTIVITY = 16, M_MAX = 32, EF_CONSTRUCTION = 200, METRIC = COSINE_METRIC)";
+        indexIs(stmt,
+                keyWithValue(concat(field("P"), field("B")), 1),
+                IndexTypes.VECTOR,
+                idx -> {
+                    final var options = idx.getOptions();
+                    Assertions.assertEquals("3", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals("16", options.get(IndexOptions.HNSW_M));
+                    Assertions.assertEquals("32", options.get(IndexOptions.HNSW_M_MAX));
+                    Assertions.assertEquals("200", options.get(IndexOptions.HNSW_EF_CONSTRUCTION));
+                    Assertions.assertEquals("COSINE_METRIC", options.get(IndexOptions.HNSW_METRIC));
+                    validateVectorIndex(idx);
+                });
+    }
+
+    @Test
+    void createVectorIndexWithRabitQOptionsWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(128, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p) " +
+                "OPTIONS (USE_RABITQ = true, RABITQ_NUM_EX_BITS = 4, MAINTAIN_STATS_PROBABILITY = 0.01)";
+        indexIs(stmt,
+                keyWithValue(concat(field("P"), field("B")), 1),
+                IndexTypes.VECTOR,
+                idx -> {
+                    final var options = idx.getOptions();
+                    Assertions.assertEquals("128", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals("true", options.get(IndexOptions.HNSW_USE_RABITQ));
+                    Assertions.assertEquals("4", options.get(IndexOptions.HNSW_RABITQ_NUM_EX_BITS));
+                    Assertions.assertEquals("0.01", options.get(IndexOptions.HNSW_MAINTAIN_STATS_PROBABILITY));
+                    validateVectorIndex(idx);
+                });
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {2, 16, 256, 1024})
+    void createVectorIndexWithVariousDimensionsWorksCorrectly(int dimensions) throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(" + dimensions + ", float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p)";
+        indexIs(stmt, keyWithValue(concat(field("P"), field("B")), 1), IndexTypes.VECTOR,
+                idx -> {
+                    Assertions.assertEquals(String.valueOf(dimensions), idx.getOptions().get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    validateVectorIndex(idx);
+                });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"EUCLIDEAN_METRIC", "EUCLIDEAN_SQUARE_METRIC", "DOT_PRODUCT_METRIC", "COSINE_METRIC"})
+    void createVectorIndexWithAllMetricTypesWorksCorrectly(String metric) throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(512, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p) OPTIONS (METRIC = " + metric + ")";
+
+        indexIs(stmt, keyWithValue(concat(field("P"), field("B")), 1), IndexTypes.VECTOR,
+                idx -> {
+                    Assertions.assertEquals("512", idx.getOptions().get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals(metric, idx.getOptions().get(IndexOptions.HNSW_METRIC));
+                    // Validate using VectorIndexMaintainerFactory validator
+                    validateVectorIndex(idx);
+                });
+    }
+
+    private void validateVectorIndex(RecordLayerIndex recordLayerIndex) {
+        // Convert RecordLayerIndex to core Index
+        final var coreIndex = new com.apple.foundationdb.record.metadata.Index(
+                recordLayerIndex.getName(),
+                recordLayerIndex.getKeyExpression(),
+                recordLayerIndex.getIndexType(),
+                recordLayerIndex.getOptions(),
+                recordLayerIndex.getPredicate() != null
+                        ? com.apple.foundationdb.record.metadata.IndexPredicate.fromProto(recordLayerIndex.getPredicate())
+                        : null
+        );
+
+        // Validate using VectorIndexHelper - this validates the configuration options
+        // VectorIndexHelper.getConfig() will throw IllegalArgumentException if options are invalid
+        Assertions.assertDoesNotThrow(() ->
+                com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexHelper.getConfig(coreIndex),
+                "Vector index configuration should be valid");
+    }
+
+    @Test
+    void createVectorIndexWithStatsOptionsWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(64, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p) " +
+                "OPTIONS (SAMPLE_VECTOR_STATS_PROBABILITY = 0.05)";
+        indexIs(stmt,
+                keyWithValue(concat(field("P"), field("B")), 1),
+                IndexTypes.VECTOR,
+                idx -> {
+                    final var options = idx.getOptions();
+                    Assertions.assertEquals("64", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals("0.05", options.get(IndexOptions.HNSW_SAMPLE_VECTOR_STATS_PROBABILITY));
+                    validateVectorIndex(idx);
+                });
+    }
+
+    @Test
+    void createVectorIndexOnMultipleColumnsFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), c vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b, c) PARTITION BY (p)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "invalid number of indexed columns, only one column is supported");
+    }
+
+    @Test
+    void createVectorIndexOnNonVectorColumnFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b bigint, primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR, "indexed column must be of vector type");
+    }
+
+    @Test
+    void createVectorIndexOnStringColumnFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b string, primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR, "indexed column must be of vector type");
+    }
+
+    @Test
+    void createVectorIndexWithIncludeClauseFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), c bigint, d string, primary key(p)) " +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) INCLUDE (c, d) PARTITION BY (p) ";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "INCLUDE clause is not supported for vector indexes");
+    }
+
+    @Test
+    void createVectorIndexWithIncludeClauseAndPartitionFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), c bigint, z bigint, primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) INCLUDE (c) PARTITION BY(z)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "INCLUDE clause is not supported for vector indexes");
+    }
+
+    @Test
+    void createVectorIndexWithIncludeClauseAndOptionsFails() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), c bigint, primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) INCLUDE (c) PARTITION BY (p) OPTIONS (CONNECTIVITY = 16)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "INCLUDE clause is not supported for vector indexes");
     }
 }

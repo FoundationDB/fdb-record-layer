@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -74,7 +72,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     private final KeyExpression primaryKey;
 
     @Nonnull
-    private final Type baseType;
+    private final Type.Record baseType;
 
     @Nonnull
     private final Supplier<Optional<List<Value>>> primaryKeyValuesSupplier;
@@ -84,7 +82,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
                                      @Nonnull final Collection<RecordType> availableRecordTypes,
                                      @Nonnull final Collection<RecordType> queriedRecordTypes,
                                      @Nonnull final KeyExpression primaryKey,
-                                     @Nonnull final Type baseType) {
+                                     @Nonnull final Type.Record baseType) {
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
         this.availableRecordTypes = ImmutableList.copyOf(availableRecordTypes);
@@ -120,7 +118,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
     @Nonnull
     @Override
-    public Type getBaseType() {
+    public Type.Record getBaseType() {
         return baseType;
     }
 
@@ -190,8 +188,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
         if (queriedRecordTypeNames.size() == availableRecordTypeNames.size()) {
             scanPlan =
                     new RecordQueryScanPlan(availableRecordTypeNames,
-                            Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getAvailableRecordTypes()))
-                                    .narrowMaybe(Type.Record.class).orElseThrow(() -> new RecordCoreException("type is of wrong implementor")),
+                            baseType,
                             primaryKey,
                             toScanComparisons(comparisonRanges),
                             reverseScanOrder,
@@ -207,13 +204,11 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
                             reverseScanOrder,
                             false,
                             this);
-            final var queriedType =
-                    Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getQueriedRecordTypes()));
 
             return new RecordQueryTypeFilterPlan(
                     Quantifier.physical(memoizer.memoizePlan(scanPlan)),
                     queriedRecordTypeNames,
-                    queriedType);
+                    baseType);
         }
     }
 

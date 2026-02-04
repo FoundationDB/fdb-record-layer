@@ -32,10 +32,16 @@ import java.sql.SQLException;
 import java.util.Set;
 
 public class EmbeddedYamlConnectionFactory implements YamlConnectionFactory {
+    private final String clusterFile;
+
+    public EmbeddedYamlConnectionFactory(String clusterFile) {
+        this.clusterFile = clusterFile;
+    }
+
     @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
         return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()),
-                SemanticVersion.current(), "Embedded");
+                SemanticVersion.current(), "Embedded", clusterFile);
     }
 
     @Override

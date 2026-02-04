@@ -103,7 +103,7 @@ public class KeySpaceDirectory {
      * type may be stored in the directory, otherwise specifies a constant value that represents the
      * directory
      * @param wrapper if non-null, specifies a function that may be used to wrap any <code>KeySpacePath</code>
-     * objects return from {@link KeySpace#pathFromKey(FDBRecordContext, Tuple)}
+     * objects return from {@link KeySpace#resolveFromKeyAsync(FDBRecordContext, Tuple)}.
      *
      * @throws RecordCoreArgumentException if the provided value constant value is not valid for the
      * type of directory being created
@@ -130,7 +130,7 @@ public class KeySpaceDirectory {
      * @param name the name of the directory
      * @param keyType the data type of the values that may be contained within the directory
      * @param wrapper if non-null, specifies a function that may be used to wrap any <code>KeySpacePath</code>
-     * objects returned from {@link KeySpace#pathFromKey(FDBRecordContext, Tuple)}
+     * objects returned from {@link KeySpace#resolveFromKeyAsync(FDBRecordContext, Tuple)}
      */
     public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType, @Nullable Function<KeySpacePath, KeySpacePath> wrapper) {
         this(name, keyType, keyType.getAnyValue(), wrapper);
@@ -177,6 +177,55 @@ public class KeySpaceDirectory {
     }
 
     /**
+     * Validate that the given value can be used with this directory.
+     * <p>
+     *     Ideally this would be called as part of {@link KeySpacePath#add(String, Object)} to ensure the provided value
+     *     is valid, but that code has existed for a long time, so it's possible clients are adding without respecting
+     *     the type. You should call this before calling add to make sure you don't have the same mistakes. At some point
+     *     this will be embedded in {@code add} once there's some confidence that it won't break anyone's environments.
+     * </p>
+     * @param value a potential value
+     * @throws RecordCoreArgumentException if the value is not valid
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public void validateValue(@Nullable Object value) {
+        // Validate that the value is valid for this directory
+        if (!isValueValid(value)) {
+            throw new RecordCoreArgumentException("Value does not match directory requirements")
+                .addLogInfo(LogMessageKeys.DIR_NAME, name,
+                    LogMessageKeys.EXPECTED_TYPE, getKeyType(),
+                    LogMessageKeys.ACTUAL, value,
+                    "actual_type", value == null ? "null" : value.getClass().getName(),
+                    "expected_value", getValue());
+        }
+    }
+
+    /**
+     * Checks if the provided value is valid for this directory. This method can be overridden by subclasses
+     * to provide custom validation logic. For example, {@link DirectoryLayerDirectory} accepts String
+     * values (logical names) even though its key type is LONG.
+     *
+     * @param value the value to validate
+     * @return {@code true} if the value is valid for this directory
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public boolean isValueValid(@Nullable Object value) {
+        // Check if value matches the key type
+        if (!keyType.isMatch(value)) {
+            return false;
+        }
+        // If this directory has a constant value, check that the provided value matches it
+        if (this.value != ANY_VALUE) {
+            if (this.value instanceof byte[] && value instanceof byte[]) {
+                return Arrays.equals((byte[]) this.value, (byte[]) value);
+            } else {
+                return Objects.equals(this.value, value);
+            }
+        }
+        return true;
+    }
+
+    /**
      * Given a position in a tuple, checks to see if this directory is compatible with the value at the
      * position, returning either a path indicating that it was compatible or nothing if it was not compatible.
      * This method allows overriding implementations to consume as much or as little of the tuple as necessary
@@ -213,14 +262,12 @@ public class KeySpaceDirectory {
             // Have we hit the leaf of the tree or run out of tuple to process?
             if (subdirs.isEmpty() || keyIndex + 1 == keySize) {
                 final Tuple remainder = (keyIndex + 1 == key.size()) ? null : TupleHelpers.subTuple(key, keyIndex + 1, key.size());
-                final KeySpacePath path = KeySpacePathImpl.newPath(parentPath, this, tupleValue,
-                        true, resolvedValue, remainder);
+                final KeySpacePath path = KeySpacePathImpl.newPath(parentPath, this, tupleValue);
 
                 return CompletableFuture.completedFuture(
                         Optional.of(new ResolvedKeySpacePath(parent, path, new PathValue(tupleValue), remainder)));
             } else {
-                final KeySpacePath path = KeySpacePathImpl.newPath(parentPath, this, tupleValue,
-                        true, resolvedValue, null);
+                final KeySpacePath path = KeySpacePathImpl.newPath(parentPath, this, tupleValue);
                 return findChildForKey(context,
                         new ResolvedKeySpacePath(parent, path, pathValue, null),
                         key, keySize, keyIndex + 1).thenApply(Optional::of);
@@ -930,9 +977,17 @@ public class KeySpaceDirectory {
         }
     }
 
+    /**
+     * A singleton class representing that this directory can contain any value of the associated type.
+     */
     private static class AnyValue {
+        /**
+         * Do not call this constuctor, reference the constant {@link #ANY_VALUE}.
+         */
         private AnyValue() {
         }
+
+        // explicitly not implementing equals, so that it falls back to `Object.equals` which is reference equality.
 
         @Override
         public String toString() {
