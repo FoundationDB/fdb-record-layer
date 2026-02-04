@@ -47,7 +47,7 @@ import java.util.Set;
  * Builder for creating {@link UnnestedRecordType}s.
  */
 @API(API.Status.EXPERIMENTAL)
-public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<UnnestedRecordTypeBuilder.NestedConstituent> {
+public final class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<UnnestedRecordTypeBuilder.NestedConstituent> {
     @Nonnull
     private static final String INTERNAL_PREFIX = "__";
     @Nullable

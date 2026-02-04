@@ -1490,7 +1490,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * Special {@link Type} that is undefined.
      */
-    class Any implements Type {
+    final class Any implements Type {
         /**
          * Memoized hash function.
          */
@@ -1622,7 +1622,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * Special {@link Type.Record} that is undefined.
      */
-    class AnyRecord implements Type, Erasable {
+    final class AnyRecord implements Type, Erasable {
         private final boolean isNullable;
 
         @Nonnull
@@ -2096,7 +2096,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * A structured {@link Type} that contains a list of {@link Field} types.
      */
-    class Record implements Type, Erasable {
+    final class Record implements Type, Erasable {
         @Nullable
         private final String name;
         @Nullable
@@ -2660,7 +2660,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * Represents a field type in a {@link Record} type.
          */
         @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-        public static class Field implements Comparable<Field>, PlanSerializable {
+        public static final class Field implements Comparable<Field>, PlanSerializable {
             /**
              * The field {@link Type}.
              */
@@ -2922,7 +2922,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * Represents a relational type.
      */
-    class Relation implements Type, Erasable {
+    final class Relation implements Type, Erasable {
         /**
          * The type of the stream values.
          */
@@ -3106,7 +3106,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * A type representing an array of elements sharing the same type.
      */
-    class Array implements Type, Erasable {
+    final class Array implements Type, Erasable {
         /**
          * Whether the array is nullable or not.
          */
