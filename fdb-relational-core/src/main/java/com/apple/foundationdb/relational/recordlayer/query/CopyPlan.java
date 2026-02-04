@@ -384,12 +384,8 @@ public final class CopyPlan extends QueryPlan {
     private KeySpacePath getPath(final ExecutionContext context) throws RelationalException, SQLException {
         KeySpace keySpace = context.connection.unwrap(EmbeddedRelationalConnection.class).getBackingCatalog().getKeySpace();
 
-        // Convert path string to KeySpacePath
         KeySpacePath keySpacePath;
         try {
-            // TODO I don't trust this enough, specifically if you take advantage of KeySpaceDirectory's type scoped
-            //      siblings i.e. if you have sibling directories where one is a STRING and one is a LONG, this might
-            //      get confused
             keySpacePath = KeySpaceUtils.toKeySpacePath(URI.create(path), keySpace);
         } catch (RelationalException e) {
             throw new RelationalException("Invalid COPY path: " + path,
