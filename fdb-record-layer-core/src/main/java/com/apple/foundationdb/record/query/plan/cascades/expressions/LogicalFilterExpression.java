@@ -60,6 +60,7 @@ public class LogicalFilterExpression extends AbstractRelationalExpressionWithChi
     @Nonnull
     private final Supplier<QueryPredicate> conjunctedPredicateSupplier;
 
+    @SuppressWarnings("this-escape")
     public LogicalFilterExpression(@Nonnull Iterable<? extends QueryPredicate> queryPredicates,
                                    @Nonnull Quantifier inner) {
         this.queryPredicates = ImmutableList.copyOf(queryPredicates);

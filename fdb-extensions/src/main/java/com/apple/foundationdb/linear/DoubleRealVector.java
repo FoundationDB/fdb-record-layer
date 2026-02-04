@@ -42,6 +42,7 @@ public class DoubleRealVector extends AbstractRealVector {
         this(computeDoubleData(doubleData));
     }
 
+    @SuppressWarnings("this-escape")
     public DoubleRealVector(@Nonnull final double[] data) {
         super(data);
         this.toHalfVectorSupplier = Suppliers.memoize(this::computeHalfRealVector);

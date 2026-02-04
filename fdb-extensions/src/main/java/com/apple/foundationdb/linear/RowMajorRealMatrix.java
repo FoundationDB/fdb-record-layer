@@ -33,6 +33,7 @@ public class RowMajorRealMatrix implements RealMatrix {
     @Nonnull
     private final Supplier<Integer> hashCodeSupplier;
 
+    @SuppressWarnings("this-escape")
     public RowMajorRealMatrix(@Nonnull final double[][] data) {
         Preconditions.checkArgument(data.length > 0);
         Preconditions.checkArgument(data[0].length > 0);

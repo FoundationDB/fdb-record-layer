@@ -223,6 +223,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     }
 
     @VisibleForTesting
+    @SuppressWarnings("this-escape")
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
                                 @Nonnull final IndexScanParameters scanParameters,

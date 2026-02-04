@@ -53,6 +53,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
 
     private final Supplier<Integer> hashCodeSupplier;
 
+    @SuppressWarnings("this-escape")
     protected OrderingPart(@Nonnull final Value value, @Nonnull final S sortOrder) {
         this.value = checkValue(value);
         this.sortOrder = sortOrder;

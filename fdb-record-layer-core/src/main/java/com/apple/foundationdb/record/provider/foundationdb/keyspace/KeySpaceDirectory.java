@@ -108,7 +108,7 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if the provided value constant value is not valid for the
      * type of directory being created
      */
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @SuppressWarnings({"PMD.CompareObjectsWithEquals", "this-escape"})
     public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType, @Nullable Object value,
                              @Nullable Function<KeySpacePath, KeySpacePath> wrapper) {
 
@@ -118,6 +118,8 @@ public class KeySpaceDirectory {
         this.wrapper = wrapper;
 
         if (value != keyType.getAnyValue()) {
+            // NOTE: this method actually _is_ overridden by DirectoryLayerDirectory, but not in a way that depends
+            // on its constructor having been called.
             validateConstant(value);
         }
     }

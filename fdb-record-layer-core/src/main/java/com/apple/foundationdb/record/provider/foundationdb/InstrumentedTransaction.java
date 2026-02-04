@@ -53,6 +53,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     private final long startNanos;
     private boolean endTimeRecorded = false;
 
+    @SuppressWarnings("this-escape")
     public InstrumentedTransaction(@Nullable StoreTimer timer,
                                    @Nullable StoreTimer delayedTimer,
                                    @Nonnull FDBDatabase database,

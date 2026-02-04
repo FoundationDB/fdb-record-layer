@@ -40,6 +40,7 @@ public abstract class AbstractRelationalExpression implements RelationalExpressi
     @Nonnull
     private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
 
+    @SuppressWarnings("this-escape")
     protected AbstractRelationalExpression() {
         this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);

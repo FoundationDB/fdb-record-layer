@@ -55,6 +55,7 @@ public class EncodedRealVector implements RealVector {
     @Nonnull
     private final Supplier<FloatRealVector> toFloatRealVectorSupplier;
 
+    @SuppressWarnings("this-escape")
     public EncodedRealVector(final int numExBits, @Nonnull final int[] encoded, final double fAddEx, final double fRescaleEx,
                              final double fErrorEx) {
         this.encoded = encoded;

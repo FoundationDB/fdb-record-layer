@@ -136,6 +136,7 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
                 CorrelationIdentifier.of(Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getCurrentModifiedRecordAlias())));
     }
 
+    @SuppressWarnings("this-escape")
     protected RecordQueryAbstractDataModificationPlan(@Nonnull final Quantifier.Physical inner,
                                                       @Nonnull final String targetRecordType,
                                                       @Nonnull final Type.Record targetType,

@@ -106,6 +106,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
     @Nonnull
     private final Supplier<QueryPredicate> conjunctedPredicateSupplier;
 
+    @SuppressWarnings("this-escape")
     public SelectExpression(@Nonnull Value resultValue,
                             @Nonnull List<? extends Quantifier> children,
                             @Nonnull List<? extends QueryPredicate> predicates) {

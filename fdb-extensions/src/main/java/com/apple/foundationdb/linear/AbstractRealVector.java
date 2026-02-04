@@ -57,6 +57,7 @@ public abstract class AbstractRealVector implements RealVector {
      * @param data the components of this vector
      * @throws NullPointerException if the provided {@code data} array is null.
      */
+    @SuppressWarnings("this-escape")
     protected AbstractRealVector(@Nonnull final double[] data) {
         this.data = data;
         this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);

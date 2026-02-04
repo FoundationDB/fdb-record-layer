@@ -1207,6 +1207,7 @@ public class Comparisons {
         @Nonnull
         protected final Supplier<Integer> hashCodeSupplier;
 
+        @SuppressWarnings("this-escape")
         protected ParameterComparisonBase(@Nonnull Type type, @Nonnull String parameter,
                                           @Nullable Bindings.Internal internal,
                                           @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
@@ -1549,6 +1550,7 @@ public class Comparisons {
             this(type, comparandValue, ParameterRelationshipGraph.unbound());
         }
 
+        @SuppressWarnings("this-escape")
         public ValueComparison(@Nonnull final Type type,
                                @Nonnull final Value comparandValue,
                                @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {

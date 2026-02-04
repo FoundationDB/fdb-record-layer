@@ -44,6 +44,7 @@ public class FloatRealVector extends AbstractRealVector {
         this(computeDoubleData(floatData));
     }
 
+    @SuppressWarnings("this-escape")
     public FloatRealVector(@Nonnull final double[] data) {
         super(truncateDoubleData(data));
         this.toHalfRealVectorSupplier = Suppliers.memoize(this::computeHalfRealVector);

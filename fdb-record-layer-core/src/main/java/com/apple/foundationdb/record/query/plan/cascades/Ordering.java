@@ -199,6 +199,7 @@ public class Ordering {
      * @param isDistinct an indicator if this ordering is strict
      * @param sanityCheckConsumer a consumer that is executed in an insane environment
      */
+    @SuppressWarnings("this-escape")
     protected Ordering(@Nonnull final SetMultimap<Value, Binding> bindingMap,
                        @Nonnull final PartiallyOrderedSet<Value> orderingSet,
                        final boolean isDistinct,
@@ -235,7 +236,7 @@ public class Ordering {
     public PartiallyOrderedSet<Value> getOrderingSet() {
         return orderingSet;
     }
-    
+
     public boolean isDistinct() {
         return isDistinct;
     }

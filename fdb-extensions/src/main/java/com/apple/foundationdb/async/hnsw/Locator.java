@@ -68,6 +68,7 @@ public class Locator {
      *
      * @throws NullPointerException if any of the parameters are {@code null}.
      */
+    @SuppressWarnings("this-escape")
     public Locator(@Nonnull final Subspace subspace,
                    @Nonnull final Executor executor,
                    @Nonnull final Config config,
