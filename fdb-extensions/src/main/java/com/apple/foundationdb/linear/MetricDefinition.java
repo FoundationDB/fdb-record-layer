@@ -25,9 +25,9 @@ import javax.annotation.Nonnull;
 /**
  * Defines a metric for measuring the distance or similarity between n-dimensional vectors.
  * <p>
- * This interface provides a contract for various distance calculation algorithms, such as Euclidean, Manhattan,
- * and Cosine distance. Implementations of this interface can be used in algorithms that require a metric for
- * comparing data vectors, like clustering or nearest neighbor searches.
+ * This interface provides a contract for various distance calculation algorithms, such as Euclidean, and Cosine
+ * distance. Implementations of this interface can be used in algorithms that require a metric for comparing data
+ * vectors, like clustering or nearest neighbor searches.
  */
 interface MetricDefinition {
     /**
@@ -122,31 +122,6 @@ interface MetricDefinition {
         }
         if (vector1.length == 0) {
             throw new IllegalArgumentException("Vectors cannot be empty.");
-        }
-    }
-
-    /**
-     * Represents the Manhattan distance metric.
-     * <p>
-     * This metric calculates a distance overlaying the multidimensional space with a grid-like structure only allowing
-     * orthogonal lines. In 2D this resembles the street structure in Manhattan where one would have to go {@code x}
-     * blocks north/south and {@code y} blocks east/west leading to a total distance of {@code x + y}.
-     */
-    final class ManhattanMetric implements MetricDefinition {
-        @Override
-        public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
-            MetricDefinition.validate(vector1, vector2);
-            double sumOfAbsDiffs = 0.0;
-            for (int i = 0; i < vector1.length; i++) {
-                sumOfAbsDiffs += Math.abs(vector1[i] - vector2[i]);
-            }
-            return sumOfAbsDiffs;
-        }
-
-        @Override
-        @Nonnull
-        public String toString() {
-            return MetricDefinition.toString(this);
         }
     }
 

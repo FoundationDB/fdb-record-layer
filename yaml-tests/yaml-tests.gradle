@@ -218,6 +218,23 @@ test {
     }
 }
 
+def copyTempLogs = tasks.register("copyTempLogs", Copy) {
+    from(".out/")
+    include "tmp-*/*.log"
+    into(".out/reports/logs")
+    eachFile {
+        it.path = it.path.replaceFirst("tmp-", "")
+    }
+    setIncludeEmptyDirs(false)
+}
+
+tasks.withType(Test).configureEach {
+    if (project.hasProperty("tests.ci") || project.hasProperty("tests.saveServerLogs")) {
+        systemProperties['tests.saveServerLogs'] = "true"
+        finalizedBy(copyTempLogs)
+    }
+}
+
 tasks.register('runDebug', JavaExec) {
     environment rootProject.ext.fdbEnvironment
     mainClass = 'com.apple.foundationdb.record.query.plan.cascades.debug.ReplRunner'

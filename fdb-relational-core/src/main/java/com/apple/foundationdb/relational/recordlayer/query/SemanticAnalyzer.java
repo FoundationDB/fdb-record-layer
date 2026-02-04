@@ -392,6 +392,27 @@ public class SemanticAnalyzer {
         return Optional.of(attributes.get(0));
     }
 
+    private static Optional<Expression> lookupPseudoField(@Nonnull LogicalOperator logicalOperator,
+                                                          @Nonnull Identifier identifier,
+                                                          boolean matchQualifiedOnly) {
+        if (matchQualifiedOnly && (!identifier.isQualified() || logicalOperator.getName().isEmpty())) {
+            return Optional.empty();
+        }
+        if (matchQualifiedOnly && identifier.isQualified() && identifier.fullyQualifiedName().size() != 2) {
+            return Optional.empty();
+        }
+        if (!identifier.isQualified()) {
+            return PseudoColumn.mapToExpressionMaybe(logicalOperator, identifier.getName());
+        }
+        if (logicalOperator.getName().isEmpty()) {
+            return Optional.empty();
+        }
+        if (!identifier.prefixedWith(logicalOperator.getName().get())) {
+            return Optional.empty();
+        }
+        return PseudoColumn.mapToExpressionMaybe(logicalOperator, identifier.getName());
+    }
+
     @Nonnull
     private List<Expression> lookup(@Nonnull Identifier referenceIdentifier,
                                     @Nonnull LogicalOperators operators,
@@ -405,6 +426,7 @@ public class SemanticAnalyzer {
                 continue;
             }
             final var operatorNameMaybe = operator.getName();
+            boolean checkForPseudoColumns = true;
             for (final var attribute : operator.getOutput()) {
                 if (attribute.getName().isEmpty()) {
                     continue;
@@ -412,21 +434,29 @@ public class SemanticAnalyzer {
                 final var attributeIdentifier = attribute.getName().get();
                 if (attributeIdentifier.equals(referenceIdentifier)) {
                     matchedAttributes.add(attribute);
+                    checkForPseudoColumns = false;
                     continue;
                 } else if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
                     matchedAttributes.add(attribute);
+                    checkForPseudoColumns = false;
                     continue;
                 }
                 if (matchQualifiedOnly && operatorNameMaybe.isPresent()) {
                     if (attributeIdentifier.withQualifier(operatorNameMaybe.get().getName()).equals(referenceIdentifier)) {
                         matchedAttributes.add(attribute);
+                        checkForPseudoColumns = false;
                         continue;
                     }
                 }
                 final var nestedFieldMaybe = lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
                 if (nestedFieldMaybe.isPresent()) {
                     matchedAttributes.add(nestedFieldMaybe.get());
+                    checkForPseudoColumns = false;
                 }
+            }
+            if (checkForPseudoColumns) {
+                lookupPseudoField(operator, referenceIdentifier, matchQualifiedOnly)
+                        .ifPresent(matchedAttributes::add);
             }
         }
         return matchedAttributes.build();

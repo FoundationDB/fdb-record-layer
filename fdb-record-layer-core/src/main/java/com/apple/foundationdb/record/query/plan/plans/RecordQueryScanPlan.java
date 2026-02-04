@@ -192,7 +192,10 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
                 range.getLow(), range.getHigh(), range.getLowEndpoint(), range.getHighEndpoint(), continuation,
                 executeProperties.asScanProperties(reverse))
                 .map(store::queriedRecord)
-                .map(queriedRecord -> QueryResult.fromQueriedRecord(getResultType(), context, queriedRecord));
+                // Copy the queried record into a query result. This _may_ enrich the type with pseudo-fields if there
+                // is a single returned record type. Otherwise, the flowedType will be an AnyRecord, and it is up to
+                // an operator above us (usually the RecordQueryTypeFilterPlan) to handle that
+                .map(queriedRecord -> QueryResult.fromQueriedRecord(flowedType, context, queriedRecord));
     }
 
     @Nullable

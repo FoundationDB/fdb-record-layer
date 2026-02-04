@@ -177,3 +177,90 @@ test_block:
       # LONG to INT overflow (should throw error)
       - query: select CAST(9223372036854775807 AS INTEGER) as overflow_test from test_cast where id = 1
       - error: "22F3H"
+
+    # Cast null
+    -
+      - query: select cast(null as integer) as a, cast(null as bigint) as b, cast(null as string) as c, cast(null as double) as d, cast(null as boolean) as e, cast(null as string) as f from values (1), (2) as X(X)
+      - explain: "EXPLODE array((@c58 AS X), (@c62 AS X)) | MAP (CAST(NULL AS INT) AS A, CAST(NULL AS LONG) AS B, CAST(NULL AS STRING) AS C, CAST(NULL AS DOUBLE) AS D, CAST(NULL AS BOOLEAN) AS E, CAST(NULL AS STRING) AS F)"
+      - initialVersionLessThan: 4.9.6.0
+      - error: 'XXXXX'
+      - initialVersionAtLeast: 4.9.6.0
+      - result: [
+          { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _ },
+          { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _ },
+        ]
+    -
+      - query: select cast(null as uuid) from values (1), (2) as X(X)
+      # UUID types had non-stable plan hashes before 4.9.1.0
+      - supported_version: 4.9.1.0
+      - explain: "EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (CAST(NULL AS UUID) AS _0)"
+      - initialVersionLessThan: 4.9.6.0
+      - error: 'XXXXX'
+      - initialVersionAtLeast: 4.9.6.0
+      - result: [{ !null _ }, { !null _ }]
+    -
+      # Floats are only supported starting with 4.9.6.0 because the JDBC façade was missing support for them
+      - query: select cast(null as float) from values (1), (2) as X(X)
+      - supported_version: 4.9.6.0
+      - explain: "EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (CAST(NULL AS FLOAT) AS _0)"
+      - result: [{ !null _ }, { !null _ }]
+    -
+      # Bytes are only supported starting with 4.9.6.0 because CastValue was missing a PhysicalOperator for them
+      - query: select cast(null as bytes) from values (1), (2) as X(X)
+      - supported_version: 4.9.6.0
+      - explain: "EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (CAST(NULL AS BYTES) AS _0)"
+      - result: [{ !null _ }, { !null _ }]
+    -
+      - query: select cast(null as vector(10, half)) as a, cast(null as vector(15, float)) as b, cast(null as vector(30, double)) as c from values (1), (2) as X(X)
+      - supported_version: 4.9.6.0
+      - explain: "EXPLODE array((@c46 AS X), (@c50 AS X)) | MAP (CAST(NULL AS VECTOR(16, 10)) AS A, CAST(NULL AS VECTOR(32, 15)) AS B, CAST(NULL AS VECTOR(64, 30)) AS C)"
+      - result: [
+          { A: !null _, B: !null _, C: !null _ },
+          { A: !null _, B: !null _, C: !null _ },
+        ]
+    -
+      - query: select cast(null as integer array) as a, cast(null as bigint array) as b, cast(null as string array) as c, cast(null as double array) as d, cast(null as boolean array) as e, cast(null as string array) as f from values (1), (2) as X(X)
+      - explain: "EXPLODE array((@c64 AS X), (@c68 AS X)) | MAP (CAST(NULL AS ARRAY(INT)) AS A, CAST(NULL AS ARRAY(LONG)) AS B, CAST(NULL AS ARRAY(STRING)) AS C, CAST(NULL AS ARRAY(DOUBLE)) AS D, CAST(NULL AS ARRAY(BOOLEAN)) AS E, CAST(NULL AS ARRAY(STRING)) AS F)"
+      - initialVersionLessThan: 4.9.6.0
+      - error: 'XXXXX'
+      - initialVersionAtLeast: 4.9.6.0
+      - result: [
+          { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _, },
+          { A: !null _, B: !null _, C: !null _, D: !null _, E: !null _, F: !null _, },
+        ]
+    -
+      - query: select cast(null as uuid array) from values (1), (2) as X(X)
+      # UUID types had non-stable plan hashes before 4.9.1.0
+      - supported_version: 4.9.1.0
+      - explain: "EXPLODE array((@c12 AS X), (@c16 AS X)) | MAP (CAST(NULL AS ARRAY(UUID)) AS _0)"
+      - initialVersionLessThan: 4.9.6.0
+      - error: 'XXXXX'
+      - initialVersionAtLeast: 4.9.6.0
+      - result: [{ !null _ }, { !null _ }]
+    -
+      # Unlike float scalars, float arrays are supported on versions older than 4.9.6.0 when continuing
+      - query: select cast(null as float array) from values (1), (2) as X(X)
+      - explain: "EXPLODE array((@c12 AS X), (@c16 AS X)) | MAP (CAST(NULL AS ARRAY(FLOAT)) AS _0)"
+      - initialVersionLessThan: 4.9.6.0
+      - error: 'XXXXX'
+      - initialVersionAtLeast: 4.9.6.0
+      - result: [{ !null _ }, { !null _ }]
+    -
+      # Arrays of bytes are supported when continuing as they use a different physical operator from scalar bytes fields
+      - query: select cast(null as bytes array) from values (1), (2) as X(X)
+      - explain: "EXPLODE array((@c12 AS X), (@c16 AS X)) | MAP (CAST(NULL AS ARRAY(BYTES)) AS _0)"
+      - initialVersionLessThan: 4.9.6.0
+      - error: 'XXXXX'
+      - initialVersionAtLeast: 4.9.6.0
+      - result: [{ !null _ }, { !null _ }]
+    -
+      - query: select cast(null as vector(10, half) array) as a, cast(null as vector(15, float) array) as b, cast(null as vector(30, double) array) as c from values (1), (2) as X(X)
+      - explain: "EXPLODE array((@c49 AS X), (@c53 AS X)) | MAP (CAST(NULL AS ARRAY(VECTOR(16, 10))) AS A, CAST(NULL AS ARRAY(VECTOR(32, 15))) AS B, CAST(NULL AS ARRAY(VECTOR(64, 30))) AS C)"
+      - initialVersionLessThan: 4.9.6.0
+      - error: 'XXXXX'
+      - initialVersionAtLeast: 4.9.6.0
+      - result: [
+          { A: !null _, B: !null _, C: !null _ },
+          { A: !null _, B: !null _, C: !null _ },
+        ]
+...

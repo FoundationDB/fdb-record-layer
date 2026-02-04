@@ -29,11 +29,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -117,7 +116,7 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
     @Nonnull
     @Override
     public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Type baseType) {
-        return FieldValue.ofFieldName(QuantifiedObjectValue.of(baseAlias, baseType), PseudoField.ROW_VERSION.getFieldName());
+        return new VersionValue(QuantifiedRecordValue.of(baseAlias, baseType));
     }
 
     @Override

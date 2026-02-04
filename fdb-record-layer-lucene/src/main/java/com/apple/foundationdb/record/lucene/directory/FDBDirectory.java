@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
@@ -69,6 +70,7 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.Lock;
+import org.apache.lucene.store.LockFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -115,7 +117,7 @@ import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXT
  */
 @API(API.Status.EXPERIMENTAL)
 @NotThreadSafe
-public class FDBDirectory extends Directory  {
+public class FDBDirectory extends Directory {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectory.class);
     public static final int DEFAULT_BLOCK_SIZE = 1_024;
     public static final int DEFAULT_BLOCK_CACHE_MAXIMUM_SIZE = 1024;
@@ -133,6 +135,7 @@ public class FDBDirectory extends Directory  {
     @VisibleForTesting
     public static final int FILE_LOCK_SUBSPACE = 7;
     public static final int PENDING_WRITE_QUEUE_SUBSPACE = 8;
+    public static final int ONGOING_MERGE_INDICATOR_SUBSPACE = 9;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     @Nonnull
     private final Map<String, String> indexOptions;
@@ -143,10 +146,13 @@ public class FDBDirectory extends Directory  {
     protected final Subspace storedFieldsSubspace;
     private final Subspace fileLockSubspace;
     private final Subspace pendingWritesQueueSubspace;
+    private final Subspace ongoingMergeSubspace;
     private final byte[] sequenceSubspaceKey;
 
-    private final FDBDirectoryLockFactory lockFactory;
-    private FDBDirectoryLockFactory.FDBDirectoryLock lastLock = null;
+    private final LockFactory lockFactory;
+    private final int maxPendingWritesToReplay;
+    private final int blockCacheMaximumSize;
+    private Lock lastLock = null;
     private final int blockSize;
 
     /**
@@ -194,19 +200,20 @@ public class FDBDirectory extends Directory  {
     public FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
                         boolean deferDeleteToCompoundFile, AgilityContext agilityContext) {
-        this(subspace, indexOptions, sharedCacheManager, sharedCacheKey, agilityContext,
+        this(subspace, indexOptions, sharedCacheManager, sharedCacheKey, agilityContext, null,
                 DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_BLOCK_CACHE_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
     }
 
     public FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
-                        boolean deferDeleteToCompoundFile, AgilityContext agilityContext, int blockCacheMaximumSize) {
-        this(subspace, indexOptions, sharedCacheManager, sharedCacheKey, agilityContext,
+                        boolean deferDeleteToCompoundFile, AgilityContext agilityContext, @Nullable LockFactory lockFactory, int blockCacheMaximumSize) {
+        this(subspace, indexOptions, sharedCacheManager, sharedCacheKey, agilityContext, lockFactory,
                 DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, blockCacheMaximumSize, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
     }
 
     private FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
                          @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey, AgilityContext agilityContext,
+                         @Nullable LockFactory lockFactory,
                          int blockSize, final int initialCapacity, final int blockCacheMaximumSize, final int concurrencyLevel,
                          boolean deferDeleteToCompoundFile) {
         this.agilityContext = agilityContext;
@@ -220,9 +227,11 @@ public class FDBDirectory extends Directory  {
         this.storedFieldsSubspace = subspace.subspace(Tuple.from(STORED_FIELDS_SUBSPACE));
         this.fileLockSubspace = subspace.subspace(Tuple.from(FILE_LOCK_SUBSPACE));
         this.pendingWritesQueueSubspace = subspace.subspace(Tuple.from(PENDING_WRITE_QUEUE_SUBSPACE));
-        this.lockFactory = new FDBDirectoryLockFactory(this, Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS), 0));
+        this.ongoingMergeSubspace = subspace.subspace(Tuple.from(ONGOING_MERGE_INDICATOR_SUBSPACE));
+        this.lockFactory = (lockFactory != null) ? lockFactory : defaultLockFactory(agilityContext);
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
+        this.blockCacheMaximumSize = blockCacheMaximumSize;
         this.blockCache = CacheBuilder.newBuilder()
                 .concurrencyLevel(concurrencyLevel)
                 .initialCapacity(initialCapacity)
@@ -241,6 +250,7 @@ public class FDBDirectory extends Directory  {
         this.sharedCachePending = sharedCacheManager != null && sharedCacheKey != null;
         this.fieldInfosStorage = new FieldInfosStorage(this);
         this.deferDeleteToCompoundFile = deferDeleteToCompoundFile;
+        this.maxPendingWritesToReplay = agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_MAX_PENDING_WRITES_REPLAYED_FOR_QUERY);
     }
 
     private void cacheRemovalCallback() {
@@ -977,18 +987,76 @@ public class FDBDirectory extends Directory  {
                     LuceneLogMessageKeys.LOCK_NAME, lockName));
         }
         final Lock lock = lockFactory.obtainLock(null, lockName);
-        lastLock = (FDBDirectoryLockFactory.FDBDirectoryLock) lock;
+        lastLock = lock;
         return lock;
     }
 
     private void clearLockIfLocked() {
-        if (lastLock != null) {
-            lastLock.fileLockClearIfLocked();
+        // There are several lock types that can be obtained, for example, a NoLockFactory.NoLock can be returned
+        // when configured as such (e.g. when the context is read only), so we need to ensure this is the right one
+        if ((lastLock != null) && (lastLock instanceof FDBDirectoryLockFactory.FDBDirectoryLock)) {
+            ((FDBDirectoryLockFactory.FDBDirectoryLock)lastLock).fileLockClearIfLocked();
         }
     }
 
+    /**
+     * Checks if the pending write queue should be used.
+     * @return true if queue should be used
+     */
+    public boolean shouldUseQueue() {
+        return Boolean.TRUE.equals(asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_ONGOING_MERGE_INDICATOR,
+                shouldUseQueueAsync()));
+    }
+
+    /**
+     * Checks if the pending write queue should be used.
+     * @return future true if queue should be used
+     */
+    public CompletableFuture<Boolean> shouldUseQueueAsync() {
+        if (!getBooleanIndexOption(LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, false)) {
+            return AsyncUtil.READY_FALSE;
+        }
+        return agilityContext.get(ongoingMergeSubspace.pack())
+                .thenApply(tupleBytes -> tupleBytes != null && !Tuple.fromBytes(tupleBytes).isEmpty());
+    }
+
+    /**
+     * Sets the ongoing merge indicator.
+     */
+    public void setOngoingMergeIndicator() {
+        final long nowMillis = System.currentTimeMillis();
+        final Tuple indicatorTuple = Tuple.from(nowMillis);
+        agilityContext.set(ongoingMergeSubspace.pack(), indicatorTuple.pack());
+    }
+
+    /**
+     * Clears the ongoing merge indicator, throw exception if the queue is not empty.
+     *
+     * @throws RecordCoreException if the pending write queue is not empty
+     */
+    public void clearOngoingMergeIndicatorButFailIfNonEmpty() {
+        agilityContext.accept(context -> {
+            // Verify that the pending write queue subspace is empty
+            final CompletableFuture<Boolean> isEmptyFuture = createPendingWritesQueue().isQueueEmpty(context);
+            boolean isEmptyQueue =
+                    Boolean.TRUE.equals(LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_PENDING_QUEUE,
+                            isEmptyFuture, context));
+
+            if (!isEmptyQueue) {
+                throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
+            }
+
+            // Clear the ongoing merge indicator
+            context.ensureActive().clear(ongoingMergeSubspace.pack());
+        });
+    }
+
     public PendingWriteQueue createPendingWritesQueue() {
-        return new PendingWriteQueue(pendingWritesQueueSubspace);
+        return new PendingWriteQueue(pendingWritesQueueSubspace, maxPendingWritesToReplay);
+    }
+
+    public int getBlockCacheMaximumSize() {
+        return blockCacheMaximumSize;
     }
 
     /**
@@ -1179,5 +1247,15 @@ public class FDBDirectory extends Directory  {
     @Nullable
     public String getIndexOption(@Nonnull String key) {
         return indexOptions.get(key);
+    }
+
+    /**
+     * Utility to create the default LockFactory when null is given to the constructor.
+     * @param agilityContext the agility context to use for the factory
+     * @return the created lock factory
+     */
+    @Nonnull
+    private FDBDirectoryLockFactory defaultLockFactory(final AgilityContext agilityContext) {
+        return new FDBDirectoryLockFactory(this, Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS), 0));
     }
 }

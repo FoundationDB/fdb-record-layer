@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -267,16 +268,18 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
         final var partitionExpressions = windowSpecExpression.getPartitions();
         final var partitionValues = Streams.stream(partitionExpressions.underlying()).collect(ImmutableList.toImmutableList());
-        final var partitionArray = partitionValues.isEmpty() ? AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray(Type.any())
-                                                             : AbstractArrayConstructorValue.LightArrayConstructorValue.of(partitionValues);
+        final var partitionArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(partitionValues, Type.any());
 
         final var orderByExpressions = windowSpecExpression.getOrderByExpressions();
+        final var allowedSortSpecs = StreamSupport.stream(orderByExpressions.spliterator(), false)
+                .allMatch(exp -> exp.toSortOrder() == OrderingPart.RequestedSortOrder.ASCENDING || exp.toSortOrder() == OrderingPart.RequestedSortOrder.ANY);
+        Assert.thatUnchecked(allowedSortSpecs, ErrorCode.UNSUPPORTED_SORT, "provided sort specification not supported with window function");
+        // TODO should pass down sort specification correctly.
         final var orderByValues = StreamSupport.stream(orderByExpressions.spliterator(), false).map(r -> r.getExpression().getUnderlying())
                 .collect(ImmutableList.toImmutableList());
 
         final ImmutableList.Builder<Expression> argumentsBuilder = ImmutableList.builder();
-        final var orderByArray = orderByValues.isEmpty() ? AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray(Type.any())
-                                                         :  AbstractArrayConstructorValue.LightArrayConstructorValue.of(orderByValues);
+        final var orderByArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(orderByValues, Type.any());
         argumentsBuilder.add(Expression.ofUnnamed(partitionArray)).add(Expression.ofUnnamed(orderByArray));
 
         final var higherOrderArgumentsBuilder = ImmutableList.<Expressions>builder();
@@ -426,7 +429,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             // Cast does not currently support user-defined struct types.
             final var targetDataType = getDelegate().getSemanticAnalyzer().lookupBuiltInType(typeInfo);
             final var targetType = DataTypeUtils.toRecordLayerType(targetDataType);
-            final var castValue = CastValue.inject(sourceExpression.getUnderlying(), targetType);
+            final var underlyingType = sourceExpression.getUnderlying().getResultType();
+            final var castValue = CastValue.inject(sourceExpression.getUnderlying(), targetType.withNullability(underlyingType.isNullable()));
             return Expression.ofUnnamed(targetDataType, castValue);
         }
 

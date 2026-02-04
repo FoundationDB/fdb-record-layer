@@ -55,13 +55,7 @@ jobs:
         with:
           gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
-      - name: Publish Test Reports
-        if: always()
-        uses: actions/upload-artifact@v4.6.0
-        with:
-          name: ${{ matrix.subproject }}-test-reports
-          path: |
-            test-reports/${{ matrix.subproject }}/
+          report_name: ${{ matrix.subproject }}-test-reports
       - name: Publish Coverage Data
         uses: actions/upload-artifact@v4.6.0
         with:
@@ -102,23 +96,7 @@ jobs:
             -x :fdb-record-layer-lucene:destructiveTest
             -x :yaml-tests:destructiveTest
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
-      - name: Publish Test Reports
-        if: always()
-        uses: actions/upload-artifact@v4.6.0
-        with:
-          name: other-test-reports
-          path: |
-            test-reports/fdb-java-annotations/
-            test-reports/fdb-record-layer-icu/
-            test-reports/fdb-record-layer-spatial/
-            test-reports/fdb-record-layer-jmh/
-            test-reports/examples/
-            test-reports/fdb-relational-api/
-            test-reports/fdb-relational-core/
-            test-reports/fdb-relational-cli/
-            test-reports/fdb-relational-grpc/
-            test-reports/fdb-relational-jdbc/
-            test-reports/fdb-relational-server/
+          report_name: other-test-reports
       - name: Publish Coverage Data
         uses: actions/upload-artifact@v4.6.0
         with:
