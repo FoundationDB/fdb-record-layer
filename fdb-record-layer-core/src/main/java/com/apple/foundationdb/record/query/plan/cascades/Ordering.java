@@ -57,6 +57,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 /**
  * This class captures an ordering property.
@@ -1139,12 +1140,37 @@ public class Ordering {
         }
     }
 
+    /**
+     * Verifies that directional values in the binding map have proper interdependencies within the ordering set.
+     * This method ensures ordering consistency by checking that all directional values (values with singular
+     * directional bindings) either have dependencies among themselves or there is at most one such value.
+     *
+     * @param bindingMap a multimap from values to their bindings, used to identify directional values
+     * @param orderingSet a partially ordered set of values that defines dependency relationships
+     * @throws IllegalStateException if directional values exist without proper interdependencies in the ordering set
+     */
+    protected static void noInvalidOrderingCheck(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                                                 @Nonnull final PartiallyOrderedSet<Value> orderingSet) {
+        final var directionalValuesBuilder = ImmutableSet.<Value>builder();
+        for (final var valueBindingsEntry : bindingMap.asMap().entrySet()) {
+            final var bindings = valueBindingsEntry.getValue();
+            if (isSingularDirectionalBinding(bindings)) {
+                directionalValuesBuilder.add(Verify.verifyNotNull(valueBindingsEntry.getKey()));
+            }
+        }
+        final var directionalValues = directionalValuesBuilder.build();
+        Verify.verify(directionalValues.size() <= 1 || orderingSet.getDependencyMap()
+                .entries().stream().flatMap(entry -> Stream.of(entry.getKey(), entry.getValue()))
+                .collect(ImmutableSet.toImmutableSet())
+                .containsAll(directionalValues));
+    }
+
     @Nonnull
     public static Ordering ofOrderingSet(@Nonnull final SetMultimap<Value, Binding> bindingMap,
                                          @Nonnull final PartiallyOrderedSet<Value> orderingSet,
                                          final boolean isDistinct) {
         return new Ordering(bindingMap, orderingSet, isDistinct,
-                normalizationCheckConsumer().andThen(Ordering::singularFixedBindingCheck).andThen(Ordering::noChooseBindingCheck));
+                normalizationCheckConsumer().andThen(Ordering::singularFixedBindingCheck).andThen(Ordering::noChooseBindingCheck).andThen(Ordering::noInvalidOrderingCheck));
     }
 
     @Nonnull
