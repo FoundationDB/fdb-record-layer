@@ -92,57 +92,39 @@ public class TransactionBoundDatabaseTest {
     @Test
     void simpleSelect() throws RelationalException, SQLException {
         final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
-        final var store = getStore(embeddedConnection);
-        final var schemaTemplate = getSchemaTemplate(embeddedConnection);
+        withTransactionBoundConnection(embeddedConnection, Options.NONE, null, conn -> {
+            try (RelationalStatement statement = conn.createStatement()) {
+                var record = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("REST_NO", 42)
+                        .addString("NAME", "FOO")
+                        .build();
+                statement.executeInsert("RESTAURANT", record);
+            }
 
-        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
-            final var newStore = store.asBuilder().setMetaDataProvider(store.getMetaDataProvider()).setContext(context).open();
-            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
-
-                // Then, once we have a transaction that contains both an FDBRecordStoreBase<Message> and an FDBRecordContext,
-                // connect to a TransactionBoundDatabase
-                EmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine();
-                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(engine);
-                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
-                    conn.setSchema("TEST_SCHEMA");
-                    try (RelationalStatement statement = conn.createStatement()) {
-                        var record = EmbeddedRelationalStruct.newBuilder()
-                                .addLong("REST_NO", 42)
-                                .addString("NAME", "FOO")
-                                .build();
-                        statement.executeInsert("RESTAURANT", record);
-                    }
-
-                    try (RelationalStatement statement = conn.createStatement()) {
-                        try (RelationalResultSet resultSet = statement.executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
-                            Assertions.assertThat(resultSet.next()).isTrue();
-                            Assertions.assertThat(resultSet.getString("NAME")).isEqualTo("FOO");
-                            Assertions.assertThat(resultSet.getLong("REST_NO")).isEqualTo(42L);
-                        }
-                    }
+            try (RelationalStatement statement = conn.createStatement()) {
+                try (RelationalResultSet resultSet = statement.executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
+                    Assertions.assertThat(resultSet.next()).isTrue();
+                    Assertions.assertThat(resultSet.getString("NAME")).isEqualTo("FOO");
+                    Assertions.assertThat(resultSet.getLong("REST_NO")).isEqualTo(42L);
                 }
             }
-        }
+        });
     }
 
     @Test
     void selectWithIncludedPlanCache() throws RelationalException, SQLException {
         final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
-        final var store = getStore(embeddedConnection);
-        final var schemaTemplate = getSchemaTemplate(embeddedConnection);
 
         try (FDBRecordContext context = createNewContext(embeddedConnection)) {
-            final var newStore = store.asBuilder().setMetaDataProvider(store.getMetaDataProvider()).setContext(context).open();
-            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
+            try (Transaction transaction = createRecordStoreAndRecordContextTransaction(embeddedConnection, context)) {
 
                 // Then, once we have a transaction that contains both an FDBRecordStoreBase<Message> and an FDBRecordContext,
                 // connect to a TransactionBoundDatabase
-                TransactionBoundEmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine(Options.builder().withOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 10L).build());
+                TransactionBoundEmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine(
+                        Options.builder().withOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 10L).build());
                 Assertions.assertThat(engine.getPlanCache()).isNotNull()
                         .extracting(planCache -> planCache.getStats().numEntries()).isEqualTo(0L);
-                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(engine);
-                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
-                    conn.setSchema("TEST_SCHEMA");
+                withTransactionBoundConnection(engine, transaction, context, conn -> {
                     try (RelationalStatement statement = conn.createStatement()) {
                         var record = EmbeddedRelationalStruct.newBuilder()
                                 .addLong("REST_NO", 42)
@@ -158,7 +140,7 @@ public class TransactionBoundDatabaseTest {
                             Assertions.assertThat(resultSet.getLong("REST_NO")).isEqualTo(42L);
                         }
                     }
-                }
+                });
 
                 //we should have populated the plan cache;
                 // Assertions.assertThat(engine.getPlanCache().getStats().numEntries()).isEqualTo(1L);
@@ -169,15 +151,10 @@ public class TransactionBoundDatabaseTest {
     @Test
     void createTemporaryFunction() throws RelationalException, SQLException {
         final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
-        final var store = getStore(embeddedConnection);
-        final var schemaTemplate = getSchemaTemplate(embeddedConnection);
 
         try (FDBRecordContext context = createNewContext(embeddedConnection)) {
-            final var newStore = store.asBuilder().setMetaDataProvider(store.getMetaDataProvider()).setContext(context).open();
-            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
-                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine());
-                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
-                    conn.setSchema("TEST_SCHEMA");
+            try (Transaction transaction = createRecordStoreAndRecordContextTransaction(embeddedConnection, context)) {
+                withTransactionBoundConnection(transaction, context, conn -> {
                     try (RelationalStatement statement = conn.createStatement()) {
                         statement.executeUpdate("CREATE TEMPORARY FUNCTION REST_FUNC() ON COMMIT DROP FUNCTION AS SELECT * FROM RESTAURANT WHERE REST_NO > 1000");
                     }
@@ -186,7 +163,7 @@ public class TransactionBoundDatabaseTest {
                     Assertions.assertThat(routinesInBoundSchemaTemplates)
                             .hasSize(1)
                             .anyMatch(routine -> routine.getName().equals("REST_FUNC"));
-                }
+                });
             }
         }
     }
@@ -194,15 +171,10 @@ public class TransactionBoundDatabaseTest {
     @Test
     void dropTemporaryFunction() throws RelationalException, SQLException {
         final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
-        final var store = getStore(embeddedConnection);
-        final var schemaTemplate = getSchemaTemplate(embeddedConnection);
 
         try (FDBRecordContext context = createNewContext(embeddedConnection)) {
-            final var newStore = store.asBuilder().setMetaDataProvider(store.getMetaDataProvider()).setContext(context).open();
-            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
-                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine());
-                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
-                    conn.setSchema("TEST_SCHEMA");
+            try (Transaction transaction = createRecordStoreAndRecordContextTransaction(embeddedConnection, context)) {
+                withTransactionBoundConnection(transaction, context, conn -> {
                     try (RelationalStatement statement = conn.createStatement()) {
                         statement.executeUpdate("CREATE TEMPORARY FUNCTION REST_FUNC() ON COMMIT DROP FUNCTION AS SELECT * FROM RESTAURANT WHERE REST_NO > 1000");
                     }
@@ -216,7 +188,7 @@ public class TransactionBoundDatabaseTest {
                     Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe()).isPresent();
                     Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe().get().getInvokedRoutines())
                             .isEmpty();
-                }
+                });
             }
         }
     }
@@ -224,15 +196,10 @@ public class TransactionBoundDatabaseTest {
     @Test
     void dropTemporaryIfExistFunction() throws RelationalException, SQLException {
         final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
-        final var store = getStore(embeddedConnection);
-        final var schemaTemplate = getSchemaTemplate(embeddedConnection);
 
         try (FDBRecordContext context = createNewContext(embeddedConnection)) {
-            final var newStore = store.asBuilder().setMetaDataProvider(store.getMetaDataProvider()).setContext(context).open();
-            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
-                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine());
-                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
-                    conn.setSchema("TEST_SCHEMA");
+            try (Transaction transaction = createRecordStoreAndRecordContextTransaction(embeddedConnection, context)) {
+                withTransactionBoundConnection(transaction, context, conn -> {
                     try (RelationalStatement statement = conn.createStatement()) {
                         statement.executeUpdate("CREATE TEMPORARY FUNCTION REST_FUNC() ON COMMIT DROP FUNCTION AS SELECT * FROM RESTAURANT WHERE REST_NO > 1000");
                     }
@@ -249,7 +216,7 @@ public class TransactionBoundDatabaseTest {
                     try (RelationalStatement statement = conn.createStatement()) {
                         statement.executeUpdate("DROP TEMPORARY FUNCTION IF EXISTS DOES_NOT_EXISTS");
                     }
-                }
+                });
             }
         }
     }
@@ -257,15 +224,10 @@ public class TransactionBoundDatabaseTest {
     @Test
     void unsetTransactionBoundSchemaTemplate() throws RelationalException, SQLException {
         final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
-        final var store = getStore(embeddedConnection);
-        final var schemaTemplate = getSchemaTemplate(embeddedConnection);
 
         try (FDBRecordContext context = createNewContext(embeddedConnection)) {
-            final var newStore = store.asBuilder().setMetaDataProvider(store.getMetaDataProvider()).setContext(context).open();
-            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
-                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine());
-                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
-                    conn.setSchema("TEST_SCHEMA");
+            try (Transaction transaction = createRecordStoreAndRecordContextTransaction(embeddedConnection, context)) {
+                withTransactionBoundConnection(transaction, context, conn -> {
                     try (RelationalStatement statement = conn.createStatement()) {
                         statement.executeUpdate("CREATE TEMPORARY FUNCTION REST_FUNC() ON COMMIT DROP FUNCTION AS SELECT * FROM RESTAURANT WHERE REST_NO > 1000");
                     }
@@ -275,7 +237,7 @@ public class TransactionBoundDatabaseTest {
                             .anyMatch(routine -> routine.getName().equals("REST_FUNC"));
                     transaction.unsetBoundSchemaTemplate();
                     Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe()).isEmpty();
-                }
+                });
             }
         }
     }
@@ -339,7 +301,7 @@ public class TransactionBoundDatabaseTest {
 
         final EmbeddedRelationalConnection embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
         List<byte[]> data = new ArrayList<>();
-        withTransactionBoundConnection(embeddedConnection, onExport ? null : KEY_SPACE, conn -> {
+        withTransactionBoundConnection(embeddedConnection, Options.NONE, onExport ? null : KEY_SPACE, conn -> {
             try (RelationalStatement statement = conn.createStatement()) {
                 final ConnectionUtils.SQLFunction<RelationalStatement, RelationalResultSet> export =
                         stmt -> stmt.executeQuery("COPY \"" + sourceUri + "\"");
@@ -476,7 +438,7 @@ public class TransactionBoundDatabaseTest {
                                     final URI destUri,
                                     final List<byte[]> data,
                                     @Nullable final KeySpace keySpace) throws RelationalException, SQLException {
-        withTransactionBoundConnection(embeddedConnection, keySpace, conn -> {
+        withTransactionBoundConnection(embeddedConnection, Options.NONE, keySpace, conn -> {
             try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY \"" + destUri + "\" FROM ?")) {
                 stmt.setObject(1, data);
                 final RelationalResultSet relationalResultSet = stmt.executeQuery();
@@ -490,7 +452,7 @@ public class TransactionBoundDatabaseTest {
     @Nonnull
     private List<byte[]> exportDataWithCopy(final EmbeddedRelationalConnection embeddedConnection, final URI sourceUri, final URI destUri) throws RelationalException, SQLException {
         List<byte[]> data = new ArrayList<>();
-        withTransactionBoundConnection(embeddedConnection, KEY_SPACE, conn -> {
+        withTransactionBoundConnection(embeddedConnection, Options.NONE, KEY_SPACE, conn -> {
             try (RelationalStatement statement = conn.createStatement()) {
                 final RelationalResultSet resultSet = statement.executeQuery("COPY \"" + sourceUri + "\"");
                 data.addAll(getExportedData(resultSet));
@@ -526,33 +488,53 @@ public class TransactionBoundDatabaseTest {
     }
 
     private static Map<Tuple, Tuple> getDataInPath(final EmbeddedRelationalConnection embeddedConnection,
-                                                   final KeySpacePath sourcePath) throws RelationalException {
+                                                   final KeySpacePath path) throws RelationalException {
         try (FDBRecordContext context = createNewContext(embeddedConnection)) {
-            return context.ensureActive().getRange(sourcePath.toSubspace(context).range()).asList().join()
+            return context.ensureActive().getRange(path.toSubspace(context).range()).asList().join()
                     .stream().collect(Collectors.toMap(
-                            keyValue -> sourcePath.toSubspace(context).unpack(keyValue.getKey()),
+                            keyValue -> path.toSubspace(context).unpack(keyValue.getKey()),
                             keyValue -> Tuple.fromBytes(keyValue.getValue())));
         }
     }
 
     private void withTransactionBoundConnection(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
-                                                @Nullable final KeySpace keySpace, @Nonnull final ConnectionUtils.SQLConsumer<RelationalConnection> action)
+                                                @Nonnull Options engineOptions,
+                                                @Nullable final KeySpace keySpace,
+                                                @Nonnull final ConnectionUtils.SQLConsumer<RelationalConnection> action)
             throws RelationalException, SQLException {
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            try (Transaction transaction = createRecordStoreAndRecordContextTransaction(embeddedConnection, context)) {
+                EmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine(engineOptions, keySpace);
+                withTransactionBoundConnection(engine, transaction, context, action);
+            }
+        }
+    }
+
+    private Transaction createRecordStoreAndRecordContextTransaction(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
+                                                                     @Nonnull final FDBRecordContext context) throws SQLException, RelationalException {
         final FDBRecordStore store = getStore(embeddedConnection);
         final SchemaTemplate schemaTemplate = getSchemaTemplate(embeddedConnection);
-        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
-            final FDBRecordStore newStore = store.asBuilder().setContext(context).open();
-            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
-                EmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine(Options.NONE, keySpace);
-                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(engine);
-                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
-                    conn.setSchema("TEST_SCHEMA");
-                    action.accept(conn);
-                    // Closing the connection will close the underlying transaction. This seems at odds with the spirit
-                    // of RecordStoreAndRecordContextTransaction
-                    context.commit();
-                }
-            }
+        final FDBRecordStore newStore = store.asBuilder().setContext(context).open();
+        return new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate);
+    }
+
+    private void withTransactionBoundConnection(@Nonnull final Transaction transaction,
+                                                @Nonnull final FDBRecordContext context,
+                                                @Nonnull final ConnectionUtils.SQLConsumer<RelationalConnection> action) throws SQLException, RelationalException {
+        withTransactionBoundConnection(new TransactionBoundEmbeddedRelationalEngine(), transaction, context, action);
+    }
+
+    private void withTransactionBoundConnection(@Nonnull final EmbeddedRelationalEngine engine,
+                                                @Nonnull final Transaction transaction,
+                                                @Nonnull final FDBRecordContext context,
+                                                @Nonnull final ConnectionUtils.SQLConsumer<RelationalConnection> action) throws SQLException, RelationalException {
+        EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(engine);
+        try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
+            conn.setSchema("TEST_SCHEMA");
+            action.accept(conn);
+            // Closing the connection will close the underlying transaction. This seems at odds with the spirit
+            // of RecordStoreAndRecordContextTransaction
+            context.commit();
         }
     }
 
