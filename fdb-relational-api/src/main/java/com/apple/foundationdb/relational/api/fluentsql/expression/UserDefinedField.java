@@ -58,6 +58,7 @@ public class UserDefinedField<T extends DataType> implements Field<T> {
     private final T type;
 
     @Nonnull
+    @SuppressWarnings("this-escape")
     private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
     public UserDefinedField(@Nonnull T type, @Nonnull final Iterable<String> parts) {
