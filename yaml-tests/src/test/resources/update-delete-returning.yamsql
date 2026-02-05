@@ -18,6 +18,9 @@
 # limitations under the License.
 
 ---
+options:
+    supported_version: !current_version
+---
 schema_template:
     create type as struct S(S1 bigint, S2 bigint)
     create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
@@ -40,8 +43,8 @@ test_block:
                   { A1: 3, A2: 12, A3: 30 } ]
     -
       # update DRY RUN, assert that plan and returning result are the same, but nothing is updated
-      - query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning "new".A3 OPTIONS(DRY RUN);
-      - explain: "SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.new.A3 AS A3)"
+      - query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning NEW.A3 OPTIONS(DRY RUN);
+      - explain: "SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.NEW.A3 AS A3)"
       - result: [ { 44 }, { 44 } ]
     -
       - query: select * from A;
@@ -49,28 +52,41 @@ test_block:
                   { A1: 2, A2: 11, A3: 20 },
                   { A1: 3, A2: 12, A3: 30 } ]
     -
-      # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-      - query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning "new".A3;
-      - explain: "SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.new.A3 AS A3)"
+      - query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning NEW.A3;
+      - explain: "SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.NEW.A3 AS A3)"
       - result: [ { 44 }, { 44 } ]
-#    -
-#      # TODO ([POST] UPDATE/DELETE RETURNING * does not work)
-#      - query: update A set A2 = 42, A3 = 45 where A1 <= 2 returning *;
-#      - result: [ { { old: { A1: 1, A2: 42, A3: 44 }, new: { A1: 1, A2: 42, A3: 45 } } },
-#                  { { old: { A1: 2, A2: 42, A3: 44 }, new: { A1: 2, A2: 42, A3: 45 } } } ]
     -
-      # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-      - query: update A set A2 = 45, A3 = 46 where A1 <= 2 returning "new".*;
+      # unqualified RETURNING - should access NEW values by default (SQL standard)
+      - query: update A set A2 = 100, A3 = 200 where A1 = 1 returning A2, A3;
+      - result: [ { A2: 100, A3: 200 } ]
+    -
+      # OLD values in RETURNING
+      - query: update A set A2 = 101, A3 = 201 where A1 = 1 returning OLD.A2, OLD.A3;
+      - result: [ { A2: 100, A3: 200 } ]
+    -
+      # Mix of OLD and NEW in RETURNING
+      - query: update A set A2 = 102, A3 = 202 where A1 = 1 returning OLD.A2, NEW.A3;
+      - result: [ { A2: 101, A3: 202 } ]
+    -
+      # Reset data for next tests
+      - query: update A set A2 = 42, A3 = 44 where A1 = 1;
+    -
+      # UPDATE RETURNING * should expand to NEW.* (SQL standard)
+      - query: update A set A2 = 42, A3 = 45 where A1 <= 2 returning *;
+      - supported_version: !current_version
+      - result: [ { A1: 1, A2: 42, A3: 45 },
+                  { A1: 2, A2: 42, A3: 45 } ]
+    -
+      - query: update A set A2 = 45, A3 = 46 where A1 <= 2 returning NEW.*;
       - result: [ { A1: 1, A2: 45, A3: 46 },
                   { A1: 2, A2: 45, A3: 46 } ]
     -
-      # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-      - query: update A set A2 = 45, A3 = 46 where A1 <= 2 returning ( "new".* );
+      - query: update A set A2 = 45, A3 = 46 where A1 <= 2 returning ( NEW.* );
       - result: [ { { A1: 1, A2: 45, A3: 46 } },
                   { { A1: 2, A2: 45, A3: 46 } } ]
     -
-      - query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning "new".A3 + "new".A3 OPTIONS(DRY RUN);
-      - explain: "SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.new.A3 + _.new.A3 AS _0)"
+      - query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning NEW.A3 + NEW.A3 OPTIONS(DRY RUN);
+      - explain: "SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.NEW.A3 + _.NEW.A3 AS _0)"
       - result: [ { 88 }, { 88 } ]
     -
       - query: select * from A;
@@ -78,9 +94,8 @@ test_block:
                   { A1: 2, A2: 45, A3: 46 },
                   { A1: 3, A2: 12, A3: 30 } ]
     -
-      # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-      - query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning "new".A3 + "new".A3;
-      - explain: "SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.new.A3 + _.new.A3 AS _0)"
+      - query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning NEW.A3 + NEW.A3;
+      - explain: "SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.NEW.A3 + _.NEW.A3 AS _0)"
       - result: [ { 88 }, { 88 } ]
     -
       - query: select * from A;
@@ -105,16 +120,15 @@ test_block:
                   { A1: 2, A2: 42, A3: 44 },
                   { A1: 3, A2: 52, A3: 30 } ]
     -
-      - query: delete from A where A1 <= 1 returning A2, A3;
+      - query: delete from A where A1 = 1 returning A2, A3;
       - result: [{ 42, 44 }]
     -
       - query: select * from A;
       - result: [ { A1: 2, A2: 42, A3: 44 },
                   { A1: 3, A2: 52, A3: 30 } ]
     -
-      - query: delete from A where A1 = 2; #returning *;
-#      # TODO ([POST] UPDATE/DELETE RETURNING * does not work)
-#      - result: [{ A1: 2, A2: 42, A3: 44 }]
+      - query: delete from A where A1 = 2 returning A2, A3;
+      - result: [{ 42, 44 }]
     -
       - query: select * from A;
       - result: [ { A1: 3, A2: 52, A3: 30 } ]
@@ -154,4 +168,69 @@ test_block:
       - result: [ { A1: 1, A2: 1000, A3: 10 },
                   { A1: 2, A2: 1500, A3: 20 },
                   { A1: 3, A2: 2000, A3: 30 } ]
+    -
+      # Complex RETURNING expressions tests
+      - query: delete from A
+    -
+      - query: insert into A values (1, 10, 20), (2, 30, 40), (3, 50, 60);
+      - count: 3
+    -
+      # RETURNING with parenthesized star - should return the full UPDATE record (OLD and NEW)
+      - query: update A set A2 = 100 where A1 = 1 returning (*);
+      - supported_version: !current_version
+      - result: [ { { OLD: { A1: 1, A2: 10, A3: 20 }, NEW: { A1: 1, A2: 100, A3: 20 } } } ]
+    -
+      # RETURNING with arithmetic expression on NEW values
+      - query: update A set A2 = 200, A3 = 300 where A1 = 1 returning A2 + A3;
+      - supported_version: !current_version
+      - result: [ { 500 } ]
+    -
+      # RETURNING with unqualified column names (should use NEW by default)
+      - query: update A set A2 = 15, A3 = 25 where A1 = 1 returning A2 + A3;
+      - supported_version: !current_version
+      - result: [ { 40 } ]
+    -
+      # RETURNING with mixing NEW and OLD values in arithmetic
+      - query: update A set A2 = 100 where A1 = 1 returning NEW.A2 + OLD.A2;
+      - supported_version: !current_version
+      - result: [ { 115 } ]
+    -
+      # RETURNING with mixing NEW and OLD in multiple expressions
+      - query: update A set A2 = 50, A3 = 60 where A1 = 1 returning NEW.A2 * 2, OLD.A3, NEW.A3 - OLD.A3;
+      - supported_version: !current_version
+      - result: [ { 100, 25, 35 } ]
+    -
+      # RETURNING with CASE expression
+      - query: update A set A2 = 75 where A1 <= 2 returning case when NEW.A2 > 50 then 'HIGH' else 'LOW' end;
+      - supported_version: !current_version
+      - result: [ { 'HIGH' }, { 'HIGH' } ]
+    -
+      # RETURNING with complex nested expression
+      - query: update A set A3 = 80 where A1 = 1 returning (NEW.A2 + NEW.A3) * 2;
+      - supported_version: !current_version
+      - result: [ { 310 } ]
+    -
+      # RETURNING with comparison in expression
+      - query: update A set A2 = 90 where A1 = 1 returning NEW.A2 > OLD.A2;
+      - supported_version: !current_version
+      - result: [ { true } ]
+    -
+      # DELETE with arithmetic expression
+      - query: delete from A where A1 = 3 returning A2 + A3;
+      - supported_version: !current_version
+      - result: [ { 110 } ]
+    -
+      # DELETE with CASE expression
+      - query: delete from A where A1 = 2 returning case when A2 > 50 then A2 else A3 end;
+      - supported_version: !current_version
+      - result: [ { 75 } ]
+    -
+      # DELETE with multiple complex expressions
+      - query: delete from A where A1 = 1 returning A2 * 2, A3 + 10, A1;
+      - supported_version: !current_version
+      - result: [ { 180, 90, 1 } ]
+    -
+      # Verify table is empty after deletions
+      - query: select count(*) from A;
+      - result: [ { 0 } ]
 ...
