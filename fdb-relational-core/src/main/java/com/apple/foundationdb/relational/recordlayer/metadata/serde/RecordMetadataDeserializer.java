@@ -58,10 +58,10 @@ import java.util.stream.Collectors;
 public class RecordMetadataDeserializer {
 
     @Nonnull
-    private final RecordMetaData recordMetaData;
+    protected final RecordMetaData recordMetaData;
 
     @Nonnull
-    private final RecordLayerSchemaTemplate.Builder builder;
+    protected final RecordLayerSchemaTemplate.Builder builder;
 
     public RecordMetadataDeserializer(@Nonnull final RecordMetaData recordMetaData) {
         this.recordMetaData = recordMetaData;
