@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests.server;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.BuildVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -33,8 +34,13 @@ import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -50,6 +56,7 @@ public class ExternalServer {
     @Nonnull
     private final File serverJar;
     private int grpcPort;
+    private int httpPort;
     private final SemanticVersion version;
     private Process serverProcess;
     @Nullable
@@ -98,6 +105,15 @@ public class ExternalServer {
     }
 
     /**
+     * The port to use to connect via HTTP. Used as an alternative to the gRPC API.
+     *
+     * @return the http port that the server is listening to
+     */
+    public int getHttpPort() {
+        return httpPort;
+    }
+
+    /**
      * Get the version of the server.
      *
      * @return the version of the server being run.
@@ -110,9 +126,9 @@ public class ExternalServer {
         return clusterFile;
     }
 
-    public void start() throws Exception {
-        grpcPort = getAvailablePort(-1);
-        final int httpPort = getAvailablePort(grpcPort);
+    public void start(Set<Integer> unavailablePorts) throws Exception {
+        grpcPort = getAvailablePort(unavailablePorts);
+        httpPort = getAvailablePort(unavailablePorts);
         ProcessBuilder processBuilder = new ProcessBuilder("java",
                 // TODO add support for debugging by adding, but need to take care with ports
                 // "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n",
@@ -210,15 +226,17 @@ public class ExternalServer {
 
     /**
      * Get a port that is currently available for the server.
-     * @param unavailablePort Get a port that you know will be unavailable. This is mostly useful because the server
-     * needs two ports, one for GRPC, and one for HTTP, so the GRPC port can be noted as unavailable when asking for
-     * the http port and both can be provided to the server. If nothing is unavailable, use a negative number.
+     * @param unavailablePorts a set of ports that are known to be unavailable. This is useful for two reasons:
+     * (1) when starting multiple servers, we include all previously allocated ports to avoid starting multiple
+     * servers on the same ports, and (2) each server needs two ports, one for GRPC, and one for HTTP, so the
+     * GRPC port can be noted as unavailable when asking for the http port. If nothing is unavailable, use an empty set.
+     * The provided set must be mutable, as it will be updated during run as ports are allocated
      * @return a port that is not currently in use on the system.
      */
-    private int getAvailablePort(final int unavailablePort) {
+    private int getAvailablePort(@Nonnull final Set<Integer> unavailablePorts) {
         // running locally on my laptop, testing if a port is available takes 0 milliseconds, so no need to optimize
         for (int i = 1111; i < 9999; i++) {
-            if (i != unavailablePort && isAvailable(i)) {
+            if (unavailablePorts.add(i) && isAvailable(i)) {
                 return i;
             }
         }
@@ -240,4 +258,18 @@ public class ExternalServer {
         }
     }
 
+    public static void startMultiple(@Nonnull Collection<ExternalServer> servers) throws Exception {
+        startMultiple(servers, new HashSet<>());
+    }
+
+    public static void startMultiple(@Nonnull Collection<ExternalServer> servers, @Nonnull Set<Integer> unavailablePorts) throws Exception {
+        final Map<Integer, ExternalServer> allocatedPorts = new HashMap<>();
+        for (ExternalServer server : servers) {
+            server.start(unavailablePorts);
+            @Nullable ExternalServer preExistingServer = allocatedPorts.putIfAbsent(server.getPort(), server);
+            if (preExistingServer != null) {
+                Assert.fail("allocated duplicate port (" + server.getPort() + ") to servers for versions " + server.getVersion() + " and " + preExistingServer.getVersion());
+            }
+        }
+    }
 }
