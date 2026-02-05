@@ -69,7 +69,7 @@ public class RTreeHilbertCurveHelpers {
         for (int i = 0; i < numBits; i++) {
             for (final long transposedIndex : transposedIndexes) {
                 if ((transposedIndex & mask) != 0) {
-                    b[b.length - 1 - bIndex / 8] |= 1 << (bIndex % 8);
+                    b[b.length - 1 - bIndex / 8] |= (byte)(1 << (bIndex % 8));
                 }
                 bIndex--;
             }
