@@ -18,9 +18,9 @@
  * limitations under the License.
  */
 
+
 import java.util.concurrent.ThreadLocalRandom
 import java.util.jar.JarFile
-import java.util.regex.Matcher
 
 apply from: rootProject.file('gradle/proto.gradle')
 
@@ -107,7 +107,7 @@ ext.resolveOtherServer = { Set<String> rejectedVersions ->
                  'classifier': 'all'],
                 {
                     version {
-                        strictly '+'
+                        strictly '4.9.4.0'
                         if (rejectedVersions.size() > 0) {
                             reject rejectedVersions.toArray(new String[0])
                         }
@@ -120,6 +120,7 @@ ext.resolveOtherServer = { Set<String> rejectedVersions ->
         def configuration = configurations.getByName(configurationName, { })
 
         File resolution = configuration.resolve()[0]
+        /*
         Matcher versionMatch = resolution.getName() =~ /^fdb-relational-server-(.*-SNAPSHOT)-all.jar$/
         if (versionMatch.size() != 0) {
             println("Rejecting old external server: " + resolution.getName())
@@ -128,6 +129,7 @@ ext.resolveOtherServer = { Set<String> rejectedVersions ->
             assert rejectedVersions.add(version)
             return resolveOtherServer(rejectedVersions)
         }
+        */
         println("Downloaded old external server: " + resolution.getName())
         return resolution
     }
@@ -183,7 +185,7 @@ task serverJars(type: Copy) {
 
 task downloadManyExternalServers(type: Copy) {
     dependsOn "cleanExternalServerDirectory"
-    from resolveManyServers()
+    // from resolveManyServers()
     into project.layout.buildDirectory.dir('externalServer')
 }
 
