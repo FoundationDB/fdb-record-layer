@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHeartbeat;
-import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
@@ -344,7 +343,6 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @SuppressWarnings("squid:S1452")
-    private CompletableFuture<FDBRecordStore> openRecordStore(@Nonnull FDBRecordContext context) {
         return common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync();
     }
 
@@ -418,41 +416,6 @@ public class OnlineIndexer implements AutoCloseable {
     @API(API.Status.EXPERIMENTAL)
     public void mergeIndex() {
         asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_MERGE_INDEX, mergeIndexAsync());
-    }
-
-    /**
-     * <em>Deprecated</em>. The functionality of this function can be done with {@link #blockIndexBuilds}
-     * Stop any ongoing online index build (only if it uses {@link SynchronizedSession}s) by forcefully releasing
-     * the lock.
-     * @return a future that will be ready when the lock is released
-     * @see SynchronizedSession#endAnySession
-     */
-    @API(API.Status.DEPRECATED)
-    public CompletableFuture<Void> stopOngoingOnlineIndexBuildsAsync() {
-        return runner.runAsync(context -> openRecordStore(context).thenAccept(recordStore ->
-                stopOngoingOnlineIndexBuilds(recordStore, index)),
-                common.indexLogMessageKeyValues("OnlineIndexer::stopOngoingOnlineIndexBuilds"));
-    }
-
-    /**
-     * <em>Deprecated</em>. The functionality of this function can be done with {@link #blockIndexBuilds}
-     * Synchronous/blocking version of {@link #stopOngoingOnlineIndexBuildsAsync()}.
-     */
-    @API(API.Status.DEPRECATED)
-    public void stopOngoingOnlineIndexBuilds() {
-        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_STOP_ONLINE_INDEX_BUILD, stopOngoingOnlineIndexBuildsAsync());
-    }
-
-    /**
-     * <em>Deprecated</em>. The functionality of this function can be done with {@link #blockIndexBuilds}
-     * Stop any ongoing online index build (only if it uses {@link SynchronizedSession}s) by forcefully releasing
-     * the lock.
-     * @param recordStore record store whose index builds need to be stopped
-     * @param index the index whose builds need to be stopped
-     */
-    @API(API.Status.DEPRECATED)
-    public static void stopOngoingOnlineIndexBuilds(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
-        SynchronizedSession.endAnySession(recordStore.ensureContextActive(), IndexingSubspaces.indexBuildLockSubspace(recordStore, index));
     }
 
     /**
@@ -1214,16 +1177,6 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * <em>Deprecated</em> and unused.
-         * If negative, avoid checks. Else, minimal interval between checks.
-         * @return minimal interval in milliseconds.
-         */
-        @API(API.Status.DEPRECATED)
-        public long getCheckIndexingMethodFrequencyMilliseconds() {
-            return 0;
-        }
-
-        /**
          * Get the initial merges count limit for {@link #mergeIndex()} and the indexing process.
          * The default is 0 - which means unlimited.
          * @return the initial merges count limit.
@@ -1442,24 +1395,6 @@ public class OnlineIndexer implements AutoCloseable {
              */
             public Builder allowTakeoverContinue(@Nullable Collection<TakeoverTypes> allowedSet) {
                 this.allowedTakeoverSet = allowedSet == null ? null : EnumSet.copyOf(allowedSet);
-                return this;
-            }
-
-            /**
-             * <em>Deprecated</em> - for better consistency, the type stamp will now be validated during every iterating transaction.
-             * During indexing, the indexer can check the current indexing stamp and throw an exception if it had changed.
-             * This may happen if another indexing type takes over or by an indexing block (see {@link #indexingStamp}).
-             * The argument may be:
-             *  * -1: never check
-             *  *  0: check during every transaction
-             *  *  N: check, but never more frequently than every N milliseconds
-             *  The default value is 60000 (wait at least 60 seconds between checks).
-             * @param frequency : If negative, avoid checks. Else, minimal interval between checks
-             * @return this builder.
-             */
-            @API(API.Status.DEPRECATED)
-            public Builder checkIndexingStampFrequencyMilliseconds(long frequency) {
-                // No-op
                 return this;
             }
 
