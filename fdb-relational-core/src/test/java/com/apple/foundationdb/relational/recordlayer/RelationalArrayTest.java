@@ -237,7 +237,7 @@ public class RelationalArrayTest {
     }
 
     @Test
-    void testInsertEmptyStructArrayViaQueryPreparedStatement() throws SQLException {
+    void testInsertEmptyArrayViaQueryPreparedStatement() throws SQLException {
         final var statement = "INSERT INTO T (pk, boolean_not_null, integer_not_null, bigint_not_null, float_not_null, " +
                 "double_not_null, string_not_null, bytes_not_null, struct_not_null, uuid_not_null) " +
                 "VALUES (?pk, ?boolean_not_null, ?integer_not_null, ?bigint_not_null, ?float_not_null, ?double_not_null, " +
