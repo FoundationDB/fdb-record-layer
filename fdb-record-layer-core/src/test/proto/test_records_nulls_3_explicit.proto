@@ -1,9 +1,9 @@
 /*
- * test_records_nulls_3.proto
+ * test_records_nulls_3_explicit.proto
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,31 +19,19 @@
  */
 syntax = "proto3";
 
-package com.apple.foundationdb.record.testnulls3;
+package com.apple.foundationdb.record.testnulls3explicit;
 
 option java_package = "com.apple.foundationdb.record";
-option java_outer_classname = "TestRecordsNulls3Proto";
+option java_outer_classname = "TestRecordsNulls3ExplicitProto";
 
 import "record_metadata_options.proto";
 
-message NullableInt32 {
-  option (com.apple.foundationdb.record.record).usage = NESTED;
-  int32 value = 1;
-}
-
-message NullableString {
-  option (com.apple.foundationdb.record.record).usage = NESTED;
-  string value = 1;
-}
-
 message MyNullRecord {
-  string name = 1 [(field).primary_key = true];
-  string string_value = 2;
-  int32 int_value = 3;
-  NullableString nullable_string_value = 4;
-  NullableInt32 nullable_int_value = 5;
+  optional string name = 1 [(field).primary_key = true];
+  optional string string_value = 2 [(field).index = {}];
+  optional int32 int_value = 3 [(field).index = {}];
 }
 
 message RecordTypeUnion {
-  MyNullRecord _MyNullRecord = 1;
+  optional MyNullRecord _MyNullRecord = 1;
 }
