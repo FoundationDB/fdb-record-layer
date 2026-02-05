@@ -46,7 +46,7 @@ import java.util.stream.Stream;
  * @param <T> the type of the field.
  */
 @API(API.Status.EXPERIMENTAL)
-public class UserDefinedField<T extends DataType> implements Field<T> {
+public final class UserDefinedField<T extends DataType> implements Field<T> {
 
     @Nonnull
     private final String name;
@@ -58,7 +58,6 @@ public class UserDefinedField<T extends DataType> implements Field<T> {
     private final T type;
 
     @Nonnull
-    @SuppressWarnings("this-escape")
     private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
     public UserDefinedField(@Nonnull T type, @Nonnull final Iterable<String> parts) {
