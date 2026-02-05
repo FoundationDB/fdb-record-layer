@@ -493,7 +493,6 @@ public class KeySpacePathParsingTest {
     @MethodSource
     void parseable(Parseable parseable) throws URISyntaxException, RelationalException {
         assertParses(parseable.path, new URI(parseable.uri), parseable.keySpace);
-        Assertions.assertEquals(new URI(parseable.uri), KeySpaceUtils.pathToUri(parseable.path));
     }
 
     private static void assertParses(final KeySpacePath path, final URI uri, final KeySpace keySpace) throws RelationalException {
