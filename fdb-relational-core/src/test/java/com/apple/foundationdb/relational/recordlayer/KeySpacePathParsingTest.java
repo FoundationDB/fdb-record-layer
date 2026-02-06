@@ -498,6 +498,7 @@ public class KeySpacePathParsingTest {
     private static void assertParses(final KeySpacePath path, final URI uri, final KeySpace keySpace) throws RelationalException {
         Assertions.assertEquals(path, KeySpaceUtils.toKeySpacePath(uri, keySpace));
         Assertions.assertEquals(uri, KeySpaceUtils.pathToUri(path));
+        Assertions.assertEquals(uri.getPath().substring(1), KeySpaceUtils.toPathString(path));
     }
 
     private static void maybeParse(final boolean parseable, final KeySpacePath expectedPath, final URI uri, final KeySpace keySpace) throws RelationalException {
