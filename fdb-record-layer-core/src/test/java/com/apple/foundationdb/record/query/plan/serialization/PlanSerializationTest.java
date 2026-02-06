@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IncarnationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -40,27 +41,42 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Optional;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests around serialization/deserialization of {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}s.
  */
 public class PlanSerializationTest {
-    @Test
-    void simpleFieldValueTest() throws Exception {
-        final FieldValue fieldValue = FieldValue.ofFieldNames(
-                QuantifiedObjectValue.of(Quantifier.current(), Type.Record.fromFields(true,
-                        ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of("aField"))))),
-                ImmutableList.of("aField"));
-        final PValue valueProto = fieldValue.toValueProto(PlanSerializationContext.newForCurrentMode());
-        final byte[] valueBytes = valueProto.toByteArray();
-        final PValue parsedValueProto = PValue.parseFrom(valueBytes);
+
+    static Stream<Named<Supplier<Value>>> valueTypes() {
+        return Stream.of(
+                Named.of("Incarnation", IncarnationValue::new),
+                Named.of("Field", () -> FieldValue.ofFieldNames(
+                        QuantifiedObjectValue.of(Quantifier.current(), Type.Record.fromFields(true,
+                                ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of("aField"))))),
+                        ImmutableList.of("aField"))));
+    }
+
+    @ParameterizedTest
+    @MethodSource("valueTypes")
+    void incarnationValueTest(Supplier<Value> supplier) throws InvalidProtocolBufferException {
+        final Value originalValue = supplier.get();
+        final PValue valueProto = originalValue.toValueProto(PlanSerializationContext.newForCurrentMode());
+        final PValue parsedValueProto = PValue.parseFrom(valueProto.toByteArray());
         final Value parsedValue = Value.fromValueProto(PlanSerializationContext.newForCurrentMode(), parsedValueProto);
-        Verify.verify(parsedValue instanceof FieldValue);
-        Assertions.assertEquals(fieldValue, parsedValue);
+        assertThat(parsedValue).isInstanceOf(originalValue.getClass())
+                .isEqualTo(originalValue);
     }
 
     @Test
