@@ -83,14 +83,20 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public QueryPlan.LogicalQueryPlan visitSelectStatement(@Nonnull RelationalParser.SelectStatementContext ctx) {
         final var logicalOperator = parseChild(ctx);
-        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");
+        // Capture semantic type structure as StructType with field names
+        final var semanticStructType = logicalOperator.getOutput().getStructType();
+        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(),
+                getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticStructType);
     }
 
     @Nonnull
     @Override
     public QueryPlan.LogicalQueryPlan visitDmlStatement(@Nonnull RelationalParser.DmlStatementContext ctx) {
         final var logicalOperator = parseChild(ctx);
-        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");
+        // Capture semantic type structure as StructType with field names
+        final var semanticStructType = logicalOperator.getOutput().getStructType();
+        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(),
+                getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticStructType);
     }
 
     @Nonnull
@@ -574,7 +580,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     public QueryPlan.LogicalQueryPlan visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
         getDelegate().getPlanGenerationContext().setForExplain(ctx.EXPLAIN() != null);
         final var logicalOperator = Assert.castUnchecked(ctx.describeObjectClause().accept(this), LogicalOperator.class);
-        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");
+        // Capture semantic type structure as StructType with field names
+        final var semanticStructType = logicalOperator.getOutput().getStructType();
+        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(),
+                getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticStructType);
     }
 
     @Nonnull

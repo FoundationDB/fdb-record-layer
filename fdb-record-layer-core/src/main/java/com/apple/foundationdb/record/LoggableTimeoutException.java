@@ -36,7 +36,7 @@ import java.util.concurrent.TimeoutException;
  */
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
-public class LoggableTimeoutException extends TimeoutException implements LoggableKeysAndValues<LoggableTimeoutException> {
+public final class LoggableTimeoutException extends TimeoutException implements LoggableKeysAndValues<LoggableTimeoutException> {
     @Nonnull
     private final LoggableKeysAndValuesImpl loggableKeysAndValuesImpl = new LoggableKeysAndValuesImpl();
 

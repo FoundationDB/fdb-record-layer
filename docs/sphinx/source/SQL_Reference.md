@@ -28,6 +28,5 @@ reference/Indexes
 :caption: Miscellaneous
 :maxdepth: 2
 
-reference/Direct_Access_Api
 reference/understanding_bitmap
 ```

@@ -942,6 +942,56 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         });
     }
 
+    @Test
+    void testMergeRequiredIndexesWithPendingQueue() {
+        // Test that store's getMergeRequiredIndexes does the right thing
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Insert without queue indicator - should request deferred merge
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1001L, "first document", 1));
+
+            Set<Index> mergeRequired = recordStore.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
+            assertNotNull(mergeRequired);
+            assertTrue(mergeRequired.contains(index));
+
+            commit(context);
+        }
+
+        // Enable queue mode
+        setOngoingMergeIndicator(schemaSetup, index, null, null);
+
+        // Insert with queue indicator - should request deferred merge
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1002L, "second document", 1));
+
+            Set<Index> mergeRequired = recordStore.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
+            assertNotNull(mergeRequired);
+            assertTrue(mergeRequired.contains(index));
+
+            commit(context);
+        }
+
+        // Call explicit merge - should not request deferred merge
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
+            indexMaintainer.mergeIndex().join();
+
+            Set<Index> mergeRequired = recordStore.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
+            assertTrue(mergeRequired == null || mergeRequired.isEmpty());
+
+            commit(context);
+        }
+    }
+
     private void verifyClearedQueueAndIndicator(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index, @Nullable Tuple groupingKey, @Nullable Integer partitionId) {
         try (FDBRecordContext context = openContext()) {
             FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));

@@ -1177,7 +1177,7 @@ public class SplitHelper {
      * Exception thrown when only part of a split record is found.
      */
     @SuppressWarnings("serial")
-    public static class FoundSplitWithoutStartException extends RecordCoreException {
+    public static final class FoundSplitWithoutStartException extends RecordCoreException {
         public FoundSplitWithoutStartException(long nextIndex, boolean reverse) {
             super("Found split record without start");
             addLogInfo(LogMessageKeys.SPLIT_NEXT_INDEX, nextIndex);
@@ -1189,7 +1189,7 @@ public class SplitHelper {
      * Exception thrown when splits are out of order.
      */
     @SuppressWarnings("serial")
-    public static class FoundSplitOutOfOrderException extends RecordCoreStorageException {
+    public static final class FoundSplitOutOfOrderException extends RecordCoreStorageException {
         public FoundSplitOutOfOrderException(long expected, long found) {
             super("Split record segments out of order");
             addLogInfo(LogMessageKeys.SPLIT_EXPECTED, expected);

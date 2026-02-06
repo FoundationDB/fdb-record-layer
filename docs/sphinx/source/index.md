@@ -26,6 +26,7 @@ reliability, and performance in a distributed setting.
 :maxdepth: 1
 Overview and Examples <Overview>
 GettingStarted
+JDBC Guide <jdbc/index>
 Building <Building>
 SchemaEvolution
 Extending

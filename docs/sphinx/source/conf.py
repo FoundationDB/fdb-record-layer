@@ -30,7 +30,7 @@ project = 'FoundationDB Record Layer'
 copyright = '2025, Apple Inc.'
 author = 'Apple Inc.'
 
-extensions = ['myst_parser']
+extensions = ['myst_parser', 'sphinx_design']
 
 templates_path = ['_templates']
 exclude_patterns = []
@@ -66,4 +66,5 @@ rst_prolog = """
 """
 
 myst_heading_anchors = 4
+myst_enable_extensions = ["colon_fence"]
 

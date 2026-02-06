@@ -146,7 +146,7 @@ public abstract class BaseKeyExpression implements KeyExpression {
     /**
      * An exception that is thrown when {@link #getSubKey(int, int)} is used incorrectly.
      */
-    public static class IllegalSubKeyException extends RecordCoreException {
+    public static final class IllegalSubKeyException extends RecordCoreException {
         public static final long serialVersionUID = 1L;
 
         public IllegalSubKeyException(int start, int end, int columnSize) {
