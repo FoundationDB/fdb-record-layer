@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.util.LoggableKeysAndValues;
 import com.google.auto.service.AutoService;
@@ -66,6 +67,8 @@ public class ExceptionContextExtension implements TestExecutionExceptionHandler 
             }
             if (current instanceof RelationalException) {
                 ((RelationalException)current).getContext().forEach(combinedLogInfo::putIfAbsent);
+            } else if (current instanceof ContextualSQLException) {
+                ((ContextualSQLException)current).getContext().forEach(combinedLogInfo::putIfAbsent);
             }
             current = seen.add(current) ? current.getCause() : null;
         }
