@@ -190,44 +190,43 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         this.transactionId = getSanitizedId(config);
         this.openStackTrace = config.isSaveOpenStackTrace() ? new Throwable("Not really thrown") : null;
 
-        @Nonnull Transaction tr = transaction;
         if (this.transactionId != null) {
-            tr.options().setDebugTransactionIdentifier(this.transactionId);
+            transaction.options().setDebugTransactionIdentifier(this.transactionId);
             if (config.isLogTransaction()) {
-                tr.options().setLogTransaction();
+                transaction.options().setLogTransaction();
                 logged = true;
             }
         }
         if (config.isServerRequestTracing()) {
-            tr.options().setServerRequestTracing();
+            transaction.options().setServerRequestTracing();
         }
 
         if (!config.getTags().isEmpty()) {
             for (String tag : config.getTags()) {
-                tr.options().setTag(tag);
+                transaction.options().setTag(tag);
             }
         }
 
         if (config.isReportConflictingKeys()) {
-            tr.options().setReportConflictingKeys();
+            transaction.options().setReportConflictingKeys();
         }
 
         this.config = config;
 
         // If a causal read risky is requested, we set the corresponding transaction option
         if (config.getWeakReadSemantics() != null && config.getWeakReadSemantics().isCausalReadRisky()) {
-            tr.options().setCausalReadRisky();
+            transaction.options().setCausalReadRisky();
         }
 
         switch (config.getPriority()) {
             case BATCH:
-                tr.options().setPriorityBatch();
+                transaction.options().setPriorityBatch();
                 break;
             case DEFAULT:
                 // Default priority does not need to set any option
                 break;
             case SYSTEM_IMMEDIATE:
-                tr.options().setPrioritySystemImmediate();
+                transaction.options().setPrioritySystemImmediate();
                 break;
             default:
                 throw new RecordCoreArgumentException("unknown priority level " + config.getPriority());
@@ -237,7 +236,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         this.timeoutMillis = getTimeoutMillisToSet(fdb, config);
         if (timeoutMillis != FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS) {
             // If the value is DEFAULT_TR_TIMEOUT_MILLIS, then this uses the system default and does not need to be set here
-            tr.options().setTimeout(timeoutMillis);
+            transaction.options().setTimeout(timeoutMillis);
         }
 
         lockRegistry = new LockRegistry(timer);
