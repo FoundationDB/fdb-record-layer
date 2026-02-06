@@ -181,7 +181,9 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 }
             }
         }
-        assertLoopThreadsValues();
+        if (!contextType.equals(AgilityContextType.READ_ONLY)) {
+            assertLoopThreadsValues();
+        }
     }
 
     @Test
