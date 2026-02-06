@@ -175,6 +175,22 @@ test_block:
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
     -
+      # ambiguous sub select is fine if the top-level query does not specify column names
+      - query: select * from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
+      - unorderedResult: [{"Engineering", "OLAP"},
+                          {"Sales", "Feedback"},
+                          {"Marketing", "SEO"}]
+    -
+      # ambiguous sub select is fine if the top-level query does not specify column names
+      - query: select (*) from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
+      - unorderedResult: [{{"Engineering", "OLAP"}},
+                          {{"Sales", "Feedback"}},
+                          {{"Marketing", "SEO"}}]
+    -
+      # ambiguous sub select fails if top-level select refers to one of the columns
+      - query: select name from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
+      - error: "42702"
+    -
       # inner join version of previous
       - query: select dept.name, project.name from project inner join emp on emp.id = project.emp_id inner join dept on emp.dept_id = dept.id;
       - supported_version: 4.9.1.0

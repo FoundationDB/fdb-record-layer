@@ -1,0 +1,28 @@
+transactions-tests:
+-   query: EXPLAIN select * from t2
+    setup:
+    - create temporary function t2() on commit drop function AS SELECT * FROM t1;
+    ref: include-falls-back-to-global-available-uri.yamsql:26 > include-connects-to-global-connection.yamsql:33
+    explain: SCAN(<,>)
+    task_count: 166
+    task_total_time_ms: 10
+    transform_count: 46
+    transform_time_ms: 3
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 14
+    insert_reused_count: 2
+-   query: EXPLAIN select * from t2
+    setup:
+    - create temporary function t2() on commit drop function AS SELECT * FROM t1 where
+        id < 50;
+    ref: include-falls-back-to-global-available-uri.yamsql:26 > include-connects-to-global-connection.yamsql:43
+    explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@cT218 AS LONG)
+    task_count: 189
+    task_total_time_ms: 11
+    transform_count: 50
+    transform_time_ms: 4
+    transform_yield_count: 16
+    insert_time_ms: 0
+    insert_new_count: 18
+    insert_reused_count: 2
