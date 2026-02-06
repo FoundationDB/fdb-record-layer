@@ -35,15 +35,14 @@ import java.util.function.Supplier;
 public abstract class AbstractRelationalExpression implements RelationalExpression {
 
     @Nonnull
-    private final Supplier<Set<CorrelationIdentifier>> correlatedToWithoutChildrenSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<CorrelationIdentifier>> correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
 
     @Nonnull
-    private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
-
     @SuppressWarnings("this-escape")
+    private final Supplier<Integer> hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
+
     protected AbstractRelationalExpression() {
-        this.correlatedToWithoutChildrenSupplier = Suppliers.memoize(this::computeCorrelatedToWithoutChildren);
-        this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
     }
 
     @Nonnull

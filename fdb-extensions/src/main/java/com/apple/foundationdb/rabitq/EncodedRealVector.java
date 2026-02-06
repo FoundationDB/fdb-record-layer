@@ -39,35 +39,35 @@ public class EncodedRealVector implements RealVector {
     private static final double EPS0 = 1.9d;
 
     @Nonnull
+    private final int numExBits;
     private final int[] encoded;
     private final double fAddEx;
     private final double fRescaleEx;
     private final double fErrorEx;
 
     @Nonnull
-    private final Supplier<Integer> hashCodeSupplier;
-    @Nonnull
-    private final Supplier<double[]> dataSupplier;
-    @Nonnull
-    private final Supplier<byte[]> rawDataSupplier;
-    @Nonnull
-    private final Supplier<HalfRealVector> toHalfRealVectorSupplier;
-    @Nonnull
-    private final Supplier<FloatRealVector> toFloatRealVectorSupplier;
-
     @SuppressWarnings("this-escape")
+    private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<double[]> dataSupplier = Suppliers.memoize(this::computeData);
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<byte[]> rawDataSupplier = Suppliers.memoize(this::computeRawData);
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<HalfRealVector> toHalfRealVectorSupplier = Suppliers.memoize(this::computeHalfRealVector);
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<FloatRealVector> toFloatRealVectorSupplier = Suppliers.memoize(this::computeFloatRealVector);
+
     public EncodedRealVector(final int numExBits, @Nonnull final int[] encoded, final double fAddEx, final double fRescaleEx,
                              final double fErrorEx) {
+        this.numExBits = numExBits;
         this.encoded = encoded;
         this.fAddEx = fAddEx;
         this.fRescaleEx = fRescaleEx;
         this.fErrorEx = fErrorEx;
-
-        this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
-        this.rawDataSupplier = Suppliers.memoize(() -> computeRawData(numExBits));
-        this.dataSupplier = Suppliers.memoize(() -> computeData(numExBits));
-        this.toHalfRealVectorSupplier = Suppliers.memoize(this::computeHalfRealVector);
-        this.toFloatRealVectorSupplier = Suppliers.memoize(this::computeFloatRealVector);
     }
 
     @Nonnull
@@ -142,7 +142,7 @@ public class EncodedRealVector implements RealVector {
     }
 
     @Nonnull
-    public double[] computeData(final int numExBits) {
+    public double[] computeData() {
         final int numDimensions = getNumDimensions();
         final double cB = (1 << numExBits) - 0.5;
         final RealVector z = new DoubleRealVector(encoded).subtract(cB);
@@ -169,7 +169,7 @@ public class EncodedRealVector implements RealVector {
     }
 
     @Nonnull
-    protected byte[] computeRawData(final int numExBits) {
+    protected byte[] computeRawData() {
         int numBits = getNumDimensions() * (numExBits + 1); // congruency with paper
         final int length = 25 +        // RABITQ (byte) + fAddEx (double) + fRescaleEx (double) + fErrorEx (double)
                 (numBits - 1) / 8 + 1; // snap byte array to the smallest length fitting all bits
