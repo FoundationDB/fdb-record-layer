@@ -51,6 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag(Tags.RequiresFDB)
 class FullStoreLockTest extends FDBRecordStoreTestBase {
@@ -103,17 +104,24 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
             final byte[] storeInfoKey = recordStore.getSubspace().pack(FDBRecordStoreKeyspace.STORE_INFO.id());
             final int lockStateFieldNumber = RecordMetaDataProto.DataStoreInfo.StoreLockState.getDescriptor()
                     .findFieldByName("lock_state").getNumber();
+            final RecordMetaDataProto.DataStoreInfo.StoreLockState.Builder futureLocking = RecordMetaDataProto.DataStoreInfo.StoreLockState.newBuilder()
+                    .setReason("Future locking")
+                    .setTimestamp(System.currentTimeMillis());
             final UnknownFieldSet.Field unexpectedEnumValue = UnknownFieldSet.Field.newBuilder().addVarint(10345).build();
+            final UnknownFieldSet unknownFields = UnknownFieldSet.newBuilder()
+                    .addField(lockStateFieldNumber, unexpectedEnumValue).build();
             final byte[] newStoreInfo = RecordMetaDataProto.DataStoreInfo.parseFrom(
                             context.ensureActive().get(storeInfoKey).join())
                     .toBuilder()
-                    .setStoreLockState(
-                            RecordMetaDataProto.DataStoreInfo.StoreLockState.newBuilder()
-                                    .setReason("Future locking")
-                                    .setTimestamp(System.currentTimeMillis())
-                                    .setUnknownFields(UnknownFieldSet.newBuilder()
-                                            .addField(lockStateFieldNumber, unexpectedEnumValue).build()))
-                    .build().toByteArray();
+                    .setStoreLockState(futureLocking.setUnknownFields(unknownFields))
+                    .build()
+                    .toByteArray();
+            // validate that the future enum value is still there before we write to FDB
+            final RecordMetaDataProto.DataStoreInfo reparsed = RecordMetaDataProto.DataStoreInfo.parseFrom(newStoreInfo);
+            assertTrue(reparsed.hasStoreLockState());
+            assertEquals(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.UNSPECIFIED,
+                    reparsed.getStoreLockState().getLockState());
+            assertEquals(unknownFields, reparsed.getStoreLockState().getUnknownFields());
             context.ensureActive().set(storeInfoKey, newStoreInfo);
             commit(context);
         }
