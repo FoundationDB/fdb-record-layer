@@ -47,7 +47,7 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
         final var ddlFactory = getDelegate().getDdlQueryFactory();
         if (ctx.path() != null) {
             final var databaseName = visitUid(ctx.path().uid());
-            SemanticAnalyzer.validateDatabaseUri(databaseName);
+            SemanticAnalyzer.validateDatabaseUri(databaseName.getName());
             return QueryPlan.MetadataQueryPlan.of(ddlFactory.getListDatabasesQueryAction(URI.create(databaseName.getName())));
         }
         return QueryPlan.MetadataQueryPlan.of(ddlFactory.getListDatabasesQueryAction(getDelegate().getDbUri()));
