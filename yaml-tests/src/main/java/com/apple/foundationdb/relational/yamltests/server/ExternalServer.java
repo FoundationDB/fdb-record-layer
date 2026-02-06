@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.yamltests.server;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.relational.util.BuildVersion;
+import com.google.common.base.Verify;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -32,6 +33,10 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -189,23 +194,45 @@ public class ExternalServer {
         }
     }
 
-    private boolean startServer(ProcessBuilder processBuilder) throws IOException, InterruptedException {
-        try {
-            serverProcess = processBuilder.start();
-            // TODO: There should be a better way to figure out that the server is fully up and running
-            Thread.sleep(3000);
-            if (!serverProcess.isAlive()) {
-                throw new Exception("Failed to start server once - retrying");
-            }
-            return true;
-        } catch (Exception ex) {
-            // Try once more
-            serverProcess = processBuilder.start();
-            // TODO: There should be a better way to figure out that the server is fully up and running
-            Thread.sleep(3000);
-        }
+    private boolean startServer(ProcessBuilder processBuilder) throws IOException, SQLException, InterruptedException {
+        serverProcess = processBuilder.start();
+        return attemptConnectionWithRetry();
+    }
 
-        return serverProcess.isAlive();
+    private boolean attemptConnectionWithRetry() throws SQLException, InterruptedException {
+        final int maxAttempts = 10;
+        boolean started = false;
+        int attempts = 0;
+        while (!started && attempts < maxAttempts) {
+            long delay = 50L * attempts;
+            Thread.sleep(delay);
+            started = attemptConnection();
+            attempts++;
+        }
+        return started;
+    }
+
+    private boolean attemptConnection() throws SQLException {
+        try (Connection connection = DriverManager.getConnection("jdbc:relational://localhost:" + getPort() + "/__SYS?schema=CATALOG")) {
+            validateConnectionVersion(connection);
+            return true;
+        } catch (RuntimeException e) {
+            if (e.getMessage().contains("UNAVAILABLE")) {
+                // Error returned when the server hasn't started yet. Currently, this comes directly from gRPC, though
+                // potentially we should be wrapping it with some kind of SQLException
+                return false;
+            }
+            throw  e;
+        }
+    }
+
+    public void validateConnectionVersion(@Nonnull Connection connection) throws SQLException {
+        // Validate that the server has the expected version. Connect and make a request to the meta-data API,
+        // and validate that the database product version matches the external server's version
+        final DatabaseMetaData metaData = connection.getMetaData();
+        final String expectedVersion = getVersion().equals(SemanticVersion.current()) ? BuildVersion.getInstance().getVersion() : getVersion().toString();
+        Verify.verify(metaData.getDatabaseProductVersion().equals(expectedVersion),
+                "external server expected version %s but had version %s", expectedVersion, metaData.getDatabaseProductVersion());
     }
 
     /**
