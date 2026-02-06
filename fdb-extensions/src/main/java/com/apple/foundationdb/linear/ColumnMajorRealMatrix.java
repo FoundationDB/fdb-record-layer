@@ -31,14 +31,13 @@ public class ColumnMajorRealMatrix implements RealMatrix {
     @Nonnull
     private final double[][] data;
     @Nonnull
-    private final Supplier<Integer> hashCodeSupplier;
-
     @SuppressWarnings("this-escape")
+    private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::valueBasedHashCode);
+
     public ColumnMajorRealMatrix(@Nonnull final double[][] data) {
         Preconditions.checkArgument(data.length > 0);
         Preconditions.checkArgument(data[0].length > 0);
         this.data = data;
-        this.hashCodeSupplier = Suppliers.memoize(this::valueBasedHashCode);
     }
 
     @Nonnull

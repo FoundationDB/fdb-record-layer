@@ -43,13 +43,17 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
 
     private final boolean isAtomic;
 
-    private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
 
-    private final Supplier<Integer> semanticHashCodeSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Integer> semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
 
-    private final Supplier<Integer> heightSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Integer> heightSupplier = Suppliers.memoize(QueryPredicate.super::height);
 
-    private final Supplier<Boolean> isIndexOnlySupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Boolean> isIndexOnlySupplier = Suppliers.memoize(this::computeIsIndexOnly);
 
     @SuppressWarnings("unused")
     protected AbstractQueryPredicate(@Nonnull final PlanSerializationContext serializationContext,
@@ -58,13 +62,8 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
                 PAbstractQueryPredicate::hasIsAtomic, PAbstractQueryPredicate::getIsAtomic));
     }
 
-    @SuppressWarnings("this-escape")
     protected AbstractQueryPredicate(final boolean isAtomic) {
         this.isAtomic = isAtomic;
-        this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
-        this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
-        this.heightSupplier = Suppliers.memoize(QueryPredicate.super::height);
-        this.isIndexOnlySupplier = Suppliers.memoize(this::computeIsIndexOnly);
     }
 
     @Nonnull

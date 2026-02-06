@@ -38,27 +38,26 @@ import java.util.function.Supplier;
 public abstract class AbstractValue implements Value {
 
     @Nonnull
-    private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
-
-    @Nonnull
-    private final Supplier<Integer> semanticHashCodeSupplier;
-
-    @Nonnull
-    private final Supplier<Integer> heightSupplier;
-
-    @Nonnull
-    private final Supplier<Iterable<? extends Value>> childrenSupplier;
-
-    @Nonnull
-    private final Supplier<Boolean> isIndexOnlySupplier;
-
     @SuppressWarnings("this-escape")
+    private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
+
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<Integer> semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
+
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<Integer> heightSupplier = Suppliers.memoize(Value.super::height);
+
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<Iterable<? extends Value>> childrenSupplier = Suppliers.memoize(this::computeChildren);
+
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<Boolean> isIndexOnlySupplier = Suppliers.memoize(this::computeIsIndexOnly);
+
     protected AbstractValue() {
-        this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
-        this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
-        this.heightSupplier = Suppliers.memoize(Value.super::height);
-        this.childrenSupplier = Suppliers.memoize(this::computeChildren);
-        this.isIndexOnlySupplier = Suppliers.memoize(this::computeIsIndexOnly);
     }
 
     @Nonnull

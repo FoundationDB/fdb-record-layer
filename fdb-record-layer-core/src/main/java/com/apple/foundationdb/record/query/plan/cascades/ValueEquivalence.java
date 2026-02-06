@@ -68,11 +68,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoole
  */
 public abstract class ValueEquivalence {
     @Nonnull
-    private final Supplier<Optional<ValueEquivalence>> inverseOptionalSupplier;
-
     @SuppressWarnings("this-escape")
+    private final Supplier<Optional<ValueEquivalence>> inverseOptionalSupplier = Suppliers.memoize(this::computeInverseMaybe);
+
     protected ValueEquivalence() {
-        this.inverseOptionalSupplier = Suppliers.memoize(this::computeInverseMaybe);
     }
 
     @Nonnull

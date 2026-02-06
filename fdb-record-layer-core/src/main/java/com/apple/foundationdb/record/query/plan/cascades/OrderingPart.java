@@ -51,13 +51,12 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
     @Nonnull
     private final S sortOrder;
 
-    private final Supplier<Integer> hashCodeSupplier;
-
     @SuppressWarnings("this-escape")
+    private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
     protected OrderingPart(@Nonnull final Value value, @Nonnull final S sortOrder) {
         this.value = checkValue(value);
         this.sortOrder = sortOrder;
-        this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
     }
 
     @Nonnull

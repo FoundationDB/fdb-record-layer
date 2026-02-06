@@ -190,7 +190,8 @@ public class Ordering {
     private final boolean isDistinct;
 
     @Nonnull
-    private final Supplier<SetMultimap<Value, Binding>> fixedBindingMapSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<SetMultimap<Value, Binding>> fixedBindingMapSupplier = Suppliers.memoize(this::computeFixedBindingMap);
 
     /**
      * Primary constructor. Protected from the outside world.
@@ -199,7 +200,6 @@ public class Ordering {
      * @param isDistinct an indicator if this ordering is strict
      * @param sanityCheckConsumer a consumer that is executed in an insane environment
      */
-    @SuppressWarnings("this-escape")
     protected Ordering(@Nonnull final SetMultimap<Value, Binding> bindingMap,
                        @Nonnull final PartiallyOrderedSet<Value> orderingSet,
                        final boolean isDistinct,
@@ -209,7 +209,6 @@ public class Ordering {
         this.orderingSet = orderingSet;
         this.bindingMap = ImmutableSetMultimap.copyOf(bindingMap);
         this.isDistinct = isDistinct;
-        this.fixedBindingMapSupplier = Suppliers.memoize(this::computeFixedBindingMap);
     }
 
     @Nonnull

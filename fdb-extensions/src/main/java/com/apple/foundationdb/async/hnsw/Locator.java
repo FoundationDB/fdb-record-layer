@@ -46,13 +46,17 @@ public class Locator {
     private final OnReadListener onReadListener;
 
     @Nonnull
-    private final Supplier<Primitives> primitivesSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Primitives> primitivesSupplier = Suppliers.memoize(() -> new Primitives(this));
     @Nonnull
-    private final Supplier<Search> searchSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Search> searchSupplier = Suppliers.memoize(() -> new Search(this));
     @Nonnull
-    private final Supplier<Insert> insertSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Insert> insertSupplier = Suppliers.memoize(() -> new Insert(this));
     @Nonnull
-    private final Supplier<Delete> deleteSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Delete> deleteSupplier = Suppliers.memoize(() -> new Delete(this));
 
     /**
      * Constructs a new HNSW graph instance.
@@ -68,7 +72,6 @@ public class Locator {
      *
      * @throws NullPointerException if any of the parameters are {@code null}.
      */
-    @SuppressWarnings("this-escape")
     public Locator(@Nonnull final Subspace subspace,
                    @Nonnull final Executor executor,
                    @Nonnull final Config config,
@@ -79,10 +82,7 @@ public class Locator {
         this.config = config;
         this.onWriteListener = onWriteListener;
         this.onReadListener = onReadListener;
-        this.primitivesSupplier = Suppliers.memoize(() -> new Primitives(this));
-        this.searchSupplier = Suppliers.memoize(() -> new Search(this));
-        this.insertSupplier = Suppliers.memoize(() -> new Insert(this));
-        this.deleteSupplier = Suppliers.memoize(() -> new Delete(this));
+
     }
 
     /**
