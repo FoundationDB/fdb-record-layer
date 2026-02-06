@@ -316,23 +316,6 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * <em>Deprecated</em> and unused.
-     * This {@link Exception} can be thrown in the case that one calls one of the methods
-     * that explicitly state that they are building an unbuilt range, i.e., a range of keys
-     * that contains no keys which have yet been processed by the {@link OnlineIndexer}
-     * during an index build.
-     */
-    @API(API.Status.DEPRECATED)
-    @SuppressWarnings("serial")
-    public static final class RecordBuiltRangeException extends RecordCoreException {
-        public RecordBuiltRangeException(@Nullable Tuple start, @Nullable Tuple end) {
-            super("Range specified as unbuilt contained subranges that had already been built");
-            addLogInfo(LogMessageKeys.RANGE_START, start);
-            addLogInfo(LogMessageKeys.RANGE_END, end);
-        }
-    }
-
-    /**
      * Get the current config parameters of the online indexer.
      * @return the config parameters of the online indexer
      */
