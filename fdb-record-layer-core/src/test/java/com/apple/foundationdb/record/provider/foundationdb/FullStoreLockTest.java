@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.StoreIsFullyLockedException;
+import com.apple.foundationdb.record.StoreIsLockedForRecordUpdates;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.UnknownStoreLockStateException;
@@ -165,6 +166,46 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder().setContext(context).open();
             commit(context);
+        }
+    }
+
+
+    @Test
+    void testSwitchState() {
+        // we also test getBypassFullStoreLockReason on the builder in this test
+        final String fullLockReason = "Testing lock clearing";
+
+        // Test setting FULL_STORE lock
+        withStore(getStoreBuilder(), store -> setFullStoreLock(store, fullLockReason));
+
+        // Verify cannot open normally
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore.Builder builder = getStoreBuilder().setContext(context);
+            assertNull(builder.getBypassFullStoreLockReason());
+            assertThrows(StoreIsFullyLockedException.class, builder::open);
+        }
+
+        String writeLockReason = "Now just prevent record updates";
+        // Open with bypass to clear the lock
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder().setContext(context)
+                    .setBypassFullStoreLockReason(fullLockReason).open();
+
+            // Clear the lock
+            recordStore.setStoreLockStateAsync(
+                    RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FORBID_RECORD_UPDATE,
+                    writeLockReason
+            ).join();
+
+            commit(context);
+        }
+
+        // Verify can now open normally
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder().setContext(context).open();
+            assertThrows(StoreIsLockedForRecordUpdates.class, () -> saveSomeRecords(recordStore, 1));
+            assertEquals(writeLockReason,
+                    recordStore.getRecordStoreState().getStoreHeader().getStoreLockState().getReason());
         }
     }
 
