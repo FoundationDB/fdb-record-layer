@@ -84,7 +84,7 @@ class ExternalServerTest {
             ExternalServer.startMultiple(servers, new HashSet<>(explicitExcluded));
             assertDistinctPorts(servers);
             assertThat(servers)
-                    .map(ExternalServer::getPort)
+                    .flatMap(ExternalServer::getPort, ExternalServer::getHttpPort)
                     .doesNotContainAnyElementsOf(explicitExcluded);
         } finally {
             for (final ExternalServer server : servers) {
@@ -97,8 +97,7 @@ class ExternalServerTest {
         // we can't assert about the actual values, because one of the ports may be busy,
         // so assert that each server has its own port, and none of them have the same port
         assertThat(servers)
-                .allSatisfy(server -> assertThat(server.getPort()).isNotEqualTo(server.getHttpPort()))
-                .map(ExternalServer::getPort)
+                .flatMap(ExternalServer::getPort, ExternalServer::getHttpPort)
                 .doesNotHaveDuplicates();
     }
 }
