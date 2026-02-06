@@ -22,17 +22,20 @@ package com.apple.foundationdb.relational.memory;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,10 +43,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Implementation of {@link StoreCatalog} that stores everything in memory, rather than in FDB.
+ */
 public class InMemoryCatalog implements StoreCatalog {
 
-    Map<URI, List<InMemorySchema>> dbToSchemas = new ConcurrentHashMap<>();
-    SchemaTemplateCatalog schemaTemplateCatalog = new InMemorySchemaTemplateCatalog();
+    @Nonnull
+    private final Map<URI, List<InMemorySchema>> dbToSchemas = new ConcurrentHashMap<>();
+    @Nonnull
+    final SchemaTemplateCatalog schemaTemplateCatalog = new InMemorySchemaTemplateCatalog();
+    @Nullable
+    private final KeySpace keySpace;
+
+    /**
+     * Create a new catalog, with an optional {@link KeySpace}.
+     * @param keySpace An optional keyspace. At the time of writing this is only used by
+     * {@link com.apple.foundationdb.relational.recordlayer.query.CopyPlan}, and trying to access it will throw a clear
+     * error if it is not provided here.
+     */
+    public InMemoryCatalog(@Nullable final KeySpace keySpace) {
+        this.keySpace = keySpace;
+    }
 
     @Override
     public SchemaTemplateCatalog getSchemaTemplateCatalog() {
@@ -135,6 +155,16 @@ public class InMemoryCatalog implements StoreCatalog {
             throw new RelationalException("Cannot delete unknown database " + dbUrl, ErrorCode.UNKNOWN_DATABASE);
         }
         return true;
+    }
+
+    @Nonnull
+    @Override
+    public KeySpace getKeySpace() throws RelationalException {
+        if (keySpace == null) {
+            throw new OperationUnsupportedException("This store is in memory and does not have a keySpace.");
+        } else {
+            return keySpace;
+        }
     }
 
     public InMemoryTable loadTable(URI database, String schemaName, String tableName) throws RelationalException {
