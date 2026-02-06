@@ -71,35 +71,35 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG)
         | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)
     task_count: 527
-    task_total_time_ms: 57
+    task_total_time_ms: 24
     transform_count: 128
-    transform_time_ms: 19
+    transform_time_ms: 6
     transform_yield_count: 41
-    insert_time_ms: 3
-    insert_new_count: 69
+    insert_time_ms: 0
+    insert_new_count: 68
     insert_reused_count: 4
 -   query: EXPLAIN select * from table_func2(140)
     explain: ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c6 AS LONG)]]) | MAP (_.ID
         AS PROCESSED_ID, _.R.V.Z AS Z_VAL)
     task_count: 556
-    task_total_time_ms: 63
+    task_total_time_ms: 12
     transform_count: 132
-    transform_time_ms: 21
+    transform_time_ms: 4
     transform_yield_count: 43
-    insert_time_ms: 2
-    insert_new_count: 71
+    insert_time_ms: 0
+    insert_new_count: 70
     insert_reused_count: 3
 -   query: EXPLAIN select * from table_func3(20, 40)
     explain: SCAN(<,>) | TFILTER SIMPLE_TABLE | FILTER _.A GREATER_THAN_OR_EQUALS
         promote(@c6 AS LONG) AND _.A LESS_THAN_OR_EQUALS promote(@c8 AS LONG) | MAP
         (_.A AS A_VAL, _.A AS A_COPY)
     task_count: 382
-    task_total_time_ms: 41
+    task_total_time_ms: 11
     transform_count: 90
-    transform_time_ms: 9
+    transform_time_ms: 3
     transform_yield_count: 28
-    insert_time_ms: 1
-    insert_new_count: 51
+    insert_time_ms: 0
+    insert_new_count: 50
     insert_reused_count: 2
 -   query: EXPLAIN select t1.id_copy as A, t2.processed_id as B from table_func1(2)
         t1, table_func2(100) t2 where t1.id_copy = t2.processed_id
@@ -107,23 +107,23 @@ user-defined-scalar-function-tests:
         AND q0.ID LESS_THAN_OR_EQUALS promote(@c16 AS LONG) AND _.R.V.Z GREATER_THAN_OR_EQUALS
         promote(@c22 AS LONG) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }
     task_count: 912
-    task_total_time_ms: 128
+    task_total_time_ms: 35
     transform_count: 215
-    transform_time_ms: 44
+    transform_time_ms: 9
     transform_yield_count: 72
-    insert_time_ms: 6
-    insert_new_count: 141
+    insert_time_ms: 1
+    insert_new_count: 139
     insert_reused_count: 6
 -   query: EXPLAIN select self(id_copy) as A, z_val as B from table_func1(4)
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c15 AS LONG)
         | MAP (_.ID AS A, _.R.V.Z AS B)
     task_count: 527
-    task_total_time_ms: 203
+    task_total_time_ms: 14
     transform_count: 128
-    transform_time_ms: 121
+    transform_time_ms: 4
     transform_yield_count: 41
-    insert_time_ms: 10
-    insert_new_count: 69
+    insert_time_ms: 0
+    insert_new_count: 68
     insert_reused_count: 4
 -   query: EXPLAIN select self(self(a_val)) as A, self(a_copy) as B from table_func3(10,
         30)
@@ -131,22 +131,22 @@ user-defined-scalar-function-tests:
         promote(@c21 AS LONG) AND _.A LESS_THAN_OR_EQUALS promote(@c23 AS LONG) |
         MAP (_.A AS A, _.A AS B)
     task_count: 382
-    task_total_time_ms: 23
+    task_total_time_ms: 19
     transform_count: 90
-    transform_time_ms: 8
+    transform_time_ms: 4
     transform_yield_count: 28
-    insert_time_ms: 1
-    insert_new_count: 51
+    insert_time_ms: 0
+    insert_new_count: 50
     insert_reused_count: 2
 -   query: EXPLAIN select * from table_func1(6) where self(id_copy) > 3
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG)
         AND _.ID GREATER_THAN promote(@c14 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY,
         _.R.V.Z AS Z_VAL)
     task_count: 698
-    task_total_time_ms: 203
+    task_total_time_ms: 21
     transform_count: 169
-    transform_time_ms: 106
+    transform_time_ms: 7
     transform_yield_count: 55
-    insert_time_ms: 15
-    insert_new_count: 112
+    insert_time_ms: 1
+    insert_new_count: 109
     insert_reused_count: 12

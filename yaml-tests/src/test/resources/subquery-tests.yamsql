@@ -85,6 +85,6 @@ test_block:
     -
       # plans with pushed-down predicates should be preferred
       - query: select sq.idr, sq.z from (select * from r where idr = 1) sq, (select f from sq.nr where f > 10) sq2 where sq.z = 10 AND sq2.f is not null
-      - explain: "ISCAN(IR [EQUALS @c18, EQUALS promote(@c32 AS INT)]) | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN @c32 AND _.F NOT_NULL AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }"
+      - explain: "ISCAN(IR [EQUALS promote(@c18 AS INT), EQUALS promote(@c32 AS INT)]) | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN promote(@c32 AS INT) AND _.F NOT_NULL | MAP (1 AS _0) AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }"
       - result: [{1, 10}, {1, 10}, {1, 10}]
 ...

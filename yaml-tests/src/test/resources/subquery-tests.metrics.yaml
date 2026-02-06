@@ -81,14 +81,15 @@ subquery-tests:
     insert_reused_count: 3
 -   query: EXPLAIN select sq.idr, sq.z from (select * from r where idr = 1) sq, (select
         f from sq.nr where f > 10) sq2 where sq.z = 10 AND sq2.f is not null
-    explain: ISCAN(IR [EQUALS @c18, EQUALS promote(@c32 AS INT)]) | FLATMAP q0 ->
-        { EXPLODE q0.NR | FILTER _.F GREATER_THAN @c32 AND _.F NOT_NULL AS q1 RETURN
-        (q0.IDR AS IDR, q0.Z AS Z) }
-    task_count: 878
-    task_total_time_ms: 115
-    transform_count: 233
-    transform_time_ms: 33
-    transform_yield_count: 74
-    insert_time_ms: 11
-    insert_new_count: 172
-    insert_reused_count: 21
+    explain: ISCAN(IR [EQUALS promote(@c18 AS INT), EQUALS promote(@c32 AS INT)])
+        | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN promote(@c32 AS
+        INT) AND _.F NOT_NULL | MAP (1 AS _0) AS q1 RETURN (q0.IDR AS IDR, q0.Z AS
+        Z) }
+    task_count: 1014
+    task_total_time_ms: 133
+    transform_count: 279
+    transform_time_ms: 52
+    transform_yield_count: 84
+    insert_time_ms: 23
+    insert_new_count: 176
+    insert_reused_count: 19

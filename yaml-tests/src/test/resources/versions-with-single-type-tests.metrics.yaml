@@ -35,10 +35,10 @@ single-type-versions-queries:
     explain: SCAN(<,>) | FILTER _.COL1 EQUALS promote(@c6 AS LONG) | MAP (version([_])
         AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 358
-    task_total_time_ms: 115
+    task_total_time_ms: 13
     transform_count: 88
-    transform_time_ms: 74
+    transform_time_ms: 4
     transform_yield_count: 28
-    insert_time_ms: 7
-    insert_new_count: 48
+    insert_time_ms: 0
+    insert_new_count: 47
     insert_reused_count: 2
