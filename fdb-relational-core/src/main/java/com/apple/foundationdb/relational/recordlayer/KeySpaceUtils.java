@@ -50,8 +50,8 @@ public final class KeySpaceUtils {
     }
 
     @Nonnull
-    private static ArrayList<String> pathToUriList(final @Nonnull KeySpacePath dbPath) {
-        final ArrayList<String> asList = Stream.iterate(dbPath, Objects::nonNull, KeySpacePath::getParent)
+    private static List<String> pathToUriList(final @Nonnull KeySpacePath dbPath) {
+        final List<String> asList = Stream.iterate(dbPath, Objects::nonNull, KeySpacePath::getParent)
                 .map(KeySpaceUtils::toPathElement)
                 .collect(Collectors.toCollection(ArrayList::new)); // guarantee mutability, for reverse
         Collections.reverse(asList);
