@@ -343,6 +343,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @SuppressWarnings("squid:S1452")
+    private CompletableFuture<FDBRecordStore> openRecordStore(@Nonnull FDBRecordContext context) {
         return common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync();
     }
 
