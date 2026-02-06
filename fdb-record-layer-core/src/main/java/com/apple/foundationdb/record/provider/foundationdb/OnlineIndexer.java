@@ -324,7 +324,7 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @API(API.Status.DEPRECATED)
     @SuppressWarnings("serial")
-    public static class RecordBuiltRangeException extends RecordCoreException {
+    public static final class RecordBuiltRangeException extends RecordCoreException {
         public RecordBuiltRangeException(@Nullable Tuple start, @Nullable Tuple end) {
             super("Range specified as unbuilt contained subranges that had already been built");
             addLogInfo(LogMessageKeys.RANGE_START, start);
