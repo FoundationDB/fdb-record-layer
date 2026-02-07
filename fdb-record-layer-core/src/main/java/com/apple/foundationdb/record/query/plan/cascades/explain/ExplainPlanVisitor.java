@@ -740,9 +740,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     @Nonnull
     public static String prettyExplain(@Nonnull final RecordQueryPlan plan, final int explainLevel) {
         final var visitor = new ExplainPlanVisitor(Integer.MAX_VALUE);
-        return visitor.visit(plan).render(explainLevel,
-                new PrettyExplainFormatter(ExplainSelfContainedSymbolMap::new, true),
-                Integer.MAX_VALUE).toString();
+        return visitor.visit(plan).render(explainLevel, PrettyExplainFormatter.forExplainPlan(), Integer.MAX_VALUE).toString();
     }
 
     @Nonnull
@@ -757,7 +755,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         final var visitor = new ExplainPlanVisitor(maxSize);
         final var explainTokens = visitor.visit(plan);
         return explainTokens.render(explainLevel,
-                new DefaultExplainFormatter(DefaultExplainSymbolMap::new), maxSize).toString();
+                DefaultExplainFormatter.create(DefaultExplainSymbolMap::new), maxSize).toString();
     }
 
     @Nonnull
@@ -784,7 +782,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
             level = ExplainLevel.ALL_DETAILS;
         }
 
-        return explainTokens.render(level, new DefaultExplainFormatter(ExplainSelfContainedSymbolMap::new), maxSize)
+        return explainTokens.render(level, DefaultExplainFormatter.create(ExplainSelfContainedSymbolMap::new), maxSize)
                 .toString();
     }
 
