@@ -109,6 +109,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         RECOVER   // 3rd iteration: presently throws an error, letting the caller handle recovery..
     }
 
+    @SuppressWarnings("this-escape")
     public IndexingMutuallyByRecords(@Nonnull final IndexingCommon common, @Nonnull final OnlineIndexer.IndexingPolicy policy,
                                      @Nullable List<Tuple> fragmentBoundaries) {
         super(common, policy);

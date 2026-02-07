@@ -1205,7 +1205,8 @@ public class Comparisons {
         @Nonnull
         protected final ParameterRelationshipGraph parameterRelationshipGraph;
         @Nonnull
-        protected final Supplier<Integer> hashCodeSupplier;
+        @SuppressWarnings("this-escape")
+        protected final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         protected ParameterComparisonBase(@Nonnull Type type, @Nonnull String parameter,
                                           @Nullable Bindings.Internal internal,
@@ -1218,7 +1219,6 @@ public class Comparisons {
                 throw new RecordCoreException("Unary comparison type " + type + " cannot be bound to a parameter");
             }
             this.parameterRelationshipGraph = parameterRelationshipGraph;
-            this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
         }
 
         @Override
@@ -1549,6 +1549,7 @@ public class Comparisons {
             this(type, comparandValue, ParameterRelationshipGraph.unbound());
         }
 
+        @SuppressWarnings("this-escape")
         public ValueComparison(@Nonnull final Type type,
                                @Nonnull final Value comparandValue,
                                @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {

@@ -58,13 +58,13 @@ public class LogicalFilterExpression extends AbstractRelationalExpressionWithChi
     @Nonnull
     private final Quantifier inner;
     @Nonnull
-    private final Supplier<QueryPredicate> conjunctedPredicateSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<QueryPredicate> conjunctedPredicateSupplier = Suppliers.memoize(this::computeConjunctedPredicate);
 
     public LogicalFilterExpression(@Nonnull Iterable<? extends QueryPredicate> queryPredicates,
                                    @Nonnull Quantifier inner) {
         this.queryPredicates = ImmutableList.copyOf(queryPredicates);
         this.inner = inner;
-        this.conjunctedPredicateSupplier = Suppliers.memoize(this::computeConjunctedPredicate);
     }
 
     @Nonnull

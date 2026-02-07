@@ -34,7 +34,8 @@ import java.util.function.Supplier;
  */
 public class FloatRealVector extends AbstractRealVector {
     @Nonnull
-    private final Supplier<HalfRealVector> toHalfRealVectorSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<HalfRealVector> toHalfRealVectorSupplier = Suppliers.memoize(this::computeHalfRealVector);
 
     public FloatRealVector(@Nonnull final Float[] floatData) {
         this(computeDoubleData(floatData));
@@ -46,7 +47,6 @@ public class FloatRealVector extends AbstractRealVector {
 
     public FloatRealVector(@Nonnull final double[] data) {
         super(truncateDoubleData(data));
-        this.toHalfRealVectorSupplier = Suppliers.memoize(this::computeHalfRealVector);
     }
 
     public FloatRealVector(@Nonnull final int[] intData) {
