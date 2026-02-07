@@ -106,6 +106,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Nonnull
     private final LucenePartitioner partitioner;
 
+    @SuppressWarnings("this-escape")
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
         super(state);
         this.executor = executor;
