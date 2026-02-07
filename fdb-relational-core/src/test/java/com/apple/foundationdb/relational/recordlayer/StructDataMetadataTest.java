@@ -28,6 +28,8 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +56,7 @@ public class StructDataMetadataTest {
     public static final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     private static final String TABLE_STRUCTURE =
-            "CREATE TYPE AS STRUCT struct_1 (a string) " +
+            "CREATE TYPE AS STRUCT struct_1 (a string, b bigint) " +
                     " CREATE TABLE t (name string, st1 struct_1, PRIMARY KEY(name))" +
                     " CREATE TYPE AS STRUCT struct_2 (c bigint, d struct_1) " +
                     " CREATE TABLE nt (t_name string, st1 struct_2, PRIMARY KEY(t_name))" +
@@ -91,12 +93,18 @@ public class StructDataMetadataTest {
     void setUp() throws SQLException {
         var m = EmbeddedRelationalStruct.newBuilder()
                 .addString("NAME", "test_record_1")
-                .addStruct("ST1", EmbeddedRelationalStruct.newBuilder().addString("A", "Hello").build())
+                .addStruct("ST1", EmbeddedRelationalStruct.newBuilder()
+                        .addString("A", "Hello")
+                        .addLong("B", 100L)
+                        .build())
                 .build();
         statement.executeInsert("T", m);
         m = EmbeddedRelationalStruct.newBuilder()
                 .addString("NAME", "test_record_2")
-                .addStruct("ST1", EmbeddedRelationalStruct.newBuilder().addString("A", "World").build())
+                .addStruct("ST1", EmbeddedRelationalStruct.newBuilder()
+                        .addString("A", "World")
+                        .addLong("B", 200L)
+                        .build())
                 .build();
         statement.executeInsert("T", m);
 
@@ -191,9 +199,11 @@ public class StructDataMetadataTest {
             Assertions.assertNotNull(struct, "No struct found for column!");
             Assertions.assertEquals("Hello", struct.getString(1), "Incorrect value for nested struct!");
             Assertions.assertEquals("Hello", struct.getString("A"), "Incorrect value for nested struct!");
+            Assertions.assertEquals(100L, struct.getLong(2), "Incorrect value for nested struct B field!");
+            Assertions.assertEquals(100L, struct.getLong("B"), "Incorrect value for nested struct B field!");
 
             //check that the JDBC attributes methods work properly
-            Assertions.assertArrayEquals(new Object[]{"Hello"}, struct.getAttributes(), "Incorrect attributes!");
+            Assertions.assertArrayEquals(new Object[]{"Hello", 100L}, struct.getAttributes(), "Incorrect attributes!");
         }
     }
 
@@ -327,7 +337,36 @@ public class StructDataMetadataTest {
         canReadStructTypeName("SELECT STRUCT STRUCT_6(name, st1.a, st1) FROM T", resultSet -> {
             RelationalStruct struct = resultSet.getStruct(1);
             Assertions.assertEquals("STRUCT_6", struct.getMetaData().getTypeName());
+            Assertions.assertEquals("NAME", struct.getMetaData().getColumnName(1));
+            Assertions.assertEquals("A", struct.getMetaData().getColumnName(2));
+            Assertions.assertEquals("ST1", struct.getMetaData().getColumnName(3));
             Assertions.assertEquals("STRUCT_1", struct.getStruct(3).getMetaData().getTypeName());
+        });
+    }
+
+    @Test
+    void canReadProjectedDynamicStructWithFieldNamesSet() throws Throwable {
+        canReadStructTypeName("SELECT STRUCT STRUCT_6(name as X, st1.a as Y, st1 as Z) FROM T", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct(1);
+            Assertions.assertEquals("STRUCT_6", struct.getMetaData().getTypeName());
+            Assertions.assertEquals("X", struct.getMetaData().getColumnName(1));
+            Assertions.assertEquals("Y", struct.getMetaData().getColumnName(2));
+            Assertions.assertEquals("Z", struct.getMetaData().getColumnName(3));
+            Assertions.assertEquals("STRUCT_1", struct.getStruct(3).getMetaData().getTypeName());
+        });
+    }
+
+    @Test
+    void canReadProjectedDynamicStructTwiceSecondOneInheritsNamesFromFirst() throws Throwable {
+        canReadStructTypeName("SELECT STRUCT STRUCT_6(name as X, st1.a as Y, st1 as Z) as N, STRUCT STRUCT_6(name, st1.a, st1) as M FROM T", resultSet -> {
+            for (int i = 1; i <= 2; i++) {
+                RelationalStruct struct = resultSet.getStruct(i);
+                Assertions.assertEquals("STRUCT_6", struct.getMetaData().getTypeName());
+                Assertions.assertEquals("X", struct.getMetaData().getColumnName(1));
+                Assertions.assertEquals("Y", struct.getMetaData().getColumnName(2));
+                Assertions.assertEquals("Z", struct.getMetaData().getColumnName(3));
+                Assertions.assertEquals("STRUCT_1", struct.getStruct(3).getMetaData().getTypeName());
+            }
         });
     }
 
@@ -345,6 +384,65 @@ public class StructDataMetadataTest {
         canReadStructTypeName("SELECT (name, STRUCT STRUCT_7(name, st1.a)) FROM T", resultSet -> {
             RelationalStruct struct = resultSet.getStruct(1);
             Assertions.assertEquals("STRUCT_7", struct.getStruct(2).getMetaData().getTypeName());
+        });
+    }
+
+    @Test
+    void canNameDynamicStructSameAsStaticStructIfSame() throws Throwable {
+        canReadStructTypeName("SELECT STRUCT STRUCT_1(name, st1.b) FROM T", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct(1);
+            Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName());
+            Assertions.assertEquals("A", struct.getMetaData().getColumnName(1));
+            Assertions.assertEquals("B", struct.getMetaData().getColumnName(2));
+        });
+    }
+
+    @Test
+    void canNameDynamicStructSameAsStaticStructIfSame2() throws Throwable {
+        canReadStructTypeName("SELECT STRUCT STRUCT_2(10l, STRUCT STRUCT_1(name, st1.b)) FROM T", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct(1);
+            Assertions.assertEquals("STRUCT_2", struct.getMetaData().getTypeName());
+            Assertions.assertEquals("C", struct.getMetaData().getColumnName(1));
+            Assertions.assertEquals("D", struct.getMetaData().getColumnName(2));
+            Assertions.assertEquals("STRUCT_1", struct.getStruct(2).getMetaData().getTypeName());
+            Assertions.assertEquals("A", struct.getStruct(2).getMetaData().getColumnName(1));
+            Assertions.assertEquals("B", struct.getStruct(2).getMetaData().getColumnName(2));
+        });
+    }
+
+    @Test
+    void cannotNameDynamicStructSameAsStaticStructIfSignatureIsDifferent() throws Throwable {
+        RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery("SELECT STRUCT STRUCT_1(st1.b) FROM T"))
+                .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
+    }
+
+    @Test
+    void cannotHaveTwoDynamicStructsWithDifferentTypes() throws Throwable {
+        RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery("SELECT STRUCT STRUCT_19(st1.b), STRUCT STRUCT_19(name) FROM T"))
+                .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
+    }
+
+    @Test
+    void cannotHaveTwoDynamicStructsWithDifferentNestedTypes() throws Throwable {
+        RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery("SELECT STRUCT STRUCT_19(STRUCT STRUCT_20(st1.b)), STRUCT STRUCT_19(STRUCT STRUCT_20(name)) FROM T"))
+                .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
+    }
+
+    @Test
+    void cannotHaveTwoDynamicStructsOneWithSameAsTemplateOneDifferent() throws Throwable {
+        RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery("SELECT STRUCT STRUCT_1(name, st1.b), STRUCT STRUCT_1(name) FROM T"))
+                .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
+    }
+
+    @Test
+    void canUseDifferentDynamicStructsWithSameNameInTwoDifferentQueries() throws Throwable {
+        canReadStructTypeName("SELECT STRUCT STRUCT_18(name, st1.b) FROM T", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct(1);
+            Assertions.assertEquals("STRUCT_18", struct.getMetaData().getTypeName());
+        });
+        canReadStructTypeName("SELECT STRUCT STRUCT_18(st1.b) FROM T", resultSet -> {
+            RelationalStruct struct = resultSet.getStruct(1);
+            Assertions.assertEquals("STRUCT_18", struct.getMetaData().getTypeName());
         });
     }
 
