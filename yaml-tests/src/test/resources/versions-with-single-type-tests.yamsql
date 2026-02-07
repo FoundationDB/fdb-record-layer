@@ -71,7 +71,7 @@ test_block:
         ]
     -
       - query: select *, "__ROW_VERSION" from t1;
-      - explain: "SCAN(<,>) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2, version([_]) AS __ROW_VERSION)"
+      - explain: "SCAN(<,>)"
       - unorderedResult: [
           { ID:  1, COL1: 10, COL2:  1, "__ROW_VERSION": !not_null _ },
           { ID:  2, COL1: 10, COL2:  2, "__ROW_VERSION": !not_null _ },
@@ -89,7 +89,7 @@ test_block:
         ]
     -
       - query: select "__ROW_VERSION", * from t1 where col1 = 20;
-      - explain: "SCAN(<,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "SCAN(<,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - unorderedResult: [
           { "__ROW_VERSION": !not_null _, ID:  6, COL1: 20, COL2:  6 },
           { "__ROW_VERSION": !not_null _, ID:  7, COL1: 20, COL2:  7 },
@@ -102,7 +102,7 @@ test_block:
         ]
     -
       - query: select * from t1_v(10)
-      - explain: "SCAN(<,>) | FILTER _.COL1 EQUALS promote(@c6 AS LONG) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "SCAN(<,>) | FILTER _.COL1 EQUALS promote(@c6 AS LONG) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - unorderedResult: [
           { "__ROW_VERSION": !not_null _, ID:  1, COL1: 10, COL2:  1 },
           { "__ROW_VERSION": !not_null _, ID:  2, COL1: 10, COL2:  2 },
