@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConditionSelectorValue;
@@ -899,127 +898,54 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         if (ctx.ofTypeClause() != null) {
             final var recordId = visitUid(ctx.ofTypeClause().uid());
 
-            // When creating a named struct inline (e.g., STRUCT STRUCT_1(...)), validate that the
-            // constructed type is compatible with any schema-defined type with the same name.
-            // Look up the type by searching through all tables and their fields
-            final var schemaTemplate = getDelegate().getSchemaTemplate();
-            Optional<DataType.StructType> existingStructTypeMaybe = Optional.empty();
-
-            // First, search through all tables to find a static field with this struct type
-            for (final var table : schemaTemplate.getTables()) {
-                // Table datatype is always a StructType
-                final var structType = table.getDatatype();
-                for (final var field : structType.getFields()) {
-                    final var fieldType = field.getType();
-                    if (fieldType instanceof DataType.Named) {
-                        final var namedType = (DataType.Named) fieldType;
-                        if (namedType.getName().equalsIgnoreCase(recordId.getName())) {
-                            // Found the type! Now resolve it to get the actual struct definition
-                            if (namedType instanceof DataType.StructType) {
-                                existingStructTypeMaybe = Optional.of((DataType.StructType) namedType);
-                                break;
-                            }
-                        }
-                    }
-                }
-                if (existingStructTypeMaybe.isPresent()) {
-                    break;
-                }
-            }
-
-            // If no static type found, check if this struct was already registered as a dynamic type
-            // in an earlier part of the same query (e.g., first occurrence in SELECT list)
-            if (existingStructTypeMaybe.isEmpty()) {
-                existingStructTypeMaybe = getDelegate().getPlanGenerationContext().getDynamicStructType(recordId.getName());
-            }
+            // Check if this struct type already exists (static schema or dynamic from earlier in query)
+            Optional<DataType.StructType> existingStructTypeMaybe = findExistingStructType(recordId.getName());
 
             if (existingStructTypeMaybe.isPresent()) {
+                // Type exists - use its field names and coerce values to match
                 final var existingStructType = existingStructTypeMaybe.get();
                 final var existingFields = existingStructType.getFields();
                 final var providedExpressions = expressions.asList();
 
-                // Validate field count matches
+                // Validate field count
                 if (existingFields.size() != providedExpressions.size()) {
                     Assert.failUnchecked(ErrorCode.CANNOT_CONVERT_TYPE,
                             String.format("Cannot create struct '%s': expected %d fields but got %d",
                                     recordId.getName(), existingFields.size(), providedExpressions.size()));
                 }
 
-                // Validate each field type is assignable (with potential promotion)
-                // Use the existing PromoteValue machinery instead of manual type checking
-                for (int i = 0; i < existingFields.size(); i++) {
-                    final var expectedField = existingFields.get(i);
-                    final var providedExpression = providedExpressions.get(i);
-                    final var expectedType = DataTypeUtils.toRecordLayerType(expectedField.getType());
-                    final var providedType = providedExpression.getUnderlying().getResultType();
-
-                    // Check if types are compatible using the existing promotion machinery
-                    // This handles nullability covariance, nested records, and all standard promotions
-                    try {
-                        // This will throw SemanticException if types are fundamentally incompatible
-                        PromoteValue.isPromotionNeeded(providedType, expectedType);
-                    } catch (SemanticException e) {
-                        Assert.failUnchecked(ErrorCode.CANNOT_CONVERT_TYPE,
-                                String.format("Cannot create struct '%s': field %d has incompatible type (expected %s but got %s)",
-                                        recordId.getName(), i + 1, expectedField.getType().getCode(), providedExpression.getDataType().getCode()));
-                    }
-                }
-            }
-
-            // Also validate against dynamic struct definitions within this query
-            // Build a StructType from the provided expressions to validate consistency
-            final var providedFields = new ArrayList<DataType.StructType.Field>();
-            final var providedExpressionsList = expressions.asList();
-
-            // If a matching static struct type exists, use its field names and types to ensure consistency
-            // Otherwise, derive field names from the SQL expressions
-            if (existingStructTypeMaybe.isPresent()) {
-                final var existingFields = existingStructTypeMaybe.get().getFields();
-                for (int i = 0; i < providedExpressionsList.size(); i++) {
-                    final var existingField = existingFields.get(i);
-                    // Use the field name and type from the static struct definition
-                    // This ensures the registered dynamic type matches the expected type after coercion
-                    providedFields.add(DataType.StructType.Field.from(existingField.getName(), existingField.getType(), i));
-                }
-            } else {
-                for (int i = 0; i < providedExpressionsList.size(); i++) {
-                    final var expression = providedExpressionsList.get(i);
-                    final var fieldName = expression.getName().map(n -> n.getName()).orElse("_" + i);
-                    providedFields.add(DataType.StructType.Field.from(fieldName, expression.getDataType(), i));
-                }
-            }
-            final var providedStructType = DataType.StructType.from(recordId.getName(), providedFields, false);
-
-            // Register or validate this dynamic struct definition
-            getDelegate().getPlanGenerationContext().registerOrValidateDynamicStruct(recordId.getName(), providedStructType);
-
-            // If a matching static struct type exists, remap the columns to use its field names
-            // and insert coercion nodes where type promotion is needed
-            final var columns = expressions.underlyingAsColumns();
-            if (existingStructTypeMaybe.isPresent()) {
-                final var existingFields = existingStructTypeMaybe.get().getFields();
+                // Build columns with coercion and existing field names
                 final var remappedColumns = new ArrayList<Column<? extends Value>>();
-                final var columnsIterator = columns.iterator();
-
-                for (final var existingField : existingFields) {
-                    final var originalColumn = columnsIterator.next();
+                for (int i = 0; i < existingFields.size(); i++) {
+                    final var existingField = existingFields.get(i);
+                    final var providedExpression = providedExpressions.get(i);
                     final var expectedType = DataTypeUtils.toRecordLayerType(existingField.getType());
-                    final var providedValue = originalColumn.getValue();
-
-                    // Coerce the value if promotion is needed (e.g., INT -> LONG, non-null -> nullable)
-                    // This uses the existing PromoteValue machinery
-                    final var coercedValue = coerceValueIfNecessary(providedValue, expectedType);
-
-                    // Create a new column with the field name from the static schema and coerced value
+                    final var coercedValue = coerceValueIfNecessary(providedExpression.getUnderlying(), expectedType);
                     final var remappedField = Type.Record.Field.of(coercedValue.getResultType(),
                                                                      Optional.of(existingField.getName()));
                     remappedColumns.add(Column.of(remappedField, coercedValue));
                 }
 
+                // Register with existing type definition (for dynamic type tracking)
+                getDelegate().getPlanGenerationContext().registerOrValidateDynamicStruct(recordId.getName(), existingStructType);
+
                 final var resultValue = RecordConstructorValue.ofColumnsAndName(remappedColumns, recordId.getName());
                 return Expression.ofUnnamed(resultValue);
             } else {
-                final var resultValue = RecordConstructorValue.ofColumnsAndName(columns, recordId.getName());
+                // New dynamic type - derive field names from expressions
+                final var providedExpressions = expressions.asList();
+                final var providedFields = new ArrayList<DataType.StructType.Field>();
+                for (int i = 0; i < providedExpressions.size(); i++) {
+                    final var expression = providedExpressions.get(i);
+                    final var fieldName = expression.getName().map(n -> n.getName()).orElse("_" + i);
+                    providedFields.add(DataType.StructType.Field.from(fieldName, expression.getDataType(), i));
+                }
+                final var newStructType = DataType.StructType.from(recordId.getName(), providedFields, false);
+
+                // Register new dynamic type
+                getDelegate().getPlanGenerationContext().registerOrValidateDynamicStruct(recordId.getName(), newStructType);
+
+                final var resultValue = RecordConstructorValue.ofColumnsAndName(expressions.underlyingAsColumns(), recordId.getName());
                 return Expression.ofUnnamed(resultValue);
             }
         }
@@ -1117,6 +1043,25 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         } else {
             return expression;
         }
+    }
+
+    @Nonnull
+    private Optional<DataType.StructType> findExistingStructType(@Nonnull String structName) {
+        // First check for static type in schema
+        final var schemaTemplate = getDelegate().getSchemaTemplate();
+        for (final var table : schemaTemplate.getTables()) {
+            for (final var field : table.getDatatype().getFields()) {
+                final var fieldType = field.getType();
+                if (fieldType instanceof DataType.StructType) {
+                    final var structType = (DataType.StructType) fieldType;
+                    if (structType.getName().equalsIgnoreCase(structName)) {
+                        return Optional.of(structType);
+                    }
+                }
+            }
+        }
+        // If no static type found, check for dynamic type from earlier in query
+        return getDelegate().getPlanGenerationContext().getDynamicStructType(structName);
     }
 
     @Nonnull
