@@ -897,60 +897,52 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
         if (ctx.ofTypeClause() != null) {
             final var recordId = visitUid(ctx.ofTypeClause().uid());
-
-            // Check if this struct type already exists (static schema or dynamic from earlier in query)
-            Optional<DataType.StructType> existingStructTypeMaybe = findExistingStructType(recordId.getName());
-
-            if (existingStructTypeMaybe.isPresent()) {
-                // Type exists - use its field names and coerce values to match
-                final var existingStructType = existingStructTypeMaybe.get();
-                final var existingFields = existingStructType.getFields();
-                final var providedExpressions = expressions.asList();
-
-                // Validate field count
-                if (existingFields.size() != providedExpressions.size()) {
-                    Assert.failUnchecked(ErrorCode.CANNOT_CONVERT_TYPE,
-                            String.format("Cannot create struct '%s': expected %d fields but got %d",
-                                    recordId.getName(), existingFields.size(), providedExpressions.size()));
-                }
-
-                // Build columns with coercion and existing field names
-                final var remappedColumns = new ArrayList<Column<? extends Value>>();
-                for (int i = 0; i < existingFields.size(); i++) {
-                    final var existingField = existingFields.get(i);
-                    final var providedExpression = providedExpressions.get(i);
-                    final var expectedType = DataTypeUtils.toRecordLayerType(existingField.getType());
-                    final var coercedValue = coerceValueIfNecessary(providedExpression.getUnderlying(), expectedType);
-                    final var remappedField = Type.Record.Field.of(coercedValue.getResultType(),
-                                                                     Optional.of(existingField.getName()));
-                    remappedColumns.add(Column.of(remappedField, coercedValue));
-                }
-
-                // Register with existing type definition (for dynamic type tracking)
-                getDelegate().getPlanGenerationContext().registerOrValidateDynamicStruct(recordId.getName(), existingStructType);
-
-                final var resultValue = RecordConstructorValue.ofColumnsAndName(remappedColumns, recordId.getName());
-                return Expression.ofUnnamed(resultValue);
-            } else {
-                // New dynamic type - derive field names from expressions
-                final var providedExpressions = expressions.asList();
-                final var providedFields = new ArrayList<DataType.StructType.Field>();
-                for (int i = 0; i < providedExpressions.size(); i++) {
-                    final var expression = providedExpressions.get(i);
-                    final var fieldName = expression.getName().map(n -> n.getName()).orElse("_" + i);
-                    providedFields.add(DataType.StructType.Field.from(fieldName, expression.getDataType(), i));
-                }
-                final var newStructType = DataType.StructType.from(recordId.getName(), providedFields, false);
-
-                // Register new dynamic type
-                getDelegate().getPlanGenerationContext().registerOrValidateDynamicStruct(recordId.getName(), newStructType);
-
-                final var resultValue = RecordConstructorValue.ofColumnsAndName(expressions.underlyingAsColumns(), recordId.getName());
-                return Expression.ofUnnamed(resultValue);
-            }
+            return visitNamedStructConstructor(recordId.getName(), expressions);
         }
         final var resultValue = RecordConstructorValue.ofColumns(expressions.underlyingAsColumns());
         return Expression.ofUnnamed(resultValue);
+    }
+
+    @Nonnull
+    private Expression visitNamedStructConstructor(@Nonnull String structName, @Nonnull Expressions expressions) {
+        final var existingStructTypeMaybe = findExistingStructType(structName);
+        final var providedExpressions = expressions.asList();
+
+        if (existingStructTypeMaybe.isPresent()) {
+            final var existingStructType = existingStructTypeMaybe.get();
+            final var existingFields = existingStructType.getFields();
+
+            if (existingFields.size() != providedExpressions.size()) {
+                Assert.failUnchecked(ErrorCode.CANNOT_CONVERT_TYPE,
+                        String.format("Cannot create struct '%s': expected %d fields but got %d",
+                                structName, existingFields.size(), providedExpressions.size()));
+            }
+
+            final var remappedColumns = new ArrayList<Column<? extends Value>>();
+            for (int i = 0; i < existingFields.size(); i++) {
+                final var existingField = existingFields.get(i);
+                final var expectedType = DataTypeUtils.toRecordLayerType(existingField.getType());
+                final var coercedValue = coerceValueIfNecessary(providedExpressions.get(i).getUnderlying(), expectedType);
+                final var remappedField = Type.Record.Field.of(coercedValue.getResultType(),
+                                                                 Optional.of(existingField.getName()));
+                remappedColumns.add(Column.of(remappedField, coercedValue));
+            }
+
+            getDelegate().getPlanGenerationContext().registerOrValidateDynamicStruct(structName, existingStructType);
+            return Expression.ofUnnamed(RecordConstructorValue.ofColumnsAndName(remappedColumns, structName));
+        }
+
+        // New Named Struct that was not previously defined in schema template or earlier in the query
+        final var providedFields = new ArrayList<DataType.StructType.Field>();
+        for (int i = 0; i < providedExpressions.size(); i++) {
+            final var expression = providedExpressions.get(i);
+            final var fieldName = expression.getName().map(Identifier::getName).orElse("_" + i);
+            providedFields.add(DataType.StructType.Field.from(fieldName, expression.getDataType(), i));
+        }
+
+        final var newStructType = DataType.StructType.from(structName, providedFields, false);
+        getDelegate().getPlanGenerationContext().registerOrValidateDynamicStruct(structName, newStructType);
+        return Expression.ofUnnamed(RecordConstructorValue.ofColumnsAndName(expressions.underlyingAsColumns(), structName));
     }
 
     @Nonnull
@@ -1047,20 +1039,10 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     private Optional<DataType.StructType> findExistingStructType(@Nonnull String structName) {
-        // First check for static type in schema
-        final var schemaTemplate = getDelegate().getSchemaTemplate();
-        for (final var table : schemaTemplate.getTables()) {
-            for (final var field : table.getDatatype().getFields()) {
-                final var fieldType = field.getType();
-                if (fieldType instanceof DataType.StructType) {
-                    final var structType = (DataType.StructType) fieldType;
-                    if (structType.getName().equalsIgnoreCase(structName)) {
-                        return Optional.of(structType);
-                    }
-                }
-            }
+        final var typeFromSchema = getDelegate().getSchemaTemplate().findType(structName);
+        if (typeFromSchema.isPresent() && typeFromSchema.get() instanceof DataType.StructType) {
+            return Optional.of((DataType.StructType) typeFromSchema.get());
         }
-        // If no static type found, check for dynamic type from earlier in query
         return getDelegate().getPlanGenerationContext().getDynamicStructType(structName);
     }
 
