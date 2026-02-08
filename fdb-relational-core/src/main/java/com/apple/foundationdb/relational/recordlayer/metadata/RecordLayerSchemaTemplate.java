@@ -103,9 +103,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private final boolean intermingleTables;
 
-    @Nonnull
-    private final Map<String, DataType.Named> auxiliaryTypes;
-
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
@@ -113,8 +110,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
-                                      boolean intermingleTables,
-                                      @Nonnull final Map<String, DataType.Named> auxiliaryTypes) {
+                                      boolean intermingleTables) {
         this.name = name;
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
@@ -123,7 +119,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
         this.intermingleTables = intermingleTables;
-        this.auxiliaryTypes = ImmutableMap.copyOf(auxiliaryTypes);
         this.metaDataSupplier = Suppliers.memoize(this::buildRecordMetadata);
         this.tableIndexMappingSupplier = Suppliers.memoize(this::computeTableIndexMapping);
         this.indexesSupplier = Suppliers.memoize(this::computeIndexes);
@@ -139,8 +134,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
                                       boolean intermingleTables,
-                                      @Nonnull final RecordMetaData cachedMetadata,
-                                      @Nonnull final Map<String, DataType.Named> auxiliaryTypes) {
+                                      @Nonnull final RecordMetaData cachedMetadata) {
         this.name = name;
         this.version = version;
         this.tables = ImmutableSet.copyOf(tables);
@@ -149,7 +143,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
         this.intermingleTables = intermingleTables;
-        this.auxiliaryTypes = ImmutableMap.copyOf(auxiliaryTypes);
         this.metaDataSupplier = Suppliers.memoize(() -> cachedMetadata);
         this.tableIndexMappingSupplier = Suppliers.memoize(this::computeTableIndexMapping);
         this.indexesSupplier = Suppliers.memoize(this::computeIndexes);
@@ -639,10 +632,10 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
             if (cachedMetadata != null) {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
-                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata, auxiliaryTypes);
+                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
             } else {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
-                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), version, enableLongRows, storeRowVersions, intermingleTables, auxiliaryTypes);
+                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), version, enableLongRows, storeRowVersions, intermingleTables);
             }
         }
 
@@ -770,7 +763,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 .setIntermingleTables(intermingleTables)
                 .addTables(getTables())
                 .addInvokedRoutines(getInvokedRoutines())
-                .addViews(getViews())
-                .addAuxiliaryTypes(auxiliaryTypes.values());
+                .addViews(getViews());
     }
 }
