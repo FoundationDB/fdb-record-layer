@@ -195,8 +195,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             return Optional.of((DataType) auxiliaryTypes.get(name));
         }
 
-
-        // Also search for types embedded in table fields
+        // NOTE TO REVIEWER: Should this be populated when deserializing instead of traversing tables here?
         for (final var table : tables) {
             for (final var field : table.getDatatype().getFields()) {
                 if (field.getType() instanceof DataType.Named) {
