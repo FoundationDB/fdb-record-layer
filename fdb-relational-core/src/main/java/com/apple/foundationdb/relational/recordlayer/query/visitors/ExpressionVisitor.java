@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConditionSelectorValue;
@@ -45,7 +46,6 @@ import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
-import com.apple.foundationdb.relational.recordlayer.metadata.StructTypeValidator;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -939,37 +939,29 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var providedExpressions = expressions.asList();
 
                 // Validate field count matches
-                if (!Integer.valueOf(existingFields.size()).equals(providedExpressions.size())) {
+                if (existingFields.size() != providedExpressions.size()) {
                     Assert.failUnchecked(ErrorCode.CANNOT_CONVERT_TYPE,
                             String.format("Cannot create struct '%s': expected %d fields but got %d",
                                     recordId.getName(), existingFields.size(), providedExpressions.size()));
                 }
 
-                // Validate each field type is compatible
+                // Validate each field type is assignable (with potential promotion)
+                // Use the existing PromoteValue machinery instead of manual type checking
                 for (int i = 0; i < existingFields.size(); i++) {
                     final var expectedField = existingFields.get(i);
                     final var providedExpression = providedExpressions.get(i);
-                    final var expectedDataType = expectedField.getType();
-                    final var providedDataType = providedExpression.getDataType();
+                    final var expectedType = DataTypeUtils.toRecordLayerType(expectedField.getType());
+                    final var providedType = providedExpression.getUnderlying().getResultType();
 
-                    // Check if types are compatible
-                    // For now, we check that the type codes match, ignoring nullability differences
-                    // since a non-null value can always be used where a nullable field is expected
-                    if (!expectedDataType.getCode().equals(providedDataType.getCode())) {
+                    // Check if types are compatible using the existing promotion machinery
+                    // This handles nullability covariance, nested records, and all standard promotions
+                    try {
+                        // This will throw SemanticException if types are fundamentally incompatible
+                        PromoteValue.isPromotionNeeded(providedType, expectedType);
+                    } catch (SemanticException e) {
                         Assert.failUnchecked(ErrorCode.CANNOT_CONVERT_TYPE,
                                 String.format("Cannot create struct '%s': field %d has incompatible type (expected %s but got %s)",
-                                        recordId.getName(), i + 1, expectedDataType.getCode(), providedDataType.getCode()));
-                    }
-                    // For struct types, we need to do deeper validation
-                    if (expectedDataType instanceof DataType.StructType && providedDataType instanceof DataType.StructType) {
-                        final var expectedStructType = (DataType.StructType) expectedDataType;
-                        final var providedStructType = (DataType.StructType) providedDataType;
-                        // Recursively validate struct fields using centralized validator
-                        if (!StructTypeValidator.areStructTypesCompatible(expectedStructType, providedStructType, true)) {
-                            Assert.failUnchecked(ErrorCode.CANNOT_CONVERT_TYPE,
-                                    String.format("Cannot create struct '%s': field %d has incompatible struct type",
-                                            recordId.getName(), i + 1));
-                        }
+                                        recordId.getName(), i + 1, expectedField.getType().getCode(), providedExpression.getDataType().getCode()));
                     }
                 }
             }
@@ -979,15 +971,15 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             final var providedFields = new ArrayList<DataType.StructType.Field>();
             final var providedExpressionsList = expressions.asList();
 
-            // If a matching static struct type exists, use its field names to ensure consistency
+            // If a matching static struct type exists, use its field names and types to ensure consistency
             // Otherwise, derive field names from the SQL expressions
             if (existingStructTypeMaybe.isPresent()) {
                 final var existingFields = existingStructTypeMaybe.get().getFields();
                 for (int i = 0; i < providedExpressionsList.size(); i++) {
-                    final var expression = providedExpressionsList.get(i);
                     final var existingField = existingFields.get(i);
-                    // Use the field name from the static struct definition
-                    providedFields.add(DataType.StructType.Field.from(existingField.getName(), expression.getDataType(), i));
+                    // Use the field name and type from the static struct definition
+                    // This ensures the registered dynamic type matches the expected type after coercion
+                    providedFields.add(DataType.StructType.Field.from(existingField.getName(), existingField.getType(), i));
                 }
             } else {
                 for (int i = 0; i < providedExpressionsList.size(); i++) {
@@ -1002,7 +994,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             getDelegate().getPlanGenerationContext().registerOrValidateDynamicStruct(recordId.getName(), providedStructType);
 
             // If a matching static struct type exists, remap the columns to use its field names
-            // This ensures the RecordConstructorValue has the correct field names from the schema
+            // and insert coercion nodes where type promotion is needed
             final var columns = expressions.underlyingAsColumns();
             if (existingStructTypeMaybe.isPresent()) {
                 final var existingFields = existingStructTypeMaybe.get().getFields();
@@ -1011,10 +1003,17 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
                 for (final var existingField : existingFields) {
                     final var originalColumn = columnsIterator.next();
-                    // Create a new column with the field name from the static schema but the value from the original column
-                    final var remappedField = Type.Record.Field.of(originalColumn.getValue().getResultType(),
+                    final var expectedType = DataTypeUtils.toRecordLayerType(existingField.getType());
+                    final var providedValue = originalColumn.getValue();
+
+                    // Coerce the value if promotion is needed (e.g., INT -> LONG, non-null -> nullable)
+                    // This uses the existing PromoteValue machinery
+                    final var coercedValue = coerceValueIfNecessary(providedValue, expectedType);
+
+                    // Create a new column with the field name from the static schema and coerced value
+                    final var remappedField = Type.Record.Field.of(coercedValue.getResultType(),
                                                                      Optional.of(existingField.getName()));
-                    remappedColumns.add(Column.of(remappedField, originalColumn.getValue()));
+                    remappedColumns.add(Column.of(remappedField, coercedValue));
                 }
 
                 final var resultValue = RecordConstructorValue.ofColumnsAndName(remappedColumns, recordId.getName());

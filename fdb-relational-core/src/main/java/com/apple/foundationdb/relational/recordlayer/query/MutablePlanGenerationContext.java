@@ -42,7 +42,6 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.WithMetadata;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
-import com.apple.foundationdb.relational.recordlayer.metadata.StructTypeValidator;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
@@ -65,6 +64,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.CANNOT_CONVERT_TYPE;
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
 
 /**
@@ -521,9 +521,15 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
             // First time seeing this struct name, register it
             dynamicStructDefinitions.put(normalizedName, structType);
         } else {
-            // Struct name already exists, validate compatibility using centralized validator
-            // This now correctly ignores nullability and recursively validates nested structs
-            StructTypeValidator.validateStructTypesCompatible(existing, structType, structName, true);
+            // Struct name already exists, validate that the new definition has identical structure
+            // Since ExpressionVisitor ensures field names and types match the existing definition,
+            // we just need to verify they're structurally identical
+            if (!existing.hasIdenticalStructure(structType)) {
+                Assert.failUnchecked(CANNOT_CONVERT_TYPE,
+                        String.format(Locale.ROOT,
+                                "Struct type '%s' has incompatible signatures: first definition does not match second definition",
+                                structName));
+            }
         }
     }
 
