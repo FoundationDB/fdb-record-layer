@@ -510,26 +510,17 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
      *
      * @param structName The name of the struct type
      * @param structType The struct type definition
-     * @throws com.apple.foundationdb.relational.api.exceptions.RelationalException if a struct with this name
-     *         already exists with an incompatible signature
      */
     public void registerOrValidateDynamicStruct(@Nonnull String structName, @Nonnull DataType.StructType structType) {
-        final var normalizedName = structName.toUpperCase(Locale.ROOT);
-        final var existing = dynamicStructDefinitions.get(normalizedName);
-
+        final var existing = dynamicStructDefinitions.get(structName);
         if (existing == null) {
-            // First time seeing this struct name, register it
-            dynamicStructDefinitions.put(normalizedName, structType);
+            dynamicStructDefinitions.put(structName, structType);
         } else {
-            // Struct name already exists, validate that the new definition has identical structure
-            // Since ExpressionVisitor ensures field names and types match the existing definition,
-            // we just need to verify they're structurally identical
-            if (!existing.hasIdenticalStructure(structType)) {
-                Assert.failUnchecked(CANNOT_CONVERT_TYPE,
-                        String.format(Locale.ROOT,
-                                "Struct type '%s' has incompatible signatures: first definition does not match second definition",
-                                structName));
-            }
+            Assert.thatUnchecked(
+                    existing.hasIdenticalStructure(structType),
+                    CANNOT_CONVERT_TYPE,
+                    "Struct type '%s' has incompatible signatures: first definition does not match second definition",
+                    structName);
         }
     }
 
@@ -541,7 +532,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
      */
     @Nonnull
     public Optional<DataType.StructType> getDynamicStructType(@Nonnull String structName) {
-        final var normalizedName = structName.toUpperCase(Locale.ROOT);
-        return Optional.ofNullable(dynamicStructDefinitions.get(normalizedName));
+        return Optional.ofNullable(dynamicStructDefinitions.get(structName));
     }
 }
