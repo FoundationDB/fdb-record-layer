@@ -27,9 +27,9 @@ schema_template:
     create table ja(c1 bigint, c2 bigint, primary key(c1))
     create table jb(c1 bigint, c3 bigint, primary key(c1))
     create table jd(c1 bigint, c4 bigint, primary key(c1))
-    create table jua(c1 bigint, c2 bigint, c5 string, primary key(c1))
-    create table jub(c1 bigint, c3 bigint, c5 string, primary key(c1))
-    create table jud(c1 bigint, c4 bigint, c5 string, primary key(c1))
+    create table jua(c1 bigint, c2 bigint, c5 bigint, primary key(c1))
+    create table jub(c1 bigint, c3 bigint, c5 bigint, primary key(c1))
+    create table jud(c1 bigint, c4 bigint, c5 bigint, primary key(c1))
 ---
 setup:
   steps:
@@ -57,9 +57,9 @@ setup:
     - query: INSERT INTO ja VALUES(1, 2)
     - query: INSERT INTO jb VALUES(1, 3)
     - query: INSERT INTO jd VALUES(1, 4)
-    - query: INSERT INTO jua VALUES(1, 2, '5jua')
-    - query: INSERT INTO jub VALUES(1, 3, '5jub')
-    - query: INSERT INTO jud VALUES(1, 4, '5jud')
+    - query: INSERT INTO jua VALUES(1, 2, 5)
+    - query: INSERT INTO jub VALUES(1, 3, 5)
+    - query: INSERT INTO jud VALUES(1, 4, 5)
 ---
 test_block:
   tests:
@@ -342,7 +342,7 @@ test_block:
       # inner join with using: same additional column
       - query: select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join jud using(c1);
       - supported_version: !current_version
-      - result: [{_0: '5jua', _1: '5jub', _2: '5jud'}]
+      - result: [{_0: 5, _1: 5, _2: 5}]
     -
       # inner join with using: ambiguity left
       - query: select * from jua join jub using(c1) join jud using(c5);
@@ -353,5 +353,20 @@ test_block:
       - query: select * from jua join (select * from jub join jud using(c5)) as r using(c1);
       - supported_version: !current_version
       - error: "42702"
+    -
+      # inner join with using: muli using
+      - query: select * from jua join jub using(c1, c5);
+      - supported_version: !current_version
+      - result: [{c1: 1, c2: 2, c5: 5, c3: 3}]
+    -
+      # inner join with using: unnamed columns left
+      - query: select * from (select c1, c2 + 5 from jua) as X join jub as Y using (c1);
+      - supported_version: !current_version
+      - result: [{c1: 1, _1: 7, c3: 3, c5: 5}]
+    -
+      # inner join with using: unnamed columns right
+      - query: select * from jub as Y join (select c1, c2 + 5 from jua) as X using (c1);
+      - supported_version: !current_version
+      - result: [{c1: 1, c3: 3, c5: 5, _3: 7}]
 
 ...
