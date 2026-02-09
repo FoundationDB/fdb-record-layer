@@ -27,8 +27,8 @@ import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.utils.SqlSupplier;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -42,13 +42,21 @@ import java.sql.Struct;
 import java.util.function.Supplier;
 
 public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCallback, RelationalConnection {
-    Supplier<URI> connFactory;
+    private final Supplier<URI> dbPathSupplier;
+    private final SqlSupplier<RelationalDriver> driverSupplier;
     Options options;
     String schema;
     RelationalConnection connection;
 
+
+    public RelationalConnectionRule(SqlSupplier<RelationalDriver> driverSupplier, Supplier<URI> dbPathSupplier) {
+        this.driverSupplier = driverSupplier;
+        this.dbPathSupplier = dbPathSupplier;
+    }
+
     public RelationalConnectionRule(Supplier<URI> dbPathSupplier) {
-        this.connFactory = dbPathSupplier;
+        this(() -> (RelationalDriver) DriverManager.getDriver(dbPathSupplier.get().toString()),
+                dbPathSupplier);
     }
 
     public RelationalConnectionRule withOptions(Options options) {
@@ -69,8 +77,8 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     @Override
     public void beforeEach(ExtensionContext context) throws RelationalException, SQLException {
         Options opt = options == null ? Options.NONE : options;
-        final var driver = (RelationalDriver) DriverManager.getDriver(connFactory.get().toString());
-        connection = driver.connect(connFactory.get(), opt);
+        final RelationalDriver driver = driverSupplier.get();
+        connection = driver.connect(dbPathSupplier.get(), opt);
         if (schema != null) {
             connection.setSchema(schema);
         }
