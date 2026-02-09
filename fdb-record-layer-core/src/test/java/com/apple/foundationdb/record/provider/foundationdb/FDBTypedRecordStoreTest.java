@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.StoreIsFullyLockedException;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.TypedRecordSerializer;
@@ -47,6 +49,8 @@ import java.util.stream.Collectors;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests for {@link FDBTypedRecordStore}.
@@ -239,6 +243,78 @@ public class FDBTypedRecordStoreTest {
 
             assertEquals(myrec2, untypedStore.loadRecord(Tuple.from(2L)).getRecord());
             assertEquals(otherrec3, untypedStore.loadRecord(Tuple.from(3L)).getRecord());
+
+            context.commit();
+        }
+    }
+
+    /**
+     * Test setting and clearing a full store lock on a FDBTypedRecordStore.
+     * This ensures coverage of {@link FDBTypedRecordStore.Builder#setBypassFullStoreLockReason}.
+     */
+    @Test
+    void testClearFullStoreLock() {
+        final String lockReason = "Testing typed record store lock clearing";
+        final FormatVersion formatVersion = FormatVersion.getMaximumSupportedVersion();
+
+        final var baseBuilder = BUILDER.copyBuilder()
+                .setKeySpacePath(path)
+                .setFormatVersion(formatVersion);
+
+        // Create store with lock support and set FULL_STORE lock
+        try (FDBRecordContext context = fdb.openContext()) {
+            recordStore = baseBuilder
+                    .setContext(context)
+                    .createOrOpen();
+
+            // Add some test data
+            for (int i = 0; i < 10; i++) {
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setStrValueIndexed("test_" + i)
+                        .build());
+            }
+
+            // Set FULL_STORE lock
+            recordStore.getUntypedRecordStore().setStoreLockStateAsync(
+                    RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
+                    lockReason
+            ).join();
+
+            context.commit();
+        }
+
+        // Verify cannot open normally
+        try (FDBRecordContext context = fdb.openContext()) {
+            final var builder = baseBuilder.setContext(context);
+            assertNull(builder.getBypassFullStoreLockReason());
+            assertThrows(StoreIsFullyLockedException.class, builder::open);
+        }
+
+        // Open with bypass to clear the lock
+        try (FDBRecordContext context = fdb.openContext()) {
+            final var builder = baseBuilder
+                    .setContext(context)
+                    .setBypassFullStoreLockReason(lockReason);
+            assertEquals(lockReason, builder.getBypassFullStoreLockReason());
+            recordStore = builder.open();
+
+            // Clear the lock
+            recordStore.getUntypedRecordStore().clearStoreLockStateAsync().join();
+
+            context.commit();
+        }
+
+        // Verify can now open normally and read the records
+        try (FDBRecordContext context = fdb.openContext()) {
+            recordStore = baseBuilder
+                    .setContext(context)
+                    .open();
+
+            // Verify we can still read the records
+            FDBStoredRecord<TestRecords1Proto.MySimpleRecord> storedRecord = recordStore.loadRecord(Tuple.from(5L));
+            assertNotNull(storedRecord);
+            assertEquals("test_5", storedRecord.getRecord().getStrValueIndexed());
 
             context.commit();
         }

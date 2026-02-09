@@ -23,30 +23,25 @@ package com.apple.foundationdb.relational.yamltests.block;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
+import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Map;
 
-public class TransactionSetupsBlock {
+public class TransactionSetupsBlock extends SupportBlock {
+
     public static final String TRANSACTION_SETUP = "transaction_setups";
 
-    public static Block parse(final int lineNumber,
-                              final Object document,
-                              final YamlExecutionContext executionContext) {
+    public TransactionSetupsBlock() {
+    }
+
+    public static List<Block> parse(@Nonnull final Object document,
+                                    @Nonnull final YamlExecutionContext executionContext) {
         final Map<?, ?> map = Matchers.map(document);
         for (final Map.Entry<?, ?> entry : map.entrySet()) {
             final String transactionSetupName = Matchers.string(entry.getKey(), "transaction setup name");
             final String transactionSetupCommand = Matchers.string(entry.getValue(), "transaction setup command");
             executionContext.registerTransactionSetup(transactionSetupName, transactionSetupCommand);
         }
-        return new Block() {
-            @Override
-            public int getLineNumber() {
-                return lineNumber;
-            }
-
-            @Override
-            public void execute() {
-                // no-op
-            }
-        };
+        return List.of();
     }
 }

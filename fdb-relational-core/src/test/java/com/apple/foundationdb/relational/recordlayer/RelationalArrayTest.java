@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
@@ -231,6 +232,52 @@ public class RelationalArrayTest {
                 ps.setArray("uuid_null", EmbeddedRelationalArray.newBuilder().addAll(UUID.fromString("e5711bed-c606-49e2-a682-316348bf4091"), UUID.fromString("14b387cd-79ad-4860-9588-9c4e81588af0")).build());
                 ps.setNull("uuid_not_null", Types.ARRAY);
                 RelationalAssertions.assertThrowsSqlException(ps::executeUpdate).hasErrorCode(ErrorCode.INTERNAL_ERROR);
+            }
+        }
+    }
+
+    @Test
+    void testInsertEmptyArrayViaQueryPreparedStatement() throws SQLException {
+        final var statement = "INSERT INTO T (pk, boolean_not_null, integer_not_null, bigint_not_null, float_not_null, " +
+                "double_not_null, string_not_null, bytes_not_null, struct_not_null, uuid_not_null) " +
+                "VALUES (?pk, ?boolean_not_null, ?integer_not_null, ?bigint_not_null, ?float_not_null, ?double_not_null, " +
+                "?string_not_null, ?bytes_not_null, ?struct_not_null, ?uuid_not_null)";
+
+        final var emptyStructArray = EmbeddedRelationalArray.newBuilder(DataType.StructType.from("STRUCTURE",
+                List.of(
+                        DataType.StructType.Field.from("A", DataType.IntegerType.nullable(), 1),
+                        DataType.StructType.Field.from("B", DataType.StringType.nullable(), 2)),
+                false)).build();
+
+        try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
+            conn.setSchema(database.getSchemaName());
+            conn.setAutoCommit(true);
+            try (final var ps = ((RelationalPreparedStatement) conn.prepareStatement(statement))) {
+                ps.setInt("pk", 1);
+                ps.setArray("boolean_not_null", EmbeddedRelationalArray.newBuilder(DataType.BooleanType.notNullable()).build());
+                ps.setArray("integer_not_null", EmbeddedRelationalArray.newBuilder(DataType.IntegerType.notNullable()).build());
+                ps.setArray("bigint_not_null", EmbeddedRelationalArray.newBuilder(DataType.LongType.notNullable()).build());
+                ps.setArray("float_not_null", EmbeddedRelationalArray.newBuilder(DataType.FloatType.notNullable()).build());
+                ps.setArray("double_not_null", EmbeddedRelationalArray.newBuilder(DataType.DoubleType.notNullable()).build());
+                ps.setArray("string_not_null", EmbeddedRelationalArray.newBuilder(DataType.StringType.notNullable()).build());
+                ps.setArray("bytes_not_null", EmbeddedRelationalArray.newBuilder(DataType.BytesType.notNullable()).build());
+                ps.setArray("struct_not_null", emptyStructArray);
+                ps.setArray("uuid_not_null", EmbeddedRelationalArray.newBuilder(DataType.UuidType.notNullable()).build());
+                Assertions.assertEquals(1, ps.executeUpdate());
+            }
+
+            try (final var ps = (RelationalPreparedStatement) conn.prepareStatement("SELECT * from T where pk = 1")) {
+                ResultSetAssert.assertThat(ps.executeQuery())
+                        .hasNextRow()
+                        .hasColumn("boolean_not_null", List.of())
+                        .hasColumn("integer_not_null", List.of())
+                        .hasColumn("bigint_not_null", List.of())
+                        .hasColumn("float_not_null", List.of())
+                        .hasColumn("double_not_null", List.of())
+                        .hasColumn("string_not_null", List.of())
+                        .hasColumn("bytes_not_null", List.of())
+                        .hasColumn("struct_not_null", List.of())
+                        .hasColumn("uuid_not_null", List.of());
             }
         }
     }

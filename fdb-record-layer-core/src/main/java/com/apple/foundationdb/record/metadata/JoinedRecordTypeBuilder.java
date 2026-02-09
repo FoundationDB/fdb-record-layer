@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
  * A builder for {@link JoinedRecordType}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRecordTypeBuilder.JoinConstituent> {
+public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRecordTypeBuilder.JoinConstituent> {
 
     @Nonnull
     private final List<Join> joins = new ArrayList<>();

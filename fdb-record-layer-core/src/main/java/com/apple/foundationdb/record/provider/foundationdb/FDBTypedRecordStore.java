@@ -578,6 +578,19 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
             return this;
         }
 
+        @Nullable
+        @Override
+        public String getBypassFullStoreLockReason() {
+            return untypedStoreBuilder.getBypassFullStoreLockReason();
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setBypassFullStoreLockReason(@Nullable final String reason) {
+            untypedStoreBuilder.setBypassFullStoreLockReason(reason);
+            return this;
+        }
+
         @Nonnull
         @Override
         public CompletableFuture<FDBTypedRecordStore<M>> uncheckedOpenAsync() {

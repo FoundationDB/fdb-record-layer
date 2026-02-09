@@ -210,7 +210,7 @@ public class BitmapValueIndexMaintainer extends StandardIndexMaintainer {
                 // Otherwise the entry must already exist for us to be removing it,
                 // so there is no danger that this will store all (but one) ones in a new key.
                 Arrays.fill(bitmap, (byte)0xFF);
-                bitmap[offset / 8] &= ~(byte)(1 << (offset % 8));
+                bitmap[offset / 8] &= (byte)~(1 << (offset % 8));
                 state.transaction.mutate(MutationType.BIT_AND, key, bitmap);
                 Arrays.fill(bitmap, (byte)0x00);
                 state.transaction.mutate(MutationType.COMPARE_AND_CLEAR, key, bitmap);

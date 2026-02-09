@@ -31,6 +31,7 @@ import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Set;
@@ -52,7 +53,10 @@ public class ExternalServerYamlConnectionFactory implements YamlConnectionFactor
                     "rewritten", uriStr,
                     "version", externalServer.getVersion()));
         }
-        return new SimpleYamlConnection(DriverManager.getConnection(uriStr), externalServer.getVersion(), externalServer.getClusterFile());
+
+        final Connection connection = DriverManager.getConnection(uriStr);
+        externalServer.validateConnectionVersion(connection);
+        return new SimpleYamlConnection(connection, externalServer.getVersion(), externalServer.getClusterFile());
     }
 
     @Override

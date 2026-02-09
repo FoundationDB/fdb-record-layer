@@ -292,7 +292,7 @@ public class RecordCursorResult<T> {
     /**
      * An exception thrown when {@link #get()} is called on a result without a next value.
      */
-    public static class IllegalResultValueAccessException extends RecordCoreException {
+    public static final class IllegalResultValueAccessException extends RecordCoreException {
         private static final long serialVersionUID = 1;
 
         public IllegalResultValueAccessException(@Nonnull RecordCursorContinuation continuation, @Nonnull RecordCursor.NoNextReason noNextReason) {
@@ -305,7 +305,7 @@ public class RecordCursorResult<T> {
     /**
      * An exception thrown when {@link #getNoNextReason()} is called on a result that has a next value.
      */
-    public static class IllegalResultNoNextReasonAccessException extends RecordCoreException {
+    public static final class IllegalResultNoNextReasonAccessException extends RecordCoreException {
         private static final long serialVersionUID = 1;
 
         public IllegalResultNoNextReasonAccessException(@Nullable Object value, @Nonnull RecordCursorContinuation continuation) {
