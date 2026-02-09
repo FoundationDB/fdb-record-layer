@@ -418,9 +418,12 @@ test_block:
             select b.id, b.parent, a.y as level from (select parent, id from t1 use index (childIdx) where parent is not null and id is not null) as b, (select id, parent, level + 1 as y from c1) as a  where b.id = a.parent)
             traversal order pre_order
             select id, parent, level from c1
-      - supported_version: 4.7.3.0
+      - supported_version: !current_version
       - explain: "RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c24 AS LONG), [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(CHILDIDX [EQUALS q0.PARENT, [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c81 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
-      - result: []
+      - result: [{250, 50, 0},
+                 {50, 10, 1},
+                 {10, 1, 2},
+                 {1, -1, 3}]
 #    -
 # does not currently work due to bug in NLJ planning, see https://github.com/FoundationDB/fdb-record-layer/issues/2997
 #      - query: with recursive c1 as (
