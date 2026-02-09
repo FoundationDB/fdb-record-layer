@@ -264,7 +264,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      */
     @Nonnull
     public Proposition encloses(@Nonnull final RangeConstraints other, @Nonnull final EvaluationContext evaluationContext) {
-        if (!isCompileTimeEvaluable() || !other.isCompileTimeEvaluable()) {
+        if (!isCompileTimeEvaluable()) {
             return Proposition.UNKNOWN;
         } else if (evaluableRange == null) { // full range implies everything
             return Proposition.TRUE;

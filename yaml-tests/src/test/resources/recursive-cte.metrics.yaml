@@ -1,20 +1,22 @@
 recursive-cte-tests-with-hints:
 -   query: EXPLAIN with recursive c1 as ( select id, parent, 0 as level from t1 use
-        index (childIdx) where id = 250 union all select b.id, b.parent, a.y as level
-        from t1 as b use index (childIdx), (select id, parent, level + 1 as y from
-        c1) as a  where b.id = a.parent) traversal order pre_order select id, parent,
-        level from c1
-    ref: recursive-cte.yamsql:19
-    explain: 'RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c24 AS LONG)]
-        -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT,
-        @c11 AS LEVEL) } { RECURSIVE COVERING(CHILDIDX [EQUALS q0.PARENT] -> [ID:
-        KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL
-        + @c59 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)'
-    task_count: 1027
-    task_total_time_ms: 299
-    transform_count: 253
-    transform_time_ms: 148
-    transform_yield_count: 57
-    insert_time_ms: 15
-    insert_new_count: 126
-    insert_reused_count: 2
+        index (childIdx) where id = 250 and parent is not null union all select b.id,
+        b.parent, a.y as level from (select parent, id from t1 use index (childIdx)
+        where parent is not null and id is not null) as b, (select id, parent, level
+        + 1 as y from c1) as a  where b.id = a.parent) traversal order pre_order select
+        id, parent, level from c1
+    ref: recursive-cte.yamsql:18
+    explain: 'RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c24 AS LONG),
+        [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT
+        AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(CHILDIDX [EQUALS q0.PARENT,
+        [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT
+        AS PARENT, q0.LEVEL + @c81 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT,
+        _.LEVEL AS LEVEL)'
+    task_count: 660
+    task_total_time_ms: 263
+    transform_count: 197
+    transform_time_ms: 152
+    transform_yield_count: 37
+    insert_time_ms: 8
+    insert_new_count: 64
+    insert_reused_count: 0
