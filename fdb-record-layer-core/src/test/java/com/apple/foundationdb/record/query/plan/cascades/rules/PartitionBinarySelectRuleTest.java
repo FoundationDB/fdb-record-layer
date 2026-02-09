@@ -213,7 +213,8 @@ public class PartitionBinarySelectRuleTest {
 
         // Push the predicate on to the t quantifier and the predicate on g onto the g quantifier
         final Quantifier newT = forEach(selectWithPredicates(t, fieldPredicate(t, "b", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "hello"))));
-        final Quantifier newG = forEach(selectWithPredicates(g, fieldPredicate(g, "two", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "world"))));
+        final Quantifier newGLower = explodeField(newT, "g");
+        final Quantifier newG = forEach(selectWithPredicates(newGLower, fieldPredicate(newGLower, "two", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "world"))));
         final SelectExpression newJoin = join(newT, newG)
                 .addResultColumn(projectColumn(newT, "a"))
                 .addResultColumn(projectColumn(newG, "one"))
@@ -267,8 +268,10 @@ public class PartitionBinarySelectRuleTest {
         // Push the predicate on t down to t. Push the existential predicate to be on top of g
         final Quantifier newT = forEach(selectWithPredicates(t,
                 fieldPredicate(t, "b", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "hello"))));
-        final Quantifier newG = forEach(new SelectExpression(RCV_OF_ONE, ImmutableList.of(g), ImmutableList.of(new ExistsPredicate(g.getAlias()))));
+        final Quantifier newGLower = Quantifier.existential(explodeField(newT, "g").getRangesOver());
+        final Quantifier newG = forEach(new SelectExpression(RCV_OF_ONE, ImmutableList.of(newGLower), ImmutableList.of(new ExistsPredicate(newGLower.getAlias()))));
         final SelectExpression newJoin = join(newT, newG)
+                .addResultColumn(projectColumn(newT, "a"))
                 .build().buildSelect();
 
         testHelper.assertYields(join, newJoin);
@@ -312,7 +315,8 @@ public class PartitionBinarySelectRuleTest {
                 .build().buildSelect();
 
         final Quantifier newT = forEach(selectWithPredicates(t, fieldPredicate(t, "b", new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "hello"))));
-        final Quantifier newG = forEach(selectWithPredicates(g, fieldPredicate(g, "two", new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "world"))));
+        final Quantifier newGLower = explodeField(newT, "g");
+        final Quantifier newG = forEach(selectWithPredicates(newGLower, fieldPredicate(newGLower, "two", new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, "world"))));
         final SelectExpression newJoin = join(newT, newG)
                 .addResultColumn(projectColumn(newG, "one"))
                 .build().buildSelect();
