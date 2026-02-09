@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -28,8 +27,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.metadata.serde.RoutineParser;
-import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
@@ -44,17 +41,12 @@ public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
     @Nonnull
     private final SchemaTemplate template;
 
-    @Nonnull
-    private final PreparedParams preparedParams;
-
     public CreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template,
                                                  boolean throwIfExists,
-                                                 @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
-                                                 @Nonnull PreparedParams preparedParams) {
+                                                 @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
         this.template = template;
         this.throwIfExists = throwIfExists;
         this.invokedRoutine = invokedRoutine;
-        this.preparedParams = preparedParams;
     }
 
     @Override
@@ -68,18 +60,8 @@ public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
                     ErrorCode.DUPLICATE_FUNCTION, () -> "function '" + invokedRoutine.getName() + "' already exists");
         }
 
-        // this is to make the temporary function logical plan recreated upon every invocation within the same
-        // transaction.
-        // this should be simplified once https://github.com/FoundationDB/fdb-record-layer/issues/3394 is fixed.
-        final var routineBuilder = invokedRoutine.toBuilder();
-        routineBuilder
-                .withUserDefinedRoutine(isCaseSensitive ->
-                        RoutineParser.sqlFunctionParser(transactionBoundSchemaTemplate)
-                        .parseTemporaryFunction(invokedRoutine.getName(), invokedRoutine.getDescription(),
-                                PreparedParams.copyOf(preparedParams), isCaseSensitive))
-                .withSerializableFunction(new RawSqlFunction(invokedRoutine.getName(), invokedRoutine.getDescription()));
         final var schemaTemplateWithTempFunction = transactionBoundSchemaTemplate.toBuilder()
-                .replaceInvokedRoutine(routineBuilder.build()).build();
+                .replaceInvokedRoutine(invokedRoutine).build();
         txn.setBoundSchemaTemplate(schemaTemplateWithTempFunction);
     }
 }

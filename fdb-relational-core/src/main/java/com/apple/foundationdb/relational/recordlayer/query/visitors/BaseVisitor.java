@@ -43,6 +43,7 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
+import com.apple.foundationdb.relational.recordlayer.query.WindowSpecExpression;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
@@ -105,6 +106,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     private final LogicalOperatorCatalog logicalOperatorCatalog;
 
+    @SuppressWarnings("this-escape")
     public BaseVisitor(@Nonnull MutablePlanGenerationContext mutablePlanGenerationContext,
                        @Nonnull RecordLayerSchemaTemplate metadata,
                        @Nonnull DdlQueryFactory ddlQueryFactory,
@@ -130,6 +132,11 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     public MutablePlanGenerationContext getPlanGenerationContext() {
         return mutablePlanGenerationContext;
+    }
+
+    @Nonnull
+    protected IdentifierVisitor getIdentifierVisitor() {
+        return identifierVisitor;
     }
 
     @Nonnull
@@ -398,8 +405,20 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitIndexDefinition(@Nonnull RelationalParser.IndexDefinitionContext ctx) {
-        return ddlVisitor.visitIndexDefinition(ctx);
+    public RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx) {
+        return ddlVisitor.visitIndexAsSelectDefinition(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx) {
+        return ddlVisitor.visitIndexOnSourceDefinition(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public RecordLayerIndex visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext ctx) {
+        return ddlVisitor.visitVectorIndexDefinition(ctx);
     }
 
     @Override
@@ -690,9 +709,9 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return queryVisitor.visitTableSources(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
-    public LogicalOperator visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx) {
+    public Void visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx) {
         return queryVisitor.visitTableSourceBase(ctx);
     }
 
@@ -737,7 +756,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return expressionVisitor.visitInlineTableDefinition(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
         return visitChildren(ctx);
@@ -819,6 +838,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public Expression visitHavingClause(@Nonnull RelationalParser.HavingClauseContext ctx) {
         return expressionVisitor.visitHavingClause(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitQualifyClause(final RelationalParser.QualifyClauseContext ctx) {
+        return expressionVisitor.visitQualifyClause(ctx);
     }
 
     @Nonnull
@@ -1477,20 +1502,45 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Object visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx) {
-        return visitChildren(ctx);
+    public Expression visitNonAggregateFunctionCall(final RelationalParser.NonAggregateFunctionCallContext ctx) {
+        return expressionVisitor.visitNonAggregateFunctionCall(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx) {
-        return visitChildren(ctx);
+    public Expression visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx) {
+        return expressionVisitor.visitNonAggregateWindowedFunction(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public WindowSpecExpression visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx) {
+        return expressionVisitor.visitOverClause(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
+        return expressionVisitor.visitPartitionClause(ctx);
     }
 
     @Nonnull
     @Override
     public Object visitWindowName(@Nonnull RelationalParser.WindowNameContext ctx) {
         return visitChildren(ctx);
+    }
+
+
+    @Nonnull
+    @Override
+    public Expressions visitWindowOptionsClause(final RelationalParser.WindowOptionsClauseContext ctx) {
+        return expressionVisitor.visitWindowOptionsClause(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitWindowOption(final RelationalParser.WindowOptionContext ctx) {
+        return expressionVisitor.visitWindowOption(ctx);
     }
 
     @Nonnull
@@ -1675,6 +1725,18 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public Object visitExecuteContinuationStatement(@Nonnull RelationalParser.ExecuteContinuationStatementContext ctx) {
         return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public QueryPlan visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
+        return metadataPlanVisitor.visitCopyExportStatement(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public QueryPlan visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
+        return metadataPlanVisitor.visitCopyImportStatement(ctx);
     }
 
     @Nonnull

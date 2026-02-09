@@ -27,6 +27,7 @@ jacoco {
     toolVersion = libs.versions.jacoco.get()
 }
 
+// if you add to or modify these testing configurations, make sure to update the CONTRIBUTING.md to include any updates
 test {
     useJUnitPlatform {
         excludeTags 'WipesFDB'
@@ -73,6 +74,8 @@ task singleVersionTest(type: Test) {
         excludeTags 'WipesFDB'
     }
 }
+
+// if you add to or modify these testing configurations, make sure to update the CONTRIBUTING.md to include any updates
 
 def getMixedModeVersion(descriptor) {
     while (descriptor != null) {
@@ -302,6 +305,12 @@ tasks.withType(Test).configureEach { task ->
             systemProperties['tests.nightly'] = 'true'
         } else {
             task.testFramework.options.excludeTags.add('SuperSlow')
+        }
+        if (project.hasProperty('tests.ci')) {
+            systemProperties['tests.ci'] = 'true'
+        }
+        if (project.hasProperty('tests.nightly')) {
+            task.ignoreFailures = true
         }
         if (!project.hasProperty('tests.includeRandom')) {
             task.testFramework.options.excludeTags.add('Random')

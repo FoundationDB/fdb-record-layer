@@ -98,7 +98,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
                 // If this new format version is adding additional items to the store header, make sure to update the
                 // comments as to how it is being reset in the repair, even if it is not. Then update this
                 // to the new value
-                .isEqualTo(FormatVersion.STORE_LOCK_STATE);
+                .isEqualTo(FormatVersion.FULL_STORE_LOCK);
     }
 
     static Stream<Arguments> repairUpgradeFormatVersion() {
@@ -116,7 +116,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
                                     boolean supportSplitRecords, boolean leavePotentiallyCorruptIndexesReadable) {
         final RecordMetaData recordMetaData = getRecordMetaData(supportSplitRecords);
         final List<Tuple> primaryKeys = createInitialStore(oldFormatVersion, recordMetaData);
-        final List<FDBStoredRecord<Message>> originalRecords = createOriginalRecords(recordMetaData, primaryKeys);
+        final List<FDBStoredRecord<Message>> originalRecords = loadOriginalRecords(recordMetaData, primaryKeys);
         clearStoreHeader(recordMetaData);
         validateCannotOpen(recordMetaData);
 
@@ -151,7 +151,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
     void repairUserVersion(int userVersion, boolean leavePotentiallyCorruptIndexesReadable) {
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
-        final List<FDBStoredRecord<Message>> originalRecords = createOriginalRecords(recordMetaData, primaryKeys);
+        final List<FDBStoredRecord<Message>> originalRecords = loadOriginalRecords(recordMetaData, primaryKeys);
         clearStoreHeader(recordMetaData);
         validateCannotOpen(recordMetaData);
 
@@ -180,7 +180,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
 
 
         final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), metadata1);
-        final List<FDBStoredRecord<Message>> originalRecords = createOriginalRecords(metadata1, primaryKeys);
+        final List<FDBStoredRecord<Message>> originalRecords = loadOriginalRecords(metadata1, primaryKeys);
 
         clearStoreHeader(metadata1);
         validateCannotOpen(metadata1);
@@ -200,7 +200,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
     void needRebuildIndex(boolean leavePotentiallyCorruptIndexesReadable) {
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
-        final List<FDBStoredRecord<Message>> originalRecords = createOriginalRecords(recordMetaData, primaryKeys);
+        final List<FDBStoredRecord<Message>> originalRecords = loadOriginalRecords(recordMetaData, primaryKeys);
         clearStoreHeader(recordMetaData);
         validateCannotOpen(recordMetaData);
 
@@ -234,7 +234,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
     void repairUserField() {
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
-        createOriginalRecords(recordMetaData, primaryKeys);
+        loadOriginalRecords(recordMetaData, primaryKeys);
         clearStoreHeader(recordMetaData);
         validateCannotOpen(recordMetaData);
 
@@ -253,12 +253,45 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
                 recordStore -> assertEquals(value, recordStore.getHeaderUserField(key)));
     }
 
+    @Test
+    void repairIncarnation() {
+        final RecordMetaData recordMetaData = getRecordMetaData(true);
+        createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, recordMetaData, path).open();
+            assertEquals(0, recordStore.getIncarnation());
+            recordStore.updateIncarnation(current -> current + 100);
+            commit(context);
+        }
+        clearStoreHeader(recordMetaData);
+        validateCannotOpen(recordMetaData);
+
+        final int userVersion = 2;
+        try (FDBRecordContext context = openContext()) {
+            repairHeader(context, userVersion,
+                    getStoreBuilder(context, recordMetaData)
+                            .setFormatVersion(FormatVersion.getMaximumSupportedVersion()));
+            assertEquals(0, recordStore.getIncarnation());
+            recordStore.updateIncarnation(current -> current + 100);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, recordMetaData, path)
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                    .open();
+            assertEquals(100, recordStore.getIncarnation());
+            commit(context);
+        }
+    }
+
     @ParameterizedTest
     @BooleanSource("doLock")
     void repairWithRecordsAndSetRecordUpdateLock(boolean doLock) {
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
-        createOriginalRecords(recordMetaData, primaryKeys);
+        loadOriginalRecords(recordMetaData, primaryKeys);
         clearStoreHeader(recordMetaData);
         validateCannotOpen(recordMetaData);
 
@@ -301,7 +334,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
         fdb.setStoreStateCache(populatedCache);
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
-        createOriginalRecords(recordMetaData, primaryKeys);
+        loadOriginalRecords(recordMetaData, primaryKeys);
 
         FDBRecordStoreBase.UserVersionChecker userVersionChecker = setupCachedStoreState(recordMetaData);
 
@@ -355,7 +388,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
         }
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
-        createOriginalRecords(recordMetaData, primaryKeys);
+        loadOriginalRecords(recordMetaData, primaryKeys);
 
         if (cached) {
             setupCachedStoreState(recordMetaData);
@@ -395,7 +428,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
         }
         final RecordMetaData recordMetaData = metaDataBuilder.build();
         final List<Tuple> primaryKeys = createInitialStore(formatVersion, recordMetaData);
-        final List<FDBStoredRecord<Message>> originalRecords = createOriginalRecords(recordMetaData, primaryKeys);
+        final List<FDBStoredRecord<Message>> originalRecords = loadOriginalRecords(recordMetaData, primaryKeys);
         clearStoreHeader(recordMetaData);
         validateCannotOpen(recordMetaData);
 
@@ -465,7 +498,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
         }
 
         final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
-        final List<FDBStoredRecord<Message>> originalRecords = createOriginalRecords(recordMetaData, primaryKeys);
+        final List<FDBStoredRecord<Message>> originalRecords = loadOriginalRecords(recordMetaData, primaryKeys);
         rawAssertHasIndexData(recordMetaData, !removeBefore, subspaceKeys);
 
         clearStoreHeader(recordMetaData);
@@ -508,7 +541,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
     void corruptHeader() {
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
-        createOriginalRecords(recordMetaData, primaryKeys);
+        loadOriginalRecords(recordMetaData, primaryKeys);
         try (FDBRecordContext context1 = openContext()) {
             final FDBRecordStore recordStore = getStoreBuilder(context1, recordMetaData, path).createOrOpen();
             context1.ensureActive().set(recordStore.getSubspace().pack(FDBRecordStoreKeyspace.STORE_INFO.key()),
@@ -569,7 +602,6 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
     void repairWithCommitChecks(boolean leavePotentiallyCorruptIndexesReadable) {
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
-        createOriginalRecords(recordMetaData, primaryKeys);
         clearStoreHeader(recordMetaData);
         validateCannotOpen(recordMetaData);
 
@@ -599,7 +631,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
         }
     }
 
-    private List<FDBStoredRecord<Message>> createOriginalRecords(final RecordMetaData recordMetaData, final List<Tuple> primaryKeys) {
+    private List<FDBStoredRecord<Message>> loadOriginalRecords(final RecordMetaData recordMetaData, final List<Tuple> primaryKeys) {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = getStoreBuilder(context, recordMetaData, path).open();
             return primaryKeys.stream()

@@ -274,12 +274,11 @@ public class MetaDataEvolutionValidator {
         if (oldFieldDescriptor.isRequired() && !newFieldDescriptor.isRequired()) {
             throw new MetaDataException("required field is no longer required",
                     LogMessageKeys.FIELD_NAME, oldFieldDescriptor.getName());
-        } else if (oldFieldDescriptor.isOptional() && !newFieldDescriptor.isOptional()) {
-            // TODO: In theory, optional -> repeated is okay, but only if the field is not indexed
-            throw new MetaDataException("optional field is no longer optional",
-                    LogMessageKeys.FIELD_NAME, oldFieldDescriptor.getName());
         } else if (oldFieldDescriptor.isRepeated() && !newFieldDescriptor.isRepeated()) {
             throw new MetaDataException("repeated field is no longer repeated",
+                    LogMessageKeys.FIELD_NAME, oldFieldDescriptor.getName());
+        } else if (oldFieldDescriptor.hasPresence() != newFieldDescriptor.hasPresence()) {
+            throw new MetaDataException("field changed whether default values are stored if set explicitly",
                     LogMessageKeys.FIELD_NAME, oldFieldDescriptor.getName());
         }
         if (oldFieldDescriptor.getType().equals(FieldDescriptor.Type.ENUM)) {

@@ -79,7 +79,7 @@ public class KeySpacePathSerializer {
         if (data.getRemainder() != null) {
             builder.setRemainder(ByteString.copyFrom(data.getRemainder().pack()));
         }
-        builder.setValue(ByteString.copyFrom(data.getValue()));
+        builder.setValue(data.getValue());
         return builder.build();
     }
 
@@ -103,6 +103,9 @@ public class KeySpacePathSerializer {
             Object value = deserializeValue(entry);
             path.getDirectory().getSubdirectory(entry.getName()).validateValue(value);
             path = path.add(entry.getName(), value);
+        }
+        if (!path.getDirectory().isLeaf()) {
+            throw new DataNotAtLeafException(path);
         }
 
         // Extract remainder if present

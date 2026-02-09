@@ -61,6 +61,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void aliasTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("alias-tests.yamsql");
+    }
+
+    @TestTemplate
     void arrays(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("arrays.yamsql");
     }
@@ -208,6 +213,21 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void indexDdl(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl.yamsql");
+    }
+
+    @TestTemplate
+    public void indexDdlValuesOnly(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl-values-only.yamsql");
+    }
+
+    @TestTemplate
+    public void indexDdlAggregatesOnly(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl-aggregates-only.yamsql");
+    }
+
+    @TestTemplate
     public void nested(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("nested-tests.yamsql");
     }
@@ -243,6 +263,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void pseudoFieldClash(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("pseudo-field-clash.yamsql");
+    }
+
+    @TestTemplate
     public void recursiveCte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("recursive-cte.yamsql");
     }
@@ -260,6 +285,16 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void serializationOptions(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("serialization-options.yamsql");
+    }
+
+    @TestTemplate
+    public void semanticSearchTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("semantic-search.yamsql");
+    }
+
+    @TestTemplate
+    public void semanticSearchTestAdvancedMetrics(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("semantic-search-advanced-metrics.yamsql");
     }
 
     @TestTemplate
@@ -357,6 +392,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void versionsTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("versions-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void versionsWithSingleTypeTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("versions-with-single-type-tests.yamsql");
     }
 
     @TestTemplate

@@ -29,7 +29,9 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,12 +41,15 @@ import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -56,6 +61,8 @@ public final class Expressions implements Iterable<Expression> {
 
     @Nonnull
     private final List<Expression> underlying;
+
+    private final Supplier<Map<String, Integer>> countsByNameSupplier = Suppliers.memoize(this::computeCountsByName);
 
     private Expressions(@Nonnull Iterable<Expression> underlying) {
         this.underlying = ImmutableList.copyOf(underlying);
@@ -197,6 +204,13 @@ public final class Expressions implements Iterable<Expression> {
         return underlying.size();
     }
 
+    private Map<String, Integer> computeCountsByName() {
+        Map<String, Integer> countsByColumnName = new LinkedHashMap<>();
+        underlying.forEach(expression ->
+                expression.getName().ifPresent(id -> countsByColumnName.compute(id.getName(), (ignore, previous) -> previous == null ? 1 : (previous + 1))));
+        return Collections.unmodifiableMap(countsByColumnName);
+    }
+
     @Nonnull
     public Iterable<Value> underlying() {
         return Streams.stream(this).map(Expression::getUnderlying).collect(ImmutableList.toImmutableList());
@@ -207,6 +221,43 @@ public final class Expressions implements Iterable<Expression> {
         return Streams.stream(underlying()).map(Value::getResultType).collect(ImmutableList.toImmutableList());
     }
 
+    /**
+     * Returns a StructType representing the semantic types of all expressions with their field names.
+     *
+     * <p>This wraps the individual expression data types into a single StructType that is
+     * structurally equivalent to the planner's Type.Record output. The StructType includes:
+     * <ul>
+     *   <li>Field names from the expressions (handles aliases, star expansion, etc.)</li>
+     *   <li>Type structure from semantic analysis (preserves struct type names)</li>
+     * </ul>
+     *
+     * <p>This StructType can be used directly for result set metadata after enriching nested
+     * struct names from RecordMetaData descriptors.
+     *
+     * <p>Note: The StructType name is a generated UUID since this is a general-purpose method.
+     * Contexts that need a specific name (e.g., "QUERY_RESULT" for top-level queries) should
+     * wrap or recreate the StructType with an appropriate name.
+     *
+     * @return A StructType with field names and semantic types from expressions
+     */
+    @Nonnull
+    public DataType.StructType getStructType() {
+        final ImmutableList.Builder<DataType.StructType.Field> fieldsBuilder = ImmutableList.builder();
+        int index = 0;
+        for (final Expression expression : underlying) {
+            // Use expression name if available, otherwise generate a name
+            final String fieldName = expression.getName()
+                    .map(Identifier::toString)
+                    .orElse("_" + index);
+            fieldsBuilder.add(DataType.StructType.Field.from(fieldName, expression.getDataType(), index));
+            index++;
+        }
+        // Use UUID-based name since this is a general-purpose method
+        // Top-level contexts (like query results) will override with "QUERY_RESULT"
+        final String generatedName = "id" + java.util.UUID.randomUUID().toString().replace("-", "_");
+        return DataType.StructType.from(generatedName, fieldsBuilder.build(), true);
+    }
+
     @Nonnull
     public Stream<Expression> stream() {
         return underlying.stream();
@@ -214,8 +265,16 @@ public final class Expressions implements Iterable<Expression> {
 
     @Nonnull
     public Collection<Column<? extends Value>> underlyingAsColumns() {
+        Map<String, Integer> countsByName = countsByNameSupplier.get();
         return Streams.stream(this)
-                .map(expression -> Column.of(expression.getName().map(Identifier::getName), expression.getUnderlying()))
+                .map(expression -> {
+                    // Take the name from the expression if set, but return empty if there is more than one
+                    // expression with the given name
+                    Optional<String> maybeName = expression.getName()
+                            .map(Identifier::getName)
+                            .map(name -> countsByName.getOrDefault(name, 1) < 2 ? name : null);
+                    return Column.of(maybeName, expression.getUnderlying());
+                })
                 .collect(ImmutableList.toImmutableList());
     }
 

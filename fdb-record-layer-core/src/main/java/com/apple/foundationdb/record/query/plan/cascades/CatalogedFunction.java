@@ -169,6 +169,10 @@ public abstract class CatalogedFunction {
         return getDefaultValue(paramIndex).isPresent();
     }
 
+    public int getDefaultValuesCount() {
+        return parameterDefaults.size();
+    }
+
     /**
      * Validates the function invocation using named arguments. It checks whether the argument names match parameter
      * names, and that any missing parameter has a default value. It effectively leaves all the work related to handling

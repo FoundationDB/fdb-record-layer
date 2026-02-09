@@ -37,7 +37,7 @@ import java.util.Map;
 public class ContextualSQLException extends SQLException {
     private static final long serialVersionUID = 2135244094396331484L;
     @Nonnull
-    private final Map<String, Object> context;
+    private final transient Map<String, Object> context;
 
     public ContextualSQLException(String reason, String SQLState, int vendorCode) {
         super(reason, SQLState, vendorCode);

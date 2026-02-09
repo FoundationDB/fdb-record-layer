@@ -62,6 +62,7 @@ jobs:
         with:
           gradle_command: jar mixedModeTest codeCoverageReport
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
+          report_name: mixed-mode-test-reports
       # We don't commit the incremented version, but we use this to know the version when generating
       # the resulting markdown
       - name: Increment version
@@ -103,28 +104,8 @@ jobs:
         with:
           gradle_command: jar test destructiveTest codeCoverageReport
           gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly"
-      - name: Publish Test Reports
-        if: always()
-        uses: actions/upload-artifact@v4.6.0
-        with:
-          name: test-reports
-          path: |
-            test-reports/fdb-java-annotations/
-            test-reports/fdb-extensions/
-            test-reports/fdb-record-layer-core/
-            test-reports/fdb-record-layer-icu/
-            test-reports/fdb-record-layer-spatial/
-            test-reports/fdb-record-layer-lucene/
-            test-reports/fdb-record-layer-jmh/
-            test-reports/examples/
-            test-reports/fdb-relational-api/
-            test-reports/fdb-relational-core/
-            test-reports/fdb-relational-cli/
-            test-reports/fdb-relational-grpc/
-            test-reports/fdb-relational-jdbc/
-            test-reports/fdb-relational-server/
-            test-reports/yaml-tests/
-      
+          report_name: nightly-test-reports
+
       - name: Upload coverage to teamscale
         # temporary until we validate that this is working correctly
         continue-on-error: true

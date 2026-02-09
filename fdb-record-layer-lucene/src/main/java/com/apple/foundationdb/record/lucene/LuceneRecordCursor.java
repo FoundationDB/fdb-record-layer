@@ -447,7 +447,8 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private synchronized IndexReader getIndexReader() throws IOException {
-        return FDBDirectoryManager.getManager(state).getIndexReader(groupingKey, partitionId);
+        // Gets the index reader with the (potentially) added replayed documents added to it.
+        return FDBDirectoryManager.getManager(state).getIndexReaderWithReplayedQueue(groupingKey, partitionId);
     }
 
     private void maybePerformScan() throws IOException {
