@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.StoreIsFullyLockedException;
 import com.apple.foundationdb.record.StoreIsLockedForRecordUpdates;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -44,6 +45,8 @@ import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
+import org.assertj.core.api.Assumptions;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
@@ -56,7 +59,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -77,6 +79,8 @@ import static org.junit.jupiter.api.Assertions.fail;
 // the same FDB we may want to consider creating a specific ResourceLock for the MetaDataVersion.
 @Isolated
 public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTestBase {
+
+    static final String REPAIR_REASON = "Repair Reason";
 
     @Nonnull
     protected final KeySpacePath path;
@@ -105,9 +109,17 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
         return formatVersions()
                 .flatMap(oldVersion -> formatVersions().filter(newVersion -> newVersion.isAtLeast(oldVersion))
                          .flatMap(newVersion -> ParameterizedTestUtils.booleans("supportSplitRecords")
-                                .flatMap(supportSplitRecords -> ParameterizedTestUtils.booleans("leaveIndexes")
-                                        .map(leavePotentiallyCorruptIndexesReadable ->
-                                                Arguments.of(oldVersion, newVersion, supportSplitRecords, leavePotentiallyCorruptIndexesReadable)))));
+                                .flatMap(supportSplitRecords -> {
+                                    if (newVersion.isAtLeast(FormatVersion.FULL_STORE_LOCK)) {
+                                        return ParameterizedTestUtils.booleans("leaveIndexes")
+                                                .map(leavePotentiallyCorruptIndexesReadable ->
+                                                        Arguments.of(oldVersion, newVersion, supportSplitRecords, leavePotentiallyCorruptIndexesReadable));
+                                    } else {
+                                        return Stream.of(
+                                                Arguments.of(oldVersion, newVersion, supportSplitRecords,
+                                                        Named.of("!leaveIndexes", false)));
+                                    }
+                                })));
     }
 
     @ParameterizedTest
@@ -259,7 +271,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
         createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
 
         try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, recordMetaData, path).open();
+            FDBRecordStore recordStore = getStoreBuilder(context, recordMetaData, path).open();
             assertEquals(0, recordStore.getIncarnation());
             recordStore.updateIncarnation(current -> current + 100);
             commit(context);
@@ -269,7 +281,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
 
         final int userVersion = 2;
         try (FDBRecordContext context = openContext()) {
-            repairHeader(context, userVersion,
+            FDBRecordStore recordStore = repairHeader(context, userVersion,
                     getStoreBuilder(context, recordMetaData)
                             .setFormatVersion(FormatVersion.getMaximumSupportedVersion()));
             assertEquals(0, recordStore.getIncarnation());
@@ -278,7 +290,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
         }
 
         try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, recordMetaData, path)
+            FDBRecordStore recordStore = getStoreBuilder(context, recordMetaData, path)
                     .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
                     .open();
             assertEquals(100, recordStore.getIncarnation());
@@ -399,7 +411,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
             final FDBRecordStore.Builder builder = getStoreBuilder(context, recordMetaData)
                     .setFormatVersion(FormatVersion.getMaximumSupportedVersion());
             final NonnullPair<Boolean, FDBRecordStore> result = context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION,
-                    builder.repairMissingHeader(1, FormatVersion.SAVE_VERSION_WITH_RECORD, false));
+                    builder.repairMissingHeader(1, FormatVersion.SAVE_VERSION_WITH_RECORD, null));
             assertFalse(result.getLeft(), "Repairing header should have just opened it");
             commit(context);
         }
@@ -418,6 +430,10 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
     @SuppressWarnings("deprecation")
     void disableRecordCountKeyOnRepair(boolean hasRecordCountKey, FormatVersion formatVersion,
                                        boolean leavePotentiallyCorruptIndexesReadable) {
+        if (!formatVersion.isAtLeast(FormatVersion.FULL_STORE_LOCK)) {
+            Assumptions.assumeThat(leavePotentiallyCorruptIndexesReadable)
+                    .isFalse();
+        }
         // We cannot tell whether the recordCountKey had changed since the last time we did checkVersion, so
         // we can't guarantee that it is correct. If there is a RecordCountKey and we're on a new enough format version
         // we'll disable the record count key, otherwise, we'll throw an exception
@@ -454,21 +470,16 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
             }
         }
 
-        if (!leavePotentiallyCorruptIndexesReadable) {
+        if (hasRecordCountKey && !formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_STATE)) {
+            validateCannotOpen(recordMetaData);
+        } else {
+            validateRepaired(formatVersion, recordMetaData, originalRecords, leavePotentiallyCorruptIndexesReadable);
             if (hasRecordCountKey) {
-                if (formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_STATE)) {
-                    validateRepaired(formatVersion, recordMetaData, originalRecords, leavePotentiallyCorruptIndexesReadable);
-                    validateRecordCountKeyIsDisabled(formatVersion, recordMetaData);
-                } else {
-                    validateCannotOpen(recordMetaData);
-                }
+                validateRecordCountKeyIsDisabled(formatVersion, recordMetaData);
             } else {
-                validateRepaired(formatVersion, recordMetaData, originalRecords, leavePotentiallyCorruptIndexesReadable);
                 withStore(formatVersion, recordMetaData,
                         store -> assertThat(store.getRecordStoreState().getStoreHeader().hasRecordCountKey()).isFalse());
             }
-        } else {
-            validateCannotOpen(recordMetaData);
         }
     }
 
@@ -599,36 +610,77 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
 
     @ParameterizedTest
     @BooleanSource("leavePotentiallyCorruptIndexesReadable")
-    void repairWithCommitChecks(boolean leavePotentiallyCorruptIndexesReadable) {
+    void repairWithoutDisablingIndexes(final boolean leavePotentiallyCorruptIndexesReadable) {
         final RecordMetaData recordMetaData = getRecordMetaData(true);
-        final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
+        createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
         clearStoreHeader(recordMetaData);
         validateCannotOpen(recordMetaData);
 
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore.Builder builder = getStoreBuilder(context, recordMetaData)
                     .setFormatVersion(FormatVersion.getMaximumSupportedVersion());
-            repairHeader(context, 1, builder, FormatVersion.CACHEABLE_STATE, leavePotentiallyCorruptIndexesReadable);
+            final FDBRecordStore recordStore = repairHeader(context, 1, builder, FormatVersion.CACHEABLE_STATE,
+                    leavePotentiallyCorruptIndexesReadable);
 
             if (leavePotentiallyCorruptIndexesReadable) {
-                // Verify the commit check exists
-                assertThat(context.getCommitCheck(FDBRecordStore.POTENTIALLY_CORRUPTED_INDEXES_COMMIT_CHECK)).isNotNull();
-
-                // Attempting to commit should fail with the expected exception
-                CompletionException completionException = assertThrows(CompletionException.class, () -> {
-                    context.commitAsync().join();
-                });
-                assertThat(completionException.getCause()).isInstanceOf(RecordCoreException.class);
-                assertThat(completionException.getCause().getMessage())
-                        .contains("Commit failed because potentially corrupted indexes were left readable after header repair");
+                assertThat(recordStore.getRecordStoreState().getStoreHeader().getStoreLockState().getLockState())
+                        .isEqualTo(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE);
             } else {
-                // No commit check should be added when leavePotentiallyCorruptIndexesReadable is false
-                assertThat(context.getCommitCheck(FDBRecordStore.POTENTIALLY_CORRUPTED_INDEXES_COMMIT_CHECK)).isNull();
+                assertThat(recordStore.getRecordStoreState().getStoreHeader().getStoreLockState())
+                        .isEqualTo(RecordMetaDataProto.DataStoreInfo.StoreLockState.getDefaultInstance());
+            }
+            commit(context);
+        }
 
-                // Commit should succeed normally
+        final FDBRecordStore.Builder builder;
+        final List<Index> toRebuild;
+        try (FDBRecordContext context = openContext()) {
+            builder = getStoreBuilder(context, recordMetaData)
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion());
+            if (leavePotentiallyCorruptIndexesReadable) {
+                builder.setBypassFullStoreLockReason(REPAIR_REASON);
+            }
+            final FDBRecordStore recordStore = builder.open();
+            toRebuild = List.copyOf(recordStore.getAllIndexStates().keySet());
+            if (leavePotentiallyCorruptIndexesReadable) {
+                assertThat(recordStore.getAllIndexStates().values())
+                        .contains(IndexState.READABLE);
+                for (final Index index : toRebuild) {
+                    recordStore.markIndexDisabled(index);
+                }
+            } else {
+                assertThat(recordStore.getAllIndexStates())
+                        .allSatisfy((index, indexState) ->
+                                assertThat(indexState).isEqualTo(IndexState.DISABLED))
+                        .isNotEmpty();
+            }
+            commit(context);
+        }
+
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb)
+                .setRecordStoreBuilder(builder)
+                .setTargetIndexes(toRebuild)
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        if (leavePotentiallyCorruptIndexesReadable) {
+            try (FDBRecordContext context = openContext()) {
+                final FDBRecordStore recordStore = builder.setContext(context).open();
+                recordStore.clearStoreLockStateAsync();
                 commit(context);
             }
         }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = getStoreBuilder(context, recordMetaData)
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion()).open();
+            assertThat(recordStore.getAllIndexStates())
+                    .allSatisfy((index, indexState) ->
+                            assertThat(indexState).isEqualTo(IndexState.READABLE));
+        }
+
     }
 
     private List<FDBStoredRecord<Message>> loadOriginalRecords(final RecordMetaData recordMetaData, final List<Tuple> primaryKeys) {
@@ -643,13 +695,8 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
     private void commitRepair(final boolean leavePotentiallyCorruptIndexesReadable,
                               final List<FDBStoredRecord<Message>> originalRecords,
                               final FDBRecordStoreBase<Message> recordStore) {
-        if (leavePotentiallyCorruptIndexesReadable) {
-            // Verify the commit check exists but don't attempt to commit
-            validateRecords(originalRecords, recordStore);
-            assertThat(recordStore.getContext().getCommitCheck(FDBRecordStore.POTENTIALLY_CORRUPTED_INDEXES_COMMIT_CHECK)).isNotNull();
-        } else {
-            commit(recordStore.getContext());
-        }
+        validateRecords(originalRecords, recordStore);
+        commit(recordStore.getContext());
     }
 
     private void validateRepaired(final int userVersion, final RecordMetaData recordMetaData,
@@ -657,19 +704,32 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
                                   final List<FDBStoredRecord<Message>> originalRecords,
                                   boolean leavePotentiallyCorruptIndexesReadable) {
         if (leavePotentiallyCorruptIndexesReadable) {
-            // if we left the indexes readable, we won't be able to commit the repair
-            validateCannotOpen(recordMetaData);
-        } else {
+            try (FDBRecordContext context = openContext()) {
+                final FDBRecordStore.Builder builder = getStoreBuilder(context, recordMetaData, path)
+                        .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                        .setUserVersionChecker(userVersionChecker);
+                assertThrows(StoreIsFullyLockedException.class, builder::open);
+            }
+
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore recordStore = getStoreBuilder(context, recordMetaData, path)
                         .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
                         .setUserVersionChecker(userVersionChecker)
+                        .setBypassFullStoreLockReason(REPAIR_REASON)
                         .open();
-                assertEquals(userVersion, recordStore.getUserVersion());
-                validateRecords(originalRecords, recordStore);
-                validateIndexesAreDisabled(recordStore, recordMetaData);
+                disableAllIndexesAndClearLock(recordStore);
                 commit(context);
             }
+        }
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = getStoreBuilder(context, recordMetaData, path)
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                    .setUserVersionChecker(userVersionChecker)
+                    .open();
+            assertEquals(userVersion, recordStore.getUserVersion());
+            validateRecords(originalRecords, recordStore);
+            validateIndexesAreDisabled(recordStore, recordMetaData);
+            commit(context);
         }
     }
 
@@ -677,15 +737,33 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
                                   final List<FDBStoredRecord<Message>> originalRecords,
                                   boolean leavePotentiallyCorruptIndexesReadable) {
         if (leavePotentiallyCorruptIndexesReadable) {
-            // if we left the indexes readable, we won't be able to commit the repair
-            validateCannotOpen(recordMetaData);
-        } else {
-            withStore(newFormatVersion, recordMetaData,
-                    recordStore -> {
-                        validateRecords(originalRecords, recordStore);
-                        validateIndexesAreDisabled(recordStore, recordMetaData);
-                    });
+
+            try (FDBRecordContext context = openContext()) {
+                final FDBRecordStore.Builder builder = getStoreBuilder(context, recordMetaData, path)
+                        .setFormatVersion(newFormatVersion);
+                assertThrows(StoreIsFullyLockedException.class, builder::open);
+            }
+
+            try (FDBRecordContext context = openContext()) {
+                final FDBRecordStore recordStore = getStoreBuilder(context, recordMetaData, path)
+                        .setFormatVersion(newFormatVersion)
+                        .setBypassFullStoreLockReason(REPAIR_REASON)
+                        .open();
+                disableAllIndexesAndClearLock(recordStore);
+                commit(context);
+            }
         }
+        withStore(newFormatVersion, recordMetaData,
+                recordStore -> {
+                    validateRecords(originalRecords, recordStore);
+                    validateIndexesAreDisabled(recordStore, recordMetaData);
+                });
+    }
+
+    private static void disableAllIndexesAndClearLock(final FDBRecordStore recordStore) {
+        recordStore.getAllIndexStates().forEach((index, indexState) ->
+                recordStore.markIndexDisabled(index).join());
+        recordStore.clearStoreLockStateAsync();
     }
 
     private void validateRecords(final List<FDBStoredRecord<Message>> records, final FDBRecordStoreBase<Message> recordStore) {
@@ -805,10 +883,11 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
     }
 
     private FDBRecordStore repairHeader(final FDBRecordContext context, final int userVersion,
-                                 final FDBRecordStore.Builder builder, final FormatVersion minimumPossibleFormatVersion,
-                                 boolean leavePotentiallyCorruptIndexesReadable) {
+                                        final FDBRecordStore.Builder builder, final FormatVersion minimumPossibleFormatVersion,
+                                        boolean leavePotentiallyCorruptIndexesReadableReason) {
         final NonnullPair<Boolean, FDBRecordStore> result = context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION,
-                builder.repairMissingHeader(userVersion, minimumPossibleFormatVersion, leavePotentiallyCorruptIndexesReadable));
+                builder.repairMissingHeader(userVersion, minimumPossibleFormatVersion,
+                        leavePotentiallyCorruptIndexesReadableReason ? REPAIR_REASON : null));
         assertTrue(result.getLeft(), "Repairing header should have done something");
         return result.getRight();
     }

@@ -5812,7 +5812,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         /**
          * In the event that a store has been corrupted, and the header has been lost, this method can be used to open
-         * the store, and fill in the missing header; replaced by {@link #repairMissingHeader(int, FormatVersion, boolean)}.
+         * the store, and fill in the missing header; replaced by {@link #repairMissingHeader(int, FormatVersion, String)}.
          *
          * @param userVersion the user version to set in the store header
          * @param minimumPossibleFormatVersion the minimum {@link FormatVersion} that this store could have possibly
@@ -5826,7 +5826,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          */
         @API(API.Status.DEPRECATED)
         public CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(final int userVersion, FormatVersion minimumPossibleFormatVersion) {
-            return repairMissingHeader(userVersion, minimumPossibleFormatVersion, false);
+            return repairMissingHeader(userVersion, minimumPossibleFormatVersion, null);
         }
 
         /**
@@ -5844,9 +5844,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          *             Disable all indexes, since we cannot universally determine whether they have been added or
          *             changed since the store was last opened. In theory there are some situations where we could
          *             determine that the index can be marked readable for free, but this is not supported.
-         *             If {@code leavePotentiallyCorruptIndexesReadable} is {@code true} they will not be disabled.
+         *             If {@code leavePotentiallyCorruptIndexesReadableReason} is not {@code null} they will not be
+         *             disabled.
          *             This can be useful if you want to use the potentially corrupt indexes to discern information
-         *             about the corrupted records.
+         *             about the corrupted records. See the parameter documentation for more information.
          *         </li>
          *         <li>
          *             Disable the {@link RecordMetaData#getRecordCountKey()} if there is one on the metadata, because
@@ -5883,10 +5884,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * to {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX} requires storing whether the store should have the unsplit
          * suffix or not. It is probably possible for {@code repairMissingHeader} to determine what to do based on the
          * rest of the data in the store, but to keep this simple, upgrading across those versions is not supported.
-         * @param leavePotentiallyCorruptIndexesReadable if {@code true}, indexes will not be marked as disabled during
-         * repair, even though they could be corrupt. If this is false, commits will be prevented with a
-         * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext.CommitCheck} named
-         * {@link #POTENTIALLY_CORRUPTED_INDEXES_COMMIT_CHECK}.
+         * @param leavePotentiallyCorruptIndexesReadableReason if not {@code null}, indexes will not be marked as
+         * disabled during repair, even though they could be corrupt. If this is not {@code null}, the store will be
+         * locked with {@link com.apple.foundationdb.record.RecordMetaDataProto.DataStoreInfo.StoreLockState.State#FULL_STORE},
+         * and this reason as the reason. It is <em>your</em> responsibility to disable the indexes (and optionally rebuild
+         * them) before clearing the lock.
          *
          * @return a boolean indicating whether a repair needed to be done ({@code true}) or not ({@code false}) and
          * the opened store.
@@ -5894,7 +5896,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @API(API.Status.EXPERIMENTAL)
         public CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(
                 final int userVersion, @Nonnull final FormatVersion minimumPossibleFormatVersion,
-                final boolean leavePotentiallyCorruptIndexesReadable) {
+                @Nullable final String leavePotentiallyCorruptIndexesReadableReason) {
             if (!formatVersion.isAtLeast(minimumPossibleFormatVersion)) {
                 throw new RecordCoreArgumentException("minimumPossibleFormatVersion is greater than the target formatVerson")
                         .addLogInfo(LogMessageKeys.FORMAT_VERSION, minimumPossibleFormatVersion)
@@ -5910,13 +5912,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             store.getStoreStateCache().get(store, StoreExistenceCheck.NONE)
                                     .thenCompose(storeStateCacheEntry ->
                                             repairMissingHeader(userVersion, store,
-                                                    storeStateCacheEntry.getRecordStoreState().getStoreHeader(), leavePotentiallyCorruptIndexesReadable)));
+                                                    storeStateCacheEntry.getRecordStoreState().getStoreHeader(), leavePotentiallyCorruptIndexesReadableReason)));
         }
 
-        private CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(final int userVersion,
-                                                                                            @Nonnull final FDBRecordStore store,
-                                                                                            @Nonnull final RecordMetaDataProto.DataStoreInfo existing,
-                                                                                            boolean leavePotentiallyCorruptIndexesReadable) {
+        private CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(
+                final int userVersion,
+                @Nonnull final FDBRecordStore store,
+                @Nonnull final RecordMetaDataProto.DataStoreInfo existing,
+                @Nullable String leavePotentiallyCorruptIndexesReadableReason) {
             if (!existing.equals(RecordMetaDataProto.DataStoreInfo.getDefaultInstance())) {
                 return store.checkVersion(userVersionChecker, StoreExistenceCheck.ERROR_IF_NOT_EXISTS)
                         .thenApply(checkVersionDidSomething -> NonnullPair.of(false, store));
@@ -5991,14 +5994,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             //    had an older version of the index. If it wasn't readable on the current version, then
             //    leaving the index would leave it in a corrupted state.
             return bumpMetaDataVersionStamp.thenCompose(vignore -> {
-                if (leavePotentiallyCorruptIndexesReadable) {
-                    // Add a commit check that will fail if the user tries to commit with potentially corrupted indexes
-                    store.getRecordContext().addCommitCheck(POTENTIALLY_CORRUPTED_INDEXES_COMMIT_CHECK,
-                            new PreventCommitCheck(() -> new RecordCoreException(
-                                    "Commit failed because potentially corrupted indexes were left readable after header repair. " +
-                                            "The indexes should be rebuilt or verified before allowing commits.")));
-                    // Leave indexes as-is per user request
-                    return AsyncUtil.DONE;
+                if (leavePotentiallyCorruptIndexesReadableReason != null) {
+                    // Do not disable the indexes, but lock the store so that unaware code won't accidentally interact
+                    // with corrupt indexes
+                    return store.setStoreLockStateAsync(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
+                            leavePotentiallyCorruptIndexesReadableReason);
                 } else {
                     return AsyncUtil.whenAll(
                             recordMetaData.getAllIndexes().stream()
