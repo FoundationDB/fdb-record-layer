@@ -38,8 +38,8 @@ import java.util.function.Supplier;
 public class EncodedRealVector implements RealVector {
     private static final double EPS0 = 1.9d;
 
-    @Nonnull
     private final int numExBits;
+    @Nonnull
     private final int[] encoded;
     private final double fAddEx;
     private final double fRescaleEx;
