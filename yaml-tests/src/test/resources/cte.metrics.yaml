@@ -1,5 +1,6 @@
 cte-tests:
 -   query: EXPLAIN with c1 as (select col1, col2 from t1) select col1, col2 from c1
+    ref: cte.yamsql:39
     explain: 'COVERING(I1 <,> -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1
         AS COL1, _.COL2 AS COL2)'
     task_count: 267
@@ -11,6 +12,7 @@ cte-tests:
     insert_new_count: 29
     insert_reused_count: 4
 -   query: EXPLAIN select col1 from t1 where col2 < 3
+    ref: cte.yamsql:115
     explain: 'COVERING(I1 [[LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY[1], COL2:
         KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1)'
     task_count: 439
@@ -23,6 +25,7 @@ cte-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select x from (select col1 as x, col2 as y from t1) as sub where
         y < 3
+    ref: cte.yamsql:118
     explain: 'COVERING(I1 [[LESS_THAN promote(@c21 AS LONG)]] -> [COL1: KEY[1], COL2:
         KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS X)'
     task_count: 498
@@ -35,6 +38,7 @@ cte-tests:
     insert_reused_count: 5
 -   query: EXPLAIN with c1(x, y) as (select col1, col2 from t1) select x from c1 where
         y < 3
+    ref: cte.yamsql:121
     explain: 'COVERING(I1 [[LESS_THAN promote(@c24 AS LONG)]] -> [COL1: KEY[1], COL2:
         KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS X)'
     task_count: 498
@@ -45,3 +49,49 @@ cte-tests:
     insert_time_ms: 0
     insert_new_count: 56
     insert_reused_count: 5
+-   query: EXPLAIN with dept_data(dept, id, val) as (select col1 as dept, id, col2
+        as val from t1), large_vals(dept, id) as (select dept, id from dept_data where
+        val >= 6) select dept, id from large_vals
+    ref: cte.yamsql:135
+    explain: 'COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c44 AS LONG)]] -> [COL1:
+        KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS DEPT, _.ID AS ID)'
+    task_count: 524
+    task_total_time_ms: 20
+    transform_count: 124
+    transform_time_ms: 9
+    transform_yield_count: 41
+    insert_time_ms: 1
+    insert_new_count: 60
+    insert_reused_count: 5
+-   query: EXPLAIN with base_data(d, i, v) as (select col1, id, col2 from t1), filtered(d,
+        i, v) as (select d, i, v from base_data where v > 1), final_data(dept, ident)
+        as (select d, i from filtered where d = 20) select dept, ident from final_data
+    ref: cte.yamsql:144
+    explain: 'COVERING(I1 [[GREATER_THAN promote(@c43 AS LONG)]] -> [COL1: KEY:[1],
+        COL2: KEY:[0], ID: KEY:[3]]) | FILTER _.COL1 EQUALS promote(@c63 AS LONG)
+        | MAP (_.COL1 AS DEPT, _.ID AS IDENT)'
+    task_count: 693
+    task_total_time_ms: 28
+    transform_count: 161
+    transform_time_ms: 13
+    transform_yield_count: 53
+    insert_time_ms: 3
+    insert_new_count: 92
+    insert_reused_count: 11
+-   query: EXPLAIN with c1(x, y) as (select id, col1 from t1 where col2 < 3), c2(a,
+        b) as (select id, col2 from t1 where col1 = 20), combined(x1, y1, a1, b1)
+        as (select c1.x, c1.y, c2.a, c2.b from c1, c2 where c1.x < c2.a) select x1,
+        y1, a1, b1 from combined
+    ref: cte.yamsql:153
+    explain: 'ISCAN(I1 <,>) | FLATMAP q0 -> { COVERING(I1 [[LESS_THAN promote(@c19
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | FILTER q0.COL1
+        EQUALS promote(@c39 AS LONG) AND _.ID LESS_THAN q0.ID | FETCH AS q1 RETURN
+        (q1.ID AS X1, q1.COL1 AS Y1, q0.ID AS A1, q0.COL2 AS B1) }'
+    task_count: 714
+    task_total_time_ms: 33
+    transform_count: 171
+    transform_time_ms: 16
+    transform_yield_count: 52
+    insert_time_ms: 2
+    insert_new_count: 93
+    insert_reused_count: 4

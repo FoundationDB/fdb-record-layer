@@ -272,7 +272,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    LogicalOperators visitCtes(RelationalParser.CtesContext ctx);
+    Void visitCtes(RelationalParser.CtesContext ctx);
 
     @Nonnull
     @Override

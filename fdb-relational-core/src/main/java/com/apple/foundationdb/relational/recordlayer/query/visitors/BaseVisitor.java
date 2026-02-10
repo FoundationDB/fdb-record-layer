@@ -618,7 +618,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public LogicalOperators visitCtes(RelationalParser.CtesContext ctx) {
+    public Void visitCtes(RelationalParser.CtesContext ctx) {
         return queryVisitor.visitCtes(ctx);
     }
 

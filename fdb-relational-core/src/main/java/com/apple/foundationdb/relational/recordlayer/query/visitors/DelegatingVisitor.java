@@ -476,7 +476,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public LogicalOperators visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
+    public Void visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
         return getDelegate().visitCtes(ctx);
     }
 
