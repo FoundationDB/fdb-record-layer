@@ -84,14 +84,20 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public QueryPlan.LogicalQueryPlan visitSelectStatement(@Nonnull RelationalParser.SelectStatementContext ctx) {
         final var logicalOperator = parseChild(ctx);
-        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");
+        // Capture semantic type structure as StructType with field names
+        final var semanticStructType = logicalOperator.getOutput().getStructType();
+        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(),
+                getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticStructType);
     }
 
     @Nonnull
     @Override
     public QueryPlan.LogicalQueryPlan visitDmlStatement(@Nonnull RelationalParser.DmlStatementContext ctx) {
         final var logicalOperator = parseChild(ctx);
-        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");
+        // Capture semantic type structure as StructType with field names
+        final var semanticStructType = logicalOperator.getOutput().getStructType();
+        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(),
+                getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticStructType);
     }
 
     @Nonnull
@@ -216,12 +222,6 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 null :
                 visitWhereExpr(simpleTableContext.fromClause().whereExpr()));
 
-        // for now, conjunct qualify predicates (if any) with where in a single condition.
-        if (simpleTableContext.qualifyClause() != null) {
-            final var qualifyExpr = visitQualifyClause(simpleTableContext.qualifyClause());
-            where = where.map(exp -> getDelegate().resolveFunction("and", exp, qualifyExpr)).or(() -> Optional.of(qualifyExpr));
-        }
-
         for (final var expression : getDelegate().getCurrentPlanFragment().getInnerJoinExpressions()) {
             where = where.map(e -> getDelegate().resolveFunction("and", e, expression)).or(() -> Optional.of(expression));
         }
@@ -271,6 +271,13 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 orderBys = visitOrderByClauseForSelect(simpleTableContext.orderByClause(), selectExpressions);
             }
         }
+
+        // for now, conjunct qualify predicates (if any) with where in a single condition.
+        if (simpleTableContext.qualifyClause() != null) {
+            final var qualifyExpr = visitQualifyClause(simpleTableContext.qualifyClause());
+            where = where.map(exp -> getDelegate().resolveFunction("and", exp, qualifyExpr)).or(() -> Optional.of(qualifyExpr));
+        }
+
         final var outerCorrelations = getDelegate().getCurrentPlanFragment().getOuterCorrelations();
         final var result = LogicalOperator.generateSelect(selectExpressions, getDelegate().getLogicalOperators(), where, orderBys,
                 Optional.empty(), outerCorrelations, getDelegate().isTopLevel(), getDelegate().isForDdl());
@@ -586,7 +593,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     public QueryPlan.LogicalQueryPlan visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
         getDelegate().getPlanGenerationContext().setForExplain(ctx.EXPLAIN() != null);
         final var logicalOperator = Assert.castUnchecked(ctx.describeObjectClause().accept(this), LogicalOperator.class);
-        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");
+        // Capture semantic type structure as StructType with field names
+        final var semanticStructType = logicalOperator.getOutput().getStructType();
+        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(),
+                getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticStructType);
     }
 
     @Nonnull

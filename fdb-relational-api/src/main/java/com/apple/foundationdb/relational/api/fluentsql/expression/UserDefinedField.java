@@ -46,7 +46,7 @@ import java.util.stream.Stream;
  * @param <T> the type of the field.
  */
 @API(API.Status.EXPERIMENTAL)
-public class UserDefinedField<T extends DataType> implements Field<T> {
+public final class UserDefinedField<T extends DataType> implements Field<T> {
 
     @Nonnull
     private final String name;

@@ -90,7 +90,7 @@ public abstract class RecordQueryChooserPlanBase extends AbstractRelationalExpre
     }
 
     @Nonnull
-    protected Stream<RecordQueryPlan> getChildStream() {
+    protected final Stream<RecordQueryPlan> getChildStream() {
         return quantifiers.stream().map(Quantifier.Physical::getRangesOverPlan);
     }
 

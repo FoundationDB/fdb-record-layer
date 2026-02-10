@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.yamltests.AggregateResultSet;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Parameter;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
@@ -61,7 +62,8 @@ public class QueryExecutor {
 
     @Nonnull
     private final String query;
-    private final int lineNumber;
+    @Nonnull
+    private final YamlReference reference;
     // Whether to force continuations if the query does not use continuations explicitly.
     private final boolean forceContinuations;
     /**
@@ -73,23 +75,15 @@ public class QueryExecutor {
     @Nonnull
     private final List<String> setup = new ArrayList<>();
 
-    QueryExecutor(@Nonnull String query, int lineNumber) {
-        this(query, lineNumber, null);
-    }
-
-    QueryExecutor(@Nonnull String query, int lineNumber, @Nullable List<Parameter> parameters) {
-        this(query, lineNumber, parameters, false);
-    }
-
     /**
      * Constructor.
      * @param query the query to execute
-     * @param lineNumber the line number from the test script
+     * @param reference the {@link YamlReference} from the test script
      * @param parameters the parameters to bind
      * @param forceContinuations Whether to force continuations in case the query does not explicitly specify maxRows.
      */
-    QueryExecutor(@Nonnull String query, int lineNumber, @Nullable List<Parameter> parameters, boolean forceContinuations) {
-        this.lineNumber = lineNumber;
+    QueryExecutor(@Nonnull String query, @Nonnull final YamlReference reference, @Nullable List<Parameter> parameters, boolean forceContinuations) {
+        this.reference = reference;
         this.query = query;
         this.parameters = parameters;
         this.forceContinuations = forceContinuations;
@@ -153,7 +147,7 @@ public class QueryExecutor {
                                   postMetricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
             final var planFound = preMetricCollector != postMetricCollector ? postValue == 1 : postValue == preValue + 1;
             if (!planFound) {
-                reportTestFailure("‼️ Expected to retrieve the plan from the cache at line " + lineNumber);
+                reportTestFailure("‼️ Expected to retrieve the plan from the cache at " + reference);
             } else {
                 logger.debug("🎁 Retrieved the plan from the cache!");
             }
@@ -329,8 +323,8 @@ public class QueryExecutor {
                 reportTestFailure("Received continuation shouldn't be at beginning");
             }
             if (logger.isInfoEnabled()) {
-                logger.info("ignoring beginning continuation check for query '{}' at line {} (connection: {})",
-                        query, lineNumber, connection.getVersions());
+                logger.info("ignoring beginning continuation check for query '{}' at {} (connection: {})",
+                        query, reference, connection.getVersions());
             }
             return true;
         }
