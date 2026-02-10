@@ -259,11 +259,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected static final Object RECORD_VERSION_KEY = FDBRecordStoreKeyspace.RECORD_VERSION_SPACE.key();
     protected static final Object INDEX_BUILD_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.key();
 
-    /**
-     * Name for the commit check that prevents commits when potentially corrupted indexes are left readable.
-     */
-    public static final String POTENTIALLY_CORRUPTED_INDEXES_COMMIT_CHECK = "PotentiallyCorruptedIndexes";
-
     @SuppressWarnings("squid:S2386")
     @SpotBugsSuppressWarnings("MS_MUTABLE_ARRAY")
     public static final byte[] LITTLE_ENDIAN_INT64_ONE = { 1, 0, 0, 0, 0, 0, 0, 0 };
