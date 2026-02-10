@@ -1,9 +1,9 @@
 /*
- * ConflictExceptionExtension.java
+ * ExceptionContextExtension.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,18 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.test;
+package com.apple.foundationdb.relational;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.util.LoggableKeysAndValues;
 import com.google.auto.service.AutoService;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -41,17 +43,19 @@ import java.util.TreeMap;
  * Exception handler which log information from test exceptions. This will ensure that we print out any relevant
  * information contained in the log message keys.
  * <p>
+ *     This is similar to {@code ExceptionLoggingDetailsExtension} from record-layer-core but also covers the context in
+ *     {@link RelationalException}.
+ * </p>
+ * <p>
  *     This is automatically added to all tests in fdb-relational-core because we have
  *     {@code testAnnotationProcessor(libs.autoService)} in the gradle dependencies, and
  *     {@code junit.jupiter.extensions.autodetection.enabled} set to {@code true} for our testing tasks.
  * </p>
  */
 @AutoService(Extension.class)
-public class ExceptionLoggingDetailsExtension implements TestExecutionExceptionHandler {
-    @Nonnull
-    private static final Logger LOGGER = LoggerFactory.getLogger(ExceptionLoggingDetailsExtension.class);
+public class ExceptionContextExtension implements TestExecutionExceptionHandler {
+    private static final Logger LOGGER = LogManager.getLogger(ExceptionContextExtension.class);
 
-    @Nonnull
     public Map<String, Object> collectLogInfo(@Nonnull Throwable throwable) {
         Map<String, Object> combinedLogInfo = new TreeMap<>();
         Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -66,13 +70,18 @@ public class ExceptionLoggingDetailsExtension implements TestExecutionExceptionH
                     logInfo.forEach(combinedLogInfo::putIfAbsent);
                 }
             }
+            if (current instanceof RelationalException) {
+                ((RelationalException)current).getContext().forEach(combinedLogInfo::putIfAbsent);
+            } else if (current instanceof ContextualSQLException) {
+                ((ContextualSQLException)current).getContext().forEach(combinedLogInfo::putIfAbsent);
+            }
             current = seen.add(current) ? current.getCause() : null;
         }
         return combinedLogInfo;
     }
 
     @Override
-    public void handleTestExecutionException(final ExtensionContext extensionContext, final Throwable throwable) throws Throwable {
+    public void handleTestExecutionException(final ExtensionContext context, final Throwable throwable) throws Throwable {
         Map<String, Object> logInfo = collectLogInfo(throwable);
         if (!logInfo.isEmpty()) {
             KeyValueLogMessage message = KeyValueLogMessage.build("test failure exception details");
