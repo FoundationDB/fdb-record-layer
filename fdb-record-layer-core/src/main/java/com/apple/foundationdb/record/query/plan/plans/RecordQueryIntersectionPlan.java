@@ -93,7 +93,8 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
     protected final boolean reverse;
 
     @Nonnull
-    private final Supplier<Value> resultValueSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Value> resultValueSupplier = Suppliers.memoize(this::computeResultValue);
 
     protected RecordQueryIntersectionPlan(@Nonnull final PlanSerializationContext serializationContext,
                                           @Nonnull final PRecordQueryIntersectionPlan recordQueryIntersectionPlanProto) {
@@ -105,7 +106,6 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
         this.quantifiers = quantifiersBuilder.build();
         this.comparisonKeyFunction = ComparisonKeyFunction.fromComparisonKeyFunctionProto(serializationContext, Objects.requireNonNull(recordQueryIntersectionPlanProto.getComparisonKeyFunction()));
         this.reverse = recordQueryIntersectionPlanProto.getReverse();
-        this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
@@ -115,7 +115,6 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.comparisonKeyFunction = comparisonKeyFunction;
         this.reverse = reverse;
-        this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
     }
 
     @Nonnull
