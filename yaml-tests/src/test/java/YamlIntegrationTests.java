@@ -267,7 +267,6 @@ public class YamlIntegrationTests {
         runner.runYamsql("pseudo-field-clash.yamsql");
     }
 
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     @TestTemplate
     public void recursiveCte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("recursive-cte.yamsql");
