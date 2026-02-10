@@ -119,7 +119,7 @@ public class LuceneConcurrency {
     /**
      * An exception that is thrown when the async to sync operation times out.
      */
-    public static class AsyncToSyncTimeoutException extends RecordCoreTimeoutException {
+    public static final class AsyncToSyncTimeoutException extends RecordCoreTimeoutException {
         private static final long serialVersionUID = -1L;
 
         public AsyncToSyncTimeoutException(final String message, final Throwable cause) {
