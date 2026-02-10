@@ -125,6 +125,9 @@ message DataStoreInfo {
       // point of view - becomes a read-only store, while indexes and other internal metadata can still be modified.
       // This type of lock may be useful in some extreme cases, such as recovery.
       FORBID_RECORD_UPDATE = 1;
+      // In this state the the store may not be opened unless the builder is provided with an override to the lock,
+      // including the expected current state and reason.
+      FULL_STORE = 2;
     }
     optional State lock_state = 1;
     optional string reason = 2;

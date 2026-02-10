@@ -101,6 +101,7 @@ public class UpdateStatementImpl implements UpdateStatement {
 
     private final boolean caseSensitive;
 
+    @SuppressWarnings("this-escape")
     public UpdateStatementImpl(@Nonnull Table table,
                                @Nonnull final String originalTableName,
                                @Nonnull Map<Field<?>, Expression<?>> setClauses,
@@ -501,7 +502,7 @@ public class UpdateStatementImpl implements UpdateStatement {
             }
         }
 
-        public static class CustomSimpleId extends RelationalParser.UidContext {
+        public static final class CustomSimpleId extends RelationalParser.UidContext {
 
             public CustomSimpleId(ParserRuleContext parent, int invokingState, @Nonnull final String name) {
                 super(parent, invokingState);

@@ -53,14 +53,12 @@ class QueryPlanTest {
      */
     @Test
     void continuedPhysicalQueryPlanWithExecutionContextReturnsSameInstance() {
-        // Create minimal mocks to construct a ContinuedPhysicalQueryPlan
-        final RecordQueryPlan mockRecordQueryPlan = Mockito.mock(RecordQueryPlan.class);
-        final Type.Relation mockRelation = Mockito.mock(Type.Relation.class);
         final Type.Record mockRecord = Type.Record.fromFields(ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("test_field"))));
-
+        final Type.Relation mockRelation = new Type.Relation(mockRecord);
+        // Create minimal mock to construct a ContinuedPhysicalQueryPlan
+        final RecordQueryPlan mockRecordQueryPlan = Mockito.mock(RecordQueryPlan.class);
         Mockito.when(mockRecordQueryPlan.getResultType()).thenReturn(mockRelation);
-        Mockito.when(mockRelation.getInnerType()).thenReturn(mockRecord);
 
         final TypeRepository typeRepository = TypeRepository.newBuilder().build();
         final QueryPlanConstraint constraint = QueryPlanConstraint.noConstraint();

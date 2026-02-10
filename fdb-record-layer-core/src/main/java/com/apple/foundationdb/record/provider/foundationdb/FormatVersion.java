@@ -162,6 +162,15 @@ public enum FormatVersion implements Comparable<FormatVersion> {
      * @see RecordMetaDataProto.DataStoreInfo#getIncarnation()
      */
     INCARNATION(13),
+    /**
+     * This FormatVersion changes the behavior of {@link RecordMetaDataProto.DataStoreInfo.StoreLockState} such that
+     * unknown {@linkplain RecordMetaDataProto.DataStoreInfo.StoreLockState.State}s will prevent the store from being
+     * opened. This should allow future {@linkplain RecordMetaDataProto.DataStoreInfo.StoreLockState.State}s to be added
+     * without a new {@code FormatVersion}, since an unknown {@code State} will have the same behavior as an unknown
+     * {@code FormatVersion}.
+     * This version also introduces {@linkplain RecordMetaDataProto.DataStoreInfo.StoreLockState.State#FULL_STORE}.
+     */
+    FULL_STORE_LOCK(14)
     ;
 
     private final int value;
