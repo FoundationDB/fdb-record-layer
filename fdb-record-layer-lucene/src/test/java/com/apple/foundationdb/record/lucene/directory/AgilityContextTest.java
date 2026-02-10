@@ -123,7 +123,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     }
 
     private void agilityContextTestSingleThread(int loop, int i, AgilityContext agilityContext, boolean explicityFlush) throws ExecutionException, InterruptedException {
-        byte[] key = getSubspace(agilityContext, path).pack(Tuple.from(500, loop, i));
+        byte[] key = getSubspace(agilityContext).pack(Tuple.from(500, loop, i));
         byte[] val = Tuple.from(loop, i).pack();
 
         agilityContext.set(key, val);
@@ -141,18 +141,17 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Utility to create a subspace from an AgilityContext.
-     * This is similar to currentPath.toSubspace(context), except that it uses the agility context instead of the caller
+     * Utility to create a subspace from an AgilityContext and path.
+     * This is similar to path.toSubspace(context), except that it uses the agility context instead of the caller
      * context
      *
      * @param agilityContext the agility context to use
-     * @param currentPath the path to convert
      *
      * @return the produced subspace
      */
-    private Subspace getSubspace(final AgilityContext agilityContext, final KeySpacePath currentPath) {
+    private Subspace getSubspace(final AgilityContext agilityContext) {
         return agilityContext
-                .apply(context -> CompletableFuture.completedFuture(currentPath.toSubspace(context)))
+                .apply(context -> CompletableFuture.completedFuture(path.toSubspace(context)))
                 .join();
     }
 
@@ -688,7 +687,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 if (threadNum < numWriters) {
                     try (FDBRecordContext context = openContext()) {
                         final AgilityContext agilityContext = getAgilityContext(context, contextType);
-                        final Subspace subspace = getSubspace(agilityContext, path);
+                        final Subspace subspace = getSubspace(agilityContext);
                         agilityContext.accept(aContext -> {
                             for (int j = 0; j < 5; j++) {
                                 final Transaction tr = aContext.ensureActive();
@@ -704,7 +703,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                     napTime(3);
                     try (FDBRecordContext context = openContext()) {
                         final AgilityContext agilityContext = getAgilityContext(context, contextType);
-                        final Subspace subspace = getSubspace(agilityContext, path);
+                        final Subspace subspace = getSubspace(agilityContext);
                         agilityContext.accept(aContext -> {
                             long[] values = new long[5];
                             final Transaction tr = aContext.ensureActive();
