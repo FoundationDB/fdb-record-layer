@@ -840,8 +840,6 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
                     FDBRecordStoreKeyspace.INDEX_STATE_SPACE,
                     FDBRecordStoreKeyspace.INDEX_UNIQUENESS_VIOLATIONS_SPACE);
 
-            final List<KeyValue> allData = context.ensureActive().getRange(recordStore.getSubspace().range()).asList().join();
-
             final List<KeyValue> actual = subspaces.stream().flatMap(subspace ->
                     subspaceKeys.stream().flatMap(indexSubspace -> {
                         if (subspace == FDBRecordStoreKeyspace.INDEX_STATE_SPACE) {
