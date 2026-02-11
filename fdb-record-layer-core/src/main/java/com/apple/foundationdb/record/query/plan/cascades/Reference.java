@@ -575,7 +575,7 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     /**
-     * Re-reference final members of this group, i.e., use a subset of members to from a new {@link Reference}.
+     * Re-reference final members of this group, i.e., use a subset of members to form a new {@link Reference}.
      * Note that {@code this} group must not need exploration.
      *
      * @param expressions a collection of expressions that all have to be members of this group
