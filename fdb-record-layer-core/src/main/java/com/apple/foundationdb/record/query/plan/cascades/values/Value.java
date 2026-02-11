@@ -581,7 +581,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         final var matchedValuesMap = resultPair.getRight();
         final var resultsMapBuilder = ImmutableMultimap.<Value, Value>builder();
         for (final var toBePulledUpValue : toBePulledUpValues) {
-            matchedValuesMap.getOrDefault(toBePulledUpValue, ImmutableList.of())
+            matchedValuesMap.get(toBePulledUpValue)
                     .forEach(compensation -> resultsMapBuilder.put(toBePulledUpValue,
                             compensation.compensate(QuantifiedObjectValue.of(upperBaseAlias, this.getResultType()))));
         }

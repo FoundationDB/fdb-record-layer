@@ -487,8 +487,9 @@ public interface MatchInfo {
             final var queryExpression = partialMatch.getQueryExpression();
             final var resultValue = queryExpression.getResultValue();
             final var groupByMappings = matchInfo.getGroupByMappings();
-            final var constantAliases = Sets.difference(resultValue.getCorrelatedTo(),
-                    queryExpression.getCorrelatedTo());
+            final var constantAliases =
+                    Sets.intersection(resultValue.getCorrelatedTo(),
+                            queryExpression.getCorrelatedTo());
             final var matchedGroupingsMap =
                     pullUpMatchedValueMap(partialMatch, groupByMappings.getMatchedGroupingsMap(), resultValue,
                             queryAlias, candidateAlias, constantAliases);

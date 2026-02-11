@@ -37,10 +37,10 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
@@ -59,7 +59,6 @@ import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * This class captures an ordering property.
@@ -307,6 +306,10 @@ public class Ordering {
      *         partially ordered set:
      *             members: a, b, x, c, d, e
      *             dependencies: a ← c, b ← c, c ← d, e ← d, x ← d
+     *             graph: a ←  c ←- d
+     *                    b ←-/    /
+     *                    e ←-----/
+     *                    x ←----/
      *         bindings a↑, b↑, x↑, c↑, d↑, e↑
      *
      *     It should be possible to satisfy the requested ordering from the induced sub-poset of the original partially
@@ -339,11 +342,13 @@ public class Ordering {
                 return false;
             }
         }
-        final var requestedValuesSet = ImmutableSet.copyOf(requestedOrdering.getOrderingParts().stream().map(OrderingPart::getValue).iterator());
+        final var requestedValuesSet =
+                ImmutableSet.copyOf(requestedOrdering.getOrderingValues());
+
         return !Iterables.isEmpty(
                 TopologicalSort.satisfyingPermutations(
                         getOrderingSet().filterElements(requestedValuesSet::contains),
-                        requestedOrdering.getOrderingParts().stream().map(OrderingPart::getValue).collect(Collectors.toList()),
+                        ImmutableList.copyOf(requestedOrdering.getOrderingValues()),
                         Function.identity(),
                         permutation -> requestedOrdering.getOrderingParts().size()));
     }
@@ -381,7 +386,6 @@ public class Ordering {
             return ImmutableList.of();
         }
 
-        final var requestedOrderingValuesMapBuilder = ImmutableMap.<Value, RequestedOrderingPart>builder();
         for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
             if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
                 return ImmutableList.of();
@@ -391,14 +395,12 @@ public class Ordering {
             if (!sortOrder.isCompatibleWithRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
                 return ImmutableList.of();
             }
-            requestedOrderingValuesMapBuilder.put(requestedOrderingPart.getValue(), requestedOrderingPart);
         }
-        final var requestedOrderingValuesMap = requestedOrderingValuesMapBuilder.build();
 
         final var satisfyingValuePermutations =
                 TopologicalSort.satisfyingPermutations(
                         getOrderingSet(),
-                        ImmutableList.copyOf(requestedOrderingValuesMap.keySet()),
+                        ImmutableList.copyOf(requestedOrdering.getOrderingValues()),
                         Function.identity(),
                         permutation -> requestedOrdering.getOrderingParts().size());
         return Iterables.transform(satisfyingValuePermutations,
@@ -424,6 +426,10 @@ public class Ordering {
      *         partially ordered set:
      *             members: a, b, x, c, d, e
      *             dependencies: a ← c, b ← c, c ← d, e ← d, x ← d
+     *             graph: a ←  c ←- d
+     *                    b ←-/    /
+     *                    e ←-----/
+     *                    x ←----/
      *         bindings a↑, b↑, x↑, c↑, d↑, e↑
      *
      *     It should be possible to satisfy {a, c, e} as a and e are independent and c depends on a.
@@ -453,7 +459,8 @@ public class Ordering {
                 })) {
             return false;
         }
-        final var permutations = TopologicalSort.topologicalOrderPermutations(getOrderingSet().filterElements(requestedGroupingValues::contains));
+        final var permutations =
+                TopologicalSort.topologicalOrderPermutations(getOrderingSet().filterElements(requestedGroupingValues::contains));
         for (final var permutation : permutations) {
             final var satisfies = permutation.size() >= requestedGroupingValues.size() &&
                     requestedGroupingValues.containsAll(permutation.subList(0, requestedGroupingValues.size()));
@@ -510,13 +517,15 @@ public class Ordering {
                                         value.pushDown(toBePushedValues,
                                                 DefaultValueSimplificationRuleSet.instance(), evaluationContext,
                                                 aliasMap, constantAliases, Quantifier.current());
-                                final var resultMapBuilder = ImmutableMultimap.<Value, Value>builder();
+                                final var resultMap =
+                                        Multimaps.<Value, Value>newListMultimap(new LinkedIdentityMap<>(),
+                                                Lists::newArrayList);
                                 for (int i = 0; i < toBePushedValues.size(); i++) {
                                     final Value toBePushedValue = toBePushedValues.get(i);
                                     final Value pushedValue = Objects.requireNonNull(pushedDownValues.get(i));
-                                    resultMapBuilder.put(toBePushedValue, pushedValue);
+                                    resultMap.put(toBePushedValue, pushedValue);
                                 }
-                                return resultMapBuilder.build();
+                                return resultMap;
                             });
             pushedBindingMapBuilder.putAll(entry.getKey(), pushedBindings);
         }

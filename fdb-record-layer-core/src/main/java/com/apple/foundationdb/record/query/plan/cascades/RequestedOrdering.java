@@ -120,6 +120,11 @@ public class RequestedOrdering {
         return orderingParts;
     }
 
+    @Nonnull
+    public Iterable<Value> getOrderingValues() {
+        return () -> getOrderingParts().stream().map(OrderingPart::getValue).iterator();
+    }
+
     /**
      * Returns a map from {@link Value} to {@link RequestedSortOrder}. It is meant for quick lookups of the
      * sort order of a given value.

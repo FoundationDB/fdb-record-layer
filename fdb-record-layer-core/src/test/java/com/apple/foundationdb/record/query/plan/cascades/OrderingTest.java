@@ -424,7 +424,13 @@ class OrderingTest {
         final var e = ValueTestHelpers.field(qov, "e");
         final var x = ValueTestHelpers.field(qov, "x");
 
+        //
         // a < c, b < c, c < d, e < d, x < d
+        // graph: a ←  c ←- d
+        //        b ←-/    /
+        //        e ←-----/
+        //        x ←----/
+        //
         final var ordering = Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
                         b, ProvidedSortOrder.ASCENDING,
                         c, ProvidedSortOrder.ASCENDING,
@@ -518,7 +524,13 @@ class OrderingTest {
         final var e = ValueTestHelpers.field(qov, "e");
         final var x = ValueTestHelpers.field(qov, "x");
 
+        //
         // a < c, b < c, c < d, e < d, x < d
+        // graph: a ←  c ←- d
+        //        b ←-/    /
+        //        e ←-----/
+        //        x ←----/
+        //
         final var ordering = Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
                         b, ProvidedSortOrder.ASCENDING,
                         c, ProvidedSortOrder.ASCENDING,

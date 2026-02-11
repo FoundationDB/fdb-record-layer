@@ -26,10 +26,12 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Multimaps;
 
 import javax.annotation.Nonnull;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -40,7 +42,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, List<ValueCompensation>>, Value> {
+public class MatchValueRule extends ValueComputationRule<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>, Value> {
     @Nonnull
     private static final BindingMatcher<Value> rootMatcher = anyValue();
 
@@ -55,23 +57,25 @@ public class MatchValueRule extends ValueComputationRule<Iterable<? extends Valu
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, List<ValueCompensation>>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>> call) {
         final var bindings = call.getBindings();
         final var value = bindings.get(rootMatcher);
 
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
-        final var newMatchedValuesMap = new LinkedIdentityMap<Value, List<ValueCompensation>>();
+        final var newMatchedValuesMap =
+                Multimaps.<Value, ValueCompensation>newListMultimap(new LinkedIdentityMap<>(), Lists::newArrayList);
 
         final var resultPair = call.getResult(value);
-        final var matchedValuesMap = resultPair == null ? null : resultPair.getRight();
-        if (matchedValuesMap != null) {
-            newMatchedValuesMap.putAll(matchedValuesMap);
-        }
+        final var matchedValuesMap =
+                resultPair == null
+                ? ImmutableListMultimap.<Value, ValueCompensation>of() : resultPair.getRight();
+        newMatchedValuesMap.putAll(matchedValuesMap);
 
         for (final var toBePulledUpValue : toBePulledUpValues) {
             if (!(toBePulledUpValue instanceof FieldValue)) {
                 if (value.semanticEquals(toBePulledUpValue, call.getEquivalenceMap())) {
-                    newMatchedValuesMap.put(toBePulledUpValue, ImmutableList.of(ValueCompensation.noCompensation()));
+                    newMatchedValuesMap.replaceValues(toBePulledUpValue,
+                            ImmutableList.of(ValueCompensation.noCompensation()));
                 }
             }
         }
