@@ -42,10 +42,12 @@ public abstract class AbstractRealVector implements RealVector {
     final double[] data;
 
     @Nonnull
-    protected Supplier<Integer> hashCodeSupplier;
+    @SuppressWarnings("this-escape")
+    protected Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
     @Nonnull
-    private final Supplier<byte[]> toRawDataSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<byte[]> toRawDataSupplier = Suppliers.memoize(this::computeRawData);
 
     /**
      * Constructs a new RealVector with the given data.
@@ -59,8 +61,6 @@ public abstract class AbstractRealVector implements RealVector {
      */
     protected AbstractRealVector(@Nonnull final double[] data) {
         this.data = data;
-        this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
-        this.toRawDataSupplier = Suppliers.memoize(this::computeRawData);
     }
 
     /**

@@ -34,7 +34,7 @@ public class PrettyExplainFormatter extends DefaultExplainFormatter {
     private final boolean useOptionalLineBreaks;
     private int indentationLevel;
 
-    public PrettyExplainFormatter(@Nonnull final Supplier<ExplainSymbolMap> symbolMapSupplier,
+    private PrettyExplainFormatter(@Nonnull final Supplier<ExplainSymbolMap> symbolMapSupplier,
                                   final boolean useOptionalLineBreaks) {
         super(symbolMapSupplier);
         this.useOptionalLineBreaks = useOptionalLineBreaks;
@@ -105,8 +105,17 @@ public class PrettyExplainFormatter extends DefaultExplainFormatter {
     }
 
     @Nonnull
+    public static PrettyExplainFormatter forExplainPlan() {
+        final PrettyExplainFormatter formatter = new PrettyExplainFormatter(ExplainSelfContainedSymbolMap::new, true);
+        formatter.register();
+        return formatter;
+    }
+
+    @Nonnull
     public static PrettyExplainFormatter forDebugging() {
-        return new PrettyExplainFormatter(DefaultExplainSymbolMap::new, false);
+        final PrettyExplainFormatter formatter = new PrettyExplainFormatter(DefaultExplainSymbolMap::new, false);
+        formatter.register();
+        return formatter;
     }
 
     /**
