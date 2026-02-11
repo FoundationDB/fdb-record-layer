@@ -212,14 +212,14 @@ semantic-search-queries:
         [EQUALS q1.ZONE, EQUALS q1.BOOKSHELF]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL q1.EMBEDDING:
         @c95}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWID AS REVIEWID,
         q0.RATING AS RATING, q2.DOCID AS DOCID, q2.TITLE AS TITLE) }'
-    task_count: 1535
-    task_total_time_ms: 74
-    transform_count: 690
-    transform_time_ms: 37
-    transform_yield_count: 121
+    task_count: 1454
+    task_total_time_ms: 61
+    transform_count: 693
+    transform_time_ms: 30
+    transform_yield_count: 112
     insert_time_ms: 4
-    insert_new_count: 130
-    insert_reused_count: 45
+    insert_new_count: 120
+    insert_reused_count: 47
 -   query: EXPLAIN select r.reviewText, d2.title from reviews r join documents d1
         on r.zone = d1.zone and r.docId = d1.docId join documents d2 on d2.zone =
         d1.zone and d2.bookshelf = 'fiction' where r.rating >= 5 qualify row_number()
@@ -232,14 +232,14 @@ semantic-search-queries:
         [EQUALS q1.ZONE, EQUALS promote(@c47 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL
         q1.EMBEDDING: @c86}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWTEXT
         AS REVIEWTEXT, q2.TITLE AS TITLE) }'
-    task_count: 1820
-    task_total_time_ms: 101
-    transform_count: 847
-    transform_time_ms: 44
-    transform_yield_count: 137
-    insert_time_ms: 9
-    insert_new_count: 147
-    insert_reused_count: 72
+    task_count: 1672
+    task_total_time_ms: 66
+    transform_count: 808
+    transform_time_ms: 29
+    transform_yield_count: 126
+    insert_time_ms: 7
+    insert_new_count: 134
+    insert_reused_count: 73
 -   query: EXPLAIN select r.reviewId, d2.docId, d2.title from reviews r join documents
         d1 on r.zone = d1.zone and r.docId = d1.docId join documents d2 on d2.zone
         = d1.zone and d2.bookshelf = 'science' where r.zone = 'zone1' qualify row_number()
@@ -253,14 +253,14 @@ semantic-search-queries:
         AS STRING) AND _.DOCID EQUALS q0.DOCID AS q2 RETURN (q2 AS _0, q1 AS _1) }
         AS q3 RETURN (q3._0.REVIEWID AS REVIEWID, q3._1.DOCID AS DOCID, q3._1.TITLE
         AS TITLE) }'
-    task_count: 1521
-    task_total_time_ms: 60
-    transform_count: 686
-    transform_time_ms: 31
-    transform_yield_count: 125
-    insert_time_ms: 4
-    insert_new_count: 124
-    insert_reused_count: 43
+    task_count: 1451
+    task_total_time_ms: 53
+    transform_count: 690
+    transform_time_ms: 23
+    transform_yield_count: 116
+    insert_time_ms: 3
+    insert_new_count: 114
+    insert_reused_count: 45
 -   query: EXPLAIN select docId, title, euclidean_distance(embedding, ?) from multiTypePartitionDocs
         where zoneId = 1 and bookshelf = 'fiction' qualify row_number() over (partition
         by zoneId, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1

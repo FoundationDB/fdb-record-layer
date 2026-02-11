@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.exists;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldPredicate;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldValue;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
@@ -45,8 +46,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.b
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseTau;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.explodeField;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.join;
+import static org.assertj.core.api.Assertions.assertThat;
 
-public class PartitionBinarySelectRuleTest {
+class PartitionBinarySelectRuleTest {
     // Single RCV containing a single column. Values of this sort are inserted by the rule of predicates are pushed down
     // into a rule when the final result value isn't used later
     private static final Value RCV_OF_ONE = RecordConstructorValue.ofUnnamed(ImmutableList.of(LiteralValue.ofScalar(1)));
@@ -173,21 +175,54 @@ public class PartitionBinarySelectRuleTest {
         final SelectExpression join = join(t, tau)
                 .addResultColumn(projectColumn(t, "a"))
                 .addPredicate(joinPredicate)
+                .addPredicate(fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
+                .addPredicate(fieldPredicate(tau, "gamma", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
-        // Join criterion pushed to t
-        final Quantifier newT = forEach(selectWithPredicates(t, joinPredicate));
-        final SelectExpression newJoin1 = join(newT, tau)
-                .addResultColumn(projectColumn(newT, "a"))
+        // Join criterion pushed to t. Tau does not participate in the result value, but it does appear in the join predicate,
+        // so we need tau to be projected
+        final Quantifier newTau1 = forEach(selectWithPredicates(tau, fieldPredicate(tau, "gamma", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))));
+        final Quantifier newT1 = forEach(selectWithPredicates(t,
+                fieldPredicate(t, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newTau1, "beta"))),
+                fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))));
+        final SelectExpression newJoin1 = join(newT1, newTau1)
+                .addResultColumn(projectColumn(newT1, "a"))
                 .build().buildSelect();
 
-        // Join criterion pushed to tau. As tau does not appear in the result value, the value 1 is projected
-        final Quantifier newTau = forEach(new SelectExpression(RCV_OF_ONE, ImmutableList.of(tau), ImmutableList.of(joinPredicate)));
-        final SelectExpression newJoin2 = join(t, newTau)
-                .addResultColumn(projectColumn(t, "a"))
+        // Join criterion pushed to tau. Tau does not participate in the result value or any predicate on t, so it _could_ be
+        // replaced to project 1, though it's not a problem if it doesn't
+        final Quantifier newT2 = forEach(selectWithPredicates(t,
+                fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))));
+        final Quantifier newTau2 = forEach(selectWithPredicates(tau,
+                fieldPredicate(newT2, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tau, "beta"))),
+                fieldPredicate(tau, "gamma", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))));
+        final SelectExpression newJoin2 = join(newT2, newTau2)
+                .addResultColumn(projectColumn(newT2, "a"))
                 .build().buildSelect();
 
         testHelper.assertYields(join, newJoin1, newJoin2);
+    }
+
+    @Test
+    void partitionUncorrelatedExistential() {
+        final Quantifier t = baseT();
+        final Quantifier lowerTau = baseTau();
+        final Quantifier tau = exists(selectWithPredicates(lowerTau, fieldPredicate(lowerTau, "beta", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
+
+        final SelectExpression join = join(t, tau)
+                .addResultColumn(projectColumn(t, "a"))
+                .addPredicate(new ExistsPredicate(tau.getAlias()))
+                .addPredicate(fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
+                .build().buildSelect();
+
+        // Partition predicates to the two sides
+        final Quantifier newT = forEach(selectWithPredicates(t, fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))));
+        final Quantifier newTau = forEach(new SelectExpression(RCV_OF_ONE, ImmutableList.of(tau), ImmutableList.of(new ExistsPredicate(tau.getAlias()))));
+        final SelectExpression newJoin = join(newT, newTau)
+                .addResultColumn(projectColumn(newT, "a"))
+                .build().buildSelect();
+
+        testHelper.assertYields(join, newJoin);
     }
 
     //
@@ -278,6 +313,36 @@ public class PartitionBinarySelectRuleTest {
     }
 
     @Test
+    void partitionPredicateWhereCorrelationComesBelowExists() {
+        final Quantifier t = baseT();
+
+        final Quantifier lowerTau = baseTau();
+        final Quantifier tau = exists(selectWithPredicates(lowerTau,
+                fieldPredicate(lowerTau, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t, "b")))));
+        // Validate that the tau is correlated to t because of the predicate (not because it's an ExplodeExpression, like the other test cases)
+        assertThat(tau.isCorrelatedTo(t.getAlias()))
+                .isTrue();
+
+        final SelectExpression join = join(t, tau)
+                .addResultColumn(projectColumn(t, "a"))
+                .addPredicate(new ExistsPredicate(tau.getAlias()))
+                .addPredicate(fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.IS_NULL)))
+                .build().buildSelect();
+
+        // Nothing to be done except push the predicates to each side
+        final Quantifier newT = forEach(selectWithPredicates(t, fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
+        final Quantifier newMiddleTau = exists(selectWithPredicates(lowerTau,
+                fieldPredicate(lowerTau, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newT, "b")))));
+        final Quantifier newTau = forEach(new SelectExpression(RCV_OF_ONE, ImmutableList.of(newMiddleTau), ImmutableList.of(new ExistsPredicate(newMiddleTau.getAlias()))));
+
+        final SelectExpression newJoin = join(newT, newTau)
+                .addResultColumn(projectColumn(newT, "a"))
+                .build().buildSelect();
+
+        testHelper.assertYields(join, newJoin);
+    }
+
+    @Test
     void partitionSelectWhenResultValueComesFromRecordWithExplode() {
         // Partition a binary join when there is an explode, and the exploded value does not contribute to the
         // final result value. In this case, we will insert an RCV of one as the result value when
@@ -289,12 +354,18 @@ public class PartitionBinarySelectRuleTest {
         final SelectExpression join = join(t, g)
                 .addResultColumn(projectColumn(t, "a"))
                 .addPredicate(joinPredicate)
+                .addPredicate(fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.IS_NULL)))
+                .addPredicate(fieldPredicate(g, "three", new Comparisons.NullComparison(Comparisons.Type.IS_NULL)))
                 .build().buildSelect();
 
         // Predicate gets pushed down onto the g field.
-        final Quantifier newG = forEach(new SelectExpression(RCV_OF_ONE, ImmutableList.of(g), ImmutableList.of(joinPredicate)));
-        final SelectExpression newJoin = join(t, newG)
-                .addResultColumn(projectColumn(t, "a"))
+        final Quantifier newT = forEach(selectWithPredicates(t, fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
+        final Quantifier newGLower = explodeField(newT, "g");
+        final Quantifier newG = forEach(selectWithPredicates(newGLower,
+                fieldPredicate(newT, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newGLower, "two"))),
+                fieldPredicate(newGLower, "three", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
+        final SelectExpression newJoin = join(newT, newG)
+                .addResultColumn(projectColumn(newT, "a"))
                 .build().buildSelect();
 
         testHelper.assertYields(join, newJoin);

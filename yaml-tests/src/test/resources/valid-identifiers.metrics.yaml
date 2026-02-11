@@ -59,14 +59,14 @@ all-tests:
     ref: valid-identifiers.yamsql:179
     explain: SCAN(<,>) | TFILTER foo__2table__1repeated | FILTER @c8 IN _.field.1$array
         | MAP (_.ID AS ID)
-    task_count: 404
-    task_total_time_ms: 15
-    transform_count: 121
-    transform_time_ms: 8
-    transform_yield_count: 27
-    insert_time_ms: 1
-    insert_new_count: 38
-    insert_reused_count: 4
+    task_count: 371
+    task_total_time_ms: 9
+    transform_count: 118
+    transform_time_ms: 4
+    transform_yield_count: 25
+    insert_time_ms: 0
+    insert_new_count: 35
+    insert_reused_count: 5
 -   query: EXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where
         exists (select 1 from "foo.table$repeated"."field.1$array" r where r = 'foo')
     ref: valid-identifiers.yamsql:184
@@ -85,14 +85,14 @@ all-tests:
     ref: valid-identifiers.yamsql:191
     explain: SCAN(<,>) | TFILTER foo__2table__1repeated | FILTER promote(@c10 AS LONG)
         IN _.field.0$array | MAP (_.field.1$array AS field.1$array)
-    task_count: 404
-    task_total_time_ms: 10
-    transform_count: 121
-    transform_time_ms: 5
-    transform_yield_count: 27
+    task_count: 371
+    task_total_time_ms: 21
+    transform_count: 118
+    transform_time_ms: 9
+    transform_yield_count: 25
     insert_time_ms: 0
-    insert_new_count: 38
-    insert_reused_count: 4
+    insert_new_count: 35
+    insert_reused_count: 5
 -   query: EXPLAIN select t."field.1$array" from "foo.table$repeated" as t where exists
         (select 1 from t."field.0$array" r where r = 3)
     ref: valid-identifiers.yamsql:196
