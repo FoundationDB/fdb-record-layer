@@ -294,8 +294,8 @@ public class Ordering {
     /**
      * Method to verify that a given {@link RequestedOrdering} can be used to construct an ordering sequence that is
      * supported by the current ordering from the list of {@link Value}s that composes the {@link RequestedOrdering}.
-     * This method is similar to {@link Ordering#satisfiesGroupingValues(Set)} in the sense that then both check for
-     * existence of a sequence given a bunch of {@link Value}. They differ on the satisfiability criteria such that
+     * This method is similar to {@link Ordering#satisfiesGroupingValues(Set)} in the sense that they both check for
+     * existence of a sequence given a list of {@link Value}s. They differ on the satisfiability criteria such that
      * current method requires the candidate sequence's prefix to match the ordering of {@link Value} in the
      * {@link RequestedOrdering}.
      * Example 1:
