@@ -2,6 +2,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId, title, euclidean_distance(embedding, ?) from documents
         where zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over (partition
         by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1
+    ref: semantic-search.yamsql:100
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c17 AS STRING), EQUALS
         promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c10: @c45}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance
@@ -17,6 +18,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId, euclidean_distance(embedding, ?) from documents where
         zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over (partition
         by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 3
+    ref: semantic-search.yamsql:114
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c15 AS STRING), EQUALS
         promote(@c19 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c8: @c43}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c8 AS _1)'
@@ -31,6 +33,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
         = 'science' qualify row_number() over (partition by zone, bookshelf order
         by euclidean_distance(embedding, ?) asc options ef_search = 100) <= 2
+    ref: semantic-search.yamsql:121
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[hnswEfSearch:
         100] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
@@ -45,6 +48,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
         = 'science' qualify row_number() over (partition by zone, bookshelf order
         by euclidean_distance(embedding, ?) asc options ef_search = 200) < 3
+    ref: semantic-search.yamsql:128
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c39}:[hnswEfSearch:
         200] BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
@@ -59,6 +63,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId from documents where zone = 'zone2' and bookshelf
         = 'fiction' qualify row_number() over (partition by zone, bookshelf order
         by euclidean_distance(embedding, ?) asc) < 2
+    ref: semantic-search.yamsql:135
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c35}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID)'
@@ -73,6 +78,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId, cosine_distance(embedding, ?) from documents where
         zone = 'zone1' and bookshelf = 'fiction' qualify row_number() over (partition
         by zone, bookshelf order by cosine_distance(embedding, ?) asc) <= 2
+    ref: semantic-search.yamsql:149
     explain: 'ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c15 AS STRING), EQUALS promote(@c19
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c8: @c43}:[] BY_DISTANCE) |
         MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c8 AS _1)'
@@ -87,6 +93,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
         = 'science' qualify row_number() over (partition by zone, bookshelf order
         by cosine_distance(embedding, ?) asc options ef_search = 150) <= 3
+    ref: semantic-search.yamsql:156
     explain: 'ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[hnswEfSearch: 150]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
@@ -101,6 +108,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId from documents where zone = 'zone2' and bookshelf
         = 'science' qualify row_number() over (partition by zone, bookshelf order
         by euclidean_distance(embedding, ?) asc) <= 1
+    ref: semantic-search.yamsql:163
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
@@ -116,6 +124,7 @@ semantic-search-queries:
         documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number()
         over (partition by zone, bookshelf order by euclidean_distance(embedding,
         ?) asc) <= 1
+    ref: semantic-search.yamsql:171
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c19 AS STRING), EQUALS
         promote(@c23 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c10: @c47}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance
@@ -131,6 +140,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
         = 'fiction' qualify row_number() over (partition by zone, bookshelf order
         by euclidean_distance(embedding, ?) asc) <= ?
+    ref: semantic-search.yamsql:178
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
@@ -145,6 +155,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
         = 'science' qualify row_number() over (partition by zone, bookshelf order
         by euclidean_distance(embedding, ?) asc) <= 1
+    ref: semantic-search.yamsql:185
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
@@ -159,6 +170,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
         = 'fiction' qualify row_number() over (partition by zone, bookshelf order
         by euclidean_distance(embedding, ?) asc) <= 5
+    ref: semantic-search.yamsql:192
     explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
         promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
@@ -174,17 +186,18 @@ semantic-search-queries:
         = 'fiction' qualify (row_number() over (partition by zone, bookshelf order
         by cosine_distance(embedding, ?) asc) <= 1 or row_number() over (partition
         by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1)
+    ref: semantic-search.yamsql:200
     explain: 'ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE)
         ∪ ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37}:[] BY_DISTANCE)
         COMPARE BY (recordType([_]), _.DOCID) | MAP (_.TITLE AS TITLE)'
-    task_count: 485
-    task_total_time_ms: 122
+    task_count: 486
+    task_total_time_ms: 27
     transform_count: 143
-    transform_time_ms: 80
+    transform_time_ms: 16
     transform_yield_count: 49
-    insert_time_ms: 3
+    insert_time_ms: 0
     insert_new_count: 47
     insert_reused_count: 6
 -   query: EXPLAIN select r.reviewId, r.rating, d2.docId, d2.title from reviews r
@@ -192,6 +205,7 @@ semantic-search-queries:
         d2 on d2.zone = d1.zone and d2.bookshelf = d1.bookshelf where r.reviewId =
         'r1' qualify row_number() over (partition by d2.zone, d2.bookshelf order by
         euclidean_distance(d2.embedding, d1.embedding) asc) <= 3
+    ref: semantic-search.yamsql:210
     explain: 'SCAN(<,>) | TFILTER REVIEWS | FILTER _.REVIEWID EQUALS promote(@c63
         AS STRING) | FLATMAP q0 -> { SCAN(<,>) | TFILTER DOCUMENTS | FILTER q0.ZONE
         EQUALS _.ZONE AND q0.DOCID EQUALS _.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX
@@ -211,6 +225,7 @@ semantic-search-queries:
         d1.zone and d2.bookshelf = 'fiction' where r.rating >= 5 qualify row_number()
         over (partition by d2.zone, d2.bookshelf order by cosine_distance(d2.embedding,
         d1.embedding) asc) <= 2
+    ref: semantic-search.yamsql:220
     explain: 'SCAN(<,>) | TFILTER REVIEWS | FILTER _.RATING GREATER_THAN_OR_EQUALS
         promote(@c54 AS LONG) | FLATMAP q0 -> { SCAN(<,>) | TFILTER DOCUMENTS | FILTER
         q0.ZONE EQUALS _.ZONE AND q0.DOCID EQUALS _.DOCID | FLATMAP q1 -> { ISCAN(DOCUMENTSCOSINEINDEX
@@ -230,6 +245,7 @@ semantic-search-queries:
         = d1.zone and d2.bookshelf = 'science' where r.zone = 'zone1' qualify row_number()
         over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding,
         d1.embedding) asc options ef_search = 100) < 2
+    ref: semantic-search.yamsql:237
     explain: 'SCAN(<,>) | TFILTER DOCUMENTS | FLATMAP q0 -> { ISCAN(DOCUMENTSEUCLIDEANINDEX
         [EQUALS q0.ZONE, EQUALS promote(@c51 AS STRING)]:{DISTANCE_RANK_LESS_THAN
         q0.EMBEDDING: @c92}:[hnswEfSearch: 100] BY_DISTANCE) | FLATMAP q1 -> { SCAN(<,>)
@@ -245,25 +261,10 @@ semantic-search-queries:
     insert_time_ms: 17
     insert_new_count: 152
     insert_reused_count: 23
--   query: EXPLAIN select docId, title, euclidean_distance(embedding, ?) as dist from
-        documents where zone = 'zone1' and bookshelf = 'fiction' qualify row_number()
-        over (partition by zone, bookshelf order by euclidean_distance(embedding,
-        ?) asc) <= 1
-    explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c19 AS STRING), EQUALS
-        promote(@c23 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c41: @c47}:[]
-        BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance
-        @c10 AS DIST)'
-    task_count: 228
-    task_total_time_ms: 34
-    transform_count: 67
-    transform_time_ms: 19
-    transform_yield_count: 28
-    insert_time_ms: 1
-    insert_new_count: 20
-    insert_reused_count: 1
 -   query: EXPLAIN select docId, title, euclidean_distance(embedding, ?) from multiTypePartitionDocs
         where zoneId = 1 and bookshelf = 'fiction' qualify row_number() over (partition
         by zoneId, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1
+    ref: semantic-search.yamsql:269
     explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c17 AS LONG), EQUALS
         promote(@c21 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c10: @c17}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance
@@ -279,6 +280,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId from multiTypePartitionDocs where zoneId = 1 and bookshelf
         = 'science' qualify row_number() over (partition by zoneId, bookshelf order
         by euclidean_distance(embedding, ?) asc) <= 2
+    ref: semantic-search.yamsql:276
     explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID)'
@@ -293,6 +295,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId from multiTypePartitionDocs where zoneId = 2 and bookshelf
         = 'fiction' qualify row_number() over (partition by zoneId, bookshelf order
         by euclidean_distance(embedding, ?) asc) < 2
+    ref: semantic-search.yamsql:283
     explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN @c30: @c8}:[] BY_DISTANCE) | MAP (_.DOCID
         AS DOCID)'
@@ -307,6 +310,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId, cosine_distance(embedding, ?) from multiTypePartitionDocs
         where zoneId = 1 and bookshelf = 'fiction' qualify row_number() over (partition
         by zoneId, bookshelf order by cosine_distance(embedding, ?) asc) <= 3
+    ref: semantic-search.yamsql:290
     explain: 'ISCAN(MULTITYPECOSINEINDEX [EQUALS promote(@c15 AS LONG), EQUALS promote(@c19
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c8: @c43}:[] BY_DISTANCE) |
         MAP (_.DOCID AS DOCID, (_.EMBEDDING) cosine_distance @c8 AS _1)'
@@ -321,6 +325,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId from multiTypePartitionDocs where zoneId = 2 and bookshelf
         = 'science' qualify row_number() over (partition by zoneId, bookshelf order
         by euclidean_distance(embedding, ?) asc options ef_search = 100) <= 1
+    ref: semantic-search.yamsql:297
     explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c40}:[hnswEfSearch: 100]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
@@ -335,6 +340,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId, title from multiTypePartitionDocs where zoneId =
         ? and bookshelf = 'fiction' qualify row_number() over (partition by zoneId,
         bookshelf order by euclidean_distance(embedding, ?) asc) <= ?
+    ref: semantic-search.yamsql:304
     explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c10 AS LONG), EQUALS
         promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c10}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)'
@@ -349,6 +355,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId, title from multiTypePartitionDocs where zoneId =
         ? and bookshelf = 'fiction' qualify row_number() over (partition by zoneId,
         bookshelf order by euclidean_distance(embedding, ?) asc nulls first) <= ?
+    ref: semantic-search.yamsql:312
     explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c10 AS LONG), EQUALS
         promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c10}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)'
@@ -363,6 +370,7 @@ semantic-search-queries:
 -   query: EXPLAIN select docId, title from multiTypePartitionDocs where zoneId =
         ? and bookshelf = 'fiction' qualify row_number() over (partition by zoneId,
         bookshelf order by euclidean_distance(embedding, ?) nulls first) <= ?
+    ref: semantic-search.yamsql:319
     explain: 'ISCAN(MULTITYPEEUCLIDEANINDEX [EQUALS promote(@c10 AS LONG), EQUALS
         promote(@c14 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c32: @c10}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE)'

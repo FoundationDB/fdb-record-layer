@@ -363,6 +363,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void updateWithVersions(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("update-with-versions.yamsql");
+    }
+
+    @TestTemplate
     public void userDefinedMacroFunctionTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("user-defined-macro-function-tests.yamsql");
     }

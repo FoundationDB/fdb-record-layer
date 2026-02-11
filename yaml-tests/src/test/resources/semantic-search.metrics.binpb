@@ -142,10 +142,10 @@
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DOCUMENTSEUCLIDEANINDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS DOCID, STRING AS BOOKSHELF, STRING AS TITLE, VECTOR(16, 3) AS EMBEDDING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}è 
+}ç 
 À
-semantic-search-queries¤EXPLAIN select title from documents where zone = 'zone1' and bookshelf = 'fiction' qualify (row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, ?) asc) <= 1 or row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1)¢
-å£¡¦: Ç§–&(10Ù•À8/@÷ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) âˆª ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37}:[] BY_DISTANCE) COMPARE BY (recordType([_]), _.DOCID) | MAP (_.TITLE AS TITLE)ˆdigraph G {
+semantic-search-queries¤EXPLAIN select title from documents where zone = 'zone1' and bookshelf = 'fiction' qualify (row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, ?) asc) <= 1 or row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1)¡
+æç˜ý é¹÷(10¶‚8/@÷ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) âˆª ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37}:[] BY_DISTANCE) COMPARE BY (recordType([_]), _.DOCID) | MAP (_.TITLE AS TITLE)ˆdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

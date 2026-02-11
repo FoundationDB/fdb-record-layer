@@ -458,12 +458,12 @@ update-delete-statements:
     explain: 'COVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1:
         KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT
         BY PK | FETCH | UPDATE foo__2tableA'
-    task_count: 743
-    task_total_time_ms: 18
+    task_count: 754
+    task_total_time_ms: 7
     transform_count: 146
-    transform_time_ms: 8
+    transform_time_ms: 3
     transform_yield_count: 57
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 87
     insert_reused_count: 6
 -   query: EXPLAIN UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1"
@@ -471,10 +471,10 @@ update-delete-statements:
     explain: 'COVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1:
         KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT
         BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)'
-    task_count: 800
-    task_total_time_ms: 13
+    task_count: 811
+    task_total_time_ms: 8
     transform_count: 160
-    transform_time_ms: 6
+    transform_time_ms: 3
     transform_yield_count: 57
     insert_time_ms: 0
     insert_new_count: 91
