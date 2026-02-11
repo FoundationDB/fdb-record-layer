@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -136,6 +137,16 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     @Override
     public IndexMaintainer getIndexMaintainer(@Nonnull final Index index) {
         return untypedStore.getIndexMaintainer(index);
+    }
+
+    @Override
+    public int getIncarnation() {
+        return untypedStore.getIncarnation();
+    }
+
+    @Override
+    public CompletableFuture<Void> updateIncarnation(@Nonnull final IntFunction<Integer> updater) {
+        return untypedStore.updateIncarnation(updater);
     }
 
     @Nonnull
@@ -564,6 +575,19 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         @Nonnull
         public BaseBuilder<M, FDBTypedRecordStore<M>> setStateCacheabilityOnOpen(@Nonnull final FDBRecordStore.StateCacheabilityOnOpen stateCacheabilityOnOpen) {
             untypedStoreBuilder.setStateCacheabilityOnOpen(stateCacheabilityOnOpen);
+            return this;
+        }
+
+        @Nullable
+        @Override
+        public String getBypassFullStoreLockReason() {
+            return untypedStoreBuilder.getBypassFullStoreLockReason();
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setBypassFullStoreLockReason(@Nullable final String reason) {
+            untypedStoreBuilder.setBypassFullStoreLockReason(reason);
             return this;
         }
 

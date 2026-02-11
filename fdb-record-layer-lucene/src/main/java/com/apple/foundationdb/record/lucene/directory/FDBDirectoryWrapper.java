@@ -165,6 +165,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     @VisibleForTesting
+    @SuppressWarnings("this-escape")
     public FDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
                                @Nonnull final FDBDirectory directory,
                                @Nonnull final Tuple key,

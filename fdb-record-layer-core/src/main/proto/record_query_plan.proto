@@ -285,6 +285,7 @@ message PValue {
     PDistanceValue distance_value = 59;
     PEuclideanSquareDistanceRowNumberValue euclidean_square_distance_row_number_value = 60;
     PDotProductDistanceRowNumberValue dot_product_distance_row_number_value = 61;
+    PIncarnationValue incarnation_value = 62;
   }
 }
 
@@ -1344,6 +1345,10 @@ message PVariadicFunctionValue {
 message PVersionValue {
   optional string base_alias = 1;  // to-be-deprecated
   optional PValue child = 2;
+}
+
+message PIncarnationValue {
+  // No fields needed - this function takes no arguments
 }
 
 message PWindowedValue {

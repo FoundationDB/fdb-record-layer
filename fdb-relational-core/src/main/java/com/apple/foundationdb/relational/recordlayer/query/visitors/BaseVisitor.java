@@ -106,6 +106,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     private final LogicalOperatorCatalog logicalOperatorCatalog;
 
+    @SuppressWarnings("this-escape")
     public BaseVisitor(@Nonnull MutablePlanGenerationContext mutablePlanGenerationContext,
                        @Nonnull RecordLayerSchemaTemplate metadata,
                        @Nonnull DdlQueryFactory ddlQueryFactory,
