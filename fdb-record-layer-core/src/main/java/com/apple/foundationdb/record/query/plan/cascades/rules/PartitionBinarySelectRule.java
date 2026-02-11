@@ -86,29 +86,27 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
 
         final var leftDependencies = fullCorrelationOrder.get(leftAlias);
         final var leftDependsOnRight = leftDependencies.contains(rightAlias);
+        if (leftDependsOnRight) {
+            // We want to place predicates assuming that the left quantifier will be executed
+            // before the right (e.g., as the outer of a nested loop join). If the left depends
+            // on the right, then this can't happen, so return now
+            return;
+        }
 
         final var leftPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
         final var rightPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
 
         for (final var predicate : selectExpression.getPredicates()) {
             final var correlatedTo = predicate.getCorrelatedTo();
-            final var correlatedToLeft = correlatedTo.contains(leftAlias);
             final var correlatedToRight = correlatedTo.contains(rightAlias);
-
-            if (correlatedToLeft && correlatedToRight) {
-                // Predicate correlated to both. If the left depends on the right, we need to send it
-                // to the left to avoid a circular dependency. Otherwise, we push it to the right
-                if (leftDependsOnRight) {
-                    leftPredicatesBuilder.add(predicate);
-                } else {
-                    rightPredicatesBuilder.add(predicate);
-                }
-            } else if (correlatedToRight) {
-                // Predicate is correlated to just the right. Send it to the right
+            if (correlatedToRight) {
+                // Predicate depends on the right. It must go to the right
+                // Note: this could be problematic if the right depended on the left,
+                // but that should be avoided by the earlier check
                 rightPredicatesBuilder.add(predicate);
             } else {
-                // Predicate is either correlated to just the left or it is correlated to neither.
-                // Send it to the left, as this is the left most position it can be
+                // Predicate either depends on the left or it is independent. Either way,
+                // it should be sent to the left
                 leftPredicatesBuilder.add(predicate);
             }
         }

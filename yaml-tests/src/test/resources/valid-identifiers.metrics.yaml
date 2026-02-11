@@ -5,13 +5,13 @@ all-tests:
     explain: 'COVERING(foo.table$nested.repeated.idx.field.1.3 [EQUALS promote(@c25
         AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
     task_count: 656
-    task_total_time_ms: 33
+    task_total_time_ms: 10
     transform_count: 202
-    transform_time_ms: 20
+    transform_time_ms: 4
     transform_yield_count: 53
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 68
-    insert_reused_count: 5
+    insert_reused_count: 1
 -   query: EXPLAIN select t.id from "foo.table$nested.repeated" as t where exists
         (select * from t."level0.field1" as x where x."level1$field.2"."level2$field.1"
         = 91)
@@ -19,27 +19,27 @@ all-tests:
     explain: 'COVERING(foo.table$nested.repeated.idx.field.1.2.1 [EQUALS promote(@c27
         AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
     task_count: 656
-    task_total_time_ms: 44
+    task_total_time_ms: 22
     transform_count: 202
-    transform_time_ms: 25
+    transform_time_ms: 11
     transform_yield_count: 53
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 68
-    insert_reused_count: 5
+    insert_reused_count: 1
 -   query: EXPLAIN select t.id from "foo.table$nested.repeated" as t where exists
         (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1"
         = 10)
     ref: valid-identifiers.yamsql:167
     explain: 'COVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c27
-        AS LONG)] -> [ID: KEY[2]]) | MAP (_.ID AS ID)'
+        AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
     task_count: 914
-    task_total_time_ms: 64
+    task_total_time_ms: 45
     transform_count: 322
-    transform_time_ms: 38
+    transform_time_ms: 18
     transform_yield_count: 69
-    insert_time_ms: 4
+    insert_time_ms: 1
     insert_new_count: 96
-    insert_reused_count: 9
+    insert_reused_count: 3
 -   query: EXPLAIN select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested"
         where id = 1
     ref: valid-identifiers.yamsql:172
@@ -60,52 +60,52 @@ all-tests:
     explain: SCAN(<,>) | TFILTER foo__2table__1repeated | FILTER @c8 IN _.field.1$array
         | MAP (_.ID AS ID)
     task_count: 371
-    task_total_time_ms: 9
+    task_total_time_ms: 5
     transform_count: 118
-    transform_time_ms: 4
+    transform_time_ms: 2
     transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 35
-    insert_reused_count: 5
+    insert_reused_count: 3
 -   query: EXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where
         exists (select 1 from "foo.table$repeated"."field.1$array" r where r = 'foo')
     ref: valid-identifiers.yamsql:184
-    explain: 'COVERING(foo.table$repeated.2 [EQUALS @c20] -> [ID: KEY[2]]) | MAP (_.ID
-        AS ID)'
+    explain: 'COVERING(foo.table$repeated.2 [EQUALS @c20] -> [ID: KEY:[2]]) | MAP
+        (_.ID AS ID)'
     task_count: 476
-    task_total_time_ms: 14
+    task_total_time_ms: 17
     transform_count: 139
-    transform_time_ms: 6
+    transform_time_ms: 4
     transform_yield_count: 36
     insert_time_ms: 0
     insert_new_count: 46
-    insert_reused_count: 2
+    insert_reused_count: 0
 -   query: EXPLAIN select t."field.1$array" from "foo.table$repeated" as t where 3
         IN t."field.0$array"
     ref: valid-identifiers.yamsql:191
     explain: SCAN(<,>) | TFILTER foo__2table__1repeated | FILTER promote(@c10 AS LONG)
         IN _.field.0$array | MAP (_.field.1$array AS field.1$array)
     task_count: 371
-    task_total_time_ms: 21
+    task_total_time_ms: 8
     transform_count: 118
-    transform_time_ms: 9
+    transform_time_ms: 3
     transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 35
-    insert_reused_count: 5
+    insert_reused_count: 3
 -   query: EXPLAIN select t."field.1$array" from "foo.table$repeated" as t where exists
         (select 1 from t."field.0$array" r where r = 3)
     ref: valid-identifiers.yamsql:196
     explain: ISCAN(foo.table$repeated.1 [EQUALS promote(@c22 AS LONG)]) | MAP (_.field.1$array
         AS field.1$array)
     task_count: 448
-    task_total_time_ms: 17
+    task_total_time_ms: 10
     transform_count: 135
-    transform_time_ms: 10
+    transform_time_ms: 4
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 43
-    insert_reused_count: 2
+    insert_reused_count: 0
 -   query: EXPLAIN select "foo.tableA".* from "foo.tableA";
     ref: valid-identifiers.yamsql:201
     explain: ISCAN(foo.tableA.idx3 <,>)

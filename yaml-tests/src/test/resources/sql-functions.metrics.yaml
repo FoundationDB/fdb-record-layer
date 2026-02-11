@@ -165,25 +165,25 @@ basic-sql-function-tests:
     explain: ISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3
         AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }
     task_count: 1082
-    task_total_time_ms: 84
+    task_total_time_ms: 83
     transform_count: 270
-    transform_time_ms: 28
+    transform_time_ms: 25
     transform_yield_count: 114
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 153
-    insert_reused_count: 7
+    insert_reused_count: 5
 -   query: EXPLAIN select * from t2 where exists (select * from f2(k => t2.z))
     ref: sql-functions.yamsql:115
     explain: ISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3
         AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }
     task_count: 1082
-    task_total_time_ms: 74
+    task_total_time_ms: 81
     transform_count: 270
-    transform_time_ms: 24
+    transform_time_ms: 31
     transform_yield_count: 114
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 153
-    insert_reused_count: 7
+    insert_reused_count: 5
 -   query: EXPLAIN select * from f3(103, 'b', 4)
     ref: sql-functions.yamsql:119
     explain: ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(@c10

@@ -755,13 +755,13 @@ agg-index-tests:
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E)
         } COMPARE BY (_._4, _.C, _.B, _.E)'
     task_count: 1871
-    task_total_time_ms: 524
+    task_total_time_ms: 630
     transform_count: 872
-    transform_time_ms: 373
+    transform_time_ms: 455
     transform_yield_count: 142
-    insert_time_ms: 8
+    insert_time_ms: 5
     insert_new_count: 137
-    insert_reused_count: 30
+    insert_reused_count: 22
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c
     ref: aggregate-index-tests.yamsql:502
@@ -772,13 +772,13 @@ agg-index-tests:
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E)
         } COMPARE BY (_._4, _.C, _.B, _.E)'
     task_count: 1871
-    task_total_time_ms: 570
+    task_total_time_ms: 444
     transform_count: 872
-    transform_time_ms: 402
+    transform_time_ms: 321
     transform_yield_count: 142
-    insert_time_ms: 8
+    insert_time_ms: 5
     insert_new_count: 137
-    insert_reused_count: 30
+    insert_reused_count: 22
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c, e
     ref: aggregate-index-tests.yamsql:515
@@ -789,13 +789,13 @@ agg-index-tests:
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D)
         } COMPARE BY (_._4, _.C, _.E, _.B)'
     task_count: 1797
-    task_total_time_ms: 499
+    task_total_time_ms: 453
     transform_count: 852
-    transform_time_ms: 381
+    transform_time_ms: 343
     transform_yield_count: 128
-    insert_time_ms: 7
+    insert_time_ms: 6
     insert_new_count: 115
-    insert_reused_count: 34
+    insert_reused_count: 26
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c, e
     ref: aggregate-index-tests.yamsql:531
@@ -806,13 +806,13 @@ agg-index-tests:
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D)
         } COMPARE BY (_._4, _.C, _.E, _.B)'
     task_count: 1797
-    task_total_time_ms: 545
+    task_total_time_ms: 434
     transform_count: 852
-    transform_time_ms: 416
+    transform_time_ms: 338
     transform_yield_count: 128
-    insert_time_ms: 9
+    insert_time_ms: 6
     insert_new_count: 115
-    insert_reused_count: 34
+    insert_reused_count: 26
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 and c = 0 group by
         a, b, c, d, e having b IN ('foo', 'bar') order by max(x), d
     ref: aggregate-index-tests.yamsql:547

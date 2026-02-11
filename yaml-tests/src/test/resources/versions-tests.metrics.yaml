@@ -453,39 +453,39 @@ versions-queries:
     explain: ISCAN(T4_COL4_VERSION [EQUALS promote(@c21 AS LONG)]) | MAP (version([_])
         AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1)
     task_count: 707
-    task_total_time_ms: 103
+    task_total_time_ms: 35
     transform_count: 217
-    transform_time_ms: 51
+    transform_time_ms: 14
     transform_yield_count: 64
-    insert_time_ms: 4
+    insert_time_ms: 1
     insert_new_count: 82
-    insert_reused_count: 5
+    insert_reused_count: 1
 -   query: EXPLAIN select "__ROW_VERSION", id, col1 from t4 where 3 in t4.col4
     ref: versions-tests.yamsql:466
     explain: ISCAN(T4_COL2 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.COL4) |
         FILTER promote(@c10 AS LONG) EQUALS _ AS q1 RETURN (version([q0]) AS __ROW_VERSION,
         q0.ID AS ID, q0.COL1 AS COL1) }
     task_count: 672
-    task_total_time_ms: 18
+    task_total_time_ms: 12
     transform_count: 193
-    transform_time_ms: 6
+    transform_time_ms: 5
     transform_yield_count: 52
     insert_time_ms: 0
     insert_new_count: 80
-    insert_reused_count: 9
+    insert_reused_count: 7
 -   query: EXPLAIN select "__ROW_VERSION", id, col1 from t4 where exists (select 1
         from t4.col4 where col4 = 3) order by "__ROW_VERSION" desc
     ref: versions-tests.yamsql:484
     explain: ISCAN(T4_COL4_VERSION [EQUALS promote(@c21 AS LONG)] REVERSE) | MAP (version([_])
         AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1)
     task_count: 399
-    task_total_time_ms: 29
+    task_total_time_ms: 26
     transform_count: 133
-    transform_time_ms: 15
+    transform_time_ms: 11
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 29
-    insert_reused_count: 2
+    insert_reused_count: 0
 -   query: EXPLAIN select * from unindexed_t where col2 = 'even';
     ref: versions-tests.yamsql:500
     explain: SCAN(<,>) | TFILTER UNINDEXED_T | FILTER _.COL2 EQUALS promote(@c8 AS
@@ -553,13 +553,13 @@ versions-queries:
         AS STRING) AS q1 RETURN (version([q0]) AS VERSION3, q0.ID AS ID3, version([q1])
         AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }'
     task_count: 2591
-    task_total_time_ms: 218
+    task_total_time_ms: 185
     transform_count: 841
-    transform_time_ms: 77
+    transform_time_ms: 54
     transform_yield_count: 190
-    insert_time_ms: 13
+    insert_time_ms: 8
     insert_new_count: 394
-    insert_reused_count: 53
+    insert_reused_count: 36
 -   query: EXPLAIN select t3.id AS id3, t4."__ROW_VERSION" AS version4, t4.id AS id4,
         t3.col2, t4.col4 from t3, t4 where t3.col1 = 'b' and t4.col1 = 'b' and t4.col2
         = t3.col2 and exists (select 1 from t4.col4 x where x = 2)
@@ -570,13 +570,13 @@ versions-queries:
         AS STRING) AS q1 RETURN (q0.ID AS ID3, version([q1]) AS VERSION4, q1.ID AS
         ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }'
     task_count: 2591
-    task_total_time_ms: 214
+    task_total_time_ms: 186
     transform_count: 841
-    transform_time_ms: 76
+    transform_time_ms: 63
     transform_yield_count: 190
-    insert_time_ms: 14
+    insert_time_ms: 7
     insert_new_count: 394
-    insert_reused_count: 53
+    insert_reused_count: 36
 -   query: EXPLAIN select a.version AS version3, a.r.id AS id3, b.version AS version4,
         b.r.id AS id4, a.r.col2, b.r.col4 from t3_by_col1('b') a, t4_by_col1('b')
         b where 2 in b.r.col4 and b.r.col2 = a.r.col2
@@ -588,13 +588,13 @@ versions-queries:
         version([q1]) AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4)
         }'
     task_count: 3579
-    task_total_time_ms: 282
+    task_total_time_ms: 235
     transform_count: 1111
-    transform_time_ms: 67
+    transform_time_ms: 57
     transform_yield_count: 246
-    insert_time_ms: 15
+    insert_time_ms: 11
     insert_new_count: 619
-    insert_reused_count: 71
+    insert_reused_count: 55
 -   query: EXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1,
         3, 5)
     ref: versions-tests.yamsql:605

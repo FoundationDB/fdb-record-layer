@@ -213,13 +213,13 @@ semantic-search-queries:
         @c95}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWID AS REVIEWID,
         q0.RATING AS RATING, q2.DOCID AS DOCID, q2.TITLE AS TITLE) }'
     task_count: 1454
-    task_total_time_ms: 61
+    task_total_time_ms: 118
     transform_count: 693
-    transform_time_ms: 30
+    transform_time_ms: 56
     transform_yield_count: 112
-    insert_time_ms: 4
+    insert_time_ms: 6
     insert_new_count: 120
-    insert_reused_count: 47
+    insert_reused_count: 35
 -   query: EXPLAIN select r.reviewText, d2.title from reviews r join documents d1
         on r.zone = d1.zone and r.docId = d1.docId join documents d2 on d2.zone =
         d1.zone and d2.bookshelf = 'fiction' where r.rating >= 5 qualify row_number()
@@ -233,13 +233,13 @@ semantic-search-queries:
         q1.EMBEDDING: @c86}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWTEXT
         AS REVIEWTEXT, q2.TITLE AS TITLE) }'
     task_count: 1672
-    task_total_time_ms: 66
+    task_total_time_ms: 81
     transform_count: 808
-    transform_time_ms: 29
+    transform_time_ms: 40
     transform_yield_count: 126
-    insert_time_ms: 7
+    insert_time_ms: 4
     insert_new_count: 134
-    insert_reused_count: 73
+    insert_reused_count: 53
 -   query: EXPLAIN select r.reviewId, d2.docId, d2.title from reviews r join documents
         d1 on r.zone = d1.zone and r.docId = d1.docId join documents d2 on d2.zone
         = d1.zone and d2.bookshelf = 'science' where r.zone = 'zone1' qualify row_number()
@@ -254,13 +254,13 @@ semantic-search-queries:
         AS q3 RETURN (q3._0.REVIEWID AS REVIEWID, q3._1.DOCID AS DOCID, q3._1.TITLE
         AS TITLE) }'
     task_count: 1451
-    task_total_time_ms: 53
+    task_total_time_ms: 80
     transform_count: 690
-    transform_time_ms: 23
+    transform_time_ms: 41
     transform_yield_count: 116
-    insert_time_ms: 3
+    insert_time_ms: 4
     insert_new_count: 114
-    insert_reused_count: 45
+    insert_reused_count: 33
 -   query: EXPLAIN select docId, title, euclidean_distance(embedding, ?) from multiTypePartitionDocs
         where zoneId = 1 and bookshelf = 'fiction' qualify row_number() over (partition
         by zoneId, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1

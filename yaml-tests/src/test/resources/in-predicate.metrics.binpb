@@ -154,22 +154,22 @@ b
     rankDir=LR;
     2 -> 3 [ color="red" style="invis" ];
   }
-}Ÿ
+}›
 s
-	unnamed-2fEXPLAIN select id from array_table where exists (select 1 from array_table.fruits f where f = 'apple')§
-Øƒ­ÁC‰ „žÞ/("0×Æ‰8.@ACOVERING(FRUITS [EQUALS @c18] -> [ID: KEY[2]]) | MAP (_.ID AS ID)Ädigraph G {
+	unnamed-2fEXPLAIN select id from array_table where exists (select 1 from array_table.fruits f where f = 'apple')£
+Ø›ôÜ‰ Ò·ž("0Õ¡8.@ BCOVERING(FRUITS [EQUALS @c18] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)Àdigraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q67.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q66.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS @c18]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">FRUITS</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q67> label="q67" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }£
 G
 	unnamed-2:EXPLAIN select id from array_table where 'apple' in fruits×
-ï§‚ät ž½˜(0¦°8#@KSCAN(<,>) | TFILTER ARRAY_TABLE | FILTER @c6 IN _.FRUITS | MAP (_.ID AS ID)ìdigraph G {
+ïž™êt ÏšŸ(0ð©8#@KSCAN(<,>) | TFILTER ARRAY_TABLE | FILTER @c6 IN _.FRUITS | MAP (_.ID AS ID)ìdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -182,14 +182,13 @@ G
   4 -> 3 [ label=<&nbsp;q29> label="q29" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q36> label="q36" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ø#
+}º%
 o
-	unnamed-2bEXPLAIN select id from array_table where exists (select 1 from array_table.numbers n where n = 10)ä"
-ïÀŒž
-g ¡Úì(0öô@8"@¾SCAN(<,>) | TFILTER ARRAY_TABLE | FLATMAP q0 -> { EXPLODE q0.NUMBERS | FILTER _ EQUALS promote(@c18 AS LONG) | MAP (@c9 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.ID AS ID) }…!digraph G {
+	unnamed-2bEXPLAIN select id from array_table where exists (select 1 from array_table.numbers n where n = 10)Æ$
+ïæ²ág «æÉ(0Ô“8"@ ¾SCAN(<,>) | TFILTER ARRAY_TABLE | FLATMAP q0 -> { EXPLODE q0.NUMBERS | FILTER _ EQUALS promote(@c18 AS LONG) | MAP (@c9 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.ID AS ID) }ç"digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
@@ -208,6 +207,12 @@ o
   9 -> 8 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 1 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    9 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
     rank=same;
     rankDir=LR;
     2 -> 5 [ color="red" style="invis" ];
@@ -215,7 +220,7 @@ o
 }Ã
 C
 	unnamed-26EXPLAIN select id from array_table where 10 in numbersû
-ïÚÞðt ±›ë(0ëÃ(8#@]SCAN(<,>) | TFILTER ARRAY_TABLE | FILTER promote(@c6 AS LONG) IN _.NUMBERS | MAP (_.ID AS ID)þdigraph G {
+ïø út È™ˆ(0½û8#@]SCAN(<,>) | TFILTER ARRAY_TABLE | FILTER promote(@c6 AS LONG) IN _.NUMBERS | MAP (_.ID AS ID)þdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
