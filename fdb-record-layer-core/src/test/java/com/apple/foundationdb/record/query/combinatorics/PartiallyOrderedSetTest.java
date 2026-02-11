@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.combinatorics;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -159,5 +160,76 @@ class PartiallyOrderedSetTest {
         assertEquals(ImmutableSet.of(a), eligibleSet.eligibleElements());
         eligibleSet = eligibleSet.removeEligibleElements(eligibleSet.eligibleElements());
         assertTrue(eligibleSet.eligibleElements().isEmpty());
+    }
+
+    @Test
+    void testFilterElements() {
+        final var a = CorrelationIdentifier.of("a");
+        final var b = CorrelationIdentifier.of("b");
+        final var c = CorrelationIdentifier.of("c");
+        final var d = CorrelationIdentifier.of("d");
+        final var e = CorrelationIdentifier.of("e");
+        final var f = CorrelationIdentifier.of("f");
+        final var g = CorrelationIdentifier.of("g");
+
+        // a < c, b < c, c < d, d < e, d < f, e < g, f < g
+        final var dependencyMapBuilder = ImmutableSetMultimap.<CorrelationIdentifier, CorrelationIdentifier>builder();
+        dependencyMapBuilder.putAll(c, b, a);
+        dependencyMapBuilder.putAll(d, c);
+        dependencyMapBuilder.putAll(e, d);
+        dependencyMapBuilder.putAll(f, d);
+        dependencyMapBuilder.putAll(g, e, f);
+        final var partialOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d, e, f, g), dependencyMapBuilder.build());
+
+        // a < c, b < c
+        var filteredSet = ImmutableSet.of(a, b, c);
+        var actualSubset = partialOrder.filterElements(filteredSet::contains);
+        var expectedDependencyEntries = ImmutableSetMultimap.of(c, a, c, b);
+        actualSubset.getDependencyMap().entries().forEach(entry -> assertTrue(expectedDependencyEntries.get(entry.getKey()).contains(entry.getValue())));
+
+        // {a}
+        filteredSet = ImmutableSet.of(a);
+        actualSubset = partialOrder.filterElements(filteredSet::contains);
+        assertTrue(actualSubset.getDependencyMap().isEmpty());
+        assertTrue(actualSubset.getSet().containsAll(filteredSet));
+
+        filteredSet = ImmutableSet.of(c, d, e, f, g);
+        actualSubset = partialOrder.filterElements(filteredSet::contains);
+        assertTrue(actualSubset.getDependencyMap().isEmpty());
+        assertTrue(actualSubset.getSet().isEmpty());
+
+        filteredSet = ImmutableSet.of(a, e, g);
+        actualSubset = partialOrder.filterElements(filteredSet::contains);
+        assertTrue(actualSubset.getDependencyMap().isEmpty());
+        assertTrue(actualSubset.getSet().containsAll(ImmutableSet.of(a)));
+    }
+
+    @Test
+    void testMapAllWithMultiMap() {
+        final var a = CorrelationIdentifier.of("a");
+        final var b = CorrelationIdentifier.of("b");
+        final var c = CorrelationIdentifier.of("c");
+        final var d = CorrelationIdentifier.of("d");
+
+        // a < b, a < c, c < d, b < d
+        final var dependencyMapBuilder = ImmutableSetMultimap.<CorrelationIdentifier, CorrelationIdentifier>builder();
+        dependencyMapBuilder.putAll(c, a);
+        dependencyMapBuilder.putAll(b, a);
+        dependencyMapBuilder.putAll(d, b, c);
+        final var partialOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d), dependencyMapBuilder.build());
+
+        var mapToBuilder = ImmutableSetMultimap.<CorrelationIdentifier, CorrelationIdentifier>builder();
+        final var a_1 = CorrelationIdentifier.of("a_1");
+        final var a_2 = CorrelationIdentifier.of("a_2");
+        final var b_1 = CorrelationIdentifier.of("b_1");
+        final var d_1 = CorrelationIdentifier.of("d_1");
+        final var d_2 = CorrelationIdentifier.of("d_2");
+        mapToBuilder.putAll(a, a_1, a_2);
+        mapToBuilder.putAll(b, b_1);
+        mapToBuilder.putAll(d, d_1, d_2);
+
+        var actualSubset = partialOrder.mapAll(mapToBuilder.build());
+        var expectedDependencyEntries = ImmutableSetMultimap.of(b_1, a_1, b_1, a_2, d_1, b_1, d_2, b_1);
+        actualSubset.getDependencyMap().entries().forEach(entry -> assertTrue(expectedDependencyEntries.get(entry.getKey()).contains(entry.getValue())));
     }
 }

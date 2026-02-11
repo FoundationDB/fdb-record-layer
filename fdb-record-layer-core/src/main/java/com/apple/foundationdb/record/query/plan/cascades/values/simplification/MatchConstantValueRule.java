@@ -27,9 +27,13 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Valu
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Multimaps;
 
 import javax.annotation.Nonnull;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -38,7 +42,7 @@ import java.util.Optional;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchConstantValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, Value> {
+public class MatchConstantValueRule extends ValueComputationRule<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>, Value> {
     @Nonnull
     private static final BindingMatcher<Value> rootMatcher =
             ValueMatchers.anyValue();
@@ -54,7 +58,7 @@ public class MatchConstantValueRule extends ValueComputationRule<Iterable<? exte
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, ValueCompensation>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>> call) {
         if (!call.isRoot()) {
             return;
         }
@@ -62,12 +66,15 @@ public class MatchConstantValueRule extends ValueComputationRule<Iterable<? exte
         final var bindings = call.getBindings();
         final var value = bindings.get(rootMatcher);
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
-        final var newMatchedValuesMap = new LinkedIdentityMap<Value, ValueCompensation>();
+        final var newMatchedValuesMap =
+                Multimaps.<Value, ValueCompensation>newListMultimap(new LinkedIdentityMap<>(), Lists::newArrayList);
         final var resultPair = call.getResult(value);
-        final var matchedValuesMap = resultPair == null ? null : resultPair.getRight();
-        if (matchedValuesMap != null) {
-            newMatchedValuesMap.putAll(matchedValuesMap);
-        }
+        final var matchedValuesMap =
+                resultPair == null
+                ? ImmutableListMultimap.<Value, ValueCompensation>of()
+                : resultPair.getRight();
+
+        newMatchedValuesMap.putAll(matchedValuesMap);
 
         final var constantAliases = call.getConstantAliases();
         for (final var toBePulledUpValue : toBePulledUpValues) {
@@ -79,7 +86,8 @@ public class MatchConstantValueRule extends ValueComputationRule<Iterable<? exte
             }
 
             if (constantAliases.containsAll(correlatedTo)) {
-                newMatchedValuesMap.put(toBePulledUpValue, ignored -> toBePulledUpValue);
+                newMatchedValuesMap.replaceValues(toBePulledUpValue,
+                        ImmutableList.of(ignored -> toBePulledUpValue));
             }
         }
         call.yieldValue(value, newMatchedValuesMap);
