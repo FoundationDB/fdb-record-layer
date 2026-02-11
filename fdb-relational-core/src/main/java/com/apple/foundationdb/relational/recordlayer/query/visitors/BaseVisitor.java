@@ -616,7 +616,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return queryVisitor.visitQuery(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Void visitCtes(RelationalParser.CtesContext ctx) {
         return queryVisitor.visitCtes(ctx);

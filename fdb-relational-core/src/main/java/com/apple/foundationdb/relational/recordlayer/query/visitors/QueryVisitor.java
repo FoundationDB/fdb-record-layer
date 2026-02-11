@@ -112,7 +112,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return Assert.castUnchecked(ctx.queryExpressionBody().accept(this), LogicalOperator.class);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Void visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
         final var currentPlanFragment = getDelegate().getCurrentPlanFragment();
@@ -170,13 +170,13 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                                                      @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         final var queryName = visitFullId(recursiveQueryContext.name);
         final Optional<Type> recursiveQueryType;
-        final var memoized = MemoizedFunction.<ParserRuleContext, LogicalOperators>memoize(
+        final var memoized = MemoizedFunction.<ParserRuleContext, Optional<LogicalOperator>>memoize(
                 parserRuleContext -> {
                     final var result = parserRuleContext.accept(this);
-                    if (result instanceof LogicalOperator) {
-                        return LogicalOperators.ofSingle((LogicalOperator) result);
+                    if (result == null) {
+                        return Optional.empty();
                     }
-                    return Assert.castUnchecked(result, LogicalOperators.class);
+                    return Optional.of(Assert.castUnchecked(result, LogicalOperator.class));
                 });
         {
             getDelegate().pushPlanFragment();
