@@ -1,0 +1,546 @@
+#
+# join-with-order-by-tests.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+    # Joins with order bys were not supported prior to !current_version
+    supported_version: !current_version
+    connection_options:
+      CASE_SENSITIVE_IDENTIFIERS: true
+---
+schema_template:
+    create table t1(id bigint, a1 bigint, a2 bigint, a3 string, primary key(id))
+    create index "t1$a1" as select a1 from t1
+    create index "t1$a1_a2" as select a1, a2 from t1 order by a1, a2
+
+    create function t1_f(x bigint)
+      as select "__ROW_VERSION", t1.* from t1 where a1 = x
+
+    create table t2(id bigint, b1 bigint, b2 bigint, b3 string, primary key(id))
+    create index "t2$b1" as select b1 from t2
+    create index "t2$b1_b3" as select b1, b3 from t2 order by b1, b3
+
+    create function t2_f(x bigint)
+      as select "__ROW_VERSION", t2.* from t2 where b1 = x
+
+    create table t3(id bigint, c1 bigint, c2 bigint, c3 string, aRef bigint, primary key(id))
+    create index "t3$c1" as select c1 from t3
+    create index "t3$c1_c2_c3" as select c1, c2, c3 from t3 order by c1, c2, c3
+    create index "t3$aRef" as select aRef from t3
+
+    create function t3_f(x bigint)
+      as select "__ROW_VERSION", t3.* from t3 where c1 = x
+
+    with options(store_row_versions=true, intermingle_tables=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO t1 VALUES
+              (1001, 1, 10, 'a'),
+              (1002, 1, 11, 'b'),
+              (1003, 1, 12, 'a'),
+              (1004, 1, 13, 'b'),
+              (1101, 2,  5, 'a'),
+              (1102, 2,  5, 'b'),
+              (1103, 2, 20, 'a'),
+              (1104, 2, 20, 'b')
+    - query: INSERT INTO t2 VALUES
+              (2001, 1, 20, 'a'),
+              (2002, 1, 19, 'a'),
+              (2003, 1, 18, 'b'),
+              (2004, 1, 17, 'b')
+    - query: INSERT INTO t3 VALUES
+              (3001, 1, 10, 'a', 1001),
+              (3002, 1, 11, 'a', 1002),
+              (3003, 1, 12, 'b', 1003),
+              (3004, 1, 13, 'b', 1004),
+              (3101, 2,  7, 'c', 1101),
+              (3102, 2,  8, 'd', 1102),
+              (3103, 2,  5, 'd', 1103),
+              (3104, 2,  6, 'c', 1104)
+---
+test_block:
+  name: joins-with-order-by-tests
+  tests:
+    #
+    # Binary joins. Assert that we can get joins with two legs and an order by correct.
+    #
+    -
+      - query: select (t1.*), (t2.*)
+                from t1, t2
+                where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
+      - explain: "ISCAN(t2$b1 [EQUALS promote(@c22 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c22 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS _1) }"
+      - unorderedResult: [
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+        ]
+    -
+      - query: select (t1.*), (t2.*)
+                from t1, t2
+                where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
+                order by t1.a2
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c22 AS LONG)]) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c22 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS _0, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS _1) }"
+      - result: [
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+        ]
+    -
+      - query: select (t1.*), (t2.*)
+                from t1, t2
+                where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
+                order by t1.a2 desc
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c22 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c22 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS _0, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS _1) }"
+      - result: [
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+        ]
+    -
+      - query: select (t1.*), (t2.*)
+                from t1, t2
+                where t1.a1 = 1 and t2.b1 = 1 and t2.b3 = t1.a3
+                order by t1.a1 asc, t1.a2 desc
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c22 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c22 AS LONG), EQUALS q0.a3]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS _0, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS _1) }"
+      - result: [
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+        ]
+    -
+      - query: select (t1.*), (t2.*)
+                 from t1, t2
+                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
+                 order by t2.b3 asc
+      - explain: "ISCAN(t2$b1_b3 [EQUALS promote(@c22 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c22 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS _1) }"
+      - result: [
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+        ]
+    -
+      - query: select (t1.*), (t2.*)
+                 from t1, t2
+                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
+                 order by t2.b3 desc
+      - explain: "ISCAN(t2$b1_b3 [EQUALS promote(@c22 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c22 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS _1) }"
+      - result: [
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+        ]
+    -
+      - query: select (t1.*), (t2.*)
+                 from t1, t2
+                 where t1.a1 = 1 and t2.b1 = 1
+                 order by t1.a2
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c22 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1 [EQUALS promote(@c22 AS LONG)]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS _0, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS _1) }"
+      - result: [
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
+        ]
+    -
+      # Cannot plan query. There is a query plan that seems like it may work, as you can order the t1's by a1
+      # using the "t1$a1_a2" index, and then the t2's can be ordered by b3 using the "t2$b1_b3" index, but
+      # you don't get the right order by joining those, as the previous query shows
+      - query: select (t1.*), (t2.*)
+                 from t1, t2
+                 where t1.a1 = 1 and t2.b1 = 1
+                 order by t1.a2, t2.b3
+      - error: '0AF00'
+    -
+      # This should be possible to plan, but it requires noting that if the outer is on t2 and ordered by t2.b3,
+      # then the join is executed with an equality predicate on t1.a3, and thus the order is satisfied
+      - query: select (t1.*), (t2.*)
+                 from t1, t2
+                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
+                 order by t2.b3, t1.a3
+      - error: '0AF00'
+    -
+      - query: select (t1.*), (t3.*)
+                 from t1, t3
+               where t1.a1 = 1 and t3.aRef = t1.id
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c22 AS LONG)]) | FLATMAP q0 -> { ISCAN(t3$aRef [EQUALS q0.id]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS _0, (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) AS _1) }"
+      - unorderedResult: [
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+        ]
+    -
+      - query: select (t1.*), (t3.*)
+                 from t1, t3
+               where t1.a1 = 1 and t3.aRef = t1.id
+               order by t1.a2 desc
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c22 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t3$aRef [EQUALS q0.id]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS _0, (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) AS _1) }"
+      - result: [
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+        ]
+    -
+      - query: select (t1.*), (t3.*)
+                 from t1, t3
+               where t1.a1 = 1 and t3.aRef = t1.id
+               order by t3.c1, t3.c2
+      - explain: "ISCAN(t3$c1_c2_c3 <,>) | FLATMAP q0 -> { COVERING(t1$a1 [EQUALS promote(@c22 AS LONG)] -> [a1: KEY:[0], id: KEY:[1]]) | FILTER q0.aRef EQUALS _.id | FETCH AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS _1) }"
+      - result: [
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+        ]
+    -
+      # Same as the previous query, but one predicate (t1.id = t3.aRef) has its two operands swapped
+      - query: select (t1.*), (t3.*)
+                 from t1, t3
+               where t1.a1 = 1 and t1.id = t3.aRef
+               order by t3.c1, t3.c2
+      - explain: "ISCAN(t3$c1_c2_c3 <,>) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c22 AS LONG), EQUALS q0.aRef]) AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS _1) }"
+      - result: [
+          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
+          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
+          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+        ]
+    -
+      - query: select t3.*
+                 from t3, (select max(t1.a2) as maxA2 from t1 where t1.a1 = 1) as m
+                where t3.c1 = 1 and t3.c2 = m.maxA2
+                order by t3.c3 desc
+      # Note: m can be planned as the outer of the nested loop join because its max cardinality is 1
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t3$c1_c2_c3 [EQUALS promote(@c25 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) }"
+      - result: [
+          { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 }
+        ]
+    -
+      - query: select t3.*
+                 from t3, (select max(t1.a2) as maxA2 from t1 group by t1.a1 having t1.a1 = 1) as m
+                where t3.c1 = 1 and t3.c2 = m.maxA2
+                order by t3.c3 desc
+      # This can't be planned because it can't figure out that m has max cardinality 1 (coming from the fact that the group by columns are all equality bound by the having)
+      - error: '0AF00'
+    -
+      - query: select t1.*
+                 from t1, (select max(t1.a2) as maxA2 from t1 where t1.a1 = 1) as m
+                where t1.a1 = 1 and t1.a2 = m.maxA2
+                order by t1.id desc
+      # Self-join.
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c25 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
+      - result: [
+          { id: 1004, a1: 1, a2: 13, a3: "b" },
+        ]
+    -
+      - query: select *
+                 from t1, (select max(a2) as maxA2 from t1 where a1 = 1) as m
+                where a1 = 1 and a2 = maxA2
+                order by id desc
+      # Self-join. Remove as many type aliases as possible
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c19 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c19 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3, q0._0._0 AS maxA2) }"
+      - result: [
+          { id: 1004, a1: 1, a2: 13, a3: "b", maxA2: 13 },
+        ]
+    -
+      - query: select a.*
+                 from t1 as a, (select max(b.a2) as maxA2 from t1 as b where b.a1 = 1) as m
+                where a.a1 = 1 and a.a2 = m.maxA2
+                order by a.id desc
+      # The same self-join as above, but with aliases to clarify that the two legs reference two separate t1
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c29 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c29 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
+      - result: [
+          { id: 1004, a1: 1, a2: 13, a3: "b" },
+        ]
+    -
+      - query: select a.*
+                 from t1 as a, (select max(a.a2) as maxA2 from a where a.a1 = 1) as m
+                where a.a1 = 1 and a.a2 = m.maxA2
+                order by a.id desc
+      # The same self-join as above, but with aliases to make that the two legs reference the same t1
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c27 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c27 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
+      - result: [
+          { id: 1004, a1: 1, a2: 13, a3: "b" },
+        ]
+    -
+      - query: select t1.*
+                 from t1, (select max(t1.a2) as maxA2 from t1 where t1.a1 = 1) as m
+                where t1.a1 = 1 and m.maxA2 = t1.a2
+                order by t1.id desc
+      # This _should_ have the same plan as the previous few, as it represents the same join, though it reverses the order of the operands in the t1.a2 = maxA2 predicate
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) | ON EMPTY NULL | FILTER _._0._0 EQUALS q0.a2 AS q1 RETURN (q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }"
+      - result: [
+          { id: 1004, a1: 1, a2: 13, a3: "b" },
+        ]
+
+    #
+    # Ternary joins. Assert that we can get joins with three constituents and an order by correct.
+    #
+    -
+      - query: select (t1.*) as a, (t2.*) as b, (t3.*) as c
+                 from t1, t2, t3
+                 where t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1
+                   and t2.b3 = t1.a3
+                   and t3.c2 = t1.a2
+                   and t3.c3 = t2.b3
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c36 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2_c3 [EQUALS promote(@c36 AS LONG), EQUALS q0.a2, EQUALS q1.b3]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q3._0.id AS id, q3._0.c1 AS c1, q3._0.c2 AS c2, q3._0.c3 AS c3, q3._0.aRef AS aRef) AS c) }"
+      - unorderedResult: [
+          { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2001, b1: 1, b2: 20, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+          { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2002, b1: 1, b2: 19, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+          { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 2003, b1: 1, b2: 18, b3: "b" }, c: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+          { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 2004, b1: 1, b2: 17, b3: "b" }, c: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+        ]
+    -
+      - query: select (t1.*) as a, (t2.*) as b, (t3.*) as c
+                 from t1, t2, t3
+                 where t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1
+                   and t2.b3 = t1.a3
+                   and t3.c2 = t1.a2
+                   and t3.c3 = t2.b3
+                 order by t1.a2
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c36 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2_c3 [EQUALS promote(@c36 AS LONG), EQUALS q0.a2, EQUALS q1.b3]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q3._0.id AS id, q3._0.c1 AS c1, q3._0.c2 AS c2, q3._0.c3 AS c3, q3._0.aRef AS aRef) AS c) }"
+      - result: [
+          { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2001, b1: 1, b2: 20, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+          { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2002, b1: 1, b2: 19, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+          { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 2003, b1: 1, b2: 18, b3: "b" }, c: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+          { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 2004, b1: 1, b2: 17, b3: "b" }, c: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+        ]
+    -
+      - query: select (t1.*) as a, (t2.*) as b, (t3.*) as c
+                 from t1, t2, t3
+                 where t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1
+                   and t2.b3 = t1.a3
+                   and t3.c2 = t1.a2
+                   and t3.c3 = t2.b3
+                 order by t2.b3
+      - explain: "ISCAN(t2$b1_b3 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c36 AS LONG)]) | FILTER q0.b3 EQUALS _.a3 | FLATMAP q1 -> { ISCAN(t3$c1_c2_c3 [EQUALS promote(@c36 AS LONG), EQUALS q1.a2, EQUALS q0.b3]) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS b, (q3._1.id AS id, q3._1.c1 AS c1, q3._1.c2 AS c2, q3._1.c3 AS c3, q3._1.aRef AS aRef) AS c) }"
+      - result: [
+          { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2001, b1: 1, b2: 20, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+          { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2002, b1: 1, b2: 19, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+          { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 2003, b1: 1, b2: 18, b3: "b" }, c: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+          { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 2004, b1: 1, b2: 17, b3: "b" }, c: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+        ]
+    -
+      - query: select (t1.*) as a, (t2.*) as b, (t3.*) as c
+                 from t1, t2, t3
+                 where t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1
+                   and t2.b3 = t1.a3
+                   and t3.c2 = t1.a2
+                   and t3.c3 = t2.b3
+                 order by t3.c2
+      - explain: "ISCAN(t3$c1_c2_c3 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> { COVERING(t1$a1_a2 [EQUALS promote(@c36 AS LONG)] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) | FILTER q0.c2 EQUALS _.a2 | FETCH | FLATMAP q1 -> { COVERING(t2$b1_b3 [EQUALS promote(@c36 AS LONG), EQUALS q1.a3] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.c3 EQUALS _.b3 | FETCH AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS c) }"
+      - result: [
+          { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2001, b1: 1, b2: 20, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+          { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2002, b1: 1, b2: 19, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+          { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 2003, b1: 1, b2: 18, b3: "b" }, c: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+          { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 2004, b1: 1, b2: 17, b3: "b" }, c: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+        ]
+    -
+      - query: select (t1.*) as a, (t2.*) as b, (t3.*) as c
+                 from t1, t2, t3
+                 where t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1
+                   and t2.b3 = t1.a3
+                   and t3.c2 = t1.a2
+                   and t3.c3 = t2.b3
+                 order by t3.c2, t3.c3
+      - explain: "ISCAN(t3$c1_c2_c3 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> { COVERING(t1$a1_a2 [EQUALS promote(@c36 AS LONG)] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) | FILTER q0.c2 EQUALS _.a2 | FETCH | FLATMAP q1 -> { COVERING(t2$b1_b3 [EQUALS promote(@c36 AS LONG), EQUALS q1.a3] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.c3 EQUALS _.b3 | FETCH AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS c) }"
+      - result: [
+          { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2001, b1: 1, b2: 20, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+          { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2002, b1: 1, b2: 19, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+          { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 2003, b1: 1, b2: 18, b3: "b" }, c: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+          { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 2004, b1: 1, b2: 17, b3: "b" }, c: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+        ]
+
+    #
+    # INs
+    #
+    -
+      - query: select (t1.*), (t3.*)
+                 from t1, t3
+                where t1.a1 IN (1, 2) and t3.aRef = t1.id
+                order by t1.a2
+      # Order by just a2 gives us an in-union
+      - explain: "[IN arrayDistinct(promote(@c22 AS ARRAY(LONG)))] INUNION q0 -> { COVERING(t1$a1_a2 [EQUALS q0] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } COMPARE BY (_.a2, _.id, _.a1) | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS _1) }"
+      - result: [
+         { { id: 1101, a1: 2, a2:  5, a3: "a" }, { id: 3101, c1: 2, c2:  7, c3: "c", aRef: 1101 } },
+         { { id: 1102, a1: 2, a2:  5, a3: "b" }, { id: 3102, c1: 2, c2:  8, c3: "d", aRef: 1102 } },
+         { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+         { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
+         { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
+         { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+         { { id: 1103, a1: 2, a2: 20, a3: "a" }, { id: 3103, c1: 2, c2:  5, c3: "d", aRef: 1103 } },
+         { { id: 1104, a1: 2, a2: 20, a3: "b" }, { id: 3104, c1: 2, c2:  6, c3: "c", aRef: 1104 } },
+        ]
+    -
+      - query: select (t1.*), (t3.*)
+                 from t1, t3
+                where t1.a1 IN (1, 2) and t3.aRef = t1.id
+                order by t1.a1, t1.a2
+      # Order by a1, a2 also gives us an in join.
+      - explain: "[IN arrayDistinct(promote(@c22 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0]) | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS _1) } }"
+      - result: [
+         { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+         { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
+         { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
+         { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+         { { id: 1101, a1: 2, a2:  5, a3: "a" }, { id: 3101, c1: 2, c2:  7, c3: "c", aRef: 1101 } },
+         { { id: 1102, a1: 2, a2:  5, a3: "b" }, { id: 3102, c1: 2, c2:  8, c3: "d", aRef: 1102 } },
+         { { id: 1103, a1: 2, a2: 20, a3: "a" }, { id: 3103, c1: 2, c2:  5, c3: "d", aRef: 1103 } },
+         { { id: 1104, a1: 2, a2: 20, a3: "b" }, { id: 3104, c1: 2, c2:  6, c3: "c", aRef: 1104 } },
+        ]
+    -
+      - query: select (t1.*), (t3.*)
+                 from t1, t3
+                where t1.a1 IN (1, 2) and t3.aRef = t1.id
+                order by t1.a1 asc, t1.a2 desc
+      # Order by a1, a2 also gives us an in join.
+      - explain: "[IN arrayDistinct(promote(@c22 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0] REVERSE) } | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS _1) }"
+      - result: [
+         { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+         { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
+         { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
+         { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+         { { id: 1104, a1: 2, a2: 20, a3: "b" }, { id: 3104, c1: 2, c2:  6, c3: "c", aRef: 1104 } },
+         { { id: 1103, a1: 2, a2: 20, a3: "a" }, { id: 3103, c1: 2, c2:  5, c3: "d", aRef: 1103 } },
+         { { id: 1102, a1: 2, a2:  5, a3: "b" }, { id: 3102, c1: 2, c2:  8, c3: "d", aRef: 1102 } },
+         { { id: 1101, a1: 2, a2:  5, a3: "a" }, { id: 3101, c1: 2, c2:  7, c3: "c", aRef: 1101 } },
+        ]
+    -
+      - query: select (t1.*), (t3.*)
+                 from t1, t3
+                where t1.a1 IN (1, 2) and t3.aRef = t1.id
+                order by t1.a1 desc, t1.a2 asc
+      # Order by a1, a2 also gives us an in join.
+      - explain: "[IN arrayDistinct(promote(@c22 AS ARRAY(LONG))) SORTED DESC] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0]) } | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS _1) }"
+      - result: [
+         { { id: 1101, a1: 2, a2:  5, a3: "a" }, { id: 3101, c1: 2, c2:  7, c3: "c", aRef: 1101 } },
+         { { id: 1102, a1: 2, a2:  5, a3: "b" }, { id: 3102, c1: 2, c2:  8, c3: "d", aRef: 1102 } },
+         { { id: 1103, a1: 2, a2: 20, a3: "a" }, { id: 3103, c1: 2, c2:  5, c3: "d", aRef: 1103 } },
+         { { id: 1104, a1: 2, a2: 20, a3: "b" }, { id: 3104, c1: 2, c2:  6, c3: "c", aRef: 1104 } },
+         { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+         { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
+         { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
+         { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+        ]
+
+    #
+    # With functions. Make sure that inserting a function around the type access still works.
+    #
+    -
+      - query: select (a.*), (b.*)
+                from t1_f(1) as a, t2_f(1) as b
+                where a.a3 = b.b3
+      - explain: "ISCAN(t2$b1 [EQUALS promote(@c16 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c16 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS _1) }"
+      - unorderedResult: [
+          { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1002, a1: 1, a2: 11, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 1002, a1: 1, a2: 11, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 1003, a1: 1, a2: 12, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1003, a1: 1, a2: 12, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b" } },
+        ]
+    -
+      - query: select (a.*), (b.*)
+                from t1_f(1) as a, t2_f(1) as b
+                where a.a3 = b.b3
+                order by a.a2
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c16 AS LONG)]) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c16 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS _0, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS _1) }"
+      - result: [
+          { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1002, a1: 1, a2: 11, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 1002, a1: 1, a2: 11, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 1003, a1: 1, a2: 12, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1003, a1: 1, a2: 12, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b" } },
+        ]
+    -
+      - query: select (a.*), (b.*)
+                from t1_f(1) as a, t2_f(1) as b
+                where a.a3 = b.b3
+                order by b.b3
+      - explain: "ISCAN(t2$b1_b3 [EQUALS promote(@c16 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c16 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS _1) }"
+      - result: [
+          { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1003, a1: 1, a2: 12, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1003, a1: 1, a2: 12, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1002, a1: 1, a2: 11, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 1002, a1: 1, a2: 11, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b" } },
+        ]
+    -
+      - query: select x.x1, (a.*), (c.*)
+                 from values (1), (2) as x(x1), t1_f(x.x1) as a, t3_f(x.x1) as c
+                where c.aRef = a.id
+                order by x1 desc, a.a2 asc
+      # Error: VerifyException when translating the ordering part. Needs more analysis
+      - error: 'XX000'
+...

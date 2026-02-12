@@ -217,11 +217,11 @@ pseudo-field-clash-queries:
         _.ID AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0 AS _0, q3._1
         AS _1, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _2) }
     task_count: 2392
-    task_total_time_ms: 180
-    transform_count: 749
-    transform_time_ms: 38
+    task_total_time_ms: 137
+    transform_count: 750
+    transform_time_ms: 30
     transform_yield_count: 163
-    insert_time_ms: 8
+    insert_time_ms: 33
     insert_new_count: 399
     insert_reused_count: 36
 -   query: EXPLAIN SELECT (t1.id, t1.col1, t1."__ROW_VERSION"), (t2.id, t2.col1, t2."__ROW_VERSION"),
@@ -236,9 +236,9 @@ pseudo-field-clash-queries:
         AS COL1, q3._1.COL2 AS COL2, q3._1.__ROW_VERSION AS __ROW_VERSION) AS _2)
         }
     task_count: 2392
-    task_total_time_ms: 142
-    transform_count: 748
-    transform_time_ms: 30
+    task_total_time_ms: 126
+    transform_count: 750
+    transform_time_ms: 28
     transform_yield_count: 163
     insert_time_ms: 6
     insert_new_count: 399

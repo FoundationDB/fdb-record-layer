@@ -220,13 +220,21 @@ public class RequestedOrdering {
         final var translationMap = AliasMap.ofAliases(lowerBaseAlias, Quantifier.current());
 
         final var pushedDownOrderingPartsBuilder = ImmutableList.<RequestedOrderingPart>builder();
+        boolean isEmpty = true;
         for (int i = 0; i < orderingParts.size(); i++) {
             final var orderingPart = orderingParts.get(i);
             final var orderingValue = Objects.requireNonNull(pushedDownOrderingValues.get(i));
             final var rebasedOrderingValue = orderingValue.rebase(translationMap);
-            pushedDownOrderingPartsBuilder.add(new RequestedOrderingPart(rebasedOrderingValue, orderingPart.getSortOrder()));
+            if (rebasedOrderingValue.getCorrelatedTo().stream().allMatch(c -> Quantifier.current().equals(c))) {
+                pushedDownOrderingPartsBuilder.add(new RequestedOrderingPart(rebasedOrderingValue, orderingPart.getSortOrder()));
+                isEmpty = false;
+            }
         }
-        return new RequestedOrdering(pushedDownOrderingPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS, isExhaustive());
+        if (isEmpty) {
+            return RequestedOrdering.preserve();
+        } else {
+            return new RequestedOrdering(pushedDownOrderingPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS, isExhaustive());
+        }
     }
 
     @Nonnull
