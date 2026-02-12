@@ -29,13 +29,12 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirect
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -51,11 +50,10 @@ public final class KeySpaceUtils {
 
     @Nonnull
     private static List<String> pathToUriList(final @Nonnull KeySpacePath dbPath) {
-        final List<String> asList = Stream.iterate(dbPath, Objects::nonNull, KeySpacePath::getParent)
-                .map(KeySpaceUtils::toPathElement)
-                .collect(Collectors.toCollection(ArrayList::new)); // guarantee mutability, for reverse
-        Collections.reverse(asList);
-        return asList;
+        return Lists.reverse(
+                Stream.iterate(dbPath, Objects::nonNull, KeySpacePath::getParent)
+                        .map(KeySpaceUtils::toPathElement)
+                        .collect(Collectors.toUnmodifiableList()));
     }
 
     private static String toPathElement(final KeySpacePath path) {
