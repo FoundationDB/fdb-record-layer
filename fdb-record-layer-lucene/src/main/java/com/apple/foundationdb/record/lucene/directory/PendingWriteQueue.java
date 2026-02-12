@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
@@ -51,6 +52,8 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -74,11 +77,16 @@ import java.util.concurrent.CompletableFuture;
  * </pre>
  * <p>Although, non-grouped or non-partitioned indexes would not include all of these components.</p>
  * <p>The key of each K/V queue entry will be a versionStamp to ensure uniqueness and ordering of the queue entries, which
- * should allow for conflict free insertion and removal of items. The value of the K/V will be an instance of PendingWriteItem proto.</p>
+ * should allow for conflict free insertion and removal of items. The value of the K/V will be an instance of
+ * LucenePendingWriteQueueProto.PendingWriteItem.</p>
+ * <p>The queue maintains a counter (in a separate subspace) for the number of entries it contains. The counter starts as
+ * uninitialized and is atomically mutated upon enqueues and clear operations. The queue can (optionally) reject enqueues
+ * if the number of entries is larger than (configurable) limit.</p>
  */
 @API(API.Status.INTERNAL)
 public class PendingWriteQueue {
-    public static final int MAX_PENDING_ENTRIES_TO_REPLAY = 0;
+    public static final int DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY = 0;
+    public static final int DEFAULT_MAX_PENDING_QUEUE_SIZE = 10_000;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PendingWriteQueue.class);
 
@@ -88,23 +96,35 @@ public class PendingWriteQueue {
      * protection against a query attempt taking too long to replay a huge number of elements.
      * Default: 0 (unlimited)
      */
-    private int maxEntriesToReplay;
+    private final int maxEntriesToReplay;
+    /**
+     * The maximum size of the Pending Writes queue.
+     * In case more items than the maximum number allowed in the queue are attempted to get inserted, the operation
+     * will fail.
+     * This option is meant to limit the queue size such that in case of errors the queue won't grow boundlessly.
+     * Default: 10,000. Value of 0 means unlimited.
+     */
+    private final long maxQueueSize;
 
     private final Subspace queueSubspace;
+    private final Subspace queueSizeSubspace;
 
     /**
      * Create a pending write queue.
      *
      * @param queueSubspace the subspace for this partition's queue, should include the partition ID and grouping key,
      * as necessary
+     * @param queueSizeSubspace the subspace for storing the queue size counter
      */
-    public PendingWriteQueue(@Nonnull Subspace queueSubspace) {
-        this(queueSubspace, MAX_PENDING_ENTRIES_TO_REPLAY);
+    public PendingWriteQueue(@Nonnull Subspace queueSubspace, @Nonnull Subspace queueSizeSubspace) {
+        this(queueSubspace, queueSizeSubspace, DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY, DEFAULT_MAX_PENDING_QUEUE_SIZE);
     }
 
-    public PendingWriteQueue(@Nonnull Subspace queueSubspace, int maxEntriesToReplay) {
+    public PendingWriteQueue(@Nonnull Subspace queueSubspace, @Nonnull Subspace queueSizeSubspace, int maxEntriesToReplay, int maxQueueSize) {
         this.queueSubspace = queueSubspace;
+        this.queueSizeSubspace = queueSizeSubspace;
         this.maxEntriesToReplay = maxEntriesToReplay;
+        this.maxQueueSize = maxQueueSize;
     }
 
     /**
@@ -184,6 +204,9 @@ public class PendingWriteQueue {
 
         context.ensureActive().clear(queueSubspace.pack(entry.versionstamp));
 
+        // Atomically decrement the queue size counter
+        mutateQueueSizeCounter(context, -1);
+
         // Record metrics
         context.increment(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_CLEAR);
 
@@ -200,7 +223,8 @@ public class PendingWriteQueue {
      */
     @Nonnull
     public CompletableFuture<Boolean> isQueueEmpty(@Nonnull FDBRecordContext context) {
-
+        // This is using direct count as it is still efficient, and is accurate in all cases, even when the counter is
+        // uninitialized or has drifted
         // Return true if empty
         return context.ensureActive()
                 .getRange(queueSubspace.range(), 1)
@@ -279,6 +303,13 @@ public class PendingWriteQueue {
             @Nonnull Tuple primaryKey,
             @Nullable List<LuceneDocumentFromRecord.DocumentField> fields) {
 
+        // Check if queue size limit is exceeded (if maxQueueSize > 0)
+        if (maxQueueSize > 0) {
+            if (isQueueTooLarge(context, maxQueueSize)) {
+                throw new PendingWritesQueueTooLarge("Queue size too large, cannot enqueue items", (int)maxQueueSize);
+            }
+        }
+
         // Build queue entry protobuf
         LucenePendingWriteQueueProto.PendingWriteItem.Builder builder =
                 LucenePendingWriteQueueProto.PendingWriteItem.newBuilder()
@@ -310,6 +341,9 @@ public class PendingWriteQueue {
             throw new RecordCoreInternalException("Pending queue item overwritten");
         }
 
+        // Atomically increment the queue size counter
+        mutateQueueSizeCounter(context, 1);
+
         // Record metrics
         context.increment(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_WRITE);
 
@@ -324,6 +358,88 @@ public class PendingWriteQueue {
     private KeyValueLogMessage getLogMessage(final @Nonnull String staticMsg) {
         return KeyValueLogMessage.build(staticMsg)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, queueSubspace);
+    }
+
+    /**
+     * Atomically mutate the queue size counter.
+     * This would increment/decrement the queue size counter by the given amount. If the queue counter is not initialized
+     * (key does not exist), FDB's ADD mutation treats it as 0, so the counter will be initialized to the given amount.
+     * This is standard FDB behavior: ADD mutation on a non-existent key treats the original value as 0.
+     * @param context the context to use
+     * @param amount the amount by which to mutate the counter
+     */
+    private void mutateQueueSizeCounter(final @Nonnull FDBRecordContext context, final int amount) {
+        context.ensureActive().mutate(MutationType.ADD, queueSizeSubspace.pack(), encodeQueueSize(amount));
+    }
+
+    /**
+     * Return TRUE if the queue has no room for new entries.
+     * This method uses the queue size counter to get the queue size, defaulting to FALSE when the counter does not exist.
+     * @param context the context to use to read the counter
+     * @param size the size to check
+     * @return {@code true} is the queue size is larger than or equals the given size, {@code false} if smaller or not initialized
+     */
+    private boolean isQueueTooLarge(FDBRecordContext context, long size) {
+        Long currentSize = LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_QUEUE_SIZE, getQueueSize(context), context);
+        // in case there is no value in the queue size subspace, we are not enforcing size yet (pre-initialization compatibility)
+        return ((currentSize != null) && (currentSize >= size));
+    }
+
+    /**
+     * Get the current size of the pending write queue.
+     * Uses the atomic counter for efficiency. In case there is no counter available (e.g. the counter was not initialized),
+     * null is returned.
+     * This method uses a SNAPSHOT read to get the value in order to prevent conflicts on the counter in case another transaction
+     * is mutating the value. This is OK in our case since pure serializability is not required (other than in the case
+     * of {@link #isQueueEmpty(FDBRecordContext)}, in which case we use counting to see if the size is > 0).
+     *
+     * @param context the record context to use
+     *
+     * @return a future that resolves to the queue size, or {@code null} if the counter does not exist
+     */
+    @Nonnull
+    public CompletableFuture<Long> getQueueSize(@Nonnull FDBRecordContext context) {
+        return context.readTransaction(true).get(queueSizeSubspace.pack())
+                .thenApply(size -> (size == null) ? null : decodeQueueSize(size));
+    }
+
+    /**
+     * Initialize the queue size counter by counting the current number of entries in the queue.
+     * This method should be called when transitioning from a non-enforced to enforced queue size limit,
+     * or when the counter needs to be reset to match the actual queue size.
+     * If maxQueueSize is configured (greater than 0), the scan will be limited to maxQueueSize entries.
+     *
+     * @param context the record context to use
+     *
+     * @return a future that resolves when the counter has been initialized
+     */
+    @Nonnull
+    public CompletableFuture<Void> initializeQueueSizeCounter(@Nonnull FDBRecordContext context) {
+        // Count the actual number of entries in the queue, limiting to maxQueueSize if configured
+        // TODO: This may cause a skew of the count, that has no easy way to fix. Is this desired? Maybe just allow all?
+        int scanLimit = maxQueueSize > 0 ? (int)maxQueueSize : 0;
+        return context.ensureActive()
+                .getRange(queueSubspace.range(), scanLimit)
+                .asList()
+                .thenAccept(keyValues -> {
+                    long count = keyValues.size();
+                    // Set the counter to the actual count
+                    context.ensureActive().set(queueSizeSubspace.pack(), encodeQueueSize(count));
+
+                    if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug(getLogMessage("Initialized queue size counter")
+                                .addKeyAndValue(LuceneLogMessageKeys.COUNT, count)
+                                .toString());
+                    }
+                });
+    }
+
+    private byte[] encodeQueueSize(long count) {
+        return ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(count).array();
+    }
+
+    private Long decodeQueueSize(@Nullable byte[] bytes) {
+        return bytes == null ? null : ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getLong();
     }
 
     /**
@@ -375,6 +491,14 @@ public class PendingWriteQueue {
         protected TooManyPendingWritesException(final String message, int itemCount) {
             super(message);
             addLogInfo(LuceneLogMessageKeys.MAX_ENTRIES_TO_REPLAY, itemCount);
+        }
+    }
+
+    @SuppressWarnings("serial")
+    public static class PendingWritesQueueTooLarge extends RecordCoreException {
+        protected PendingWritesQueueTooLarge(final String message, long itemCount) {
+            super(message);
+            addLogInfo(LuceneLogMessageKeys.MAX_QUEUE_SIZE, itemCount);
         }
     }
 }
