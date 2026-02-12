@@ -173,7 +173,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nullable
     private List<Range> notCommittedConflictingKeys = null;
     @Nonnull
-    private final LockRegistry lockRegistry = new LockRegistry(this.getTimer());
+    private final LockRegistry lockRegistry;
     @Nonnull
     private final TempTable.Factory tempTableFactory = TempTable.Factory.instance();
 
@@ -190,43 +190,43 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         this.transactionId = getSanitizedId(config);
         this.openStackTrace = config.isSaveOpenStackTrace() ? new Throwable("Not really thrown") : null;
 
-        @Nonnull Transaction tr = ensureActive();
         if (this.transactionId != null) {
-            tr.options().setDebugTransactionIdentifier(this.transactionId);
+            transaction.options().setDebugTransactionIdentifier(this.transactionId);
             if (config.isLogTransaction()) {
-                logTransaction();
+                transaction.options().setLogTransaction();
+                logged = true;
             }
         }
         if (config.isServerRequestTracing()) {
-            tr.options().setServerRequestTracing();
+            transaction.options().setServerRequestTracing();
         }
 
         if (!config.getTags().isEmpty()) {
             for (String tag : config.getTags()) {
-                tr.options().setTag(tag);
+                transaction.options().setTag(tag);
             }
         }
 
         if (config.isReportConflictingKeys()) {
-            tr.options().setReportConflictingKeys();
+            transaction.options().setReportConflictingKeys();
         }
 
         this.config = config;
 
         // If a causal read risky is requested, we set the corresponding transaction option
         if (config.getWeakReadSemantics() != null && config.getWeakReadSemantics().isCausalReadRisky()) {
-            tr.options().setCausalReadRisky();
+            transaction.options().setCausalReadRisky();
         }
 
         switch (config.getPriority()) {
             case BATCH:
-                tr.options().setPriorityBatch();
+                transaction.options().setPriorityBatch();
                 break;
             case DEFAULT:
                 // Default priority does not need to set any option
                 break;
             case SYSTEM_IMMEDIATE:
-                tr.options().setPrioritySystemImmediate();
+                transaction.options().setPrioritySystemImmediate();
                 break;
             default:
                 throw new RecordCoreArgumentException("unknown priority level " + config.getPriority());
@@ -236,8 +236,10 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         this.timeoutMillis = getTimeoutMillisToSet(fdb, config);
         if (timeoutMillis != FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS) {
             // If the value is DEFAULT_TR_TIMEOUT_MILLIS, then this uses the system default and does not need to be set here
-            tr.options().setTimeout(timeoutMillis);
+            transaction.options().setTimeout(timeoutMillis);
         }
+
+        lockRegistry = new LockRegistry(timer);
 
         this.dirtyStoreState = false;
     }
@@ -369,11 +371,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @see com.apple.foundationdb.TransactionOptions#setLogTransaction()
      * @see FDBRecordContextConfig.Builder#setLogTransaction(boolean)
      */
+    // TODO: Consider deprecating this method, as now called inline when constructing.
     public final void logTransaction() {
         if (transactionId == null) {
             throw new RecordCoreException("Cannot log transaction as ID is not set");
         }
-        // TODO: Consider deprecating this method and moving this inline.
         ensureActive().options().setLogTransaction();
         logged = true;
     }

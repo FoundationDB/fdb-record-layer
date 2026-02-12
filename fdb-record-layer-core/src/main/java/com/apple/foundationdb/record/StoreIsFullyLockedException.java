@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
  * guarantee that no operations will be performed on the store while it is locked.
  */
 @API(API.Status.EXPERIMENTAL)
-public class StoreIsFullyLockedException extends RecordCoreStorageException {
+public final class StoreIsFullyLockedException extends RecordCoreStorageException {
     private static final long serialVersionUID = -2341887654789012345L;
 
     public StoreIsFullyLockedException(@Nonnull final RecordMetaDataProto.DataStoreInfo.StoreLockState storeLockState,
