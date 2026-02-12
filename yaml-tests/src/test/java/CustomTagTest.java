@@ -55,7 +55,8 @@ class CustomTagTest {
     @Nonnull
     static Stream<String> shouldPass() {
         return Stream.of(
-                "ignore-tag"
+                "ignore-tag",
+                "ignore_column_name-tag"
         );
     }
 
