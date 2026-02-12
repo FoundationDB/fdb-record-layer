@@ -41,14 +41,14 @@ test_block:
     -
       # non correlated subquery, resolving alias should be fine.
       - query: select ida from a where exists (select ida from a where ida = 1);
-      - explain: "SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP (_.IDA AS IDA) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER A | FILTER q0 NOT_NULL AS q1 RETURN (q1.IDA AS IDA) }"
+      - explain: "SCAN(<,>) | TFILTER A | FLATMAP q0 -> { SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP (_.IDA AS IDA) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.IDA AS IDA) }"
       - result: [{1}, {2}, {3}]
     -
       # this should work albeit being seemingly ambiguous
       # upper query block resolution should kick in _iff_ we fail to resolve
       # the identifier in current query block.
       - query: select idx from x where exists (select x from a where ida = 1);
-      - explain: "SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP (_.X AS X) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER X | FILTER q0 NOT_NULL AS q1 RETURN (q1.IDX AS IDX) }"
+      - explain: "SCAN(<,>) | TFILTER X | FLATMAP q0 -> { SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP (_.X AS X) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.IDX AS IDX) }"
       - result: [{4}, {5}, {6}]
     -
       # PartiQL resolution.

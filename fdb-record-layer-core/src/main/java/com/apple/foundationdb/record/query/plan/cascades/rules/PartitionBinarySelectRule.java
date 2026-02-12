@@ -95,12 +95,25 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
 
         for (final var predicate : selectExpression.getPredicates()) {
             final var correlatedTo = predicate.getCorrelatedTo();
-            final var correlatedToRight = correlatedTo.contains(rightQuantifier.getAlias());
+            final var correlatedToLeft = correlatedTo.contains(leftAlias);
+            final var correlatedToRight = correlatedTo.contains(rightAlias);
 
-            if (!rightDependsOnLeft || !correlatedToRight) {
+            if (correlatedToLeft && !correlatedToRight) {
+                // local predicate on the left side -- should always go left
                 leftPredicatesBuilder.add(predicate);
-            } else {
+                continue;
+            }
+
+            if (correlatedToRight && !correlatedToLeft) {
+                // local predicate on the right side -- should always go right
                 rightPredicatesBuilder.add(predicate);
+                continue;
+            }
+
+            if (rightDependsOnLeft && correlatedToRight) {
+                rightPredicatesBuilder.add(predicate);
+            } else {
+                leftPredicatesBuilder.add(predicate);
             }
         }
 
