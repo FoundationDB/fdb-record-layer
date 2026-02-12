@@ -31,6 +31,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 /**
  * Tests for custom YAML tags such as {@link com.apple.foundationdb.relational.yamltests.tags.IgnoreTag}.
  */
@@ -56,7 +58,7 @@ class CustomTagTest {
     static Stream<String> shouldPass() {
         return Stream.of(
                 "ignore-tag",
-                "ignore_column_name-tag"
+                "pos-tag"
         );
     }
 

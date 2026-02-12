@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.yamltests.tags;
 
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.google.auto.service.AutoService;
 import org.yaml.snakeyaml.constructor.AbstractConstruct;
 import org.yaml.snakeyaml.constructor.Construct;
@@ -30,31 +29,31 @@ import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * YAML tag for ignoring column name validation in result sets.
  *
- * Usage: !ignore_column_name _
+ * Usage: !pos {position of the column, 1-based}
  */
 @AutoService(CustomTag.class)
-public final class IgnoreColumnNameTag implements CustomTag {
+public final class PosTag implements CustomTag {
 
     @Nonnull
-    private static final Tag tag = new Tag("!ignore_column_name");
+    private static final Tag tag = new Tag("!pos");
 
     @Nonnull
     private static final Construct CONSTRUCT_INSTANCE = new AbstractConstruct() {
         @Override
         public Object construct(Node node) {
             if (!(node instanceof ScalarNode)) {
-                Assert.failUnchecked("The value of !ignore_column_name tag must be a scalar, however '" + node + "' is found!");
+                Assert.failUnchecked("The value of " + tag.getValue() + " tag must be a scalar, however '" + node + "' is found!");
             }
-            return new IgnoreColumnNameMatcher(((ScalarNode) node).getValue());
+            final var scalarNode = (ScalarNode)node;
+            return new ColumnPosition(Integer.valueOf((scalarNode.getValue())));
         }
     };
 
-    public IgnoreColumnNameTag() {
+    public PosTag() {
     }
 
     @Nonnull
@@ -69,23 +68,17 @@ public final class IgnoreColumnNameTag implements CustomTag {
         return CONSTRUCT_INSTANCE;
     }
 
-    public static final class IgnoreColumnNameMatcher implements Matchable {
+    public static final class ColumnPosition {
         @Nonnull
-        private final String value;
+        private final Integer columnPosition;
 
-        public IgnoreColumnNameMatcher(@Nonnull final String value) {
-            this.value = value;
+        public ColumnPosition(@Nonnull final Integer columnPosition) {
+            this.columnPosition = columnPosition;
         }
 
         @Nonnull
-        @Override
-        public Matchers.ResultSetMatchResult matches(@Nullable final Object other, final int rowNumber, @Nonnull final String cellRef) {
-            return Matchers.ResultSetMatchResult.success();
-        }
-
-        @Override
-        public String toString() {
-            return value;
+        public Integer getValue() {
+            return columnPosition;
         }
     }
 }
