@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.CommandUtil;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
@@ -58,14 +59,12 @@ import java.util.Objects;
 public class CheckExplainConfig extends QueryConfig {
 
     private static final Logger logger = LogManager.getLogger(CheckExplainConfig.class);
-    private final int lineNumber;
     private final YamlExecutionContext executionContext;
     private final boolean isExact;
     private final String blockName;
 
-    public CheckExplainConfig(final String configName, final Object value, final int lineNumber, final YamlExecutionContext executionContext, final boolean isExact, final String blockName) {
-        super(configName, value, lineNumber, executionContext);
-        this.lineNumber = lineNumber;
+    public CheckExplainConfig(final String configName, final Object value, @Nonnull final YamlReference reference, final YamlExecutionContext executionContext, final boolean isExact, final String blockName) {
+        super(configName, value, reference);
         this.executionContext = executionContext;
         this.isExact = isExact;
         this.blockName = blockName;
@@ -135,19 +134,19 @@ public class CheckExplainConfig extends QueryConfig {
                 planDiffs.append(diffRow.getOldLine()).append('\n').append(diffRow.getNewLine()).append('\n');
             }
             if (isExact && executionContext.shouldCorrectExplains()) {
-                if (!executionContext.correctExplain(getLineNumber() - 1, actualPlan)) {
-                    QueryCommand.reportTestFailure("‼️ Cannot correct explain plan at line " + getLineNumber());
+                if (!executionContext.correctExplain(getReference(), actualPlan)) {
+                    QueryCommand.reportTestFailure("‼️ Cannot correct explain plan at " + getReference());
                 } else {
-                    logger.debug(() -> "⭐️ Successfully replaced plan at line " + getLineNumber());
+                    logger.debug(() -> "⭐️ Successfully replaced plan at " + getReference());
                 }
             } else {
-                final var diffMessage = String.format(Locale.ROOT, "‼️ plan mismatch at line %d:%n" +
+                final var diffMessage = String.format(Locale.ROOT, "‼️ plan mismatch at %s:%n" +
                         "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n%s" +
                         "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                         "↪ expected plan %s:%n%s%n" +
                         "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                         "↩ actual plan:%n%s",
-                        getLineNumber(), planDiffs, (!isExact ? "fragment" : ""), getValueString(), actualPlan);
+                        getReference(), planDiffs, (!isExact ? "fragment" : ""), getValueString(), actualPlan);
                 QueryCommand.reportTestFailure(diffMessage);
             }
         }
@@ -165,7 +164,7 @@ public class CheckExplainConfig extends QueryConfig {
         Verify.verify(taskTotalTimeInNs > 0);
 
         if (expectedPlannerMetricsInfo == null && !executionContext.shouldCorrectMetrics()) {
-            QueryCommand.reportTestFailure("‼️ No planner metrics for line " + getLineNumber());
+            QueryCommand.reportTestFailure("‼️ No planner metrics at " + getReference());
         }
         final var actualInfo = PlannerMetricsProto.Info.newBuilder()
                 .setExplain(actualPlan)
@@ -181,24 +180,24 @@ public class CheckExplainConfig extends QueryConfig {
                                 .setInsertReusedCount(actualPlannerMetrics.getLong(8)))
                 .build();
         if (expectedPlannerMetricsInfo == null) {
-            executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, setups);
+            executionContext.putMetrics(blockName, currentQuery, getReference(), actualInfo, setups);
             executionContext.markDirty();
-            logger.debug(() -> "⭐️ Successfully inserted new planner metrics at line " + getLineNumber());
+            logger.debug(() -> "⭐️ Successfully inserted new planner metrics at " + getReference());
         } else {
             final var expectedCountersAndTimers = expectedPlannerMetricsInfo.getCountersAndTimers();
             final var actualCountersAndTimers = actualInfo.getCountersAndTimers();
             final var metricsDescriptor = expectedCountersAndTimers.getDescriptorForType();
 
             if (areMetricsDifferent(expectedCountersAndTimers, actualCountersAndTimers, metricsDescriptor)) {
-                executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, setups);
+                executionContext.putMetrics(blockName, currentQuery, getReference(), actualInfo, setups);
                 if (executionContext.shouldCorrectMetrics()) {
                     executionContext.markDirty();
-                    logger.debug(() -> "⭐️ Successfully updated planner metrics at line " + getLineNumber());
+                    logger.debug(() -> "⭐️ Successfully updated planner metrics at " + getReference());
                 } else {
-                    QueryCommand.reportTestFailure("‼️ Planner metrics have changed for line " + getLineNumber());
+                    QueryCommand.reportTestFailure("‼️ Planner metrics have changed for " + getReference());
                 }
             } else {
-                executionContext.putMetrics(blockName, currentQuery, lineNumber, expectedPlannerMetricsInfo, setups);
+                executionContext.putMetrics(blockName, currentQuery, getReference(), expectedPlannerMetricsInfo, setups);
             }
         }
     }
@@ -211,7 +210,7 @@ public class CheckExplainConfig extends QueryConfig {
             // Check each metric. Do NOT short-circuit because we want to log any metrics
             // that have changed (a side effect of isMetricDifferent)
             different |= isMetricDifferent(expectedCountersAndTimers, actualCountersAndTimers,
-                    metricsDescriptor.findFieldByName(fieldName), lineNumber);
+                    metricsDescriptor.findFieldByName(fieldName), getReference());
         }
         return different;
     }
@@ -219,13 +218,13 @@ public class CheckExplainConfig extends QueryConfig {
     private static boolean isMetricDifferent(@Nonnull final PlannerMetricsProto.CountersAndTimers expected,
                                              @Nonnull final PlannerMetricsProto.CountersAndTimers actual,
                                              @Nonnull final Descriptors.FieldDescriptor fieldDescriptor,
-                                             int lineNumber) {
+                                             @Nonnull final YamlReference reference) {
         final long expectedMetric = (long)expected.getField(fieldDescriptor);
         final long actualMetric = (long)actual.getField(fieldDescriptor);
         if (expectedMetric != actualMetric) {
             if (logger.isWarnEnabled()) {
-                logger.warn("‼️ metric {} differs; lineNumber = {}; expected = {}; actual = {}",
-                        fieldDescriptor.getName(), lineNumber, expectedMetric, actualMetric);
+                logger.warn("‼️ metric {} differs; ref = {}; expected = {}; actual = {}",
+                        fieldDescriptor.getName(), reference, expectedMetric, actualMetric);
             }
             return true;
         }

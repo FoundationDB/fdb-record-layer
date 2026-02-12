@@ -56,8 +56,8 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeScheduler;
 import org.apache.lucene.index.MergeTrigger;
+import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.index.StandardDirectoryReaderOptimization;
-import org.apache.lucene.index.TieredMergePolicy;
 import org.apache.lucene.store.LockFactory;
 import org.apache.lucene.store.NoLockFactory;
 import org.apache.lucene.util.IOUtils;
@@ -165,6 +165,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     @VisibleForTesting
+    @SuppressWarnings("this-escape")
     public FDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
                                @Nonnull final FDBDirectory directory,
                                @Nonnull final Tuple key,
@@ -198,21 +199,27 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     @Nonnull
     private IndexWriterConfig createIndexWriterConfig(final Exception exceptionAtCreation) {
         final IndexDeferredMaintenanceControl mergeControl = this.state.store.getIndexDeferredMaintenanceControl();
-        TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(mergeControl, this.agilityContext,
-                this.state.indexSubspace, this.key, exceptionAtCreation)
-                .setMaxMergedSegmentMB(this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
-                .setSegmentsPerTier(this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
-        tieredMergePolicy.setNoCFSRatio(1.00);
-        IndexWriterConfig indexWriterConfig = new IndexWriterConfig(this.analyzerWrapper.getAnalyzer())
+        final MergePolicy mergePolicy;
+        if (mergeControl.shouldAutoMergeDuringCommit() || mergeControl.isExplicitMergePath()) {
+            // Here: this function was called in an explicit merge path. Prepare an appropriate
+            // merge policy, and avoid requesting a deferred merge
+            mergePolicy = new FDBTieredMergePolicy(mergeControl, this.agilityContext,
+                    this.state.indexSubspace, this.key, exceptionAtCreation)
+                    .setMaxMergedSegmentMB(this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
+                    .setSegmentsPerTier(this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
+        } else {
+            // Here: Not a merge path, optimize by using a "no merge" policy and request a deferred merge
+            mergePolicy = NoMergePolicy.INSTANCE;
+            mergeControl.setMergeRequiredIndexes(this.state.index);
+        }
+
+        mergePolicy.setNoCFSRatio(1.00);
+        return new IndexWriterConfig(this.analyzerWrapper.getAnalyzer())
                 .setUseCompoundFile(USE_COMPOUND_FILE)
-                .setMergePolicy(tieredMergePolicy)
+                .setMergePolicy(mergePolicy)
                 .setMergeScheduler(getMergeScheduler(this.state, this.mergeDirectoryCount, this.agilityContext, this.key))
                 .setCodec(CODEC)
                 .setInfoStream(new LuceneLoggerInfoStream(LOGGER));
-
-        // Merge is required when creating an index writer (do we have a better indicator for a required merge?)
-        mergeControl.setMergeRequiredIndexes(this.state.index);
-        return indexWriterConfig;
     }
 
     @Nonnull

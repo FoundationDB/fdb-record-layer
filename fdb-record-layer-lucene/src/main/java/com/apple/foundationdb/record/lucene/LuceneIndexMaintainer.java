@@ -106,6 +106,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Nonnull
     private final LucenePartitioner partitioner;
 
+    @SuppressWarnings("this-escape")
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
         super(state);
         this.executor = executor;
@@ -177,6 +178,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         if (shouldUseQueue(entry.getKey(), partitionId)) {
             PendingWriteQueue queue = directoryManager.getPendingWriteQueue(entry.getKey(), partitionId);
             queue.enqueueInsert(state.context, newRecord.getPrimaryKey(), entry.getValue());
+            // Require deferred merge (+ drain) in case there is a merge indicator without an active merge
+            this.state.store.getIndexDeferredMaintenanceControl().setMergeRequiredIndexes(this.state.index);
         } else {
             writeDocumentBypassQueue(newRecord, entry, partitionId);
         }
@@ -204,6 +207,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         if (shouldUseQueue(groupingKey, partitionId)) {
             PendingWriteQueue queue = directoryManager.getPendingWriteQueue(groupingKey, partitionId);
             queue.enqueueDelete(state.context, primaryKey);
+            // Require deferred merge (+ drain) in case there is a merge indicator without an active merge
+            this.state.store.getIndexDeferredMaintenanceControl().setMergeRequiredIndexes(this.state.index);
             return 0; // partition count will be adjusted during drain
         } else {
             return deleteDocumentBypassQueue(groupingKey, partitionId, primaryKey);

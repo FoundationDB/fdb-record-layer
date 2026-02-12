@@ -214,6 +214,7 @@ public class FDBDirectory extends Directory {
                 DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, blockCacheMaximumSize, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
     }
 
+    @SuppressWarnings("this-escape")
     private FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
                          @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey, AgilityContext agilityContext,
                          @Nullable LockFactory lockFactory,

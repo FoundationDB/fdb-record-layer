@@ -857,12 +857,17 @@ public class MetaDataEvolutionValidatorTest {
                 DescriptorProtos.FieldDescriptorProto.Label.LABEL_REQUIRED
         );
         for (int i = 0; i < labels.size(); i++) {
-            final int itr = i;
-            final DescriptorProtos.FieldDescriptorProto.Label label = labels.get(itr);
-            final String labelText = label.name().substring(label.name().indexOf('_') + 1).toLowerCase(Locale.ROOT);
-            final String errMsg = labelText + " field is no longer " + labelText;
+            final DescriptorProtos.FieldDescriptorProto.Label label = labels.get(i);
+            final String errMsg;
+            if (label == DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL) {
+                errMsg = "field changed whether default values are stored if set explicitly";
+            } else {
+                final String labelText = label.name().substring(label.name().indexOf('_') + 1).toLowerCase(Locale.ROOT);
+                errMsg = labelText + " field is no longer " + labelText;
+            }
+            final DescriptorProtos.FieldDescriptorProto.Label newLabel = labels.get((i + 1) % labels.size());
             FileDescriptor updatedFile = mutateField("MySimpleRecord", "str_value_indexed", oldFile,
-                    field -> field.setLabel(labels.get((itr + 1) % labels.size())));
+                    field -> field.setLabel(newLabel));
             assertInvalid(errMsg, oldFile, updatedFile);
 
             oldFile = updatedFile;

@@ -7,6 +7,73 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.9
 
+### 4.9.9.0
+
+<h4> Bug Fixes </h4>
+
+* Lucene: handle requests for deferred merges - [PR #3905](https://github.com/FoundationDB/fdb-record-layer/pull/3905)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Introduce "include" block in YAML testing framework - [PR #3819](https://github.com/FoundationDB/fdb-record-layer/pull/3819)
+
+</details>
+
+
+**[Full Changelog (4.9.8.0...4.9.9.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.9.8.0...4.9.9.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.8.15.0`, ✅`4.8.16.0`, ✅`4.8.17.0`, ✅`4.9.1.0`, ✅`4.9.2.0`, ✅`4.9.3.0`, ✅`4.9.4.0`, ✅`4.9.6.0`, ✅`4.9.7.0`, ✅`4.9.8.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/21681566971)
+
+
+
+### 4.9.8.0
+
+<h4> New Features </h4>
+
+* Fix struct type metadata preservation in query results and continuations - [PR #3753](https://github.com/FoundationDB/fdb-record-layer/pull/3753)
+<h4> Dependency Updates </h4>
+
+* Make the gson dependency in yaml-tests explicit. - [PR #3911](https://github.com/FoundationDB/fdb-record-layer/pull/3911)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Enable all tests that were previously failing due to [#3206](https://github.com/FoundationDB/fdb-record-layer/issues/3206) - [PR #3689](https://github.com/FoundationDB/fdb-record-layer/pull/3689)
+* Publish the server logs for mixed mode tests - [PR #3909](https://github.com/FoundationDB/fdb-record-layer/pull/3909)
+* Make FDBDatabaseTest.testPostCloseHookFailsToCreate not flaky - [PR #3908](https://github.com/FoundationDB/fdb-record-layer/pull/3908)
+* Add comprehensive JDBC Guide  - [PR #3784](https://github.com/FoundationDB/fdb-record-layer/pull/3784)
+* Assert that yaml test connections to `ExternalServer`s are connections to the right version - [PR #3906](https://github.com/FoundationDB/fdb-record-layer/pull/3906)
+
+</details>
+
+
+**[Full Changelog (4.9.7.0...4.9.8.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.9.7.0...4.9.8.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.8.14.0`, ✅`4.8.15.0`, ✅`4.8.16.0`, ✅`4.8.17.0`, ✅`4.9.1.0`, ✅`4.9.2.0`, ✅`4.9.3.0`, ✅`4.9.4.0`, ✅`4.9.6.0`, ✅`4.9.7.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/21670849939)
+
+
+
 ### 4.9.7.0
 
 <h4> New Features </h4>

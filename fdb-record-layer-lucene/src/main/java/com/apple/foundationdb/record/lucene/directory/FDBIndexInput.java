@@ -45,7 +45,7 @@ import static com.google.common.base.Verify.verify;
  * @see <a href="https://lucene.apache.org/core/7_6_0/core/org/apache/lucene/store/IndexInput.html">IndexInput</a>
  */
 @API(API.Status.EXPERIMENTAL)
-public class FDBIndexInput extends IndexInput {
+public final class FDBIndexInput extends IndexInput {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBIndexInput.class);
     private final String fileName;
     private final FDBDirectory fdbDirectory;

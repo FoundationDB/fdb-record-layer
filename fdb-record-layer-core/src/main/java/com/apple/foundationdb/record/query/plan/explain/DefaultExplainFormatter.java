@@ -40,11 +40,20 @@ public class DefaultExplainFormatter implements ExplainFormatter {
     @Nonnull
     private final Deque<ExplainSymbolMap> scopes;
 
-    public DefaultExplainFormatter(@Nonnull final Supplier<ExplainSymbolMap> symbolMapSupplier) {
+    protected DefaultExplainFormatter(@Nonnull final Supplier<ExplainSymbolMap> symbolMapSupplier) {
         this.symbolMapSupplier = symbolMapSupplier;
         this.scopes = new ArrayDeque<>();
-        this.scopes.push(this.symbolMapSupplier.get());
+    }
+
+    protected void register() {
+        pushScope();
         registerAliasExplicitly(Quantifier.current(), "_");
+    }
+
+    public static DefaultExplainFormatter create(@Nonnull final Supplier<ExplainSymbolMap> symbolMapSupplier) {
+        final DefaultExplainFormatter formatter = new DefaultExplainFormatter(symbolMapSupplier);
+        formatter.register();
+        return formatter;
     }
 
     @Override
@@ -95,6 +104,6 @@ public class DefaultExplainFormatter implements ExplainFormatter {
 
     @Nonnull
     public static DefaultExplainFormatter forDebugging() {
-        return new DefaultExplainFormatter(DefaultExplainSymbolMap::new);
+        return DefaultExplainFormatter.create(DefaultExplainSymbolMap::new);
     }
 }
