@@ -391,7 +391,7 @@ public class PendingWriteQueue {
      * null is returned.
      * This method uses a SNAPSHOT read to get the value in order to prevent conflicts on the counter in case another transaction
      * is mutating the value. This is OK in our case since pure serializability is not required (other than in the case
-     * of {@link #isQueueEmpty(FDBRecordContext)}, in which case we use counting to see if the size is > 0).
+     * of {@link #isQueueEmpty(FDBRecordContext)}, in which case we use counting to see if the size is greater than 0).
      *
      * @param context the record context to use
      *
