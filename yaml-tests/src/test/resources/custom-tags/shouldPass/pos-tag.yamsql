@@ -28,5 +28,7 @@ test_block:
       - count: 1
     -
       - query: select * from t1
-      - result: [{!ignore_column_name _c1: 10, !ignore_column_name _c2: 20, !ignore_column_name _c3: 30}]
-
+      - result: [{!pos 1: 10, !pos 2: 20, !pos 3: 30}]
+    -
+      - query: select * from t1
+      - result: [{!pos 2: 20, !pos 3: 30, !pos 1: 10}]
