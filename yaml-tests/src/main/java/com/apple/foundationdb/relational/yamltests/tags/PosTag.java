@@ -70,15 +70,15 @@ public final class PosTag implements CustomTag {
 
     public static final class ColumnPosition {
         @Nonnull
-        private final Integer columnPosition;
+        private final Integer pos;
 
         public ColumnPosition(@Nonnull final Integer columnPosition) {
-            this.columnPosition = columnPosition;
+            this.pos = columnPosition;
         }
 
         @Nonnull
         public Integer getValue() {
-            return columnPosition;
+            return pos;
         }
     }
 }
