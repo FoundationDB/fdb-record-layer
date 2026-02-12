@@ -13,3 +13,4 @@ List of functions (by sub-category)
     scalar_functions/bitmap_bit_position
     scalar_functions/bitmap_bucket_number
     scalar_functions/bitmap_bucket_offset
+    scalar_functions/get_versionstamp_incarnation

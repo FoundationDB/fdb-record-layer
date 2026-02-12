@@ -100,24 +100,24 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
     @Nonnull
     private final Supplier<Map<CorrelationIdentifier, ? extends Quantifier>> aliasToQuantifierMapSupplier;
     @Nonnull
-    private final Supplier<PartiallyOrderedSet<CorrelationIdentifier>> correlationOrderSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<PartiallyOrderedSet<CorrelationIdentifier>> correlationOrderSupplier = Suppliers.memoize(this::computeCorrelationOrder);
     @Nonnull
-    private final Supplier<Set<Set<CorrelationIdentifier>>> independentQuantifiersPartitioningSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<Set<CorrelationIdentifier>>> independentQuantifiersPartitioningSupplier = Suppliers.memoize(this::computeIndependentQuantifiersPartitioning);
     @Nonnull
-    private final Supplier<QueryPredicate> conjunctedPredicateSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<QueryPredicate> conjunctedPredicateSupplier = Suppliers.memoize(this::computeConjunctedPredicate);
 
     public SelectExpression(@Nonnull Value resultValue,
                             @Nonnull List<? extends Quantifier> children,
                             @Nonnull List<? extends QueryPredicate> predicates) {
         this.resultValue = resultValue;
         this.children = ImmutableList.copyOf(children);
+        this.aliasToQuantifierMapSupplier = Suppliers.memoize(() -> Quantifiers.aliasToQuantifierMap(this.children));
         this.predicates = predicates.isEmpty()
                           ? ImmutableList.of()
                           : partitionPredicates(predicates);
-        this.aliasToQuantifierMapSupplier = Suppliers.memoize(() -> Quantifiers.aliasToQuantifierMap(children));
-        this.correlationOrderSupplier = Suppliers.memoize(this::computeCorrelationOrder);
-        this.independentQuantifiersPartitioningSupplier = Suppliers.memoize(this::computeIndependentQuantifiersPartitioning);
-        this.conjunctedPredicateSupplier = Suppliers.memoize(this::computeConjunctedPredicate);
     }
 
     @Nonnull

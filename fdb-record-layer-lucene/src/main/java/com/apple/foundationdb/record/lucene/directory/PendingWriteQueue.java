@@ -371,7 +371,7 @@ public class PendingWriteQueue {
     }
 
     @SuppressWarnings("serial")
-    public static class TooManyPendingWritesException extends RecordCoreException {
+    public static final class TooManyPendingWritesException extends RecordCoreException {
         protected TooManyPendingWritesException(final String message, int itemCount) {
             super(message);
             addLogInfo(LuceneLogMessageKeys.MAX_ENTRIES_TO_REPLAY, itemCount);

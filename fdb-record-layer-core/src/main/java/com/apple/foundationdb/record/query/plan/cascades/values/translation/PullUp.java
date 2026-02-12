@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
@@ -177,10 +178,10 @@ public class PullUp {
                                     currentRangedOverAliases),
                             currentCandidateAlias);
             final var pulledUpCandidateAggregateValue = candidatePullUpMap.get(currentValue);
-            if (pulledUpCandidateAggregateValue == null) {
+            if (pulledUpCandidateAggregateValue.isEmpty()) {
                 return Optional.empty();
             }
-            currentValue = pulledUpCandidateAggregateValue;
+            currentValue = Iterables.getOnlyElement(pulledUpCandidateAggregateValue);
 
             if (currentPullUp.getParentPullUp() == null) {
                 return Optional.of(currentValue);
