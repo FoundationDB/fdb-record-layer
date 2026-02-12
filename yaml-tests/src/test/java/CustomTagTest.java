@@ -67,16 +67,4 @@ class CustomTagTest {
     void shouldPass(String filename) throws Exception {
         doRun("custom-tags/shouldPass/" + filename + ".yamsql", config.createConnectionFactory());
     }
-
-    static Stream<String> shouldFail() {
-        return Stream.of(
-                "cycle-in-include",
-                "include-non-existent",
-                "include-scope-not-visible-outside",
-                "options-in-included",
-                "simple-include-with-wrong-metric",
-                "verify-all-includes-execute"
-        );
-    }
-
 }
