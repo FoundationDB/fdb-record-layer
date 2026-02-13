@@ -511,13 +511,14 @@ public class CopyCommandTest {
     void copyCatalogWithMultipleSchemas(boolean quoted) throws RelationalException, SQLException {
         // TODO test with indexes
         // TODO test with multiple clusters
-        // TODO test with more than one schema in the DB
         final String uuidName = uuidForPath(quoted);
         final String sourceDatabaseName = "/TEST/SOURCE_DB_" + uuidName;
         final String destDatabaseName = "/TEST/DEST_DB_" + uuidName;
         final String schema1 = "1";
         final String schema2 = "2";
-        String templateName = "TEMPLATE_" + uuidName;
+        final String schema3 = "3";
+        String templateName1 = "TEMPLATE1_" + uuidName;
+        String templateName2 = "TEMPLATE2_" + uuidName;
         final List<Pair<Integer, String>> data1 = List.of(
                 Pair.of(1, "a")
         );
@@ -525,34 +526,49 @@ public class CopyCommandTest {
         final List<Pair<Integer, String>> data2 = List.of(
                 Pair.of(3, "b")
         );
+
+        final List<Pair<Integer, String>> data3 = List.of(
+                Pair.of(5, "c")
+        );
         try {
-            // Create a schema template and source database
+            // Create two schema templates and source database with 3 schemas
             ConnectionUtils.runCatalogStatement(stmt -> {
-                createSchemaTemplate(quoted, stmt, templateName);
+                // Template 1 with my_table
+                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + maybeQuote(templateName1, quoted) +
+                        " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
+                // Template 2 with other_table
+                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + maybeQuote(templateName2, quoted) +
+                        " CREATE TABLE other_table (id bigint, col2 string, PRIMARY KEY(id))");
                 createDatabase(quoted, stmt, sourceDatabaseName);
-                createSchema(quoted, stmt, sourceDatabaseName, schema1, templateName);
-                createSchema(quoted, stmt, sourceDatabaseName, schema2, templateName);
+                createSchema(quoted, stmt, sourceDatabaseName, schema1, templateName1);
+                createSchema(quoted, stmt, sourceDatabaseName, schema2, templateName1);
+                createSchema(quoted, stmt, sourceDatabaseName, schema3, templateName2);
             });
 
             // Insert some records in the source database using SQL
             insertData(sourceDatabaseName, schema1, data1);
             insertData(sourceDatabaseName, schema2, data2);
+            insertData(sourceDatabaseName, schema3, "other_table", data3);
 
             // Export data from source database
             List<byte[]> exportedData = exportData(sourceDatabaseName, quoted);
 
-            assertSchemaTemplateCount(exportedData, 2);
+            assertSchemaTemplateCount(exportedData, 3);
 
             // Import to destination database path
             final int importCount = importData(quoted, true, destDatabaseName, exportedData);
             assertThat(importCount).isGreaterThan(3); // we will import at least the rows saved, but also other internal data
 
-            // Try to verify that the records exist in the destination
-            // This is expected to fail because COPY does not copy catalog information
+            // Verify that the records exist in all three schemas
             assertDataExists(destDatabaseName, schema1, data1);
             assertDataExists(destDatabaseName, schema2, data2);
+            assertDataExists(destDatabaseName, schema3, "other_table", data3);
         } finally {
-            dropTemplateAndDatabase(quoted, templateName, sourceDatabaseName);
+            ConnectionUtils.runCatalogStatement(stmt -> {
+                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + maybeQuote(templateName1, quoted));
+                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + maybeQuote(templateName2, quoted));
+                stmt.executeUpdate("DROP DATABASE " + maybeQuote(sourceDatabaseName, quoted));
+            });
         }
     }
 
@@ -610,8 +626,13 @@ public class CopyCommandTest {
 
     private static void assertDataExists(final String destDatabaseName, final String schemaName,
                                          final List<Pair<Integer, String>> data) throws SQLException, RelationalException {
+        assertDataExists(destDatabaseName, schemaName, "my_table", data);
+    }
+
+    private static void assertDataExists(final String destDatabaseName, final String schemaName,
+                                         final String tableName, final List<Pair<Integer, String>> data) throws SQLException, RelationalException {
         ConnectionUtils.runStatement(destDatabaseName, schemaName, stmt ->
-                ResultSetAssert.assertThat(stmt.executeQuery("SELECT * FROM my_table"))
+                ResultSetAssert.assertThat(stmt.executeQuery("SELECT * FROM " + tableName))
                         .containsRowsExactly(data.stream()
                                 .map(pair -> List.<Object>of(pair.getLeft(), pair.getRight()))
                                 .collect(Collectors.toList())));
@@ -638,8 +659,13 @@ public class CopyCommandTest {
 
     private static void insertData(final String sourceDatabaseName, final String schemaName,
                                    final List<Pair<Integer, String>> data) throws SQLException, RelationalException {
+        insertData(sourceDatabaseName, schemaName, "my_table", data);
+    }
+
+    private static void insertData(final String sourceDatabaseName, final String schemaName,
+                                   final String tableName, final List<Pair<Integer, String>> data) throws SQLException, RelationalException {
         ConnectionUtils.runStatementUpdate(sourceDatabaseName, schemaName,
-                "INSERT INTO my_table VALUES "
+                "INSERT INTO " + tableName + " VALUES "
                 + (data.stream().map(pair -> pair.getLeft() + ", '" + pair.getRight() + "'")
                            .collect(Collectors.joining("), (", "(", ")"))));
     }
