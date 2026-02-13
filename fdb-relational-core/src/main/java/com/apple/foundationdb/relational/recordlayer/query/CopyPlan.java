@@ -230,7 +230,7 @@ public final class CopyPlan extends QueryPlan {
                     final CatalogInfo schemaTemplateInfo =
                             exportCatalogInfo(data.getPath(), pathSchemaCache, storeCatalog, context.transaction);
                     if (schemaTemplateInfo != null) {
-                        copyDataBuilder.setSchemaTemplate(schemaTemplateInfo);
+                        copyDataBuilder.setCatalogInfo(schemaTemplateInfo);
                     }
                 } catch (Exception e) {
                     throw new UncheckedRelationalException(new RelationalException(
@@ -307,8 +307,8 @@ public final class CopyPlan extends QueryPlan {
                 importCount = importData(keySpacePath, fdbContext, dataInKeySpacePath, importCount);
 
                 // Handle schema template if present
-                if (proto.hasSchemaTemplate()) {
-                    importCatalogInfo(proto.getSchemaTemplate(), storeCatalog, context.transaction,
+                if (proto.hasCatalogInfo()) {
+                    importCatalogInfo(proto.getCatalogInfo(), storeCatalog, context.transaction,
                             dataInKeySpacePath.getPath());
                 }
 

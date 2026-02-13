@@ -31,7 +31,7 @@ option java_outer_classname = "CopyProto";
 // about the catalog, and potentially other information.
 message CopyData {
   optional com.apple.foundationdb.record.provider.foundationdb.keyspace.DataInKeySpacePath data = 1;
-  optional CatalogInfo schema_template = 2;
+  optional CatalogInfo catalog_info = 2;
 }
 
 // Schema template information for a database/schema pair
