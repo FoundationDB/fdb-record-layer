@@ -450,4 +450,17 @@ test_block:
                  {ID: 50, PARENT: 10, LEVEL: 1},
                  {ID: 10, PARENT: 1, LEVEL: 2},
                  {ID: 1, PARENT: -1, LEVEL: 3}]
+    -
+      - query: with recursive c1 as (
+            select id, parent, 0 as level from t1 use index (childIdx) where id = 250 and parent is not null
+            union all
+            select b.id, b.parent, a.y as level from (select parent, id from t1 use index (childIdx) where parent is not null and id is not null) as b, (select id, parent, level + 1 as y from c1) as a  where b.id = a.parent)
+            traversal order pre_order
+            select id, parent, level from c1
+      - supported_version: !current_version
+      - explain: "RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c24 AS LONG), [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(CHILDIDX [EQUALS q0.PARENT, [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c81 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
+      - result: [{250, 50, 0},
+                 {50, 10, 1},
+                 {10, 1, 2},
+                 {1, -1, 3}]
 ...

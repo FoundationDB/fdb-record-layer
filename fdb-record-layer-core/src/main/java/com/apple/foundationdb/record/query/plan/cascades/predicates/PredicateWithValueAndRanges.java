@@ -369,7 +369,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
             if (compensatedQueryPredicate.getRanges()
                     .stream()
                     .allMatch(range -> candidateRanges.stream()
-                            .anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext).coalesce()))) {
+                            .anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext)))) {
                 if (candidatePredicateWithValuesAndRanges instanceof WithAlias) {
                     final var alias = ((WithAlias)candidatePredicateWithValuesAndRanges).getParameterAlias();
                     final var predicateMappingBuilder =
@@ -396,7 +396,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                                         // no need for compensation if range boundaries match between candidate constraint and query sargable
                                         if (candidateRanges.stream()
                                                 .allMatch(candidateRange -> getRanges().stream()
-                                                        .anyMatch(range -> range.encloses(candidateRange, evaluationContext).coalesce()))) {
+                                                        .anyMatch(range -> range.encloses(candidateRange, evaluationContext)))) {
                                             return PredicateCompensationFunction.noCompensationNeeded();
                                         }
 
@@ -585,7 +585,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
             if (!compiledRange.isCompileTimeEvaluable()) {
                 continue;
             }
-            if (compiledRange.encloses(valueRange, context).coalesce()) {
+            if (compiledRange.encloses(valueRange, context)) {
                 return true;
             }
         }
