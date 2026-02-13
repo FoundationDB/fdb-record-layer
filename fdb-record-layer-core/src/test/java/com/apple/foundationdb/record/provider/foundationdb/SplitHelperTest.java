@@ -220,7 +220,8 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                                                                           @Nonnull Class<E> errClazz, @Nonnull String errMessage) {
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
         E e = assertThrows(errClazz,
-                () -> SplitHelper.saveWithSplit(context, subspace, key, serialized, version, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, previousSizeInfo != null, previousSizeInfo, sizeInfo));
+                () -> SplitHelper.saveWithSplit(context, subspace, key, serialized, version, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix,
+                        SplitHelper.DefaultSplitKeyHelper.INSTANCE, previousSizeInfo != null, previousSizeInfo, sizeInfo));
         assertThat(e.getMessage(), containsString(errMessage));
 
         assertEquals(0, sizeInfo.getKeyCount());
@@ -244,7 +245,8 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                                                   @Nonnull SplitHelperTestConfig testConfig,
                                                   @Nullable FDBStoredSizes previousSizeInfo) {
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
-        SplitHelper.saveWithSplit(context, subspace, key, serialized, version, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, previousSizeInfo != null, previousSizeInfo, sizeInfo);
+        SplitHelper.saveWithSplit(context, subspace, key, serialized, version, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix,
+                SplitHelper.DefaultSplitKeyHelper.INSTANCE, previousSizeInfo != null, previousSizeInfo, sizeInfo);
         int dataKeyCount = (serialized.length - 1) / SplitHelper.SPLIT_RECORD_SIZE + 1;
         boolean isSplit = dataKeyCount > 1;
         int keyCount = dataKeyCount;

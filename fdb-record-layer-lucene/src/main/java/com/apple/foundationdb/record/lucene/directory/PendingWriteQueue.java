@@ -40,8 +40,12 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
+import com.apple.foundationdb.record.provider.foundationdb.SplitKeyHelper;
+import com.apple.foundationdb.record.provider.foundationdb.VersioningSplitKeyHelper;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.protobuf.ByteString;
 import org.apache.lucene.index.IndexWriter;
@@ -182,7 +186,9 @@ public class PendingWriteQueue {
             throw new RecordCoreArgumentException("Queue item should have complete version stamp");
         }
 
-        context.ensureActive().clear(queueSubspace.pack(entry.versionstamp));
+        // The only element of the key is the completed version stamp
+        final Tuple key = Tuple.from(entry.getVersionstamp());
+        SplitHelper.deleteSplit(context, queueSubspace, key, true, false, false, null);
 
         // Record metrics
         context.increment(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_CLEAR);
@@ -295,20 +301,11 @@ public class PendingWriteQueue {
 
         // Build key with incomplete versionStamp with a new local version
         FDBRecordVersion recordVersion = FDBRecordVersion.incomplete(context.claimLocalVersion());
-        Tuple keyTuple = Tuple.from(recordVersion.toVersionstamp());
-        byte[] queueKey = queueSubspace.packWithVersionstamp(keyTuple);
+        // Use the version in the key helper for all splits of the same entry
+        SplitKeyHelper keyHelper = new VersioningSplitKeyHelper(recordVersion.toVersionstamp());
         byte[] value = builder.build().toByteArray();
-
-        // Use addVersionMutation to let FDB assign the versionStamp
-        final byte[] current = context.addVersionMutation(
-                MutationType.SET_VERSIONSTAMPED_KEY,
-                queueKey,
-                value);
-
-        if (current != null) {
-            // This should never happen
-            throw new RecordCoreInternalException("Pending queue item overwritten");
-        }
+        // save with splits
+        SplitHelper.saveWithSplit(context, queueSubspace, TupleHelpers.EMPTY, value, null, true, false, keyHelper, false, null, null);
 
         // Record metrics
         context.increment(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_WRITE);
