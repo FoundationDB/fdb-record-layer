@@ -344,23 +344,21 @@ test_block:
       - query: select * from ja join jb using(c1);
       - supported_version: !current_version
       - result: [{c1: 1, c2: 2, c3: 3}]
-# uncomment after introduction of `!pos` position yaml tag
-#    -
-#      # inner join with using: access to both c1
-#      - query: select ja.c1, jb.c1 from ja join jb using(c1);
-#      - supported_version: !current_version
-#      - result: [{!pos 1: 1, !pos 2: 1}]
+    -
+      # inner join with using: access to both c1
+      - query: select ja.c1, jb.c1 from ja join jb using(c1);
+      - supported_version: !current_version
+      - result: [[1, 1]]
     -
       # inner join with using: double join
       - query: select * from ja join jb using(c1) join jd using(c1);
       - supported_version: !current_version
       - result: [{c1: 1, c2: 2, c3: 3, c4: 4}]
-# uncomment after introduction of `!pos` position yaml tag
-#    -
-#      # inner join with using: same additional column
-#      - query: select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join jud using(c1);
-#      - supported_version: !current_version
-#      - result: [{_0: 5, _1: 5, _2: 5}]
+    -
+      # inner join with using: same additional column
+      - query: select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join jud using(c1);
+      - supported_version: !current_version
+      - result: [[5, 5, 5]]
     -
       # inner join with using: ambiguity left
       - query: select * from jua join jub using(c1) join jud using(c5);
