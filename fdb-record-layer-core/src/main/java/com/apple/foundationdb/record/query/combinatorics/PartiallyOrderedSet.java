@@ -29,11 +29,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -165,30 +167,129 @@ public class PartiallyOrderedSet<T> {
         return mapAll(mapFunction.apply(getSet()));
     }
 
+    /**
+     * Maps this partially ordered set to a different partially-ordered set (which may be in a different domain
+     * altogether) while maintaining its dependencies (if possible) as specified by a mapping of elements. This is in
+     * particular interesting in the case where the mapping is not defined for all the elements of the underlying set
+     * of this partially-ordered set. As there might be dependencies among elements that are not mapped or only
+     * partially mapped (source is or target is), we need to ensure that those dependencies are not recreated in the
+     * resulting partially-ordered set. Also, we cannot just choose to not recreate such a dependency in the resulting
+     * partially-ordered set without considering the cascading effects that this may have on elements depending on
+     * elements depending on these dependencies.
+     * <pre>
+     * {@code
+     *    Example 1
+     *    ---------
+     *    set: a, b, c, d
+     *    dependencies: a ← b, b ← c, c ← d, a ← d
+     *    map: a → a', c → c', d → d'
+     *    result:
+     *      set: a', d'
+     *      dependencies:
+     *        a' ← d'
+     *      note:
+     *        a ← b is dropped as b cannot be mapped
+     *        b is dropped as there is no mapping for b
+     *        b ← c is dropped as b cannot be mapped
+     *        c is dropped (although it can be mapped) as the dependency target b in b ← c was dropped
+     *        c ← d is dropped as c was dropped
+     *        a ← d is not dropped as a can be mapped, d can be mapped and a is independent (not dependent on anything).
+     *
+     *    Example 2
+     *    ---------
+     *    set: a, b, c, d
+     *    dependencies: a ← b, b ← d, a ← c, c ← d (the diamond example)
+     *    map: a → a', b → b', d → d'
+     *    result:
+     *      set: a', b', d'
+     *      dependencies:
+     *        a' ← b', b' ← d'
+     *      note:
+     *        c is dropped as c cannot be mapped
+     *        a ← c is dropped as c cannot be mapped
+     *        c ← d is dropped as c cannot be mapped
+     *        d is not dropped as there is another chain of dependencies a ← b ← d that is unbroken
+     * }
+     * </pre>
+     *
+     * @param <R> the type parameter of the target domain
+     * @param map mapping map that specifies source and target of the mapping
+     * @return a new partially-ordered set over the domain {@code R} as specified by {@code map} that maintains the
+     *         dependencies of this partially-ordered set in the way outlined above.
+     */
     @Nonnull
     public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Map<T, R> map) {
-        final var mappedElements = Sets.newLinkedHashSet(map.values());
+        final var allRemovedBuilder = ImmutableSet.<T>builder();
+        final var leftToRemove = new HashSet<>(Sets.difference(set, map.keySet()));
 
-        final var resultDependencyMapBuilder = ImmutableSetMultimap.<R, R>builder();
-        for (final var entry : getTransitiveClosure().entries()) {
-            final var key = entry.getKey();
-            final var value = entry.getValue();
+        final var degreeMap =
+                dependencyMap.entries()
+                        .stream()
+                        .collect(Collectors.groupingBy(
+                                Map.Entry::getKey,
+                                HashMap::new,
+                                Collectors.summingInt(e -> 1)));
 
-            if (map.containsKey(key) && map.containsKey(value)) {
-                resultDependencyMapBuilder.put(map.get(key), map.get(value));
-            } else {
-                if (!map.containsKey(value)) {
-                    // if key depends on value that does not exist -- do not insert the dependency and also remove key
-                    final var mappedKey = map.get(key);
-                    if (mappedKey != null) {
-                        mappedElements.remove(mappedKey);
+        while (!leftToRemove.isEmpty()) {
+            final T toRemove = leftToRemove.iterator().next();
+            for (final var entry: dependencyMap.entries()) {
+                final var key = entry.getKey();
+                if (entry.getValue().equals(toRemove) && degreeMap.containsKey(key)) {
+                    final var updatedDegree = degreeMap.get(key) - 1;
+                    if (updatedDegree == 0) {
+                        leftToRemove.add(key);
+                        degreeMap.remove(key);
+                    } else {
+                        degreeMap.put(key, updatedDegree);
                     }
                 }
             }
+            leftToRemove.remove(toRemove);
+            allRemovedBuilder.add(toRemove);
         }
+        final var allRemovedElements = allRemovedBuilder.build();
+
+        final var mappedElements =
+                set.stream()
+                        .filter(value -> !allRemovedElements.contains(value))
+                        .map(map::get)
+                        .collect(Collectors.toSet());
+        final var resultDependencyMapBuilder = ImmutableSetMultimap.<R, R>builder();
+        dependencyMap.entries().stream()
+                .filter(entry -> !allRemovedElements.contains(entry.getKey()) && !allRemovedElements.contains(entry.getValue()))
+                .map(entry -> Map.entry(map.get(entry.getKey()), map.get(entry.getValue())))
+                .forEach(resultDependencyMapBuilder::put);
 
         // this needs the dependency map to be cleansed (which is done in the constructor)
         return PartiallyOrderedSet.of(mappedElements, resultDependencyMapBuilder.build());
+    }
+
+    /**
+     * Overload for mapping the elements and dependencies of this partially-ordered set using a multimap instead of
+     * a map {@link #mapAll(Map)}. This means that elements may be mapped to multiple elements in the target domain
+     * {@code R} while maintaining all dependencies of the source (in a replicated way).
+     * @param <R> the type parameter for the target domain
+     * @param multimap a multimap specifying the mapping between source and target
+     * @return a new partially-ordered set over the domain {@code R} as specified by {@code multimap}
+     */
+    @Nonnull
+    public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Multimap<T, R> multimap) {
+        final var identityMapped = this.filterElements(multimap::containsKey);
+
+        final var resultSet = identityMapped.getSet().stream()
+                .flatMap(value -> multimap.get(value).stream())
+                .collect(Collectors.toSet());
+
+        final var resultDependencyMapBuilder = ImmutableSetMultimap.<R, R>builder();
+        for (final var entry: identityMapped.dependencyMap.entries()) {
+            Verify.verify(multimap.containsKey(entry.getKey()) && multimap.containsKey(entry.getValue()));
+            multimap.get(entry.getKey()).forEach(mappedKey ->
+                    resultDependencyMapBuilder.putAll(mappedKey, multimap.get(entry.getValue())));
+            resultSet.addAll(multimap.get(entry.getKey()));
+        }
+
+        // this needs the dependency map to be cleansed (which is done in the constructor)
+        return PartiallyOrderedSet.of(resultSet, resultDependencyMapBuilder.build());
     }
 
     /**
@@ -205,7 +306,6 @@ public class PartiallyOrderedSet<T> {
                 translationMap.put(t, t);
             }
         }
-
         return mapAll(translationMap.build());
     }
 

@@ -42,6 +42,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
@@ -209,7 +210,7 @@ public class Expression {
                             simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(), aliasMap,
                                     constantAliases, correlationIdentifier);
                     if (pulledUpExpressionMap.containsKey(subExpression)) {
-                        return pulledUpExpressionMap.get(subExpression);
+                        return Iterables.getOnlyElement(pulledUpExpressionMap.get(subExpression));
                     }
                     return subExpression;
                 }

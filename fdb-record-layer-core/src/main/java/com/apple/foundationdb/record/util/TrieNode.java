@@ -70,15 +70,15 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
         @Nullable
         private final Map<D, N> childrenMap;
         @Nonnull
-        private final Supplier<Iterable<N>> childrenSupplier;
+        @SuppressWarnings("this-escape")
+        private final Supplier<Iterable<N>> childrenSupplier = Suppliers.memoize(this::computeChildren);
         @Nonnull
-        private final Supplier<Integer> heightSupplier;
+        @SuppressWarnings("this-escape")
+        private final Supplier<Integer> heightSupplier = Suppliers.memoize(TrieNode.super::height);
 
         public AbstractTrieNode(@Nullable final T value, @Nullable final Map<D, N> childrenMap) {
             this.value = value;
             this.childrenMap = childrenMap == null ? null : ImmutableMap.copyOf(childrenMap);
-            this.childrenSupplier = Suppliers.memoize(this::computeChildren);
-            this.heightSupplier = Suppliers.memoize(TrieNode.super::height);
         }
 
         @Nullable

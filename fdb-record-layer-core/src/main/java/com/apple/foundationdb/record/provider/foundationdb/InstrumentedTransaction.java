@@ -63,10 +63,6 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
         this.startNanos = System.nanoTime();
         this.database = database;
         this.listener = listener;
-
-        if (listener != null) {
-            listener.create(database, this);
-        }
     }
 
     @Override
