@@ -146,57 +146,6 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void testInitializeQueueSizeCounter() {
-        // Test initializing the counter by counting existing entries
-        PendingWriteQueue queue;
-
-        // Enqueue items WITHOUT counter initialized (using unlimited queue)
-        try (FDBRecordContext context = openContext()) {
-            queue = getQueue(context, 0); // maxQueueSize = 0 means unlimited, no enforcement
-            queue.enqueueInsert(context, Tuple.from(1), createSingleField());
-            queue.enqueueInsert(context, Tuple.from(2), createSingleField());
-            queue.enqueueInsert(context, Tuple.from(3), createSingleField());
-            commit(context);
-        }
-
-        // Counter should be initialized now (as enqueue does ADD mutations)
-        try (FDBRecordContext context = openContext()) {
-            Long size = queue.getQueueSize(context).join();
-            assertEquals(3L, size);
-        }
-
-        // Test explicit initialization (re-initialization)
-        try (FDBRecordContext context = openContext()) {
-            queue.initializeQueueSizeCounter(context).join();
-            commit(context);
-        }
-
-        // Counter should match actual count
-        try (FDBRecordContext context = openContext()) {
-            Long size = queue.getQueueSize(context).join();
-            assertEquals(3L, size);
-        }
-    }
-
-    @Test
-    void testInitializeQueueSizeCounterEmpty() {
-        // Test initializing counter for empty queue
-        PendingWriteQueue queue;
-
-        try (FDBRecordContext context = openContext()) {
-            queue = getQueue(context, 100);
-            queue.initializeQueueSizeCounter(context).join();
-            commit(context);
-        }
-
-        // Counter should be 0
-        try (FDBRecordContext context = openContext()) {
-            Long size = queue.getQueueSize(context).join();
-            assertEquals(0L, size);
-        }
-    }
-
-    @Test
     void testEnqueueExceedsMaxQueueSize() {
         // Test that enqueue fails when queue size exceeds limit
         PendingWriteQueue queue;
@@ -303,35 +252,6 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             Long size = queue.getQueueSize(context).join();
             assertEquals(3L, size);
-        }
-    }
-
-    @Test
-    void testInitializeCounterWithMaxQueueSizeLimit() {
-        // Test that initializeQueueSizeCounter respects maxQueueSize limit when scanning
-        PendingWriteQueue queue;
-        final int maxSize = 5;
-
-        // Create a queue with many items using unlimited queue first
-        try (FDBRecordContext context = openContext()) {
-            PendingWriteQueue unlimitedQueue = getQueue(context, 0);
-            for (int i = 0; i < 10; i++) {
-                unlimitedQueue.enqueueInsert(context, Tuple.from(i), createSingleField());
-            }
-            commit(context);
-        }
-
-        // Now create a limited queue with same subspaces and initialize counter
-        try (FDBRecordContext context = openContext()) {
-            queue = getQueue(context, maxSize);
-            queue.initializeQueueSizeCounter(context).join();
-            commit(context);
-        }
-
-        // Counter should be capped at maxSize (due to scan limit)
-        try (FDBRecordContext context = openContext()) {
-            Long size = queue.getQueueSize(context).join();
-            assertEquals((long)maxSize, size);
         }
     }
 

@@ -403,37 +403,6 @@ public class PendingWriteQueue {
                 .thenApply(size -> (size == null) ? null : decodeQueueSize(size));
     }
 
-    /**
-     * Initialize the queue size counter by counting the current number of entries in the queue.
-     * This method should be called when transitioning from a non-enforced to enforced queue size limit,
-     * or when the counter needs to be reset to match the actual queue size.
-     * If maxQueueSize is configured (greater than 0), the scan will be limited to maxQueueSize entries.
-     *
-     * @param context the record context to use
-     *
-     * @return a future that resolves when the counter has been initialized
-     */
-    @Nonnull
-    public CompletableFuture<Void> initializeQueueSizeCounter(@Nonnull FDBRecordContext context) {
-        // Count the actual number of entries in the queue, limiting to maxQueueSize if configured
-        // TODO: This may cause a skew of the count, that has no easy way to fix. Is this desired? Maybe just allow all?
-        int scanLimit = maxQueueSize > 0 ? (int)maxQueueSize : 0;
-        return context.ensureActive()
-                .getRange(queueSubspace.range(), scanLimit)
-                .asList()
-                .thenAccept(keyValues -> {
-                    long count = keyValues.size();
-                    // Set the counter to the actual count
-                    context.ensureActive().set(queueSizeSubspace.pack(), encodeQueueSize(count));
-
-                    if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug(getLogMessage("Initialized queue size counter")
-                                .addKeyAndValue(LuceneLogMessageKeys.COUNT, count)
-                                .toString());
-                    }
-                });
-    }
-
     private byte[] encodeQueueSize(long count) {
         return ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(count).array();
     }
