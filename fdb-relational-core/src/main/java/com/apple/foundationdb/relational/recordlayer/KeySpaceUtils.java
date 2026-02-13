@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirect
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -36,30 +37,35 @@ import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @API(API.Status.EXPERIMENTAL)
 public final class KeySpaceUtils {
 
     @Nonnull
     public static URI pathToUri(@Nonnull KeySpacePath dbPath) {
-        return URI.create("/" + toPathString(dbPath));
+        return URI.create(pathToUriList(dbPath).stream().collect(Collectors.joining("/", "/", "")));
+    }
+
+    @Nonnull
+    private static List<String> pathToUriList(final @Nonnull KeySpacePath dbPath) {
+        return Lists.reverse(
+                Stream.iterate(dbPath, Objects::nonNull, KeySpacePath::getParent)
+                        .map(KeySpaceUtils::toPathElement)
+                        .collect(Collectors.toUnmodifiableList()));
+    }
+
+    private static String toPathElement(final KeySpacePath path) {
+        if (path.getDirectory().getKeyType() != KeySpaceDirectory.KeyType.NULL) {
+            return path.getValue().toString();
+        } else {
+            return "";
+        }
     }
 
     public static String toPathString(KeySpacePath path) {
-        String uriPath = "";
-        while (path != null) {
-            if (path.getDirectory().getKeyType() == KeySpaceDirectory.KeyType.NULL) {
-                uriPath = "/" + uriPath;
-            } else {
-                if (uriPath.length() > 0) {
-                    uriPath = path.getValue().toString() + "/" + uriPath;
-                } else {
-                    uriPath = path.getValue().toString();
-                }
-            }
-            path = path.getParent();
-        }
-        return uriPath;
+        return pathToUriList(path).stream().collect(Collectors.joining("/"));
     }
 
     @API(API.Status.INTERNAL)
