@@ -146,8 +146,12 @@ public class ExternalServer {
         @Nullable
         File errFile;
         if (saveServerLogs) {
-            outFile = File.createTempFile("fdb-relational-server-" + version + "-" + grpcPort + "-out.", ".log");
-            errFile = File.createTempFile("fdb-relational-server-" + version + "-" + grpcPort + "-err.", ".log");
+            // Include current time in file names so that things sort nicely. We want the out and err logs
+            // for the same server start to be adjacent, and it would be nice for the log files to sort
+            // chronologically
+            long currentTime = System.currentTimeMillis();
+            outFile = File.createTempFile("fdb-relational-server-" + version + "-" + currentTime + "-" + grpcPort + "-out.", ".log");
+            errFile = File.createTempFile("fdb-relational-server-" + version + "-" + currentTime + "-" + grpcPort + "-err.", ".log");
         } else {
             outFile = null;
             errFile = null;
@@ -161,6 +165,13 @@ public class ExternalServer {
         }
 
         if (!startServer(processBuilder)) {
+            logger.warn(KeyValueLogMessage.of("Failed to start external server",
+                    "jar", serverJar,
+                    LogMessageKeys.VERSION, version,
+                    "grpc_port", grpcPort,
+                    "http_port", httpPort,
+                    "out_file", outFile,
+                    "err_file", errFile));
             Assertions.fail("Failed to start the external server");
         }
 
@@ -217,7 +228,7 @@ public class ExternalServer {
     }
 
     private boolean attemptConnectionWithRetry() throws SQLException, InterruptedException {
-        final int maxAttempts = 10;
+        final int maxAttempts = 20;
         boolean started = false;
         int attempts = 0;
         while (!started && attempts < maxAttempts) {
@@ -225,6 +236,13 @@ public class ExternalServer {
             Thread.sleep(delay);
             started = attemptConnection();
             attempts++;
+            if (logger.isDebugEnabled()) {
+                logger.debug(KeyValueLogMessage.of("Attempted to connect to external server",
+                        LogMessageKeys.VERSION, version,
+                        "grpc_port", getPort(),
+                        "attempt", attempts,
+                        "success", started));
+            }
         }
         return started;
     }
