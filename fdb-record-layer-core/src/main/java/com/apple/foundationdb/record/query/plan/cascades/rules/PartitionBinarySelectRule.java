@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -85,22 +84,30 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
         final var fullCorrelationOrder =
                 selectExpression.getCorrelationOrder().getTransitiveClosure();
 
-        final var rightDependencies = fullCorrelationOrder.get(rightAlias);
-        final var rightDependsOnLeft = rightDependencies.contains(leftAlias);
         final var leftDependencies = fullCorrelationOrder.get(leftAlias);
         final var leftDependsOnRight = leftDependencies.contains(rightAlias);
+        if (leftDependsOnRight) {
+            // We want to place predicates assuming that the left quantifier will be executed
+            // before the right (e.g., as the outer of a nested loop join). If the left depends
+            // on the right, then this can't happen, so return now
+            return;
+        }
 
         final var leftPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
         final var rightPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
 
         for (final var predicate : selectExpression.getPredicates()) {
             final var correlatedTo = predicate.getCorrelatedTo();
-            final var correlatedToRight = correlatedTo.contains(rightQuantifier.getAlias());
-
-            if (!rightDependsOnLeft || !correlatedToRight) {
-                leftPredicatesBuilder.add(predicate);
-            } else {
+            final var correlatedToRight = correlatedTo.contains(rightAlias);
+            if (correlatedToRight) {
+                // Predicate depends on the right. It must go to the right
+                // Note: this could be problematic if the right depended on the left,
+                // but that should be avoided by the earlier check
                 rightPredicatesBuilder.add(predicate);
+            } else {
+                // Predicate either depends on the left or it is independent. Either way,
+                // it should be sent to the left
+                leftPredicatesBuilder.add(predicate);
             }
         }
 
@@ -115,9 +122,6 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
             return;
         }
 
-        final var resultValue = selectExpression.getResultValue();
-        final var resultValueCorrelatedTo = resultValue.getCorrelatedTo();
-
         var graphExpansionBuilder = GraphExpansion.builder();
         graphExpansionBuilder.addQuantifier(leftQuantifier);
         graphExpansionBuilder.addAllPredicates(leftPredicates);
@@ -125,8 +129,7 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
         final Quantifier newLeftQuantifier;
         if (!leftPredicates.isEmpty()) {
             final SelectExpression leftSelectExpression;
-            if (resultValueCorrelatedTo.contains(leftAlias) || rightDependsOnLeft) {
-                Verify.verify(leftQuantifier instanceof Quantifier.ForEach);
+            if (leftQuantifier instanceof Quantifier.ForEach) {
                 leftSelectExpression = graphExpansionBuilder.build().buildSimpleSelectOverQuantifier((Quantifier.ForEach)leftQuantifier);
             } else {
                 graphExpansionBuilder.addResultValue(LiteralValue.ofScalar(1));
@@ -146,8 +149,7 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
         final Quantifier newRightQuantifier;
         if (!rightPredicates.isEmpty()) {
             final SelectExpression rightSelectExpression;
-            if (resultValueCorrelatedTo.contains(rightAlias) || leftDependsOnRight) {
-                Verify.verify(rightQuantifier instanceof Quantifier.ForEach);
+            if (rightQuantifier instanceof Quantifier.ForEach) {
                 rightSelectExpression = graphExpansionBuilder.build().buildSimpleSelectOverQuantifier((Quantifier.ForEach)rightQuantifier);
             } else {
                 graphExpansionBuilder.addResultValue(LiteralValue.ofScalar(1));
@@ -164,7 +166,7 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
         graphExpansionBuilder.addQuantifier(newLeftQuantifier);
         graphExpansionBuilder.addQuantifier(newRightQuantifier);
 
-        final var newSelectExpression = graphExpansionBuilder.build().buildSelectWithResultValue(resultValue);
+        final var newSelectExpression = graphExpansionBuilder.build().buildSelectWithResultValue(selectExpression.getResultValue());
 
         call.yieldExploratoryExpression(newSelectExpression);
     }

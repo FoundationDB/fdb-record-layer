@@ -1,5 +1,6 @@
 unnamed-1:
 -   query: EXPLAIN select sum(col1) as a, count(*) as b from t1
+    ref: union-empty-tables.yamsql:33
     explain: SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0,
         count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1,
         promote(0l AS LONG)) AS B)
@@ -13,6 +14,7 @@ unnamed-1:
     insert_reused_count: 2
 -   query: EXPLAIN select sum(a) as a, sum(b) as b from (select sum(col1) as a, count(*)
         as b from t1 union all select sum(col1) as a, count(*) as b from t2) as x
+    ref: union-empty-tables.yamsql:37
     explain: SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0,
         count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1,
         promote(0l AS LONG)) AS B) ⊎ SCAN(<,>) | TFILTER T2 | MAP (_ AS _0) | AGG
@@ -29,6 +31,7 @@ unnamed-1:
     insert_new_count: 64
     insert_reused_count: 4
 -   query: EXPLAIN select col1, col2 from t1 union all select col1, col2 from t1
+    ref: union-empty-tables.yamsql:41
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.COL1 AS COL1, _.COL2 AS COL2) ⊎ SCAN(<,>)
         | TFILTER T1 | MAP (_.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 323
@@ -40,6 +43,7 @@ unnamed-1:
     insert_new_count: 33
     insert_reused_count: 4
 -   query: EXPLAIN select * from t1 union all select * from t1;
+    ref: union-empty-tables.yamsql:45
     explain: SCAN(<,>) | TFILTER T1 ⊎ SCAN(<,>) | TFILTER T1
     task_count: 323
     task_total_time_ms: 13
@@ -50,6 +54,7 @@ unnamed-1:
     insert_new_count: 29
     insert_reused_count: 4
 -   query: EXPLAIN select * from t1 union all select id, col1, col2 from t1;
+    ref: union-empty-tables.yamsql:49
     explain: SCAN(<,>) | TFILTER T1 ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1
         AS COL1, _.COL2 AS COL2)
     task_count: 351
@@ -61,6 +66,7 @@ unnamed-1:
     insert_new_count: 33
     insert_reused_count: 3
 -   query: EXPLAIN select id, col1, col2 from t1 union all select * from t1;
+    ref: union-empty-tables.yamsql:53
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
         ⊎ SCAN(<,>) | TFILTER T1
     task_count: 351
@@ -73,6 +79,7 @@ unnamed-1:
     insert_reused_count: 3
 -   query: EXPLAIN select id as W, col1 as X, col2 as Y from t1 union all select *
         from t1;
+    ref: union-empty-tables.yamsql:57
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
@@ -86,6 +93,7 @@ unnamed-1:
     insert_reused_count: 4
 -   query: EXPLAIN (select id as W, col1 as X, col2 as Y from t1) union all select
         * from t1;
+    ref: union-empty-tables.yamsql:61
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
@@ -99,6 +107,7 @@ unnamed-1:
     insert_reused_count: 4
 -   query: EXPLAIN select id as W, col1 as X, col2 as Y from t1 union all (select
         * from t1);
+    ref: union-empty-tables.yamsql:65
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
@@ -112,6 +121,7 @@ unnamed-1:
     insert_reused_count: 4
 -   query: EXPLAIN (select id as W, col1 as X, col2 as Y from t1 union all (select
         * from t1));
+    ref: union-empty-tables.yamsql:69
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
@@ -125,6 +135,7 @@ unnamed-1:
     insert_reused_count: 4
 -   query: EXPLAIN ((select id as W, col1 as X, col2 as Y from t1) union all select
         * from t1);
+    ref: union-empty-tables.yamsql:73
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
@@ -137,6 +148,7 @@ unnamed-1:
     insert_new_count: 39
     insert_reused_count: 4
 -   query: EXPLAIN select a, b from t3 union all select a, b from t4
+    ref: union-empty-tables.yamsql:77
     explain: SCAN(<,>) | TFILTER T3 | MAP (_.A AS A, _.B AS B) | MAP (_.A AS A, promote(_.B
         AS DOUBLE) AS B) ⊎ SCAN(<,>) | TFILTER T4 | MAP (_.A AS A, _.B AS B) | MAP
         (promote(_.A AS DOUBLE) AS A, _.B AS B)
@@ -150,6 +162,7 @@ unnamed-1:
     insert_reused_count: 4
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 where a <
         10 group by a union all select count(*) from t4) as X
+    ref: union-empty-tables.yamsql:81
     explain: 'AISCAN(MV10 [[LESS_THAN promote(@c22 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS Y) ⊎ SCAN(<,>) | TFILTER T4 | MAP (_ AS _0)
         | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
@@ -165,6 +178,7 @@ unnamed-1:
     insert_reused_count: 3
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all
         select count(*) from t1) as X
+    ref: union-empty-tables.yamsql:85
     explain: 'AISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1)
         GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG
@@ -181,15 +195,16 @@ unnamed-1:
     insert_reused_count: 6
 -   query: EXPLAIN select col2 from t1 where exists (select a from t3 where col2 <=
         id union all select b from t4 where col2 <= id)
+    ref: union-empty-tables.yamsql:89
     explain: SCAN(<,>) | TFILTER T1 | FLATMAP q0 -> { SCAN(<,>) | TFILTER T3 | FILTER
         _.ID GREATER_THAN_OR_EQUALS q0.COL2 | MAP (_.A AS A) ⊎ SCAN(<,>) | TFILTER
         T4 | FILTER _.ID GREATER_THAN_OR_EQUALS q0.COL2 | MAP (_.B AS B) | DEFAULT
         NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.COL2 AS COL2) }
     task_count: 773
-    task_total_time_ms: 29
+    task_total_time_ms: 17
     transform_count: 215
-    transform_time_ms: 12
+    transform_time_ms: 7
     transform_yield_count: 61
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 77
-    insert_reused_count: 6
+    insert_reused_count: 4
