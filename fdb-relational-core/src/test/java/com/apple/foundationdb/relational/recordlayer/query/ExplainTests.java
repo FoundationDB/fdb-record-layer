@@ -52,8 +52,8 @@ public class ExplainTests {
                     " CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)" +
                     " CREATE TABLE RestaurantComplexRecord (rest_no bigint, name string, location Location, reviews RestaurantComplexReview ARRAY, tags RestaurantTag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
                     " CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, PRIMARY KEY(id))" +
-                    " CREATE INDEX record_name_idx as select name from RestaurantComplexRecord" +
-                    " CREATE INDEX reviewer_name_idx as select name from RestaurantReviewer" +
+                    " CREATE INDEX record_name_idx ON RestaurantComplexRecord(name)" +
+                    " CREATE INDEX reviewer_name_idx ON RestaurantReviewer(name)" +
                     " CREATE INDEX mv1 AS SELECT R.rating from RestaurantComplexRecord AS Rec, (select rating from Rec.reviews) R" +
                     " CREATE INDEX mv2 AS SELECT endo.\"endorsementText\" FROM RestaurantComplexRecord rec, (SELECT X.\"endorsementText\" FROM rec.reviews rev, (SELECT \"endorsementText\" from rev.endorsements) X) endo";
 

@@ -98,22 +98,32 @@ public class PartialMatch {
     private final MatchInfo matchInfo;
 
     @Nonnull
-    private final Supplier<Map<CorrelationIdentifier, ComparisonRange>> boundParameterPrefixMapSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Map<CorrelationIdentifier, ComparisonRange>> boundParameterPrefixMapSupplier = Suppliers.memoize(this::computeBoundParameterPrefixMap);
 
     @Nonnull
-    private final Supplier<Set<Placeholder>> boundPlaceholdersSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<Placeholder>> boundPlaceholdersSupplier = Suppliers.memoize(this::computeBoundPlaceholders);
 
     @Nonnull
-    private final Supplier<Set<Quantifier>> matchedQuantifiersSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<CorrelationIdentifier>> boundSargableAliasesSupplier = Suppliers.memoize(this::computeBoundSargableAliases);
 
     @Nonnull
-    private final Supplier<Set<Quantifier>> unmatchedQuantifiersSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<Quantifier>> matchedQuantifiersSupplier = Suppliers.memoize(this::computeMatchedQuantifiers);
 
     @Nonnull
-    private final Supplier<Set<CorrelationIdentifier>> compensatedAliasesSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<Quantifier>> unmatchedQuantifiersSupplier = Suppliers.memoize(this::computeUnmatchedQuantifiers);
 
     @Nonnull
-    private final Supplier<PredicateMap> accumulatedPredicateMapSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<CorrelationIdentifier>> compensatedAliasesSupplier = Suppliers.memoize(this::computeCompensatedAliases);
+
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<PredicateMap> accumulatedPredicateMapSupplier = Suppliers.memoize(this::computeAccumulatedPredicateMap);
 
     @Nonnull
     private final Map<QueryPredicate, Optional<PredicateMapping>> memoizedPulledUpPredicateMap;
@@ -130,12 +140,6 @@ public class PartialMatch {
         this.queryExpression = queryExpression;
         this.candidateRef = candidateRef;
         this.matchInfo = matchInfo;
-        this.boundParameterPrefixMapSupplier = Suppliers.memoize(this::computeBoundParameterPrefixMap);
-        this.boundPlaceholdersSupplier = Suppliers.memoize(this::computeBoundPlaceholders);
-        this.matchedQuantifiersSupplier = Suppliers.memoize(this::computeMatchedQuantifiers);
-        this.unmatchedQuantifiersSupplier = Suppliers.memoize(this::computeUnmatchedQuantifiers);
-        this.compensatedAliasesSupplier = Suppliers.memoize(this::computeCompensatedAliases);
-        this.accumulatedPredicateMapSupplier = Suppliers.memoize(this::computeAccumulatedPredicateMap);
         this.memoizedPulledUpPredicateMap = new LinkedIdentityMap<>();
     }
 
@@ -215,6 +219,17 @@ public class PartialMatch {
                 .filter(quantifier -> matchInfo.getRegularMatchInfo()
                         .getChildPartialMatchMaybe(quantifier.getAlias()).isEmpty())
                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
+    }
+
+    @Nonnull
+    public final Set<CorrelationIdentifier> getBoundSargableAliases() {
+        return boundSargableAliasesSupplier.get();
+    }
+
+    @Nonnull
+    private Set<CorrelationIdentifier> computeBoundSargableAliases() {
+        return getBoundPlaceholders().stream().map(Placeholder::getParameterAlias)
+                .collect(ImmutableSet.toImmutableSet());
     }
 
     @Nonnull

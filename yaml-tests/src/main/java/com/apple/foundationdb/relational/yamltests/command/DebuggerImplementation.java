@@ -28,16 +28,13 @@ import org.jline.terminal.TerminalBuilder;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.util.function.Function;
+import java.util.function.Supplier;
 
 public enum DebuggerImplementation {
-    INSANE(context -> DebuggerWithSymbolTables.withSanityChecks()),
-    SANE(context -> DebuggerWithSymbolTables.withoutSanityChecks()),
-    RECORDING(context -> DebuggerWithSymbolTables.withEventRecording()),
-    REPL(context -> {
-        if (context.isNightly()) {
-            throw new UnsupportedOperationException("somebody checked in a test with a debugger option");
-        }
+    INSANE(true, DebuggerWithSymbolTables::withSanityChecks),
+    SANE(true, DebuggerWithSymbolTables::withoutSanityChecks),
+    RECORDING(true, DebuggerWithSymbolTables::withEventRecording),
+    REPL(false, () -> {
         try {
             return new PlannerRepl(TerminalBuilder.builder().dumb(true).build(), false);
         } catch (IOException e) {
@@ -45,15 +42,20 @@ public enum DebuggerImplementation {
         }
     });
 
+    private final boolean allowedInCI;
     @Nonnull
-    private final Function<YamlExecutionContext, Debugger> debuggerSupplier;
+    private final Supplier<Debugger> debuggerSupplier;
 
-    DebuggerImplementation(@Nonnull final Function<YamlExecutionContext, Debugger> debuggerCreator) {
+    DebuggerImplementation(boolean allowedInCI, @Nonnull final Supplier<Debugger> debuggerCreator) {
+        this.allowedInCI = allowedInCI;
         this.debuggerSupplier = debuggerCreator;
     }
 
     @Nonnull
     public Debugger newDebugger(@Nonnull YamlExecutionContext context) {
-        return debuggerSupplier.apply(context);
+        if (!allowedInCI && context.isInCI()) {
+            throw new UnsupportedOperationException("somebody checked in a test with a debugger option");
+        }
+        return debuggerSupplier.get();
     }
 }

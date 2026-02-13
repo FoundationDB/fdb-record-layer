@@ -136,6 +136,9 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
         final var outerInnerPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
 
         for (final var predicate : selectExpression.getPredicates()) {
+            if (predicate.isIndexOnly()) {
+                return;
+            }
             final var correlatedToInExpression =
                     Sets.intersection(predicate.getCorrelatedTo(), aliasToQuantifierMap.keySet());
             final var isEligible =

@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.planprotos.PType.PAnyRecordType;
 import com.apple.foundationdb.record.planprotos.PType.PAnyType;
 import com.apple.foundationdb.record.planprotos.PType.PArrayType;
 import com.apple.foundationdb.record.planprotos.PType.PEnumType;
+import com.apple.foundationdb.record.planprotos.PType.PFunctionType;
 import com.apple.foundationdb.record.planprotos.PType.PNoneType;
 import com.apple.foundationdb.record.planprotos.PType.PNullType;
 import com.apple.foundationdb.record.planprotos.PType.PPrimitiveType;
@@ -71,15 +72,17 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static java.util.function.Function.identity;
 
 /**
  * Provides type information about the output of an expression such as {@link Value} in a QGM.
@@ -105,6 +108,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     @Nonnull
     Uuid UUID_NON_NULL_INSTANCE = new Uuid(false);
 
+    @Nonnull
+    Function FUNCTION = new Function();
 
     /**
      * A map from Java {@link Class} to corresponding {@link TypeCode}.
@@ -192,6 +197,10 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * @return <code>true</code> if the {@link Type} is {@link Uuid}, otherwise <code>false</code>.
      */
     default boolean isUuid() {
+        return false;
+    }
+
+    default boolean isFunction() {
         return false;
     }
 
@@ -518,6 +527,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     private static Descriptors.GenericDescriptor getTypeSpecificDescriptor(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
         switch (fieldDescriptor.getType()) {
             case MESSAGE:
+            case GROUP:
                 return fieldDescriptor.getMessageType();
             case ENUM:
                 return fieldDescriptor.getEnumType();
@@ -756,7 +766,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         UUID(java.util.UUID.class, null, false, false),
         ARRAY(List.class, null, false, false),
         RELATION(null, null, false, false),
-        NONE(null, null, false, false);
+        NONE(null, null, false, false),
+        FUNCTION(Function.class, null, false, false);
 
         /**
          * Java {@link Class} that corresponds to the {@link TypeCode}.
@@ -883,9 +894,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     return TypeCode.BOOLEAN;
                 case STRING:
                     return TypeCode.STRING;
-                case GROUP:
                 case ENUM:
                     return TypeCode.ENUM;
+                case GROUP:
                 case MESSAGE:
                     return TypeCode.RECORD;
                 case BYTES:
@@ -1479,7 +1490,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * Special {@link Type} that is undefined.
      */
-    class Any implements Type {
+    final class Any implements Type {
         /**
          * Memoized hash function.
          */
@@ -1611,7 +1622,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * Special {@link Type.Record} that is undefined.
      */
-    class AnyRecord implements Type, Erasable {
+    final class AnyRecord implements Type, Erasable {
         private final boolean isNullable;
 
         @Nonnull
@@ -2085,7 +2096,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * A structured {@link Type} that contains a list of {@link Field} types.
      */
-    class Record implements Type, Erasable {
+    final class Record implements Type, Erasable {
         @Nullable
         private final String name;
         @Nullable
@@ -2258,7 +2269,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         private Map<String, Field> computeFieldNameFieldMap() {
             return Objects.requireNonNull(fields)
                     .stream()
-                    .collect(ImmutableMap.toImmutableMap(field -> field.getFieldNameOptional().get(), Function.identity()));
+                    .collect(ImmutableMap.toImmutableMap(field -> field.getFieldNameOptional().get(), identity()));
         }
 
         /**
@@ -2271,7 +2282,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return IntStream
                     .range(0, Objects.requireNonNull(fields).size())
                     .boxed()
-                    .collect(ImmutableMap.toImmutableMap(id -> fields.get(id).getFieldNameOptional().get(), Function.identity()));
+                    .collect(ImmutableMap.toImmutableMap(id -> fields.get(id).getFieldNameOptional().get(), identity()));
         }
 
         /**
@@ -2284,7 +2295,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return IntStream
                     .range(0, Objects.requireNonNull(fields).size())
                     .boxed()
-                    .collect(ImmutableMap.toImmutableMap(id -> fields.get(id).getFieldIndexOptional().get(), Function.identity()));
+                    .collect(ImmutableMap.toImmutableMap(id -> fields.get(id).getFieldIndexOptional().get(), identity()));
         }
 
         /**
@@ -2317,6 +2328,18 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
             typeRepositoryBuilder.addMessageType(recordMsgBuilder.build());
             typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
+        }
+
+        @Nonnull
+        public Type.Record addPseudoFields() {
+            final List<Type.Record.Field> newFields = new ArrayList<>(fields.size() + 1);
+            newFields.addAll(fields);
+            for (PseudoField pseudoField : PseudoField.values()) {
+                if (!getFieldNameFieldMap().containsKey(pseudoField.getFieldName())) {
+                    newFields.add(Type.Record.Field.of(pseudoField.getType(), Optional.of(pseudoField.getFieldName())));
+                }
+            }
+            return new Type.Record(name, storageName, isNullable, normalizeFields(newFields));
         }
 
         /**
@@ -2573,14 +2596,14 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
             Set<Integer> fieldIndexesSeen = Sets.newHashSet();
             boolean override = false;
+            boolean containsDuplicateFieldIndexes = false;
             for (final var field : fields) {
                 if (field.getFieldNameOptional().isEmpty() || field.getFieldIndexOptional().isEmpty()) {
                     override = true;
-                    break;
                 }
                 if (field.fieldIndexOptional.isPresent() && !fieldIndexesSeen.add(field.getFieldIndex())) {
                     override = true;
-                    break;
+                    containsDuplicateFieldIndexes = true;
                 }
             }
 
@@ -2588,7 +2611,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             // If any field info is missing, the type that is about to be constructed comes from a constructing
             // code path. We should be able to just set these field names and indexes as we wish.
             //
-            Set<String> fieldNamesSeen = Sets.newHashSet();
             final ImmutableList.Builder<Field> resultFieldsBuilder = ImmutableList.builder();
             for (int i = 0; i < fields.size(); i++) {
                 final var field = fields.get(i);
@@ -2605,16 +2627,29 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     final var fieldStorageName =
                             field.getFieldStorageNameOptional()
                                     .orElseGet(() -> ProtoUtils.toProtoBufCompliantName(explicitFieldName));
+                    final int ordinal = i;
+                    final int fieldIndex;
+                    if (containsDuplicateFieldIndexes) {
+                        fieldIndex = ordinal + 1;
+                    } else {
+                        fieldIndex = field.getFieldIndexOptional()
+                                .orElseGet(() -> {
+                                    // Pick the lowest index for this field that is not already in the seen set
+                                    int candidate = ordinal + 1;
+                                    while (!fieldIndexesSeen.add(candidate)) {
+                                        candidate++;
+                                    }
+                                    return candidate;
+                                });
+                    }
+
                     fieldToBeAdded =
                             new Field(field.getFieldType(),
                                     Optional.of(explicitFieldName),
-                                    Optional.of(i + 1),
+                                    Optional.of(fieldIndex),
                                     Optional.of(fieldStorageName));
                 }
 
-                if (!(fieldNamesSeen.add(fieldToBeAdded.getFieldName()))) {
-                    throw new RecordCoreException("fields contain duplicate field names");
-                }
                 resultFieldsBuilder.add(fieldToBeAdded);
             }
 
@@ -2625,7 +2660,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * Represents a field type in a {@link Record} type.
          */
         @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-        public static class Field implements Comparable<Field>, PlanSerializable {
+        public static final class Field implements Comparable<Field>, PlanSerializable {
             /**
              * The field {@link Type}.
              */
@@ -2887,7 +2922,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * Represents a relational type.
      */
-    class Relation implements Type, Erasable {
+    final class Relation implements Type, Erasable {
         /**
          * The type of the stream values.
          */
@@ -3071,7 +3106,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     /**
      * A type representing an array of elements sharing the same type.
      */
-    class Array implements Type, Erasable {
+    final class Array implements Type, Erasable {
         /**
          * Whether the array is nullable or not.
          */
@@ -3312,6 +3347,112 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                    @Nonnull final PArrayType arrayTypeProto) {
                 return Array.fromProto(serializationContext, arrayTypeProto);
             }
+        }
+    }
+
+    /**
+     * A marker type representing an opaque function type used exclusively during compile-time type resolution
+     * and higher-order function evaluation.
+     * <p>
+     * This type serves as a placeholder in the type system to indicate that a value represents a function rather
+     * than a concrete data type. It is used during the semantic analysis phase when resolving higher-order
+     * functions (functions that return functions) and has no runtime representation. Values of this type should
+     * never appear in executable query plans or serialized protobuf messages.
+     * </p>
+     *
+     * @see com.apple.foundationdb.record.query.plan.cascades.values.Value.HighOrderValue for values that produce this type
+     */
+    class Function implements Type {
+        @Override
+        public TypeCode getTypeCode() {
+            return TypeCode.FUNCTION;
+        }
+
+        @Override
+        public boolean isNullable() {
+            return false;
+        }
+
+        @Nonnull
+        @Override
+        public Type withNullability(final boolean newIsNullable) {
+            Verify.verify(!newIsNullable);
+            return this;
+        }
+
+        @Override
+        public boolean isUnresolved() {
+            return false;
+        }
+
+        @Override
+        public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder, @Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldNumber, @Nonnull final String fieldName, @Nonnull final Optional<String> typeNameOptional, @Nonnull final FieldDescriptorProto.Label label) {
+            throw new RecordCoreException("should not be called");
+        }
+
+        @Nonnull
+        @Override
+        public String toString() {
+            return describe().render(DefaultExplainFormatter.forDebugging()).toString();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokens describe() {
+            return new ExplainTokens().addKeyword("FUNCTION");
+        }
+
+        @Nonnull
+        @Override
+        public PFunctionType toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PFunctionType.newBuilder().build();
+        }
+
+        @Nonnull
+        @Override
+        public PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PType.newBuilder().setFunctionType(toProto(serializationContext)).build();
+        }
+
+        @SuppressWarnings("unused")
+        @Nonnull
+        public static Function fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                         @Nonnull final PFunctionType functionTypeProto) {
+            return FUNCTION;
+        }
+
+        @Override
+        public boolean isFunction() {
+            return true;
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PFunctionType, Function> {
+            @Nonnull
+            @Override
+            public Class<PFunctionType> getProtoMessageClass() {
+                return PFunctionType.class;
+            }
+
+            @Nonnull
+            @Override
+            public Function fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                           @Nonnull final PFunctionType functionTypeProto) {
+                return Function.fromProto(serializationContext, functionTypeProto);
+            }
+        }
+
+        @Override
+        public int hashCode() {
+            return getTypeCode().name().hashCode();
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            return other instanceof Function;
         }
     }
 

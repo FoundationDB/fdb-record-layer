@@ -24,8 +24,10 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 
 /**
  * Block is a single region in the YAMSQL file that can either be a
@@ -48,42 +50,63 @@ public interface Block {
      * the correctly configured {@link ConnectedBlock} for execution.
      *
      * @param region a region in the file
-     * @param blockNumber the current block number
      * @param executionContext information needed to carry out the execution
+     * @return zero of more blocks
      */
-    static Block parse(@Nonnull Object region, int blockNumber, @Nonnull YamlExecutionContext executionContext) {
+    static List<Block> parse(@Nonnull YamlReference.YamlResource resource, @Nonnull Object region, int blockNumber,
+                             @Nonnull YamlExecutionContext executionContext, boolean isTopLevel) {
         final var blockObject = Matchers.map(region, "block");
         Assert.thatUnchecked(blockObject.size() == 1,
-                "Illegal Format: A block is expected to be a map of size 1 (block: " + blockNumber + ") keys: " + blockObject.keySet());
-        final var entry = Matchers.firstEntry(blockObject, "block key-value");
+                "Illegal Format: A block is expected to be a map of size 1 ({" + resource + "}) keys: " + blockObject.keySet());
+        final var entry = Matchers.onlyEntry(blockObject, "block key-value");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(entry.getKey(), () -> "Invalid block key-value pair: " + entry);
-        final var lineNumber = linedObject.getLineNumber();
+        final var reference = resource.withLineNumber(linedObject.getLineNumber());
         final String blockKey = Matchers.notNull(Matchers.string(linedObject.getObject(), "block key"), "block key");
         try {
             switch (blockKey) {
                 case SetupBlock.SETUP_BLOCK:
-                    return SetupBlock.ManualSetupBlock.parse(lineNumber, entry.getValue(), executionContext);
+                    return SetupBlock.ManualSetupBlock.parse(reference, entry.getValue(), executionContext);
                 case TransactionSetupsBlock.TRANSACTION_SETUP:
-                    return TransactionSetupsBlock.parse(lineNumber, entry.getValue(), executionContext);
+                    return TransactionSetupsBlock.parse(entry.getValue(), executionContext);
                 case TestBlock.TEST_BLOCK:
-                    return TestBlock.parse(blockNumber, lineNumber, entry.getValue(), executionContext);
+                    return TestBlock.parse(blockNumber, reference, entry.getValue(), executionContext);
                 case SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK:
-                    return SetupBlock.SchemaTemplateBlock.parse(lineNumber, entry.getValue(), executionContext);
+                    return SetupBlock.SchemaTemplateBlock.parse(reference, entry.getValue(), executionContext);
                 case PreambleBlock.OPTIONS:
-                    Assert.that(blockNumber == 0, "File-wide options must be the first block, but found one at line " + lineNumber);
-                    return PreambleBlock.parse(lineNumber, entry.getValue(), executionContext);
+                    Assert.that(isTopLevel && blockNumber == 0, "File-wide options must be the first block, but found one at " + reference);
+                    return PreambleBlock.parse(entry.getValue(), executionContext);
+                case IncludeBlock.INCLUDE:
+                    return IncludeBlock.parse(reference, entry.getValue(), executionContext);
                 default:
                     throw new RuntimeException("Cannot recognize the type of block");
             }
         } catch (Exception e) {
-            throw executionContext.wrapContext(e, () -> "Error parsing block at line " + lineNumber, blockKey, lineNumber);
+            throw YamlExecutionContext.wrapContext(e, () -> "Error parsing block at " + reference, blockKey, reference);
         }
     }
 
-    int getLineNumber();
+    /**
+     * Returns the {@link YamlReference} attached with the block. This is usually represented by the first line of the
+     * block in YAMSQL file and the name of that file. However, the more important bit that is there in it, is the call
+     * stack that has led to the execution of this block.
+     * @return the {@link YamlReference} of the current block.
+     */
+    @Nonnull
+    YamlReference getReference();
 
     /**
      * Executes the executables from the parsed block in a single connection.
      */
     void execute();
+
+    /**
+     * Returns the list of {@link Block}s that needs to be called to clean up resources that the current block has
+     * created. The time at which these blocks should be called depends on the caller of this function that will
+     * decide the lifecycle of the resources.
+     * @return the list of {@link Block}
+     */
+    @Nonnull
+    default List<Block> getAndClearFinalizingBlocks() {
+        return List.of();
+    }
 }

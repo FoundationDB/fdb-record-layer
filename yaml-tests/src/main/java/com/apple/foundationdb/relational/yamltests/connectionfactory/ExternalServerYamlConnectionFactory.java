@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.connectionfactory;
 
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
@@ -30,6 +31,7 @@ import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Set;
@@ -45,8 +47,16 @@ public class ExternalServerYamlConnectionFactory implements YamlConnectionFactor
     @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
         String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + externalServer.getPort());
-        LOG.info("Rewrote {} as {}", connectPath, uriStr);
-        return new SimpleYamlConnection(DriverManager.getConnection(uriStr), externalServer.getVersion(), externalServer.getClusterFile());
+        if (LOG.isInfoEnabled()) {
+            LOG.info(KeyValueLogMessage.of("Rewrote connection string for external server",
+                    "original", connectPath,
+                    "rewritten", uriStr,
+                    "version", externalServer.getVersion()));
+        }
+
+        final Connection connection = DriverManager.getConnection(uriStr);
+        externalServer.validateConnectionVersion(connection);
+        return new SimpleYamlConnection(connection, externalServer.getVersion(), externalServer.getClusterFile());
     }
 
     @Override

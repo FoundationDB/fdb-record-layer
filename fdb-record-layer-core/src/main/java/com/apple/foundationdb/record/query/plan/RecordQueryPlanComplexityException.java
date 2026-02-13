@@ -34,7 +34,7 @@ import javax.annotation.Nonnull;
  */
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
-public class RecordQueryPlanComplexityException extends RecordCoreException {
+public final class RecordQueryPlanComplexityException extends RecordCoreException {
     public RecordQueryPlanComplexityException(@Nonnull String msg) {
         super(msg);
     }

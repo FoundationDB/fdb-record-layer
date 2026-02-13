@@ -91,7 +91,8 @@ public class RecordQueryFetchFromPartialRecordPlan extends AbstractRelationalExp
     private final FetchIndexRecords fetchIndexRecords;
 
     @Nonnull
-    private final Supplier<? extends Value> resultValueSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<? extends Value> resultValueSupplier = Suppliers.memoize(this::computeResultValue);
 
     protected RecordQueryFetchFromPartialRecordPlan(@Nonnull final PlanSerializationContext serializationContext,
                                                     @Nonnull final PRecordQueryFetchFromPartialRecordPlan recordQueryFetchFromPartialRecordPlanProto) {
@@ -99,7 +100,6 @@ public class RecordQueryFetchFromPartialRecordPlan extends AbstractRelationalExp
         this.resultType = Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordQueryFetchFromPartialRecordPlanProto.getResultType()));
         this.translateValueFunction = null; // not serialized as this is a planner-only structure
         this.fetchIndexRecords = FetchIndexRecords.fromProto(serializationContext, Objects.requireNonNull(recordQueryFetchFromPartialRecordPlanProto.getFetchIndexRecords()));
-        this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
     }
 
     @HeuristicPlanner
@@ -116,7 +116,6 @@ public class RecordQueryFetchFromPartialRecordPlan extends AbstractRelationalExp
         this.resultType = resultType;
         this.translateValueFunction = translateValueFunction;
         this.fetchIndexRecords = fetchIndexRecords;
-        this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
     }
 
     @Nonnull
@@ -130,7 +129,7 @@ public class RecordQueryFetchFromPartialRecordPlan extends AbstractRelationalExp
                         store,
                         getChild().executePlan(store, context, continuation, executeProperties)
                                 .map(QueryResult::getIndexEntry), executeProperties)
-                .map(QueryResult::fromQueriedRecord);
+                .map(queriedRecord -> QueryResult.fromQueriedRecord(resultType, context, queriedRecord));
     }
 
     @Nonnull

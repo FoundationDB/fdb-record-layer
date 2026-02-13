@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer.query;
+package com.apple.foundationdb.relational.recordlayer.query.ddl;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
@@ -70,6 +71,7 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
+import com.apple.foundationdb.relational.recordlayer.query.FieldValueTrieNode;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
@@ -110,7 +112,7 @@ import static java.util.stream.Collectors.toList;
  */
 @SuppressWarnings({"PMD.TooManyStaticImports", "OptionalUsedAsFieldOrParameterType"})
 @API(API.Status.EXPERIMENTAL)
-public final class IndexGenerator {
+public final class MaterializedViewIndexGenerator {
 
     private static final String BITMAP_BIT_POSITION = "bitmap_bit_position";
     private static final String BITMAP_BUCKET_OFFSET = "bitmap_bucket_offset";
@@ -129,7 +131,7 @@ public final class IndexGenerator {
 
     private final boolean useLegacyBasedExtremumEver;
 
-    private IndexGenerator(@Nonnull RelationalExpression relationalExpression, boolean useLegacyBasedExtremumEver) {
+    private MaterializedViewIndexGenerator(@Nonnull RelationalExpression relationalExpression, boolean useLegacyBasedExtremumEver) {
         collectQuantifiers(relationalExpression);
         final var partialOrder = referencesAndDependencies().evaluate(Reference.initialOf(relationalExpression));
         relationalExpressions =
@@ -143,7 +145,8 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    public RecordLayerIndex generate(@Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, @Nonnull String indexName, boolean isUnique, boolean containsNullableArray) {
+    public RecordLayerIndex.Builder generate(@Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, @Nonnull String indexName,
+                                             boolean isUnique, boolean containsNullableArray, boolean generateKeyValueExpressionWithEmptyKey) {
         final String recordTypeName = getRecordTypeName();
         // Have to use the storage name here because the index generator uses it
         final Type.Record tableType = schemaTemplateBuilder.findTableByStorageName(recordTypeName).getType();
@@ -176,7 +179,7 @@ public final class IndexGenerator {
         Assert.thatUnchecked(simplifiedValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof IndexableAggregateValue || sv instanceof VersionValue || sv instanceof ArithmeticValue));
         final var aggregateValues = simplifiedValues.stream().filter(sv -> sv instanceof IndexableAggregateValue).collect(toList());
         final var fieldValues = simplifiedValues.stream().filter(sv -> !(sv instanceof IndexableAggregateValue)).collect(toList());
-        final var versionValues = simplifiedValues.stream().filter(sv -> sv instanceof VersionValue).map(sv -> (VersionValue) sv).collect(toList());
+        final var versionValues = simplifiedValues.stream().filter(sv -> sv instanceof FieldValue && sv.getResultType().equals(PseudoField.ROW_VERSION.getType())).collect(toList());
         Assert.thatUnchecked(versionValues.size() <= 1, ErrorCode.UNSUPPORTED_OPERATION, "Cannot have index with more than one version column");
         final Map<Value, String> orderingFunctions = new IdentityHashMap<>();
         final var orderByValues = getOrderByValues(relationalExpression, orderingFunctions);
@@ -188,7 +191,10 @@ public final class IndexGenerator {
             }
             final var reordered = reorderValues(fieldValues, orderByValues);
             final var expression = generate(reordered, orderingFunctions);
-            final var splitPoint = orderByValues.isEmpty() ? -1 : orderByValues.size();
+            var splitPoint = orderByValues.size();
+            if (orderByValues.isEmpty() && !generateKeyValueExpressionWithEmptyKey) {
+                splitPoint = -1;
+            }
             if (splitPoint != -1 && splitPoint < fieldValues.size()) {
                 indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(keyWithValue(expression, splitPoint).toKeyExpression(), tableType, containsNullableArray)));
             } else {
@@ -231,11 +237,11 @@ public final class IndexGenerator {
             if (IndexTypes.PERMUTED_MIN.equals(indexType) || IndexTypes.PERMUTED_MAX.equals(indexType)) {
                 int permutedSize = aggregateOrderIndex < 0 ? 0 : (fieldValues.size() - aggregateOrderIndex);
                 indexBuilder.setOption(IndexOptions.PERMUTED_SIZE_OPTION, permutedSize);
-            } else if (aggregateOrderIndex >= 0) {
+            } else if (aggregateOrderIndex > 0) {
                 Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition. Cannot order " + indexType + " index by aggregate value");
             }
         }
-        return indexBuilder.build();
+        return indexBuilder;
     }
 
     @Nonnull
@@ -531,7 +537,7 @@ public final class IndexGenerator {
         if (value instanceof VersionValue) {
             return VersionKeyExpression.VERSION;
         } else if (value instanceof FieldValue) {
-            FieldValue fieldValue = (FieldValue) value;
+            final FieldValue fieldValue = (FieldValue) value;
             return toKeyExpression(fieldValue.getFieldPath().getFieldAccessors().iterator());
         } else if (value instanceof ArithmeticValue) {
             var children = value.getChildren();
@@ -567,15 +573,16 @@ public final class IndexGenerator {
         final var exprConstituents = childrenMap.entrySet().stream().map(nodeEntry -> {
             final FieldValue.ResolvedAccessor accessor = nodeEntry.getKey();
             final FieldValueTrieNode node = nodeEntry.getValue();
-            final FieldKeyExpression fieldExpr = toFieldKeyExpression(accessor.getField());
+            final KeyExpression expr = toFieldKeyExpression(accessor.getField());
             if (node.getChildrenMap() != null) {
+                final FieldKeyExpression fieldExpr = Assert.castUnchecked(expr, FieldKeyExpression.class);
                 return fieldExpr.nest(toKeyExpression(node, orderingFunctions));
             } else if (orderingFunctions.containsKey(node.getValue())) {
-                return function(orderingFunctions.get(node.getValue()), fieldExpr);
+                return function(orderingFunctions.get(node.getValue()), expr);
             } else {
-                return fieldExpr;
+                return expr;
             }
-        }).map(v -> (KeyExpression) v).collect(toList());
+        }).collect(toList());
         if (exprConstituents.size() == 1) {
             return exprConstituents.get(0);
         } else {
@@ -608,7 +615,7 @@ public final class IndexGenerator {
     }
 
     @Nullable
-    private static QueryPredicate getTopLevelPredicate(@Nonnull List<? extends RelationalExpression> expressions) {
+    public static QueryPredicate getTopLevelPredicate(@Nonnull List<? extends RelationalExpression> expressions) {
         if (expressions.isEmpty()) {
             return null;
         }
@@ -633,7 +640,11 @@ public final class IndexGenerator {
                 Assert.thatUnchecked(innerSelect.getPredicates().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found predicate in inner-select");
             }
         }
-        final var predicates = ((SelectExpression) expressions.get(currentExpression)).getPredicates().stream().map(QueryPredicate::toResidualPredicate).collect(toList());
+        final var expr = expressions.get(currentExpression);
+        if (!(expr instanceof SelectExpression)) {
+            return null;
+        }
+        final var predicates = ((SelectExpression) expr).getPredicates().stream().map(QueryPredicate::toResidualPredicate).collect(toList());
         // todo (yhatem) make sure we through if the generated DNF does not meet the deserialization requirements.
         if (predicates.isEmpty()) {
             return null;
@@ -745,12 +756,13 @@ public final class IndexGenerator {
     private KeyExpression toKeyExpression(@Nonnull Iterator<FieldValue.ResolvedAccessor> resolvedAccessors) {
         Assert.thatUnchecked(resolvedAccessors.hasNext(), "cannot resolve empty list");
         final Type.Record.Field field = resolvedAccessors.next().getField();
-        final FieldKeyExpression fieldExpression = toFieldKeyExpression(field);
+        final KeyExpression expression = toFieldKeyExpression(field);
         if (resolvedAccessors.hasNext()) {
             KeyExpression childExpression = toKeyExpression(resolvedAccessors);
+            final FieldKeyExpression fieldExpression = Assert.castUnchecked(expression, FieldKeyExpression.class);
             return fieldExpression.nest(childExpression);
         } else {
-            return fieldExpression;
+            return expression;
         }
     }
 
@@ -767,18 +779,21 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private static FieldKeyExpression toFieldKeyExpression(@Nonnull Type.Record.Field fieldType) {
+    private static KeyExpression toFieldKeyExpression(@Nonnull Type.Record.Field fieldType) {
         Assert.notNullUnchecked(fieldType.getFieldStorageName());
         final var fanType = fieldType.getFieldType().getTypeCode() == Type.TypeCode.ARRAY ?
                 KeyExpression.FanType.FanOut :
                 KeyExpression.FanType.None;
+        if (PseudoField.ROW_VERSION.getType().equals(fieldType.getFieldType()) && PseudoField.ROW_VERSION.getFieldName().equals(fieldType.getFieldName())) {
+            return VersionKeyExpression.VERSION;
+        }
         // At this point, we need to use the storage field name as that will be the name referenced
         // in Protobuf storage
         return field(fieldType.getFieldStorageName(), fanType);
     }
 
     @Nonnull
-    public static IndexGenerator from(@Nonnull RelationalExpression relationalExpression, boolean useLongBasedExtremumEver) {
-        return new IndexGenerator(relationalExpression, useLongBasedExtremumEver);
+    public static MaterializedViewIndexGenerator from(@Nonnull RelationalExpression relationalExpression, boolean useLongBasedExtremumEver) {
+        return new MaterializedViewIndexGenerator(relationalExpression, useLongBasedExtremumEver);
     }
 }

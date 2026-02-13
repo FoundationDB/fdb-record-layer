@@ -63,6 +63,9 @@ dependencies {
     // This is included just for ResultSetAssert. It does a bunch of this
     // Type.Record record = ProtobufDdlUtil.recordFromDescriptor(((Message) colValue).getDescriptorForType());
     testFixturesImplementation(project(coreProject))
+
+
+    testAnnotationProcessor(libs.autoService)
 }
 
 // The engine is defined in relational-core. If we move it somewhere such that other subprojects can use it, this

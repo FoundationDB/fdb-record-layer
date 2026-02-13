@@ -125,12 +125,24 @@ message DataStoreInfo {
       // point of view - becomes a read-only store, while indexes and other internal metadata can still be modified.
       // This type of lock may be useful in some extreme cases, such as recovery.
       FORBID_RECORD_UPDATE = 1;
+      // In this state the the store may not be opened unless the builder is provided with an override to the lock,
+      // including the expected current state and reason.
+      FULL_STORE = 2;
     }
     optional State lock_state = 1;
     optional string reason = 2;
     optional int64 timestamp = 3;
   }
   optional StoreLockState store_lock_state = 10;
+  // The incarnation of this store, which should be incremented when moving data from one cluster to another.
+  // The intended usage of this value is that you increment it when moving data between different FDB clusters.
+  // Then if any time you save or update a record in the store, you set a field (let's say "incr") in that record to
+  // this incarnation, and you create an index on `[field("incr"), version()]` that index will be ordered by when the
+  // records were last modified, regardless of when data may have been moved between clusters.
+  // This is important, because `version()` is not well ordered across clusters, and thus you could save records on
+  // the new cluster, and get much lower `version()` values. By combining with the incarnation, it won't matter that
+  // the new cluster is providing lower versionstamps.
+  optional int32 incarnation = 11;
 }
 
 message Index {

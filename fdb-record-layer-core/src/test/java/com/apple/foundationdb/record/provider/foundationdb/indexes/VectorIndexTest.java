@@ -598,7 +598,7 @@ class VectorIndexTest extends VectorIndexTestBase {
         final Comparisons.DistanceRankValueComparison distanceRankComparison =
                 new Comparisons.DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
                         new LiteralValue<>(Type.Vector.of(false, 16, 128), queryVector),
-                        new LiteralValue<>(k));
+                        new LiteralValue<>(k), null, null);
 
         return VectorIndexScanComparisons.byDistance(ScanComparisons.EMPTY,
                 distanceRankComparison, vectorIndexScanOptions);

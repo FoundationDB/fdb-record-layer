@@ -1,0 +1,524 @@
+basic_index:
+-   query: EXPLAIN select name from customers_materialized_view where name = 'Alice'
+    explain: 'COVERING(IDX_MV_INCLUDE [EQUALS promote(@c8 AS STRING)] -> [COUNTRY:
+        VALUE[1], EMAIL: VALUE[0], ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME)'
+    task_count: 1873
+    task_total_time_ms: 351
+    transform_count: 469
+    transform_time_ms: 207
+    transform_yield_count: 173
+    insert_time_ms: 20
+    insert_new_count: 219
+    insert_reused_count: 21
+-   query: EXPLAIN select name from customers_index_on_table where name = 'Alice'
+    explain: 'COVERING(IDX_IOT_INCLUDE [EQUALS promote(@c8 AS STRING)] -> [COUNTRY:
+        VALUE[1], EMAIL: VALUE[0], ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME)'
+    task_count: 1873
+    task_total_time_ms: 234
+    transform_count: 469
+    transform_time_ms: 128
+    transform_yield_count: 173
+    insert_time_ms: 16
+    insert_new_count: 219
+    insert_reused_count: 21
+-   query: EXPLAIN select email from customers_materialized_view order by email desc
+    explain: 'COVERING(IDX_MV_EMAIL <,> -> [EMAIL: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST),
+        ID: KEY[2]]) | MAP (_.EMAIL AS EMAIL)'
+    task_count: 350
+    task_total_time_ms: 180
+    transform_count: 105
+    transform_time_ms: 144
+    transform_yield_count: 92
+    insert_time_ms: 4
+    insert_new_count: 20
+    insert_reused_count: 2
+-   query: EXPLAIN select email from customers_index_on_table order by email desc
+    explain: 'COVERING(IDX_IOT_EMAIL <,> -> [EMAIL: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST),
+        ID: KEY[2]]) | MAP (_.EMAIL AS EMAIL)'
+    task_count: 350
+    task_total_time_ms: 223
+    transform_count: 105
+    transform_time_ms: 181
+    transform_yield_count: 92
+    insert_time_ms: 8
+    insert_new_count: 20
+    insert_reused_count: 2
+-   query: EXPLAIN select age, city from customers_materialized_view where age > 25
+        order by age, city
+    explain: 'COVERING(IDX_MV_MULTI [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE:
+        KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)'
+    task_count: 504
+    task_total_time_ms: 185
+    transform_count: 141
+    transform_time_ms: 139
+    transform_yield_count: 101
+    insert_time_ms: 7
+    insert_new_count: 38
+    insert_reused_count: 2
+-   query: EXPLAIN select age, city from customers_index_on_table where age > 25 order
+        by age, city
+    explain: 'COVERING(IDX_IOT_MULTI [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE:
+        KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)'
+    task_count: 504
+    task_total_time_ms: 78
+    transform_count: 141
+    transform_time_ms: 50
+    transform_yield_count: 101
+    insert_time_ms: 1
+    insert_new_count: 38
+    insert_reused_count: 2
+include_clause:
+-   query: EXPLAIN select name, email, country from customers_materialized_view where
+        name = 'Alice'
+    explain: 'COVERING(IDX_MV_INCLUDE [EQUALS promote(@c12 AS STRING)] -> [COUNTRY:
+        VALUE[1], EMAIL: VALUE[0], ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME,
+        _.EMAIL AS EMAIL, _.COUNTRY AS COUNTRY)'
+    task_count: 1814
+    task_total_time_ms: 216
+    transform_count: 465
+    transform_time_ms: 93
+    transform_yield_count: 169
+    insert_time_ms: 11
+    insert_new_count: 213
+    insert_reused_count: 21
+-   query: EXPLAIN select name, email, country from customers_index_on_table where
+        name = 'Alice'
+    explain: 'COVERING(IDX_IOT_INCLUDE [EQUALS promote(@c12 AS STRING)] -> [COUNTRY:
+        VALUE[1], EMAIL: VALUE[0], ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME,
+        _.EMAIL AS EMAIL, _.COUNTRY AS COUNTRY)'
+    task_count: 1814
+    task_total_time_ms: 230
+    transform_count: 465
+    transform_time_ms: 101
+    transform_yield_count: 169
+    insert_time_ms: 13
+    insert_new_count: 213
+    insert_reused_count: 21
+mixed_asc_desc:
+-   query: EXPLAIN select age, city from customers_materialized_view where age > 30
+        order by age asc, city desc
+    explain: 'COVERING(IDX_MV_ASC_DESC [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE:
+        KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]]) |
+        MAP (_.AGE AS AGE, _.CITY AS CITY)'
+    task_count: 504
+    task_total_time_ms: 62
+    transform_count: 141
+    transform_time_ms: 36
+    transform_yield_count: 101
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 2
+-   query: EXPLAIN select age, city from customers_index_on_table where age > 30 order
+        by age asc, city desc
+    explain: 'COVERING(IDX_IOT_ASC_DESC [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE:
+        KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]]) |
+        MAP (_.AGE AS AGE, _.CITY AS CITY)'
+    task_count: 504
+    task_total_time_ms: 40
+    transform_count: 141
+    transform_time_ms: 25
+    transform_yield_count: 101
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 2
+-   query: EXPLAIN select age, city from customers_materialized_view where age < 40
+        order by age desc, city desc
+    explain: 'COVERING(IDX_MV_MULTI [[LESS_THAN promote(@c10 AS INT)]] REVERSE ->
+        [AGE: KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)'
+    task_count: 504
+    task_total_time_ms: 59
+    transform_count: 141
+    transform_time_ms: 35
+    transform_yield_count: 101
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 2
+-   query: EXPLAIN select age, city from customers_index_on_table where age < 40 order
+        by age desc, city desc
+    explain: 'COVERING(IDX_IOT_MULTI [[LESS_THAN promote(@c10 AS INT)]] REVERSE ->
+        [AGE: KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)'
+    task_count: 504
+    task_total_time_ms: 43
+    transform_count: 141
+    transform_time_ms: 24
+    transform_yield_count: 101
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 2
+-   query: EXPLAIN select age, city from customers_materialized_view where age < 50
+        order by age desc, city asc
+    explain: 'COVERING(IDX_MV_ASC_DESC [[LESS_THAN promote(@c10 AS INT)]] REVERSE
+        -> [AGE: KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]])
+        | MAP (_.AGE AS AGE, _.CITY AS CITY)'
+    task_count: 504
+    task_total_time_ms: 63
+    transform_count: 141
+    transform_time_ms: 36
+    transform_yield_count: 101
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 2
+-   query: EXPLAIN select age, city from customers_index_on_table where age < 50 order
+        by age desc, city asc
+    explain: 'COVERING(IDX_IOT_ASC_DESC [[LESS_THAN promote(@c10 AS INT)]] REVERSE
+        -> [AGE: KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]])
+        | MAP (_.AGE AS AGE, _.CITY AS CITY)'
+    task_count: 504
+    task_total_time_ms: 61
+    transform_count: 141
+    transform_time_ms: 36
+    transform_yield_count: 101
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 2
+nulls_first_last:
+-   query: EXPLAIN SELECT country FROM customers_materialized_view ORDER BY country
+        ASC NULLS FIRST
+    explain: 'COVERING(IDX_MV_NULLS_FIRST <,> -> [COUNTRY: KEY[0], ID: KEY[2]]) |
+        MAP (_.COUNTRY AS COUNTRY)'
+    task_count: 350
+    task_total_time_ms: 33
+    transform_count: 105
+    transform_time_ms: 21
+    transform_yield_count: 92
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT country FROM customers_index_on_table ORDER BY country ASC
+        NULLS FIRST
+    explain: 'COVERING(IDX_IOT_NULLS_FIRST <,> -> [COUNTRY: KEY[0], ID: KEY[2]]) |
+        MAP (_.COUNTRY AS COUNTRY)'
+    task_count: 350
+    task_total_time_ms: 16
+    transform_count: 105
+    transform_time_ms: 10
+    transform_yield_count: 92
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT country FROM customers_materialized_view ORDER BY country
+        ASC NULLS LAST
+    explain: 'COVERING(IDX_MV_NULLS_LAST <,> -> [COUNTRY: from_ordered_bytes(KEY:[0],
+        ASC_NULLS_LAST), ID: KEY[2]]) | MAP (_.COUNTRY AS COUNTRY)'
+    task_count: 350
+    task_total_time_ms: 37
+    transform_count: 105
+    transform_time_ms: 23
+    transform_yield_count: 92
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT country FROM customers_index_on_table ORDER BY country ASC
+        NULLS LAST
+    explain: 'COVERING(IDX_IOT_NULLS_LAST <,> -> [COUNTRY: from_ordered_bytes(KEY:[0],
+        ASC_NULLS_LAST), ID: KEY[2]]) | MAP (_.COUNTRY AS COUNTRY)'
+    task_count: 350
+    task_total_time_ms: 10
+    transform_count: 105
+    transform_time_ms: 7
+    transform_yield_count: 92
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT age FROM customers_materialized_view ORDER BY age DESC NULLS
+        FIRST
+    explain: 'COVERING(IDX_MV_DESC_NULLS_FIRST <,> -> [AGE: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_FIRST), ID: KEY[2]]) | MAP (_.AGE AS AGE)'
+    task_count: 350
+    task_total_time_ms: 33
+    transform_count: 105
+    transform_time_ms: 21
+    transform_yield_count: 92
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT age FROM customers_index_on_table ORDER BY age DESC NULLS
+        FIRST
+    explain: 'COVERING(IDX_IOT_DESC_NULLS_FIRST <,> -> [AGE: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_FIRST), ID: KEY[2]]) | MAP (_.AGE AS AGE)'
+    task_count: 350
+    task_total_time_ms: 37
+    transform_count: 105
+    transform_time_ms: 27
+    transform_yield_count: 92
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT age FROM customers_materialized_view ORDER BY age DESC NULLS
+        LAST
+    explain: 'COVERING(IDX_MV_DESC_NULLS_LAST <,> -> [AGE: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_LAST), ID: KEY[2]]) | MAP (_.AGE AS AGE)'
+    task_count: 516
+    task_total_time_ms: 35
+    transform_count: 133
+    transform_time_ms: 20
+    transform_yield_count: 104
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT age FROM customers_index_on_table ORDER BY age DESC NULLS
+        LAST
+    explain: 'COVERING(IDX_IOT_DESC_NULLS_LAST <,> -> [AGE: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_LAST), ID: KEY[2]]) | MAP (_.AGE AS AGE)'
+    task_count: 516
+    task_total_time_ms: 54
+    transform_count: 133
+    transform_time_ms: 33
+    transform_yield_count: 104
+    insert_time_ms: 1
+    insert_new_count: 46
+    insert_reused_count: 6
+extremum_ever_without_legacy_option:
+-   query: EXPLAIN SELECT country, min_ever(age) FROM customers_materialized_view
+        WHERE country = 'USA' GROUP BY country
+    explain: 'AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 113
+    transform_count: 257
+    transform_time_ms: 66
+    transform_yield_count: 126
+    insert_time_ms: 1
+    insert_new_count: 75
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT country, min_ever(age) FROM customers_index_on_table WHERE
+        country = 'USA' GROUP BY country
+    explain: 'AISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 120
+    transform_count: 257
+    transform_time_ms: 80
+    transform_yield_count: 126
+    insert_time_ms: 2
+    insert_new_count: 75
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT country, max_ever(age) FROM customers_materialized_view
+        WHERE country = 'Canada' GROUP BY country
+    explain: 'AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 113
+    transform_count: 257
+    transform_time_ms: 66
+    transform_yield_count: 126
+    insert_time_ms: 1
+    insert_new_count: 75
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT country, max_ever(age) FROM customers_index_on_table WHERE
+        country = 'Canada' GROUP BY country
+    explain: 'AISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 124
+    transform_count: 257
+    transform_time_ms: 81
+    transform_yield_count: 126
+    insert_time_ms: 2
+    insert_new_count: 75
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT country, min_ever(age), max_ever(age) FROM customers_materialized_view
+        WHERE country = 'USA' GROUP BY country
+    explain: 'AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS
+        promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE
+        BY () WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._0
+        AS COUNTRY, _._1 AS _1, _._2 AS _2)'
+    task_count: 1289
+    task_total_time_ms: 184
+    transform_count: 347
+    transform_time_ms: 126
+    transform_yield_count: 146
+    insert_time_ms: 5
+    insert_new_count: 121
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT country, min_ever(age), max_ever(age) FROM customers_index_on_table
+        WHERE country = 'USA' GROUP BY country
+    explain: 'AISCAN(IDX_IOT_AGE_MIN_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(IDX_IOT_AGE_MAX_NO_LEGACY [EQUALS
+        promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE
+        BY () WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._0
+        AS COUNTRY, _._1 AS _1, _._2 AS _2)'
+    task_count: 1289
+    task_total_time_ms: 136
+    transform_count: 347
+    transform_time_ms: 95
+    transform_yield_count: 146
+    insert_time_ms: 4
+    insert_new_count: 121
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT country, min_ever(age) FROM customers_materialized_view
+        WHERE country = 'France' GROUP BY country
+    explain: 'AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 113
+    transform_count: 257
+    transform_time_ms: 66
+    transform_yield_count: 126
+    insert_time_ms: 1
+    insert_new_count: 75
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT country, min_ever(age) FROM customers_index_on_table WHERE
+        country = 'France' GROUP BY country
+    explain: 'AISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 120
+    transform_count: 257
+    transform_time_ms: 80
+    transform_yield_count: 126
+    insert_time_ms: 2
+    insert_new_count: 75
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT country, max_ever(age) FROM customers_materialized_view
+        WHERE country = 'France' GROUP BY country
+    explain: 'AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 113
+    transform_count: 257
+    transform_time_ms: 66
+    transform_yield_count: 126
+    insert_time_ms: 1
+    insert_new_count: 75
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT country, max_ever(age) FROM customers_index_on_table WHERE
+        country = 'France' GROUP BY country
+    explain: 'AISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 124
+    transform_count: 257
+    transform_time_ms: 81
+    transform_yield_count: 126
+    insert_time_ms: 2
+    insert_new_count: 75
+    insert_reused_count: 4
+extremum_ever_with_legacy_option:
+-   query: EXPLAIN SELECT country, min_ever(age) FROM customers_materialized_view
+        WHERE country = 'USA' GROUP BY country
+    explain: 'AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 113
+    transform_count: 257
+    transform_time_ms: 66
+    transform_yield_count: 126
+    insert_time_ms: 1
+    insert_new_count: 75
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT country, min_ever(age) FROM customers_index_on_table WHERE
+        country = 'USA' GROUP BY country
+    explain: 'AISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 120
+    transform_count: 257
+    transform_time_ms: 80
+    transform_yield_count: 126
+    insert_time_ms: 2
+    insert_new_count: 75
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT country, max_ever(age) FROM customers_materialized_view
+        WHERE country = 'Canada' GROUP BY country
+    explain: 'AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 113
+    transform_count: 257
+    transform_time_ms: 66
+    transform_yield_count: 126
+    insert_time_ms: 1
+    insert_new_count: 75
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT country, max_ever(age) FROM customers_index_on_table WHERE
+        country = 'Canada' GROUP BY country
+    explain: 'AISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 124
+    transform_count: 257
+    transform_time_ms: 81
+    transform_yield_count: 126
+    insert_time_ms: 2
+    insert_new_count: 75
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT country, min_ever(age), max_ever(age) FROM customers_materialized_view
+        WHERE country = 'USA' GROUP BY country
+    explain: 'AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS
+        promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE
+        BY () WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._0
+        AS COUNTRY, _._1 AS _1, _._2 AS _2)'
+    task_count: 1289
+    task_total_time_ms: 184
+    transform_count: 347
+    transform_time_ms: 126
+    transform_yield_count: 146
+    insert_time_ms: 5
+    insert_new_count: 121
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT country, min_ever(age), max_ever(age) FROM customers_index_on_table
+        WHERE country = 'USA' GROUP BY country
+    explain: 'AISCAN(IDX_IOT_AGE_MIN_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(IDX_IOT_AGE_MAX_NO_LEGACY [EQUALS
+        promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE
+        BY () WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._0
+        AS COUNTRY, _._1 AS _1, _._2 AS _2)'
+    task_count: 1289
+    task_total_time_ms: 136
+    transform_count: 347
+    transform_time_ms: 95
+    transform_yield_count: 146
+    insert_time_ms: 4
+    insert_new_count: 121
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT country, min_ever(age) FROM customers_materialized_view
+        WHERE country = 'France' GROUP BY country
+    explain: 'AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 113
+    transform_count: 257
+    transform_time_ms: 66
+    transform_yield_count: 126
+    insert_time_ms: 1
+    insert_new_count: 75
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT country, min_ever(age) FROM customers_index_on_table WHERE
+        country = 'France' GROUP BY country
+    explain: 'AISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 120
+    transform_count: 257
+    transform_time_ms: 80
+    transform_yield_count: 126
+    insert_time_ms: 2
+    insert_new_count: 75
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT country, max_ever(age) FROM customers_materialized_view
+        WHERE country = 'France' GROUP BY country
+    explain: 'AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 113
+    transform_count: 257
+    transform_time_ms: 66
+    transform_yield_count: 126
+    insert_time_ms: 1
+    insert_new_count: 75
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT country, max_ever(age) FROM customers_index_on_table WHERE
+        country = 'France' GROUP BY country
+    explain: 'AISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
+        -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
+    task_count: 883
+    task_total_time_ms: 124
+    transform_count: 257
+    transform_time_ms: 81
+    transform_yield_count: 126
+    insert_time_ms: 2
+    insert_new_count: 75
+    insert_reused_count: 4

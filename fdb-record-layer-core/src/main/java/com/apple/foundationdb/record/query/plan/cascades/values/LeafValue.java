@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 
 /**
- * A scalar value type that has children.
+ * A scalar value type that has no children.
  */
 @API(API.Status.EXPERIMENTAL)
 public interface LeafValue extends Value {
@@ -49,6 +49,21 @@ public interface LeafValue extends Value {
         return this;
     }
 
+    /**
+     * Return a new {@link Value} that is the same one but with the correlated identifiers updated to a new alias, or
+     * {@code this} if there are no correlated identifiers.
+     * <p>
+     *     See: {@link com.apple.foundationdb.record.query.plan.cascades.Correlated} for more details.
+     * </p>
+     * In the case where this leaf returns values for {@link #getCorrelatedTo()}, this method is used to
+     * return a new {@link Value} that is the same as this one, but with the quantifiers updated.
+     *
+     *
+     *
+     * @param targetAlias the new alias to be used instead of the existing one
+     * @return a new {@link Value} that is the same one but with the correlated identifiers updated to a new alias, or
+     * {@code this} if there are no correlated identifiers
+     */
     @Nonnull
     default Value rebaseLeaf(@Nonnull CorrelationIdentifier targetAlias) {
         throw new RecordCoreException("implementor must override");

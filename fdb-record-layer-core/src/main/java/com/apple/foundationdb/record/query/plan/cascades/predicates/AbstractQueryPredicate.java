@@ -33,6 +33,7 @@ import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.StreamSupport;
 
 /**
  * Abstract implementation of {@link QueryPredicate} that provides memoization of correlatedTo sets.
@@ -42,11 +43,17 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
 
     private final boolean isAtomic;
 
-    private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
 
-    private final Supplier<Integer> semanticHashCodeSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Integer> semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
 
-    private final Supplier<Integer> heightSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Integer> heightSupplier = Suppliers.memoize(QueryPredicate.super::height);
+
+    @SuppressWarnings("this-escape")
+    private final Supplier<Boolean> isIndexOnlySupplier = Suppliers.memoize(this::computeIsIndexOnly);
 
     @SuppressWarnings("unused")
     protected AbstractQueryPredicate(@Nonnull final PlanSerializationContext serializationContext,
@@ -57,9 +64,6 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
 
     protected AbstractQueryPredicate(final boolean isAtomic) {
         this.isAtomic = isAtomic;
-        this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
-        this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
-        this.heightSupplier = Suppliers.memoize(QueryPredicate.super::height);
     }
 
     @Nonnull
@@ -111,6 +115,15 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
     @Override
     public boolean isAtomic() {
         return isAtomic;
+    }
+
+    @Override
+    public boolean isIndexOnly() {
+        return isIndexOnlySupplier.get();
+    }
+
+    protected boolean computeIsIndexOnly() {
+        return StreamSupport.stream(getChildren().spliterator(), false).anyMatch(QueryPredicate::isIndexOnly);
     }
 
     @Nonnull

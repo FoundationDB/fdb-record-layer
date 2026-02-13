@@ -24,12 +24,11 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -43,7 +42,7 @@ public class DataInKeySpacePath {
     @Nullable
     private final Tuple remainder;
     @Nonnull
-    private final byte[] value;
+    private final ByteString value;
 
     public DataInKeySpacePath(@Nonnull final KeySpacePath path, @Nullable final Tuple remainder,
                               @Nullable final byte[] value) {
@@ -53,11 +52,11 @@ public class DataInKeySpacePath {
             throw new RecordCoreArgumentException("Value cannot be null")
                     .addLogInfo(LogMessageKeys.KEY, path);
         }
-        this.value = value;
+        this.value = ByteString.copyFrom(value);
     }
 
     @Nonnull
-    public byte[] getValue() {
+    public ByteString getValue() {
         return this.value;
     }
 
@@ -77,16 +76,16 @@ public class DataInKeySpacePath {
             return false;
         }
         final DataInKeySpacePath that = (DataInKeySpacePath)o;
-        return Objects.equals(path, that.path) && Objects.equals(remainder, that.remainder) && Arrays.equals(value, that.value);
+        return Objects.equals(path, that.path) && Objects.equals(remainder, that.remainder) && Objects.equals(value, that.value);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(path, remainder, Arrays.hashCode(value));
+        return Objects.hash(path, remainder, value);
     }
 
     @Override
     public String toString() {
-        return path + "+" + remainder + "->" + ByteArrayUtil2.loggable(value);
+        return path + "+" + remainder + "->" + value;
     }
 }

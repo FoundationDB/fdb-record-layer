@@ -163,6 +163,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private final Map<String, CommitCheckAsync> commitChecks = new LinkedHashMap<>();
     @Nonnull
     private final Map<String, PostCommit> postCommits = new LinkedHashMap<>();
+    @Nonnull
+    private final Map<String, PostCommit> postClose = new LinkedHashMap<>();
     private boolean dirtyStoreState;
     private boolean dirtyMetaDataVersionStamp;
     private long trackOpenTimeNanos;
@@ -171,7 +173,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nullable
     private List<Range> notCommittedConflictingKeys = null;
     @Nonnull
-    private final LockRegistry lockRegistry = new LockRegistry(this.getTimer());
+    private final LockRegistry lockRegistry;
     @Nonnull
     private final TempTable.Factory tempTableFactory = TempTable.Factory.instance();
 
@@ -188,43 +190,43 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         this.transactionId = getSanitizedId(config);
         this.openStackTrace = config.isSaveOpenStackTrace() ? new Throwable("Not really thrown") : null;
 
-        @Nonnull Transaction tr = ensureActive();
         if (this.transactionId != null) {
-            tr.options().setDebugTransactionIdentifier(this.transactionId);
+            transaction.options().setDebugTransactionIdentifier(this.transactionId);
             if (config.isLogTransaction()) {
-                logTransaction();
+                transaction.options().setLogTransaction();
+                logged = true;
             }
         }
         if (config.isServerRequestTracing()) {
-            tr.options().setServerRequestTracing();
+            transaction.options().setServerRequestTracing();
         }
 
         if (!config.getTags().isEmpty()) {
             for (String tag : config.getTags()) {
-                tr.options().setTag(tag);
+                transaction.options().setTag(tag);
             }
         }
 
         if (config.isReportConflictingKeys()) {
-            tr.options().setReportConflictingKeys();
+            transaction.options().setReportConflictingKeys();
         }
 
         this.config = config;
 
         // If a causal read risky is requested, we set the corresponding transaction option
         if (config.getWeakReadSemantics() != null && config.getWeakReadSemantics().isCausalReadRisky()) {
-            tr.options().setCausalReadRisky();
+            transaction.options().setCausalReadRisky();
         }
 
         switch (config.getPriority()) {
             case BATCH:
-                tr.options().setPriorityBatch();
+                transaction.options().setPriorityBatch();
                 break;
             case DEFAULT:
                 // Default priority does not need to set any option
                 break;
             case SYSTEM_IMMEDIATE:
-                tr.options().setPrioritySystemImmediate();
+                transaction.options().setPrioritySystemImmediate();
                 break;
             default:
                 throw new RecordCoreArgumentException("unknown priority level " + config.getPriority());
@@ -234,8 +236,10 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         this.timeoutMillis = getTimeoutMillisToSet(fdb, config);
         if (timeoutMillis != FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS) {
             // If the value is DEFAULT_TR_TIMEOUT_MILLIS, then this uses the system default and does not need to be set here
-            tr.options().setTimeout(timeoutMillis);
+            transaction.options().setTimeout(timeoutMillis);
         }
+
+        lockRegistry = new LockRegistry(timer);
 
         this.dirtyStoreState = false;
     }
@@ -367,11 +371,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @see com.apple.foundationdb.TransactionOptions#setLogTransaction()
      * @see FDBRecordContextConfig.Builder#setLogTransaction(boolean)
      */
+    // TODO: Consider deprecating this method, as now called inline when constructing.
     public final void logTransaction() {
         if (transactionId == null) {
             throw new RecordCoreException("Cannot log transaction as ID is not set");
         }
-        // TODO: Consider deprecating this method and moving this inline.
         ensureActive().options().setLogTransaction();
         logged = true;
     }
@@ -421,7 +425,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     @Override
     public void close() {
-        closeTransaction(false);
+        try {
+            closeTransaction(false);
+        } finally {
+            asyncToSync(FDBStoreTimer.Waits.WAIT_RUN_CLOSE_HOOKS, runPostClose());
+        }
     }
 
     synchronized void closeTransaction(boolean openTooLong) {
@@ -515,7 +523,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                     }
                 }
             } finally {
-                close();
+                // close the transaction but don't run the postClose hooks - close() should run them
+                closeTransaction(false);
                 if (timer != null) {
                     timer.recordSinceNanoTime(event, startTimeNanos);
                 }
@@ -964,6 +973,21 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         addAnonymousCommitHookToMap(postCommits, postCommit);
     }
 
+    /**
+     * Install a named post-close hook. These hooks will get called once the transaction closes.
+     * <p>
+     * Note: These hooks are unrelated to the postCommit hooks. If a hook is registered to a commit
+     * and one is also registered for a close, and the transaction is committed, both will be called.
+     * If the transaction is not committed, only the close hook will be called.
+     * A Developer must be prepared for the cases where both commit and close hooks are called.
+     * </p>
+     * @param name the (unique per transaction) name for the hook
+     * @param postCloseHook the hook to invoke
+     */
+    public void addPostCloseHook(@Nonnull String name, @Nonnull PostCommit postCloseHook) {
+        addCommitHook(postClose, name, postCloseHook);
+    }
+
     private <T> void addAnonymousCommitHookToMap(@Nonnull Map<String, T> map, @Nonnull T item) {
         synchronized (map) {
             String name;
@@ -1021,14 +1045,24 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     @Nonnull
     private CompletableFuture<Void> runPostCommits() {
-        synchronized (postCommits) {
-            if (postCommits.isEmpty()) {
+        return runPostCommits(postCommits);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> runPostClose() {
+        return runPostCommits(postClose);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> runPostCommits(Map<String, PostCommit> hooksToRun) {
+        synchronized (hooksToRun) {
+            if (hooksToRun.isEmpty()) {
                 return AsyncUtil.DONE;
             }
-            List<CompletableFuture<Void>> work = postCommits.values().stream()
+            List<CompletableFuture<Void>> work = hooksToRun.values().stream()
                     .map(PostCommit::get)
                     .collect(Collectors.toList());
-            postCommits.clear();
+            hooksToRun.clear();
             return AsyncUtil.whenAll(work);
         }
     }

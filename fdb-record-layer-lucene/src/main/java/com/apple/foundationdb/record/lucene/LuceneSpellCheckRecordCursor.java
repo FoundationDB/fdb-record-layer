@@ -164,7 +164,7 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private synchronized IndexReader getIndexReader() throws IOException {
-        return FDBDirectoryManager.getManager(state).getIndexReader(groupingKey, partitionId);
+        return FDBDirectoryManager.getManager(state).getIndexReaderWithReplayedQueue(groupingKey, partitionId);
     }
 
     private void spellcheck() throws IOException {

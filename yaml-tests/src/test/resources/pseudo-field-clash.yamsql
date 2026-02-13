@@ -1,0 +1,271 @@
+#
+# pseudo-field-clash.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+schema_template:
+    create table t1(id bigint, col1 string, "__ROW_VERSION" bytes, primary key (id))
+
+    create table t2(id bigint, col1 bigint, "__ROW_VERSION" string, primary key (id))
+
+    create index t2_version as select "__ROW_VERSION" from t2
+    create index t2_col1_version as select col1, "__ROW_VERSION" from t2 order by col1, "__ROW_VERSION"
+
+    create table t3(id bigint, col1 bigint, col2 string, primary key (id))
+    create index t3_version as select "__ROW_VERSION" from t3
+    create index t3_col1_version as select col1, "__ROW_VERSION" from t3 order by col1, "__ROW_VERSION"
+
+    with options (store_row_versions=true)
+---
+setup:
+  steps:
+    # Insert the odd values first, and then the even values. This will ensure that the order by the explicit "__ROW_VERSION"
+    # does not match the order by the underlying version
+    - query: INSERT INTO T1 VALUES
+         (1, 'a', x'0000'),
+         (3, 'c', x'0010'),
+         (5, 'b', x'0100')
+    - query: INSERT INTO T2 VALUES
+         (1, 10, 'aa'),
+         (3, 10, 'ac'),
+         (5, 10, 'ae')
+    - query: INSERT INTO T3 VALUES
+         (1, 10, 'aa'),
+         (3, 10, 'ac'),
+         (5, 10, 'ae')
+    - query: INSERT INTO T1 VALUES
+         (2, 'b', x'0001'),
+         (4, 'a', x'0011'),
+         (6, 'c', x'0101')
+    - query: INSERT INTO T2 VALUES
+         (2, 20, 'ab'),
+         (4, 20, 'ad'),
+         (6, 20, 'af')
+    - query: INSERT INTO T3 VALUES
+         (2, 20, 'ab'),
+         (4, 20, 'ad'),
+         (6, 20, 'af')
+---
+test_block:
+  name: pseudo-field-clash-queries
+  tests:
+    -
+      - query: SELECT * FROM t1
+      - explain: "SCAN(<,>) | TFILTER T1"
+      - unorderedResult: [
+          { ID: 1, COL1: "a", '__ROW_VERSION': x'0000' },
+          { ID: 2, COL1: "b", '__ROW_VERSION': x'0001' },
+          { ID: 3, COL1: "c", '__ROW_VERSION': x'0010' },
+          { ID: 4, COL1: "a", '__ROW_VERSION': x'0011' },
+          { ID: 5, COL1: "b", '__ROW_VERSION': x'0100' },
+          { ID: 6, COL1: "c", '__ROW_VERSION': x'0101' },
+        ]
+    -
+      - query: SELECT * FROM t2
+      - explain: "ISCAN(T2_VERSION <,>)"
+      - unorderedResult: [
+          { ID: 1, COL1: 10, '__ROW_VERSION': "aa" },
+          { ID: 2, COL1: 20, '__ROW_VERSION': "ab" },
+          { ID: 3, COL1: 10, '__ROW_VERSION': "ac" },
+          { ID: 4, COL1: 20, '__ROW_VERSION': "ad" },
+          { ID: 5, COL1: 10, '__ROW_VERSION': "ae" },
+          { ID: 6, COL1: 20, '__ROW_VERSION': "af" },
+        ]
+    -
+      - query: SELECT * FROM t3
+      - explain: "ISCAN(T3_VERSION <,>) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - unorderedResult: [
+          { ID: 1, COL1: 10, COL2: "aa" },
+          { ID: 2, COL1: 20, COL2: "ab" },
+          { ID: 3, COL1: 10, COL2: "ac" },
+          { ID: 4, COL1: 20, COL2: "ad" },
+          { ID: 5, COL1: 10, COL2: "ae" },
+          { ID: 6, COL1: 20, COL2: "af" },
+        ]
+    -
+      - query: SELECT ID, "__ROW_VERSION" FROM t1
+      - explain: "SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)"
+      - unorderedResult: [
+          { ID: 1, '__ROW_VERSION': x'0000' },
+          { ID: 2, '__ROW_VERSION': x'0001' },
+          { ID: 3, '__ROW_VERSION': x'0010' },
+          { ID: 4, '__ROW_VERSION': x'0011' },
+          { ID: 5, '__ROW_VERSION': x'0100' },
+          { ID: 6, '__ROW_VERSION': x'0101' },
+        ]
+    -
+      - query: SELECT ID, "__ROW_VERSION" FROM t2
+      - explain: "COVERING(T2_VERSION <,> -> [ID: KEY:[2], __ROW_VERSION: KEY:[0]]) | MAP (_.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)"
+      - unorderedResult: [
+          { ID: 1, '__ROW_VERSION': "aa" },
+          { ID: 2, '__ROW_VERSION': "ab" },
+          { ID: 3, '__ROW_VERSION': "ac" },
+          { ID: 4, '__ROW_VERSION': "ad" },
+          { ID: 5, '__ROW_VERSION': "ae" },
+          { ID: 6, '__ROW_VERSION': "af" },
+        ]
+    -
+      - query: SELECT ID, "__ROW_VERSION" FROM t3
+      - explain: "ISCAN(T3_VERSION <,>) | MAP (_.ID AS ID, _.__ROW_VERSION AS __ROW_VERSION)"
+      - unorderedResult: [
+          { ID: 1, '__ROW_VERSION': !not_null _ },
+          { ID: 2, '__ROW_VERSION': !not_null _ },
+          { ID: 3, '__ROW_VERSION': !not_null _ },
+          { ID: 4, '__ROW_VERSION': !not_null _ },
+          { ID: 5, '__ROW_VERSION': !not_null _ },
+          { ID: 6, '__ROW_VERSION': !not_null _ },
+        ]
+    -
+      - query: SELECT * FROM t2 ORDER BY "__ROW_VERSION" DESC
+      - explain: "ISCAN(T2_VERSION <,> REVERSE)"
+      - result: [
+          { ID: 6, COL1: 20, '__ROW_VERSION': "af" },
+          { ID: 5, COL1: 10, '__ROW_VERSION': "ae" },
+          { ID: 4, COL1: 20, '__ROW_VERSION': "ad" },
+          { ID: 3, COL1: 10, '__ROW_VERSION': "ac" },
+          { ID: 2, COL1: 20, '__ROW_VERSION': "ab" },
+          { ID: 1, COL1: 10, '__ROW_VERSION': "aa" },
+        ]
+    -
+      - query: SELECT * FROM t3 ORDER BY "__ROW_VERSION" DESC
+      - explain: "ISCAN(T3_VERSION <,> REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - result: [
+          { ID: 6, COL1: 20, COL2: "af" },
+          { ID: 4, COL1: 20, COL2: "ad" },
+          { ID: 2, COL1: 20, COL2: "ab" },
+          { ID: 5, COL1: 10, COL2: "ae" },
+          { ID: 3, COL1: 10, COL2: "ac" },
+          { ID: 1, COL1: 10, COL2: "aa" },
+        ]
+    -
+      - query: SELECT id, col1 FROM t2 ORDER BY "__ROW_VERSION" DESC
+      - explain: "ISCAN(T2_VERSION <,> REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1)"
+      - result: [
+          { ID: 6, COL1: 20 },
+          { ID: 5, COL1: 10 },
+          { ID: 4, COL1: 20 },
+          { ID: 3, COL1: 10 },
+          { ID: 2, COL1: 20 },
+          { ID: 1, COL1: 10 },
+        ]
+    -
+      - query: SELECT id, col1 FROM t3 ORDER BY "__ROW_VERSION" DESC
+      - explain: "ISCAN(T3_VERSION <,> REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION) | MAP (_.ID AS ID, _.COL1 AS COL1)"
+      - result: [
+          { ID: 6, COL1: 20 },
+          { ID: 4, COL1: 20 },
+          { ID: 2, COL1: 20 },
+          { ID: 5, COL1: 10 },
+          { ID: 3, COL1: 10 },
+          { ID: 1, COL1: 10 },
+        ]
+    -
+      - query: SELECT * FROM t1 WHERE "__ROW_VERSION" > x'0010'
+      - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.__ROW_VERSION GREATER_THAN promote(@c8 AS BYTES)"
+      - unorderedResult: [
+          { ID: 4, COL1: "a", '__ROW_VERSION': x'0011' },
+          { ID: 5, COL1: "b", '__ROW_VERSION': x'0100' },
+          { ID: 6, COL1: "c", '__ROW_VERSION': x'0101' },
+        ]
+    -
+      - query: SELECT * FROM t2 WHERE "__ROW_VERSION" > 'ab'
+      - explain: "ISCAN(T2_VERSION [[GREATER_THAN promote(@c8 AS STRING)]])"
+      - unorderedResult: [
+          { ID: 3, COL1: 10, '__ROW_VERSION': "ac" },
+          { ID: 4, COL1: 20, '__ROW_VERSION': "ad" },
+          { ID: 5, COL1: 10, '__ROW_VERSION': "ae" },
+          { ID: 6, COL1: 20, '__ROW_VERSION': "af" },
+        ]
+    -
+      - query: SELECT * FROM t2 WHERE col1 = 20
+      - explain: "ISCAN(T2_COL1_VERSION [EQUALS promote(@c8 AS LONG)])"
+      - unorderedResult: [
+          { ID: 2, COL1: 20, '__ROW_VERSION': "ab" },
+          { ID: 4, COL1: 20, '__ROW_VERSION': "ad" },
+          { ID: 6, COL1: 20, '__ROW_VERSION': "af" },
+        ]
+    -
+      - query: SELECT * FROM t3 WHERE col1 = 20
+      - explain: "ISCAN(T3_COL1_VERSION [EQUALS promote(@c8 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - unorderedResult: [
+          { ID: 2, COL1: 20, COL2: "ab" },
+          { ID: 4, COL1: 20, COL2: "ad" },
+          { ID: 6, COL1: 20, COL2: "af" },
+        ]
+    -
+      - query: SELECT * FROM t2 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC
+      - explain: "ISCAN(T2_COL1_VERSION [EQUALS promote(@c8 AS LONG)] REVERSE)"
+      - result: [
+          { ID: 6, COL1: 20, '__ROW_VERSION': "af" },
+          { ID: 4, COL1: 20, '__ROW_VERSION': "ad" },
+          { ID: 2, COL1: 20, '__ROW_VERSION': "ab" },
+        ]
+    -
+      - query: SELECT * FROM t3 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC
+      - explain: "ISCAN(T3_COL1_VERSION [EQUALS promote(@c8 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - unorderedResult: [
+          { ID: 6, COL1: 20, COL2: "af" },
+          { ID: 4, COL1: 20, COL2: "ad" },
+          { ID: 2, COL1: 20, COL2: "ab" },
+        ]
+    -
+      - query: SELECT id, col1 FROM t2 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC
+      - explain: "COVERING(T2_COL1_VERSION [EQUALS promote(@c10 AS LONG)] REVERSE -> [COL1: KEY:[0], ID: KEY:[3], __ROW_VERSION: KEY:[1]]) | MAP (_.ID AS ID, _.COL1 AS COL1)"
+      - result: [
+          { ID: 6, COL1: 20 },
+          { ID: 4, COL1: 20 },
+          { ID: 2, COL1: 20 },
+        ]
+    -
+      - query: SELECT id, col1 FROM t3 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC
+      - explain: "ISCAN(T3_COL1_VERSION [EQUALS promote(@c10 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION) | MAP (_.ID AS ID, _.COL1 AS COL1)"
+      - result: [
+          { ID: 6, COL1: 20 },
+          { ID: 4, COL1: 20 },
+          { ID: 2, COL1: 20 },
+        ]
+    -
+      - query: SELECT (t1.*), (t2.*), (t3.*)
+                 FROM t1, t2, t3
+                WHERE t2.id = t1.id AND t3.id = t1.id
+      - explain: "ISCAN(T3_VERSION <,>) | FLATMAP q0 -> { ISCAN(T2_VERSION <,>) | FLATMAP q1 -> { SCAN(<,>) | TFILTER T1 | FILTER q1.ID EQUALS _.ID AND q0.ID EQUALS _.ID AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0 AS _0, q3._1 AS _1, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _2) }"
+      - unorderedResult: [
+          { { ID: 1, COL1: "a", '__ROW_VERSION': x'0000' }, { ID: 1, COL1: 10, '__ROW_VERSION': "aa" }, { ID: 1, COL1: 10, COL2: "aa" } },
+          { { ID: 2, COL1: "b", '__ROW_VERSION': x'0001' }, { ID: 2, COL1: 20, '__ROW_VERSION': "ab" }, { ID: 2, COL1: 20, COL2: "ab" } },
+          { { ID: 3, COL1: "c", '__ROW_VERSION': x'0010' }, { ID: 3, COL1: 10, '__ROW_VERSION': "ac" }, { ID: 3, COL1: 10, COL2: "ac" } },
+          { { ID: 4, COL1: "a", '__ROW_VERSION': x'0011' }, { ID: 4, COL1: 20, '__ROW_VERSION': "ad" }, { ID: 4, COL1: 20, COL2: "ad" } },
+          { { ID: 5, COL1: "b", '__ROW_VERSION': x'0100' }, { ID: 5, COL1: 10, '__ROW_VERSION': "ae" }, { ID: 5, COL1: 10, COL2: "ae" } },
+          { { ID: 6, COL1: "c", '__ROW_VERSION': x'0101' }, { ID: 6, COL1: 20, '__ROW_VERSION': "af" }, { ID: 6, COL1: 20, COL2: "af" } },
+        ]
+    -
+      - query: SELECT (t1.id, t1.col1, t1."__ROW_VERSION"), (t2.id, t2.col1, t2."__ROW_VERSION"), (t3.id, t3.col1, t3.col2, t3."__ROW_VERSION")
+                 FROM t1, t2, t3
+                WHERE t2.id = t1.id AND t3.id = t1.id
+      - explain: "ISCAN(T2_VERSION <,>) | FLATMAP q0 -> { ISCAN(T3_VERSION <,>) | FLATMAP q1 -> { SCAN(<,>) | TFILTER T1 | FILTER q0.ID EQUALS _.ID AND q1.ID EQUALS _.ID AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.__ROW_VERSION AS __ROW_VERSION) AS _0, (q0.ID AS ID, q0.COL1 AS COL1, q0.__ROW_VERSION AS __ROW_VERSION) AS _1, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2, q3._1.__ROW_VERSION AS __ROW_VERSION) AS _2) }"
+      - initialVersionLessThan: !current_version
+      - error: 'XXXXX'
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [
+          { { ID: 1, COL1: "a", '__ROW_VERSION': x'0000' }, { ID: 1, COL1: 10, '__ROW_VERSION': "aa" }, { ID: 1, COL1: 10, COL2: "aa", '__ROW_VERSION': !not_null _ } },
+          { { ID: 2, COL1: "b", '__ROW_VERSION': x'0001' }, { ID: 2, COL1: 20, '__ROW_VERSION': "ab" }, { ID: 2, COL1: 20, COL2: "ab", '__ROW_VERSION': !not_null _ } },
+          { { ID: 3, COL1: "c", '__ROW_VERSION': x'0010' }, { ID: 3, COL1: 10, '__ROW_VERSION': "ac" }, { ID: 3, COL1: 10, COL2: "ac", '__ROW_VERSION': !not_null _ } },
+          { { ID: 4, COL1: "a", '__ROW_VERSION': x'0011' }, { ID: 4, COL1: 20, '__ROW_VERSION': "ad" }, { ID: 4, COL1: 20, COL2: "ad", '__ROW_VERSION': !not_null _ } },
+          { { ID: 5, COL1: "b", '__ROW_VERSION': x'0100' }, { ID: 5, COL1: 10, '__ROW_VERSION': "ae" }, { ID: 5, COL1: 10, COL2: "ae", '__ROW_VERSION': !not_null _ } },
+          { { ID: 6, COL1: "c", '__ROW_VERSION': x'0101' }, { ID: 6, COL1: 20, '__ROW_VERSION': "af" }, { ID: 6, COL1: 20, COL2: "af", '__ROW_VERSION': !not_null _ } },
+        ]
+...

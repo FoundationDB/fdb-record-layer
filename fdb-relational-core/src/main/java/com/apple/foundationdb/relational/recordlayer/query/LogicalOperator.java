@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnio
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -64,6 +65,7 @@ import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -184,9 +186,9 @@ public class LogicalOperator {
         } else if (semanticAnalyzer.tableExists(identifier)) {
             return logicalOperatorCatalog.lookupTableAccess(identifier, alias, requestedIndexes, semanticAnalyzer);
         } else if (semanticAnalyzer.viewExists(identifier)) {
-            return semanticAnalyzer.resolveView(identifier);
+            return semanticAnalyzer.resolveView(identifier).withNewSharedReferenceAndAlias(alias);
         } else if (semanticAnalyzer.functionExists(identifier)) {
-            return semanticAnalyzer.resolveTableFunction(identifier, Expressions.empty(), false);
+            return semanticAnalyzer.resolveTableFunction(identifier, Expressions.empty(), false).withNewSharedReferenceAndAlias(alias);
         } else {
             final var correlatedField = semanticAnalyzer.resolveCorrelatedIdentifier(identifier, currentPlanFragment.getLogicalOperatorsIncludingOuter());
             Assert.thatUnchecked(requestedIndexes.isEmpty(), ErrorCode.UNSUPPORTED_QUERY, () -> String.format(Locale.ROOT, "Can not hint indexes with correlated field access %s", identifier));
@@ -239,7 +241,13 @@ public class LogicalOperator {
                         new Type.AnyRecord(false),
                         new AccessHints(indexAccessHints.toArray(new AccessHint[0])))));
         final var table = semanticAnalyzer.getTable(tableId);
-        final Type.Record type = Assert.castUnchecked(table, RecordLayerTable.class).getType();
+        Type.Record type = Assert.castUnchecked(table, RecordLayerTable.class).getType();
+        if (semanticAnalyzer.getMetadataCatalog().isStoreRowVersions()) {
+            // Ideally, the RecordLayerTable would have the full type with all the pseudo-fields,
+            // but we need star expansion to skip over these fields. That would be made easier
+            // if we fully supported invisible columns (see: https://github.com/FoundationDB/fdb-record-layer/pull/3787)
+            type = type.addPseudoFields();
+        }
         final String storageName = type.getStorageName();
         Assert.thatUnchecked(storageName != null, "storage name for table access must not be null");
         final var typeFilterExpression = new LogicalTypeFilterExpression(ImmutableSet.of(storageName), scanExpression, type);
@@ -254,6 +262,12 @@ public class LogicalOperator {
                     FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(fieldType, colCount)));
             attributesBuilder.add(new Expression(Optional.of(attributeName), attributeType, attributeExpression));
             colCount++;
+        }
+        if (semanticAnalyzer.getMetadataCatalog().isStoreRowVersions()
+                && table.getColumns().stream().noneMatch(column -> column.getName().equals(PseudoField.ROW_VERSION.getFieldName()))) {
+            final var pseudoFieldValue = FieldValue.ofFieldName(resultingQuantifier.getFlowedObjectValue(), PseudoField.ROW_VERSION.getFieldName());
+            final Expression pseudoExpression = new Expression(Optional.of(Identifier.of(PseudoField.ROW_VERSION.getFieldName())), DataType.VersionType.nullable(), pseudoFieldValue);
+            attributesBuilder.add(pseudoExpression.asEphemeral());
         }
         final var attributes = Expressions.of(attributesBuilder.build());
         return LogicalOperator.newNamedOperator(tableId, attributes, resultingQuantifier);
@@ -427,18 +441,50 @@ public class LogicalOperator {
      */
     private static boolean canAvoidProjectingIndividualFields(@Nonnull Expressions output,
                                                               @Nonnull LogicalOperators logicalOperators) {
-        return // no joins
-                Iterables.size(logicalOperators.forEachOnly()) == 1 &&
-                        // must be a Star expression
-                        Iterables.size(output) == 1 &&
-                        Iterables.getOnlyElement(output) instanceof Star &&
-                        // special case for CTEs where it is possible that a Star is referencing aliased columns of a named query
-                        // if these columns are aliased differently from the underlying query fragment, then we can only avoid
-                        // projecting individual columns (and lose their aliases) if and only if their names pairwise match the
-                        // underlying query fragment columns.
-                        output.expanded().stream().allMatch(expression -> expression.getName().isEmpty() ||
-                                (expression.getUnderlying() instanceof FieldValue &&
-                                        ((FieldValue) expression.getUnderlying()).getLastFieldName().equals(expression.getName().map(Identifier::getName))));
+        // No joins
+        if (Iterables.size(logicalOperators.forEachOnly()) != 1 || Iterables.size(output) != 1) {
+            return false;
+        }
+        // Must be a star expression
+        final Expression outputExpression = Iterables.getOnlyElement(output);
+        if (!(outputExpression instanceof Star)) {
+            return false;
+        }
+        // Get the set of fields coming from the underlying value
+        final Type underlyingType = outputExpression.getUnderlying().getResultType();
+        if (!(underlyingType instanceof Type.Record)) {
+            return false;
+        }
+        final List<Type.Record.Field> underlyingFields = ((Type.Record)underlyingType).getFields();
+
+        // Compare the set of fields coming from the expansion. We can only skip the expansion
+        // if the result fields match exactly. That is, we have the same set of fields coming
+        // from the expansion as are in the underlying result value, and they all have the same
+        // names. We have to make this test for two reasons:
+        //   1. There may be pseudo-fields coming from the underlying expression that are then
+        //      missing from the expansion. That will show up here as extra columns in the
+        //      underlying type that are missing from the expansion iterator.
+        //   2. CTEs can reference aliased columns of a named query. We need to validate
+        //      that these columns are not aliased differently in the underlying query
+        //      fragment, so we need to pairwise match them to the result type below
+        final Expressions expanded = output.expanded();
+        if (expanded.size() != underlyingFields.size()) {
+            return false;
+        }
+        final Iterator<Expression> expansionIterator = expanded.iterator();
+        final Iterator<Type.Record.Field> fieldIterator = underlyingFields.iterator();
+        while (expansionIterator.hasNext() && fieldIterator.hasNext()) {
+            final Expression expandedExpression = expansionIterator.next();
+            final Type.Record.Field underlyingField = fieldIterator.next();
+            if (expandedExpression.getName().isEmpty()) {
+                continue;
+            }
+            if (!(expandedExpression.getUnderlying() instanceof FieldValue)
+                    || !expandedExpression.getName().map(Identifier::getName).equals(underlyingField.getFieldNameOptional())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Nonnull

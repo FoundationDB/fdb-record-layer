@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilte
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-
 import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
@@ -50,7 +49,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyCompensatablePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -71,7 +70,7 @@ public class ImplementSimpleSelectRule extends ImplementationCascadesRule<Select
     private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(innerReferenceMatcher);
 
     @Nonnull
-    private static final BindingMatcher<QueryPredicate> predicateMatcher = anyPredicate();
+    private static final BindingMatcher<QueryPredicate> predicateMatcher = anyCompensatablePredicate();
 
     @Nonnull
     private static final BindingMatcher<SelectExpression> root =

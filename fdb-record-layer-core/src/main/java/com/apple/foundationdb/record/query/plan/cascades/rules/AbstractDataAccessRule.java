@@ -661,6 +661,12 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
                 continue;
             }
 
+            if (!partialMatch.getBoundSargableAliases().containsAll(partialMatch.getMatchCandidate().getSargableAliasesRequiredForBinding())) {
+                // skip this match since it did not bind all the sargables required by the candidate making it impossible
+                // to create a produce a physical plan.
+                continue;
+            }
+
             final var satisfyingOrderingsPair = satisfyingOrderingsPairOptional.get();
             final var scanDirection = satisfyingOrderingsPair.getLeft();
             Verify.verify(scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.REVERSE ||

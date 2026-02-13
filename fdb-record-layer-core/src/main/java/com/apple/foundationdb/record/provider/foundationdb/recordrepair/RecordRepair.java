@@ -34,7 +34,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.CloseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -99,13 +98,13 @@ public abstract class RecordRepair implements AutoCloseable {
     private final ThrottledRetryingIterator<Tuple> throttledIterator;
     private final boolean allowRepair;
 
+    @SuppressWarnings("this-escape")
     protected RecordRepair(@Nonnull final Builder config, boolean allowRepair) {
         this.database = config.database;
         this.storeBuilder = config.getStoreBuilder();
         this.validationKind = config.getValidationKind();
         ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
-                ThrottledRetryingIterator.builder(database, cursorFactory(), this::handleOneItem)
-                        .withMdcContext(MDC.getCopyOfContextMap());
+                ThrottledRetryingIterator.builder(database, storeBuilder.getContext().getConfig().toBuilder(), cursorFactory(), this::handleOneItem);
         this.allowRepair = allowRepair;
         // This will also ensure the transaction only commits when needed
         throttledIterator = configureThrottlingIterator(iteratorBuilder, config, allowRepair).build();

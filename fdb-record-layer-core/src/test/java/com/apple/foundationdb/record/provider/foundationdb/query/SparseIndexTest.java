@@ -172,7 +172,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
         qun = Quantifier.forEach(Reference.initialOf(
                 new LogicalTypeFilterExpression(ImmutableSet.of("MySimpleRecord"),
                         qun,
-                        Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
+                        Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()).addPseudoFields())));
 
         final var num2Value = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_2");
         final var queryBuilder = GraphExpansion.builder();

@@ -90,7 +90,7 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
                             .allowsParallelEdges(true)
                             .allowsSelfLoops(true)
                             .build();
-            addNode(root);
+            network.addNode(root);
         }
 
         protected PlannerGraphBuilder(@Nonnull final AbstractPlannerGraph<N, E> original) {

@@ -126,6 +126,10 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
                 .put("bitmap_bit_position", argumentsCount -> BuiltInFunctionCatalog.resolve("bitmap_bit_position", 1 + argumentsCount))
                 .put("bitmap_bucket_offset", argumentsCount -> BuiltInFunctionCatalog.resolve("bitmap_bucket_offset", 1 + argumentsCount))
                 .put("bitmap_construct_agg", argumentsCount -> BuiltInFunctionCatalog.resolve("BITMAP_CONSTRUCT_AGG", argumentsCount))
+                .put("euclidean_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("euclidean_distance", argumentsCount))
+                .put("euclidean_square_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("euclidean_square_distance", argumentsCount))
+                .put("cosine_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("cosine_distance", argumentsCount))
+                .put("dot_product_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("dot_product_distance", argumentsCount))
                 .put("not", argumentsCount -> BuiltInFunctionCatalog.resolve("not", argumentsCount))
                 .put("and", argumentsCount -> BuiltInFunctionCatalog.resolve("and", argumentsCount))
                 .put("or", argumentsCount -> BuiltInFunctionCatalog.resolve("or", argumentsCount))
@@ -147,9 +151,11 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
                 .put("isdistinctfrom", argumentsCount -> BuiltInFunctionCatalog.resolve("isDistinctFrom", argumentsCount))
                 .put("isnotdistinctfrom", argumentsCount -> BuiltInFunctionCatalog.resolve("notDistinctFrom", argumentsCount))
                 .put("range", argumentsCount -> BuiltInFunctionCatalog.resolve("range", argumentsCount))
+                .put("row_number", argumentsCount -> BuiltInFunctionCatalog.resolve("row_number", argumentsCount))
                 .put("__pattern_for_like", argumentsCount -> BuiltInFunctionCatalog.resolve("patternForLike", argumentsCount))
                 .put("__internal_array", argumentsCount -> BuiltInFunctionCatalog.resolve("array", argumentsCount))
                 .put("__pick_value", argumentsCount -> BuiltInFunctionCatalog.resolve("pick", argumentsCount))
+                .put("get_versionstamp_incarnation", argumentsCount -> BuiltInFunctionCatalog.resolve("get_versionstamp_incarnation", argumentsCount))
                 .build();
     }
 

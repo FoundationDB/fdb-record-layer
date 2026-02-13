@@ -37,15 +37,18 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -65,7 +68,7 @@ import java.util.concurrent.CompletableFuture;
  * A query plan that filters out records from a child plan that do not satisfy a {@link QueryPredicate}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase implements RelationalExpressionWithPredicates {
+public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase implements RelationalExpressionWithPredicates, ExplainPlannerGraphRewritable, InternalPlannerGraphRewritable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Predicate-Filter-Plan");
 
     @Nonnull
@@ -220,6 +223,32 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewriteExplainPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return rewritePlannerGraph(childGraphs);
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        final var explainFormatter =
+                WithIndentationsExplainFormatter.forDot(7);
+
+        final var predicateString =
+                "WHERE " + getConjunctedPredicate().explain()
+                        .getExplainTokens()
+                        .render(explainFormatter);
+
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.OperatorNodeWithInfo(
+                        this,
+                        NodeInfo.PREDICATE_FILTER_OPERATOR,
+                        ImmutableList.of(predicateString),
+                        ImmutableMap.of()),
+                childGraphs);
     }
 
     @Nonnull

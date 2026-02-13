@@ -75,7 +75,7 @@ public class RecordValidatorTest extends FDBRecordStoreTestBase {
      */
     @Test
     void monitorFormatVersion() {
-        assertEquals(FormatVersion.STORE_LOCK_STATE, FormatVersion.getMaximumSupportedVersion(),
+        assertEquals(FormatVersion.FULL_STORE_LOCK, FormatVersion.getMaximumSupportedVersion(),
                 "New format version found. Please review the validators to ensure they still catch corruptions");
     }
 

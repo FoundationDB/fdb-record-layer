@@ -39,7 +39,6 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
-import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +50,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -86,7 +86,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
             ("Humpty Dumpty sat on a wall,\n"
              + "Humpty Dumpty had a great fall\n"
              + "All the king's horses and all the king's men\n"
-             + "Couldn't put Humpty Dumpty together again.\n").getBytes(Charsets.UTF_8);
+             + "Couldn't put Humpty Dumpty together again.\n").getBytes(StandardCharsets.UTF_8);
 
     private static final int MEDIUM_COPIES = 5;
     private static final int MEDIUM_LEGNTH = HUMPTY_DUMPTY.length * MEDIUM_COPIES;
@@ -477,7 +477,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         this.testConfig = testConfig;
         try (FDBRecordContext context = openContext()) {
             // With complete version
-            byte[] globalVersion = "karlgrosse".getBytes(Charsets.US_ASCII);
+            byte[] globalVersion = "karlgrosse".getBytes(StandardCharsets.US_ASCII);
             saveWithSplit(context, Tuple.from(800L), SHORT_STRING, FDBRecordVersion.complete(globalVersion, context.claimLocalVersion()), testConfig);
             saveWithSplit(context, Tuple.from(813L), LONG_STRING, FDBRecordVersion.complete(globalVersion, context.claimLocalVersion()), testConfig);
             saveWithSplit(context, Tuple.from(823L), VERY_LONG_STRING, FDBRecordVersion.complete(globalVersion, context.claimLocalVersion()), testConfig);
@@ -595,7 +595,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     public void deleteWithSplitAndVersion(SplitHelperTestConfig testConfig) {
         this.testConfig = testConfig;
         Assumptions.assumeFalse(testConfig.omitUnsplitSuffix);
-        final byte[] globalVersion = "chrysan_th".getBytes(Charsets.US_ASCII);
+        final byte[] globalVersion = "chrysan_th".getBytes(StandardCharsets.US_ASCII);
         try (FDBRecordContext context = openContext()) {
             // Delete unsplit with size info
             FDBStoredSizes sizes1 = writeDummyRecord(context, Tuple.from(-475L), FDBRecordVersion.complete(globalVersion, context.claimLocalVersion()), 1);
@@ -625,7 +625,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     }
 
     private void loadSingleRecords(SplitHelperTestConfig testConfig, @Nonnull LoadRecordFunction loadRecordFunction) {
-        final byte[] globalVersion = "-hastings-".getBytes(Charsets.US_ASCII);
+        final byte[] globalVersion = "-hastings-".getBytes(StandardCharsets.US_ASCII);
         try (FDBRecordContext context = openContext()) {
             // No record
             loadRecordFunction.load(context, Tuple.from(1042L), null, null);
@@ -828,7 +828,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     }
 
     private List<FDBRawRecord> writeDummyRecords() {
-        final byte[] globalVersion = "_cushions_".getBytes(Charsets.US_ASCII);
+        final byte[] globalVersion = "_cushions_".getBytes(StandardCharsets.US_ASCII);
         final List<FDBRawRecord> rawRecords = new ArrayList<>();
         // Generate primary keys using a generalization of the Fibonacci formula: https://oeis.org/A247698
         long currKey = 2308L;

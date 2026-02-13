@@ -42,6 +42,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
@@ -95,7 +96,23 @@ public class Expression {
 
     @Nonnull
     public Value getUnderlying() {
-        return underlying.get();
+        return Assert.castUnchecked(underlying.get(), Value.class);
+    }
+
+    /**
+     * Create a new instance of an {@link Expression} with the given name, type, and value.
+     * This is a {@code protected} method on the class so that subclasses can override it,
+     * allowing the various method for manipulating the fields of the expression to all
+     * return the same type as the original method.
+     *
+     * @param newName the new expression's name
+     * @param newDataType the new expression's data type
+     * @param newUnderlying the new expression's underlying value
+     * @return a new expression with the given name, type, and value
+     */
+    @Nonnull
+    protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying) {
+        return new Expression(newName, newDataType, newUnderlying);
     }
 
     @Nonnull
@@ -103,7 +120,7 @@ public class Expression {
         if (getName().isPresent() && getName().get().equals(name)) {
             return this;
         }
-        return new Expression(Optional.of(name), getDataType(), getUnderlying());
+        return createNew(Optional.of(name), getDataType(), getUnderlying());
     }
 
     @Nonnull
@@ -111,7 +128,7 @@ public class Expression {
         if (getUnderlying().semanticEquals(underlying, AliasMap.identitiesFor(underlying.getCorrelatedTo()))) {
             return this;
         }
-        return new Expression(getName(), DataTypeUtils.toRelationalType(underlying.getResultType()), underlying);
+        return createNew(getName(), DataTypeUtils.toRelationalType(underlying.getResultType()), underlying);
     }
 
     @Nonnull
@@ -123,7 +140,7 @@ public class Expression {
         if (!name.isQualified()) {
             return this;
         }
-        return new Expression(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying());
+        return createNew(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying());
     }
 
     @Nonnull
@@ -141,7 +158,7 @@ public class Expression {
         if (newNameMaybe.equals(name)) {
             return this;
         }
-        return new Expression(Optional.of(newNameMaybe), getDataType(), getUnderlying());
+        return createNew(Optional.of(newNameMaybe), getDataType(), getUnderlying());
     }
 
     @Nonnull
@@ -157,10 +174,10 @@ public class Expression {
             return this;
         }
         if (qualifier.isEmpty()) {
-            return new Expression(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying());
+            return createNew(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying());
         }
         final var newName = name.withQualifier(qualifier.get().fullyQualifiedName());
-        return new Expression(Optional.of(newName), getDataType(), getUnderlying());
+        return createNew(Optional.of(newName), getDataType(), getUnderlying());
     }
 
     public boolean isAggregate() {
@@ -193,7 +210,7 @@ public class Expression {
                             simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(), aliasMap,
                                     constantAliases, correlationIdentifier);
                     if (pulledUpExpressionMap.containsKey(subExpression)) {
-                        return pulledUpExpressionMap.get(subExpression);
+                        return Iterables.getOnlyElement(pulledUpExpressionMap.get(subExpression));
                     }
                     return subExpression;
                 }
@@ -223,7 +240,7 @@ public class Expression {
      */
     @Nonnull
     public Expressions dereferenced(@Nonnull Literals literals) {
-        return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(underlying.get().replace(value -> {
+        return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(getUnderlying().replace(value -> {
             if (value instanceof ConstantObjectValue) {
                 final ConstantObjectValue constantObjectValue = (ConstantObjectValue) value;
                 return new LiteralValue<>(constantObjectValue.getResultType(), literals.asMap().get(constantObjectValue.getConstantId()));
@@ -305,15 +322,13 @@ public class Expression {
                                                            @Nonnull final Set<CorrelationIdentifier> localAliases,
                                                            boolean forDdl) {
             final var value = Assert.castUnchecked(expression.getUnderlying(), BooleanValue.class);
+            final Optional<QueryPredicate> result;
             if (forDdl) {
-                final var result = value.toQueryPredicate(ParseHelpers.EMPTY_TYPE_REPOSITORY, localAliases);
-                Assert.thatUnchecked(result.isPresent());
-                return result.get();
+                result = value.toQueryPredicate(ParseHelpers.EMPTY_TYPE_REPOSITORY, localAliases);
             } else {
-                final var result = value.toQueryPredicate(null, localAliases);
-                Assert.thatUnchecked(result.isPresent());
-                return result.get();
+                result = value.toQueryPredicate(null, localAliases);
             }
+            return Assert.optionalUnchecked(result);
         }
     }
 

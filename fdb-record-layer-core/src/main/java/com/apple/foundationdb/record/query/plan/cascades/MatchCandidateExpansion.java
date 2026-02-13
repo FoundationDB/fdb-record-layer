@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
@@ -35,7 +34,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 
@@ -129,7 +127,7 @@ public final class MatchCandidateExpansion {
                             .filter(recordType -> queriedRecordTypeNames.contains(recordType.getName()))
                             .collect(ImmutableList.toImmutableList());
 
-            final var baseRef = createBaseRef(metaData.getRecordTypes().keySet(), queriedRecordTypeNames, queriedRecordTypes, new PrimaryAccessHint());
+            final var baseRef = createBaseRef(metaData.getRecordTypes().keySet(), queriedRecordTypeNames, metaData.getPlannerType(queriedRecordTypeNames), new PrimaryAccessHint());
             final var expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, queriedRecordTypes);
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), primaryKey, isReverse));
         }
@@ -140,13 +138,13 @@ public final class MatchCandidateExpansion {
     @Nonnull
     private static Reference createBaseRef(@Nonnull IndexExpansionInfo info,
                                           @Nonnull AccessHint accessHint) {
-        return createBaseRef(info.getAvailableRecordTypeNames(), info.getIndexedRecordTypeNames(), info.getIndexedRecordTypes(), accessHint);
+        return createBaseRef(info.getAvailableRecordTypeNames(), info.getIndexedRecordTypeNames(), info.getBaseType(), accessHint);
     }
 
     @Nonnull
     private static Reference createBaseRef(@Nonnull final Set<String> availableRecordTypeNames,
                                           @Nonnull final Set<String> queriedRecordTypeNames,
-                                          @Nonnull final Collection<RecordType> queriedRecordTypes,
+                                          @Nonnull final Type.Record baseType,
                                           @Nonnull AccessHint accessHint) {
         final var quantifier =
                 Quantifier.forEach(
@@ -157,6 +155,6 @@ public final class MatchCandidateExpansion {
         return Reference.initialOf(
                 new LogicalTypeFilterExpression(queriedRecordTypeNames,
                         quantifier,
-                        Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes))));
+                        baseType));
     }
 }

@@ -60,7 +60,7 @@ test_block:
     -
       # simple inner join
       - query: select fname, lname, name from emp inner join dept on emp.dept_id = dept.id;
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [
                 {'Jack', 'Williams', 'Engineering'},
                 {'Thomas', 'Johnson', 'Engineering'},
@@ -74,7 +74,7 @@ test_block:
     -
       # as previous with table names
       - query: select emp.fname, emp.lname, dept.name from emp inner join dept on emp.dept_id = dept.id;
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [
                 {'Jack', 'Williams', 'Engineering'},
                 {'Thomas', 'Johnson', 'Engineering'},
@@ -95,7 +95,7 @@ test_block:
     -
       # inner join version of previous
       - query: select fname, lname from emp inner join dept on emp.dept_id = dept.id and dept.name = 'Engineering';
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{"Jack", "Williams"},
                           {"Thomas", "Johnson"},
                           {"Emily", "Martinez"},
@@ -109,7 +109,7 @@ test_block:
     -
       # inner join version of previous
       - query: select fname, lname from emp inner join project on project.emp_id = emp.id;
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{"Emily", "Martinez"},
                           {"Daniel", "Miller"},
                           {"Megan", "Miller"}]
@@ -124,7 +124,7 @@ test_block:
     -
       # inner join version of previous
       - query: select fname, lname from emp inner join project on emp_id = emp.id inner join dept on dept_id = dept.id and dept.name = 'Sales';
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{"Daniel", "Miller"}]
 
     -
@@ -136,7 +136,7 @@ test_block:
     -
       # inner join version of previous
       - query: select dept.name, project.name from emp inner join dept on emp.dept_id = dept.id inner join project on project.emp_id = emp.id;
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -150,21 +150,21 @@ test_block:
     -
       # inner join version of previous #1
       - query: select sq.name, project.name from (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq inner join project on project.emp_id = sq.id;
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
     -
       # inner join version of previous #2
       - query: select sq.name, project.name from project inner join (select dept.name, emp.id from emp, dept where emp.dept_id = dept.id) as sq on project.emp_id = sq.id;
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
     -
       # inner join version of previous #3
       - query: select dept.name, project.name from emp inner join dept on emp.dept_id = dept.id inner join project on project.emp_id = emp.id;
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -175,9 +175,25 @@ test_block:
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
     -
+      # ambiguous sub select is fine if the top-level query does not specify column names
+      - query: select * from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
+      - unorderedResult: [{"Engineering", "OLAP"},
+                          {"Sales", "Feedback"},
+                          {"Marketing", "SEO"}]
+    -
+      # ambiguous sub select is fine if the top-level query does not specify column names
+      - query: select (*) from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
+      - unorderedResult: [{{"Engineering", "OLAP"}},
+                          {{"Sales", "Feedback"}},
+                          {{"Marketing", "SEO"}}]
+    -
+      # ambiguous sub select fails if top-level select refers to one of the columns
+      - query: select name from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
+      - error: "42702"
+    -
       # inner join version of previous
       - query: select dept.name, project.name from project inner join emp on emp.id = project.emp_id inner join dept on emp.dept_id = dept.id;
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -189,7 +205,7 @@ test_block:
     -
       # inner join version of previous
       - query: select emp.id, fname, lname from emp inner join dept on emp.dept_id = dept.id and dept.name = 'Engineering' and emp.id not in (1, 3)
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{ID: 2, FNAME: "Thomas", LNAME: "Johnson"},
                           {ID: 4, FNAME: "Amelia", LNAME: "Johnson"}]
     -
@@ -199,7 +215,7 @@ test_block:
     -
       # inner join version of previous
       - query: select project.id, project.name from emp inner join project on project.emp_id = emp.id where project.id not in (1, 2)
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{ID: 3, NAME: "Feedback"}]
     -
       # Three-way join with NOT IN - departments with projects, excluding specific departments
@@ -209,7 +225,7 @@ test_block:
     -
       # inner join version of previous
       - query: select dept.id, dept.name, project.name from emp inner join dept on emp.dept_id = dept.id and dept.id not in (1) inner join project on project.emp_id = emp.id
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{ID: 2, "Sales", "Feedback"},
                           {ID: 3, "Marketing", "SEO"}]
     -
@@ -219,7 +235,7 @@ test_block:
     -
       # inner join version of previous
       - query: select emp.id from emp inner join dept on emp.dept_id = dept.id and dept.id = 2 and emp.id not in (5, 6)
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{7}]
     -
       # Join with NOT IN - all employees except those in excluded departments
@@ -230,7 +246,7 @@ test_block:
     -
       # inner join version of previous
       - query: select emp.id, fname from emp inner join dept on emp.dept_id = dept.id where dept.id not in (1, 3)
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{ID: 5, FNAME: "Daniel"},
                           {ID: 6, FNAME: "Chloe"},
                           {ID: 7, FNAME: "Charlotte"}]
@@ -241,7 +257,7 @@ test_block:
     -
       # inner join version of previous
       - query: select emp.id from emp inner join dept on emp.dept_id = dept.id and dept.id = 1 and emp.id not in (10, 20, 30)
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{1}, {2}, {3}, {4}]
     -
       # Subquery join with NOT IN
@@ -291,7 +307,7 @@ test_block:
     -
       # inner join version of previous
       - query: select fname, lname from (select fname, lname, emp.id from emp inner join dept on emp.dept_id = dept.id and dept.name = 'Engineering') as sq where sq.id in (1, 4)
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - unorderedResult: [{"Jack", "Williams"},
                           {"Amelia", "Johnson"}]
     -
@@ -310,6 +326,6 @@ test_block:
     -
       # inner join with using
       - query: select fname, lname, name from emp inner join dept using (fname);
-      - supported_version: !current_version
+      - supported_version: 4.9.1.0
       - error: "0AF00"
 ...
