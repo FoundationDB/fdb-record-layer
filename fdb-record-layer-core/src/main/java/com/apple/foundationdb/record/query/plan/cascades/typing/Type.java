@@ -111,6 +111,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     @Nonnull
     Function FUNCTION = new Function();
 
+    @Nonnull
+    Record RECORD = new Record(true, null);
+
     /**
      * A map from Java {@link Class} to corresponding {@link TypeCode}.
      */
@@ -368,6 +371,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     @Nonnull
     static None noneType() {
         return Type.NONE;
+    }
+
+    @Nonnull
+    static Record recordType() {
+        return Type.RECORD;
     }
 
     @Nonnull

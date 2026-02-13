@@ -33,6 +33,7 @@ import java.util.function.Supplier;
 public enum DebuggerImplementation {
     INSANE(true, DebuggerWithSymbolTables::withSanityChecks),
     SANE(true, DebuggerWithSymbolTables::withoutSanityChecks),
+    RECORDING(true, DebuggerWithSymbolTables::withEventRecording),
     REPL(false, () -> {
         try {
             return new PlannerRepl(TerminalBuilder.builder().dumb(true).build(), false);
