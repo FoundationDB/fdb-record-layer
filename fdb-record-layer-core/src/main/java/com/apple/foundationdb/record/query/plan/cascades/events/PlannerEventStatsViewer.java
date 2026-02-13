@@ -50,6 +50,7 @@ final class PlannerEventStatsViewer {
         // prevent outside instantiation
     }
 
+    @SuppressWarnings("test-gap")
     public static String showStats(@Nonnull final PlannerEventStatsCollector plannerEventStatsCollector) {
         final var statsMaps = plannerEventStatsCollector.getStatsMaps();
 
@@ -120,6 +121,7 @@ final class PlannerEventStatsViewer {
         stringBuilder.append("</thead>");
     }
 
+    @SuppressWarnings("test-gap")
     private static void tableBody(@Nonnull final StringBuilder stringBuilder, @Nonnull final Map<String, PlannerEventStats> statsMap) {
         stringBuilder.append("<tbody class=\"table-group-divider\">");
         for (final Map.Entry<String, PlannerEventStats> entry : statsMap.entrySet()) {
