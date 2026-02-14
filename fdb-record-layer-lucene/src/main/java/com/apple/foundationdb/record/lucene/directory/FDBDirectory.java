@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
@@ -1036,20 +1035,17 @@ public class FDBDirectory extends Directory {
      * @throws RecordCoreException if the pending write queue is not empty
      */
     public void clearOngoingMergeIndicatorButFailIfNonEmpty() {
-        agilityContext.accept(context -> {
-            // Verify that the pending write queue subspace is empty
-            final CompletableFuture<Boolean> isEmptyFuture = createPendingWritesQueue().isQueueEmpty(context);
-            boolean isEmptyQueue =
-                    Boolean.TRUE.equals(LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_PENDING_QUEUE,
-                            isEmptyFuture, context));
-
-            if (!isEmptyQueue) {
-                throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
-            }
-
-            // Clear the ongoing merge indicator
-            context.ensureActive().clear(ongoingMergeSubspace.pack());
-        });
+        asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_PENDING_QUEUE,
+                agilityContext.apply(aContext ->
+                        createPendingWritesQueue().isQueueEmpty(aContext)
+                                .thenApply(isEmptyQueue -> {
+                                    if (Boolean.FALSE.equals(isEmptyQueue)) {
+                                        throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
+                                    }
+                                    // Clear the ongoing merge indicator
+                                    aContext.ensureActive().clear(ongoingMergeSubspace.pack());
+                                    return null;
+                                })));
     }
 
     public PendingWriteQueue createPendingWritesQueue() {

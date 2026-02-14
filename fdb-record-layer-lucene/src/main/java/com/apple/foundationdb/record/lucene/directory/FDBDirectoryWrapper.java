@@ -313,20 +313,19 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     private IndexWriter createIndexWriterWithReplayedQueue() throws IOException {
-        final AgilityContext readOnlyContext = replayedQueueContext.get().getAgilityContext();
+        final AgilityContext agilityContextReadOnly = replayedQueueContext.get().getAgilityContext();
         // Create a read-only directory with read-only context and no-op lock factory
-        final FDBDirectory readOnlyDirectory = createFDBDirectory(state, key, readOnlyContext, NoLockFactory.INSTANCE, blockCacheMaximumSize);
+        final FDBDirectory readOnlyDirectory = createFDBDirectory(state, key, agilityContextReadOnly, NoLockFactory.INSTANCE, blockCacheMaximumSize);
         IndexWriterConfig config = createIndexWriterConfig(null);
         IndexWriter readOnlyIndexWriter = new IndexWriter(readOnlyDirectory, config);
 
         // Get the queue and apply changes
         // This is using the read-only agility context as this is the one to be used for the query that is to be executed
-        readOnlyContext.accept(context -> {
-            LuceneConcurrency.asyncToSync(
-                    LuceneEvents.Waits.WAIT_LUCENE_REPLAY_QUEUE,
-                    getPendingWriteQueue().replayQueuedOperations(context, readOnlyIndexWriter, state.index),
-                    context);
-        });
+        agilityContextReadOnly.asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_REPLAY_QUEUE,
+                        agilityContextReadOnly.apply(aContext ->
+                                getPendingWriteQueue().replayQueuedOperations(aContext, readOnlyIndexWriter, state.index)
+                                        .thenApply(ignore -> null)));
         return readOnlyIndexWriter;
     }
 
