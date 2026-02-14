@@ -255,6 +255,12 @@ public class Expression {
         return new EphemeralExpression(getName().get(), getDataType(), getUnderlying());
     }
 
+    @Nonnull
+    public HiddenExpression asHidden() {
+        Verify.verify(getName().isPresent());
+        return new HiddenExpression(getName().get(), getDataType(), getUnderlying());
+    }
+
     @Override
     public String toString() {
         return getName().orElse(Identifier.of("??")) + "|" + getDataType() + "| ⇾ " + getUnderlying();

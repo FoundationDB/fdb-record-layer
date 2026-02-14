@@ -347,7 +347,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var uid = visitUid(uidContext);
                 final var leftExpression = getDelegate().getSemanticAnalyzer().resolveIdentifier(uid, getDelegate().getCurrentPlanFragment().getLogicalOperators());
                 final var rightExpressionOld = getDelegate().getSemanticAnalyzer().resolveIdentifier(uid, LogicalOperators.ofSingle(rightTableSource));
-                final var rightExpressionNew = rightExpressionOld.asEphemeral();
+                final var rightExpressionNew = rightExpressionOld.asHidden();
                 rightTableSource = rightTableSource.withOutput(Expressions.of(rightTableSource.getOutput().stream().map(e -> e == rightExpressionOld ? rightExpressionNew : e).collect(Collectors.toUnmodifiableList())));
                 getDelegate().getCurrentPlanFragment().addInnerJoinExpression(getDelegate().resolveFunction("=", leftExpression, rightExpressionNew));
             }
