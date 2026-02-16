@@ -23,11 +23,8 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
-
-import java.util.Arrays;
 
 public class VersioningSplitKeyHelper implements SplitKeyHelper {
     private Versionstamp versionstamp;
