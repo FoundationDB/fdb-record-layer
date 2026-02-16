@@ -901,7 +901,7 @@ public class TemporaryFunctionTests {
             try (var statement = connection.prepareStatement("select * from sq1(x => 3) as Q where a > ?param options (log query)")) {
                 statement.setLong("param", 5);
                 statement.setMaxRows(1);
-                invokeAndVerifyAcrossContinuations(statement::executeQuery, CheckPlanCache.SHOULD_MISS, connection, 13L, 1L, 13L, 1L, 18L, 2L, 18L, 2L);
+                invokeAndVerifyAcrossContinuations(statement::executeQuery, CheckPlanCache.SHOULD_MISS, connection, 13L, 1L, 18L, 2L, 13L, 1L, 18L, 2L);
             }
             connection.rollback();
 
@@ -935,7 +935,7 @@ public class TemporaryFunctionTests {
             try (var statement = connection.prepareStatement("select * from sq1(x => 3) as Q where a > ?param options (log query)")) {
                 statement.setLong("param", 5);
                 statement.setMaxRows(1);
-                invokeAndVerifyAcrossContinuations(statement::executeQuery, CheckPlanCache.SHOULD_HIT, connection, 13L, 1L, 13L, 1L, 18L, 2L, 18L, 2L);
+                invokeAndVerifyAcrossContinuations(statement::executeQuery, CheckPlanCache.SHOULD_HIT, connection, 13L, 1L, 18L, 2L, 13L, 1L, 18L, 2L);
             }
             connection.rollback();
         }
@@ -975,7 +975,7 @@ public class TemporaryFunctionTests {
             try (var statement = connection.prepareStatement("select * from sq1(x => 3) as Q where a > ?param options (log query)")) {
                 statement.setLong("param", 5);
                 statement.setMaxRows(1);
-                invokeAndVerifyAcrossContinuations(statement::executeQuery, CheckPlanCache.SHOULD_MISS, connection, 13L, 1L, 13L, 1L, 18L, 2L, 18L, 2L);
+                invokeAndVerifyAcrossContinuations(statement::executeQuery, CheckPlanCache.SHOULD_MISS, connection, 13L, 1L, 18L, 2L, 13L, 1L, 18L, 2L);
             }
             connection.rollback();
 
@@ -1014,8 +1014,8 @@ public class TemporaryFunctionTests {
                     Assertions.assertEquals(13L, resultSet.getLong(1));
                     Assertions.assertEquals(1L, resultSet.getLong(2));
                     Assertions.assertTrue(resultSet.next());
-                    Assertions.assertEquals(13L, resultSet.getLong(1));
-                    Assertions.assertEquals(1L, resultSet.getLong(2));
+                    Assertions.assertEquals(18L, resultSet.getLong(1));
+                    Assertions.assertEquals(2L, resultSet.getLong(2));
                     Assertions.assertFalse(resultSet.next());
                     continuation = resultSet.getContinuation();
                 }
@@ -1029,8 +1029,8 @@ public class TemporaryFunctionTests {
                 statement.setBytes("continuation", continuation.serialize());
                 try (var resultSet = statement.executeQuery()) {
                     Assertions.assertTrue(resultSet.next());
-                    Assertions.assertEquals(18L, resultSet.getLong(1));
-                    Assertions.assertEquals(2L, resultSet.getLong(2));
+                    Assertions.assertEquals(13L, resultSet.getLong(1));
+                    Assertions.assertEquals(1L, resultSet.getLong(2));
                     Assertions.assertTrue(resultSet.next());
                     Assertions.assertEquals(18L, resultSet.getLong(1));
                     Assertions.assertEquals(2L, resultSet.getLong(2));

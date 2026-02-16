@@ -879,7 +879,7 @@ public class RelationalPlanCacheTests {
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'SCIFI' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"SCI_FI_BOOKS\" ( ) WHERE \"YEAR\" > ? AND \"YEAR\" < ? "),
                 Map.of(ppe(cons(
-                        cons(c1980Cp0(20, "SCI_FI_BOOKS_OF_80S"), c1980Cp0(24, "SCI_FI_BOOKS_OF_80S")),
+                        cons(cons(c1980Cp0(20, "SCI_FI_BOOKS_OF_80S"), c1980Cp0(24, "SCI_FI_BOOKS_OF_80S")), cons(c1980Cp0(20, "SCI_FI_BOOKS_OF_80S"), c1980Cp0(24, "SCI_FI_BOOKS_OF_80S"))),
                         cons(ofTypeStringCons(18, "SCI_FI_BOOKS"), ofTypeIntCons(20, "SCI_FI_BOOKS_OF_80S"),
                                 ofTypeIntCons(24, "SCI_FI_BOOKS_OF_80S"),
                                 isNotNullStr(18, "SCI_FI_BOOKS"),
