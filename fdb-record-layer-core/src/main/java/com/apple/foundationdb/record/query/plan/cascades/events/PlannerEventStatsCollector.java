@@ -47,7 +47,7 @@ import java.util.function.Function;
  * {@link #getStatsMaps()}.
  * </p>
  */
-public interface PlannerEventStatsCollector extends PlannerEventListeners.Listener {
+public interface PlannerEventStatsCollector extends PlannerEventListeners.EventListener {
     /**
      * Set the thread-local collector instance. Override the currently set collector if necessary.
      * @param collector the new collector. If {@code collector} is {@code null}, the current stats collector

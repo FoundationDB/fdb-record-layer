@@ -92,7 +92,7 @@ class DefaultPlannerEventStatsCollectorTest {
     void testOnDoneResetsState() {
         final PlannerEventStatsCollectorState initialState = collector.getCurrentState();
 
-        PlannerEventStatsCollector.withCollector(PlannerEventListeners.Listener::onDone);
+        PlannerEventStatsCollector.withCollector(PlannerEventListeners.EventListener::onDone);
 
         assertThat(collector.getCurrentState()).isNotSameAs(initialState);
     }

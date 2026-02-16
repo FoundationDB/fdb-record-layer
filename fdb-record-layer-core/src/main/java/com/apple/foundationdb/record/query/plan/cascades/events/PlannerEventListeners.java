@@ -30,18 +30,18 @@ import java.util.Map;
 
 /**
  * <p>
- * This class is used to store and manage instances of {@link PlannerEventListeners.Listener}
+ * This class is used to store and manage instances of {@link PlannerEventListeners.EventListener}
  * which are stored in thread-local storage, which receive {@link PlannerEvent} emitted by the
  * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner} and perform actions.
  * </p>
  * <p>
- * Only a single instance of a class that extends the interface {@link PlannerEventListeners.Listener}
+ * Only a single instance of a class that extends the interface {@link PlannerEventListeners.EventListener}
  * can be set as the active listener for that class at any given time.
  * </p>
  *
  */
 public final class PlannerEventListeners {
-    static final ThreadLocal<Map<Class<? extends Listener>, Listener>> THREAD_LOCAL =
+    static final ThreadLocal<Map<Class<? extends EventListener>, EventListener>> THREAD_LOCAL =
             ThreadLocal.withInitial(HashMap::new);
 
     /**
@@ -50,16 +50,16 @@ public final class PlannerEventListeners {
      * @param listenerClass the class that the provided listener is an instance of.
      * @param listener the new listener instance to use
      */
-    public static void addListener(@Nonnull final Class<? extends Listener> listenerClass,
-                                   @Nonnull final Listener listener) {
+    public static void addListener(@Nonnull final Class<? extends EventListener> listenerClass,
+                                   @Nonnull final EventListener listener) {
         THREAD_LOCAL.get().put(listenerClass, listener);
     }
 
     /**
-     * Remove the {@link Listener} instance associated with the provided {@code listenerClass}, if it is set.
+     * Remove the {@link EventListener} instance associated with the provided {@code listenerClass}, if it is set.
      * @param listenerClass the listener class to remove the listener instance of.
      */
-    public static void removeListener(@Nonnull final Class<? extends Listener> listenerClass) {
+    public static void removeListener(@Nonnull final Class<? extends EventListener> listenerClass) {
         THREAD_LOCAL.get().remove(listenerClass);
     }
 
@@ -71,25 +71,25 @@ public final class PlannerEventListeners {
     }
 
     /**
-     * Get the current active {@link Listener} instance for the provided {@link Class}.
-     * @param listenerClass a class that implements the {@link Listener} interface.
+     * Get the current active {@link EventListener} instance for the provided {@link Class}.
+     * @param listenerClass a class that implements the {@link EventListener} interface.
      * @return the instance that is currently set for the provided {@code listenerClass}, null otherwise.
      */
     @Nullable
-    public static Listener getListener(@Nonnull final Class<? extends Listener> listenerClass) {
+    public static EventListener getListener(@Nonnull final Class<? extends EventListener> listenerClass) {
         return THREAD_LOCAL.get().getOrDefault(listenerClass, null);
     }
 
     /**
-     * Dispatch a {@link PlannerEvent} to all {@link Listener} instances in thread-local storage.
-     * @param plannerEvent event to dispatch to {@link Listener}s.
+     * Dispatch a {@link PlannerEvent} to all {@link EventListener} instances in thread-local storage.
+     * @param plannerEvent event to dispatch to {@link EventListener}s.
      */
     public static void dispatchEvent(final PlannerEvent plannerEvent) {
         THREAD_LOCAL.get().values().forEach(l -> l.onEvent(plannerEvent));
     }
 
     /**
-     * Signal to all {@link Listener} instances in thread-local storage that the planning of a new query is starting.
+     * Signal to all {@link EventListener} instances in thread-local storage that the planning of a new query is starting.
      * @param queryAsString query being planned.
      * @param planContext context object provided to the planner.
      */
@@ -98,10 +98,10 @@ public final class PlannerEventListeners {
     }
 
     /**
-     * Signal to all {@link Listener} instances in thread-local storage that the planning of a query is complete.
+     * Signal to all {@link EventListener} instances in thread-local storage that the planning of a query is complete.
      */
     public static void dispatchOnDone() {
-        THREAD_LOCAL.get().values().forEach(Listener::onDone);
+        THREAD_LOCAL.get().values().forEach(EventListener::onDone);
     }
 
     /**
@@ -113,7 +113,7 @@ public final class PlannerEventListeners {
      * See {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger} and {@link PlannerEventStatsCollector}.
      * </p>
      */
-    public interface Listener {
+    public interface EventListener {
         /**
          * Callback to execute when a new query starts being planned.
          * @param queryAsString query being planned.

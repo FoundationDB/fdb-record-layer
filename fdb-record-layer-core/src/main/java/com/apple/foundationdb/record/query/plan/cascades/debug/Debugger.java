@@ -58,7 +58,7 @@ import java.util.function.IntUnaryOperator;
  * </p>
  */
 @SuppressWarnings("java:S1214")
-public interface Debugger extends PlannerEventListeners.Listener {
+public interface Debugger extends PlannerEventListeners.EventListener {
     /**
      * Set the debugger. Override the currently set debugger if necessary.
      * @param debugger the new debugger. If {@code debugger} is {@code null}, the current debugger

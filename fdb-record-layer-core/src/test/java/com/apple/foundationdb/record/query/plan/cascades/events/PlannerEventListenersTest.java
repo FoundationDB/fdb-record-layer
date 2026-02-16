@@ -109,7 +109,7 @@ class PlannerEventListenersTest {
         assertThat(removedListener.receivedEvent).isNull();
     }
 
-    private static class DummyEventListener implements PlannerEventListeners.Listener {
+    private static class DummyEventListener implements PlannerEventListeners.EventListener {
         protected boolean onQueryCalled = false;
         protected boolean onEventCalled = false;
         protected boolean onDoneCalled = false;
