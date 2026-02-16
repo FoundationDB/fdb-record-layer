@@ -57,17 +57,17 @@ test_block:
                           {BITMAP: xStartsWith_1250'0400008', 'CATEGORY': 'world', 'OFFSET':0}]
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY bitmap_bucket_offset(id), bitmap_bucket_offset(id), bitmap_bucket_offset(id)
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.10.1.0
       - unorderedResult: [{BITMAP: xStartsWith_1250'060000c', 'OFFSET':0}, {BITMAP: xStartsWith_1250'02', 'OFFSET':10000}]
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.10.1.0
       - error: "42702"
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, category, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY bitmap_bucket_offset(id), category, bitmap_bucket_offset(id)
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.10.1.0
       - unorderedResult: [{BITMAP: xStartsWith_1250'0200004', 'CATEGORY': 'hello', 'OFFSET':0},
                           {BITMAP: xStartsWith_1250'02', 'CATEGORY': 'hello', 'OFFSET':10000},
                           {BITMAP: xStartsWith_1250'0400008', 'CATEGORY': 'world', 'OFFSET':0}]
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.10.1.0
       - error: "42702"
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, bitmap_bucket_offset(id) as offset FROM T2 GROUP BY bitmap_bucket_offset(id)
