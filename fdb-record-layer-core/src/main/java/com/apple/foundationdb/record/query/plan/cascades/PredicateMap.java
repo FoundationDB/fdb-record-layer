@@ -58,7 +58,7 @@ public class PredicateMap extends PredicateMultiMap {
     private static Optional<SetMultimap<QueryPredicate, PredicateMapping>> checkUniqueness(@Nonnull final SetMultimap<QueryPredicate, PredicateMapping> map) {
         for (final QueryPredicate queryPredicate : map.keySet()) {
             final Set<PredicateMapping> candidatePredicateMappings = map.get(queryPredicate);
-            if (candidatePredicateMappings.stream().map(PredicateMapping::getParameterAliasOptional).flatMap(Optional::stream).count() > 1) {
+            if (candidatePredicateMappings.size() != 1) {
                 return Optional.empty();
             }
         }
