@@ -1133,7 +1133,7 @@ public class SemanticAnalyzer {
     public Optional<Type> getRecursiveCteType(@Nonnull final RelationalParser.QueryContext namedQueryBody,
                                               @Nonnull final Identifier queryName,
                                               @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser,
-                                              @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                              @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
                                               @Nonnull final QueryVisitor queryVisitor) {
         final AtomicReference<Optional<Type>> result = new AtomicReference<>(Optional.empty());
         recursiveQueryTraversal(namedQueryBody, queryName, idParser,
@@ -1163,7 +1163,7 @@ public class SemanticAnalyzer {
     public NonnullPair<List<LogicalOperator>, List<LogicalOperator>> partitionRecursiveQuery(@Nonnull final RelationalParser.QueryContext namedQueryBody,
                                                                                              @Nonnull final Identifier queryName,
                                                                                              @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser,
-                                                                                             @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                                                                             @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
                                                                                              @Nonnull final QueryVisitor queryVisitor) {
         final var nonRecursiveBranchesBuilder = ImmutableList.<LogicalOperator>builder();
         final var recursiveBranchesBuilder = ImmutableList.<LogicalOperator>builder();
@@ -1264,17 +1264,17 @@ public class SemanticAnalyzer {
     @Nonnull
     private static LogicalOperator handleQueryFragment(@Nonnull final ParserRuleContext queryFragment,
                                                        @Nonnull final RelationalParser.QueryContext namedQueryBody,
-                                                       @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                                       @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
                                                        @Nonnull final QueryVisitor queryVisitor) {
         LogicalOperator logicalOperator;
         if (namedQueryBody.ctes() != null) {
             final var ctes = namedQueryBody.ctes();
-            final var currentPlanFragment = queryVisitor.getDelegate().pushPlanFragment();
-            memoizer.apply(ctes).forEach(currentPlanFragment::addOperator);
-            logicalOperator = memoizer.apply(queryFragment).first();
+            queryVisitor.getDelegate().pushPlanFragment();
+            memoizer.apply(ctes);
+            logicalOperator = Assert.optionalUnchecked(memoizer.apply(queryFragment));
             queryVisitor.getDelegate().popPlanFragment();
         } else {
-            logicalOperator = memoizer.apply(queryFragment).first();
+            logicalOperator = Assert.optionalUnchecked(memoizer.apply(queryFragment));
         }
         return logicalOperator;
     }

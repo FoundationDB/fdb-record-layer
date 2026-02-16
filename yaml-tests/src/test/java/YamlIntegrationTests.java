@@ -273,6 +273,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void resultAsArrayOfArrays(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("result-as-array-of-arrays.yamsql");
+    }
+
+    @TestTemplate
     public void scenarioTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("scenario-tests.yamsql");
     }

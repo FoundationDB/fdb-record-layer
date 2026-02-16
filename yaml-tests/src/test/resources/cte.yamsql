@@ -87,6 +87,9 @@ test_block:
                           {W: 7, Z: 20, A: 2, B: 10}]
     -
       - query: with c1(w, z) as (select id, col1 from t1), c2(a, b) as (with c3(A, B) as (select id, col1 from c1 where id in (1, 2)) select * from c3) select * from c1,c2
+      - initialVersionAtLeast: !current_version
+      - error: "42703"
+      - initialVersionLessThan: !current_version
       - error: "42F01"
     -
       - query: with c1(w, z, x1, x2, x3, x4) as (select id, col1 from t1) select * from c1
@@ -127,4 +130,34 @@ test_block:
       - result: [{COL1: 20, COL2: 6}]
       - result: [{COL1: 20, COL2: 7}]
       - result: []
+    -
+      - query: with dept_data(dept, id, val) as (select col1 as dept, id, col2 as val from t1),
+                    large_vals(dept, id) as (select dept, id from dept_data where val >= 6)
+                    select dept, id from large_vals
+      - supported_version: !current_version
+      - explain: "COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c44 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS DEPT, _.ID AS ID)"
+      - result: [{DEPT: 20, ID: 6},
+                 {DEPT: 20, ID: 7}]
+    -
+      - query: with base_data(d, i, v) as (select col1, id, col2 from t1),
+                    filtered(d, i, v) as (select d, i, v from base_data where v > 1),
+                    final_data(dept, ident) as (select d, i from filtered where d = 20)
+                    select dept, ident from final_data
+      - supported_version: !current_version
+      - explain: "COVERING(I1 [[GREATER_THAN promote(@c43 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | FILTER _.COL1 EQUALS promote(@c63 AS LONG) | MAP (_.COL1 AS DEPT, _.ID AS IDENT)"
+      - result: [{DEPT: 20, IDENT: 6},
+                 {DEPT: 20, IDENT: 7}]
+    -
+      - query: with c1(x, y) as (select id, col1 from t1 where col2 < 3),
+                    c2(a, b) as (select id, col2 from t1 where col1 = 20),
+                    combined(x1, y1, a1, b1) as (select c1.x, c1.y, c2.a, c2.b from c1, c2 where c1.x < c2.a)
+                    select x1, y1, a1, b1 from combined
+      - supported_version: !current_version
+      - explain: "ISCAN(I1 [[LESS_THAN promote(@c19 AS LONG)]]) | FLATMAP q0 -> { COVERING(I1 <,> -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | FILTER _.COL1 EQUALS promote(@c39 AS LONG) AND q0.ID LESS_THAN _.ID | FETCH AS q1 RETURN (q0.ID AS X1, q0.COL1 AS Y1, q1.ID AS A1, q1.COL2 AS B1) }"
+      - unorderedResult: [
+                 {X1: 1, Y1: 10, A1: 6, B1: 6},
+                 {X1: 2, Y1: 10, A1: 6, B1: 6},
+                 {X1: 1, Y1: 10, A1: 7, B1: 7},
+                 {X1: 2, Y1: 10, A1: 7, B1: 7},
+               ]
 ...
