@@ -324,8 +324,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         agilityContextReadOnly.asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_REPLAY_QUEUE,
                         agilityContextReadOnly.apply(aContext ->
-                                getPendingWriteQueue().replayQueuedOperations(aContext, readOnlyIndexWriter, state.index)
-                                        .thenApply(ignore -> null)));
+                                getPendingWriteQueue().replayQueuedOperations(aContext, readOnlyIndexWriter, state.index)));
         return readOnlyIndexWriter;
     }
 

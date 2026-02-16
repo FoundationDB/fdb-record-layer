@@ -202,6 +202,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 directoryManager.getIndexWriter(groupingKey, partitionId),
                 state.index,
                 primaryKey, fields);
+        // Record the event's duration in caller's context.
         state.context.record(LuceneEvents.Events.LUCENE_ADD_DOCUMENT, System.nanoTime() - startTime);
     }
 
