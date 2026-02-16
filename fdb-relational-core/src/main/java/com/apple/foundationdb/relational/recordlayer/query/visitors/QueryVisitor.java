@@ -138,9 +138,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 currentPlanFragment.addOperator(handleRecursiveNamedQuery(namedQuery, traversalStrategy));
             }
             return null;
-        } else {
-            Assert.thatUnchecked(ctx.traversalOrderClause() == null, ErrorCode.SYNTAX_ERROR, "traversal order clause can only be defined with recursive CTE");
         }
+        Assert.thatUnchecked(ctx.traversalOrderClause() == null, ErrorCode.SYNTAX_ERROR, "traversal order clause can only be defined with recursive CTE");
         for (final var namedQuery : ctx.namedQuery()) {
             currentPlanFragment.addOperator(visitNamedQuery(namedQuery));
         }
