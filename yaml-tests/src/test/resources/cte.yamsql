@@ -153,9 +153,11 @@ test_block:
                     combined(x1, y1, a1, b1) as (select c1.x, c1.y, c2.a, c2.b from c1, c2 where c1.x < c2.a)
                     select x1, y1, a1, b1 from combined
       - supported_version: !current_version
-      - explain: "ISCAN(I1 <,>) | FLATMAP q0 -> { COVERING(I1 [[LESS_THAN promote(@c19 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | FILTER q0.COL1 EQUALS promote(@c39 AS LONG) AND _.ID LESS_THAN q0.ID | FETCH AS q1 RETURN (q1.ID AS X1, q1.COL1 AS Y1, q0.ID AS A1, q0.COL2 AS B1) }"
-      - result: [{X1: 1, Y1: 10, A1: 6, B1: 6},
+      - explain: "ISCAN(I1 [[LESS_THAN promote(@c19 AS LONG)]]) | FLATMAP q0 -> { COVERING(I1 <,> -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | FILTER _.COL1 EQUALS promote(@c39 AS LONG) AND q0.ID LESS_THAN _.ID | FETCH AS q1 RETURN (q0.ID AS X1, q0.COL1 AS Y1, q1.ID AS A1, q1.COL2 AS B1) }"
+      - unorderedResult: [
+                 {X1: 1, Y1: 10, A1: 6, B1: 6},
                  {X1: 2, Y1: 10, A1: 6, B1: 6},
                  {X1: 1, Y1: 10, A1: 7, B1: 7},
-                 {X1: 2, Y1: 10, A1: 7, B1: 7}]
+                 {X1: 2, Y1: 10, A1: 7, B1: 7},
+               ]
 ...

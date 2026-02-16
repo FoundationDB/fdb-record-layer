@@ -386,13 +386,13 @@ r
   17 -> 15 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   18 -> 16 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}°A
+}‡D
 …
-	unnamed-1xEXPLAIN select col2 from t1 where exists (select a from t3 where col2 <= id union all select b from t4 where col2 <= id)¥@
-…À˜× ›áî(=0â¥T8M@šSCAN(<,>) | TFILTER T1 | FLATMAP q0 -> { SCAN(<,>) | TFILTER T3 | FILTER _.ID GREATER_THAN_OR_EQUALS q0.COL2 | MAP (_.A AS A) âŠŽ SCAN(<,>) | TFILTER T4 | FILTER _.ID GREATER_THAN_OR_EQUALS q0.COL2 | MAP (_.B AS B) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.COL2 AS COL2) }é=digraph G {
+	unnamed-1xEXPLAIN select col2 from t1 where exists (select a from t3 where col2 <= id union all select b from t4 where col2 <= id)üB
+…ìè±× Æä¯(=0ÛÍ&8M@šSCAN(<,>) | TFILTER T1 | FLATMAP q0 -> { SCAN(<,>) | TFILTER T3 | FILTER _.ID GREATER_THAN_OR_EQUALS q0.COL2 | MAP (_.A AS A) âŠŽ SCAN(<,>) | TFILTER T4 | FILTER _.ID GREATER_THAN_OR_EQUALS q0.COL2 | MAP (_.B AS B) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.COL2 AS COL2) }À@digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [T1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
@@ -426,6 +426,15 @@ r
   16 -> 14 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   17 -> 15 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 1 [ label=<&nbsp;q22> label="q22" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    10 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    11 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
   {
     rank=same;
     rankDir=LR;
