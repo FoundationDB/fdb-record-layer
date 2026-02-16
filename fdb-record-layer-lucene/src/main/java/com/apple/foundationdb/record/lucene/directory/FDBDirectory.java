@@ -1038,13 +1038,12 @@ public class FDBDirectory extends Directory {
         asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_PENDING_QUEUE,
                 agilityContext.apply(aContext ->
                         createPendingWritesQueue().isQueueEmpty(aContext)
-                                .thenApply(isEmptyQueue -> {
+                                .thenAccept(isEmptyQueue -> {
                                     if (Boolean.FALSE.equals(isEmptyQueue)) {
                                         throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
                                     }
                                     // Clear the ongoing merge indicator
                                     aContext.ensureActive().clear(ongoingMergeSubspace.pack());
-                                    return null;
                                 })));
     }
 
