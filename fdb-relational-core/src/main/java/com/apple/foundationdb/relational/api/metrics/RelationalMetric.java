@@ -52,9 +52,9 @@ public class RelationalMetric {
         GENERATE_CONTINUED_PLAN("generate plan from continuation"),
         /**
          * Time taken to get a plan when the cache is bypassed. Currently, we bypass cache if it is empty or for any
-         * query that is either DDL query, INSERT query or is explicitly marked to not use cache. For more details,
-         * see:{@link com.apple.foundationdb.relational.recordlayer.query.PlanGenerator}. For such case, the plan is
-         * computed from the AST always.
+         * query that is either DDL query, INSERT query, EXECUTE CONTINUATION query or is explicitly marked to not use
+         * cache. For more details, see:{@link com.apple.foundationdb.relational.recordlayer.query.PlanGenerator}. For
+         * such case, the plan is computed from the AST always.
          * */
         CACHE_BYPASS("bypass cache"),
         /**
