@@ -30,12 +30,12 @@ import java.util.Map;
 
 /**
  * <p>
- * This class is used to store and manage instances of {@link PlannerEventListeners.EventListener}
+ * This class is used to store and manage instances of {@link EventListener}
  * which are stored in thread-local storage, which receive {@link PlannerEvent} emitted by the
  * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner} and perform actions.
  * </p>
  * <p>
- * Only a single instance of a class that extends the interface {@link PlannerEventListeners.EventListener}
+ * Only a single instance of a class that extends the interface {@link EventListener}
  * can be set as the active listener for that class at any given time.
  * </p>
  *
@@ -46,13 +46,11 @@ public final class PlannerEventListeners {
 
     /**
      * Set the active thread-local instance for the provided listener class to the provided instance.
-     * This will override any currently set instances for the same {@link Class}.
-     * @param listenerClass the class that the provided listener is an instance of.
+     * This will override any currently set instances for the same class T.
      * @param listener the new listener instance to use
      */
-    public static void addListener(@Nonnull final Class<? extends EventListener> listenerClass,
-                                   @Nonnull final EventListener listener) {
-        THREAD_LOCAL.get().put(listenerClass, listener);
+    public static <T extends EventListener> void addListener(@Nonnull final T listener) {
+        THREAD_LOCAL.get().put(listener.getClass(), listener);
     }
 
     /**
@@ -76,8 +74,8 @@ public final class PlannerEventListeners {
      * @return the instance that is currently set for the provided {@code listenerClass}, null otherwise.
      */
     @Nullable
-    public static EventListener getListener(@Nonnull final Class<? extends EventListener> listenerClass) {
-        return THREAD_LOCAL.get().getOrDefault(listenerClass, null);
+    public static <T extends EventListener> T getListener(@Nonnull final Class<T> listenerClass) {
+        return listenerClass.cast(THREAD_LOCAL.get().getOrDefault(listenerClass, null));
     }
 
     /**

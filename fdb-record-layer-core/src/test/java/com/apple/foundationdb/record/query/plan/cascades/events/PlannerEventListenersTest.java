@@ -49,7 +49,7 @@ class PlannerEventListenersTest {
         final var listener = new DummyEventListener();
         final var plannerEvent = new InitiatePhasePlannerEvent(
                 PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN);
-        PlannerEventListeners.addListener(DummyEventListener.class, listener);
+        PlannerEventListeners.addListener(listener);
 
         PlannerEventListeners.dispatchOnQuery("SELECT * from A", PlanContext.EMPTY_CONTEXT);
         PlannerEventListeners.dispatchEvent(plannerEvent);
@@ -67,7 +67,7 @@ class PlannerEventListenersTest {
         final var listeners = List.of(new DummyEventListener(), new SecondDummyEventListener());
         final var plannerEvent = new InitiatePhasePlannerEvent(
                 PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN);
-        listeners.forEach((l) -> PlannerEventListeners.addListener(l.getClass(), l));
+        listeners.forEach(PlannerEventListeners::addListener);
 
         PlannerEventListeners.dispatchOnQuery("SELECT * from A", PlanContext.EMPTY_CONTEXT);
         PlannerEventListeners.dispatchEvent(plannerEvent);
@@ -89,8 +89,8 @@ class PlannerEventListenersTest {
         final var plannerEvent = new InitiatePhasePlannerEvent(
                 PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN);
 
-        PlannerEventListeners.addListener(DummyEventListener.class, listener);
-        PlannerEventListeners.addListener(SecondDummyEventListener.class, removedListener);
+        PlannerEventListeners.addListener(listener);
+        PlannerEventListeners.addListener(removedListener);
         PlannerEventListeners.removeListener(removedListener.getClass());
         PlannerEventListeners.dispatchOnQuery("SELECT * from A", PlanContext.EMPTY_CONTEXT);
         PlannerEventListeners.dispatchEvent(plannerEvent);

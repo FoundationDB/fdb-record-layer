@@ -36,7 +36,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 
 /**
- * Tag interface for all events.
+ *  Interface for all events.
  */
 public interface PlannerEvent {
     /**
