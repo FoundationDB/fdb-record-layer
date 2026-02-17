@@ -58,7 +58,7 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
             PlannerEventListeners.removeListener(PlannerEventStatsCollector.class);
             return;
         }
-        PlannerEventListeners.addListener(collector);
+        PlannerEventListeners.addListener(PlannerEventStatsCollector.class, collector);
     }
 
     /**
@@ -68,7 +68,11 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
      */
     @Nullable
     static PlannerEventStatsCollector getCollector() {
-        return PlannerEventListeners.getListener(PlannerEventStatsCollector.class);
+        final var listener = PlannerEventListeners.getListener(PlannerEventStatsCollector.class);
+        if (listener instanceof PlannerEventStatsCollector) {
+            return (PlannerEventStatsCollector)listener;
+        }
+        return null;
     }
 
     /**

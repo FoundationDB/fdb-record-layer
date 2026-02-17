@@ -69,7 +69,7 @@ public interface Debugger extends PlannerEventListeners.EventListener {
             PlannerEventListeners.removeListener(Debugger.class);
             return;
         }
-        PlannerEventListeners.addListener(debugger);
+        PlannerEventListeners.addListener(Debugger.class, debugger);
 
         // If the debugger is enabled, event stats collection should also be enabled.
         PlannerEventStatsCollector.enableDefaultStatsCollector();
@@ -77,7 +77,11 @@ public interface Debugger extends PlannerEventListeners.EventListener {
 
     @Nullable
     static Debugger getDebugger() {
-        return PlannerEventListeners.getListener(Debugger.class);
+        final var listener = PlannerEventListeners.getListener(Debugger.class);
+        if (listener instanceof Debugger) {
+            return (Debugger)listener;
+        }
+        return null;
     }
 
     @Nonnull
