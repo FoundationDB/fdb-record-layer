@@ -306,7 +306,7 @@ public class PendingWriteQueue {
         // Check if queue size limit is exceeded (if maxQueueSize > 0)
         if (maxQueueSize > 0) {
             if (isQueueTooLarge(context, maxQueueSize)) {
-                throw new PendingWritesQueueTooLarge("Queue size too large, cannot enqueue items", (int)maxQueueSize);
+                throw new PendingWritesQueueTooLargeException("Queue size too large, cannot enqueue items", (int)maxQueueSize);
             }
         }
 
@@ -376,13 +376,13 @@ public class PendingWriteQueue {
      * Return TRUE if the queue has no room for new entries.
      * This method uses the queue size counter to get the queue size, defaulting to FALSE when the counter does not exist.
      * @param context the context to use to read the counter
-     * @param size the size to check
+     * @param maxQueueSize the size to check
      * @return {@code true} is the queue size is larger than or equals the given size, {@code false} if smaller or not initialized
      */
-    private boolean isQueueTooLarge(FDBRecordContext context, long size) {
+    private boolean isQueueTooLarge(FDBRecordContext context, long maxQueueSize) {
         Long currentSize = LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_QUEUE_SIZE, getQueueSize(context), context);
         // in case there is no value in the queue size subspace, we are not enforcing size yet (pre-initialization compatibility)
-        return ((currentSize != null) && (currentSize >= size));
+        return ((currentSize != null) && (currentSize >= maxQueueSize));
     }
 
     /**
@@ -464,8 +464,8 @@ public class PendingWriteQueue {
     }
 
     @SuppressWarnings("serial")
-    public static class PendingWritesQueueTooLarge extends RecordCoreException {
-        protected PendingWritesQueueTooLarge(final String message, long itemCount) {
+    public static class PendingWritesQueueTooLargeException extends RecordCoreException {
+        protected PendingWritesQueueTooLargeException(final String message, long itemCount) {
             super(message);
             addLogInfo(LuceneLogMessageKeys.MAX_QUEUE_SIZE, itemCount);
         }

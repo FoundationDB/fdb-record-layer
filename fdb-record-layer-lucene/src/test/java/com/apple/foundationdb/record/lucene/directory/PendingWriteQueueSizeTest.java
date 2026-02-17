@@ -169,8 +169,8 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
 
         // Attempt to enqueue one more item should fail
         try (FDBRecordContext context = openContext()) {
-            PendingWriteQueue.PendingWritesQueueTooLarge exception = assertThrows(
-                    PendingWriteQueue.PendingWritesQueueTooLarge.class,
+            PendingWriteQueue.PendingWritesQueueTooLargeException exception = assertThrows(
+                    PendingWriteQueue.PendingWritesQueueTooLargeException.class,
                     () -> queue.enqueueInsert(context, Tuple.from(999), createSingleField())
             );
             assertNotNull(exception);
@@ -271,7 +271,7 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
                 queue.enqueueInsert(context, Tuple.from(i), createSingleField());
             }
 
-            assertThrows(PendingWriteQueue.PendingWritesQueueTooLarge.class,
+            assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class,
                     () -> queue.enqueueInsert(context, Tuple.from(999), createSingleField()));
             commit(context);
         }

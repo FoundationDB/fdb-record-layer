@@ -89,7 +89,7 @@ public class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase
             for (int i = 0; i < maxQueueSize; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(100L + i, "test document", 1));
             }
-            assertThrows(PendingWriteQueue.PendingWritesQueueTooLarge.class,
+            assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class,
                     () -> recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(999L, "test document", 1)));
             commit(context);
         }
@@ -115,7 +115,7 @@ public class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase
 
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
-            assertThrows(PendingWriteQueue.PendingWritesQueueTooLarge.class,
+            assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class,
                     () -> recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(999L, "test document", 1)));
             commit(context);
         }
@@ -186,7 +186,7 @@ public class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
             recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(100L, "test document updated", 1));
             recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(101L, "test document updated", 1));
-            assertThrows(PendingWriteQueue.PendingWritesQueueTooLarge.class, () ->
+            assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class, () ->
                     recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(102L, "test document updated", 1)));
             commit(context);
         }
@@ -244,10 +244,10 @@ public class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(200L + i, "third document", 1L, 30L - i));
             }
             // additional docs fail on both queues
-            assertThrows(PendingWriteQueue.PendingWritesQueueTooLarge.class, () ->
+            assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class, () ->
                     recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(999, "second document", 1L, 100L + 9)));
             // save record to old partition
-            assertThrows(PendingWriteQueue.PendingWritesQueueTooLarge.class, () ->
+            assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class, () ->
                     recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(999, "third document", 1L, 30L - 9)));
 
             commit(context);
