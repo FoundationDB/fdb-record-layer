@@ -89,9 +89,9 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
                     final Plan<?> plan = planGenerator.getPlan(sql);
                     final var executionContext = Plan.ExecutionContext.of(conn.getTransaction(), planGenerator.getOptions(), conn, metricCollector);
                     if (plan instanceof QueryPlan) {
-                        return executeQueryPlan((QueryPlan) plan, executionContext);
+                        return clockAndExecuteQueryPlan((QueryPlan) plan, executionContext);
                     } else {
-                        return executeProceduralPlan(plan, executionContext);
+                        return clockAndExecuteNonQueryPlan(plan, executionContext);
                     }
                 }
             } catch (RelationalException | SQLException | RuntimeException ex) {
@@ -108,7 +108,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
         });
     }
 
-    private boolean executeQueryPlan(@Nonnull final QueryPlan plan, @Nonnull final Plan.ExecutionContext executionContext) throws RelationalException {
+    private boolean clockAndExecuteQueryPlan(@Nonnull final QueryPlan plan, @Nonnull final Plan.ExecutionContext executionContext) throws RelationalException {
         final var metricCollector = Assert.notNullUnchecked(conn.getMetricCollector());
         return metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_QUERY_PLAN, () -> {
             currentResultSet = new ErrorCapturingResultSet(plan.execute(executionContext));
@@ -131,7 +131,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
         });
     }
 
-    private boolean executeProceduralPlan(@Nonnull final Plan<?> plan, @Nonnull final Plan.ExecutionContext executionContext) throws RelationalException {
+    private boolean clockAndExecuteNonQueryPlan(@Nonnull final Plan<?> plan, @Nonnull final Plan.ExecutionContext executionContext) throws RelationalException {
         final var metricCollector = Assert.notNullUnchecked(conn.getMetricCollector());
         return metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_NON_QUERY_PLAN, () -> {
             plan.execute(executionContext);
