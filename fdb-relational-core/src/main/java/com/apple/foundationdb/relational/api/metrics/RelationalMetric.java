@@ -41,8 +41,9 @@ public class RelationalMetric {
          * */
         NORMALIZE_QUERY("normalize the query"),
         /**
-         * Time taken to generate a logical query plan.
-         * See {@link com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor}
+         * Time taken to generate a logical query plan. This is triggered if there is a need to generate the plan, that
+         * is, the plan is not there in the cache. It is a subevent of either
+         * {@link RelationalEvent#CACHE_LOOKUP} or {@link RelationalEvent#CACHE_BYPASS}.
          * */
         GENERATE_LOGICAL_PLAN("generate logical plan for a query"),
         /**
@@ -50,11 +51,21 @@ public class RelationalMetric {
          * */
         GENERATE_CONTINUED_PLAN("generate plan from continuation"),
         /**
-         * Time taken to do a successful/unsuccessful cache lookup.
+         * Time taken to get a plan when the cache is bypassed. Currently, we bypass cache if it is empty or for any
+         * query that is either DDL query, INSERT query or is explicitly marked to not use cache. For more details,
+         * see:{@link com.apple.foundationdb.relational.recordlayer.query.PlanGenerator}. For such case, the plan is
+         * computed from the AST always.
+         * */
+        CACHE_BYPASS("bypass cache"),
+        /**
+         * Time taken to do a successful/unsuccessful cache lookup. In case of an unsuccessful lookup, the plan is
+         * computed from the AST.
          * */
         CACHE_LOOKUP("lookup in the cache"),
         /**
-         * Time taken to optimize the logical plan.
+         * Time taken to optimize the logical plan. This is triggered if there is a need to generate the plan, that
+         * is, the plan is not there in the cache, and the query is not a DDL. It is a subevent of either
+         * {@link RelationalEvent#CACHE_LOOKUP} or {@link RelationalEvent#CACHE_BYPASS}.
          * */
         OPTIMIZE_PLAN("optimize the plan"),
         /**
@@ -69,11 +80,24 @@ public class RelationalMetric {
          * Time taken to create the RecordLayer result set iterator.
          * */
         CREATE_RESULT_SET_ITERATOR("create result set iterator"),
-
         /**
-         * Time taken in the execution phase of the query.
+         * Time taken in the execution phase of the query. The query could either be a DDL query (that does not return
+         * a result set), or a DQL, DML etc. query that do return one. Hence, it is a subevent of either
+         * {@link RelationalEvent#EXECUTE_QUERY_PLAN} or {@link RelationalEvent#EXECUTE_NON_QUERY_PLAN}.
          * */
         TOTAL_EXECUTE_QUERY("execution phase of the query"),
+        /**
+         * Time taken to execute a query that returns a result set.
+         * */
+        EXECUTE_QUERY_PLAN("execute query plan"),
+        /**
+         * Time taken to execute the action in a procedural plan.
+         * */
+        EXECUTE_PROCEDURAL_PLAN_ACTION("execute procedural plan action"),
+        /**
+         * Time taken to execute a query that do not return a result set, like DDL queries.
+         * */
+        EXECUTE_NON_QUERY_PLAN("execute non query plan"),
         /**
          * Time taken to process a SQL query end-to-end.
          * */
