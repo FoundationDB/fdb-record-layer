@@ -35,6 +35,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
@@ -133,16 +134,21 @@ class TestHelpers {
         try (final var fileChannel = FileChannel.open(siftSmallPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
+            final int batchSize = 100;
             int i = 0;
             while (vectorIterator.hasNext()) {
+                final List<DoubleRealVector> batch =
+                        Lists.newArrayList(Iterators.limit(vectorIterator, batchSize));
+                final long currentBatchStart = i;
                 final List<PrimaryKeyAndVector> insertedInBatch =
-                        basicInsertBatch(db, hnsw, 100, i,
+                        basicInsertBatch(db, hnsw, batchSize, i,
                                 (tr, nextId) -> {
-                                    if (!vectorIterator.hasNext()) {
+                                    final int indexInBatch = Math.toIntExact(nextId - currentBatchStart);
+                                    if (indexInBatch >= batch.size()) {
                                         return null;
                                     }
                                     final Tuple currentPrimaryKey = createPrimaryKey(nextId);
-                                    final DoubleRealVector doubleVector = vectorIterator.next();
+                                    final DoubleRealVector doubleVector = batch.get(indexInBatch);
                                     return new PrimaryKeyAndVector(currentPrimaryKey, doubleVector);
                                 });
                 insertedDataBuilder.addAll(insertedInBatch);

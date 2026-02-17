@@ -104,8 +104,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperator visitQuery(@Nonnull RelationalParser.QueryContext ctx) {
         if (ctx.ctes() != null) {
-            final var currentPlanFragment = getDelegate().pushPlanFragment();
-            visitCtes(ctx.ctes()).forEach(currentPlanFragment::addOperator);
+            getDelegate().pushPlanFragment();
+            visitCtes(ctx.ctes());
             final var result = Assert.castUnchecked(ctx.queryExpressionBody().accept(this), LogicalOperator.class);
             getDelegate().popPlanFragment();
             return getDelegate().isTopLevel() ? LogicalOperator.generateSort(result, ImmutableList.of(), ImmutableSet.of(), Optional.empty()) : result;
@@ -113,9 +113,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return Assert.castUnchecked(ctx.queryExpressionBody().accept(this), LogicalOperator.class);
     }
 
-    @Nonnull
+    @Nullable
     @Override
-    public LogicalOperators visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
+    public Void visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
+        final var currentPlanFragment = getDelegate().getCurrentPlanFragment();
         if (ctx.RECURSIVE() != null) {
             final RecursiveUnionExpression.TraversalStrategy traversalStrategy;
             if (ctx.traversalOrderClause() != null) {
@@ -133,11 +134,17 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             } else {
                 traversalStrategy = RecursiveUnionExpression.TraversalStrategy.ANY;
             }
-            return LogicalOperators.of(ctx.namedQuery().stream().map(namedQuery -> handleRecursiveNamedQuery(namedQuery, traversalStrategy)).collect(ImmutableList.toImmutableList()));
-        } else {
-            Assert.thatUnchecked(ctx.traversalOrderClause() == null, ErrorCode.SYNTAX_ERROR, "traversal order clause can only be defined with recursive CTE");
+
+            for (final var namedQuery : ctx.namedQuery()) {
+                currentPlanFragment.addOperator(handleRecursiveNamedQuery(namedQuery, traversalStrategy));
+            }
+            return null;
         }
-        return LogicalOperators.of(ctx.namedQuery().stream().map(this::visitNamedQuery).collect(ImmutableList.toImmutableList()));
+        Assert.thatUnchecked(ctx.traversalOrderClause() == null, ErrorCode.SYNTAX_ERROR, "traversal order clause can only be defined with recursive CTE");
+        for (final var namedQuery : ctx.namedQuery()) {
+            currentPlanFragment.addOperator(visitNamedQuery(namedQuery));
+        }
+        return null;
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -163,13 +170,13 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                                                      @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         final var queryName = visitFullId(recursiveQueryContext.name);
         final Optional<Type> recursiveQueryType;
-        final var memoized = MemoizedFunction.<ParserRuleContext, LogicalOperators>memoize(
+        final var memoized = MemoizedFunction.<ParserRuleContext, Optional<LogicalOperator>>memoize(
                 parserRuleContext -> {
                     final var result = parserRuleContext.accept(this);
-                    if (result instanceof LogicalOperator) {
-                        return LogicalOperators.ofSingle((LogicalOperator) result);
+                    if (result == null) {
+                        return Optional.empty();
                     }
-                    return Assert.castUnchecked(result, LogicalOperators.class);
+                    return Optional.of(Assert.castUnchecked(result, LogicalOperator.class));
                 });
         {
             getDelegate().pushPlanFragment();
