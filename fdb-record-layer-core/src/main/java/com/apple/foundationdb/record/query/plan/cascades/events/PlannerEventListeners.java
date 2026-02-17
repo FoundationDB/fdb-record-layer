@@ -76,8 +76,8 @@ public final class PlannerEventListeners {
      * @return the instance that is currently set for the provided {@code listenerClass}, null otherwise.
      */
     @Nullable
-    public static EventListener getListener(@Nonnull final Class<? extends EventListener> listenerClass) {
-        return THREAD_LOCAL.get().getOrDefault(listenerClass, null);
+    public static <T extends EventListener> T getListener(@Nonnull final Class<T> listenerClass) {
+        return listenerClass.cast(THREAD_LOCAL.get().getOrDefault(listenerClass, null));
     }
 
     /**

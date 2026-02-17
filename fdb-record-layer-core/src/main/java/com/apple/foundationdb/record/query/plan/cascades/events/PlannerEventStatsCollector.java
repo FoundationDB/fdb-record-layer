@@ -68,11 +68,7 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
      */
     @Nullable
     static PlannerEventStatsCollector getCollector() {
-        final var listener = PlannerEventListeners.getListener(PlannerEventStatsCollector.class);
-        if (listener instanceof PlannerEventStatsCollector) {
-            return (PlannerEventStatsCollector)listener;
-        }
-        return null;
+        return PlannerEventListeners.getListener(PlannerEventStatsCollector.class);
     }
 
     /**

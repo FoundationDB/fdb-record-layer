@@ -77,11 +77,7 @@ public interface Debugger extends PlannerEventListeners.EventListener {
 
     @Nullable
     static Debugger getDebugger() {
-        final var listener = PlannerEventListeners.getListener(Debugger.class);
-        if (listener instanceof Debugger) {
-            return (Debugger)listener;
-        }
-        return null;
+        return PlannerEventListeners.getListener(Debugger.class);
     }
 
     @Nonnull
