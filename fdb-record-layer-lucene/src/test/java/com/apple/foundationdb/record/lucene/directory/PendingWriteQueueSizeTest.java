@@ -45,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * These tests assert the functionality of the PendingWriteQueue limits with no other system components in play.
  */
 @Tag(Tags.RequiresFDB)
-public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
+class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
     @Test
     void testQueueSizeUninitialized() {
         // Test that getQueueSize returns null when counter is uninitialized
@@ -78,9 +78,7 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
 
         // Counter should be initialized to 1 (ADD mutation on non-existent key treats original as 0)
         try (FDBRecordContext context = openContext()) {
-            Long size = queue.getQueueSize(context).join();
-            assertNotNull(size);
-            assertEquals(1L, size);
+            assertQueueSize(queue, context, 1L);
         }
 
         // Enqueue more items
@@ -92,8 +90,7 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
 
         // Counter should be 3
         try (FDBRecordContext context = openContext()) {
-            Long size = queue.getQueueSize(context).join();
-            assertEquals(3L, size);
+            assertQueueSize(queue, context, 3L);
         }
     }
 
@@ -126,8 +123,7 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
 
         // Counter should be decremented
         try (FDBRecordContext context = openContext()) {
-            Long size = queue.getQueueSize(context).join();
-            assertEquals(2L, size);
+            assertQueueSize(queue, context, 2L);
         }
 
         // Clear remaining entries
@@ -139,8 +135,7 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
 
         // Counter should be 0
         try (FDBRecordContext context = openContext()) {
-            Long size = queue.getQueueSize(context).join();
-            assertEquals(0L, size);
+            assertQueueSize(queue, context, 0L);
             assertTrue(queue.isQueueEmpty(context).join());
         }
     }
@@ -163,8 +158,7 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
 
         // Verify size is at limit
         try (FDBRecordContext context = openContext()) {
-            Long size = queue.getQueueSize(context).join();
-            assertEquals((long)maxSize, size);
+            assertQueueSize(queue, context, (long)maxSize);
         }
 
         // Attempt to enqueue one more item should fail
@@ -182,7 +176,7 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
     void testUnlimitedQueueSize() {
         // Test that maxQueueSize = 0 means unlimited
         PendingWriteQueue queue;
-        final int itemsToEnqueue = 1000;
+        final int itemsToEnqueue = 11000;
 
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, 0); // 0 = unlimited
@@ -196,8 +190,7 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
 
         // All items should be enqueued successfully
         try (FDBRecordContext context = openContext()) {
-            Long size = queue.getQueueSize(context).join();
-            assertEquals((long)itemsToEnqueue, size);
+            assertQueueSize(queue, context, (long)itemsToEnqueue);
 
             List<PendingWriteQueue.QueueEntry> entries =
                     queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
@@ -212,25 +205,25 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
         PendingWriteQueue queue;
 
         // Transaction 1: enqueue 2 items
-        FDBRecordContext context1 = openContext();
-        queue = getQueue(context1, 100);
+        try (FDBRecordContext context1 = openContext()) {
+            queue = getQueue(context1, 100);
 
-        queue.enqueueInsert(context1, Tuple.from(1), createSingleField());
-        queue.enqueueInsert(context1, Tuple.from(2), createSingleField());
+            queue.enqueueInsert(context1, Tuple.from(1), createSingleField());
+            queue.enqueueInsert(context1, Tuple.from(2), createSingleField());
 
-        // Transaction 2: enqueue 3 more items
-        FDBRecordContext context2 = openContext();
-        queue.enqueueInsert(context2, Tuple.from(3), createSingleField());
-        queue.enqueueInsert(context2, Tuple.from(4), createSingleField());
-        queue.enqueueInsert(context2, Tuple.from(5), createSingleField());
+            // Transaction 2: enqueue 3 more items
+            try (FDBRecordContext context2 = openContext()) {
+                queue.enqueueInsert(context2, Tuple.from(3), createSingleField());
+                queue.enqueueInsert(context2, Tuple.from(4), createSingleField());
+                queue.enqueueInsert(context2, Tuple.from(5), createSingleField());
 
-        commit(context1);
-        commit(context2);
-
+                commit(context1);
+                commit(context2);
+            }
+        }
         // Counter should be cumulative
         try (FDBRecordContext context = openContext()) {
-            Long size = queue.getQueueSize(context).join();
-            assertEquals(5L, size);
+            assertQueueSize(queue, context, 5L);
         }
 
         // Transaction 3,4: clear 1 item
@@ -239,19 +232,19 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
             entries = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
         }
 
-        FDBRecordContext context3 = openContext();
-        queue.clearEntry(context3, entries.get(0));
+        try (FDBRecordContext context3 = openContext()) {
+            queue.clearEntry(context3, entries.get(0));
 
-        FDBRecordContext context4 = openContext();
-        queue.clearEntry(context4, entries.get(1));
+            try (FDBRecordContext context4 = openContext()) {
+                queue.clearEntry(context4, entries.get(1));
 
-        commit(context3);
-        commit(context4);
-
+                commit(context3);
+                commit(context4);
+            }
+        }
         // Counter should be decremented
         try (FDBRecordContext context = openContext()) {
-            Long size = queue.getQueueSize(context).join();
-            assertEquals(3L, size);
+            assertQueueSize(queue, context, 3L);
         }
     }
 
@@ -273,17 +266,7 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
 
             assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class,
                     () -> queue.enqueueInsert(context, Tuple.from(999), createSingleField()));
-            commit(context);
-        }
-
-        // Verify that only 5 items were enqueued
-        try (FDBRecordContext context = openContext()) {
-            Long size = queue.getQueueSize(context).join();
-            assertEquals(5L, size);
-
-            List<PendingWriteQueue.QueueEntry> entries =
-                    queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
-            assertEquals(5, entries.size());
+            // The index is now in an inconsistent state, do don't commit
         }
     }
 
@@ -298,5 +281,11 @@ public class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
         return List.of(new LuceneDocumentFromRecord.DocumentField(
                 "testField", "testValue", LuceneIndexExpressions.DocumentFieldType.STRING,
                 true, false, Collections.emptyMap()));
+    }
+
+    private static void assertQueueSize(final PendingWriteQueue queue, final FDBRecordContext context, final long expected) {
+        Long size = queue.getQueueSize(context).join();
+        assertNotNull(size);
+        assertEquals(expected, size);
     }
 }

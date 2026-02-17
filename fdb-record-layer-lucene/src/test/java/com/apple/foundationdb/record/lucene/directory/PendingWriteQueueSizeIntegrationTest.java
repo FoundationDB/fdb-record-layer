@@ -73,7 +73,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * queries.
  */
 @Tag(Tags.RequiresFDB)
-public class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
+class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
     private final Index index = SIMPLE_TEXT_SUFFIXES;
 
     @Test
@@ -91,11 +91,8 @@ public class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase
             }
             assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class,
                     () -> recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(999L, "test document", 1)));
-            commit(context);
+            // The index is now in an inconsistent state, do don't commit
         }
-
-        // only 5 records written
-        verifyExpectedDocIds(index, Set.of(100L, 101L, 102L, 103L, 104L));
     }
 
     @Test
@@ -117,19 +114,8 @@ public class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
             assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class,
                     () -> recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(999L, "test document", 1)));
-            commit(context);
+            // The index is now in an inconsistent state, do don't commit
         }
-
-        verifyExpectedQueueAndIndicator(index, null, null,
-                List.of(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
-                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
-                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
-                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
-                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT),
-                simpleMetadataHook());
-
-        // only 5 records written
-        verifyExpectedDocIds(index, Set.of(100L, 101L, 102L, 103L, 104L));
     }
 
     @Test
@@ -236,21 +222,41 @@ public class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase
         // Insert documents when "ongoing merge" indicator is set.
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
-
-            for (int i = 0; i < maxQueueSize; i++) {
-                // save record to new partition
+            // Put 3 docs in each partition
+            for (int i = 0; i < 3; i++) {
+                // save record to new partition (queued)
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(100L + i, "second document", 1L, 100L + i));
-                // save record to old partition
+                // save record to old partition (queued)
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(200L + i, "third document", 1L, 30L - i));
             }
+            // Fill the rest of queue on new partition
+            for (int i = 3; i < maxQueueSize; i++) {
+                recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(100L + i, "second document", 1L, 100L + i));
+            }
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            // additional doc fails on new queue
+            assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class, () ->
+                    recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(999, "second document", 1L, 100L + 9)));
+        }
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            // additional docs succeed on old queue
+            for (int i = 3; i < maxQueueSize; i++) {
+                recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(200L + i, "second document", 1L, 30L - i));
+            }
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
             // additional docs fail on both queues
             assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class, () ->
                     recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(999, "second document", 1L, 100L + 9)));
-            // save record to old partition
             assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class, () ->
                     recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(999, "third document", 1L, 30L - 9)));
-
-            commit(context);
         }
 
         // verify records found in query (from queue)

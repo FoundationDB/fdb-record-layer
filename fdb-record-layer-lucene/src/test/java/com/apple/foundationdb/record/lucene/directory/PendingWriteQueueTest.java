@@ -63,7 +63,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * These tests assert the functionality of the PendingWriteQueue with no other system components in play.
  */
 @Tag(Tags.RequiresFDB)
-public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
+class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     @EnumSource
     void testEnqueueAndIterate(LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType) {
