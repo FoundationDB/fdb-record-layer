@@ -216,13 +216,13 @@ k
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ò,
+}˘-
 y
-pseudo-field-clash-queries[EXPLAIN SELECT (t1.*), (t2.*), (t3.*) FROM t1, t2, t3 WHERE t2.id = t1.id AND t3.id = t1.idö+
-—˘˝Êâı œÔ˙0(€0£ø¿	8ª@'úISCAN(T3_VERSION <,>) | FLATMAP q0 -> { ISCAN(T2_VERSION <,>) | FLATMAP q1 -> { SCAN(<,>) | TFILTER T1 | FILTER q1.ID EQUALS _.ID AND q0.ID EQUALS _.ID AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0 AS _0, q3._1 AS _1, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _2) }ÿ(digraph G {
+pseudo-field-clash-queries[EXPLAIN SELECT (t1.*), (t2.*), (t3.*) FROM t1, t2, t3 WHERE t2.id = t1.id AND t3.id = t1.id˚,
+ÿ˚˜†VÌ –≈û(£0åíÌ8è@$úISCAN(T3_VERSION <,>) | FLATMAP q0 -> { ISCAN(T2_VERSION <,>) | FLATMAP q1 -> { SCAN(<,>) | TFILTER T1 | FILTER q1.ID EQUALS _.ID AND q0.ID EQUALS _.ID AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0 AS _0, q3._1 AS _1, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _2) }∫*digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q99._0 AS _0, q99._1 AS _1, (q10.ID AS ID, q10.COL1 AS COL1, q10.COL2 AS COL2) AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION AS _0, LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION AS _1, LONG AS ID, LONG AS COL1, STRING AS COL2 AS _2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS COL2, VERSION AS __ROW_VERSION)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T3_VERSION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS COL2, VERSION AS __ROW_VERSION)" ];
@@ -243,22 +243,28 @@ y
   10 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q99> label="q99" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
+    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
     5 -> 6 [ color="red" style="invis" ];
   }
-}î0
+  {
+    6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
+  }
+}ı1
 ›
-pseudo-field-clash-queriesæEXPLAIN SELECT (t1.id, t1.col1, t1."__ROW_VERSION"), (t2.id, t2.col1, t2."__ROW_VERSION"), (t3.id, t3.col1, t3.col2, t3."__ROW_VERSION") FROM t1, t2, t3 WHERE t2.id = t1.id AND t3.id = t1.id±.
-——ö¨äÙ ·úÏ%(€0∫¢‘8ª@'ÃISCAN(T2_VERSION <,>) | FLATMAP q0 -> { ISCAN(T3_VERSION <,>) | FLATMAP q1 -> { SCAN(<,>) | TFILTER T1 | FILTER q0.ID EQUALS _.ID AND q1.ID EQUALS _.ID AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.__ROW_VERSION AS __ROW_VERSION) AS _0, (q0.ID AS ID, q0.COL1 AS COL1, q0.__ROW_VERSION AS __ROW_VERSION) AS _1, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2, q3._1.__ROW_VERSION AS __ROW_VERSION) AS _2) }ø*digraph G {
+pseudo-field-clash-queriesæEXPLAIN SELECT (t1.id, t1.col1, t1."__ROW_VERSION"), (t2.id, t2.col1, t2."__ROW_VERSION"), (t3.id, t3.col1, t3.col2, t3."__ROW_VERSION") FROM t1, t2, t3 WHERE t2.id = t1.id AND t3.id = t1.idí0
+ÿ–ü˜CÏ ◊£⁄(£0± 8è@$ÃISCAN(T2_VERSION <,>) | FLATMAP q0 -> { ISCAN(T3_VERSION <,>) | FLATMAP q1 -> { SCAN(<,>) | TFILTER T1 | FILTER q0.ID EQUALS _.ID AND q1.ID EQUALS _.ID AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.__ROW_VERSION AS __ROW_VERSION) AS _0, (q0.ID AS ID, q0.COL1 AS COL1, q0.__ROW_VERSION AS __ROW_VERSION) AS _1, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2, q3._1.__ROW_VERSION AS __ROW_VERSION) AS _2) }°,digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP ((q101._0.ID AS ID, q101._0.COL1 AS COL1, q101._0.__ROW_VERSION AS __ROW_VERSION) AS _0, (q6.ID AS ID, q6.COL1 AS COL1, q6.__ROW_VERSION AS __ROW_VERSION) AS _1, (q101._1.ID AS ID, q101._1.COL1 AS COL1, q101._1.COL2 AS COL2, q101._1.__ROW_VERSION AS __ROW_VERSION) AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, BYTES AS __ROW_VERSION AS _0, LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION AS _1, LONG AS ID, LONG AS COL1, STRING AS COL2, VERSION AS __ROW_VERSION AS _2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_VERSION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, STRING AS __ROW_VERSION)" ];
@@ -279,13 +285,19 @@ y
   10 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q101> label="q101" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
+    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
     5 -> 6 [ color="red" style="invis" ];
+  }
+  {
+    6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
   }
 }
