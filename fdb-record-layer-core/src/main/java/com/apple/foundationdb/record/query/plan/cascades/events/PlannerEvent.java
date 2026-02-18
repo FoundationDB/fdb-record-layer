@@ -22,14 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades.events;
 
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PBindable;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPlannerEvent;
-import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PMatchPartition;
-import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PRegisteredReference;
-import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PRegisteredRelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.protobuf.Message;
 
@@ -113,51 +107,14 @@ public interface PlannerEvent {
     PPlannerEvent.Builder toEventBuilder();
 
     @Nonnull
-    static PRegisteredRelationalExpression toExpressionProto(@Nonnull final RelationalExpression expression) {
-        return PRegisteredRelationalExpression.newBuilder()
-                .setName(Debugger.mapDebugger(debugger -> debugger.nameForObject(expression)).orElseThrow())
-                .setSemanticHashCode(expression.semanticHashCode())
-                .build();
-    }
-
-    @Nonnull
-    static PRegisteredReference toReferenceProto(@Nonnull final Reference reference) {
-        final var builder = PRegisteredReference.newBuilder()
-                .setName(Debugger.mapDebugger(debugger -> debugger.nameForObject(reference)).orElseThrow());
-        for (final var member : reference.getAllMemberExpressions()) {
-            builder.addExpressions(toExpressionProto(member));
-        }
-        return builder.build();
-    }
-
-    @Nonnull
     static PBindable toBindableProto(@Nonnull final Object bindable) {
         final var builder = PBindable.newBuilder();
         if (bindable instanceof RelationalExpression) {
-            builder.setExpression(toExpressionProto((RelationalExpression)bindable));
+            builder.setExpression(((RelationalExpression)bindable).toPlannerEventExpressionProto());
         } else if (bindable instanceof PartialMatch) {
-            builder.setPartialMatch(toPartialMatchProto((PartialMatch)bindable));
+            builder.setPartialMatch(((PartialMatch)bindable).toPlannerEventPartialMatchProto());
         } else if (bindable instanceof MatchPartition) {
-            builder.setMatchPartition(toMatchPartitionProto((MatchPartition)bindable));
-        }
-        return builder.build();
-    }
-
-    @Nonnull
-    static PPartialMatch toPartialMatchProto(@Nonnull final PartialMatch partialMatch) {
-        return PPartialMatch.newBuilder()
-                .setMatchCandidate(partialMatch.toString())
-                .setQueryRef(toReferenceProto(partialMatch.getQueryRef()))
-                .setQueryExpression(toExpressionProto(partialMatch.getQueryExpression()))
-                .setCandidateRef(toReferenceProto(partialMatch.getCandidateRef()))
-                .build();
-    }
-
-    @Nonnull
-    static PMatchPartition toMatchPartitionProto(@Nonnull final MatchPartition matchPartition) {
-        final var builder = PMatchPartition.newBuilder();
-        for (final var partialMatch : matchPartition.getPartialMatches()) {
-            builder.addPartialMatches(toPartialMatchProto(partialMatch));
+            builder.setMatchPartition(((MatchPartition)bindable).toPlannerEventMatchPartitionProto());
         }
         return builder.build();
     }

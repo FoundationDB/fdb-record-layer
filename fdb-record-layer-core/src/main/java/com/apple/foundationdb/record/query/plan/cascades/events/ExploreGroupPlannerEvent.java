@@ -68,7 +68,7 @@ public class ExploreGroupPlannerEvent extends AbstractPlannerEventWithState impl
     public PExploreGroupPlannerEvent toProto() {
         return PExploreGroupPlannerEvent.newBuilder()
                 .setSuper(toAbstractPlannerEventWithStateProto())
-                .setCurrentGroupReference(PlannerEvent.toReferenceProto(currentGroupReference))
+                .setCurrentGroupReference(currentGroupReference.toPlannerEventReferenceProto())
                 .build();
     }
 

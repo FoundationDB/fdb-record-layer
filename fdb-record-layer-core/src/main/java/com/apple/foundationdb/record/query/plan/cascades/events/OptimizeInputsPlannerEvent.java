@@ -78,8 +78,8 @@ public class OptimizeInputsPlannerEvent extends AbstractPlannerEventWithState im
     public POptimizeInputsPlannerEvent toProto() {
         return POptimizeInputsPlannerEvent.newBuilder()
                 .setSuper(toAbstractPlannerEventWithStateProto())
-                .setCurrentGroupReference(PlannerEvent.toReferenceProto(currentGroupReference))
-                .setExpression(PlannerEvent.toExpressionProto(expression))
+                .setCurrentGroupReference(currentGroupReference.toPlannerEventReferenceProto())
+                .setExpression(expression.toPlannerEventExpressionProto())
                 .build();
     }
 

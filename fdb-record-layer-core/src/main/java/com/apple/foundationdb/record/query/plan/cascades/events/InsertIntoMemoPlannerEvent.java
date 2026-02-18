@@ -93,10 +93,10 @@ public class InsertIntoMemoPlannerEvent implements PlannerEvent {
         final var builder = PInsertIntoMemoPlannerEvent.newBuilder()
                 .setLocation(getLocation().name())
                 .addAllReusedExpressionReferences(getReusedExpressionReferences().stream()
-                        .map(PlannerEvent::toReferenceProto)
+                        .map(Reference::toPlannerEventReferenceProto)
                         .collect(ImmutableList.toImmutableList()));
         if (expression != null) {
-            builder.setExpression(PlannerEvent.toExpressionProto(expression));
+            builder.setExpression(expression.toPlannerEventExpressionProto());
         }
         return builder.build();
     }

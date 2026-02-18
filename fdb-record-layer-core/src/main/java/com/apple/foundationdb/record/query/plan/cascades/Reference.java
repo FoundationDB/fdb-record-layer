@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
 import com.apple.foundationdb.record.query.plan.cascades.events.InsertIntoMemoPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PReference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
@@ -636,6 +637,16 @@ public class Reference implements Correlated<Reference>, Typed {
                                 .map(debugger::nameForObject)
                                 .collect(Collectors.joining(",")) + "]")
                 .orElse("Reference@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")");
+    }
+
+    @Nonnull
+    public PReference toPlannerEventReferenceProto() {
+        final var builder = PReference.newBuilder()
+                .setName(Debugger.mapDebugger(debugger -> debugger.nameForObject(this)).orElseThrow());
+        for (final var member : getAllMemberExpressions()) {
+            builder.addExpressions(member.toPlannerEventExpressionProto());
+        }
+        return builder.build();
     }
 
     @Override

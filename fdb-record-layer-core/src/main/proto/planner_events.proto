@@ -50,49 +50,49 @@ enum PPlannerPhase {
 }
 
 message PAbstractPlannerEventWithState {
-  optional PRegisteredReference root_reference = 1;
+  optional PReference root_reference = 1;
   optional string location = 2;
   optional PPlannerPhase planner_phase = 3;
 }
 
 message POptimizeInputsPlannerEvent {
   optional PAbstractPlannerEventWithState super = 1;
-  optional PRegisteredReference current_group_reference = 2;
-  optional PRegisteredRelationalExpression expression = 3;
+  optional PReference current_group_reference = 2;
+  optional PExpression expression = 3;
 }
 
 message PAdjustMatchPlannerEvent {
   optional PAbstractPlannerEventWithState super = 1;
-  optional PRegisteredReference current_group_reference = 2;
-  optional PRegisteredRelationalExpression expression = 3;
+  optional PReference current_group_reference = 2;
+  optional PExpression expression = 3;
 }
 
 message PExploreGroupPlannerEvent {
   optional PAbstractPlannerEventWithState super = 1;
-  optional PRegisteredReference current_group_reference = 2;
+  optional PReference current_group_reference = 2;
 }
 
 message POptimizeGroupPlannerEvent {
   optional PAbstractPlannerEventWithState super = 1;
-  optional PRegisteredReference current_group_reference = 2;
+  optional PReference current_group_reference = 2;
 }
 
 message PExploreExpressionPlannerEvent {
   optional PAbstractPlannerEventWithState super = 1;
-  optional PRegisteredReference current_group_reference = 2;
-  optional PRegisteredRelationalExpression expression = 3;
+  optional PReference current_group_reference = 2;
+  optional PExpression expression = 3;
 }
 
 message PTransformPlannerEvent {
   optional PAbstractPlannerEventWithState super = 1;
-  optional PRegisteredReference current_group_reference = 2;
+  optional PReference current_group_reference = 2;
   optional PBindable bindable = 3;
   optional string rule = 4;
 }
 
 message PTransformRuleCallPlannerEvent {
   optional PAbstractPlannerEventWithState super = 1;
-  optional PRegisteredReference current_group_reference = 2;
+  optional PReference current_group_reference = 2;
   optional PBindable bindable = 3;
   optional string rule = 4;
 }
@@ -107,28 +107,28 @@ message PInitiatePhasePlannerEvent {
 
 message PInsertIntoMemoPlannerEvent {
   optional string location = 1;
-  optional PRegisteredRelationalExpression expression = 2;
-  repeated PRegisteredReference reusedExpressionReferences = 3;
+  optional PExpression expression = 2;
+  repeated PReference reusedExpressionReferences = 3;
 }
 
 message PTranslateCorrelationsPlannerEvent {
-  optional PRegisteredRelationalExpression expression = 1;
+  optional PExpression expression = 1;
   optional string location = 2;
 }
 
-message PRegisteredReference {
+message PReference {
   optional string name = 1;
-  repeated PRegisteredRelationalExpression expressions = 2;
+  repeated PExpression expressions = 2;
 }
 
-message PRegisteredRelationalExpression {
+message PExpression {
   optional string name = 1;
   optional int32 semantic_hash_code = 2;
 }
 
 message PBindable {
   oneof specific_bindable {
-    PRegisteredRelationalExpression expression = 1;
+    PExpression expression = 1;
     PPartialMatch partial_match = 2;
     PMatchPartition match_partition = 3;
   }
@@ -136,9 +136,9 @@ message PBindable {
 
 message PPartialMatch {
   optional string match_candidate = 1;
-  optional PRegisteredReference query_ref = 2;
-  optional PRegisteredRelationalExpression query_expression = 3;
-  optional PRegisteredReference candidate_ref = 4;
+  optional PReference query_ref = 2;
+  optional PExpression query_expression = 3;
+  optional PReference candidate_ref = 4;
 }
 
 message PMatchPartition {

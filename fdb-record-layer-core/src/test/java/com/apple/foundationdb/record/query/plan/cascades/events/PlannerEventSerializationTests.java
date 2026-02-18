@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PAbstractPlannerEventWithState;
-import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PRegisteredReference;
-import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PRegisteredRelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PExpression;
+import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PReference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -317,7 +317,7 @@ class PlannerEventSerializationTests {
         assertReferenceMatches(eventFromProto.getRootReference(), rootReference, rootExpression);
     }
 
-    private void assertReferenceMatches(final PRegisteredReference actualReference,
+    private void assertReferenceMatches(final PReference actualReference,
                                         final Reference expectedReference,
                                         final RelationalExpression expectedExpression) {
         assertThat(actualReference.getName())
@@ -326,7 +326,7 @@ class PlannerEventSerializationTests {
                 .satisfies(expFromProto -> assertExpressionMatches(expFromProto, expectedExpression));
     }
 
-    private void assertExpressionMatches(final PRegisteredRelationalExpression actualExpressionProto,
+    private void assertExpressionMatches(final PExpression actualExpressionProto,
                                          final RelationalExpression expectedExpression) {
         assertThat(actualExpressionProto.getSemanticHashCode()).isEqualTo(expectedExpression.semanticHashCode());
         assertThat(actualExpressionProto.getName())

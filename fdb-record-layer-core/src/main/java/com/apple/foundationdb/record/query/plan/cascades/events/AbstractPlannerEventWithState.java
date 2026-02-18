@@ -80,7 +80,7 @@ abstract class AbstractPlannerEventWithState implements PlannerEventWithState {
     public PAbstractPlannerEventWithState toAbstractPlannerEventWithStateProto() {
         return PAbstractPlannerEventWithState.newBuilder()
                 .setPlannerPhase(plannerPhase.toProto())
-                .setRootReference(PlannerEvent.toReferenceProto(rootReference))
+                .setRootReference(rootReference.toPlannerEventReferenceProto())
                 .setLocation(getLocation().name())
                 .build();
     }

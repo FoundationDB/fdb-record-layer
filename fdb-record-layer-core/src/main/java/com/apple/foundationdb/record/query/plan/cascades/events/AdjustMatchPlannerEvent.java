@@ -78,8 +78,8 @@ public class AdjustMatchPlannerEvent extends AbstractPlannerEventWithState imple
     public PAdjustMatchPlannerEvent toProto() {
         return PAdjustMatchPlannerEvent.newBuilder()
                 .setSuper(toAbstractPlannerEventWithStateProto())
-                .setCurrentGroupReference(PlannerEvent.toReferenceProto(currentGroupReference))
-                .setExpression(PlannerEvent.toExpressionProto(expression))
+                .setCurrentGroupReference(currentGroupReference.toPlannerEventReferenceProto())
+                .setExpression(expression.toPlannerEventExpressionProto())
                 .build();
     }
 

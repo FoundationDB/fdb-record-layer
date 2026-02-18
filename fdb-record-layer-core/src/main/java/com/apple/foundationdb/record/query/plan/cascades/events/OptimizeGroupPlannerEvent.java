@@ -68,7 +68,7 @@ public class OptimizeGroupPlannerEvent extends AbstractPlannerEventWithState imp
     public POptimizeGroupPlannerEvent toProto() {
         return POptimizeGroupPlannerEvent.newBuilder()
                 .setSuper(toAbstractPlannerEventWithStateProto())
-                .setCurrentGroupReference(PlannerEvent.toReferenceProto(currentGroupReference))
+                .setCurrentGroupReference(currentGroupReference.toPlannerEventReferenceProto())
                 .build();
     }
 

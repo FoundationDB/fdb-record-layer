@@ -78,8 +78,8 @@ public class ExploreExpressionPlannerEvent extends AbstractPlannerEventWithState
     public PExploreExpressionPlannerEvent toProto() {
         return PExploreExpressionPlannerEvent.newBuilder()
                 .setSuper(toAbstractPlannerEventWithStateProto())
-                .setCurrentGroupReference(PlannerEvent.toReferenceProto(currentGroupReference))
-                .setExpression(PlannerEvent.toExpressionProto(expression))
+                .setCurrentGroupReference(currentGroupReference.toPlannerEventReferenceProto())
+                .setExpression(expression.toPlannerEventExpressionProto())
                 .build();
     }
 

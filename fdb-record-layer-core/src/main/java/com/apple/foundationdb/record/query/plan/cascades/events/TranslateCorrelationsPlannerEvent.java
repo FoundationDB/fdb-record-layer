@@ -70,7 +70,7 @@ public class TranslateCorrelationsPlannerEvent implements PlannerEvent {
     @Override
     public PTranslateCorrelationsPlannerEvent toProto() {
         return PTranslateCorrelationsPlannerEvent.newBuilder()
-                .setExpression(PlannerEvent.toExpressionProto(expression))
+                .setExpression(expression.toPlannerEventExpressionProto())
                 .setLocation(location.name())
                 .build();
     }

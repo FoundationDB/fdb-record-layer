@@ -88,7 +88,7 @@ public class TransformPlannerEvent extends AbstractPlannerEventWithState impleme
     public PTransformPlannerEvent toProto() {
         return PTransformPlannerEvent.newBuilder()
                 .setSuper(toAbstractPlannerEventWithStateProto())
-                .setCurrentGroupReference(PlannerEvent.toReferenceProto(currentGroupReference))
+                .setCurrentGroupReference(currentGroupReference.toPlannerEventReferenceProto())
                 .setBindable(PlannerEvent.toBindableProto(bindable))
                 .setRule(rule.toString())
                 .build();
