@@ -33,6 +33,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
@@ -104,7 +105,7 @@ public class SplitHelper {
      */
     public static void saveWithSplit(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
                                      @Nonnull final Tuple key, @Nonnull final byte[] serialized, @Nullable final FDBRecordVersion version) {
-        saveWithSplit(context, subspace, key, serialized, version, true, false, DefaultSplitKeyHelper.INSTANCE, false, null, null);
+        saveWithSplit(context, subspace, key, serialized, version, true, false, DefaultSplitKeyValueHelper.INSTANCE, false, null, null);
     }
 
     /**
@@ -124,7 +125,7 @@ public class SplitHelper {
     public static void saveWithSplit(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
                                      @Nonnull final Tuple key, @Nonnull final byte[] serialized, @Nullable final FDBRecordVersion version,
                                      final boolean splitLongRecords, final boolean omitUnsplitSuffix,
-                                     final SplitKeyHelper splitKeyHelper,
+                                     final SplitKeyValueHelper splitKeyHelper,
                                      final boolean clearBasedOnPreviousSizeInfo, @Nullable final FDBStoredSizes previousSizeInfo,
                                      @Nullable SizeInfo sizeInfo) {
         if (omitUnsplitSuffix && version != null) {
@@ -142,7 +143,7 @@ public class SplitHelper {
             }
             writeSplitRecord(context, subspace, key, serialized, splitKeyHelper, clearBasedOnPreviousSizeInfo, previousSizeInfo, sizeInfo);
         } else {
-            if (splitKeyHelper.clearBeforeWrite() && (splitLongRecords || previousSizeInfo == null || previousSizeInfo.isVersionedInline())) {
+            if (splitKeyHelper.shouldClearBeforeWrite() && (splitLongRecords || previousSizeInfo == null || previousSizeInfo.isVersionedInline())) {
                 clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
             }
             final Tuple recordKey;
@@ -158,18 +159,17 @@ public class SplitHelper {
                 sizeInfo.setSplit(false);
             }
         }
-        // TODO
         writeVersion(context, subspace, key, version, sizeInfo, splitKeyHelper);
     }
 
     @SuppressWarnings("PMD.CloseResource")
     private static void writeSplitRecord(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
                                          @Nonnull final Tuple key, @Nonnull final byte[] serialized,
-                                         final SplitKeyHelper splitKeyHelper,
+                                         final SplitKeyValueHelper splitKeyHelper,
                                          final boolean clearBasedOnPreviousSizeInfo, @Nullable final FDBStoredSizes previousSizeInfo,
                                          @Nullable SizeInfo sizeInfo) {
         final Subspace keySplitSubspace = subspace.subspace(key);
-        if (splitKeyHelper.clearBeforeWrite()) {
+        if (splitKeyHelper.shouldClearBeforeWrite()) {
             clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
         }
         long index = SplitHelper.START_SPLIT_RECORD;
@@ -197,20 +197,21 @@ public class SplitHelper {
 
     @SuppressWarnings("PMD.CloseResource")
     private static void writeVersion(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace, @Nonnull final Tuple key,
-                                     // TODO: Do we need?
-                                     @Nullable final FDBRecordVersion version, @Nullable final SizeInfo sizeInfo, final SplitKeyHelper splitKeyHelper) {
+                                     @Nullable final FDBRecordVersion version, @Nullable final SizeInfo sizeInfo, final SplitKeyValueHelper splitKeyHelper) {
         if (version == null) {
             if (sizeInfo != null) {
                 sizeInfo.setVersionedInline(false);
             }
             return;
         }
+        if (!splitKeyHelper.supportsVersionInValue()) {
+            throw new RecordCoreInternalException("Split version is not supported for this helper");
+        }
         final byte[] keyBytes = splitKeyHelper.packSplitKey(subspace, key.add(RECORD_VERSION));
         final byte[] valueBytes = packVersion(version);
         if (version.isComplete()) {
             splitKeyHelper.writeSplit(context, keyBytes, valueBytes);
         } else {
-            // TODO
             context.addVersionMutation(MutationType.SET_VERSIONSTAMPED_VALUE, keyBytes, valueBytes);
             context.addToLocalVersionCache(keyBytes, version.getLocalVersion());
         }
@@ -1175,27 +1176,6 @@ public class SplitHelper {
                 readLastKeyNanos = currentNanos;
                 LOGGER.trace(msg.toString());
             }
-        }
-    }
-
-    public static final class DefaultSplitKeyHelper implements SplitKeyHelper {
-        public static final DefaultSplitKeyHelper INSTANCE = new DefaultSplitKeyHelper();
-
-        @Override
-        public boolean clearBeforeWrite() {
-            return true;
-        }
-
-        @Override
-        public byte[] packSplitKey(final Subspace subspace, final Tuple key) {
-            return subspace.pack(key);
-        }
-
-        @Override
-        @SuppressWarnings("PMD.CloseResource")
-        public void writeSplit(final FDBRecordContext context, final byte[] keyBytes, final byte[] valueBytes) {
-            final Transaction tr = context.ensureActive();
-            tr.set(keyBytes, valueBytes);
         }
     }
 

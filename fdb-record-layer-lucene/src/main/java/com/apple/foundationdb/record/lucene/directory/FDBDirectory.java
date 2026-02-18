@@ -1053,7 +1053,7 @@ public class FDBDirectory extends Directory {
     }
 
     public PendingWriteQueue createPendingWritesQueue() {
-        return new PendingWriteQueue(pendingWritesQueueSubspace, maxPendingWritesToReplay);
+        return new PendingWriteQueue(pendingWritesQueueSubspace, maxPendingWritesToReplay, serializer);
     }
 
     public int getBlockCacheMaximumSize() {

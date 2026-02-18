@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -56,6 +57,7 @@ import com.apple.test.Tags;
 import com.google.common.collect.Streams;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -99,6 +101,13 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @Tag(Tags.RequiresFDB)
 public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
+    LuceneSerializer serializer;
+
+    @BeforeEach
+    void setup() {
+        serializer = new LuceneSerializer(true, false, null, true);
+    }
+
     @ParameterizedTest
     @EnumSource
     void testEnqueueAndIterate(LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType) {
@@ -106,7 +115,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         Assumptions.assumeFalse(operationType.equals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.OPERATION_TYPE_UNSPECIFIED));
 
         List<TestDocument> docs = createTestDocuments();
-        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
+        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())), serializer);
 
         try (FDBRecordContext context = openContext()) {
             docs.forEach(doc -> {
@@ -132,7 +141,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     void testEnqueueMultipleTransactions() {
         List<TestDocument> docs = createTestDocuments();
         List<TestDocument> moreDocs = createTestDocuments();
-        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
+        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())), serializer);
 
         try (FDBRecordContext context = openContext()) {
             docs.forEach(doc -> {
@@ -154,7 +163,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     @Test
     void testEnqueueAndDelete() {
         List<TestDocument> docs = createTestDocuments();
-        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
+        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())), serializer);
 
         try (FDBRecordContext context = openContext()) {
             docs.forEach(doc -> {
@@ -185,7 +194,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     @Test
     void testDeleteAll() {
         List<TestDocument> docs = createTestDocuments();
-        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
+        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())), serializer);
 
         try (FDBRecordContext context = openContext()) {
             docs.forEach(doc -> {
@@ -211,13 +220,13 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
 
     @Test
     void testIterateEmptyQueue() {
-        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
+        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())), serializer);
         assertQueueEntries(queue, Collections.emptyList(), LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT);
     }
 
     @Test
     void testWrongValueType() {
-        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
+        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())), serializer);
         final LuceneDocumentFromRecord.DocumentField fieldWithWrongType =
                 createField("f", 5, LuceneIndexExpressions.DocumentFieldType.STRING, true, true);
 
@@ -229,7 +238,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
 
     @Test
     void testUnsupportedFieldConfigType() {
-        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
+        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())), serializer);
         final LuceneDocumentFromRecord.DocumentField fieldWithWrongConfig =
                 createField("f", 5, LuceneIndexExpressions.DocumentFieldType.INT, true, true, Map.of("Double", 5.42D));
 
@@ -243,7 +252,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     void testIterateWithContinuations() {
         List<TestDocument> docs = createTestDocuments();
         List<TestDocument> moreDocs = createTestDocuments();
-        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
+        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())), serializer);
 
         try (FDBRecordContext context = openContext()) {
             docs.forEach(doc -> {
@@ -302,7 +311,7 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     @Test
     void testIsQueueEmpty() {
         List<TestDocument> docs = createTestDocuments();
-        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())));
+        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())), serializer);
 
         try (FDBRecordContext context = openContext()) {
             assertTrue(queue.isQueueEmpty(context).join());
@@ -320,6 +329,53 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
                 commit(context);
             }
         });
+    }
+
+    @Test
+    void testFailToSerialize() {
+        List<TestDocument> docs = createTestDocuments();
+        LuceneSerializer failingSerializer = new FailingLuceneSerializer();
+
+        PendingWriteQueue queue = new PendingWriteQueue(new Subspace(Tuple.from(UUID.randomUUID().toString())), failingSerializer);
+
+        try (FDBRecordContext context = openContext()) {
+            final TestDocument doc = docs.get(0);
+            Assertions.assertThatThrownBy(() -> queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields()))
+                    .isInstanceOf(RecordCoreInternalException.class)
+                    .hasMessageContaining("Failing to encode");
+
+            // Commit here should do nothing as the queue should still be empty
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(queue.isQueueEmpty(context).join(), "Expected isQueueEmpty to return true");
+            commit(context);
+        }
+    }
+
+    @Test
+    void testFailToDeserialize() {
+        List<TestDocument> docs = createTestDocuments();
+        LuceneSerializer failingSerializer = new FailingLuceneSerializer();
+
+        final Subspace queueSubspace = new Subspace(Tuple.from(UUID.randomUUID().toString()));
+        PendingWriteQueue queue = new PendingWriteQueue(queueSubspace, serializer);
+        PendingWriteQueue failingQueue = new PendingWriteQueue(queueSubspace, failingSerializer);
+
+        try (FDBRecordContext context = openContext()) {
+            final TestDocument doc = docs.get(0);
+            // save a single doc uasing the good queue
+            queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields());
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            RecordCursor<PendingWriteQueue.QueueEntry> queueCursor = failingQueue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null);
+            Assertions.assertThatThrownBy(() -> queueCursor.asList().get())
+                    .hasCauseInstanceOf(RecordCoreInternalException.class)
+                    .hasMessageContaining("Failing to decode");
+        }
     }
 
     @Test
@@ -1264,6 +1320,24 @@ public class PendingWriteQueueTest extends FDBRecordStoreTestBase {
 
         public List<LuceneDocumentFromRecord.DocumentField> getFields() {
             return fields;
+        }
+    }
+
+    private static class FailingLuceneSerializer extends LuceneSerializer {
+        public FailingLuceneSerializer() {
+            super(true, false, null, true);
+        }
+
+        @Nullable
+        @Override
+        public byte[] encode(@Nullable final byte[] data) {
+            throw new RecordCoreInternalException("Failing to encode");
+        }
+
+        @Nullable
+        @Override
+        public byte[] decode(@Nullable final byte[] data) {
+            throw new RecordCoreInternalException("Failing to decode");
         }
     }
 }

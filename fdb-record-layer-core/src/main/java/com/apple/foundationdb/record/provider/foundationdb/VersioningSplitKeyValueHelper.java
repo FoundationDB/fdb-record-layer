@@ -26,22 +26,51 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 
-public class VersioningSplitKeyHelper implements SplitKeyHelper {
+/**
+ * A {@link SplitKeyValueHelper} that is used when the Key contains a {@link Versionstamp}.
+ * <p>This implementation should be used when the key contains a version stamp, as it will ensure that the proper FDB APIs
+ * encode and decode the key correctly.</p>
+ * <p>This class is stateful (has a single {@link Versionstamp}) that is going to be used for all splits of a single K/V,
+ * so that all contain the same fixed part and can be correlated after the commit.</p>
+ * <p>The resulting FDB key looks like:</p>
+ * <pre>
+ *     [versionstamp, original-key, split-suffix]
+ * </pre>
+ * <p>which means that the entries are sorted by their insertion order (versionstamp order), then grouped by their
+ * split suffixes.</p>
+ */
+public class VersioningSplitKeyValueHelper implements SplitKeyValueHelper {
     private Versionstamp versionstamp;
 
-    public VersioningSplitKeyHelper(final Versionstamp versionstamp) {
+    public VersioningSplitKeyValueHelper(final Versionstamp versionstamp) {
         this.versionstamp = versionstamp;
     }
 
-    // Since the key has a version, no conflicts are expected, so no need to clean
+    /**
+     * No need to clear subspace.
+     * Since the key has a unique component (version), no conflicts are expected, so no need to clean before saving new splits.
+     * Furthermore, since the key contains a version stamp, we don't know the actual key contents ahead of committing
+     * the transaction, and so no clean can be done.
+     * @return false, as new keys should not interfere with old ones.
+     */
     @Override
-    public boolean clearBeforeWrite() {
+    public boolean shouldClearBeforeWrite() {
+        return false;
+    }
+
+    /**
+     * Since the key has versions, prevent the values from having them.
+     * @return false, since only keys or values are allowed to mutate in FDB, and this mutates the keys
+     */
+    @Override
+    public boolean supportsVersionInValue() {
         return false;
     }
 
     @Override
     public byte[] packSplitKey(final Subspace subspace, final Tuple key) {
         // This uses the same version (local and global for all the splits
+        // Use versionstamp first to ensure proper sorting and since split suffix should be at the end
         Tuple keyTuple = Tuple.from(versionstamp).addAll(key);
         return subspace.packWithVersionstamp(keyTuple);
     }

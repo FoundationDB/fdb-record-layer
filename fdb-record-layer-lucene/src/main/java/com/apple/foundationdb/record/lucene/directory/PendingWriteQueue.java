@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
-import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
@@ -41,8 +40,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
-import com.apple.foundationdb.record.provider.foundationdb.SplitKeyHelper;
-import com.apple.foundationdb.record.provider.foundationdb.VersioningSplitKeyHelper;
+import com.apple.foundationdb.record.provider.foundationdb.SplitKeyValueHelper;
+import com.apple.foundationdb.record.provider.foundationdb.VersioningSplitKeyValueHelper;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -93,6 +92,7 @@ public class PendingWriteQueue {
      * Default: 0 (unlimited)
      */
     private int maxEntriesToReplay;
+    private LuceneSerializer serializer;
 
     private final Subspace queueSubspace;
 
@@ -102,13 +102,14 @@ public class PendingWriteQueue {
      * @param queueSubspace the subspace for this partition's queue, should include the partition ID and grouping key,
      * as necessary
      */
-    public PendingWriteQueue(@Nonnull Subspace queueSubspace) {
-        this(queueSubspace, MAX_PENDING_ENTRIES_TO_REPLAY);
+    public PendingWriteQueue(@Nonnull Subspace queueSubspace, final LuceneSerializer serializer) {
+        this(queueSubspace, MAX_PENDING_ENTRIES_TO_REPLAY, serializer);
     }
 
-    public PendingWriteQueue(@Nonnull Subspace queueSubspace, int maxEntriesToReplay) {
+    public PendingWriteQueue(@Nonnull Subspace queueSubspace, int maxEntriesToReplay, LuceneSerializer serializer) {
         this.queueSubspace = queueSubspace;
         this.maxEntriesToReplay = maxEntriesToReplay;
+        this.serializer = serializer;
     }
 
     /**
@@ -167,7 +168,7 @@ public class PendingWriteQueue {
                 .setScanProperties(scanProperties)
                 .setContinuation(continuation)
                 .build();
-        return cursor.map(kv -> PendingWritesQueueHelper.toQueueEntry(queueSubspace, kv));
+        return cursor.map(kv -> PendingWritesQueueHelper.toQueueEntry(queueSubspace, serializer, kv));
     }
 
     /**
@@ -302,8 +303,8 @@ public class PendingWriteQueue {
         // Build key with incomplete versionStamp with a new local version
         FDBRecordVersion recordVersion = FDBRecordVersion.incomplete(context.claimLocalVersion());
         // Use the version in the key helper for all splits of the same entry
-        SplitKeyHelper keyHelper = new VersioningSplitKeyHelper(recordVersion.toVersionstamp());
-        byte[] value = builder.build().toByteArray();
+        SplitKeyValueHelper keyHelper = new VersioningSplitKeyValueHelper(recordVersion.toVersionstamp());
+        byte[] value = serializer.encode(builder.build().toByteArray());
         // save with splits
         SplitHelper.saveWithSplit(context, queueSubspace, TupleHelpers.EMPTY, value, null, true, false, keyHelper, false, null, null);
 
@@ -314,6 +315,7 @@ public class PendingWriteQueue {
             LOGGER.debug(getLogMessage("Enqueued operation")
                     .addKeyAndValue(LuceneLogMessageKeys.OPERATION_TYPE, operationType)
                     .addKeyAndValue(LogMessageKeys.SUBSPACE, queueSubspace)
+                    .addKeyAndValue(LogMessageKeys.VALUE_SIZE, value.length)
                     .toString());
         }
     }
