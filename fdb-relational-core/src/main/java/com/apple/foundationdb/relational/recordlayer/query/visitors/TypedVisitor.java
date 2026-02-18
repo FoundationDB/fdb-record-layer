@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
-import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.WindowSpecExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
@@ -270,9 +269,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     LogicalOperator visitQuery(@Nonnull RelationalParser.QueryContext ctx);
 
-    @Nonnull
+    @Nullable
     @Override
-    LogicalOperators visitCtes(RelationalParser.CtesContext ctx);
+    Void visitCtes(RelationalParser.CtesContext ctx);
 
     @Nonnull
     @Override

@@ -246,14 +246,14 @@ test_block:
         ]
       - initialVersionAtLeast: 4.9.1.0
       # Handled in following test case. There are three branches here: one where the initial version is less than 4.9.1.0,
-      # one where the initial version is between 4.9.1.0 and !current_version, and one where the initial version is greater
-      # than !current_version. This test case handles the first one, and the following one handles the latter two
+      # one where the initial version is between 4.9.1.0 and 4.10.1.0, and one where the initial version is greater
+      # than 4.10.1.0. This test case handles the first one, and the following one handles the latter two
     -
       - query: select "__ROW_VERSION" from (select * from t1) a;
       - supported_version: 4.9.1.0
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.10.1.0
       - error: 'XXXXX'
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.10.1.0
       - error: '42703'
     -
       # Do not include __ROW_VERSION (as a pseudo-column) in nested (*) without identifier
@@ -549,11 +549,11 @@ test_block:
                  from t1 as a, (select * from t2) b
                  where a.col2 = b.col1
       - explain: "ISCAN(I1 <,>) | FLATMAP q0 -> { ISCAN(T2_COL2 <,>) | FILTER q0.COL2 EQUALS _.COL1 AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _1, (q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS _2) }"
-      - initialVersionLessThan: !current_version
-      # Prior to !current_version, we did not keep track of which quantifiers actually had the version, so this would default to
+      - initialVersionLessThan: 4.10.1.0
+      # Prior to 4.10.1.0, we did not keep track of which quantifiers actually had the version, so this would default to
       # assuming that the row version column was ambiguous
       - error: '42702'
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.10.1.0
       - unorderedResult: [
           { '__ROW_VERSION': !not_null _, { ID: 1, COL1: 10, COL2: 1 }, { ID:  1, COL1: 1, COL2: 'a' } },
           { '__ROW_VERSION': !not_null _, { ID: 1, COL1: 10, COL2: 1 }, { ID:  5, COL1: 1, COL2: 'a' } },
@@ -575,7 +575,7 @@ test_block:
       - query: select t3."__ROW_VERSION" AS version3, t3.id AS id3, t4."__ROW_VERSION" AS version4, t4.id AS id4, t3.col2, t4.col4
            from t3, t4
            where t3.col1 = 'b' AND t4.col1 = 'b' AND t4.col2 = t3.col2
-      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { ISCAN(T4_COL2 [EQUALS q0.COL2]) | FILTER q0.COL1 EQUALS promote(@c42 AS STRING) AND _.COL1 EQUALS promote(@c42 AS STRING) AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }"
+      - explain: "COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c42 AS STRING) | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2 [EQUALS q0.COL2]) | FILTER _.COL1 EQUALS promote(@c42 AS STRING) AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }"
       - result: [
           { VERSION3: !not_null _, ID3:  3, VERSION4: !not_null _, ID4:  3, COL2: 1, COL4: [1] },
           { VERSION3: !not_null _, ID3:  3, VERSION4: !not_null _, ID4:  4, COL2: 1, COL4: [3, 4] },
@@ -595,7 +595,7 @@ test_block:
       - query: select t3."__ROW_VERSION" AS version3, t3.id AS id3, t4."__ROW_VERSION" AS version4, t4.id AS id4, t3.col2, t4.col4
            from t3, t4
            where t3.col1 = 'b' and t4.col1 = 'b' and t4.col2 = t3.col2 and exists (select 1 from t4.col4 x where x = 2)
-      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { ISCAN(T4_COL2_COL4 [EQUALS q0.COL2, EQUALS promote(@c70 AS LONG)]) | FILTER _.COL1 EQUALS promote(@c42 AS STRING) | FILTER q0.COL1 EQUALS promote(@c42 AS STRING) AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }"
+      - explain: "COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c42 AS STRING) | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2_COL4 [EQUALS q0.COL2, EQUALS promote(@c70 AS LONG)]) | FILTER _.COL1 EQUALS promote(@c42 AS STRING) AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }"
       - result: [
           { VERSION3: !not_null _, ID3:  3, VERSION4: !not_null _, ID4: 15, COL2: 1, COL4: [1, 2, 3] },
           { VERSION3: !not_null _, ID3:  3, VERSION4: !not_null _, ID4: 16, COL2: 1, COL4: [2, 5] },
@@ -607,7 +607,7 @@ test_block:
       - query: select t3.id AS id3, t4."__ROW_VERSION" AS version4, t4.id AS id4, t3.col2, t4.col4
            from t3, t4
            where t3.col1 = 'b' and t4.col1 = 'b' and t4.col2 = t3.col2 and exists (select 1 from t4.col4 x where x = 2)
-      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { ISCAN(T4_COL2_COL4 [EQUALS q0.COL2, EQUALS promote(@c64 AS LONG)]) | FILTER _.COL1 EQUALS promote(@c36 AS STRING) | FILTER q0.COL1 EQUALS promote(@c36 AS STRING) AS q1 RETURN (q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }"
+      - explain: "COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c36 AS STRING) | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2_COL4 [EQUALS q0.COL2, EQUALS promote(@c64 AS LONG)]) | FILTER _.COL1 EQUALS promote(@c36 AS STRING) AS q1 RETURN (q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }"
       - result: [
           { ID3:  3, VERSION4: !not_null _, ID4: 15, COL2: 1, COL4: [1, 2, 3] },
           { ID3:  3, VERSION4: !not_null _, ID4: 16, COL2: 1, COL4: [2, 5] },
@@ -619,7 +619,7 @@ test_block:
       - query: select a.version AS version3, a.r.id AS id3, b.version AS version4, b.r.id AS id4, a.r.col2, b.r.col4
            from t3_by_col1('b') a, t4_by_col1('b') b
            where 2 in b.r.col4 and b.r.col2 = a.r.col2
-      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { ISCAN(T4_COL2 [EQUALS q0.COL2]) | FILTER q0.COL1 EQUALS promote(@c44 AS STRING) AND _.COL1 EQUALS promote(@c44 AS STRING) AND promote(@c54 AS LONG) IN _.COL4 AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }"
+      - explain: "COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c44 AS STRING) | FETCH | FLATMAP q0 -> { ISCAN(T4_COL2 [EQUALS q0.COL2]) | FILTER _.COL1 EQUALS promote(@c44 AS STRING) AND promote(@c54 AS LONG) IN _.COL4 AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }"
       - result: [
           { VERSION3: !not_null _, ID3:  3, VERSION4: !not_null _, ID4: 15, COL2: 1, COL4: [1, 2, 3] },
           { VERSION3: !not_null _, ID3:  3, VERSION4: !not_null _, ID4: 16, COL2: 1, COL4: [2, 5] },
@@ -671,8 +671,8 @@ test_block:
       - query: select (t2.*), (t3.*)
            from t2, t3
            where t2.col2 = 'b' and t3.col1 = 'b'
-      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { COVERING(T2_COL2 [EQUALS promote(@c22 AS STRING)] -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER q0.COL1 EQUALS promote(@c22 AS STRING) | FETCH AS q1 RETURN ((q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS _0, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _1) }"
-      - result: [
+      - explain: "ISCAN(T2_COL2 [EQUALS promote(@c22 AS STRING)]) | FLATMAP q0 -> { COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c22 AS STRING) | FETCH AS q1 RETURN ((q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _0, (q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS _1) }"
+      - unorderedResult: [
           { { ID:  3, COL1: 1, COL2: 'b' }, { ID:  3, COL1: 'b', COL2: 1 } },
           { { ID:  4, COL1: 2, COL2: 'b' }, { ID:  3, COL1: 'b', COL2: 1 } },
           { { ID:  7, COL1: 3, COL2: 'b' }, { ID:  3, COL1: 'b', COL2: 1 } },
@@ -715,30 +715,30 @@ test_block:
            from t2, t3
            where t2.col2 = 'b' and t3.col1 = 'b'
            and t2."__ROW_VERSION" > t3."__ROW_VERSION"
-      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { ISCAN(T2_COL2 [EQUALS promote(@c22 AS STRING)]) | FILTER q0.COL1 EQUALS promote(@c22 AS STRING) AND _.__ROW_VERSION GREATER_THAN q0.__ROW_VERSION AS q1 RETURN ((q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS _0, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _1) }"
-      - initialVersionLessThan: !current_version
-      # Prior to !current_version, the two row version predicates would be transformed incorrectly so that they were
+      - explain: "ISCAN(T2_COL2 [EQUALS promote(@c22 AS STRING)]) | FLATMAP q0 -> { ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL1 EQUALS promote(@c22 AS STRING) AND q0.__ROW_VERSION GREATER_THAN _.__ROW_VERSION AS q1 RETURN ((q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _0, (q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS _1) }"
+      - initialVersionLessThan: 4.10.1.0
+      # Prior to 4.10.1.0, the two row version predicates would be transformed incorrectly so that they were
       # evaluated twice on the same record (i.e., `version([_]) > version([_])`) which is a contradiction, so we
       # would not get any results.
       - result: []
-      - initialVersionAtLeast: !current_version
-      - result: [
-          { { ID:  4, COL1: 2, COL2: 'b' }, {ID:  3, COL1: 'b', COL2: 1 } } ,
-          { { ID:  8, COL1: 4, COL2: 'b' }, {ID:  3, COL1: 'b', COL2: 1 } } ,
-          { { ID: 12, COL1: 4, COL2: 'b' }, {ID:  3, COL1: 'b', COL2: 1 } } ,
-          { { ID:  4, COL1: 2, COL2: 'b' }, {ID:  7, COL1: 'b', COL2: 3 } } ,
-          { { ID:  8, COL1: 4, COL2: 'b' }, {ID:  7, COL1: 'b', COL2: 3 } } ,
-          { { ID: 12, COL1: 4, COL2: 'b' }, {ID:  7, COL1: 'b', COL2: 3 } } ,
-          { { ID:  4, COL1: 2, COL2: 'b' }, {ID: 11, COL1: 'b', COL2: 3 } } ,
-          { { ID:  8, COL1: 4, COL2: 'b' }, {ID: 11, COL1: 'b', COL2: 3 } } ,
-          { { ID: 12, COL1: 4, COL2: 'b' }, {ID: 11, COL1: 'b', COL2: 3 } } ,
+      - initialVersionAtLeast: 4.10.1.0
+      - unorderedResult: [
+         { { ID:  4, COL1: 2, COL2: 'b' }, { ID:  3, COL1: 'b', COL2: 1 } },
+         { { ID:  4, COL1: 2, COL2: 'b' }, { ID:  7, COL1: 'b', COL2: 3 } },
+         { { ID:  4, COL1: 2, COL2: 'b' }, { ID: 11, COL1: 'b', COL2: 3 } },
+         { { ID:  8, COL1: 4, COL2: 'b' }, { ID:  3, COL1: 'b', COL2: 1 } },
+         { { ID:  8, COL1: 4, COL2: 'b' }, { ID:  7, COL1: 'b', COL2: 3 } },
+         { { ID:  8, COL1: 4, COL2: 'b' }, { ID: 11, COL1: 'b', COL2: 3 } },
+         { { ID: 12, COL1: 4, COL2: 'b' }, { ID:  3, COL1: 'b', COL2: 1 } },
+         { { ID: 12, COL1: 4, COL2: 'b' }, { ID:  7, COL1: 'b', COL2: 3 } },
+         { { ID: 12, COL1: 4, COL2: 'b' }, { ID: 11, COL1: 'b', COL2: 3 } },
         ]
     -
       # Join two TVFs with row versions projected through
       - query: select (A.*), (B.*)
            from t2_v(2) as A, t3_v(2) as B
            where A.col2 = B.col1
-      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { ISCAN(T2_COL2 [EQUALS q0.COL1]) | FILTER _.COL1 EQUALS promote(@c16 AS LONG) AND q0.COL2 EQUALS promote(@c16 AS LONG) AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS _0, (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _1) }"
+      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c16 AS LONG) | FLATMAP q0 -> { ISCAN(T2_COL2 [EQUALS q0.COL1]) | FILTER _.COL1 EQUALS promote(@c16 AS LONG) AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS _0, (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS _1) }"
       - result: [
           { { '__ROW_VERSION': !not_null _, ID: 4, COL1: 2, COL2: 'b' }, { '__ROW_VERSION': !not_null _, ID: 4, COL1: 'b', COL2: 2 } },
           { { '__ROW_VERSION': !not_null _, ID: 2, COL1: 2, COL2: 'a' }, { '__ROW_VERSION': !not_null _, ID: 1, COL1: 'a', COL2: 2 } },
@@ -751,10 +751,10 @@ test_block:
       - query: select (A.*) as A, (B.*) as B, (C.*) as C
            from t2_v(2) as A, t3_v(2) as B, t4_v(2) as C
            where A.col2 = B.col1 AND B.col1 = C.col1
-      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q0 -> { ISCAN(T3_VERSION_WITH_COL1 <,>) | FLATMAP q1 -> { ISCAN(T2_COL2 [EQUALS q1.COL1]) | FILTER _.COL1 EQUALS promote(@c28 AS LONG) AND q1.COL2 EQUALS promote(@c28 AS LONG) AND q1.COL1 EQUALS q0.COL1 AS q2 RETURN (q2 AS _0, q1 AS _1) } | FILTER q0.COL2 EQUALS promote(@c28 AS LONG) AS q3 RETURN ((q3._0.__ROW_VERSION AS __ROW_VERSION, q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.COL2 AS COL2) AS A, (q3._1.__ROW_VERSION AS __ROW_VERSION, q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2) AS B, (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS C) }"
-      - initialVersionLessThan: !current_version
+      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c28 AS LONG) | FLATMAP q0 -> { ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c28 AS LONG) AND q0.COL1 EQUALS _.COL1 | FLATMAP q1 -> { ISCAN(T2_COL2 [EQUALS q0.COL1]) | FILTER _.COL1 EQUALS promote(@c28 AS LONG) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q3._0.__ROW_VERSION AS __ROW_VERSION, q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.COL2 AS COL2) AS A, (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS B, (q3._1.__ROW_VERSION AS __ROW_VERSION, q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2) AS C) }"
+      - initialVersionLessThan: 4.10.1.0
       - error: 'XXXXX'
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.10.1.0
       - unorderedResult: [
           { A: { '__ROW_VERSION': !not_null _, ID: 4, COL1: 2, COL2: 'b' }, B: { '__ROW_VERSION': !not_null _, ID: 4, COL1: 'b', COL2: 2 }, C: { '__ROW_VERSION': !not_null _, ID: 4, COL1: 'b', COL2: 2 } },
           { A: { '__ROW_VERSION': !not_null _, ID: 2, COL1: 2, COL2: 'a' }, B: { '__ROW_VERSION': !not_null _, ID: 1, COL1: 'a', COL2: 2 }, C: { '__ROW_VERSION': !not_null _, ID: 1, COL1: 'a', COL2: 2 } },

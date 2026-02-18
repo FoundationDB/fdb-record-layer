@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
-import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.WindowSpecExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
@@ -474,9 +473,9 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitQuery(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
-    public LogicalOperators visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
+    public Void visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
         return getDelegate().visitCtes(ctx);
     }
 
