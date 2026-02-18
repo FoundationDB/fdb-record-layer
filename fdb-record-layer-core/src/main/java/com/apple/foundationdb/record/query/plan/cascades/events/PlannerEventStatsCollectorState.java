@@ -30,7 +30,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -140,9 +139,9 @@ class PlannerEventStatsCollectorState {
     @Nonnull
     PlannerEventStatsMaps getStatsMaps() {
         return new PlannerEventStatsMaps(
-                Collections.unmodifiableMap(eventWithoutStateClassStatsMap),
-                Collections.unmodifiableMap(eventWithStateClassStatsMapByPlannerPhase),
-                Collections.unmodifiableMap(plannerRuleClassStatsMap));
+                eventWithoutStateClassStatsMap,
+                eventWithStateClassStatsMapByPlannerPhase,
+                plannerRuleClassStatsMap);
     }
 
 

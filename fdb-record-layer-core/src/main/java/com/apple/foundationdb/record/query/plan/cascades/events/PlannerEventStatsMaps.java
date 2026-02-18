@@ -26,13 +26,14 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
- * This class stores statistics for {@link PlannerEvent}s emitted during the planning of a query by the
+ * This class stores a immutable snapshot of statistics for {@link PlannerEvent}s emitted during the planning of a query by the
  * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}, and provides
  * different ways to access these statistics: by planner event type (i.e. one of {@link PlannerEvent} implementations),
  * {@link PlannerPhase} and {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRule}.
@@ -55,13 +56,13 @@ public class PlannerEventStatsMaps {
     private final Supplier<Map<Class<? extends CascadesRule<?>>, PlannerEventStats>> immutablePlannerRuleClassStatsMapSupplier;
 
 
-    public PlannerEventStatsMaps(@Nonnull final Map<Class<? extends PlannerEvent>, ? extends PlannerEventStats> eventWithoutStateClassStatsMap,
-                                 @Nonnull final Map<PlannerPhase, Map<Class<? extends PlannerEventWithState>, ? extends PlannerEventStats>> eventWithStateClassStatsByPlannerPhaseMap,
-                                 @Nonnull final Map<Class<? extends CascadesRule<?>>, ? extends PlannerEventStats> plannerRuleClassStatsMap) {
+    public <T extends PlannerEventStats> PlannerEventStatsMaps(@Nonnull final Map<Class<? extends PlannerEvent>, T> eventWithoutStateClassStatsMap,
+                                 @Nonnull final Map<PlannerPhase, Map<Class<? extends PlannerEventWithState>, T>> eventWithStateClassStatsByPlannerPhaseMap,
+                                 @Nonnull final Map<Class<? extends CascadesRule<?>>, T> plannerRuleClassStatsMap) {
 
-        this.eventWithoutStateClassStatsMap = eventWithoutStateClassStatsMap;
-        this.eventWithStateClassStatsByPlannerPhaseMap = eventWithStateClassStatsByPlannerPhaseMap;
-        this.plannerRuleClassStatsMap = plannerRuleClassStatsMap;
+        this.eventWithoutStateClassStatsMap = Collections.unmodifiableMap(eventWithoutStateClassStatsMap);
+        this.eventWithStateClassStatsByPlannerPhaseMap = Collections.unmodifiableMap(eventWithStateClassStatsByPlannerPhaseMap);
+        this.plannerRuleClassStatsMap = Collections.unmodifiableMap(plannerRuleClassStatsMap);
 
         this.immutableEventClassStatsMapSupplier = Suppliers.memoize(this::computeImmutableEventClassStatsMap);
         this.immutableEventWithoutStateClassStatsMapSupplier = Suppliers.memoize(this::computeImmutableEventWithoutStateClassStatsMap);
