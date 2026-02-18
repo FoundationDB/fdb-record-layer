@@ -540,7 +540,7 @@ class CommandsTest {
                 Collections.emptyList(),
                 Traversal.withRoot(Reference.empty()),
                 Collections.emptyList(),
-                Type.noneType(),
+                Type.Record.erased(),
                 CorrelationIdentifier.of("idx1"),
                 Collections.emptyList(),
                 Collections.emptyList(),
