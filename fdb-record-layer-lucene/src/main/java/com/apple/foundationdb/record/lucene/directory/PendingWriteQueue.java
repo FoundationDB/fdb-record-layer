@@ -231,7 +231,7 @@ public class PendingWriteQueue {
         // There is no need to replay with a continuation as all the replayed items need to make it into the
         // current writer in the given transaction to be queried
         return getQueueCursor(context, scanProperties, null).forEachResult(entry -> {
-            replayOperation(context, entry.get(), indexWriter, index);
+            replayOperation(entry.get(), indexWriter, index);
         }).thenAccept(lastResult -> {
             if (lastResult.getNoNextReason().equals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED)) {
                 // Reached the row limit
@@ -243,7 +243,7 @@ public class PendingWriteQueue {
     /**
      * Replay a single queued operation directly to the IndexWriter.
      */
-    private void replayOperation(FDBRecordContext context, @Nonnull QueueEntry entry, @Nonnull IndexWriter indexWriter, @Nonnull Index index) {
+    private void replayOperation(@Nonnull QueueEntry entry, @Nonnull IndexWriter indexWriter, @Nonnull Index index) {
         LucenePendingWriteQueueProto.PendingWriteItem.OperationType opType = entry.getOperationType();
 
         try {
@@ -251,7 +251,7 @@ public class PendingWriteQueue {
             switch (opType) {
                 case INSERT:
                     List<LuceneDocumentFromRecord.DocumentField> fields = PendingWritesQueueHelper.fromProtoFields(entry.getDocumentFields());
-                    LuceneIndexMaintainerHelper.writeDocument(context, indexWriter, index, primaryKey, fields);
+                    LuceneIndexMaintainerHelper.writeDocument(indexWriter, index, primaryKey, fields);
                     break;
 
                 case DELETE:
