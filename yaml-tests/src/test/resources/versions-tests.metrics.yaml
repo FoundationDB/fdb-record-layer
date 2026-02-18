@@ -626,13 +626,13 @@ versions-queries:
     explain: '[IN arrayDistinct(promote(@c14 AS ARRAY(LONG))) SORTED] | INJOIN q0
         -> { ISCAN(T4_COL3_VERSION [EQUALS q0]) | MAP (_.__ROW_VERSION AS __ROW_VERSION,
         _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }'
-    task_count: 886
-    task_total_time_ms: 34
-    transform_count: 267
-    transform_time_ms: 9
-    transform_yield_count: 74
+    task_count: 813
+    task_total_time_ms: 41
+    transform_count: 257
+    transform_time_ms: 16
+    transform_yield_count: 70
     insert_time_ms: 0
-    insert_new_count: 103
+    insert_new_count: 85
     insert_reused_count: 3
 -   query: EXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1,
         3, 5) order by col3 asc, "__ROW_VERSION" desc
@@ -640,13 +640,13 @@ versions-queries:
     explain: '[IN arrayDistinct(promote(@c14 AS ARRAY(LONG))) SORTED] | INJOIN q0
         -> { ISCAN(T4_COL3_VERSION [EQUALS q0] REVERSE) | MAP (_.__ROW_VERSION AS
         __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }'
-    task_count: 512
-    task_total_time_ms: 43
-    transform_count: 191
-    transform_time_ms: 26
-    transform_yield_count: 55
-    insert_time_ms: 0
-    insert_new_count: 42
+    task_count: 490
+    task_total_time_ms: 35
+    transform_count: 188
+    transform_time_ms: 18
+    transform_yield_count: 53
+    insert_time_ms: 1
+    insert_new_count: 35
     insert_reused_count: 1
 -   query: EXPLAIN select (t2.*), (t3.*) from t2, t3 where t2.col2 = 'b' and t3.col1
         = 'b'

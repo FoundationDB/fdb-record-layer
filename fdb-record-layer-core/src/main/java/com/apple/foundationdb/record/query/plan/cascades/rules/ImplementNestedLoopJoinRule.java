@@ -21,22 +21,33 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartitions;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.google.common.base.Function;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -46,11 +57,12 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitionsTo;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.canBeImplemented;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
@@ -70,7 +82,7 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
 
     @Nonnull
     private static final BindingMatcher<Reference> outerReferenceMatcher =
-            planPartitions(rollUpPartitions(all(outerPlanPartitionsMatcher)));
+            planPartitions(rollUpPartitionsTo(all(outerPlanPartitionsMatcher), ImmutableSet.of(OrderingProperty.ordering(), CardinalitiesProperty.cardinalities())));
     @Nonnull
     private static final BindingMatcher<Quantifier> outerQuantifierMatcher = anyQuantifierOverRef(outerReferenceMatcher);
     @Nonnull
@@ -78,7 +90,7 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(rollUpPartitions(all(innerPlanPartitionsMatcher)));
+            planPartitions(rollUpPartitionsTo(all(innerPlanPartitionsMatcher), OrderingProperty.ordering()));
     @Nonnull
     private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(innerReferenceMatcher);
     @Nonnull
@@ -107,9 +119,6 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
 
         final var outerReference = bindings.get(outerReferenceMatcher);
         final var innerReference = bindings.get(innerReferenceMatcher);
-
-        final var outerPartition = bindings.get(outerPlanPartitionsMatcher);
-        final var innerPartition = bindings.get(innerPlanPartitionsMatcher);
 
         final var joinName = Debugger.mapDebugger(debugger -> debugger.nameForObject(call.getRoot()) + "[" + debugger.nameForObject(selectExpression) + "]: " + outerQuantifier.getAlias() + " ⨝ " + innerQuantifier.getAlias()).orElse("not in debug mode");
         Debugger.withDebugger(debugger -> logger.debug(KeyValueLogMessage.of("attempting join", "joinedTables", joinName, "requestedOrderings", requestedOrderings)));
@@ -158,44 +167,155 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
         final List<QueryPredicate> outerPredicates = outerPredicatesBuilder.build();
         final List<QueryPredicate> outerInnerPredicates = outerInnerPredicatesBuilder.build();
 
-        var outerRef = call.memoizeMemberPlansFromOther(outerReference, outerPartition.getPlans());
+        //
+        // The ordering of the flat map is based on the outer, unless the outer has max cardinality one, in
+        // which case it is based on the inner separate out the outer plan partitions to handle those two
+        // cases
+        //
+        final NonnullPair<List<PlanPartition>, List<PlanPartition>> outerPlanPartitionsByCardinality =
+                separateByMaxCardinalityOne(outerQuantifier, bindings.getAll(outerPlanPartitionsMatcher));
+        final List<PlanPartition> outerMaxCardinalityOnePartitions = outerPlanPartitionsByCardinality.getLeft();
+        final List<PlanPartition> outerMaxCardinalityNonOnePartitions = outerPlanPartitionsByCardinality.getRight();
 
-        if (outerQuantifier instanceof Quantifier.Existential) {
-            outerRef = call.memoizePlan(
-                    new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef),
-                            new NullValue(outerQuantifier.getFlowedObjectType())));
-        }  else if (outerQuantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)outerQuantifier).isNullOnEmpty()) {
-            outerRef = call.memoizePlan(
+        //
+        // If we care about the ordering, we want to return one plan for each combination of inner and
+        // outer ordering so that we preserve any plan that may match our requested ordering.
+        // If we don't care about the ordering, we want to roll up all the child partitions so that
+        // we only produce one plan
+        //
+        for (RequestedOrdering requestedOrdering : requestedOrderings) {
+            // Case 1: Ordering is based on the inner
+            for (PlanPartition outerPlanPartition : outerMaxCardinalityOnePartitions) {
+                final Quantifier.Physical newOuterQuantifier = planPartitionToPhysical(call, outerQuantifier, outerReference, outerPredicates, outerPlanPartition);
+                for (PlanPartition innerPlanPartition : rollUpIfSatisfyOrdering(requestedOrdering, innerQuantifier, bindings.getAll(innerPlanPartitionsMatcher), Ordering.empty(),
+                        o -> pullUpOrderingFromSelectChild(o, selectExpression, innerAlias))) {
+                    final Quantifier.Physical newInnerQuantifier = planPartitionToPhysical(call, innerQuantifier, innerReference, outerInnerPredicates, innerPlanPartition);
+                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
+                }
+            }
+
+            // Case 2: Ordering is based on the outer
+            final NonnullPair<List<PlanPartition>, Map<Ordering, PlanPartition>> satisfyingAndDistinctOuters = partitionOuterBySatisfyingAndDistinct(
+                    requestedOrdering, outerMaxCardinalityNonOnePartitions,
+                    o -> pullUpOrderingFromSelectChild(o, selectExpression, outerAlias));
+
+            // Case 2a: Non-distinct ordering means that the ordering is based solely on the outer. Roll up the inners and return an outer which must satisfy the ordering
+            for (PlanPartition outerPlanPartition : satisfyingAndDistinctOuters.getLeft()) {
+                final Quantifier.Physical newOuterQuantifier = planPartitionToPhysical(call, outerQuantifier, outerReference, outerPredicates, outerPlanPartition);
+                for (PlanPartition innerPlanPartition : PlanPartitions.rollUpTo(bindings.getAll(innerPlanPartitionsMatcher), ImmutableSet.of())) {
+                    final Quantifier.Physical newInnerQuantifier = planPartitionToPhysical(call, innerQuantifier, innerReference, outerInnerPredicates, innerPlanPartition);
+                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
+                }
+            }
+
+            // Case 2b: Distinct outer ordering means that the ordering is based on the outer and the inner together. Find the
+            // inner values which produce a valid ordering
+            for (Map.Entry<Ordering, PlanPartition> distinctOrderingAndOuter : satisfyingAndDistinctOuters.getRight().entrySet()) {
+                final Ordering outerOrdering = distinctOrderingAndOuter.getKey();
+                final PlanPartition outerPlanPartition = distinctOrderingAndOuter.getValue();
+                final Quantifier.Physical newOuterQuantifier = planPartitionToPhysical(call, outerQuantifier, outerReference, outerPredicates, outerPlanPartition);
+                for (PlanPartition innerPlanPartition : rollUpIfSatisfyOrdering(requestedOrdering, innerQuantifier, bindings.getAll(innerPlanPartitionsMatcher), outerOrdering,
+                        o -> pullUpOrderingFromSelectChild(o, selectExpression, innerAlias))) {
+                    final Quantifier.Physical newInnerQuantifier = planPartitionToPhysical(call, innerQuantifier, innerReference, outerInnerPredicates, innerPlanPartition);
+                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
+                }
+            }
+        }
+    }
+
+    @Nonnull
+    private Ordering pullUpOrderingFromSelectChild(@Nonnull Ordering ordering, @Nonnull SelectExpression selectExpression, @Nonnull CorrelationIdentifier childAlias) {
+        return ordering.pullUp(selectExpression.getResultValue(), EvaluationContext.empty(), AliasMap.ofAliases(childAlias, Quantifier.current()), selectExpression.getResultValue().getCorrelatedTo());
+    }
+
+    @Nonnull
+    private NonnullPair<List<PlanPartition>, List<PlanPartition>> separateByMaxCardinalityOne(@Nonnull Quantifier quantifier, @Nonnull List<PlanPartition> planPartitions) {
+        if (quantifier instanceof Quantifier.Existential) {
+            // Existential quantifiers always have an effective cardinality of exactly one. Group all the plans together in the max-cardinality-one bucket
+            return NonnullPair.of(PlanPartitions.rollUpTo(planPartitions, ImmutableSet.of()), ImmutableList.of());
+        }
+
+        //
+        // Separate out the plans with max cardinality one from the other plans
+        //
+        final ImmutableList.Builder<PlanPartition> maxCardinalityOnePartitions = ImmutableList.builderWithExpectedSize(planPartitions.size());
+        final ImmutableList.Builder<PlanPartition> maxCardinalityNonOnePartitions = ImmutableList.builderWithExpectedSize(planPartitions.size());
+        for (PlanPartition planPartition : planPartitions) {
+            final CardinalitiesProperty.Cardinality partitionMaxCardinality = planPartition.getPartitionPropertyValue(CardinalitiesProperty.cardinalities()).getMaxCardinality();
+            if (!partitionMaxCardinality.isUnknown() && partitionMaxCardinality.getCardinality() == 1L) {
+                maxCardinalityOnePartitions.add(planPartition);
+            } else {
+                maxCardinalityNonOnePartitions.add(planPartition);
+            }
+        }
+
+        return NonnullPair.of(
+                // The ones with max cardinality 1 we want to collapse into a single plan partition, as the order of the
+                // final plan will depend only on the inner plan's order, so we don't need to keep the outer plans segmented
+                PlanPartitions.rollUpTo(maxCardinalityOnePartitions.build(), ImmutableSet.of()),
+                // The ones with higher max cardinality need to be segmented by ordering. We can, however, group the plans with
+                // different cardinalities back together.
+                PlanPartitions.rollUpTo(maxCardinalityNonOnePartitions.build(), ImmutableSet.of(OrderingProperty.ordering()))
+        );
+    }
+
+    @Nonnull
+    private List<PlanPartition> rollUpIfSatisfyOrdering(@Nonnull final RequestedOrdering requestedOrdering, @Nonnull Quantifier quantifier, @Nonnull List<PlanPartition> planPartitions, @Nonnull Ordering prefix, @Nonnull Function<Ordering, Ordering> pullUpFn) {
+        final ImmutableList.Builder<PlanPartition> satisfyingOrdering = ImmutableList.builderWithExpectedSize(planPartitions.size());
+        for (PlanPartition planPartition : planPartitions) {
+            final Ordering pulledUpOrdering = quantifier instanceof Quantifier.Existential ? Ordering.empty() : pullUpFn.apply(planPartition.getPartitionPropertyValue(OrderingProperty.ordering()));
+            final Ordering ordering = prefix.isEmpty() ? pulledUpOrdering : Ordering.concatOrderings(prefix, pulledUpOrdering);
+            if (ordering.satisfies(requestedOrdering)) {
+                satisfyingOrdering.add(planPartition);
+            }
+        }
+        if (requestedOrdering.isExhaustive()) {
+            // We want all unique orderings. Return the entire thing
+            return satisfyingOrdering.build();
+        } else {
+            // We don't care about the individual orderings as long as they satisfy things, so roll up the plans
+            return PlanPartitions.rollUpTo(satisfyingOrdering.build(), ImmutableSet.of());
+        }
+    }
+
+    @Nonnull
+    private NonnullPair<List<PlanPartition>, Map<Ordering, PlanPartition>> partitionOuterBySatisfyingAndDistinct(@Nonnull final RequestedOrdering requestedOrdering, @Nonnull List<PlanPartition> planPartitions, @Nonnull Function<Ordering, Ordering> pullUpFn) {
+        final ImmutableList.Builder<PlanPartition> satisfyingOrderings = ImmutableList.builderWithExpectedSize(planPartitions.size());
+        final LinkedIdentityMap<Ordering, PlanPartition> distinctPartitionsByOrdering = new LinkedIdentityMap<>();
+
+        for (PlanPartition planPartition : planPartitions) {
+            final Ordering pulledUpOrdering = pullUpFn.apply(planPartition.getPartitionPropertyValue(OrderingProperty.ordering()));
+            if (pulledUpOrdering.satisfies(requestedOrdering)) {
+                satisfyingOrderings.add(planPartition);
+            } else if (pulledUpOrdering.isDistinct()) {
+                distinctPartitionsByOrdering.put(pulledUpOrdering, planPartition);
+            }
+        }
+
+        final List<PlanPartition> finalSatisfying = requestedOrdering.isDistinct() ? satisfyingOrderings.build() : PlanPartitions.rollUpTo(satisfyingOrderings.build(), ImmutableSet.of());
+        return NonnullPair.of(finalSatisfying, distinctPartitionsByOrdering);
+    }
+
+    @Nonnull
+    private Quantifier.Physical planPartitionToPhysical(@Nonnull ImplementationCascadesRuleCall call, @Nonnull Quantifier quantifier, @Nonnull Reference reference, @Nonnull List<QueryPredicate> predicates, @Nonnull PlanPartition planPartition) {
+        var ref = call.memoizeMemberPlansFromOther(reference, planPartition.getPlans());
+
+        if (quantifier instanceof Quantifier.Existential) {
+            ref = call.memoizePlan(
+                    new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(quantifier.getAlias()).build(ref),
+                            new NullValue(quantifier.getFlowedObjectType())));
+        }  else if (quantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)quantifier).isNullOnEmpty()) {
+            ref = call.memoizePlan(
                     new RecordQueryDefaultOnEmptyPlan(
-                            Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef),
-                            new NullValue(outerQuantifier.getFlowedObjectType())));
+                            Quantifier.physicalBuilder().withAlias(quantifier.getAlias()).build(ref),
+                            new NullValue(quantifier.getFlowedObjectType())));
         }
 
-        if (!outerPredicates.isEmpty()) {
-            // create a new quantifier using a new alias
-            final var newOuterLowerQuantifier = Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef);
-            outerRef = call.memoizePlan(new RecordQueryPredicatesFilterPlan(newOuterLowerQuantifier, outerPredicates));
+        if (!predicates.isEmpty()) {
+            final var newLowerQuantifier = Quantifier.physicalBuilder().withAlias(quantifier.getAlias()).build(ref);
+            ref = call.memoizePlan(new RecordQueryPredicatesFilterPlan(newLowerQuantifier, predicates));
         }
 
-        final var newOuterQuantifier =
-                Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef);
-
-        var innerRef =
-                call.memoizeMemberPlansFromOther(innerReference, innerPartition.getPlans());
-
-        if (innerQuantifier instanceof Quantifier.Existential) {
-            innerRef = call.memoizePlan(new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef),
-                    new NullValue(innerQuantifier.getFlowedObjectType())));
-        }
-
-        if (!outerInnerPredicates.isEmpty()) {
-            final var newInnerLowerQuantifier = Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef);
-            innerRef = call.memoizePlan(new RecordQueryPredicatesFilterPlan(newInnerLowerQuantifier, outerInnerPredicates));
-        }
-
-        final var newInnerQuantifier = Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef);
-
-        call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier,
-                selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
+        return Quantifier.physicalBuilder().withAlias(quantifier.getAlias()).build(ref);
     }
 }

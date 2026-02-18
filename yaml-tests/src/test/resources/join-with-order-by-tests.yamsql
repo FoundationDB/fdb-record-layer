@@ -336,6 +336,42 @@ test_block:
           { id: 1004, a1: 1, a2: 13, a3: "b" },
         ]
 
+    -
+      - query: select t1.*
+                from t1
+               where exists (select 1 from t2 where t2.b2 = t1.a2 + 9)
+                 and t1.a1 = 1
+               order by t1.a2 desc
+      # Existential implementation must go in the inner as it is correlated to the outer. The order of the inner plan should not disrupt the outer here
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c11 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1 <,>) | FILTER _.b2 EQUALS q0.a2 + @c23 | MAP (@c11 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) AS q1 RETURN (q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }"
+      - result: [
+          { id: 1002, a1: 1, a2: 11, a3: "b" },
+          { id: 1001, a1: 1, a2: 10, a3: "a" },
+        ]
+    -
+      - query: select t1.*
+                from t1
+               where exists (select 1 from t2 where t2.b1 = 1)
+                 and t1.a1 = 1
+               order by t1.a2 desc
+      # Existential implementation can go as either the inner or outer as it is uncorrelated, but going on the outside is better as it means that we
+      # have to iterate on the for-each fewer times
+      - explain: "COVERING(t2$b1 [EQUALS promote(@c19 AS LONG)] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c19 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c19 AS LONG)] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
+      - result: [
+          { id: 1004, a1: 1, a2: 13, a3: "b" },
+          { id: 1003, a1: 1, a2: 12, a3: "a" },
+          { id: 1002, a1: 1, a2: 11, a3: "b" },
+          { id: 1001, a1: 1, a2: 10, a3: "a" },
+        ]
+    -
+      - query: select t1.*
+                from t1
+               where exists (select 1 from t2 where t2.b1 = 3)
+                 and t1.a1 = 1
+               order by t1.a2 desc
+      - result: [
+        ]
+
     #
     # Ternary joins. Assert that we can get joins with three constituents and an order by correct.
     #
@@ -413,6 +449,20 @@ test_block:
           { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 2003, b1: 1, b2: 18, b3: "b" }, c: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
           { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 2004, b1: 1, b2: 17, b3: "b" }, c: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
         ]
+    -
+      - query: select (t1.*) as a, (t3.*) as b
+                 from t1, t3
+                where t1.a1 = 1 and t3.c1 = 1
+                  and exists (select 1 from t2 where t2.b1 = t1.a1)
+                  and t3.c2 = t1.a2
+                order by t1.a2 desc
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c26 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1 [EQUALS q0.a1] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c26 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q1 -> { ISCAN(t3$c1_c2_c3 [EQUALS promote(@c26 AS LONG), EQUALS q0.a2]) AS q2 RETURN q2 } AS q2 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS b) }"
+      - result: [
+          { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+          { a: { id: 1003, a1: 1, a2: 12, a3: "a" }, b: { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
+          { a: { id: 1002, a1: 1, a2: 11, a3: "b" }, b: { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
+          { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
+        ]
 
     #
     # INs
@@ -440,7 +490,7 @@ test_block:
                 where t1.a1 IN (1, 2) and t3.aRef = t1.id
                 order by t1.a1, t1.a2
       # Order by a1, a2 also gives us an in join.
-      - explain: "[IN arrayDistinct(promote(@c22 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0]) | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS _1) } }"
+      - explain: "[IN arrayDistinct(promote(@c22 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0]) } | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS _1) }"
       - result: [
          { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
@@ -484,6 +534,20 @@ test_block:
          { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
          { { id: 1003, a1: 1, a2: 12, a3: "a" }, { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
          { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+        ]
+    -
+      - query: select (t1.*) as a, (t3.*) as b
+                 from t1, t3
+                where t1.a1 IN (1, 2) and t3.c1 = t1.a1
+                  and exists (select 4 from t2 where t2.b1 = t1.a1)
+                  and t3.c2 = t1.a2
+                order by t1.a1 asc, t1.a2 desc
+      - explain: "[IN arrayDistinct(promote(@c26 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0] REVERSE) } | FLATMAP q1 -> { COVERING(t2$b1 [EQUALS q1.a1] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c43 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q2 RETURN q1 } | FLATMAP q1 -> { ISCAN(t3$c1_c2_c3 [EQUALS q1.a1, EQUALS q1.a2]) AS q4 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a, (q4.id AS id, q4.c1 AS c1, q4.c2 AS c2, q4.c3 AS c3, q4.aRef AS aRef) AS b) }"
+      - result: [
+          { a: { id: 1004, a1: 1, a2: 13, a3: "b" }, b: { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 } },
+          { a: { id: 1003, a1: 1, a2: 12, a3: "a" }, b: { id: 3003, c1: 1, c2: 12, c3: "b", aRef: 1003 } },
+          { a: { id: 1002, a1: 1, a2: 11, a3: "b" }, b: { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
+          { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
         ]
 
     #

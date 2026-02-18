@@ -726,7 +726,7 @@ b
 }Œ
 p
 versions-queries\EXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1, 3, 5) order by col3—
-ö²Ãº‹ ¥¨Í(J0“¸,8g@Â[IN arrayDistinct(promote(@c14 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }³digraph G {
+­ø¡Ö ×âè(F0ÉÂ58U@Â[IN arrayDistinct(promote(@c14 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }³digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -747,7 +747,7 @@ p
 }á
 Š
 versions-queriesvEXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1, 3, 5) order by col3 asc, "__ROW_VERSION" descÑ
-€µ¹Ú¿ ûºÓ(70ëÙ*8*@Ê[IN arrayDistinct(promote(@c14 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }ådigraph G {
+ê‡üö¼ ƒÜÝ(50†´A8#@Ê[IN arrayDistinct(promote(@c14 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
