@@ -199,6 +199,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         final RecordMetaDataHook hook = complexMetadataHook(complexIndex);
         final Tuple groupingKey = Tuple.from(1L);  // All documents in group 1
         final int maxQueueSize = 5;
+        final int someDocsCount = 3;
         // Insert a few documents when "ongoing merge" indicator is clear.
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
@@ -223,14 +224,14 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
             // Put 3 docs in each partition
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < someDocsCount; i++) {
                 // save record to new partition (queued)
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(100L + i, "second document", 1L, 100L + i));
                 // save record to old partition (queued)
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(200L + i, "third document", 1L, 30L - i));
             }
             // Fill the rest of queue on new partition
-            for (int i = 3; i < maxQueueSize; i++) {
+            for (int i = someDocsCount; i < maxQueueSize; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(100L + i, "second document", 1L, 100L + i));
             }
 
@@ -245,7 +246,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
             FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
             // additional docs succeed on old queue
-            for (int i = 3; i < maxQueueSize; i++) {
+            for (int i = someDocsCount; i < maxQueueSize; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(200L + i, "second document", 1L, 30L - i));
             }
             commit(context);
