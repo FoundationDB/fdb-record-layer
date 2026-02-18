@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.events.InitiatePhasePlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventWithCurrentGroupReference;
 import com.apple.foundationdb.record.query.plan.cascades.events.TransformPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.TransformRuleCallPlannerEvent;
@@ -754,17 +755,17 @@ public class PlannerRepl implements Debugger {
         @Nullable
         private final String referenceName;
         @Nonnull
-        private final PlannerEvent.Location location;
+        private final Location location;
 
         public OnEventTypeBreakPoint(@Nonnull final PlannerEvent.Shorthand shorthand,
-                                     @Nonnull final PlannerEvent.Location location) {
+                                     @Nonnull final Location location) {
             this(shorthand, null, location);
         }
 
         public OnEventTypeBreakPoint(@Nonnull final PlannerEvent.Shorthand shorthand,
                                      @Nullable final String referenceName,
-                                     @Nonnull final PlannerEvent.Location location) {
-            super(event -> event.getShorthand() == shorthand && (location == PlannerEvent.Location.ANY || event.getLocation() == location));
+                                     @Nonnull final Location location) {
+            super(event -> event.getShorthand() == shorthand && (location == Location.ANY || event.getLocation() == location));
             this.shorthand = shorthand;
             this.referenceName = referenceName == null ? null : referenceName.toLowerCase(Locale.ROOT);
             this.location = location;
@@ -781,7 +782,7 @@ public class PlannerRepl implements Debugger {
         }
 
         @Nonnull
-        public PlannerEvent.Location getLocation() {
+        public Location getLocation() {
             return location;
         }
 
@@ -836,15 +837,15 @@ public class PlannerRepl implements Debugger {
      */
     public static class OnPhaseBreakPoint extends BreakPoint {
         @Nonnull
-        private final PlannerEvent.Location location;
+        private final Location location;
         @Nullable
         private final PlannerPhase plannerPhase;
 
-        public OnPhaseBreakPoint(@Nonnull final PlannerEvent.Location location,
+        public OnPhaseBreakPoint(@Nonnull final Location location,
                                  @Nullable final PlannerPhase plannerPhase) {
             super(event -> (event instanceof InitiatePhasePlannerEvent) &&
                     event.getShorthand() == PlannerEvent.Shorthand.INITPHASE &&
-                    (location == PlannerEvent.Location.ANY || event.getLocation() == location) &&
+                    (location == Location.ANY || event.getLocation() == location) &&
                     (plannerPhase == null || ((InitiatePhasePlannerEvent)event).getPlannerPhase() == plannerPhase), 1);
             this.location = location;
             this.plannerPhase = plannerPhase;
@@ -856,7 +857,7 @@ public class PlannerRepl implements Debugger {
         }
 
         @Nonnull
-        public PlannerEvent.Location getLocation() {
+        public Location getLocation() {
             return location;
         }
 
@@ -905,7 +906,7 @@ public class PlannerRepl implements Debugger {
 
         public OnYieldExpressionBreakPoint(@Nonnull final String expressionName) {
             super(event -> event.getShorthand() == PlannerEvent.Shorthand.RULECALL &&
-                           event.getLocation() == PlannerEvent.Location.END &&
+                           event.getLocation() == Location.END &&
                            event instanceof TransformRuleCallPlannerEvent);
             this.expressionName = expressionName;
         }
@@ -929,7 +930,7 @@ public class PlannerRepl implements Debugger {
             super.onList(plannerRepl);
             plannerRepl.print("; ");
             plannerRepl.printKeyValue("shorthand", PlannerEvent.Shorthand.RULECALL.name().toLowerCase(Locale.ROOT) + "; ");
-            plannerRepl.printKeyValue("location", PlannerEvent.Location.END.name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", Location.END.name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("expression", expressionName);
         }
 
@@ -960,7 +961,7 @@ public class PlannerRepl implements Debugger {
 
         public OnYieldMatchBreakPoint(@Nonnull final String candidateName) {
             super(event -> event.getShorthand() == PlannerEvent.Shorthand.RULECALL &&
-                           event.getLocation() == PlannerEvent.Location.END &&
+                           event.getLocation() == Location.END &&
                            event instanceof TransformRuleCallPlannerEvent);
             this.candidateName = candidateName;
         }
@@ -982,7 +983,7 @@ public class PlannerRepl implements Debugger {
             super.onList(plannerRepl);
             plannerRepl.print("; ");
             plannerRepl.printKeyValue("shorthand", PlannerEvent.Shorthand.RULECALL.name().toLowerCase(Locale.ROOT) + "; ");
-            plannerRepl.printKeyValue("location", PlannerEvent.Location.END.name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", Location.END.name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("candidate", candidateName);
         }
 
@@ -1013,9 +1014,9 @@ public class PlannerRepl implements Debugger {
         private final String ruleNamePrefix;
 
         @Nonnull
-        private final PlannerEvent.Location location;
+        private final Location location;
 
-        public OnRuleBreakPoint(@Nonnull final String ruleNamePrefix, @Nonnull final PlannerEvent.Location location) {
+        public OnRuleBreakPoint(@Nonnull final String ruleNamePrefix, @Nonnull final Location location) {
             super(event -> event.getShorthand() == PlannerEvent.Shorthand.TRANSFORM &&
                            event.getLocation() == location &&
                            event instanceof TransformPlannerEvent);
@@ -1028,7 +1029,7 @@ public class PlannerRepl implements Debugger {
             if (super.onCallback(plannerRepl, plannerEvent)) {
                 final TransformPlannerEvent transformEvent =
                         (TransformPlannerEvent)plannerEvent;
-                return (PlannerEvent.Location.ANY == location || plannerEvent.getLocation() == location) &&
+                return (Location.ANY == location || plannerEvent.getLocation() == location) &&
                        transformEvent
                                .getRule()
                                .getClass()
@@ -1074,9 +1075,9 @@ public class PlannerRepl implements Debugger {
         private final String ruleNamePrefix;
 
         @Nonnull
-        private final PlannerEvent.Location location;
+        private final Location location;
 
-        public OnRuleCallBreakPoint(@Nonnull final String ruleNamePrefix, @Nonnull final PlannerEvent.Location location) {
+        public OnRuleCallBreakPoint(@Nonnull final String ruleNamePrefix, @Nonnull final Location location) {
             super(event -> event.getShorthand() == PlannerEvent.Shorthand.RULECALL &&
                            event.getLocation() == location &&
                            event instanceof TransformRuleCallPlannerEvent);
@@ -1089,7 +1090,7 @@ public class PlannerRepl implements Debugger {
             if (super.onCallback(plannerRepl, plannerEvent)) {
                 final TransformRuleCallPlannerEvent transformRuleCallEvent =
                         (TransformRuleCallPlannerEvent)plannerEvent;
-                return (PlannerEvent.Location.ANY == location || plannerEvent.getLocation() == location) &&
+                return (Location.ANY == location || plannerEvent.getLocation() == location) &&
                        transformRuleCallEvent
                                .getRule()
                                .getClass()

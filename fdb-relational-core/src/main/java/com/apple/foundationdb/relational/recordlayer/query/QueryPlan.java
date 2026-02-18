@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.events.ExecutingTaskPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.InsertIntoMemoPlannerEvent;
-import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStats;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsMaps;
 import com.apple.foundationdb.record.query.plan.cascades.events.TransformRuleCallPlannerEvent;
@@ -384,20 +384,20 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
                 plannerMetrics =
                         new ImmutableRowStruct(new ArrayRow(
-                                aggregateExecutingTasksStats.map(s -> s.getCount(PlannerEvent.Location.BEGIN)).orElse(0L),
+                                aggregateExecutingTasksStats.map(s -> s.getCount(Location.BEGIN)).orElse(0L),
                                 aggregateExecutingTasksStats.map(PlannerEventStats::getTotalTimeInNs).orElse(0L),
-                                aggregateTransformRuleCallStats.map(s -> s.getCount(PlannerEvent.Location.BEGIN)).orElse(0L),
+                                aggregateTransformRuleCallStats.map(s -> s.getCount(Location.BEGIN)).orElse(0L),
                                 aggregateTransformRuleCallStats.map(PlannerEventStats::getOwnTimeInNs).orElse(0L),
-                                aggregateTransformRuleCallStats.map(s -> s.getCount(PlannerEvent.Location.YIELD)).orElse(0L),
+                                aggregateTransformRuleCallStats.map(s -> s.getCount(Location.YIELD)).orElse(0L),
                                 aggregateInsertIntoMemoStats.map(PlannerEventStats::getOwnTimeInNs).orElse(0L),
-                                aggregateInsertIntoMemoStats.map(s -> s.getCount(PlannerEvent.Location.NEW)).orElse(0L),
-                                aggregateInsertIntoMemoStats.map(s -> s.getCount(PlannerEvent.Location.REUSED)).orElse(0L),
+                                aggregateInsertIntoMemoStats.map(s -> s.getCount(Location.NEW)).orElse(0L),
+                                aggregateInsertIntoMemoStats.map(s -> s.getCount(Location.REUSED)).orElse(0L),
                                 aggregateTransformRuleCallStats.map(s -> s.getCount(
-                                        PlannerEvent.Location.DISCARDED_INTERSECTION_COMBINATIONS)).orElse(0L),
+                                        Location.DISCARDED_INTERSECTION_COMBINATIONS)).orElse(0L),
                                 aggregateTransformRuleCallStats.map(s -> s.getCount(
-                                        PlannerEvent.Location.ALL_INTERSECTION_COMBINATIONS)).orElse(0L),
-                                executingTasksStatsForRewritingPhase.map(s -> s.getCount(PlannerEvent.Location.BEGIN)).orElse(0L),
-                                executingTasksStatsForPlanningPhase.map(s -> s.getCount(PlannerEvent.Location.BEGIN)).orElse(0L),
+                                        Location.ALL_INTERSECTION_COMBINATIONS)).orElse(0L),
+                                executingTasksStatsForRewritingPhase.map(s -> s.getCount(Location.BEGIN)).orElse(0L),
+                                executingTasksStatsForPlanningPhase.map(s -> s.getCount(Location.BEGIN)).orElse(0L),
                                 executingTasksStatsForRewritingPhase.map(PlannerEventStats::getTotalTimeInNs).orElse(0L),
                                 executingTasksStatsForPlanningPhase.map(PlannerEventStats::getTotalTimeInNs).orElse(0L)
                         ), RelationalStructMetaData.of(plannerMetricsStructType));

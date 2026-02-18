@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
@@ -91,5 +91,5 @@ public interface CommonCascadesRuleCall {
      * {@link com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location#END}.
      * @param location the location to be used for the event to be emitted.
      */
-    void emitEvent(@Nonnull PlannerEvent.Location location);
+    void emitEvent(@Nonnull Location location);
 }

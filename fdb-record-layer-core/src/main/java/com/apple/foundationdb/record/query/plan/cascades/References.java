@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
-import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
 import com.apple.foundationdb.record.query.plan.cascades.events.TranslateCorrelationsPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -190,14 +190,14 @@ public class References {
                     translatedExpression = expression.translateCorrelations(translationMap, shouldSimplifyValues,
                             translatedQuantifiers);
                     PlannerEventListeners.dispatchEvent(
-                            new TranslateCorrelationsPlannerEvent(translatedExpression, PlannerEvent.Location.COUNT));
+                            new TranslateCorrelationsPlannerEvent(translatedExpression, Location.COUNT));
                     allMembersSame = false;
                 }
             } else {
                 translatedExpression = expression.translateCorrelations(translationMap, shouldSimplifyValues,
                         translatedQuantifiers);
                 PlannerEventListeners.dispatchEvent(
-                        new TranslateCorrelationsPlannerEvent(translatedExpression, PlannerEvent.Location.COUNT));
+                        new TranslateCorrelationsPlannerEvent(translatedExpression, Location.COUNT));
                 allMembersSame = false;
             }
             if (reference.isFinal(expression)) {

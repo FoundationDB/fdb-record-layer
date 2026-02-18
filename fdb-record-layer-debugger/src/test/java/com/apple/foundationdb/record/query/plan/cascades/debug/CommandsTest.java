@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.events.ExecutingTaskPla
 import com.apple.foundationdb.record.query.plan.cascades.events.InitiatePhasePlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.InsertIntoMemoPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
 import com.apple.foundationdb.record.query.plan.cascades.events.TransformPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.TransformRuleCallPlannerEvent;
@@ -108,7 +109,7 @@ class CommandsTest {
         outIn.write("current\ncont\n".getBytes(StandardCharsets.UTF_8));
 
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
-                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN));
 
         terminal.writer().flush();
         assertThat(outputStream.toString()).contains(
@@ -124,9 +125,9 @@ class CommandsTest {
                 LiteralValue.ofScalar(1), Collections.emptyList(), Collections.emptyList());
 
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
-                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN));
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
-                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.END));
+                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.END));
         PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.newExp(exp));
 
         terminal.writer().flush();
@@ -159,7 +160,7 @@ class CommandsTest {
         final Reference ref0 = Reference.initialOf(exp0, exp1);
 
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
-                PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+                PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), Location.BEGIN));
 
         terminal.writer().flush();
         assertThat(outputStream.toString()).contains(
@@ -178,7 +179,7 @@ class CommandsTest {
         final Reference ref0 = Reference.initialOf(exp0, exp1);
 
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
-                PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+                PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), Location.BEGIN));
 
         terminal.writer().flush();
         assertThat(outputStream.toString()).contains(
@@ -200,7 +201,7 @@ class CommandsTest {
         final Quantifier qun = Quantifier.forEach(ref);
 
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
-                PlannerPhase.REWRITING, ref, new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+                PlannerPhase.REWRITING, ref, new ArrayDeque<>(), Location.BEGIN));
 
         terminal.writer().flush();
         assertThat(outputStream.toString()).contains(
@@ -222,7 +223,7 @@ class CommandsTest {
         assertThatThrownBy(
                 () -> PlannerEventListeners.dispatchEvent(
                         new InitiatePhasePlannerEvent(
-                                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN))
+                                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN))
         ).isInstanceOf(RestartException.class);
 
         assertThat(debugger.getCurrentState()).isNotSameAs(initialStateBeforeRestart);
@@ -237,7 +238,7 @@ class CommandsTest {
         var qun0 = Quantifier.forEach(ref0, CorrelationIdentifier.of("0"));
 
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
-                PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+                PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), Location.BEGIN));
 
         terminal.writer().close();
         assertThat(outputStream.toString()).contains(
@@ -256,7 +257,7 @@ class CommandsTest {
         PlannerEventListeners.dispatchEvent(
                 new InitiatePhasePlannerEvent(
                     PlannerPhase.REWRITING, ref, new ArrayDeque<>(List.of(new DummyCascadesTask())),
-                        PlannerEvent.Location.BEGIN));
+                        Location.BEGIN));
 
         assertThat(outputStream.toString()).contains(
                 String.join(
@@ -276,7 +277,7 @@ class CommandsTest {
 
         PlannerEventListeners.dispatchEvent(
                 new InitiatePhasePlannerEvent(
-                        PlannerPhase.REWRITING, ref, new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+                        PlannerPhase.REWRITING, ref, new ArrayDeque<>(), Location.BEGIN));
 
         assertThat(outputStream.toString()).contains(
                 "Basic Usage", ReplTestUtil.coloredKeyValue("cont", "continue execution"));
@@ -290,7 +291,7 @@ class CommandsTest {
 
         PlannerEventListeners.dispatchEvent(
                 new InitiatePhasePlannerEvent(
-                        PlannerPhase.REWRITING, ref, new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+                        PlannerPhase.REWRITING, ref, new ArrayDeque<>(), Location.BEGIN));
 
         assertThat(outputStream.toString()).contains("not sure what to show");
     }
@@ -300,7 +301,7 @@ class CommandsTest {
         outIn.write("step 2\ncurrent\ncont\n".getBytes(StandardCharsets.UTF_8));
 
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
-                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN));
         PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.begin());
         PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.end());
 
@@ -326,11 +327,11 @@ class CommandsTest {
         outIn.write("break initphase end\nbreak list\ncont\ncurrent\ncont\n".getBytes(StandardCharsets.UTF_8));
 
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
-                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN));
         PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.begin());
         PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.end());
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
-                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.END));
+                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.END));
 
         terminal.writer().close();
         assertThat(outputStream.toString()).contains(
@@ -358,7 +359,7 @@ class CommandsTest {
         outIn.write("phase planning\ncont\ncurrent\ncont\n".getBytes(StandardCharsets.UTF_8));
 
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
-                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+                PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN));
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.END));
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(

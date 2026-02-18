@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.events;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,19 +49,19 @@ class DefaultPlannerEventStatsCollectorTest {
     void testOnEventUpdatesStatsMap() {
         PlannerEventListeners.dispatchEvent(
                 new InitiatePhasePlannerEvent(
-                        PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+                        PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN));
         PlannerEventListeners.dispatchEvent(
                 new InitiatePhasePlannerEvent(
-                        PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.END));
+                        PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.END));
         PlannerEventListeners.dispatchEvent(
                 new InitiatePhasePlannerEvent(
-                        PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+                        PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN));
         PlannerEventListeners.dispatchEvent(
                 InsertIntoMemoPlannerEvent.newExp(
                         new SelectExpression(LiteralValue.ofScalar(1), Collections.emptyList(), Collections.emptyList())));
         PlannerEventListeners.dispatchEvent(
                 new InitiatePhasePlannerEvent(
-                        PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.END));
+                        PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), Location.END));
 
         assertThat(collector.getStatsMaps()).isNotEmpty();
         final PlannerEventStatsMaps statsMaps = collector.getStatsMaps().get();

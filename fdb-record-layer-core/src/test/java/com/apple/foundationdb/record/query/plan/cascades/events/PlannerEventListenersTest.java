@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.events;
 
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -48,7 +49,7 @@ class PlannerEventListenersTest {
     void addSingleListener() {
         final var listener = new DummyEventListener();
         final var plannerEvent = new InitiatePhasePlannerEvent(
-                PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN);
+                PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN);
         PlannerEventListeners.addListener(DummyEventListener.class, listener);
 
         PlannerEventListeners.dispatchOnQuery("SELECT * from A", PlanContext.EMPTY_CONTEXT);
@@ -66,7 +67,7 @@ class PlannerEventListenersTest {
     void addMultipleListeners() {
         final var listeners = List.of(new DummyEventListener(), new SecondDummyEventListener());
         final var plannerEvent = new InitiatePhasePlannerEvent(
-                PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN);
+                PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN);
         listeners.forEach((l) -> PlannerEventListeners.addListener(l.getClass(), l));
 
         PlannerEventListeners.dispatchOnQuery("SELECT * from A", PlanContext.EMPTY_CONTEXT);
@@ -87,7 +88,7 @@ class PlannerEventListenersTest {
         final var listener = new DummyEventListener();
         final var removedListener = new SecondDummyEventListener();
         final var plannerEvent = new InitiatePhasePlannerEvent(
-                PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN);
+                PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN);
 
         PlannerEventListeners.addListener(DummyEventListener.class, listener);
         PlannerEventListeners.addListener(SecondDummyEventListener.class, removedListener);

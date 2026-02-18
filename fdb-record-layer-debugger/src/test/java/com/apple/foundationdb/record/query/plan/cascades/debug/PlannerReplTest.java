@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.events.InitiatePhasePlannerEvent;
-import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -105,7 +105,7 @@ class PlannerReplTest {
         debugger.onRegisterQuantifier(Quantifier.forEach(ref0, CorrelationIdentifier.of("0")));
 
         PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
-                PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
+                PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), Location.BEGIN));
 
         assertThat(Debugger.mapDebugger(d -> d.onGetIndex(RelationalExpression.class))).hasValue(2);
         assertThat(Debugger.mapDebugger(d -> d.onGetIndex(Reference.class))).hasValue(1);

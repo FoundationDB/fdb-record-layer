@@ -48,7 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstra
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -469,7 +469,7 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
                 boolean hasCommonOrderingForK = false;
                 for (final var kPartition : ChooseK.chooseK(bestMaximumCoverageMatches, k)) {
                     numCombinations ++;
-                    call.emitEvent(PlannerEvent.Location.ALL_INTERSECTION_COMBINATIONS);
+                    call.emitEvent(Location.ALL_INTERSECTION_COMBINATIONS);
 
                     //
                     // For a combination of n orderings we enumerate find all the positions in that the combination
@@ -490,7 +490,7 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
 
                     if (!hasCommonOrdering(sieveBitMatrix, checkBitMatrix)) {
                         numDiscardedCombinations ++;
-                        call.emitEvent(PlannerEvent.Location.DISCARDED_INTERSECTION_COMBINATIONS);
+                        call.emitEvent(Location.DISCARDED_INTERSECTION_COMBINATIONS);
                         continue;
                     }
 

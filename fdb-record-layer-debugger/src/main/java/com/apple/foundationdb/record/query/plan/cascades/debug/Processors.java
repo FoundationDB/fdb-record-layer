@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.events.InsertIntoMemoPl
 import com.apple.foundationdb.record.query.plan.cascades.events.OptimizeGroupPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.OptimizeInputsPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.events.TransformPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.TransformRuleCallPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -266,7 +267,7 @@ public class Processors {
                 }
             }
 
-            if (event.getLocation() == PlannerEvent.Location.END) {
+            if (event.getLocation() == Location.END) {
                 plannerRepl.printlnKeyValue("yield", "");
                 for (final RelationalExpression newExpression :
                         Iterables.concat(ruleCall.getNewFinalExpressions(), ruleCall.getNewExploratoryExpressions())) {

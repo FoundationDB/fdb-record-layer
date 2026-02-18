@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbo
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PAbstractPlannerEventWithState;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PExpression;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PReference;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -81,7 +82,7 @@ class PlannerEventSerializationTests {
     @Test
     void testInitiatePhasePlannerEventToEventProto() {
         final var plannerPhase = PlannerPhase.PLANNING;
-        final var location = PlannerEvent.Location.BEGIN;
+        final var location = Location.BEGIN;
         final var plannerEvent = new InitiatePhasePlannerEvent(plannerPhase, rootReference, taskStack, location);
 
         final var plannerEventProto = plannerEvent.toEventProto();
@@ -98,7 +99,7 @@ class PlannerEventSerializationTests {
                 LiteralValue.ofScalar("42"), Collections.emptyList(), Collections.emptyList());
         final var currentGroupReference = Reference.initialOf(currentExpression);
         final var plannerPhase = PlannerPhase.PLANNING;
-        final var location = PlannerEvent.Location.BEGIN;
+        final var location = Location.BEGIN;
         final var plannerEvent = new AdjustMatchPlannerEvent(
                 plannerPhase, rootReference, taskStack, location, currentGroupReference, currentExpression);
 
@@ -113,7 +114,7 @@ class PlannerEventSerializationTests {
 
     @Test
     void testExecutingTaskPlannerEventToEventProto() {
-        final var location = PlannerEvent.Location.BEGIN;
+        final var location = Location.BEGIN;
         final var plannerEvent = new ExecutingTaskPlannerEvent(
                 rootReference,
                 taskStack,
@@ -130,7 +131,7 @@ class PlannerEventSerializationTests {
                     }
 
                     @Override
-                    public PlannerEvent toTaskEvent(final PlannerEvent.Location location) {
+                    public PlannerEvent toTaskEvent(final Location location) {
                         return null;
                     }
                 }
@@ -149,7 +150,7 @@ class PlannerEventSerializationTests {
                 LiteralValue.ofScalar("42"), Collections.emptyList(), Collections.emptyList());
         final var currentGroupReference = Reference.initialOf(currentExpression);
         final var plannerPhase = PlannerPhase.PLANNING;
-        final var location = PlannerEvent.Location.BEGIN;
+        final var location = Location.BEGIN;
         final var plannerEvent = new ExploreExpressionPlannerEvent(
                 plannerPhase, rootReference, taskStack, location, currentGroupReference, currentExpression);
 
@@ -168,7 +169,7 @@ class PlannerEventSerializationTests {
                 LiteralValue.ofScalar("42"), Collections.emptyList(), Collections.emptyList());
         final var currentGroupReference = Reference.initialOf(currentExpression);
         final var plannerPhase = PlannerPhase.PLANNING;
-        final var location = PlannerEvent.Location.BEGIN;
+        final var location = Location.BEGIN;
         final var plannerEvent = new ExploreGroupPlannerEvent(
                 plannerPhase, rootReference, taskStack, location, currentGroupReference);
 
@@ -200,8 +201,8 @@ class PlannerEventSerializationTests {
         final var insertIntoMemoEventWithReusedExpressionProto =
                 insertIntoMemoEventWithReusedExpression.toEventProto().getInsertIntoMemoPlannerEvent();
 
-        assertThat(insertIntoMemoEventWithNewExpressionProto.getLocation()).isEqualTo(PlannerEvent.Location.NEW.toString());
-        assertThat(insertIntoMemoEventWithReusedExpressionProto.getLocation()).isEqualTo(PlannerEvent.Location.REUSED.toString());
+        assertThat(insertIntoMemoEventWithNewExpressionProto.getLocation()).isEqualTo(Location.NEW.toString());
+        assertThat(insertIntoMemoEventWithReusedExpressionProto.getLocation()).isEqualTo(Location.REUSED.toString());
 
         assertExpressionMatches(insertIntoMemoEventWithNewExpressionProto.getExpression(), newExpression);
         assertExpressionMatches(insertIntoMemoEventWithReusedExpressionProto.getExpression(), reusedExpression);
@@ -217,7 +218,7 @@ class PlannerEventSerializationTests {
                 LiteralValue.ofScalar("42"), Collections.emptyList(), Collections.emptyList());
         final var currentGroupReference = Reference.initialOf(currentExpression);
         final var plannerPhase = PlannerPhase.PLANNING;
-        final var location = PlannerEvent.Location.BEGIN;
+        final var location = Location.BEGIN;
         final var plannerEvent = new OptimizeGroupPlannerEvent(
                 plannerPhase, rootReference, taskStack, location, currentGroupReference);
 
@@ -236,7 +237,7 @@ class PlannerEventSerializationTests {
                 LiteralValue.ofScalar("42"), Collections.emptyList(), Collections.emptyList());
         final var currentGroupReference = Reference.initialOf(currentExpression);
         final var plannerPhase = PlannerPhase.PLANNING;
-        final var location = PlannerEvent.Location.BEGIN;
+        final var location = Location.BEGIN;
         final var plannerEvent = new OptimizeInputsPlannerEvent(
                 plannerPhase, rootReference, taskStack, location, currentGroupReference, currentExpression);
 
@@ -255,7 +256,7 @@ class PlannerEventSerializationTests {
                 LiteralValue.ofScalar("42"), Collections.emptyList(), Collections.emptyList());
         final var currentGroupReference = Reference.initialOf(currentExpression);
         final var plannerPhase = PlannerPhase.PLANNING;
-        final var location = PlannerEvent.Location.BEGIN;
+        final var location = Location.BEGIN;
         final var plannerEvent = new TransformPlannerEvent(
                 plannerPhase, rootReference, taskStack, location, currentGroupReference, currentExpression, testRule);
 
@@ -276,7 +277,7 @@ class PlannerEventSerializationTests {
                 LiteralValue.ofScalar("42"), Collections.emptyList(), Collections.emptyList());
         final var currentGroupReference = Reference.initialOf(currentExpression);
         final var plannerPhase = PlannerPhase.PLANNING;
-        final var location = PlannerEvent.Location.BEGIN;
+        final var location = Location.BEGIN;
         final var testRuleCall = new CascadesRuleCall(
                 PlannerPhase.PLANNING, PlanContext.EMPTY_CONTEXT, testRule, rootReference, Traversal.withRoot(rootReference),
                 taskStack, PlannerBindings.empty(), EvaluationContext.EMPTY);
@@ -299,7 +300,7 @@ class PlannerEventSerializationTests {
         final var currentExpression = new SelectExpression(
                 LiteralValue.ofScalar("42"), Collections.emptyList(), Collections.emptyList());
         final var currentGroupReference = Reference.initialOf(currentExpression);
-        final var location = PlannerEvent.Location.BEGIN;
+        final var location = Location.BEGIN;
         final var plannerEvent = new TranslateCorrelationsPlannerEvent(currentExpression, location);
 
         final var plannerEventProto = plannerEvent.toEventProto();
@@ -312,7 +313,7 @@ class PlannerEventSerializationTests {
     }
 
     private void assertEventWithStateHasExpectedElements(final PAbstractPlannerEventWithState eventFromProto,
-                                                         final PlannerEvent.Location location) {
+                                                         final Location location) {
         assertThat(eventFromProto.getLocation()).isEqualTo(location.toString());
         assertReferenceMatches(eventFromProto.getRootReference(), rootReference, rootExpression);
     }

@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.events.TransformRuleCallPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Verify;
@@ -174,7 +175,7 @@ public class DebuggerWithSymbolTables implements Debugger {
         }
         getCurrentState().addCurrentEvent(plannerEvent);
         if (logger.isTraceEnabled()) {
-            if (plannerEvent.getLocation() == PlannerEvent.Location.END && plannerEvent instanceof TransformRuleCallPlannerEvent) {
+            if (plannerEvent.getLocation() == Location.END && plannerEvent instanceof TransformRuleCallPlannerEvent) {
                 final TransformRuleCallPlannerEvent transformRuleCallEvent = (TransformRuleCallPlannerEvent)plannerEvent;
                 final CascadesRuleCall ruleCall = transformRuleCallEvent.getRuleCall();
                 final var newExpressions =

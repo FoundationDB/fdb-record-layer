@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.cascades.events.InsertIntoMemoPlannerEvent;
-import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
 import com.apple.foundationdb.record.query.plan.cascades.events.TransformRuleCallPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -185,8 +185,8 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     }
 
     @Override
-    public void emitEvent(@Nonnull final PlannerEvent.Location location) {
-        Verify.verify(location != PlannerEvent.Location.BEGIN && location != PlannerEvent.Location.END);
+    public void emitEvent(@Nonnull final Location location) {
+        Verify.verify(location != Location.BEGIN && location != Location.END);
         PlannerEventListeners.dispatchEvent(
                 new TransformRuleCallPlannerEvent(plannerPhase, root, taskStack, location, root,
                         bindings.get(rule.getMatcher()), rule, this));

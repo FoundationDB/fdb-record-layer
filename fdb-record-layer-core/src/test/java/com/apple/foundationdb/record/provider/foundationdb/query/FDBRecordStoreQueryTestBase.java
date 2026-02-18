@@ -65,7 +65,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.References;
 import com.apple.foundationdb.record.query.plan.cascades.events.ExecutingTaskPlannerEvent;
-import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -677,15 +677,15 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         final var eventClassStatsMapForRewriting = statsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.REWRITING);
         assertTrue(eventClassStatsMapForRewriting.isPresent());
         assertTrue(eventClassStatsMapForRewriting.get().containsKey(ExecutingTaskPlannerEvent.class));
-        assertTrue(eventClassStatsMapForRewriting.get().get(ExecutingTaskPlannerEvent.class).getCount(PlannerEvent.Location.BEGIN) > 0);
+        assertTrue(eventClassStatsMapForRewriting.get().get(ExecutingTaskPlannerEvent.class).getCount(Location.BEGIN) > 0);
 
         final var eventClassStatsMapForPlanning = statsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.PLANNING);
         assertTrue(eventClassStatsMapForPlanning.isPresent());
         assertTrue(eventClassStatsMapForPlanning.get().containsKey(ExecutingTaskPlannerEvent.class));
 
-        final var totalTasks = eventClassStatsMap.get(ExecutingTaskPlannerEvent.class).getCount(PlannerEvent.Location.BEGIN);
-        final var rewritingTasks = eventClassStatsMapForRewriting.get().get(ExecutingTaskPlannerEvent.class).getCount(PlannerEvent.Location.BEGIN);
-        final var planningTasks = eventClassStatsMapForPlanning.get().get(ExecutingTaskPlannerEvent.class).getCount(PlannerEvent.Location.BEGIN);
+        final var totalTasks = eventClassStatsMap.get(ExecutingTaskPlannerEvent.class).getCount(Location.BEGIN);
+        final var rewritingTasks = eventClassStatsMapForRewriting.get().get(ExecutingTaskPlannerEvent.class).getCount(Location.BEGIN);
+        final var planningTasks = eventClassStatsMapForPlanning.get().get(ExecutingTaskPlannerEvent.class).getCount(Location.BEGIN);
 
         assertTrue(totalTasks > 0);
         assertTrue(rewritingTasks > 0);
