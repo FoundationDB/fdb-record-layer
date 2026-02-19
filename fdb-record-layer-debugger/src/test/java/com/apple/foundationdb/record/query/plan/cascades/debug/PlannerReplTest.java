@@ -75,23 +75,23 @@ class PlannerReplTest {
     void testOnQueryPrintsQueryAndCreatesNewState() throws IOException {
         outIn.write("cont\n".getBytes(StandardCharsets.UTF_8));
         final String query = "SELECT * FROM B";
-        final State initalState = debugger.getCurrentState();
+        final RegisteredEntities initalRegisteredEntities = debugger.getCurrentRegisteredEntities();
 
         Debugger.withDebugger(d -> d.onQuery(query, PlanContext.EMPTY_CONTEXT));
 
         terminal.writer().flush();
         assertThat(outputStream.toString()).contains(ReplTestUtil.coloredKeyValue("query", query));
-        assertThat(debugger.getCurrentState()).isNotSameAs(initalState);
+        assertThat(debugger.getCurrentRegisteredEntities()).isNotSameAs(initalRegisteredEntities);
     }
 
     @Test
     void testRestartResetsState() throws IOException {
         outIn.write("cont\n".getBytes(StandardCharsets.UTF_8));
-        final State initalState = debugger.getCurrentState();
+        final RegisteredEntities initalRegisteredEntities = debugger.getCurrentRegisteredEntities();
 
         debugger.restartState();
 
-        assertThat(debugger.getCurrentState()).isNotSameAs(initalState);
+        assertThat(debugger.getCurrentRegisteredEntities()).isNotSameAs(initalRegisteredEntities);
     }
 
     @Test

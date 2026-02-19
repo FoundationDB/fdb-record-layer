@@ -310,13 +310,13 @@ public class Commands {
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
                                       @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
-            final List<PlannerEvent> plannerEvents = state.getEvents();
+            final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
+            final List<PlannerEvent> plannerEvents = registeredEntities.getEvents();
             if (plannerEvents == null) {
                 plannerRepl.printlnError("Configuration mandates to not record events. Please turn on event recording and restart.");
                 return false;
             }
-            final PlannerEvent e = plannerEvents.get(state.getCurrentTick());
+            final PlannerEvent e = plannerEvents.get(registeredEntities.getCurrentTick());
             plannerRepl.withProcessors(e, processor -> processor.onDetail(plannerRepl, e));
             return false;
         }
@@ -342,15 +342,15 @@ public class Commands {
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
                                       @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
-            final List<PlannerEvent> plannerEvents = state.getEvents();
+            final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
+            final List<PlannerEvent> plannerEvents = registeredEntities.getEvents();
             if (plannerEvents == null) {
                 plannerRepl.printlnError("Configuration mandates to not record events. Please turn on event recording and restart.");
                 return false;
             }
             for (int tick = 0; tick < plannerEvents.size(); tick++) {
                 final PlannerEvent e = plannerEvents.get(tick);
-                if (state.getCurrentTick() == tick) {
+                if (registeredEntities.getCurrentTick() == tick) {
                     plannerRepl.printHighlighted("==> ");
                 } else {
                     plannerRepl.print("    ");
@@ -383,8 +383,8 @@ public class Commands {
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
                                       @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
-            final Cache<Integer, RelationalExpression> expressionCache = state.getExpressionCache();
+            final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
+            final Cache<Integer, RelationalExpression> expressionCache = registeredEntities.getExpressionCache();
             final List<Integer> ids = Lists.newArrayList(expressionCache.asMap().keySet());
             Collections.sort(ids);
             for (Integer id : ids) {
@@ -453,8 +453,8 @@ public class Commands {
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
                                       @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
-            final Cache<Integer, Reference> referenceCache = state.getReferenceCache();
+            final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
+            final Cache<Integer, Reference> referenceCache = registeredEntities.getReferenceCache();
             final List<Integer> ids = Lists.newArrayList(referenceCache.asMap().keySet());
             Collections.sort(ids);
             for (Integer id : ids) {
@@ -725,12 +725,12 @@ public class Commands {
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
                                       @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
-            final List<Integer> ids = Lists.newArrayList(state.getQuantifierCache().asMap().keySet());
+            final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
+            final List<Integer> ids = Lists.newArrayList(registeredEntities.getQuantifierCache().asMap().keySet());
             Collections.sort(ids);
             for (Integer id : ids) {
                 plannerRepl.printKeyValue("id", "qun" + id + "; ");
-                @Nullable final Quantifier quantifier = state.getQuantifierCache().getIfPresent(id);
+                @Nullable final Quantifier quantifier = registeredEntities.getQuantifierCache().getIfPresent(id);
                 if (quantifier != null) {
                     plannerRepl.printKeyValue("kind", quantifier.getShorthand() + "; ");
                     plannerRepl.printKeyValue("alias", quantifier.getAlias() + "; ");

@@ -42,7 +42,7 @@ import java.util.Objects;
 import java.util.function.IntUnaryOperator;
 
 @SuppressWarnings("PMD.SystemPrintln")
-public class State {
+public class RegisteredEntities {
     @Nonnull
     private final Map<Class<?>, Integer> classToIndexMap;
     @Nonnull
@@ -62,12 +62,12 @@ public class State {
     private int currentTick;
     private final long startTs;
 
-    public static State initial(final boolean isRecordEvents, final boolean isRecordEventProtos,
-                                @Nullable Iterable<PPlannerEvent> prerecordedEventProtoIterable) {
-        return new State(isRecordEvents, isRecordEventProtos, prerecordedEventProtoIterable);
+    public static RegisteredEntities initial(final boolean isRecordEvents, final boolean isRecordEventProtos,
+                                             @Nullable Iterable<PPlannerEvent> prerecordedEventProtoIterable) {
+        return new RegisteredEntities(isRecordEvents, isRecordEventProtos, prerecordedEventProtoIterable);
     }
 
-    public static State copyOf(final State source) {
+    public static RegisteredEntities copyOf(final RegisteredEntities source) {
         final Cache<Integer, RelationalExpression> copyExpressionCache = CacheBuilder.newBuilder().weakValues().build();
         source.getExpressionCache().asMap().forEach(copyExpressionCache::put);
         final Cache<RelationalExpression, Integer> copyInvertedExpressionsCache = CacheBuilder.newBuilder().weakKeys().build();
@@ -81,7 +81,7 @@ public class State {
         final Cache<Quantifier, Integer> copyInvertedQuantifierCache = CacheBuilder.newBuilder().weakKeys().build();
         source.getInvertedQuantifierCache().asMap().forEach(copyInvertedQuantifierCache::put);
 
-        return new State(source.getClassToIndexMap(),
+        return new RegisteredEntities(source.getClassToIndexMap(),
                 copyExpressionCache,
                 copyInvertedExpressionsCache,
                 copyReferenceCache,
@@ -95,8 +95,8 @@ public class State {
                 source.getStartTs());
     }
 
-    private State(final boolean isRecordEvents, final boolean isRecordEventProtos,
-                  @Nullable final Iterable<PPlannerEvent> prerecordedEventProtoIterable) {
+    private RegisteredEntities(final boolean isRecordEvents, final boolean isRecordEventProtos,
+                               @Nullable final Iterable<PPlannerEvent> prerecordedEventProtoIterable) {
         this(Maps.newHashMap(),
                 CacheBuilder.newBuilder().weakValues().build(),
                 CacheBuilder.newBuilder().weakKeys().build(),
@@ -111,18 +111,18 @@ public class State {
                 System.nanoTime());
     }
 
-    private State(@Nonnull final Map<Class<?>, Integer> classToIndexMap,
-                  @Nonnull final Cache<Integer, RelationalExpression> expressionCache,
-                  @Nonnull final Cache<RelationalExpression, Integer> invertedExpressionsCache,
-                  @Nonnull final Cache<Integer, Reference> referenceCache,
-                  @Nonnull final Cache<Reference, Integer> invertedReferenceCache,
-                  @Nonnull final Cache<Integer, Quantifier> quantifierCache,
-                  @Nonnull final Cache<Quantifier, Integer> invertedQuantifierCache,
-                  @Nullable final List<PlannerEvent> events,
-                  @Nullable final List<PPlannerEvent> eventProtos,
-                  @Nullable final Iterable<PPlannerEvent> prerecordedEventProtoIterable,
-                  final int currentTick,
-                  final long startTs) {
+    private RegisteredEntities(@Nonnull final Map<Class<?>, Integer> classToIndexMap,
+                               @Nonnull final Cache<Integer, RelationalExpression> expressionCache,
+                               @Nonnull final Cache<RelationalExpression, Integer> invertedExpressionsCache,
+                               @Nonnull final Cache<Integer, Reference> referenceCache,
+                               @Nonnull final Cache<Reference, Integer> invertedReferenceCache,
+                               @Nonnull final Cache<Integer, Quantifier> quantifierCache,
+                               @Nonnull final Cache<Quantifier, Integer> invertedQuantifierCache,
+                               @Nullable final List<PlannerEvent> events,
+                               @Nullable final List<PPlannerEvent> eventProtos,
+                               @Nullable final Iterable<PPlannerEvent> prerecordedEventProtoIterable,
+                               final int currentTick,
+                               final long startTs) {
         this.classToIndexMap = Maps.newHashMap(classToIndexMap);
         this.expressionCache = expressionCache;
         this.invertedExpressionsCache = invertedExpressionsCache;

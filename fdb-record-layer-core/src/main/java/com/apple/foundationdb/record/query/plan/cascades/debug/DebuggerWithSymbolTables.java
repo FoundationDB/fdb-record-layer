@@ -76,7 +76,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     private final boolean isSane;
     private final boolean isRecordEvents;
     private final Iterable<PPlannerEvent> prerecordedEventProtoIterable;
-    private final Deque<State> stateStack;
+    private final Deque<RegisteredEntities> registeredEntitiesStack;
 
     @Nullable
     private String queryAsString;
@@ -91,14 +91,14 @@ public class DebuggerWithSymbolTables implements Debugger {
         this.isRecordEvents = isRecordEvents;
         this.prerecordedEventProtoIterable = prerecordedEventsFileName == null
                                       ? null : eventProtosFromFile(prerecordedEventsFileName);
-        this.stateStack = new ArrayDeque<>();
+        this.registeredEntitiesStack = new ArrayDeque<>();
         this.planContext = null;
         this.singletonToIndexMap = Maps.newHashMap();
     }
 
     @Nonnull
-    State getCurrentState() {
-        return Objects.requireNonNull(stateStack.peek());
+    RegisteredEntities getCurrentRegisteredEntities() {
+        return Objects.requireNonNull(registeredEntitiesStack.peek());
     }
 
     @Nullable
@@ -118,27 +118,27 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Override
     public int onGetIndex(@Nonnull final Class<?> clazz) {
-        return getCurrentState().getIndex(clazz);
+        return getCurrentRegisteredEntities().getIndex(clazz);
     }
 
     @Override
     public int onUpdateIndex(@Nonnull final Class<?> clazz, @Nonnull final IntUnaryOperator updateFn) {
-        return getCurrentState().updateIndex(clazz, updateFn);
+        return getCurrentRegisteredEntities().updateIndex(clazz, updateFn);
     }
 
     @Override
     public void onRegisterExpression(@Nonnull final RelationalExpression expression) {
-        getCurrentState().registerExpression(expression);
+        getCurrentRegisteredEntities().registerExpression(expression);
     }
 
     @Override
     public void onRegisterReference(@Nonnull final Reference reference) {
-        getCurrentState().registerReference(reference);
+        getCurrentRegisteredEntities().registerReference(reference);
     }
 
     @Override
     public void onRegisterQuantifier(@Nonnull final Quantifier quantifier) {
-        getCurrentState().registerQuantifier(quantifier);
+        getCurrentRegisteredEntities().registerQuantifier(quantifier);
     }
 
     @Override
@@ -164,7 +164,7 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Override
     public void onQuery(@Nonnull final String recordQuery, @Nonnull final PlanContext planContext) {
-        this.stateStack.push(State.copyOf(getCurrentState()));
+        this.registeredEntitiesStack.push(RegisteredEntities.copyOf(getCurrentRegisteredEntities()));
         this.queryAsString = recordQuery;
         this.planContext = planContext;
 
@@ -174,10 +174,10 @@ public class DebuggerWithSymbolTables implements Debugger {
     @Override
     @SuppressWarnings("PMD.GuardLogStatement") // false positive
     public void onEvent(final PlannerEvent plannerEvent) {
-        if ((queryAsString == null) || (planContext == null) || stateStack.isEmpty()) {
+        if ((queryAsString == null) || (planContext == null) || registeredEntitiesStack.isEmpty()) {
             return;
         }
-        getCurrentState().addCurrentEvent(plannerEvent);
+        getCurrentRegisteredEntities().addCurrentEvent(plannerEvent);
         if (logger.isTraceEnabled()) {
             if (plannerEvent.getLocation() == Location.END && plannerEvent instanceof TransformRuleCallPlannerEvent) {
                 final TransformRuleCallPlannerEvent transformRuleCallEvent = (TransformRuleCallPlannerEvent)plannerEvent;
@@ -239,15 +239,15 @@ public class DebuggerWithSymbolTables implements Debugger {
     @Nullable
     @Override
     public String nameForObject(@Nonnull final Object object) {
-        final State state = getCurrentState();
+        final RegisteredEntities registeredEntities = getCurrentRegisteredEntities();
         if (object instanceof RelationalExpression) {
-            @Nullable final Integer id = state.getInvertedExpressionsCache().getIfPresent(object);
+            @Nullable final Integer id = registeredEntities.getInvertedExpressionsCache().getIfPresent(object);
             return (id == null) ? null : "exp" + id;
         } else if (object instanceof Reference) {
-            @Nullable final Integer id = state.getInvertedReferenceCache().getIfPresent(object);
+            @Nullable final Integer id = registeredEntities.getInvertedReferenceCache().getIfPresent(object);
             return (id == null) ? null : "ref" + id;
         }  else if (object instanceof Quantifier) {
-            @Nullable final Integer id = state.getInvertedQuantifierCache().getIfPresent(object);
+            @Nullable final Integer id = registeredEntities.getInvertedQuantifierCache().getIfPresent(object);
             return (id == null) ? null : "qun" + id;
         }
 
@@ -256,8 +256,8 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Override
     public void onDone() {
-        if (!stateStack.isEmpty() && queryAsString != null) {
-            final var state = Objects.requireNonNull(stateStack.peek());
+        if (!registeredEntitiesStack.isEmpty() && queryAsString != null) {
+            final var state = Objects.requireNonNull(registeredEntitiesStack.peek());
             if (logger.isInfoEnabled()) {
                 logger.info(KeyValueLogMessage.of("planning done",
                         "query", Objects.requireNonNull(queryAsString).substring(0, Math.min(queryAsString.length(), 30)),
@@ -326,8 +326,8 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     private void reset() {
-        this.stateStack.clear();
-        this.stateStack.push(State.initial(isRecordEvents, isRecordEvents, prerecordedEventProtoIterable));
+        this.registeredEntitiesStack.clear();
+        this.registeredEntitiesStack.push(RegisteredEntities.initial(isRecordEvents, isRecordEvents, prerecordedEventProtoIterable));
 
         this.planContext = null;
         this.queryAsString = null;

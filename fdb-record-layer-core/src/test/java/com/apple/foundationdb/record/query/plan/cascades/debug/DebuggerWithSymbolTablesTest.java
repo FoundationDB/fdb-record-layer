@@ -66,11 +66,11 @@ class DebuggerWithSymbolTablesTest {
 
     @Test
     void testOnQueryResetsState() {
-        final State initialState = debugger.getCurrentState();
+        final RegisteredEntities initialRegisteredEntities = debugger.getCurrentRegisteredEntities();
 
         Debugger.withDebugger(d -> d.onQuery("SELECT * from B", PlanContext.EMPTY_CONTEXT));
 
-        assertThat(debugger.getCurrentState()).isNotSameAs(initialState);
+        assertThat(debugger.getCurrentRegisteredEntities()).isNotSameAs(initialRegisteredEntities);
     }
 
     @Test
@@ -85,7 +85,7 @@ class DebuggerWithSymbolTablesTest {
         PlannerEventListeners.dispatchEvent(() -> beginEvent);
         PlannerEventListeners.dispatchEvent(() -> endEvent);
 
-        assertThat(debugger.getCurrentState().getEvents()).hasSize(2).containsExactly(beginEvent, endEvent);
+        assertThat(debugger.getCurrentRegisteredEntities().getEvents()).hasSize(2).containsExactly(beginEvent, endEvent);
     }
 
     @Test
@@ -99,11 +99,11 @@ class DebuggerWithSymbolTablesTest {
 
     @Test
     void testOnDoneResetsState() {
-        final State initialState = debugger.getCurrentState();
+        final RegisteredEntities initialRegisteredEntities = debugger.getCurrentRegisteredEntities();
 
         Debugger.withDebugger(Debugger::onDone);
 
-        assertThat(debugger.getCurrentState()).isNotSameAs(initialState);
+        assertThat(debugger.getCurrentRegisteredEntities()).isNotSameAs(initialRegisteredEntities);
     }
 
     @Test
@@ -133,7 +133,7 @@ class DebuggerWithSymbolTablesTest {
         debugger.onRegisterReference(rootReference);
 
         assertThat(debugger).isNotNull();
-        assertThat(debugger.getCurrentState()).isNotNull();
+        assertThat(debugger.getCurrentRegisteredEntities()).isNotNull();
         assertThatNoException().isThrownBy(() -> recordedEvents.forEach(debugger::onEvent));
         assertThatExceptionOfType(VerifyException.class)
                 .isThrownBy(

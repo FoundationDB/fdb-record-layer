@@ -218,7 +218,7 @@ class CommandsTest {
     @Test
     void testRestartCommand() throws IOException {
         outIn.write("restart\n".getBytes(StandardCharsets.UTF_8));
-        final State initialStateBeforeRestart = debugger.getCurrentState();
+        final RegisteredEntities initialRegisteredEntities = debugger.getCurrentRegisteredEntities();
 
         assertThatThrownBy(
                 () -> PlannerEventListeners.dispatchEvent(() ->
@@ -226,7 +226,7 @@ class CommandsTest {
                                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN))
         ).isInstanceOf(RestartException.class);
 
-        assertThat(debugger.getCurrentState()).isNotSameAs(initialStateBeforeRestart);
+        assertThat(debugger.getCurrentRegisteredEntities()).isNotSameAs(initialRegisteredEntities);
     }
 
     @Test

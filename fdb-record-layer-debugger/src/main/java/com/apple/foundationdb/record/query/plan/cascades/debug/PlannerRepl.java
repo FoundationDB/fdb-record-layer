@@ -99,7 +99,7 @@ public class PlannerRepl implements Debugger {
         processorsMap = loadProcessors();
     }
 
-    private final Deque<State> stateStack;
+    private final Deque<RegisteredEntities> registeredEntitiesStack;
 
     private final BiMap<Integer, BreakPoint> breakPoints;
     private int currentBreakPointIndex;
@@ -124,7 +124,7 @@ public class PlannerRepl implements Debugger {
     }
 
     public PlannerRepl(@Nonnull final Terminal terminal, boolean exitOnQuit) {
-        this.stateStack = new ArrayDeque<>();
+        this.registeredEntitiesStack = new ArrayDeque<>();
         this.breakPoints = HashBiMap.create();
         this.currentBreakPointIndex = 0;
         this.currentInternalBreakPointIndex = -1;
@@ -140,8 +140,8 @@ public class PlannerRepl implements Debugger {
     }
 
     @Nonnull
-    State getCurrentState() {
-        return Objects.requireNonNull(stateStack.peek());
+    RegisteredEntities getCurrentRegisteredEntities() {
+        return Objects.requireNonNull(registeredEntitiesStack.peek());
     }
 
     @Nullable
@@ -158,27 +158,27 @@ public class PlannerRepl implements Debugger {
 
     @Override
     public int onGetIndex(@Nonnull final Class<?> clazz) {
-        return getCurrentState().getIndex(clazz);
+        return getCurrentRegisteredEntities().getIndex(clazz);
     }
 
     @Override
     public int onUpdateIndex(@Nonnull final Class<?> clazz, @Nonnull final IntUnaryOperator updateFn) {
-        return getCurrentState().updateIndex(clazz, updateFn);
+        return getCurrentRegisteredEntities().updateIndex(clazz, updateFn);
     }
 
     @Override
     public void onRegisterExpression(@Nonnull final RelationalExpression expression) {
-        getCurrentState().registerExpression(expression);
+        getCurrentRegisteredEntities().registerExpression(expression);
     }
 
     @Override
     public void onRegisterReference(@Nonnull final Reference reference) {
-        getCurrentState().registerReference(reference);
+        getCurrentRegisteredEntities().registerReference(reference);
     }
 
     @Override
     public void onRegisterQuantifier(@Nonnull final Quantifier quantifier) {
-        getCurrentState().registerQuantifier(quantifier);
+        getCurrentRegisteredEntities().registerQuantifier(quantifier);
     }
 
     @Override
@@ -210,7 +210,7 @@ public class PlannerRepl implements Debugger {
 
     @Override
     public void onQuery(@Nonnull final String queryAsString, @Nonnull final PlanContext planContext) {
-        this.stateStack.push(State.copyOf(getCurrentState()));
+        this.registeredEntitiesStack.push(RegisteredEntities.copyOf(getCurrentRegisteredEntities()));
         this.queryAsString = queryAsString;
         this.planContext = planContext;
 
@@ -221,8 +221,8 @@ public class PlannerRepl implements Debugger {
     }
 
     void restartState() {
-        stateStack.pop();
-        stateStack.push(State.copyOf(getCurrentState()));
+        registeredEntitiesStack.pop();
+        registeredEntitiesStack.push(RegisteredEntities.copyOf(getCurrentRegisteredEntities()));
     }
 
     void addBreakPoint(final BreakPoint breakPoint) {
@@ -262,9 +262,9 @@ public class PlannerRepl implements Debugger {
         Objects.requireNonNull(queryAsString);
         Objects.requireNonNull(planContext);
 
-        final State state = getCurrentState();
+        final RegisteredEntities registeredEntities = getCurrentRegisteredEntities();
 
-        state.addCurrentEvent(plannerEvent);
+        registeredEntities.addCurrentEvent(plannerEvent);
 
         final Set<BreakPoint> satisfiedBreakPoints = computeSatisfiedBreakPoints(plannerEvent);
         satisfiedBreakPoints.forEach(breakPoint -> breakPoint.onBreak(this));
@@ -272,7 +272,7 @@ public class PlannerRepl implements Debugger {
         final boolean stop = !satisfiedBreakPoints.isEmpty();
         if (stop) {
             printKeyValue("paused in", Thread.currentThread().getName() + " at ");
-            printlnKeyValue("tick", String.valueOf(state.getCurrentTick()));
+            printlnKeyValue("tick", String.valueOf(registeredEntities.getCurrentTick()));
             withProcessors(plannerEvent, processor -> processor.onCallback(this, plannerEvent));
             println();
 
@@ -339,24 +339,24 @@ public class PlannerRepl implements Debugger {
                                final Consumer<RelationalExpression> expressionConsumer,
                                final Consumer<Reference> referenceConsumer,
                                final Consumer<Quantifier> quantifierConsumer) {
-        final State state = getCurrentState();
+        final RegisteredEntities registeredEntities = getCurrentRegisteredEntities();
         final String upperCasePotentialIdentifier = potentialIdentifier.toUpperCase(Locale.ROOT);
         if (upperCasePotentialIdentifier.startsWith("EXP")) {
-            @Nullable final RelationalExpression expression = lookupInCache(state.getExpressionCache(), upperCasePotentialIdentifier, "EXP");
+            @Nullable final RelationalExpression expression = lookupInCache(registeredEntities.getExpressionCache(), upperCasePotentialIdentifier, "EXP");
             if (expression == null) {
                 return false;
             }
             expressionConsumer.accept(expression);
             return true;
         } else if (upperCasePotentialIdentifier.startsWith("REF")) {
-            @Nullable final Reference reference = lookupInCache(state.getReferenceCache(), upperCasePotentialIdentifier, "REF");
+            @Nullable final Reference reference = lookupInCache(registeredEntities.getReferenceCache(), upperCasePotentialIdentifier, "REF");
             if (reference == null) {
                 return false;
             }
             referenceConsumer.accept(reference);
             return true;
         } else if (upperCasePotentialIdentifier.startsWith("QUN")) {
-            @Nullable final Quantifier quantifier = lookupInCache(state.getQuantifierCache(), upperCasePotentialIdentifier, "QUN");
+            @Nullable final Quantifier quantifier = lookupInCache(registeredEntities.getQuantifierCache(), upperCasePotentialIdentifier, "QUN");
             if (quantifier == null) {
                 return false;
             }
@@ -406,15 +406,15 @@ public class PlannerRepl implements Debugger {
     @Nullable
     @Override
     public String nameForObject(@Nonnull final Object object) {
-        final State state = getCurrentState();
+        final RegisteredEntities registeredEntities = getCurrentRegisteredEntities();
         if (object instanceof RelationalExpression) {
-            @Nullable final Integer id = state.getInvertedExpressionsCache().getIfPresent(object);
+            @Nullable final Integer id = registeredEntities.getInvertedExpressionsCache().getIfPresent(object);
             return (id == null) ? null : "exp" + id;
         } else if (object instanceof Reference) {
-            @Nullable final Integer id = state.getInvertedReferenceCache().getIfPresent(object);
+            @Nullable final Integer id = registeredEntities.getInvertedReferenceCache().getIfPresent(object);
             return (id == null) ? null : "ref" + id;
         }  else if (object instanceof Quantifier) {
-            @Nullable final Integer id = state.getInvertedQuantifierCache().getIfPresent(object);
+            @Nullable final Integer id = registeredEntities.getInvertedQuantifierCache().getIfPresent(object);
             return (id == null) ? null : "qun" + id;
         }
 
@@ -461,8 +461,8 @@ public class PlannerRepl implements Debugger {
     }
 
     private void reset() {
-        this.stateStack.clear();
-        this.stateStack.push(State.initial(true, true, null));
+        this.registeredEntitiesStack.clear();
+        this.registeredEntitiesStack.push(RegisteredEntities.initial(true, true, null));
         this.breakPoints.clear();
         this.currentBreakPointIndex = 0;
         this.currentInternalBreakPointIndex = -1;
