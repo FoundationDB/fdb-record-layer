@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBas
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +47,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
+    LuceneSerializer serializer;
+
+    @BeforeEach
+    void setup() {
+        serializer = new LuceneSerializer(true, false, null, true);
+    }
+
     @Test
     void testQueueSizeUninitialized() {
         // Test that getQueueSize returns null when counter is uninitialized
@@ -274,7 +282,7 @@ class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
         Subspace queueSpace = path.toSubspace(context).subspace(Tuple.from("queue"));
         Subspace counterSpace = path.toSubspace(context).subspace(Tuple.from("counter"));
         return new PendingWriteQueue(queueSpace, counterSpace,
-                PendingWriteQueue.DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY, maxQueueSize);
+                PendingWriteQueue.DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY, maxQueueSize, serializer);
     }
 
     private List<LuceneDocumentFromRecord.DocumentField> createSingleField() {
