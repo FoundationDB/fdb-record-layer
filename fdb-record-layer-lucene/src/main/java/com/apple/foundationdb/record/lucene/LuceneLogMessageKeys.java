@@ -67,6 +67,7 @@ public enum LuceneLogMessageKeys {
     LOCK_EXISTING_UUID,
     LOCK_DIRECTORY,
     MAX_ENTRIES_TO_REPLAY,
+    MAX_QUEUE_SIZE,
     MERGE_SOURCE,
     MERGE_TRIGGER,
     OFFSET,

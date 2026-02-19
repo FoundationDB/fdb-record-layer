@@ -137,5 +137,9 @@ public final class LuceneRecordContextProperties {
     /**
      * Lucene max number of pending writes that can be replayed for a query.
      */
-    public static final RecordLayerPropertyKey<Integer> LUCENE_MAX_PENDING_WRITES_REPLAYED_FOR_QUERY = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.max.pending.writes.replay", PendingWriteQueue.MAX_PENDING_ENTRIES_TO_REPLAY);
+    public static final RecordLayerPropertyKey<Integer> LUCENE_MAX_PENDING_WRITES_REPLAYED_FOR_QUERY = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.max.pending.writes.replay", PendingWriteQueue.DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY);
+    /**
+     * Max size of pending writes queue.
+     */
+    public static final RecordLayerPropertyKey<Integer> LUCENE_MAX_PENDING_QUEUE_SIZE = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.max.pending.queue.size", PendingWriteQueue.DEFAULT_MAX_PENDING_QUEUE_SIZE);
 }

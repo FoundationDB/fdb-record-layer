@@ -35,6 +35,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
@@ -65,7 +66,10 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -98,8 +102,9 @@ class TestHelpers {
                                                       @Nonnull final HNSW hnsw,
                                                       final int batchSize,
                                                       final long firstId,
-                                                      @Nonnull final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction) {
-        return db.run(tr -> {
+                                                      @Nonnull final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        return db.runAsync(tr -> {
             final TestOnWriteListener onWriteListener = (TestOnWriteListener)hnsw.getOnWriteListener();
             onWriteListener.reset();
             final TestOnReadListener onReadListener = (TestOnReadListener)hnsw.getOnReadListener();
@@ -107,21 +112,30 @@ class TestHelpers {
 
             final ImmutableList.Builder<PrimaryKeyAndVector> data = ImmutableList.builder();
 
+            // In theory this could put all the futures in a List and run the inserts concurrently, but for a `basicInsertBatch`
+            // it's probably better to not test the concurrent handling of hnsw, even if it makes the tests slower.
+            CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
             final long beginTs = System.nanoTime();
             for (int i = 0; i < batchSize; i ++) {
-                final var record = insertFunction.apply(tr, firstId + i);
+                final PrimaryKeyAndVector record = insertFunction.apply(tr, firstId + i);
                 if (record == null) {
-                    return data.build();
+                    break;
                 }
                 data.add(record);
-                hnsw.insert(tr, record.getPrimaryKey(), record.getVector()).join();
+                future = future.thenCompose((vignore) -> hnsw.insert(tr, record.getPrimaryKey(), record.getVector()));
             }
-            final long endTs = System.nanoTime();
-            logger.info("inserted batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, readBytes={}",
-                    batchSize, firstId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                    onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
-            return data.build();
-        });
+            return future.thenApply(vignore -> data.build())
+                    .whenComplete((result, error) -> {
+                        if (error != null) {
+                            logger.info("Failed to insert batchSize={}", error);
+                        } else {
+                            final long endTs = System.nanoTime();
+                            logger.info("inserted batchSize={} records={} starting at nodeId={} took elapsedTime={}ms, readCounts={}, readBytes={}",
+                                    batchSize, result.size(), firstId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                                    onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
+                        }
+                    });
+        }).get(2, TimeUnit.MINUTES); // set a timeout for inserting a single batch including retries so setup won't run forever
     }
 
     static List<PrimaryKeyAndVector> insertSIFTSmall(@Nonnull final Database db,
@@ -133,16 +147,21 @@ class TestHelpers {
         try (final var fileChannel = FileChannel.open(siftSmallPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
+            final int batchSize = 50;
             int i = 0;
             while (vectorIterator.hasNext()) {
+                final List<DoubleRealVector> batch =
+                        Lists.newArrayList(Iterators.limit(vectorIterator, batchSize));
+                final long currentBatchStart = i;
                 final List<PrimaryKeyAndVector> insertedInBatch =
-                        basicInsertBatch(db, hnsw, 100, i,
+                        basicInsertBatch(db, hnsw, batchSize, i,
                                 (tr, nextId) -> {
-                                    if (!vectorIterator.hasNext()) {
+                                    final int indexInBatch = Math.toIntExact(nextId - currentBatchStart);
+                                    if (indexInBatch >= batch.size()) {
                                         return null;
                                     }
                                     final Tuple currentPrimaryKey = createPrimaryKey(nextId);
-                                    final DoubleRealVector doubleVector = vectorIterator.next();
+                                    final DoubleRealVector doubleVector = batch.get(indexInBatch);
                                     return new PrimaryKeyAndVector(currentPrimaryKey, doubleVector);
                                 });
                 insertedDataBuilder.addAll(insertedInBatch);
