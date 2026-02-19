@@ -164,28 +164,33 @@ public class ExplainTests {
 
     @Test
     void explainContainsEventStatsWithDefaultEventStatsCollectorEnabled() throws Exception {
-        Debugger.setDebugger(null);
-        org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
-        PlannerEventStatsCollector.enableDefaultStatsCollector();
+        final var defaultDebugger = Debugger.getDebugger();
+        try {
+            Debugger.setDebugger(null);
+            org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
+            PlannerEventStatsCollector.enableDefaultStatsCollector();
 
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            executeInsert(ddl);
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
-                ps.setMaxRows(2);
-                try (final RelationalResultSet resultSet = ps.executeQuery()) {
-                    final var assertResult = ResultSetAssert.assertThat(resultSet);
-                    assertResult.hasNextRow()
-                            .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
-                            .hasColumn("PLAN_HASH", -1635569052)
-                            .hasColumn("PLAN_CONTINUATION", null);
-                    final var plannerMetrics = resultSet.getStruct("PLANNER_METRICS");
-                    org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
-                    RelationalStructAssert.assertThat(plannerMetrics)
-                            .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
-                            .hasValue("PLANNING_PHASE_TASK_COUNT", 204L);
-                    assertResult.hasNoNextRow();
+            try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+                executeInsert(ddl);
+                try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
+                    ps.setMaxRows(2);
+                    try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                        final var assertResult = ResultSetAssert.assertThat(resultSet);
+                        assertResult.hasNextRow()
+                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
+                                .hasColumn("PLAN_HASH", -1635569052)
+                                .hasColumn("PLAN_CONTINUATION", null);
+                        final var plannerMetrics = resultSet.getStruct("PLANNER_METRICS");
+                        org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
+                        RelationalStructAssert.assertThat(plannerMetrics)
+                                .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
+                                .hasValue("PLANNING_PHASE_TASK_COUNT", 204L);
+                        assertResult.hasNoNextRow();
+                    }
                 }
             }
+        } finally {
+            Debugger.setDebugger(defaultDebugger);
         }
     }
 
