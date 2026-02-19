@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.subspace.Subspace;
@@ -354,6 +355,42 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void testQueueItemTooLarge() throws Exception {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0 ; i < 100_000 ; i++) {
+            builder.append("Hello ");
+        }
+        String hugeString = builder.toString();
+        TestDocument docWithHugeString = new TestDocument(primaryKey("Huge"),
+                List.of(createField("f2", hugeString.toString(), LuceneIndexExpressions.DocumentFieldType.STRING, false, false)));
+
+        LuceneSerializer passThroughSerializer = new PassThroughLuceneSerializer();
+        PendingWriteQueue queue;
+
+        try (FDBRecordContext context = openContext()) {
+            queue = getQueue(context);
+            // save a single doc using the good queue (should succeed since the serializer compresses the data)
+            queue.enqueueInsert(context, docWithHugeString.getPrimaryKey(), docWithHugeString.getFields());
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            RecordCursor<PendingWriteQueue.QueueEntry> queueCursor = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null);
+            List<PendingWriteQueue.QueueEntry> list = queueCursor.asList().get();
+            assertEquals(1, list.size());
+            assertEquals(hugeString, list.get(0).getDocumentFields().get(0).getStringValue());
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            PendingWriteQueue failingQueue = getQueue(context, passThroughSerializer);
+            // save a single doc using the bad serializer (should fail as the entry will be too large)
+            failingQueue.enqueueInsert(context, docWithHugeString.getPrimaryKey(), docWithHugeString.getFields());
+            Assertions.assertThatThrownBy(() -> commit(context))
+                    .isInstanceOf(FDBExceptions.FDBStoreValueSizeException.class);
+        }
+    }
+
     private PendingWriteQueue getQueue(FDBRecordContext context) {
         return getQueue(context, serializer);
     }
@@ -526,6 +563,24 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         @Override
         public byte[] decode(@Nullable final byte[] data) {
             throw new RecordCoreInternalException("Failing to decode");
+        }
+    }
+
+    private static class PassThroughLuceneSerializer extends LuceneSerializer {
+        public PassThroughLuceneSerializer() {
+            super(true, false, null, true);
+        }
+
+        @Nullable
+        @Override
+        public byte[] encode(@Nullable final byte[] data) {
+            return data;
+        }
+
+        @Nullable
+        @Override
+        public byte[] decode(@Nullable final byte[] data) {
+            return data;
         }
     }
 }
