@@ -412,8 +412,10 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             // If we found such a reference, re-use it
             if (!existingRefs.isEmpty()) {
                 Reference existingReference = existingRefs.get(0);
-                expressions.forEach(expr ->
-                        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.reusedExpWithReferences(expr, existingRefs)));
+                if (PlannerEventListeners.hasListeners()) {
+                    expressions.forEach(expr ->
+                            PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.reusedExpWithReferences(expr, existingRefs)));
+                }
                 Verify.verify(existingReference != this.root);
                 return existingReference;
             }
@@ -449,8 +451,9 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                     continue;
                 }
                 if (leafRef.containsAllInMemo(expressions, AliasMap.emptyMap(), false)) {
-                    for (RelationalExpression expression : expressions) {
-                        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.reusedExp(expression));
+                    if (PlannerEventListeners.hasListeners()) {
+                        expressions.forEach(expression ->
+                                PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.reusedExp(expression)));
                     }
                     return leafRef;
                 }
@@ -534,14 +537,18 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                                                 @Nonnull BiFunction<Set<? extends RelationalExpression>, Set<? extends RelationalExpression>, Reference> referenceCreator) {
         final var allExpressions =
                 Iterables.concat(exploratoryExpressions, finalExpressions);
-        allExpressions.forEach(expression -> PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.begin()));
+        if (PlannerEventListeners.hasListeners()) {
+            allExpressions.forEach(expression -> PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.begin()));
+        }
         try {
             final var exploratoryExpressionSet = new LinkedIdentitySet<>(exploratoryExpressions);
             final var finalExpressionSet = new LinkedIdentitySet<>(finalExpressions);
             return addNewReference(referenceCreator.apply(exploratoryExpressionSet, finalExpressionSet));
         } finally {
-            allExpressions.forEach(
-                    expression -> PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.end()));
+            if (PlannerEventListeners.hasListeners()) {
+                allExpressions.forEach(
+                        expression -> PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.end()));
+            }
         }
     }
 

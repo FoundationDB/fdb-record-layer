@@ -71,6 +71,13 @@ public final class PlannerEventListeners {
     }
 
     /**
+     * Expose outside that it has listeners
+     */
+    public static boolean hasListeners() {
+        return !THREAD_LOCAL.get().isEmpty();
+    }
+
+    /**
      * Get the current active {@link EventListener} instance for the provided {@link Class}.
      * @param listenerClass a class that implements the {@link EventListener} interface.
      * @return the instance that is currently set for the provided {@code listenerClass}, null otherwise.
