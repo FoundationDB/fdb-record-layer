@@ -105,6 +105,7 @@ public class PendingWriteQueue {
      * Default: 10,000. Value of 0 means unlimited.
      */
     private final long maxQueueSize;
+    private LuceneSerializer serializer;
 
     private final Subspace queueSubspace;
     private final Subspace queueSizeSubspace;
@@ -116,15 +117,16 @@ public class PendingWriteQueue {
      * as necessary
      * @param queueSizeSubspace the subspace for storing the queue size counter
      */
-    public PendingWriteQueue(@Nonnull Subspace queueSubspace, @Nonnull Subspace queueSizeSubspace) {
-        this(queueSubspace, queueSizeSubspace, DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY, DEFAULT_MAX_PENDING_QUEUE_SIZE);
+    public PendingWriteQueue(@Nonnull Subspace queueSubspace, @Nonnull Subspace queueSizeSubspace, LuceneSerializer serializer) {
+        this(queueSubspace, queueSizeSubspace, DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY, DEFAULT_MAX_PENDING_QUEUE_SIZE, serializer);
     }
 
-    public PendingWriteQueue(@Nonnull Subspace queueSubspace, @Nonnull Subspace queueSizeSubspace, int maxEntriesToReplay, int maxQueueSize) {
+    public PendingWriteQueue(@Nonnull Subspace queueSubspace, @Nonnull Subspace queueSizeSubspace, int maxEntriesToReplay, int maxQueueSize, LuceneSerializer serializer) {
         this.queueSubspace = queueSubspace;
         this.queueSizeSubspace = queueSizeSubspace;
         this.maxEntriesToReplay = maxEntriesToReplay;
         this.maxQueueSize = maxQueueSize;
+        this.serializer = serializer;
     }
 
     /**
@@ -183,7 +185,7 @@ public class PendingWriteQueue {
                 .setScanProperties(scanProperties)
                 .setContinuation(continuation)
                 .build();
-        return cursor.map(kv -> PendingWritesQueueHelper.toQueueEntry(queueSubspace, kv));
+        return cursor.map(kv -> PendingWritesQueueHelper.toQueueEntry(queueSubspace, serializer, kv));
     }
 
     /**
@@ -328,7 +330,7 @@ public class PendingWriteQueue {
         FDBRecordVersion recordVersion = FDBRecordVersion.incomplete(context.claimLocalVersion());
         Tuple keyTuple = Tuple.from(recordVersion.toVersionstamp());
         byte[] queueKey = queueSubspace.packWithVersionstamp(keyTuple);
-        byte[] value = builder.build().toByteArray();
+        byte[] value = serializer.encode(builder.build().toByteArray());
 
         // Use addVersionMutation to let FDB assign the versionStamp
         final byte[] current = context.addVersionMutation(
@@ -351,6 +353,7 @@ public class PendingWriteQueue {
             LOGGER.debug(getLogMessage("Enqueued operation")
                     .addKeyAndValue(LuceneLogMessageKeys.OPERATION_TYPE, operationType)
                     .addKeyAndValue(LogMessageKeys.SUBSPACE, queueSubspace)
+                    .addKeyAndValue(LogMessageKeys.VALUE_SIZE, value.length)
                     .toString());
         }
     }
