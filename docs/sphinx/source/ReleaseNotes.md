@@ -7,6 +7,36 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.10.3.0
+
+<h4> New Features </h4>
+
+* Use LuceneSerializer for queue encoding and decoding - [PR #3959](https://github.com/FoundationDB/fdb-record-layer/pull/3959)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Help prevent infinite runtime in SiftTest setup - [PR #3960](https://github.com/FoundationDB/fdb-record-layer/pull/3960)
+
+</details>
+
+
+**[Full Changelog (4.10.2.0...4.10.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.2.0...4.10.3.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.9.1.0`, ❌`4.9.2.0`, ❌`4.9.3.0`, ✅`4.9.4.0`, ✅`4.9.6.0`, ✅`4.9.7.0`, ✅`4.9.8.0`, ✅`4.9.9.0`, ✅`4.10.1.0`, ✅`4.10.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/22197373892)
+
+
+
 ### 4.10.2.0
 
 <h4> New Features </h4>
