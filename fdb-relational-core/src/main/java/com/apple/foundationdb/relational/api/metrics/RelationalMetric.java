@@ -125,6 +125,7 @@ public class RelationalMetric {
 
     public enum RelationalCount implements StoreTimer.Count {
 
+        PLAN_CACHE_SKIP("cache skip", false),
         PLAN_CACHE_PRIMARY_MISS("primary cache miss", false),
         PLAN_CACHE_SECONDARY_MISS("secondary cache miss", false),
         PLAN_CACHE_TERTIARY_MISS("tertiary cache miss", false),
