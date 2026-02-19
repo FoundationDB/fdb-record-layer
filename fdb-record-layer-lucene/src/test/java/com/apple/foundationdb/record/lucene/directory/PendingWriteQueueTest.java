@@ -342,7 +342,7 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
             queue = getQueue(context);
             failingQueue = getQueue(context, failingSerializer);
             final TestDocument doc = docs.get(0);
-            // save a single doc uasing the good queue
+            // save a single doc using the good queue
             queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields());
             commit(context);
         }
