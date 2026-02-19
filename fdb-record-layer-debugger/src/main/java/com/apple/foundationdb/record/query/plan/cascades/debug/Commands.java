@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Shorthand;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventWithState;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
@@ -205,15 +206,15 @@ public class Commands {
                     return false;
                 }
 
-                final Optional<PlannerEvent.Shorthand> shorthandOptional =
-                        Enums.getIfPresent(PlannerEvent.Shorthand.class, word1).toJavaUtil();
+                final Optional<Shorthand> shorthandOptional =
+                        Enums.getIfPresent(Shorthand.class, word1).toJavaUtil();
                 if (shorthandOptional.isEmpty()) {
                     plannerRepl.printlnError("unknown event class, should be one of [" +
-                                             Arrays.stream(PlannerEvent.Shorthand.values()).map(Enum::name).collect(Collectors.joining(", ")) +
+                                             Arrays.stream(Shorthand.values()).map(Enum::name).collect(Collectors.joining(", ")) +
                                              "].");
                     return false;
                 }
-                final PlannerEvent.Shorthand shorthand = shorthandOptional.get();
+                final Shorthand shorthand = shorthandOptional.get();
 
                 if (words.size() == 2) {
                     // "break event_type" sets a break point to the event_type on any location
