@@ -47,19 +47,19 @@ class DefaultPlannerEventStatsCollectorTest {
 
     @Test
     void testOnEventUpdatesStatsMap() {
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 new InitiatePhasePlannerEvent(
                         PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN));
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 new InitiatePhasePlannerEvent(
                         PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.END));
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 new InitiatePhasePlannerEvent(
                         PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN));
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 InsertIntoMemoPlannerEvent.newExp(
                         new SelectExpression(LiteralValue.ofScalar(1), Collections.emptyList(), Collections.emptyList())));
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 new InitiatePhasePlannerEvent(
                         PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), Location.END));
 

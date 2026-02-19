@@ -104,7 +104,7 @@ class PlannerReplTest {
         final Reference ref0 = Reference.initialOf(exp0, exp1);
         debugger.onRegisterQuantifier(Quantifier.forEach(ref0, CorrelationIdentifier.of("0")));
 
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), Location.BEGIN));
 
         assertThat(Debugger.mapDebugger(d -> d.onGetIndex(RelationalExpression.class))).hasValue(2);

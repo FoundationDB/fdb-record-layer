@@ -53,7 +53,7 @@ class PlannerEventListenersTest {
         PlannerEventListeners.addListener(DummyEventListener.class, listener);
 
         PlannerEventListeners.dispatchOnQuery("SELECT * from A", PlanContext.EMPTY_CONTEXT);
-        PlannerEventListeners.dispatchEvent(plannerEvent);
+        PlannerEventListeners.dispatchEvent(() -> plannerEvent);
         PlannerEventListeners.dispatchOnDone();
 
         assertThat(PlannerEventListeners.getListener(DummyEventListener.class)).isSameAs(listener);
@@ -71,7 +71,7 @@ class PlannerEventListenersTest {
         listeners.forEach((l) -> PlannerEventListeners.addListener(l.getClass(), l));
 
         PlannerEventListeners.dispatchOnQuery("SELECT * from A", PlanContext.EMPTY_CONTEXT);
-        PlannerEventListeners.dispatchEvent(plannerEvent);
+        PlannerEventListeners.dispatchEvent(() -> plannerEvent);
         PlannerEventListeners.dispatchOnDone();
 
         listeners.forEach(l -> {
@@ -94,7 +94,7 @@ class PlannerEventListenersTest {
         PlannerEventListeners.addListener(SecondDummyEventListener.class, removedListener);
         PlannerEventListeners.removeListener(removedListener.getClass());
         PlannerEventListeners.dispatchOnQuery("SELECT * from A", PlanContext.EMPTY_CONTEXT);
-        PlannerEventListeners.dispatchEvent(plannerEvent);
+        PlannerEventListeners.dispatchEvent(() -> plannerEvent);
         PlannerEventListeners.dispatchOnDone();
 
         assertThat(PlannerEventListeners.getListener(DummyEventListener.class)).isSameAs(listener);

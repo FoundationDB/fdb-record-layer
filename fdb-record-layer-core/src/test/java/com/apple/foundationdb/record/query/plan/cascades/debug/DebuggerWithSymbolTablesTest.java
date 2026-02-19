@@ -82,8 +82,8 @@ class DebuggerWithSymbolTablesTest {
         final var endEvent = new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.END);
 
-        PlannerEventListeners.dispatchEvent(beginEvent);
-        PlannerEventListeners.dispatchEvent(endEvent);
+        PlannerEventListeners.dispatchEvent(() -> beginEvent);
+        PlannerEventListeners.dispatchEvent(() -> endEvent);
 
         assertThat(debugger.getCurrentState().getEvents()).hasSize(2).containsExactly(beginEvent, endEvent);
     }

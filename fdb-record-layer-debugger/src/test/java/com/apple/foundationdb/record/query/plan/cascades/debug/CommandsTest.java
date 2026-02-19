@@ -108,7 +108,7 @@ class CommandsTest {
     void testCurrentCommand() throws IOException {
         outIn.write("current\ncont\n".getBytes(StandardCharsets.UTF_8));
 
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN));
 
         terminal.writer().flush();
@@ -124,11 +124,11 @@ class CommandsTest {
         final RelationalExpression exp = new SelectExpression(
                 LiteralValue.ofScalar(1), Collections.emptyList(), Collections.emptyList());
 
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN));
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.END));
-        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.newExp(exp));
+        PlannerEventListeners.dispatchEvent(() -> InsertIntoMemoPlannerEvent.newExp(exp));
 
         terminal.writer().flush();
         assertThat(outputStream.toString()).contains(
@@ -159,7 +159,7 @@ class CommandsTest {
                 LiteralValue.ofScalar(2), Collections.emptyList(), Collections.emptyList());
         final Reference ref0 = Reference.initialOf(exp0, exp1);
 
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), Location.BEGIN));
 
         terminal.writer().flush();
@@ -178,7 +178,7 @@ class CommandsTest {
                 LiteralValue.ofScalar(2), Collections.emptyList(), Collections.emptyList());
         final Reference ref0 = Reference.initialOf(exp0, exp1);
 
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), Location.BEGIN));
 
         terminal.writer().flush();
@@ -200,7 +200,7 @@ class CommandsTest {
         final Reference ref = Reference.empty();
         final Quantifier qun = Quantifier.forEach(ref);
 
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, ref, new ArrayDeque<>(), Location.BEGIN));
 
         terminal.writer().flush();
@@ -221,7 +221,7 @@ class CommandsTest {
         final State initialStateBeforeRestart = debugger.getCurrentState();
 
         assertThatThrownBy(
-                () -> PlannerEventListeners.dispatchEvent(
+                () -> PlannerEventListeners.dispatchEvent(() ->
                         new InitiatePhasePlannerEvent(
                                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN))
         ).isInstanceOf(RestartException.class);
@@ -237,7 +237,7 @@ class CommandsTest {
         var ref0 = Reference.initialOf(exp0, exp1);
         var qun0 = Quantifier.forEach(ref0, CorrelationIdentifier.of("0"));
 
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, ref0, new ArrayDeque<>(), Location.BEGIN));
 
         terminal.writer().close();
@@ -254,7 +254,7 @@ class CommandsTest {
         outIn.write("tasks\ncont\n".getBytes(StandardCharsets.UTF_8));
         var ref = Reference.empty();
 
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 new InitiatePhasePlannerEvent(
                     PlannerPhase.REWRITING, ref, new ArrayDeque<>(List.of(new DummyCascadesTask())),
                         Location.BEGIN));
@@ -275,7 +275,7 @@ class CommandsTest {
         outIn.write("help\ncont\n".getBytes(StandardCharsets.UTF_8));
         var ref = Reference.empty();
 
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 new InitiatePhasePlannerEvent(
                         PlannerPhase.REWRITING, ref, new ArrayDeque<>(), Location.BEGIN));
 
@@ -289,7 +289,7 @@ class CommandsTest {
         outIn.write("show ref1\ncont\n".getBytes(StandardCharsets.UTF_8));
         var ref = Reference.empty();
 
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 new InitiatePhasePlannerEvent(
                         PlannerPhase.REWRITING, ref, new ArrayDeque<>(), Location.BEGIN));
 
@@ -300,10 +300,10 @@ class CommandsTest {
     void testCountingTautologyBreakPoint() throws IOException {
         outIn.write("step 2\ncurrent\ncont\n".getBytes(StandardCharsets.UTF_8));
 
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN));
-        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.begin());
-        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.end());
+        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::begin);
+        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::end);
 
         terminal.writer().close();
         assertThat(outputStream.toString()).contains(
@@ -326,11 +326,11 @@ class CommandsTest {
     void testOnEventTypeBreakPoint() throws IOException {
         outIn.write("break initphase end\nbreak list\ncont\ncurrent\ncont\n".getBytes(StandardCharsets.UTF_8));
 
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN));
-        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.begin());
-        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.end());
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::begin);
+        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::end);
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.END));
 
         terminal.writer().close();
@@ -358,11 +358,11 @@ class CommandsTest {
     void testOnPhaseBreakPoint() throws IOException {
         outIn.write("phase planning\ncont\ncurrent\ncont\n".getBytes(StandardCharsets.UTF_8));
 
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN));
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.END));
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
 
         terminal.writer().close();
@@ -387,14 +387,14 @@ class CommandsTest {
         final var nonMatchingRule = new ImplementExplodeRule();
         Debugger.registerExpression(exp);
 
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.END));
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 new TransformPlannerEvent(PlannerPhase.PLANNING, ref, new ArrayDeque<>(), PlannerEvent.Location.BEGIN,
                         ref, exp, nonMatchingRule));
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 new TransformPlannerEvent(PlannerPhase.PLANNING, ref, new ArrayDeque<>(), PlannerEvent.Location.BEGIN,
                         ref, exp, matchingRule));
 
@@ -441,15 +441,15 @@ class CommandsTest {
         final var matchingRule = new ImplementSimpleSelectRule();
         final var nonMatchingRule = new ImplementExplodeRule();
 
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.END));
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 new TransformRuleCallPlannerEvent(PlannerPhase.PLANNING, ref, new ArrayDeque<>(), PlannerEvent.Location.BEGIN,
                         ref, exp, nonMatchingRule, new CascadesRuleCall(PlannerPhase.PLANNING, PlanContext.EMPTY_CONTEXT,
                         nonMatchingRule, ref, Traversal.withRoot(ref), new ArrayDeque<>(), PlannerBindings.empty(), EvaluationContext.EMPTY)));
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 new TransformRuleCallPlannerEvent(PlannerPhase.PLANNING, ref, new ArrayDeque<>(),
                         PlannerEvent.Location.BEGIN, ref, exp, matchingRule,
                         new CascadesRuleCall(PlannerPhase.PLANNING, PlanContext.EMPTY_CONTEXT, matchingRule, ref,
@@ -501,9 +501,9 @@ class CommandsTest {
                 Traversal.withRoot(ref), new ArrayDeque<>(), PlannerBindings.empty(), EvaluationContext.EMPTY);
         ruleCall.yieldExploratoryExpression(yieldedExp);
 
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 new TransformRuleCallPlannerEvent(PlannerPhase.REWRITING, ref, new ArrayDeque<>(),
                         PlannerEvent.Location.END, ref, exp, new ImplementSimpleSelectRule(), ruleCall));
 
@@ -569,9 +569,9 @@ class CommandsTest {
                 PlannerBindings.empty(), EvaluationContext.EMPTY);
         ruleCall.yieldPartialMatch(AliasMap.emptyMap(), matchCandidate, exp, ref, new DummyMatchInfo());
 
-        PlannerEventListeners.dispatchEvent(new InitiatePhasePlannerEvent(
+        PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 new TransformRuleCallPlannerEvent(PlannerPhase.REWRITING, ref, new ArrayDeque<>(),
                         PlannerEvent.Location.END, ref, exp, new ImplementSimpleSelectRule(), ruleCall));
 

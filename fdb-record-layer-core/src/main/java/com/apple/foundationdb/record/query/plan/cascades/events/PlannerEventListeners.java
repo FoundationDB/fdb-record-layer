@@ -27,6 +27,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * <p>
@@ -71,13 +72,6 @@ public final class PlannerEventListeners {
     }
 
     /**
-     * Expose outside that it has listeners
-     */
-    public static boolean hasListeners() {
-        return !THREAD_LOCAL.get().isEmpty();
-    }
-
-    /**
      * Get the current active {@link EventListener} instance for the provided {@link Class}.
      * @param listenerClass a class that implements the {@link EventListener} interface.
      * @return the instance that is currently set for the provided {@code listenerClass}, null otherwise.
@@ -88,11 +82,25 @@ public final class PlannerEventListeners {
     }
 
     /**
-     * Dispatch a {@link PlannerEvent} to all {@link EventListener} instances in thread-local storage.
-     * @param plannerEvent event to dispatch to {@link EventListener}s.
+     * Runs the {@link Runnable} in case any {@link EventListener}s exist.
+     * @param runnable the {@link Runnable} to run.
      */
-    public static void dispatchEvent(final PlannerEvent plannerEvent) {
-        THREAD_LOCAL.get().values().forEach(l -> l.onEvent(plannerEvent));
+    public static void withListeners(@Nonnull final Runnable runnable) {
+        if (!THREAD_LOCAL.get().isEmpty()) {
+            runnable.run();
+        }
+    }
+
+    /**
+     * Dispatch a {@link PlannerEvent} produced by eventSupplier to all {@link EventListener} instances in thread-local storage.
+     * @param eventSupplier supplies a {@link PlannerEvent} event to dispatch to {@link EventListener}s.
+     * eventSupplier is called only if any of {@link EventListener} exist.
+     */
+    public static void dispatchEvent(final Supplier<PlannerEvent> eventSupplier) {
+        if (!THREAD_LOCAL.get().isEmpty()) {
+            final var event = eventSupplier.get();
+            THREAD_LOCAL.get().values().forEach(l -> l.onEvent(event));
+        }
     }
 
     /**

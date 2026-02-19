@@ -189,14 +189,14 @@ public class References {
                 } else {
                     translatedExpression = expression.translateCorrelations(translationMap, shouldSimplifyValues,
                             translatedQuantifiers);
-                    PlannerEventListeners.dispatchEvent(
+                    PlannerEventListeners.dispatchEvent(() ->
                             new TranslateCorrelationsPlannerEvent(translatedExpression, Location.COUNT));
                     allMembersSame = false;
                 }
             } else {
                 translatedExpression = expression.translateCorrelations(translationMap, shouldSimplifyValues,
                         translatedQuantifiers);
-                PlannerEventListeners.dispatchEvent(
+                PlannerEventListeners.dispatchEvent(() ->
                         new TranslateCorrelationsPlannerEvent(translatedExpression, Location.COUNT));
                 allMembersSame = false;
             }

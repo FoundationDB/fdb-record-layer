@@ -328,14 +328,14 @@ public class Reference implements Correlated<Reference>, Typed {
     private boolean insert(@Nonnull final RelationalExpression newExpression,
                            final boolean isFinal,
                            @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
-        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.begin());
+        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::begin);
         try {
             final boolean containsInMemo = containsInMemo(newExpression, isFinal);
 
             if (containsInMemo) {
-                PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.reusedExpWithReferences(newExpression, ImmutableList.of(this)));
+                PlannerEventListeners.dispatchEvent(() -> InsertIntoMemoPlannerEvent.reusedExpWithReferences(newExpression, ImmutableList.of(this)));
             } else {
-                PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.newExp(newExpression));
+                PlannerEventListeners.dispatchEvent(() -> InsertIntoMemoPlannerEvent.newExp(newExpression));
             }
 
             if (!containsInMemo) {
@@ -344,7 +344,7 @@ public class Reference implements Correlated<Reference>, Typed {
             }
             return false;
         } finally {
-            PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.end());
+            PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::end);
         }
     }
 

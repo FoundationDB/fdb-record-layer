@@ -187,7 +187,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     @Override
     public void emitEvent(@Nonnull final Location location) {
         Verify.verify(location != Location.BEGIN && location != Location.END);
-        PlannerEventListeners.dispatchEvent(
+        PlannerEventListeners.dispatchEvent(() ->
                 new TransformRuleCallPlannerEvent(plannerPhase, root, taskStack, location, root,
                         bindings.get(rule.getMatcher()), rule, this));
     }
@@ -296,7 +296,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     @Nonnull
     private Reference addNewReference(@Nonnull final Reference newRef) {
         for (RelationalExpression expression : newRef.getAllMemberExpressions()) {
-            PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.newExp(expression));
+            PlannerEventListeners.dispatchEvent(() -> InsertIntoMemoPlannerEvent.newExp(expression));
             traversal.addExpression(newRef, expression);
         }
         newReferences.add(newRef);
@@ -353,7 +353,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
         // least one variation) or it will be a new reference, but that reference must be missing at least
         // one child from the first variation and therefore cannot be reused
         //
-        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.begin());
+        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::begin);
         try {
             Preconditions.checkArgument(expressions.stream().noneMatch(expression -> expression instanceof RecordQueryPlan));
 
@@ -412,10 +412,9 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             // If we found such a reference, re-use it
             if (!existingRefs.isEmpty()) {
                 Reference existingReference = existingRefs.get(0);
-                if (PlannerEventListeners.hasListeners()) {
-                    expressions.forEach(expr ->
-                            PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.reusedExpWithReferences(expr, existingRefs)));
-                }
+                PlannerEventListeners.withListeners(() ->
+                        expressions.forEach(expr ->
+                            PlannerEventListeners.dispatchEvent(() -> InsertIntoMemoPlannerEvent.reusedExpWithReferences(expr, existingRefs))));
                 Verify.verify(existingReference != this.root);
                 return existingReference;
             }
@@ -423,7 +422,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             // If we didn't find one, create a new reference and add it to the memo
             return addNewReference(Reference.ofExploratoryExpressions(plannerPhase.getTargetPlannerStage(), expressions));
         } finally {
-            PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.end());
+            PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::end);
         }
     }
 
@@ -438,7 +437,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
 
     @Nonnull
     private Reference memoizeLeafExpressions(@Nonnull final Collection<? extends RelationalExpression> expressions) {
-        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.begin());
+        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::begin);
         try {
             Preconditions.checkArgument(expressions.stream()
                     .allMatch(expression -> !(expression instanceof RecordQueryPlan) && expression.getQuantifiers().isEmpty()));
@@ -451,17 +450,16 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                     continue;
                 }
                 if (leafRef.containsAllInMemo(expressions, AliasMap.emptyMap(), false)) {
-                    if (PlannerEventListeners.hasListeners()) {
-                        expressions.forEach(expression ->
-                                PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.reusedExp(expression)));
-                    }
+                    PlannerEventListeners.withListeners(() ->
+                            expressions.forEach(expression ->
+                                PlannerEventListeners.dispatchEvent(() -> InsertIntoMemoPlannerEvent.reusedExp(expression))));
                     return leafRef;
                 }
             }
 
             return addNewReference(Reference.ofExploratoryExpressions(plannerPhase.getTargetPlannerStage(), expressions));
         } finally {
-            PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.end());
+            PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::end);
         }
     }
 
@@ -537,18 +535,15 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                                                 @Nonnull BiFunction<Set<? extends RelationalExpression>, Set<? extends RelationalExpression>, Reference> referenceCreator) {
         final var allExpressions =
                 Iterables.concat(exploratoryExpressions, finalExpressions);
-        if (PlannerEventListeners.hasListeners()) {
-            allExpressions.forEach(expression -> PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.begin()));
-        }
+        PlannerEventListeners.withListeners(() ->
+                allExpressions.forEach(expression -> PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::begin)));
         try {
             final var exploratoryExpressionSet = new LinkedIdentitySet<>(exploratoryExpressions);
             final var finalExpressionSet = new LinkedIdentitySet<>(finalExpressions);
             return addNewReference(referenceCreator.apply(exploratoryExpressionSet, finalExpressionSet));
         } finally {
-            if (PlannerEventListeners.hasListeners()) {
-                allExpressions.forEach(
-                        expression -> PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent.end()));
-            }
+            PlannerEventListeners.withListeners(() ->
+                    allExpressions.forEach(expression -> PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::end)));
         }
     }
 

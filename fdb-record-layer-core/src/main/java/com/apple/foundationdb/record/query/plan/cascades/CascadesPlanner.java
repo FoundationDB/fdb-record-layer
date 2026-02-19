@@ -451,7 +451,7 @@ public class CascadesPlanner implements QueryPlanner {
                 }
                 taskCount++;
 
-                PlannerEventListeners.dispatchEvent(
+                PlannerEventListeners.dispatchEvent(() ->
                         new ExecutingTaskPlannerEvent(currentRoot, taskStack, Location.BEGIN,
                                 Objects.requireNonNull(taskStack.peek())));
                 Task nextTask = taskStack.pop();
@@ -460,7 +460,7 @@ public class CascadesPlanner implements QueryPlanner {
                         logger.trace(KeyValueLogMessage.of("executing task", "nextTask", nextTask.toString()));
                     }
 
-                    PlannerEventListeners.dispatchEvent(nextTask.toTaskEvent(Location.BEGIN));
+                    PlannerEventListeners.dispatchEvent(() -> nextTask.toTaskEvent(Location.BEGIN));
                     try {
                         nextTask.execute();
                         Debugger.sanityCheck(() -> {
@@ -480,7 +480,7 @@ public class CascadesPlanner implements QueryPlanner {
                         });
 
                     } finally {
-                        PlannerEventListeners.dispatchEvent(nextTask.toTaskEvent(Location.END));
+                        PlannerEventListeners.dispatchEvent(() -> nextTask.toTaskEvent(Location.END));
                     }
 
                     if (logger.isTraceEnabled()) {
@@ -495,7 +495,7 @@ public class CascadesPlanner implements QueryPlanner {
                                 .addLogInfo(LogMessageKeys.TASK_QUEUE_SIZE, taskStack.size());
                     }
                 } finally {
-                    PlannerEventListeners.dispatchEvent(new ExecutingTaskPlannerEvent(currentRoot, taskStack, Location.END, nextTask));
+                    PlannerEventListeners.dispatchEvent(() -> new ExecutingTaskPlannerEvent(currentRoot, taskStack, Location.END, nextTask));
                 }
             } catch (final RestartException restartException) {
                 if (logger.isTraceEnabled()) {
@@ -1031,13 +1031,13 @@ public class CascadesPlanner implements QueryPlanner {
                         }
                         // we notify the debugger (if installed) that the transform task is succeeding and
                         // about begin and end of the rule call event
-                        PlannerEventListeners.dispatchEvent(toTaskEvent(Location.MATCH_PRE));
-                        PlannerEventListeners.dispatchEvent(new TransformRuleCallPlannerEvent(plannerPhase, currentRoot,
+                        PlannerEventListeners.dispatchEvent(() -> toTaskEvent(Location.MATCH_PRE));
+                        PlannerEventListeners.dispatchEvent(() -> new TransformRuleCallPlannerEvent(plannerPhase, currentRoot,
                                         taskStack, Location.BEGIN, group, getBindable(), rule, ruleCall));
                         try {
                             executeRuleCall(ruleCall);
                         } finally {
-                            PlannerEventListeners.dispatchEvent(new TransformRuleCallPlannerEvent(plannerPhase, currentRoot,
+                            PlannerEventListeners.dispatchEvent(() -> new TransformRuleCallPlannerEvent(plannerPhase, currentRoot,
                                             taskStack, Location.END, group, getBindable(), rule, ruleCall));
                         }
                     });
@@ -1056,19 +1056,19 @@ public class CascadesPlanner implements QueryPlanner {
             // Handle produced artifacts (through yield...() calls)
             //
             for (final PartialMatch newPartialMatch : ruleCall.getNewPartialMatches()) {
-                PlannerEventListeners.dispatchEvent(new TransformRuleCallPlannerEvent(plannerPhase, currentRoot, taskStack,
+                PlannerEventListeners.dispatchEvent(() -> new TransformRuleCallPlannerEvent(plannerPhase, currentRoot, taskStack,
                                 Location.YIELD, group, getBindable(), rule, ruleCall));
                 taskStack.push(new AdjustMatch(getPlannerPhase(), getGroup(), getExpression(), newPartialMatch));
             }
 
             for (final RelationalExpression newExpression : ruleCall.getNewFinalExpressions()) {
-                PlannerEventListeners.dispatchEvent(new TransformRuleCallPlannerEvent(plannerPhase, currentRoot, taskStack,
+                PlannerEventListeners.dispatchEvent(() -> new TransformRuleCallPlannerEvent(plannerPhase, currentRoot, taskStack,
                                 Location.YIELD, group, getBindable(), rule, ruleCall));
                 exploreExpressionAndOptimizeInputs(plannerPhase, getGroup(), newExpression, true);
             }
 
             for (final RelationalExpression newExpression : ruleCall.getNewExploratoryExpressions()) {
-                PlannerEventListeners.dispatchEvent(new TransformRuleCallPlannerEvent(plannerPhase, currentRoot, taskStack,
+                PlannerEventListeners.dispatchEvent(() -> new TransformRuleCallPlannerEvent(plannerPhase, currentRoot, taskStack,
                                 Location.YIELD, group, getBindable(), rule, ruleCall));
                 exploreExpression(plannerPhase, group, newExpression, true);
             }
