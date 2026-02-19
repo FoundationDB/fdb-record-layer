@@ -7,6 +7,42 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.10.2.0
+
+<h4> New Features </h4>
+
+* Introduce metric to count CACHE_SKIP - [PR #3958](https://github.com/FoundationDB/fdb-record-layer/pull/3958)
+* Limit Lucene Pending Writes queue size - [PR #3948](https://github.com/FoundationDB/fdb-record-layer/pull/3948)
+* Add Relational metrics to cover for Procedural Plan execution route - [PR #3957](https://github.com/FoundationDB/fdb-record-layer/pull/3957)
+<h4> Bug Fixes </h4>
+
+* Lucene write pending queue: cleanup agility context event recording - [PR #3953](https://github.com/FoundationDB/fdb-record-layer/pull/3953)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Updating !current_version in yamsql files to 4.10.1.0 - [PR #3956](https://github.com/FoundationDB/fdb-record-layer/pull/3956)
+* Revert "Yaml test result statement can be array of arrays (#3949)" - [PR #3955](https://github.com/FoundationDB/fdb-record-layer/pull/3955)
+
+</details>
+
+
+**[Full Changelog (4.10.1.0...4.10.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.1.0...4.10.2.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.8.17.0`, ❌`4.9.1.0`, ❌`4.9.2.0`, ❌`4.9.3.0`, ✅`4.9.4.0`, ✅`4.9.6.0`, ✅`4.9.7.0`, ✅`4.9.8.0`, ✅`4.9.9.0`, ✅`4.10.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/22180806654)
+
+
+
 ### 4.10.1.0
 
 <h4> Breaking Changes </h4>
