@@ -582,13 +582,13 @@ public class LuceneIndexTestUtils {
         return Pair.of(store, planner);
     }
 
-    static FDBRecordStore openRecordStore(FDBRecordContext context,
+    public static FDBRecordStore openRecordStore(FDBRecordContext context,
                                           @Nonnull KeySpacePath path,
                                           FDBRecordStoreTestBase.RecordMetaDataHook hook) {
         return openRecordStore(context, path, hook, null);
     }
 
-    static FDBRecordStore openRecordStore(FDBRecordContext context,
+    public static FDBRecordStore openRecordStore(FDBRecordContext context,
                                           @Nonnull KeySpacePath path,
                                           FDBRecordStoreTestBase.RecordMetaDataHook hook,
                                           @Nullable IndexMaintainerFactoryRegistry indexMaintainerRegistry) {
