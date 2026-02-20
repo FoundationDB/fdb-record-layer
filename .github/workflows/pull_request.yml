@@ -88,17 +88,6 @@ jobs:
         run: |
           cat yaml-tests/.out/recentVersions.txt >> "$GITHUB_OUTPUT"
 
-  tv:
-    runs-on: ubuntu-latest
-    needs: get-mixed-mode-versions
-    steps:
-      - name: versionsRaw
-        run: |
-          echo ${{ needs.get-mixed-mode-versions.outputs.versions }}
-      - name: versions
-        run: |
-          echo ${{ fromJSON(needs.get-mixed-mode-versions.outputs.versions) }}
-
 # Temporary to make sure this works
   mixed-mode:
     runs-on: ubuntu-latest
