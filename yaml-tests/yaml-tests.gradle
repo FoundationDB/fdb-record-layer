@@ -297,8 +297,6 @@ mixedModeTest {
         dependsOn("downloadManyExternalServers")
     }
     systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
-    // this is specified in testing.gradle, but it looks like it needs to be repeated here.
-    ignoreFailures = true
 }
 
 singleVersionTest {
