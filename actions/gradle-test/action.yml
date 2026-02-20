@@ -44,10 +44,12 @@ runs:
        done
   - name: Overall failure
     if: ${{ failure() }}
+    shell: bash
     run: |
       echo "FAILED" >> test-reports/overall.txt
   - name: Overall success
     if: ${{ success() }}
+    shell: bash
     run: |
       echo "SUCCESS" >> test-reports/overall.txt
   - name: Publish Test Reports
