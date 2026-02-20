@@ -80,7 +80,7 @@ jobs:
       - name: Calculate versions
         uses: ./actions/run-gradle
         with:
-          gradle_command: listRecentVersions -Ptests.listVersionsCount=3
+          gradle_command: listRecentVersions -Ptests.listVersionsCount=12
       - name: create output
         id: versions
         # This is, somewhat unfortunately tied to yaml-tests, but we don't currently have anything else that supports
