@@ -182,7 +182,7 @@ jobs:
           pattern: 'mixed-mode-*-test-reports'
       - name: Generate markdown
         shell: bash
-        run: python3 build/publish-mixed-mode-results.py --results-path "mixed-mode-*-test-reports/*" --use-separate-source-files --output mixed-mode-results.md $(python build/versionutils.py gradle.properties)
+        run: python3 build/publish-mixed-mode-results.py --results-path "mixed-mode-*-test-reports/*" --output mixed-mode-results.md $(python build/versionutils.py gradle.properties)
       - name: Preview mixed-mode results
         shell: bash
         run: cat mixed-mode-results.md >> $GITHUB_STEP_SUMMARY
