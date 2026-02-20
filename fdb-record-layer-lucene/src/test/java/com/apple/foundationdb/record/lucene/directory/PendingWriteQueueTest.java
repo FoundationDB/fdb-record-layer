@@ -32,16 +32,15 @@ import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
-import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.Streams;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -75,6 +74,7 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     void setup() {
         serializer = new LuceneSerializer(true, false, null, true);
     }
+
     @ParameterizedTest
     @EnumSource
     void testEnqueueAndIterate(LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType) {
@@ -355,22 +355,29 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void testQueueItemTooLarge() throws Exception {
+    @ParameterizedTest
+    @BooleanSource("useCompression")
+    void testLargeQueueItem(boolean useCompression) throws Exception {
+        // Test that we can store large queue items with and without compression
         StringBuilder builder = new StringBuilder();
         for (int i = 0 ; i < 100_000 ; i++) {
             builder.append("Hello ");
         }
         String hugeString = builder.toString();
         TestDocument docWithHugeString = new TestDocument(primaryKey("Huge"),
-                List.of(createField("f2", hugeString.toString(), LuceneIndexExpressions.DocumentFieldType.STRING, false, false)));
+                List.of(createField("f2", hugeString, LuceneIndexExpressions.DocumentFieldType.STRING, false, false)));
 
-        LuceneSerializer passThroughSerializer = new PassThroughLuceneSerializer();
+        LuceneSerializer serializerToUse;
+        if (useCompression) {
+            serializerToUse = serializer;
+        } else {
+            serializerToUse = new PassThroughLuceneSerializer();
+        }
         PendingWriteQueue queue;
 
         try (FDBRecordContext context = openContext()) {
-            queue = getQueue(context);
-            // save a single doc using the good queue (should succeed since the serializer compresses the data)
+            queue = getQueue(context, serializerToUse);
+            // save a single doc using the (should succeed since we split the records even for uncompressed)
             queue.enqueueInsert(context, docWithHugeString.getPrimaryKey(), docWithHugeString.getFields());
             commit(context);
         }
@@ -380,14 +387,6 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
             List<PendingWriteQueue.QueueEntry> list = queueCursor.asList().get();
             assertEquals(1, list.size());
             assertEquals(hugeString, list.get(0).getDocumentFields().get(0).getStringValue());
-        }
-
-        try (FDBRecordContext context = openContext()) {
-            PendingWriteQueue failingQueue = getQueue(context, passThroughSerializer);
-            // save a single doc using the bad serializer (should fail as the entry will be too large)
-            failingQueue.enqueueInsert(context, docWithHugeString.getPrimaryKey(), docWithHugeString.getFields());
-            Assertions.assertThatThrownBy(() -> commit(context))
-                    .isInstanceOf(FDBExceptions.FDBStoreValueSizeException.class);
         }
     }
 

@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.lucene.LuceneIndexMaintainerHelper;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
@@ -183,13 +184,21 @@ public class PendingWriteQueue {
             @Nonnull FDBRecordContext context,
             @Nonnull ScanProperties scanProperties,
             @Nullable byte[] continuation) {
-
-        final KeyValueCursor cursor = KeyValueCursor.Builder.newBuilder(queueSubspace)
+        KeyValueCursor inner = KeyValueCursor.Builder.newBuilder(queueSubspace)
                 .setContext(context)
-                .setScanProperties(scanProperties)
+                .setScanProperties(scanProperties
+                        .with(ExecuteProperties::clearRowAndTimeLimits)
+                        .with(ExecuteProperties::clearSkipAndLimit)
+                        .with(ExecuteProperties::clearState))
                 .setContinuation(continuation)
                 .build();
-        return cursor.map(kv -> PendingWritesQueueHelper.toQueueEntry(queueSubspace, serializer, kv));
+        RecordCursor<FDBRawRecord> unsplitter = new SplitHelper.KeyValueUnsplitter(
+                context, queueSubspace, inner,
+                false, null, scanProperties)
+                .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
+
+        return unsplitter.map(rawRecord ->
+                PendingWritesQueueHelper.toQueueEntry(serializer, rawRecord.getPrimaryKey(), rawRecord.getRawRecord()));
     }
 
     /**
