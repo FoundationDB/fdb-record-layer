@@ -169,7 +169,7 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
 
         //
         // The ordering of the flat map is based on the outer, unless the outer has max cardinality one, in
-        // which case it is based on the inner separate out the outer plan partitions to handle those two
+        // which case it is based on the inner. Separate out the outer plan partitions to handle those two
         // cases
         //
         final NonnullPair<List<PlanPartition>, List<PlanPartition>> outerPlanPartitionsByCardinality =
@@ -177,12 +177,6 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
         final List<PlanPartition> outerMaxCardinalityOnePartitions = outerPlanPartitionsByCardinality.getLeft();
         final List<PlanPartition> outerMaxCardinalityNonOnePartitions = outerPlanPartitionsByCardinality.getRight();
 
-        //
-        // If we care about the ordering, we want to return one plan for each combination of inner and
-        // outer ordering so that we preserve any plan that may match our requested ordering.
-        // If we don't care about the ordering, we want to roll up all the child partitions so that
-        // we only produce one plan
-        //
         for (RequestedOrdering requestedOrdering : requestedOrderings) {
             // Case 1: Ordering is based on the inner
             for (PlanPartition outerPlanPartition : outerMaxCardinalityOnePartitions) {
