@@ -68,6 +68,8 @@ jobs:
 
   get-mixed-mode-versions:
     runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.versions.outputs.versions }}
     permissions:
       contents: read
     steps:
@@ -80,7 +82,7 @@ jobs:
         with:
           gradle_command: listRecentVersions -Ptests.listVersionsCount=3
       - name: create output
-        id: mixed-mode-versions
+        id: versions
         # This is, somewhat unfortunately tied to yaml-tests, but we don't currently have anything else that supports
         # mixed-mode in reality. We'll have to assess how to deal with that in order to have mixed-mode tests elsewhere
         run: |
