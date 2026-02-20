@@ -60,9 +60,9 @@ public class PlannerEventStatsMaps {
                                  @Nonnull final Map<PlannerPhase, Map<Class<? extends PlannerEventWithState>, T>> eventWithStateClassStatsByPlannerPhaseMap,
                                  @Nonnull final Map<Class<? extends CascadesRule<?>>, T> plannerRuleClassStatsMap) {
 
-        this.eventWithoutStateClassStatsMap = Collections.unmodifiableMap(eventWithoutStateClassStatsMap);
-        this.eventWithStateClassStatsByPlannerPhaseMap = Collections.unmodifiableMap(eventWithStateClassStatsByPlannerPhaseMap);
-        this.plannerRuleClassStatsMap = Collections.unmodifiableMap(plannerRuleClassStatsMap);
+        this.eventWithoutStateClassStatsMap = ImmutableMap.copyOf(eventWithoutStateClassStatsMap);
+        this.eventWithStateClassStatsByPlannerPhaseMap = ImmutableMap.copyOf(eventWithStateClassStatsByPlannerPhaseMap);
+        this.plannerRuleClassStatsMap = ImmutableMap.copyOf(plannerRuleClassStatsMap);
 
         this.immutableEventClassStatsMapSupplier = Suppliers.memoize(this::computeImmutableEventClassStatsMap);
         this.immutableEventWithoutStateClassStatsMapSupplier = Suppliers.memoize(this::computeImmutableEventWithoutStateClassStatsMap);
