@@ -26,6 +26,23 @@ jobs:
         shell: bash
         run: |
           echo ${{ github.event.label.name }}
+      - name: pull_request
+        shell: bash
+        run: |
+          echo ${{ github.event.pull_request }}
+      - name: labels
+        shell: bash
+        run: |
+          echo ${{ github.event.pull_request.labels }}
+      - name: labels names
+        shell: bash
+        run: |
+          echo ${{ github.event.pull_request.labels.*.name }}
+      - name: labels names
+        shell: bash
+        run: |
+          echo ${{ contains(github.event.pull_request.labels.*.name, 'Run mixed-mode') }}
+
           
   get-mixed-mode-versions:
     if: ${{ github.event.label.name == 'Run mixed-mode' }}
