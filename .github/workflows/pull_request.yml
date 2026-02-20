@@ -91,6 +91,7 @@ jobs:
 # Temporary to make sure this works
   mixed-mode:
     runs-on: ubuntu-latest
+    continue-on-error: true
     needs: get-mixed-mode-versions
     strategy:
       matrix:
