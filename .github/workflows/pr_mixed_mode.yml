@@ -6,6 +6,7 @@ on:
 
 jobs:
   hmmm:
+    runs-on: ubuntu-latest
     steps:
       - name: name
         shell: bash
