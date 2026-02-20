@@ -8,7 +8,7 @@ jobs:
   hmmm:
     runs-on: ubuntu-latest
     permissions:
-      pull_requests: read
+      pull-requests: read
     steps:
       - name: name
         shell: bash
