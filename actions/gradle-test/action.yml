@@ -46,12 +46,12 @@ runs:
     if: ${{ failure() }}
     shell: bash
     run: |
-      echo "FAILED" >> test-reports/overall.txt
+      echo "FAILURE" >> test-reports/${{ inputs.report_name }}-overall.txt
   - name: Overall success
     if: ${{ success() }}
     shell: bash
     run: |
-      echo "SUCCESS" >> test-reports/overall.txt
+      echo "SUCCESS" >> test-reports/${{ inputs.report_name }}-overall.txt
   - name: Publish Test Reports
     if: ${{ !cancelled() }}
     uses: actions/upload-artifact@v4.6.0
