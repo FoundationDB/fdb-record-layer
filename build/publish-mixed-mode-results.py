@@ -24,6 +24,8 @@
 # ./gradlew mixedModeTest
 
 import argparse
+import glob
+import re
 import subprocess
 import sys
 
@@ -52,17 +54,14 @@ def get_results(results_path):
                 results[version] = result
     return results
 
-def get_results_from_directory(results_dir):
-    import os
-    import re
+def get_results_from_glob(results_glob):
+    version_pattern = re.compile(r'\d+(?:\.\d+)+')
     results = {}
-    pattern = re.compile(r'^mixed-mode-(.+)-test-reports-overall.txt$')
-    for filename in os.listdir(results_dir):
-        match = pattern.match(filename)
-        if match is None:
-            continue
-        version = match.group(1)
-        filepath = os.path.join(results_dir, filename)
+    for filepath in glob.glob(results_glob):
+        versions = version_pattern.findall(filepath)
+        if len(versions) != 1:
+            raise Exception("Expected exactly one version in path " + filepath + ", found: " + str(versions))
+        version = versions[0]
         with open(filepath) as f:
             result = f.read().strip()
         if result not in ('SUCCESS', 'FAILURE'):
@@ -90,16 +89,15 @@ def generate_markdown(version, results, header_size):
 def main(argv):
     '''Process the output of a mixedModeTest run and convert it into a short markdown'''
     parser = argparse.ArgumentParser()
-    parser.add_argument('--results-path', help='Path to the results file, or directory when --use-separate-source-files is set', default='.out/reports/mixed-mode-results.log')
-    parser.add_argument('--use-separate-source-files', action='store_true', help='Read results from per-version files in a directory instead of a single log file')
+    parser.add_argument('--results-path', help='Path to the results file, or a glob matching per-version result files', default='.out/reports/mixed-mode-results.log')
     parser.add_argument('--header-size', help='Markdown header level (e.g. # or ##)', default='####')
     parser.add_argument('--run-link', help='A link to the test run that generated the results')
     parser.add_argument('--output', required=True, help='Output to print the markdown to')
     parser.add_argument('version', help='Version of the server that was tested')
     args = parser.parse_args(argv)
 
-    if args.use_separate_source_files:
-        results = get_results_from_directory(args.results_path)
+    if glob.has_magic(args.results_path):
+        results = get_results_from_glob(args.results_path)
     else:
         results = get_results(args.results_path)
 
