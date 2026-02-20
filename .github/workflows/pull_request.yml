@@ -66,6 +66,41 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
+# Temporary to make sure this works
+  mixed-mode:
+    strategy:
+      matrix:
+        index: [0, 1, 2]
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+      pull-requests: write
+    timeout-minutes: 40
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_command: mixedModeTest
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersionIndex=${{ matrix.index }}
+          report_name: mixed-mode-${{ matrix.index }}-test-reports
+      - name: Publish Coverage Data
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: mixed-mode-${{ matrix.index }}-coverage-data
+          path: |
+            **/.out/jacoco/*.exec
+            **/.out/libs/*.jar
+          include-hidden-files: true
+          retention-days: 1
+  # TODO fail the job if any tests fail, but check if the failure 
+
   other-tests:
     runs-on: ubuntu-latest
     permissions:
