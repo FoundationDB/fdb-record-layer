@@ -48,7 +48,10 @@ import java.util.Objects;
 import java.util.function.Function;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.TEXT_AND_STORED_COMPLEX;
+import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
@@ -60,6 +63,7 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
 
     @Test
     void testEndToEndSerialization() throws InvalidProtocolBufferException {
+        // compare two identical records - one of them was written through the pending write queue
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
@@ -89,16 +93,109 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         }
 
         // Verify both records queryable: direct from index + replayed from queue
-        assertQueryFindsRecords(schemaSetup, index, textContent, directRecordId, queuedRecordId);
+        assertQueryFindsRecords(schemaSetup, index, textContent, List.of(directRecordId, queuedRecordId));
 
         // Drain the queue via merge
         mergeIndex(schemaSetup, index);
 
         // Verify both records still queryable: both now from index
-        assertQueryFindsRecords(schemaSetup, index, textContent, directRecordId, queuedRecordId);
+        assertQueryFindsRecords(schemaSetup, index, textContent, List.of(directRecordId, queuedRecordId));
 
         // Verify records are identical field by field
         assertRecordsIdenticalExceptIds(schemaSetup, directRecordId, queuedRecordId, textContent);
+    }
+
+    @Test
+    void testEndToEndSerializationComplex() throws InvalidProtocolBufferException {
+        // compare two identical records - one of them was written through the pending write queue, but use complex index
+        final Index index = TEXT_AND_STORED_COMPLEX;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path, COMPLEX_DOC, index, useCascadesPlanner).getLeft();
+
+        final long directRecordId = 1001L;
+        final long queuedRecordId = 2002L;
+        final String text = "The quick brown fox jumps over the lazy dog";
+        final String text2 = "inbox message";
+        final long group = 5L;
+        final int score = 42;
+        final boolean isSeen = false;
+        final double time = 123.456;
+
+        // Write record directly to index (no queue)
+        Tuple primaryKey1;
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            primaryKey1 = recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(
+                    directRecordId, text, text2, group, score, isSeen, time)).getPrimaryKey();
+            commit(context);
+        }
+
+        // Enable pending queue mode
+        setOngoingMergeIndicator(schemaSetup, index);
+
+        // Write identical record through queue
+        Tuple primaryKey2;
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            primaryKey2 = recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(
+                    queuedRecordId, text, text2, group, score, isSeen, time)).getPrimaryKey();
+            commit(context);
+        }
+
+        // Drain the queue via merge
+        mergeIndex(schemaSetup, index);
+
+        // Verify records are identical field by field
+        assertComplexRecordsIdenticalExceptIds(schemaSetup, primaryKey1, primaryKey2,
+                text, text2, group, score, isSeen, time);
+    }
+
+    private void assertComplexRecordsIdenticalExceptIds(Function<FDBRecordContext, FDBRecordStore> schemaSetup,
+                                                        Tuple primaryKey1, Tuple primaryKey2,
+                                                        String expectedText, String expectedText2,
+                                                        long expectedGroup, int expectedScore,
+                                                        boolean expectedIsSeen, double expectedTime)
+            throws InvalidProtocolBufferException {
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+            // Load both records from FDB
+            var storedRecord1 = recordStore.loadRecord(primaryKey1);
+            var storedRecord2 = recordStore.loadRecord(primaryKey2);
+
+            assertNotNull(storedRecord2);
+            assertNotNull(storedRecord1);
+
+            // Parse as ComplexDocument
+            TestRecordsTextProto.ComplexDocument doc1 =
+                    TestRecordsTextProto.ComplexDocument.parseFrom(storedRecord1.getRecord().toByteArray());
+            TestRecordsTextProto.ComplexDocument doc2 =
+                    TestRecordsTextProto.ComplexDocument.parseFrom(storedRecord2.getRecord().toByteArray());
+
+            // Compare field by field (excluding doc_id)
+            assertEquals(doc1.getText(), doc2.getText());
+            assertEquals(expectedText, doc2.getText());
+
+            assertEquals(doc1.getText2(), doc2.getText2());
+            assertEquals(expectedText2, doc2.getText2());
+
+            assertEquals(doc1.getGroup(), doc2.getGroup());
+            assertEquals(expectedGroup, doc2.getGroup());
+
+            assertEquals(doc1.getScore(), doc2.getScore());
+            assertEquals(expectedScore, doc2.getScore());
+
+            assertEquals(doc1.getIsSeen(), doc2.getIsSeen());
+            assertEquals(expectedIsSeen, doc2.getIsSeen());
+
+            assertEquals(doc1.getTime(), doc2.getTime(), 0.0001);
+            assertEquals(expectedTime, doc2.getTime(), 0.0001);
+
+            // Verify doc IDs are different as expected
+            assertNotEquals(doc1.getDocId(), doc2.getDocId());
+            commit(context);
+        }
     }
 
     private void assertRecordsIdenticalExceptIds(Function<FDBRecordContext, FDBRecordStore> schemaSetup,
@@ -109,9 +206,8 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
             // Load both records from FDB
             var storedRecord1 = recordStore.loadRecord(Tuple.from(recordId1));
             var storedRecord2 = recordStore.loadRecord(Tuple.from(recordId2));
-
-            assertNotNull(storedRecord1, "Record " + recordId1 + " should exist");
-            assertNotNull(storedRecord2, "Record " + recordId2 + " should exist");
+            assertNotNull(storedRecord1);
+            assertNotNull(storedRecord2);
 
             // Parse as SimpleDocument
             TestRecordsTextProto.SimpleDocument doc1 =
@@ -120,21 +216,20 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
                     TestRecordsTextProto.SimpleDocument.parseFrom(storedRecord2.getRecord().toByteArray());
 
             // Compare field by field (excluding doc_id and timestamp)
-            assertEquals(doc1.getText(), doc2.getText(), "text field should be identical");
-            assertEquals(expectedText, doc2.getText(), "text should match expected value");
-
-            assertEquals(doc1.getGroup(), doc2.getGroup(), "group field should be identical");
+            assertEquals(doc1.getText(), doc2.getText());
+            assertEquals(expectedText, doc2.getText());
+            assertEquals(doc1.getGroup(), doc2.getGroup());
 
             // Verify doc IDs are different as expected
-            assertEquals(recordId1, doc1.getDocId(), "doc_id should match first record ID");
-            assertEquals(recordId2, doc2.getDocId(), "doc_id should match second record ID");
+            assertEquals(recordId1, doc1.getDocId());
+            assertEquals(recordId2, doc2.getDocId());
 
             commit(context);
         }
     }
 
     private void assertQueryFindsRecords(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index,
-                                         String fullText, long... expectedDocIds) {
+                                         String fullText, List<Long> expectedDocIds) {
         for (String searchTerm: fullText.split(" ")) {
             if (searchTerm.compareToIgnoreCase("the") >= 0) {
                 // not indexed
@@ -143,9 +238,7 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
 
             try (FDBRecordContext context = openContext()) {
                 FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-
                 LuceneScanBounds scanBounds = LuceneIndexTestUtils.fullTextSearch(recordStore, index, searchTerm, false);
-
                 try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, scanBounds, null, ScanProperties.FORWARD_SCAN)) {
                     List<Long> actualDocIds = cursor
                             .map(IndexEntry::getPrimaryKey)
