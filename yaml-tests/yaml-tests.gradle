@@ -155,12 +155,6 @@ ext.resolveManyServers = { ->
     while (selectedServers.size() < 10) {
         def serverFile = resolveOtherServer(rejectedVersions)
         def attributes = getAttributesFromJar(serverFile)
-        // 4.0.559.0 is the first version that introduced the server, so we won't be able to find anything
-        // older than that. Eventually we can remove this check because we'll be long enough away in terms of versions
-        // and times.
-        if (attributes.version == "4.0.559.0") {
-            break
-        }
         rejectedVersions.add(attributes.version)
         selectedServers.add(serverFile)
     }
