@@ -272,9 +272,8 @@ tasks.withType(Test) { theTask ->
         // We leave the ones that have nothing under test, because that would be suspicious if a subproject had
         // no tests
         if (descriptor.parent == null
-            && !(descriptor.toString().endsWith(":destructiveTest")
-                 && !(descriptor.toString().endsWith(":mixedModeTest")
-                      && result.getTestCount() == 0)) {
+            && !(descriptor.toString().endsWith(":destructiveTest") && result.getTestCount() == 0)
+            && !(descriptor.toString().endsWith(":mixedModeTest") && result.getTestCount() == 0)) {
             def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
             def description = descriptor.toString().replaceFirst("Gradle Test Run ", "")
             summary.append(
