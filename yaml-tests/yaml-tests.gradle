@@ -191,8 +191,8 @@ ext.resolveSpecificServer = { String version ->
 // Resolves the nth-most-recent released version (0 = most recent, 1 = second most recent, etc.).
 // Returns the exact version string so the caller can pin subsequent downloads to it.
 ext.resolveNthServer = { int n ->
-    List<String> resolvedVersions = new ArrayList<>();
-    Set<String> rejectedVersions = new HashSet<>();
+    List<String> resolvedVersions = new ArrayList<>()
+    Set<String> rejectedVersions = new HashSet<>()
     while (resolvedVersions.size() <= n) {
         def serverFile = resolveOtherServer(rejectedVersions)
         def attributes = getAttributesFromJar(serverFile)
@@ -202,6 +202,19 @@ ext.resolveNthServer = { int n ->
     def pinnedVersion = resolvedVersions.get(n)
     println("Resolved index ${n} to version ${pinnedVersion}")
     return pinnedVersion
+}
+
+// Resolves the n most-recent released version strings in descending order (most recent first).
+ext.resolveRecentVersionStrings = { int n ->
+    List<String> resolvedVersions = new ArrayList<>()
+    Set<String> rejectedVersions = new HashSet<>()
+    while (resolvedVersions.size() < n) {
+        def serverFile = resolveOtherServer(rejectedVersions)
+        def attributes = getAttributesFromJar(serverFile)
+        rejectedVersions.add(attributes.version)
+        resolvedVersions.add(attributes.version)
+    }
+    return resolvedVersions
 }
 
 task cleanExternalServerDirectory(type: Delete) {
@@ -221,6 +234,25 @@ task downloadManyExternalServers(type: Copy) {
     dependsOn "cleanExternalServerDirectory"
     from resolveManyServers()
     into project.layout.buildDirectory.dir('externalServer')
+}
+
+// Resolves the n most-recent released version strings and writes them to a file, comma-separated.
+// n defaults to 10 and can be overridden with -Ptests.listVersionsCount=<n>.
+// Output file: <buildDir>/recentVersions.txt
+task listRecentVersions {
+    doLast {
+        int count = project.hasProperty('tests.listVersionsCount')
+            ? Integer.parseInt(project.getProperty('tests.listVersionsCount'))
+            : 10
+        def versions = resolveRecentVersionStrings(count)
+        // we don't wan the output to be a declared output, otherwise gradle will conclude that it doesn't need to
+        // rerun this when the property changes.
+        def outputFile = project.layout.buildDirectory.file('recentVersions.txt').get().asFile
+        outputFile.parentFile.mkdirs()
+        String jsonArray = '["' + versions.join('", "') + '"]'
+        outputFile.text = "versions=" + jsonArray
+        println("Recent versions: " + jsonArray)
+    }
 }
 
 // Downloads exactly one external server version into a dedicated subdirectory so that
