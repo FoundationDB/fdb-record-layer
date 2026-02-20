@@ -66,65 +66,6 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
-  get-mixed-mode-versions:
-    runs-on: ubuntu-latest
-    outputs:
-      versions: ${{ steps.versions.outputs.versions }}
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4.2.2
-      - name: Setup Base Environment
-        uses: ./actions/setup-base-env
-      - name: Calculate versions
-        uses: ./actions/run-gradle
-        with:
-          gradle_command: listRecentVersions -Ptests.listVersionsCount=12
-      - name: create output
-        id: versions
-        # This is, somewhat unfortunately tied to yaml-tests, but we don't currently have anything else that supports
-        # mixed-mode in reality. We'll have to assess how to deal with that in order to have mixed-mode tests elsewhere
-        run: |
-          cat yaml-tests/.out/recentVersions.txt >> "$GITHUB_OUTPUT"
-
-# Temporary to make sure this works
-  mixed-mode:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    needs: get-mixed-mode-versions
-    strategy:
-      matrix:
-        version: ${{ fromJSON(needs.get-mixed-mode-versions.outputs.versions) }}
-    permissions:
-      checks: write
-      contents: read
-      pull-requests: write
-    timeout-minutes: 40
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4.2.2
-      - name: Setup Base Environment
-        uses: ./actions/setup-base-env
-      - name: Setup FDB
-        uses: ./actions/setup-fdb
-      - name: Run Gradle Test
-        uses: ./actions/gradle-test
-        with:
-          gradle_command: mixedModeTest
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }}
-          report_name: mixed-mode-${{ matrix.version }}-test-reports
-      - name: Publish Coverage Data
-        uses: actions/upload-artifact@v4.6.0
-        with:
-          name: mixed-mode-${{ matrix.version }}-coverage-data
-          path: |
-            **/.out/jacoco/*.exec
-            **/.out/libs/*.jar
-          include-hidden-files: true
-          retention-days: 1
-  # TODO fail the job if any tests fail, but check if the failure 
-
   other-tests:
     runs-on: ubuntu-latest
     permissions:
@@ -165,27 +106,6 @@ jobs:
             **/.out/libs/*.jar
           include-hidden-files: true
           retention-days: 1
-
-  mixed-mode-results:
-    needs: [mixed-mode]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout HEAD sources
-        uses: actions/checkout@v4.2.2
-      - name: Setup Base Environment
-        uses: ./actions/setup-base-env
-      - name: 'Download results'
-        uses: actions/download-artifact@v4
-        with:
-          pattern: 'mixed-mode-*-test-reports'
-      - name: Generate markdown
-        shell: bash
-        run: python3 build/publish-mixed-mode-results.py --results-path "mixed-mode-*-test-reports/overall.txt" --output mixed-mode-results.md $(python build/versionutils.py gradle.properties)
-      - name: Preview mixed-mode results
-        shell: bash
-        run: cat mixed-mode-results.md >> $GITHUB_STEP_SUMMARY
 
   coverage:
     needs: [tests, other-tests]
