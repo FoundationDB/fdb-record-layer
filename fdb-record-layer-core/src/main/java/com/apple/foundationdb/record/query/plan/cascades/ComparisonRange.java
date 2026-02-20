@@ -466,6 +466,9 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
      */
     public static class MergeResult {
         @Nonnull
+        private static final MergeResult EMPTY = MergeResult.of(ComparisonRange.EMPTY, ImmutableList.of());
+
+        @Nonnull
         private final ComparisonRange comparisonRange;
         @Nonnull
         private final List<Comparisons.Comparison> residualComparisons;
@@ -474,6 +477,23 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
                             @Nonnull final List<Comparisons.Comparison> residualComparison) {
             this.comparisonRange = comparisonRange;
             this.residualComparisons = ImmutableList.copyOf(residualComparison);
+        }
+
+        @Nonnull
+        public MergeResult merge(@Nonnull Comparisons.Comparison comparison) {
+            final MergeResult mergedRange = comparisonRange.merge(comparison);
+            if (residualComparisons.isEmpty()) {
+                return mergedRange;
+            } else if (mergedRange.getResidualComparisons().isEmpty()) {
+                return MergeResult.of(mergedRange.getComparisonRange(), residualComparisons);
+            } else {
+                final List<Comparisons.Comparison> combinedResiduals = ImmutableList.<Comparisons.Comparison>builderWithExpectedSize(residualComparisons.size() + mergedRange.getResidualComparisons().size())
+                        .addAll(residualComparisons)
+                        .addAll(mergedRange.getResidualComparisons())
+                        .build();
+
+                return MergeResult.of(mergedRange.getComparisonRange(), combinedResiduals);
+            }
         }
 
         @Nonnull
@@ -486,15 +506,23 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
             return residualComparisons;
         }
 
+        @Nonnull
+        public static MergeResult empty() {
+            return MergeResult.EMPTY;
+        }
+
+        @Nonnull
         public static MergeResult of(@Nonnull final ComparisonRange comparisonRange) {
             return of(comparisonRange, ImmutableList.of());
         }
 
+        @Nonnull
         public static MergeResult of(@Nonnull final ComparisonRange comparisonRange,
                                      @Nonnull final Comparisons.Comparison residualComparison) {
             return new MergeResult(comparisonRange, ImmutableList.of(residualComparison));
         }
 
+        @Nonnull
         public static MergeResult of(@Nonnull final ComparisonRange comparisonRange,
                                      @Nonnull final List<Comparisons.Comparison> residualComparisons) {
             return new MergeResult(comparisonRange, residualComparisons);

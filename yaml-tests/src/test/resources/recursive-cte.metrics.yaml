@@ -369,14 +369,14 @@ recursive-cte-tests-with-hints:
     explain: 'RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c24 AS LONG),
         [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT
         AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(CHILDIDX [EQUALS q0.PARENT,
-        [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT
-        AS PARENT, q0.LEVEL + @c81 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT,
-        _.LEVEL AS LEVEL)'
-    task_count: 1194
-    task_total_time_ms: 14
-    transform_count: 295
-    transform_time_ms: 4
-    transform_yield_count: 66
+        [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | FILTER _.ID NOT_NULL | MAP
+        (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c81 AS LEVEL) } | MAP (_.ID AS
+        ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)'
+    task_count: 1246
+    task_total_time_ms: 13
+    transform_count: 303
+    transform_time_ms: 3
+    transform_yield_count: 68
     insert_time_ms: 0
-    insert_new_count: 148
+    insert_new_count: 155
     insert_reused_count: 3

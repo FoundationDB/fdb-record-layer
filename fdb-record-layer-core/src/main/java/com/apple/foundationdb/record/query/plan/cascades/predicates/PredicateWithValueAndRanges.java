@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
@@ -343,22 +344,35 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                     final var alias = ((WithAlias)candidatePredicateWithValuesAndRanges).getParameterAlias();
                     final var predicateMappingBuilder =
                             PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
-                                    .setPredicateCompensation((ignore, boundParameterPrefixMap, pullUp) -> {
-                                        if (boundParameterPrefixMap.containsKey(alias)) {
-                                            return PredicateCompensationFunction.noCompensationNeeded();
-                                        }
-                                        return computeCompensationFunctionForLeaf(pullUp);
-                                    })
                                     .setParameterAlias(alias)
                                     .setConstraint(constraint);
 
                     Verify.verify(isSargable() == compensatedQueryPredicate.isSargable());
+                    final QueryPredicate residualPredicate;
                     if (compensatedQueryPredicate.isSargable()) {
                         predicateMappingBuilder.setParameterAlias(alias);
-                        predicateMappingBuilder.setComparisonRange(
-                                Iterables.getOnlyElement(compensatedQueryPredicate.getRanges())
-                                        .asComparisonRange());
+                        final ComparisonRange.MergeResult mergeResult = Iterables.getOnlyElement(compensatedQueryPredicate.getRanges()).asMergedComparisonRange();
+                        predicateMappingBuilder.setComparisonRange(mergeResult.getComparisonRange());
+                        if (mergeResult.getResidualComparisons().isEmpty()) {
+                            residualPredicate = null;
+                        } else {
+                            residualPredicate = AndPredicate.and(mergeResult.getResidualComparisons().stream()
+                                    .map(c -> candidatePredicateWithValuesAndRanges.getValue().withComparison(c))
+                                    .collect(ImmutableList.toImmutableList()));
+                        }
+                    } else {
+                        residualPredicate = null;
                     }
+                    predicateMappingBuilder.setPredicateCompensation(((partialMatch, boundParameterPrefixMap, pullUp) -> {
+                        if (boundParameterPrefixMap.containsKey(alias)) {
+                            if (residualPredicate == null) {
+                                return PredicateCompensationFunction.noCompensationNeeded();
+                            } else {
+                                return residualPredicate.computeCompensationFunction(partialMatch, originalQueryPredicate, boundParameterPrefixMap, pullUp);
+                            }
+                        }
+                        return computeCompensationFunctionForLeaf(pullUp);
+                    }));
                     return Optional.of(predicateMappingBuilder.build());
                 } else {
                     return Optional.empty();
@@ -374,20 +388,33 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                     final var alias = ((WithAlias)candidatePredicateWithValuesAndRanges).getParameterAlias();
                     final var predicateMappingBuilder =
                             PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
-                                    .setPredicateCompensation((ignore, boundParameterPrefixMap, pullUp) -> {
-                                        if (boundParameterPrefixMap.containsKey(alias)) {
-                                            return PredicateCompensationFunction.noCompensationNeeded();
-                                        }
-                                        return computeCompensationFunctionForLeaf(pullUp);
-                                    })
                                     .setConstraint(constraint.compose(captureConstraint(candidatePredicateWithValuesAndRanges)));
                     Verify.verify(isSargable() == compensatedQueryPredicate.isSargable());
+                    final QueryPredicate residualPredicate;
                     if (compensatedQueryPredicate.isSargable()) {
                         predicateMappingBuilder.setParameterAlias(alias);
-                        predicateMappingBuilder.setComparisonRange(
-                                Iterables.getOnlyElement(compensatedQueryPredicate.getRanges())
-                                        .asComparisonRange());
+                        final ComparisonRange.MergeResult mergeResult = Iterables.getOnlyElement(compensatedQueryPredicate.getRanges()).asMergedComparisonRange();
+                        predicateMappingBuilder.setComparisonRange(mergeResult.getComparisonRange());
+                        if (mergeResult.getResidualComparisons().isEmpty()) {
+                            residualPredicate = null;
+                        } else {
+                            residualPredicate = AndPredicate.and(mergeResult.getResidualComparisons().stream()
+                                    .map(c -> candidatePredicateWithValuesAndRanges.getValue().withComparison(c))
+                                    .collect(ImmutableList.toImmutableList()));
+                        }
+                    } else {
+                        residualPredicate = null;
                     }
+                    predicateMappingBuilder.setPredicateCompensation(((partialMatch, boundParameterPrefixMap, pullUp) -> {
+                        if (boundParameterPrefixMap.containsKey(alias)) {
+                            if (residualPredicate == null) {
+                                return PredicateCompensationFunction.noCompensationNeeded();
+                            } else {
+                                return residualPredicate.computeCompensationFunction(partialMatch, compensatedQueryPredicate, boundParameterPrefixMap, pullUp);
+                            }
+                        }
+                        return computeCompensationFunctionForLeaf(pullUp);
+                    }));
                     return Optional.of(predicateMappingBuilder.build());
                 } else {
                     return Optional.of(

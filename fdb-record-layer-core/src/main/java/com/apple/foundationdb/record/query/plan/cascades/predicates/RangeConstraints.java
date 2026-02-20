@@ -149,18 +149,20 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     }
 
     /**
-     * Returns an equivalent {@link ComparisonRange}.
+     * Returns an equivalent {@link ComparisonRange} along with any residual comparisons that
+     * could not be pushed into the range. Values that cannot be combined into the single range
+     * will need to be compensated for by the caller.
      * Note: This method is created for compatibility reasons.
      *
-     * @return An equivalent {@link ComparisonRange}.
+     * @return An equivalent {@link ComparisonRange} along a set of residual comparisons that require compensation
      */
     @Nonnull
-    public ComparisonRange asComparisonRange() {
-        var resultRange = ComparisonRange.EMPTY;
-        for (final var comparison : getComparisons()) {
-            resultRange = resultRange.merge(comparison).getComparisonRange();
+    public ComparisonRange.MergeResult asMergedComparisonRange() {
+        ComparisonRange.MergeResult mergeResult = ComparisonRange.MergeResult.empty();
+        for (final Comparisons.Comparison comparison : getComparisons()) {
+            mergeResult = mergeResult.merge(comparison);
         }
-        return resultRange;
+        return mergeResult;
     }
 
     @Nonnull

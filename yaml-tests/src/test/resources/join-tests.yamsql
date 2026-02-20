@@ -356,8 +356,21 @@ test_block:
 
     -
       # Same query as above but with one comparison flipped. This should not result in a different result set
-      - query: select dept.name, emp.fname, emp.lname from emp, dept where dept.name < emp.lname and dept.name = 'Sales' and emp.lname < 'W'
-      - explain: "ISCAN(EMPNAME [[LESS_THAN promote(@c36 AS STRING)]]) | FLATMAP q0 -> { ISCAN(DEPTNAME [EQUALS promote(@c30 AS STRING)]) AS q1 RETURN (q1.NAME AS NAME, q0.FNAME AS FNAME, q0.LNAME AS LNAME) }"
+      - query: select emp.fname, emp.lname from emp, dept where dept.name < emp.lname and dept.name = 'Sales' and emp.lname < 'W'
+      - explain: "ISCAN(EMPNAME [[LESS_THAN promote(@c32 AS STRING)]]) | FLATMAP q0 -> { COVERING(DEPTNAME [EQUALS promote(@c26 AS STRING)] -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER _.NAME LESS_THAN q0.LNAME | FETCH AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME) }"
+      - initialVersionLessThan: !current_version
+      # Prior to !current_version, we used to drop the "dept.name < emp.lname" predicate due to: https://github.com/FoundationDB/fdb-record-layer/pull/3965
+      - unorderedResult: [
+               { FNAME: "Thomas",    LNAME: "Johnson" },
+               { FNAME: "Emily",     LNAME: "Martinez" },
+               { FNAME: "Amelia",    LNAME: "Johnson" },
+               { FNAME: "Daniel",    LNAME: "Miller" },
+               { FNAME: "Chloe",     LNAME: "Jones" },
+               { FNAME: "Charlotte", LNAME: "Garcia" },
+               { FNAME: "Megan",     LNAME: "Miller" },
+               { FNAME: "Harry",     LNAME: "Smith" },
+        ]
+      - initialVersionAtLeast: !current_version
       - result: [
            { FNAME: "Harry", LNAME: "Smith" },
         ]
