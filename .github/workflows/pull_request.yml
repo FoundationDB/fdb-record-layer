@@ -105,7 +105,7 @@ jobs:
     needs: get-mixed-mode-versions
     strategy:
       matrix:
-        index: ${{ fromJSON(needs.get-mixed-mode-versions.outputs.versions) }}
+        version: ${{ fromJSON(needs.get-mixed-mode-versions.outputs.versions) }}
     permissions:
       checks: write
       contents: read
@@ -122,12 +122,12 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: mixedModeTest
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersionIndex=${{ matrix.index }}
-          report_name: mixed-mode-${{ matrix.index }}-test-reports
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }}
+          report_name: mixed-mode-${{ matrix.version }}-test-reports
       - name: Publish Coverage Data
         uses: actions/upload-artifact@v4.6.0
         with:
-          name: mixed-mode-${{ matrix.index }}-coverage-data
+          name: mixed-mode-${{ matrix.version }}-coverage-data
           path: |
             **/.out/jacoco/*.exec
             **/.out/libs/*.jar
