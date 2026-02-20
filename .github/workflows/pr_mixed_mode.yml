@@ -17,7 +17,11 @@ jobs:
       - name: event
         shell: bash
         run: |
-          echo ${{ github.event }}
+          echo ${{ github.event.before }}
+      - name: event
+        shell: bash
+        run: |
+          echo ${{ github.event.after }}
           
   get-mixed-mode-versions:
     runs-on: ubuntu-latest
