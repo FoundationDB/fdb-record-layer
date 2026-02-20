@@ -90,6 +90,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: get-mixed-mode-versions
     steps:
+      - name: versionsRaw
+        run: |
+          echo ${{ needs.get-mixed-mode-versions.outputs.versions }}
       - name: versions
         run: |
           echo ${{ fromJSON(needs.get-mixed-mode-versions.outputs.versions) }}
