@@ -45,7 +45,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -53,7 +52,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.apple.foundationdb.async.MoreAsyncUtil.filterIterable;
 import static com.apple.foundationdb.async.MoreAsyncUtil.limitIterable;
 import static com.apple.foundationdb.async.MoreAsyncUtil.mapIterablePipelined;
 import static com.apple.foundationdb.async.MoreAsyncUtil.whileIterable;
@@ -213,30 +211,18 @@ public class Insert {
                             MoreAsyncUtil.iterableOf(() ->
                                     primitives.centroidsOrderedByDistance(transaction, newVector), getExecutor());
 
-                    final AsyncIterable<Optional<ClusterMetadataWithDistance>> clusterMetadataOptionalsIterable =
+                    final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
                             mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
                                     resultEntry ->
                                             primitives.fetchClusterMetadata(transaction,
                                                             StorageAdapter.clusterIdFromTuple(resultEntry.getPrimaryKey()))
                                                     .thenApply(clusterMetadata -> {
-                                                        if (clusterMetadata.getState() == ClusterMetadata.State.DRAINING) {
-                                                            return Optional.empty();
-                                                        }
                                                         final Transformed<RealVector> transformedCentroid =
                                                                 storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
-                                                        return Optional.of(
-                                                                new ClusterMetadataWithDistance(clusterMetadata,
+                                                        return new ClusterMetadataWithDistance(clusterMetadata,
                                                                         transformedCentroid,
-                                                                        resultEntry.getDistance()));
+                                                                        resultEntry.getDistance());
                                                     }),
-                                    10);
-
-                    final AsyncIterable<ClusterMetadataWithDistance> filteredClusterMetadataIterable =
-                            MoreAsyncUtil.mapIterablePipelined(getExecutor(),
-                                    filterIterable(getExecutor(), clusterMetadataOptionalsIterable, Optional::isPresent),
-                                    clusterMetadataWithDistanceOptional ->
-                                            CompletableFuture.completedFuture(clusterMetadataWithDistanceOptional
-                                                    .orElseThrow(() -> new IllegalStateException("optional must be present"))),
                                     10);
 
                     final AtomicInteger indexAtomic = new AtomicInteger(0);
@@ -244,7 +230,7 @@ public class Insert {
                     final AtomicDouble primaryDistanceAtomic = new AtomicDouble(Double.NaN);
 
                     final AsyncIterable<ClusterMetadataWithDistance> affectedNeighborhood =
-                            whileIterable(limitIterable(filteredClusterMetadataIterable, 3,
+                            whileIterable(limitIterable(clusterMetadataIterable, 3,
                                             getExecutor()),
                                     clusterMetadataWithDistance -> {
                                         final int index = indexAtomic.getAndIncrement();

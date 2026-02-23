@@ -81,8 +81,7 @@ class ClusterMetadata {
 
     public enum State {
         ACTIVE(0),
-        SPLIT_MERGE(1),
-        DRAINING(2);
+        SPLIT_MERGE(1);
 
         private static final Map<Integer, State> BY_CODE =
                 Arrays.stream(values())
