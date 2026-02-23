@@ -95,7 +95,7 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: jar mixedModeTest codeCoverageReport
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }}
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }} -Ptests.nightly
           report_name: mixed-mode-${{ matrix.version }}-test-reports
       - name: Publish Coverage Data
         uses: actions/upload-artifact@v4.6.0
