@@ -75,7 +75,9 @@ import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -321,7 +323,7 @@ class OperationsTest implements BaseTest {
     @ExtendWith(TestHelpers.DumpLayersIfFailure.class)
     @ParameterizedTest
     @MethodSource("differentConfigsAndMetrics")
-    void testBasicInsert(final long seed, final Config config) {
+    void testBasicInsert(final long seed, final Config config) throws ExecutionException, InterruptedException, TimeoutException {
         final Random random = new Random(seed);
         final int size = 1000;
         final TestOnWriteListener onWriteListener = new TestOnWriteListener();
@@ -402,7 +404,7 @@ class OperationsTest implements BaseTest {
     @ExtendWith(TestHelpers.DumpLayersIfFailure.class)
     @ParameterizedTest
     @MethodSource("differentMetrics")
-    void testBasicInsertRingSearch(final long seed, final Config config) {
+    void testBasicInsertRingSearch(final long seed, final Config config) throws ExecutionException, InterruptedException, TimeoutException {
         final Random random = new Random(seed);
         final Metric metric = config.getMetric();
         final int size = 1000;
@@ -452,7 +454,7 @@ class OperationsTest implements BaseTest {
 
     @ParameterizedTest
     @MethodSource("differentConfigsAndMetrics")
-    void testBasicInsertDelete(final long seed, final Config config) {
+    void testBasicInsertDelete(final long seed, final Config config) throws ExecutionException, InterruptedException, TimeoutException {
         final Random random = new Random(seed);
         final int size = 1000;
         final TestOnWriteListener onWriteListener = new TestOnWriteListener();
@@ -544,7 +546,7 @@ class OperationsTest implements BaseTest {
 
     @ParameterizedTest()
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
-    void testBasicInsertWithRaBitQEncodings(final long seed) {
+    void testBasicInsertWithRaBitQEncodings(final long seed) throws ExecutionException, InterruptedException, TimeoutException {
         final Random random = new Random(seed);
         final Metric metric = Metric.EUCLIDEAN_METRIC;
 
@@ -632,7 +634,7 @@ class OperationsTest implements BaseTest {
 
     @ParameterizedTest
     @MethodSource("differentMetrics")
-    void testOrderByDistance(final long seed, final Config config) {
+    void testOrderByDistance(final long seed, final Config config) throws ExecutionException, InterruptedException, TimeoutException {
         final Random random = new Random(seed);
         final int size = 1000;
         final TestOnWriteListener onWriteListener = new TestOnWriteListener();

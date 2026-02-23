@@ -1148,7 +1148,9 @@ public class TemporaryFunctionTests {
         final var mockedTransaction = Mockito.mock(Transaction.class);
         Mockito.when(mockedTransaction.getBoundSchemaTemplateMaybe()).thenReturn(Optional.empty());
         ArgumentCaptor<SchemaTemplate> captor = ArgumentCaptor.forClass(SchemaTemplate.class);
-        final var executionContext = Plan.ExecutionContext.of(mockedTransaction, Options.none(), Mockito.mock(RelationalConnection.class), Mockito.mock(MetricCollector.class));
+        final var mockedMetricCollector = Mockito.mock(MetricCollector.class);
+        Mockito.when(mockedMetricCollector.clock(Mockito.any(), Mockito.any())).thenAnswer(invocationOnMock -> ((com.apple.foundationdb.relational.util.Supplier<?>)invocationOnMock.getArgument(1)).get());
+        final var executionContext = Plan.ExecutionContext.of(mockedTransaction, Options.none(), Mockito.mock(RelationalConnection.class), mockedMetricCollector);
         ((ProceduralPlan) plan).executeInternal(executionContext);
         Mockito.verify(mockedTransaction).setBoundSchemaTemplate(captor.capture());
         Assertions.assertFalse(captor.getValue().getTemporaryInvokedRoutines().isEmpty());

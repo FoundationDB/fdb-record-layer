@@ -40,11 +40,12 @@ import java.util.Map;
 
 @API(API.Status.INTERNAL)
 public final class PendingWritesQueueHelper {
-    public static PendingWriteQueue.QueueEntry toQueueEntry(final Subspace queueSubspace, final KeyValue kv) {
+    public static PendingWriteQueue.QueueEntry toQueueEntry(final Subspace queueSubspace, LuceneSerializer serializer, final KeyValue kv) {
         try {
             Tuple keyTuple = queueSubspace.unpack(kv.getKey());
             final Versionstamp versionstamp = keyTuple.getVersionstamp(0);
-            LucenePendingWriteQueueProto.PendingWriteItem item = LucenePendingWriteQueueProto.PendingWriteItem.parseFrom(kv.getValue());
+            final byte[] value = serializer.decode(kv.getValue());
+            LucenePendingWriteQueueProto.PendingWriteItem item = LucenePendingWriteQueueProto.PendingWriteItem.parseFrom(value);
             return new PendingWriteQueue.QueueEntry(versionstamp, item);
         } catch (InvalidProtocolBufferException e) {
             throw new RecordCoreInternalException("Failed to parse queue item", e);

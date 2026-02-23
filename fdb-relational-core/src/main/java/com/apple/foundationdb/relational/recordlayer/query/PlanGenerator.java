@@ -156,12 +156,16 @@ public final class PlanGenerator {
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
-                Plan<?> plan = generatePhysicalPlan(astHashResult, validPlanHashModes, currentPlanHashMode);
-                RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros(), 0);
-                return plan;
+                return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_BYPASS, () -> {
+                    planContext.getMetricsCollector().increment(RelationalMetric.RelationalCount.PLAN_CACHE_SKIP);
+                    Plan<?> plan = generatePhysicalPlan(astHashResult, validPlanHashModes, currentPlanHashMode);
+                    RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros(), 0);
+                    return plan;
+                });
             }
 
-            // Default is to cache hit. This is modified later if we cache miss
+            // Default is to cache hit. This is modified later if we cache miss. Also log the number of entries that
+            // currently exists in the cache.
             RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.HIT, -1, cache.get().getStats().numEntries());
 
             // otherwise, lookup the query in the cache
