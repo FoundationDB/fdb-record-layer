@@ -63,6 +63,11 @@ public abstract class AbstractDeferredTask {
     }
 
     @Nonnull
+    public Config getConfig() {
+        return getLocator().getConfig();
+    }
+
+    @Nonnull
     public abstract Tuple valueTuple();
 
     @Nonnull

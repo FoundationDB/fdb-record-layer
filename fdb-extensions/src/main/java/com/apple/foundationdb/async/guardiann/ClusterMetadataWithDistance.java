@@ -56,6 +56,11 @@ class ClusterMetadataWithDistance {
         return distance;
     }
 
+    @Nonnull
+    public ClusterMetadataWithDistance withNewDistance(final double newDistance) {
+        return new ClusterMetadataWithDistance(getClusterMetadata(), getCentroid(), newDistance);
+    }
+
     @Override
     public boolean equals(final Object o) {
         if (o == null || getClass() != o.getClass()) {

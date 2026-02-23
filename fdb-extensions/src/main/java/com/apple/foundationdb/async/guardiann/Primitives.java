@@ -366,6 +366,15 @@ public class Primitives {
         transaction.set(key, value);
     }
 
+    void deleteClusterMetadata(@Nonnull final Transaction transaction,
+                               @Nonnull final UUID clusterId) {
+        final Subspace clusterMetadataSubspace = getClusterMetadataSubspace();
+        final byte[] key = clusterMetadataSubspace.pack(Tuple.from(clusterId));
+
+        getOnWriteListener().onKeyDeleted(-1, key);
+        transaction.clear(key);
+    }
+
     @Nonnull
     CompletableFuture<List<VectorReference>> fetchVectorReferences(@Nonnull final ReadTransaction readTransaction,
                                                                    @Nonnull final StorageTransform storageTransform,
@@ -394,12 +403,22 @@ public class Primitives {
                               @Nonnull final Quantizer quantizer,
                               @Nonnull final UUID clusterId,
                               @Nonnull final VectorReference vectorReference) {
-        final Subspace vectorStatesSubspace = getVectorReferencesSubspace();
-        final byte[] key = vectorStatesSubspace.pack(Tuple.from(clusterId, vectorReference.getId().getPrimaryKey()));
+        final Subspace vectorReferencesSubspace = getVectorReferencesSubspace();
+        final byte[] key = vectorReferencesSubspace.pack(Tuple.from(clusterId, vectorReference.getId().getPrimaryKey()));
         final byte[] value = StorageAdapter.valueTupleFromVectorReference(quantizer, vectorReference).pack();
 
         getOnWriteListener().onKeyValueWritten(-1, key, value);
         transaction.set(key, value);
+    }
+
+    void deleteVectorReferencesForCluster(@Nonnull final Transaction transaction,
+                                          @Nonnull final UUID clusterId) {
+        final Subspace vectorReferencesSubspace = getVectorReferencesSubspace();
+        final byte[] rangeKey = vectorReferencesSubspace.pack(Tuple.from(clusterId));
+        final Range range = Range.startsWith(rangeKey);
+
+        getOnWriteListener().onRangeDeleted(-1, range);
+        transaction.clear(range);
     }
 
     @Nonnull
