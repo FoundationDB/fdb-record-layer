@@ -1,0 +1,43 @@
+#
+# join-tests-row-version.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+schema_template:
+    create table jua(c1 bigint, c2 bigint, c5 bigint, primary key(c1))
+    create table jub(c1 bigint, c3 bigint, c5 bigint, primary key(c1))
+    with options (store_row_versions=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO jua VALUES(1, 2, 5)
+    - query: INSERT INTO jub VALUES(1, 3, 5)
+---
+test_block:
+  tests:
+    -
+      # dummy test
+      - query: select * from jua where c1=2;
+      - result: []
+  tests:
+    -
+      # union join on row version
+      - query: select * from jua join jub using("__ROW_VERSION");
+      - supported_version: !current_version
+      - result: []
+...
