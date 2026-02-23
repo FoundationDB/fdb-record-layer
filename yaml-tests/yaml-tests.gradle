@@ -229,7 +229,7 @@ task listRecentVersions {
             ? Integer.parseInt(project.getProperty('tests.listVersionsCount'))
             : 10
         def versions = resolveRecentVersionStrings(count)
-        // we don't wan the output to be a declared output, otherwise gradle will conclude that it doesn't need to
+        // we don't want the output to be a declared output, otherwise gradle will conclude that it doesn't need to
         // rerun this when the property changes.
         def outputFile = project.layout.buildDirectory.file('recentVersions.txt').get().asFile
         outputFile.parentFile.mkdirs()
@@ -239,15 +239,11 @@ task listRecentVersions {
     }
 }
 
-// Downloads exactly one external server version into a dedicated subdirectory so that
-// mixedModeTest runs against only that version.  The version is chosen by one of two
-// optional project properties:
+// Downloads exactly one external server version for running mixedModeTest against a
+// single version.  The version is chosen by the following property:
 //
-//   -Ptests.mixedModeVersion=4.10.3.0   – use this exact released version
+//   -Ptests.mixedModeVersion=4.10.3.0
 //
-// When an index is given the version is resolved once and then re-downloaded by its
-// exact version string, so a release that lands between two invocations of the task
-// cannot silently change which JAR is fetched.
 task downloadSpecificExternalServer(type: Copy) {
     dependsOn "cleanExternalServerDirectory"
     into project.layout.buildDirectory.dir('externalServer')

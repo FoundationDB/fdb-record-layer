@@ -6,6 +6,7 @@ on:
 
 jobs:
   get-mixed-mode-versions:
+    # Run these jobs only when adding the label, or when updating HEAD when it already has the label
     if: ${{ github.event.label.name == 'Run mixed-mode' || (github.event.label.name == '' && contains(github.event.pull_request.labels.*.name, 'Run mixed-mode')) }}
     runs-on: ubuntu-latest
     outputs:
