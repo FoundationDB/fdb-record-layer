@@ -188,22 +188,6 @@ ext.resolveSpecificServer = { String version ->
     }
 }
 
-// Resolves the nth-most-recent released version (0 = most recent, 1 = second most recent, etc.).
-// Returns the exact version string so the caller can pin subsequent downloads to it.
-ext.resolveNthServer = { int n ->
-    List<String> resolvedVersions = new ArrayList<>()
-    Set<String> rejectedVersions = new HashSet<>()
-    while (resolvedVersions.size() <= n) {
-        def serverFile = resolveOtherServer(rejectedVersions)
-        def attributes = getAttributesFromJar(serverFile)
-        rejectedVersions.add(attributes.version)
-        resolvedVersions.add(attributes.version)
-    }
-    def pinnedVersion = resolvedVersions.get(n)
-    println("Resolved index ${n} to version ${pinnedVersion}")
-    return pinnedVersion
-}
-
 // Resolves the n most-recent released version strings in descending order (most recent first).
 ext.resolveRecentVersionStrings = { int n ->
     List<String> resolvedVersions = new ArrayList<>()
@@ -260,7 +244,6 @@ task listRecentVersions {
 // optional project properties:
 //
 //   -Ptests.mixedModeVersion=4.10.3.0   – use this exact released version
-//   -Ptests.mixedModeVersionIndex=0     – use the nth-most-recent release (0 = latest)
 //
 // When an index is given the version is resolved once and then re-downloaded by its
 // exact version string, so a release that lands between two invocations of the task
@@ -277,21 +260,15 @@ task downloadSpecificExternalServer(type: Copy) {
             def exactVersion = project.getProperty('tests.mixedModeVersion')
             println("Using explicitly specified external server version: ${exactVersion}")
             return resolveSpecificServer(exactVersion)
-        } else if (project.hasProperty('tests.mixedModeVersionIndex')) {
-            int idx = Integer.parseInt(project.getProperty('tests.mixedModeVersionIndex'))
-            def pinnedVersion = resolveNthServer(idx)
-            println("Resolved version index ${idx} to: ${pinnedVersion}")
-            return resolveSpecificServer(pinnedVersion)
         } else {
             throw new GradleException(
-                "downloadSpecificExternalServer requires either -Ptests.mixedModeVersion=<version> " +
-                "or -Ptests.mixedModeVersionIndex=<n>")
+                "downloadSpecificExternalServer requires either -Ptests.mixedModeVersion=<version> ")
         }
     })
 }
 
 mixedModeTest {
-    if (project.hasProperty('tests.mixedModeVersion') || project.hasProperty('tests.mixedModeVersionIndex')) {
+    if (project.hasProperty('tests.mixedModeVersion')) {
         dependsOn("downloadSpecificExternalServer")
     } else {
         dependsOn("downloadManyExternalServers")
