@@ -16,7 +16,7 @@ jobs:
   # The mixed-mode coverage is a little different, we want to see explicitly what code is being covered in mixed-mode
   # so that we can find potential uncovered code that could expose bugs when multiple versions are running at the same
   # time.
-  # It's possible that we could change the nightly tests to just be the new tests, and not the regular tests in the future.
+  # It's possible that we could change the nightly tests to just be the nightly tests, and not the regular tests in the future.
   test:
     if: github.repository == 'FoundationDB/fdb-record-layer'
     runs-on: ubuntu-latest
@@ -45,11 +45,45 @@ jobs:
           files: "${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
           teamscaleKey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
 
-  mixed-mode-test:
-    if: github.repository == 'FoundationDB/fdb-record-layer'
+  ### Mixed mode
+  # Get the versions of mixed-mode that we want to run
+  get-mixed-mode-versions:
+    if: ${{ github.repository == 'FoundationDB/fdb-record-layer' && (github.event.label.name == 'Run mixed-mode' || (github.event.label.name == '' && contains(github.event.pull_request.labels.*.name, 'Run mixed-mode'))) }}
     runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.versions.outputs.versions }}
     permissions:
       contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Calculate versions
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: listRecentVersions -Ptests.listVersionsCount=2
+      - name: create output
+        id: versions
+        # This is, somewhat unfortunately tied to yaml-tests, but we don't currently have anything else that supports
+        # mixed-mode in reality. We'll have to assess how to deal with that in order to have mixed-mode tests elsewhere
+        run: |
+          cat yaml-tests/.out/recentVersions.txt >> "$GITHUB_OUTPUT"
+
+  # Run the actual mixed-mode tests
+  # This runs them in parallel by version, which is unnecessary, because it's nightly and we don't care if it takes
+  # 20 minutes or 2 hours, but this way we have the same config for PRB, nightly, and release
+  mixed-mode:
+    if: github.repository == 'FoundationDB/fdb-record-layer'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    needs: get-mixed-mode-versions
+    strategy:
+      matrix:
+        version: ${{ fromJSON(needs.get-mixed-mode-versions.outputs.versions) }}
+    permissions:
+      contents: read
+    timeout-minutes: 40
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
@@ -61,26 +95,19 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: jar mixedModeTest codeCoverageReport
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false
-          report_name: mixed-mode-test-reports
-      # We don't commit the incremented version, but we use this to know the version when generating
-      # the resulting markdown
-      - name: Increment version
-        shell: bash
-        run: python build/versionutils.py gradle.properties --increment -u PATCH
-      - name: Get new version
-        id: get_new_version
-        shell: bash
-        run: |
-          echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
-      - name: Create markdown
-        shell: bash
-        run: python build/publish-mixed-mode-results.py ${{ steps.get_new_version.outputs.version }} --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} --output mixed-mode-results.md
-      - name: Preview results
-        shell: bash
-        run: cat mixed-mode-results.md >> $GITHUB_STEP_SUMMARY
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }}
+          report_name: mixed-mode-${{ matrix.version }}-test-reports
+      - name: Publish Coverage Data
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: mixed-mode-${{ matrix.version }}-coverage-data
+          path: |
+            **/.out/jacoco/*.exec
+            **/.out/libs/*.jar
+          include-hidden-files: true
+          retention-days: 1
+      # This will upload multiple times, once for each of the old versions
       - name: Upload coverage to teamscale
-        # temporary until we validate that this is working correctly
         continue-on-error: true
         uses: ./actions/teamscale-upload
         with:
@@ -89,6 +116,31 @@ jobs:
           files: "${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
           teamscaleKey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
 
+  # Print out the mixed mode results to the summary
+  mixed-mode-results:
+    if: github.repository == 'FoundationDB/fdb-record-layer'
+    needs: [mixed-mode]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout HEAD sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: 'Download results'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: 'mixed-mode-*-test-reports'
+      - name: Generate markdown
+        shell: bash
+        run: python3 build/publish-mixed-mode-results.py --results-path "mixed-mode-*-test-reports/overall.txt" --output mixed-mode-results.md $(python build/versionutils.py gradle.properties)
+      - name: Preview mixed-mode results
+        shell: bash
+        run: cat mixed-mode-results.md >> $GITHUB_STEP_SUMMARY
+
+
+  ### Nightly
   nightly_test:
     if: github.repository == 'FoundationDB/fdb-record-layer'
     runs-on: ubuntu-latest
@@ -115,6 +167,3 @@ jobs:
           revision: ${{ github.sha }}
           files: "${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
           teamscaleKey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
-
-
-
