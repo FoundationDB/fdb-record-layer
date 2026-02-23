@@ -30,17 +30,18 @@ import java.util.Optional;
 /**
  * An expression that is used mainly for alias resolution and does not materialize into an operator output.
  */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public class EphemeralExpression extends Expression {
 
-    public EphemeralExpression(@Nonnull Identifier name, @Nonnull DataType dataType, @Nonnull Value expression) {
-        super(Optional.of(name), dataType, expression);
+    public EphemeralExpression(@Nonnull Optional<Identifier> name, @Nonnull DataType dataType, @Nonnull Value expression, Visibility visibility) {
+        super(name, dataType, expression, visibility);
     }
 
     @Nonnull
     @Override
-    protected Expression createNew(@Nonnull final Optional<Identifier> newName, @Nonnull final DataType newDataType, @Nonnull final Value newUnderlying) {
-        return super.createNew(newName, newDataType, newUnderlying).asEphemeral();
+    protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, Visibility newVisibility) {
+        return new EphemeralExpression(newName, newDataType, newUnderlying,  newVisibility);
     }
 
     @Nonnull

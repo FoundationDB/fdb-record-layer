@@ -161,8 +161,8 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     @Nonnull
-    public Expressions nonEphemeralNonHidden() {
-        return Expressions.of(stream().filter(e -> !(e instanceof EphemeralExpression) && !(e instanceof HiddenExpression)).collect(ImmutableList.toImmutableList()));
+    public Expressions nonEphemeralVisible() {
+        return Expressions.of(stream().filter(e -> !(e instanceof EphemeralExpression) && e.isVisible()).collect(ImmutableList.toImmutableList()));
     }
 
     @Nonnull

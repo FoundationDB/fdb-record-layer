@@ -59,6 +59,13 @@ public final class Star extends Expression {
     }
 
     @Nonnull
+    @Override
+    protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, Visibility newVisibility) {
+        Assert.failUnchecked("attempt to recreate new star expression");
+        return null;
+    }
+
+    @Nonnull
     public List<Expression> getExpansion() {
         return expansion;
     }
@@ -108,8 +115,15 @@ public final class Star extends Expression {
 
     @Nonnull
     @Override
+    public Expression asHidden() {
+        Assert.failUnchecked("attempt to create an invisible expression from a star");
+        return null;
+    }
+
+    @Nonnull
+    @Override
     public EphemeralExpression asEphemeral() {
-        Assert.failUnchecked("attempt to create an ephermeral expression from a star");
+        Assert.failUnchecked("attempt to create an ephemeral expression from a star");
         return null;
     }
 

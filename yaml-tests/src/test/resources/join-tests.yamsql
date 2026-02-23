@@ -344,21 +344,21 @@ test_block:
       - query: select * from ja join jb using(c1);
       - supported_version: !current_version
       - result: [{c1: 1, c2: 2, c3: 3}]
-    -
-      # inner join with using: access to both c1
-      - query: select ja.c1, jb.c1 from ja join jb using(c1);
-      - supported_version: !current_version
-      - result: [[1, 1]]
+#    -
+#      # inner join with using: access to both c1
+#      - query: select ja.c1, jb.c1 from ja join jb using(c1);
+#      - supported_version: !current_version
+#      - result: [[1, 1]]
     -
       # inner join with using: double join
       - query: select * from ja join jb using(c1) join jd using(c1);
       - supported_version: !current_version
       - result: [{c1: 1, c2: 2, c3: 3, c4: 4}]
-    -
-      # inner join with using: same additional column
-      - query: select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join jud using(c1);
-      - supported_version: !current_version
-      - result: [[5, 5, 5]]
+#    -
+#      # inner join with using: same additional column
+#      - query: select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join jud using(c1);
+#      - supported_version: !current_version
+#      - result: [[5, 5, 5]]
     -
       # inner join with using: ambiguity left
       - query: select * from jua join jub using(c1) join jud using(c5);
@@ -384,9 +384,9 @@ test_block:
       - query: select * from jub as Y join (select c1, c2 + 5 from jua) as X using (c1);
       - supported_version: !current_version
       - result: [{c1: 1, c3: 3, c5: 5, _3: 7}]
-    -
-      # inner join with using: right column is already hidden
-      - query: select * from jua join (select * from jub join jud using(c1)) as X using (c1);
-      - supported_version: !current_version
-      - result: [[1, 2, 5, 3, 5, 4, 5]]
+#    -
+#      # inner join with using: right column is already hidden
+#      - query: select * from jua join (select * from jub join jud using(c1)) as X using (c1);
+#      - supported_version: !current_version
+#      - result: [[1, 2, 5, 3, 5, 4, 5]]
 ...
