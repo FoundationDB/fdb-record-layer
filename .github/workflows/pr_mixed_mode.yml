@@ -52,7 +52,7 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: mixedModeTest
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }} -Ptests.nightly=true
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }}
           report_name: mixed-mode-${{ matrix.version }}-test-reports
       - name: Publish Coverage Data
         uses: actions/upload-artifact@v4.6.0
