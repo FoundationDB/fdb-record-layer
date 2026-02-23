@@ -208,7 +208,7 @@ task cleanExternalServerDirectory(type: Delete) {
 task serverJars(type: Copy) {
     dependsOn ":fdb-relational-server:package", "cleanExternalServerDirectory"
     into project.layout.buildDirectory.dir('externalServer')
-    from resolveOtherServer(["4.2.3.0", "4.2.4.0"].toSet())
+    from { resolveOtherServer(["4.2.3.0", "4.2.4.0"].toSet()) }
     from (rootProject.project("fdb-relational-server").layout.files('.dist')) {
         include("fdb-relational-server-${rootProject.version}-all.jar")
     }
@@ -216,7 +216,7 @@ task serverJars(type: Copy) {
 
 task downloadManyExternalServers(type: Copy) {
     dependsOn "cleanExternalServerDirectory"
-    from resolveManyServers()
+    from { resolveManyServers() }
     into project.layout.buildDirectory.dir('externalServer')
 }
 
