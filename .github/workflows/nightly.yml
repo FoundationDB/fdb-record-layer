@@ -95,7 +95,9 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: jar mixedModeTest codeCoverageReport
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }} -Ptests.nightly
+          # We don't set tests.nightly in mixed-mode because that ignores the failures, and the infrastructure would
+          # mark it as successful in the summary. We could change that, but if one of these fails, it abort nightly or tests
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }}
           report_name: mixed-mode-${{ matrix.version }}-test-reports
       - name: Publish Coverage Data
         uses: actions/upload-artifact@v4.6.0
