@@ -31,6 +31,12 @@ setup:
 test_block:
   tests:
     -
+      # dummy test
+      - query: select * from jua where c1=2;
+      - result: []
+  tests:
+    -
+      # union join on row version
       - query: select * from jua join jub using("__ROW_VERSION");
       - supported_version: !current_version
       - result: []
