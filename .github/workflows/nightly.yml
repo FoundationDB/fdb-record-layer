@@ -48,7 +48,7 @@ jobs:
   ### Mixed mode
   # Get the versions of mixed-mode that we want to run
   get-mixed-mode-versions:
-    if: ${{ github.repository == 'FoundationDB/fdb-record-layer' && (github.event.label.name == 'Run mixed-mode' || (github.event.label.name == '' && contains(github.event.pull_request.labels.*.name, 'Run mixed-mode'))) }}
+    if: github.repository == 'FoundationDB/fdb-record-layer'
     runs-on: ubuntu-latest
     outputs:
       versions: ${{ steps.versions.outputs.versions }}
