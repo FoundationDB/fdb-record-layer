@@ -144,6 +144,8 @@ public class SplitHelper {
             writeSplitRecord(context, subspace, key, serialized, splitKeyHelper, clearBasedOnPreviousSizeInfo, previousSizeInfo, sizeInfo);
         } else {
             if (splitKeyHelper.shouldClearBeforeWrite() && (splitLongRecords || previousSizeInfo == null || previousSizeInfo.isVersionedInline())) {
+                // Note that the clearPreviousSplitRecords also removes previous entries from cache, and in the case
+                // of !shouldClearBeforeWrite this is OK since the new cached version will be replaced by this one
                 clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
             }
             final Tuple recordKey;
@@ -347,7 +349,6 @@ public class SplitHelper {
             tr.clear(keySplitSubspace.range()); // Clears both unsplit and previous longer split.
         }
         final byte[] versionKey = keySplitSubspace.pack(RECORD_VERSION);
-        // todo
         context.getLocalVersion(versionKey).ifPresent(localVersion -> context.removeVersionMutation(versionKey));
     }
 
