@@ -380,7 +380,6 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
 
     @Nonnull
     public MergeResult merge(@Nonnull ComparisonRange comparisonRange) {
-        final ImmutableList.Builder<Comparisons.Comparison> residualPredicatesBuilder = ImmutableList.builder();
         if (comparisonRange.isEmpty()) {
             return MergeResult.of(this);
         }
@@ -389,15 +388,16 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
             return MergeResult.of(comparisonRange);
         }
 
-        if (isEquality()) {
+        if (comparisonRange.isEquality()) {
             return merge(comparisonRange.getEqualityComparison());
         }
 
-        Verify.verify(isInequality());
+        Verify.verify(comparisonRange.isInequality());
         final List<Comparisons.Comparison> comparisons =
                 Objects.requireNonNull(comparisonRange.getInequalityComparisons());
 
         ComparisonRange resultRange = this;
+        final ImmutableList.Builder<Comparisons.Comparison> residualPredicatesBuilder = ImmutableList.builder();
         for (final Comparisons.Comparison comparison : comparisons) {
             MergeResult mergeResult = resultRange.merge(comparison);
             resultRange = mergeResult.getComparisonRange();
