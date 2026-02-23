@@ -154,7 +154,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      * will need to be compensated for by the caller.
      * Note: This method is created for compatibility reasons.
      *
-     * @return An equivalent {@link ComparisonRange} along a set of residual comparisons that require compensation
+     * @return An equivalent {@link ComparisonRange} along with a set of residual comparisons
+     *     that require compensation
      */
     @Nonnull
     public ComparisonRange.MergeResult asMergedComparisonRange() {
