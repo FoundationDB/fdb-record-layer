@@ -86,14 +86,14 @@ public class Expression {
     public Expression(@Nonnull Optional<Identifier> name,
                       @Nonnull DataType dataType,
                       @Nonnull Value expression,
-                      Visibility visibility) {
+                      @Nonnull Visibility visibility) {
         this(name, dataType, () -> expression, visibility);
     }
 
     public Expression(@Nonnull Optional<Identifier> name,
                       @Nonnull DataType dataType,
                       @Nonnull Supplier<Value> valueSupplier,
-                      Visibility visibility) {
+                      @Nonnull Visibility visibility) {
         this.name = name;
         this.dataType = dataType;
         this.underlying = Suppliers.memoize(valueSupplier::get);
@@ -137,7 +137,7 @@ public class Expression {
      * @return a new expression with the given name, type, and value
      */
     @Nonnull
-    protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, Visibility newVisibility) {
+    protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, @Nonnull Visibility newVisibility) {
         return new Expression(newName, newDataType, newUnderlying, newVisibility);
     }
 
@@ -373,7 +373,7 @@ public class Expression {
 
         @Nonnull
         @Override
-        protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, Visibility newVisibility) {
+        protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, @Nonnull Visibility newVisibility) {
             return new NamedArgumentExpression(newName, newDataType, newUnderlying,  newVisibility);
         }
 

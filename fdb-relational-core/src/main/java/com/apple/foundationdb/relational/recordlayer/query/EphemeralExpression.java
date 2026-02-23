@@ -34,14 +34,14 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 public class EphemeralExpression extends Expression {
 
-    public EphemeralExpression(@Nonnull Optional<Identifier> name, @Nonnull DataType dataType, @Nonnull Value expression, Visibility visibility) {
+    public EphemeralExpression(@Nonnull Optional<Identifier> name, @Nonnull DataType dataType, @Nonnull Value expression, @Nonnull Visibility visibility) {
         super(name, dataType, expression, visibility);
     }
 
     @Nonnull
     @Override
-    protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, Visibility newVisibility) {
-        return new EphemeralExpression(newName, newDataType, newUnderlying,  newVisibility);
+    protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, @Nonnull Visibility newVisibility) {
+        return new EphemeralExpression(newName, newDataType, newUnderlying, newVisibility);
     }
 
     @Nonnull
