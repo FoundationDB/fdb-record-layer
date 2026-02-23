@@ -5,45 +5,6 @@ on:
     types: [labeled, synchronize]
 
 jobs:
-  hmmm:
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
-    steps:
-      - name: name
-        shell: bash
-        run: |
-          echo ${{ github.event_name }}
-      - name: event
-        shell: bash
-        run: |
-          echo ${{ github.event.before }}
-      - name: event
-        shell: bash
-        run: |
-          echo ${{ github.event.after }}
-      - name: label
-        shell: bash
-        run: |
-          echo ${{ github.event.label.name }}
-      - name: pull_request
-        shell: bash
-        run: |
-          echo ${{ github.event.pull_request }}
-      - name: labels
-        shell: bash
-        run: |
-          echo ${{ github.event.pull_request.labels }}
-      - name: labels names
-        shell: bash
-        run: |
-          echo ${{ github.event.pull_request.labels.*.name }}
-      - name: labels names
-        shell: bash
-        run: |
-          echo ${{ contains(github.event.pull_request.labels.*.name, 'Run mixed-mode') }}
-
-          
   get-mixed-mode-versions:
     if: ${{ github.event.label.name == 'Run mixed-mode' || (github.event.label.name == '' && contains(github.event.pull_request.labels.*.name, 'Run mixed-mode')) }}
     runs-on: ubuntu-latest
