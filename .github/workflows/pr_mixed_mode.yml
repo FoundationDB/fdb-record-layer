@@ -22,7 +22,6 @@ jobs:
         id: versions
         uses: ./actions/list-recent-versions
 
-# Temporary to make sure this works
   mixed-mode:
     runs-on: ubuntu-latest
     continue-on-error: true

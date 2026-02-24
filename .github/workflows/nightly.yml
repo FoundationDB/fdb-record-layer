@@ -88,8 +88,13 @@ jobs:
         uses: ./actions/gradle-test
         with:
           gradle_command: jar mixedModeTest codeCoverageReport
-          # We don't set tests.nightly in mixed-mode because that ignores the failures, and the infrastructure would
-          # mark it as successful in the summary. We could change that, but if one of these fails, it abort nightly or tests
+          # Setting tests.nightly would cause it to ignore failures at the gradle level.
+          # But, in the case of mixed-mode-test we are runnning with continue-on-error and using the result of the gradle
+          # task to populate the summary. Thus, there's no benefit to ignoring failures at the gradle level, and if we
+          # did, we'd need more complicated logic to have the results correctly display that an individual version
+          # failed.
+          # If we ever have more than one module that has mixed-mode test, or yaml-tests starts using nightly in a way
+          # that we want to impact mixedModeTest we'll probably want to change this, but for now we can keep it simple
           gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }}
           report_name: mixed-mode-${{ matrix.version }}-test-reports
       - name: Publish Coverage Data
