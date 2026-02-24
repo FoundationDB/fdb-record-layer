@@ -46,7 +46,7 @@ public class RecordTypeKeyTest {
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(
             RecordTypeKeyTest.class,
                     """
-                    CREATE TABLE restaurant_review (reviewer bigint, rating bigint, SINGLE ROW ONLY
+                    CREATE TABLE restaurant_review (reviewer bigint, rating bigint, SINGLE ROW ONLY)
                     CREATE TABLE restaurant_tag (tag string, weight bigint, PRIMARY KEY(tag))
                     CREATE INDEX record_rt_covering_idx as select reviewer from restaurant_review
                     """
