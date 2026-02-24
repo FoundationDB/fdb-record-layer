@@ -36,8 +36,8 @@ import com.apple.foundationdb.tuple.Versionstamp;
  * <pre>
  *     [versionstamp, original-key, split-suffix]
  * </pre>
- * <p>which means that the entries are sorted by their insertion order (versionstamp order), then grouped by their
- * split suffixes.</p>
+ * <p>which means that the entries are sorted by their insertion order (versionstamp order), then by the
+ * original key, with split fragments last.</p>
  */
 public class VersioningSplitKeyValueHelper implements SplitKeyValueHelper {
     private Versionstamp versionstamp;
@@ -69,7 +69,7 @@ public class VersioningSplitKeyValueHelper implements SplitKeyValueHelper {
 
     @Override
     public byte[] packSplitKey(final Subspace subspace, final Tuple key) {
-        // This uses the same version (local and global for all the splits
+        // This uses the same version (local and global) for all the splits
         // Use versionstamp first to ensure proper sorting and since split suffix should be at the end
         Tuple keyTuple = Tuple.from(versionstamp).addAll(key);
         return subspace.packWithVersionstamp(keyTuple);

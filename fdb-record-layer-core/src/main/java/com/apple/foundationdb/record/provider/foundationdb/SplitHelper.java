@@ -170,7 +170,6 @@ public class SplitHelper {
                                          final SplitKeyValueHelper splitKeyHelper,
                                          final boolean clearBasedOnPreviousSizeInfo, @Nullable final FDBStoredSizes previousSizeInfo,
                                          @Nullable SizeInfo sizeInfo) {
-        final Subspace keySplitSubspace = subspace.subspace(key);
         if (splitKeyHelper.shouldClearBeforeWrite()) {
             clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
         }
@@ -181,7 +180,7 @@ public class SplitHelper {
             if (nextOffset > serialized.length) {
                 nextOffset = serialized.length;
             }
-            final byte[] keyBytes = splitKeyHelper.packSplitKey(keySplitSubspace, Tuple.from(index));
+            final byte[] keyBytes = splitKeyHelper.packSplitKey(subspace, key.add(index));
             final byte[] valueBytes = Arrays.copyOfRange(serialized, offset, nextOffset);
             splitKeyHelper.writeSplit(context, keyBytes, valueBytes);
             if (sizeInfo != null) {
