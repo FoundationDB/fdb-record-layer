@@ -27,6 +27,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.util.pair.ImmutablePair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.tags.PosTag;
 import com.apple.foundationdb.relational.yamltests.tags.IgnoreTag;
 import com.apple.foundationdb.relational.yamltests.tags.Matchable;
 import com.apple.foundationdb.relational.yamltests.tags.IsNullTag;
@@ -559,8 +560,11 @@ public class Matchers {
         }
         for (final var entry : expected.entrySet()) {
             final var expectedField = valueElseKey(entry);
-            final var actualField = entry.getValue() == null ? entryByNumberAccessor.apply(counter) : entryByNameAccessor.apply(string(entry.getKey()));
-            final var currentCellRef = entry.getValue() == null ? "pos<" + counter + ">" : string(entry.getKey());
+            final var isUserDefinedColPos = entry.getKey() instanceof PosTag.ColumnPosition;
+            final var effectiveColumnPos = isUserDefinedColPos ? ((PosTag.ColumnPosition)entry.getKey()).getValue() : counter;
+            final var actualField = entry.getValue() == null || isUserDefinedColPos ?
+                                    entryByNumberAccessor.apply(effectiveColumnPos) : entryByNameAccessor.apply(string(entry.getKey()));
+            final var currentCellRef = entry.getValue() == null ? "pos<" + effectiveColumnPos + ">" : entry.getKey().toString();
             final var matchResult = matchField(expectedField, actualField, rowNumber, cellRef + (cellRef.isEmpty() ? "" : ".") + currentCellRef);
             if (!matchResult.equals(ResultSetMatchResult.success())) {
                 return matchResult; // propagate failure.
