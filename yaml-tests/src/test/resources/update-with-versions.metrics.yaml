@@ -1,0 +1,170 @@
+update-queries-with-versions:
+-   query: EXPLAIN select * from T1;
+    explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS
+        C)
+    task_count: 159
+    task_total_time_ms: 2
+    transform_count: 41
+    transform_time_ms: 1
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 15
+    insert_reused_count: 2
+-   query: EXPLAIN select "__ROW_VERSION", T1.* from T1;
+    explain: SCAN(<,>) | TFILTER T1 | MAP (version([_]) AS __ROW_VERSION, _.ID AS
+        ID, _.A AS A, _.B AS B, _.C AS C)
+    task_count: 159
+    task_total_time_ms: 2
+    transform_count: 41
+    transform_time_ms: 1
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 15
+    insert_reused_count: 2
+-   query: EXPLAIN select * from T2;
+    explain: ISCAN(T2$a_with_b <,>) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS
+        C)
+    task_count: 360
+    task_total_time_ms: 6
+    transform_count: 84
+    transform_time_ms: 3
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 45
+    insert_reused_count: 8
+-   query: EXPLAIN select * from T2 order by a;
+    explain: ISCAN(T2$a_with_b <,>) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS
+        C)
+    task_count: 261
+    task_total_time_ms: 5
+    transform_count: 67
+    transform_time_ms: 2
+    transform_yield_count: 36
+    insert_time_ms: 0
+    insert_new_count: 27
+    insert_reused_count: 4
+-   query: EXPLAIN select "__ROW_VERSION", T2.* from T2 order by "__ROW_VERSION";
+    explain: ISCAN(T2$version <,>) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID,
+        _.A AS A, _.B AS B, _.C AS C)
+    task_count: 206
+    task_total_time_ms: 4
+    transform_count: 57
+    transform_time_ms: 2
+    transform_yield_count: 32
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN select "__ROW_VERSION", T2.* from T2 where a = 40 order by "__ROW_VERSION";
+    explain: ISCAN(T2$a_version [EQUALS promote(@c12 AS LONG)]) | MAP (version([_])
+        AS __ROW_VERSION, _.ID AS ID, _.A AS A, _.B AS B, _.C AS C)
+    task_count: 351
+    task_total_time_ms: 7
+    transform_count: 101
+    transform_time_ms: 3
+    transform_yield_count: 39
+    insert_time_ms: 0
+    insert_new_count: 33
+    insert_reused_count: 2
+-   query: EXPLAIN select * from T1 where a = 10 and b = 'odd'
+    explain: SCAN(<,>) | TFILTER T1 | FILTER _.A EQUALS promote(@c8 AS LONG) AND _.B
+        EQUALS promote(@c12 AS STRING) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C
+        AS C)
+    task_count: 246
+    task_total_time_ms: 3
+    transform_count: 66
+    transform_time_ms: 1
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 25
+    insert_reused_count: 2
+-   query: EXPLAIN update T1 set c = c + 1 where a = 10 and b = 'odd'
+    explain: SCAN(<,>) | TFILTER T1 | DISTINCT BY PK | FILTER _.A EQUALS promote(@c12
+        AS LONG) AND _.B EQUALS promote(@c16 AS STRING) | MAP (_.ID AS ID, _.A AS
+        A, _.B AS B, _.C AS C) | UPDATE T1
+    task_count: 333
+    task_total_time_ms: 4
+    transform_count: 78
+    transform_time_ms: 1
+    transform_yield_count: 21
+    insert_time_ms: 0
+    insert_new_count: 34
+    insert_reused_count: 2
+-   query: EXPLAIN select * from T1;
+    explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS
+        C)
+    task_count: 159
+    task_total_time_ms: 2
+    transform_count: 41
+    transform_time_ms: 1
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 15
+    insert_reused_count: 2
+-   query: EXPLAIN select "__ROW_VERSION", T1.* from T1;
+    explain: SCAN(<,>) | TFILTER T1 | MAP (version([_]) AS __ROW_VERSION, _.ID AS
+        ID, _.A AS A, _.B AS B, _.C AS C)
+    task_count: 159
+    task_total_time_ms: 2
+    transform_count: 41
+    transform_time_ms: 1
+    transform_yield_count: 13
+    insert_time_ms: 0
+    insert_new_count: 15
+    insert_reused_count: 2
+-   query: EXPLAIN select * from T2 where a = 30 and id < 100 and b = 'even'
+    explain: ISCAN(T2$a_with_b [EQUALS promote(@c8 AS LONG)]) | FILTER _.ID LESS_THAN
+        promote(@c12 AS LONG) AND _.B EQUALS promote(@c16 AS STRING) | MAP (_.ID AS
+        ID, _.A AS A, _.B AS B, _.C AS C)
+    task_count: 971
+    task_total_time_ms: 15
+    transform_count: 218
+    transform_time_ms: 6
+    transform_yield_count: 67
+    insert_time_ms: 0
+    insert_new_count: 111
+    insert_reused_count: 6
+-   query: EXPLAIN update T2 set c = c + 1 where a = 30 and id < 100 and b = 'even'
+    explain: ISCAN(T2$a_with_b [EQUALS promote(@c12 AS LONG)]) | DISTINCT BY PK |
+        FILTER _.ID LESS_THAN promote(@c16 AS LONG) AND _.B EQUALS promote(@c20 AS
+        STRING) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS C) | UPDATE T2
+    task_count: 1238
+    task_total_time_ms: 17
+    transform_count: 256
+    transform_time_ms: 6
+    transform_yield_count: 76
+    insert_time_ms: 1
+    insert_new_count: 142
+    insert_reused_count: 6
+-   query: EXPLAIN select * from T2;
+    explain: ISCAN(T2$a_with_b <,>) | MAP (_.ID AS ID, _.A AS A, _.B AS B, _.C AS
+        C)
+    task_count: 360
+    task_total_time_ms: 6
+    transform_count: 84
+    transform_time_ms: 3
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 45
+    insert_reused_count: 8
+-   query: EXPLAIN select "__ROW_VERSION", T2.* from T2 order by "__ROW_VERSION";
+    explain: ISCAN(T2$version <,>) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID,
+        _.A AS A, _.B AS B, _.C AS C)
+    task_count: 206
+    task_total_time_ms: 4
+    transform_count: 57
+    transform_time_ms: 2
+    transform_yield_count: 32
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 2
+-   query: EXPLAIN select "__ROW_VERSION", T2.* from T2 where a = 30 order by "__ROW_VERSION";
+    explain: ISCAN(T2$a_version [EQUALS promote(@c12 AS LONG)]) | MAP (version([_])
+        AS __ROW_VERSION, _.ID AS ID, _.A AS A, _.B AS B, _.C AS C)
+    task_count: 351
+    task_total_time_ms: 7
+    transform_count: 101
+    transform_time_ms: 3
+    transform_yield_count: 39
+    insert_time_ms: 0
+    insert_new_count: 33
+    insert_reused_count: 2

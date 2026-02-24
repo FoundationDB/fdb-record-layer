@@ -2,17 +2,17 @@ versions-dml:
 -   query: EXPLAIN UPDATE t3 SET col2 = col2 + 1 WHERE col1 = 'a' RETURNING "new".*
     ref: versions-tests.yamsql:146
     explain: 'COVERING(T3_VERSION_WITH_COL1 <,> -> [COL1: VALUE:[0], ID: KEY:[2]])
-        | FILTER _.COL1 EQUALS promote(@c12 AS STRING) | FETCH | MAP (_.ID AS ID,
-        _.COL1 AS COL1, _.COL2 AS COL2) | DISTINCT BY PK | UPDATE T3 | MAP ((_.new).ID
+        | DISTINCT BY PK | FILTER _.COL1 EQUALS promote(@c12 AS STRING) | FETCH |
+        MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) | UPDATE T3 | MAP ((_.new).ID
         AS ID, (_.new).COL1 AS COL1, (_.new).COL2 AS COL2)'
-    task_count: 552
-    task_total_time_ms: 174
-    transform_count: 135
-    transform_time_ms: 115
-    transform_yield_count: 36
-    insert_time_ms: 12
-    insert_new_count: 61
-    insert_reused_count: 3
+    task_count: 679
+    task_total_time_ms: 7
+    transform_count: 153
+    transform_time_ms: 2
+    transform_yield_count: 41
+    insert_time_ms: 0
+    insert_new_count: 73
+    insert_reused_count: 4
 versions-queries:
 -   query: EXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 =
         10;
@@ -680,7 +680,7 @@ versions-queries:
     insert_reused_count: 12
 -   query: EXPLAIN select (A.*), (B.*) from t2_v(2) as A, t3_v(2) as B where A.col2
         = B.col1
-    ref: versions-tests.yamsql:740
+    ref: versions-tests.yamsql:741
     explain: ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c16 AS
         LONG) | FLATMAP q0 -> { ISCAN(T2_COL2 [EQUALS q0.COL1]) | FILTER _.COL1 EQUALS
         promote(@c16 AS LONG) AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.ID
@@ -696,7 +696,7 @@ versions-queries:
     insert_reused_count: 10
 -   query: EXPLAIN select (A.*) as A, (B.*) as B, (C.*) as C from t2_v(2) as A, t3_v(2)
         as B, t4_v(2) as C where A.col2 = B.col1 AND B.col1 = C.col1
-    ref: versions-tests.yamsql:753
+    ref: versions-tests.yamsql:754
     explain: ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c28 AS
         LONG) | FLATMAP q0 -> { ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS
         promote(@c28 AS LONG) AND q0.COL1 EQUALS _.COL1 | FLATMAP q1 -> { ISCAN(T2_COL2

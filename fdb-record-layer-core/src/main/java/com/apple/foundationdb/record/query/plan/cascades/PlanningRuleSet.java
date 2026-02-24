@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AggregateDataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveDfsJoinRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PushDistinctBelowMapRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.WithPrimaryKeyDataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctRule;
@@ -148,6 +149,7 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new ImplementUniqueRule(),
             new RemoveSortRule(),
             new PushDistinctBelowFilterRule(),
+            new PushDistinctBelowMapRule(),
             new MergeFetchIntoCoveringIndexRule(),
             new PushInJoinThroughFetchRule<>(RecordQueryInValuesJoinPlan.class),
             new PushInJoinThroughFetchRule<>(RecordQueryInParameterJoinPlan.class),
