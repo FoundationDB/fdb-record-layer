@@ -1,11 +1,11 @@
 name: List Recent Server Versions
 
 outputs:
-  outputs:
-    versions: ${{ steps.versions.outputs.versions }}
+  versions: ${{ steps.versions.outputs.versions }}
 
 runs:
   using: "composite"
+  steps:
   - name: Calculate versions
     uses: ./actions/run-gradle
     with:
