@@ -115,13 +115,6 @@ public final class Star extends Expression {
 
     @Nonnull
     @Override
-    public Expression asHidden() {
-        Assert.failUnchecked("attempt to create an invisible expression from a star");
-        return null;
-    }
-
-    @Nonnull
-    @Override
     public EphemeralExpression asEphemeral() {
         Assert.failUnchecked("attempt to create an ephemeral expression from a star");
         return null;
