@@ -44,10 +44,12 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -756,8 +758,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void testConcurrentMixedOperations() {
+    @ParameterizedTest
+    @BooleanSource
+    void testConcurrentMixedOperations(boolean withMerge) {
         // Test concurrent INSERT/UPDATE/DELETE operations from multiple threads while in pending queue mode
         // Note - if multiple partitions mode is enabled, concurrently attempting to adjust the documents count will cause
         // commit conflicts. This is "not worse" than what happens without an ongoing merge.
@@ -808,7 +811,11 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
                 recordStore.deleteRecord(Tuple.from(deleteId));
                 deleteCount.incrementAndGet();
 
+                snooze(10); // increase the chances of concurrency
                 commit(context);
+            }
+            if (threadId == 2 && withMerge) {
+                mergeIndexNow(schemaSetup, index);
             }
         });
 
@@ -826,8 +833,6 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
             FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
             FDBDirectory directory = directoryManager.getDirectory(null, null);
 
-            assertTrue(directory.shouldUseQueue(), "Queue mode should still be active");
-
             PendingWriteQueue queue = directory.createPendingWritesQueue();
             List<PendingWriteQueue.QueueEntry> entries = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
                     .asList().join();
@@ -840,10 +845,17 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
                     .filter(e -> e.getOperationType() == LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE)
                     .count();
 
-            assertEquals(15, insertOps);  // 10 new inserts + 5 updates (each is DELETE+INSERT)
-            assertEquals(10, deleteOps);  // 5 updates + 5 deletes
-            assertEquals(25, entries.size()); // 10 INSERTS, 5 UPDATES (double entries), 5 DELETES
-
+            if (withMerge) {
+                assertFalse(directory.shouldUseQueue(), "Queue mode should have been cleared by the merge");
+                assertEquals(0, insertOps);
+                assertEquals(0, deleteOps);
+                assertEquals(0, entries.size());
+            } else {
+                assertTrue(directory.shouldUseQueue(), "Queue mode should still be active");
+                assertEquals(15, insertOps);  // 10 new inserts + 5 updates (each is DELETE+INSERT)
+                assertEquals(10, deleteOps);  // 5 updates + 5 deletes
+                assertEquals(25, entries.size()); // 10 INSERTS, 5 UPDATES (double entries), 5 DELETES
+            }
             commit(context);
         }
 
