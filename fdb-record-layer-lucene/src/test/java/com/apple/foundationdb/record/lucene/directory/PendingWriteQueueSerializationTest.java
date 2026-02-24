@@ -36,9 +36,10 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -60,9 +61,10 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 @Tag(Tags.RequiresFDB)
 public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
 
-    @Test
-    void testEndToEndSerialization() {
-        // compare two identical records - one of them was written through the pending write queue
+    @ParameterizedTest
+    @BooleanSource
+    void testEndToEndSerialization(boolean overwrite) {
+        // Compare two identical records - one of them was written through the pending write queue
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
@@ -73,11 +75,15 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         final long directRecordId = 1001L;
         final long queuedRecordId = 2002L;
         final String textContent = "The quick brown fox jumps over the lazy dog";
+        final String tempTextContent = "The slow blue rabbit crawled under the hard-working donkey";
 
         // Write record directly to index (no queue)
         try (FDBRecordContext context = openContext()) {
             FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
             recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(directRecordId, textContent, 1));
+            if (overwrite) {
+                recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(queuedRecordId, tempTextContent, 1));
+            }
             commit(context);
         }
 
@@ -92,20 +98,21 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         }
 
         // Verify both records queryable: direct from index + replayed from queue
-        assertQueryFindsRecords(schemaSetup, index, textContent, List.of(directRecordId, queuedRecordId));
+        assertQueryFindsRecords(schemaSetup, index, textContent, List.of(directRecordId, queuedRecordId), false);
 
         // Drain the queue via merge
         mergeIndex(schemaSetup, index);
 
         // Verify both records still queryable: both now from index
-        assertQueryFindsRecords(schemaSetup, index, textContent, List.of(directRecordId, queuedRecordId));
+        assertQueryFindsRecords(schemaSetup, index, textContent, List.of(directRecordId, queuedRecordId), false);
 
-        // Verify records are identical field by field
+        // Verify that the records are identical (sort of)
         assertRecordsIdenticalExceptIds(schemaSetup, index);
     }
 
-    @Test
-    void testEndToEndSerializationComplex() {
+    @ParameterizedTest
+    @BooleanSource
+    void testEndToEndSerializationComplex(boolean overwrite) {
         // compare two identical records - one of them was written through the pending write queue, but use complex index
         final Index index = TEXT_AND_STORED_COMPLEX;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
@@ -126,6 +133,10 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
             FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
             recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(
                     directRecordId, text, text2, group, score, isSeen, time));
+            if (overwrite) {
+                recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(
+                        queuedRecordId, "green eggs and ham", "old text two", group, 24, true, 654.321));
+            }
             commit(context);
         }
 
@@ -140,10 +151,16 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
+        // Verify both records queryable: direct from index + replayed from queue
+        assertQueryFindsRecords(schemaSetup, index, text, List.of(directRecordId, queuedRecordId), true);
+
         // Drain the queue via merge
         mergeIndex(schemaSetup, index);
 
-        // Verify records are identical field by field
+        // Verify both records still queryable: both now from index
+        assertQueryFindsRecords(schemaSetup, index, text, List.of(directRecordId, queuedRecordId), true);
+
+        // Verify that the records are identical (sort of)
         assertComplexRecordsIdenticalExceptIds(schemaSetup);
     }
 
@@ -239,7 +256,7 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
     }
 
     private void assertQueryFindsRecords(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index,
-                                         String fullText, List<Long> expectedDocIds) {
+                                         String fullText, List<Long> expectedDocIds, boolean isComplex) {
         for (String searchTerm: fullText.split(" ")) {
             if (searchTerm.compareToIgnoreCase("the") >= 0) {
                 // not indexed
@@ -252,7 +269,7 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
                 try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, scanBounds, null, ScanProperties.FORWARD_SCAN)) {
                     List<Long> actualDocIds = cursor
                             .map(IndexEntry::getPrimaryKey)
-                            .map(tuple -> tuple.getLong(0))
+                            .map(tuple -> tuple.getLong(isComplex ? 1 : 0))
                             .asList()
                             .join();
 
