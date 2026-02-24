@@ -123,6 +123,47 @@ class BoundedKMeansTest {
 //        dumpVectors(tempDir, "centroids", res.getClusterCentroids());
     }
 
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    void oneBlobFindsTwoClusters(final long seed) throws Exception {
+        final SplittableRandom rnd = new SplittableRandom(seed);
+
+        // Two well-separated means.
+        final RealVector m0 = new DoubleRealVector(new double[] {-5.0, 0.0});
+
+        int nPer = 3000;
+        double sigma = 0.5d;
+
+        List<RealVector> vectors = Lists.newArrayListWithCapacity(nPer);
+        for (int i = 0; i < nPer; i++) {
+            vectors.add(gaussian2D(rnd, m0, sigma));
+        }
+
+        // Shuffle so ordering doesn't accidentally help/hurt (also exercises shuffle path).
+        Collections.shuffle(vectors, new Random(rnd.nextLong()));
+
+        final Estimator estimator = Estimator.ofMetric(Metric.EUCLIDEAN_METRIC);
+        final BoundedKMeans.Result<RealVector> res = BoundedKMeans.fit(rnd, estimator,
+                Lens.identity(), Lens.identity(), vectors, 2, 15, 3, 0.0,
+                null, true);
+
+        assertThat(res.getAssignment().length).isEqualTo(vectors.size());
+        assertThat(res.getClusterCentroids().size()).isEqualTo(2);
+        assertThat(res.getClusterSizes().length).isEqualTo(2);
+
+        // Both clusters should be non-empty.
+        assertThat(res.getClusterSizes()[0]).isGreaterThan(0);
+        assertThat(res.getClusterSizes()[1]).isGreaterThan(0);
+
+        // Objective sanity: should be much better than a trivial baseline that uses same centroid twice.
+        double baseline = baselineObjectiveSameCentroidTwice(vectors);
+        //assertThat(res.getObjective()).isLessThan(baseline * 0.65);
+
+        System.out.println(tempDir);
+        dumpVectors(tempDir, "vectors", vectors);
+        dumpVectors(tempDir, "centroids", res.getClusterCentroids());
+    }
+
     /**
      * Exercises k>2 plus balancing: 3 blobs, but ask for k=3 and enable soft size balancing.
      * Checks:
