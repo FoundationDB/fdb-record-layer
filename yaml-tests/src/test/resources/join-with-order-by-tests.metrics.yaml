@@ -1,374 +1,420 @@
 joins-with-order-by-tests:
 -   query: EXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1
         and t1.a3 = t2.b3
-    ref: join-with-order-by-tests.yamsql:88
+    ref: join-with-order-by-tests.yamsql:90
     explain: ISCAN(t2$b1 [EQUALS promote(@c22 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1
         [EQUALS promote(@c22 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id
         AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q0.id AS id, q0.b1 AS
         b1, q0.b2 AS b2, q0.b3 AS b3) AS _1) }
     task_count: 1808
-    task_total_time_ms: 115
+    task_total_time_ms: 126
     transform_count: 421
-    transform_time_ms: 30
+    transform_time_ms: 47
     transform_yield_count: 133
-    insert_time_ms: 4
+    insert_time_ms: 14
     insert_new_count: 252
     insert_reused_count: 13
 -   query: EXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1
         and t1.a3 = t2.b3 order by t1.a2
-    ref: join-with-order-by-tests.yamsql:104
+    ref: join-with-order-by-tests.yamsql:106
     explain: 'ISCAN(t1$a1_a2 [EQUALS promote(@c22 AS LONG)]) | FLATMAP q0 -> { COVERING(t2$b1_b3
         [EQUALS promote(@c22 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]])
         | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.id AS id, q0.a1 AS a1,
         q0.a2 AS a2, q0.a3 AS a3) AS _0, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3
         AS b3) AS _1) }'
     task_count: 1015
-    task_total_time_ms: 141
+    task_total_time_ms: 55
     transform_count: 282
-    transform_time_ms: 65
+    transform_time_ms: 26
     transform_yield_count: 97
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 113
     insert_reused_count: 8
 -   query: EXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1
         and t1.a3 = t2.b3 order by t1.a2 desc
-    ref: join-with-order-by-tests.yamsql:120
+    ref: join-with-order-by-tests.yamsql:122
     explain: 'ISCAN(t1$a1_a2 [EQUALS promote(@c22 AS LONG)] REVERSE) | FLATMAP q0
         -> { COVERING(t2$b1_b3 [EQUALS promote(@c22 AS LONG)] -> [b1: KEY:[0], b3:
         KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.id
         AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS _0, (q1.id AS id, q1.b1 AS
         b1, q1.b2 AS b2, q1.b3 AS b3) AS _1) }'
     task_count: 1015
-    task_total_time_ms: 89
+    task_total_time_ms: 485
     transform_count: 282
-    transform_time_ms: 42
+    transform_time_ms: 346
     transform_yield_count: 97
-    insert_time_ms: 1
+    insert_time_ms: 20
     insert_new_count: 113
     insert_reused_count: 8
 -   query: EXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1
         and t2.b3 = t1.a3 order by t1.a1 asc, t1.a2 desc
-    ref: join-with-order-by-tests.yamsql:136
+    ref: join-with-order-by-tests.yamsql:138
     explain: ISCAN(t1$a1_a2 [EQUALS promote(@c22 AS LONG)] REVERSE) | FLATMAP q0 ->
         { ISCAN(t2$b1_b3 [EQUALS promote(@c22 AS LONG), EQUALS q0.a3]) AS q1 RETURN
         ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS _0, (q1.id AS id,
         q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS _1) }
     task_count: 966
-    task_total_time_ms: 102
+    task_total_time_ms: 44
     transform_count: 273
-    transform_time_ms: 44
+    transform_time_ms: 23
     transform_yield_count: 95
-    insert_time_ms: 1
+    insert_time_ms: 3
     insert_new_count: 106
     insert_reused_count: 8
 -   query: EXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1
         and t1.a3 = t2.b3 order by t2.b3 asc
-    ref: join-with-order-by-tests.yamsql:152
+    ref: join-with-order-by-tests.yamsql:154
     explain: ISCAN(t2$b1_b3 [EQUALS promote(@c22 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1
         [EQUALS promote(@c22 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id
         AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q0.id AS id, q0.b1 AS
         b1, q0.b2 AS b2, q0.b3 AS b3) AS _1) }
     task_count: 1000
-    task_total_time_ms: 289
+    task_total_time_ms: 35
     transform_count: 284
-    transform_time_ms: 164
+    transform_time_ms: 17
     transform_yield_count: 97
-    insert_time_ms: 19
+    insert_time_ms: 0
     insert_new_count: 110
     insert_reused_count: 5
 -   query: EXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1
         and t1.a3 = t2.b3 order by t2.b3 desc
-    ref: join-with-order-by-tests.yamsql:168
+    ref: join-with-order-by-tests.yamsql:170
     explain: ISCAN(t2$b1_b3 [EQUALS promote(@c22 AS LONG)] REVERSE) | FLATMAP q0 ->
         { ISCAN(t1$a1 [EQUALS promote(@c22 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS
         q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q0.id
         AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS _1) }
     task_count: 1000
-    task_total_time_ms: 187
+    task_total_time_ms: 87
     transform_count: 284
-    transform_time_ms: 96
+    transform_time_ms: 22
     transform_yield_count: 97
-    insert_time_ms: 4
+    insert_time_ms: 1
     insert_new_count: 110
     insert_reused_count: 5
 -   query: EXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1
         order by t1.a2
-    ref: join-with-order-by-tests.yamsql:184
+    ref: join-with-order-by-tests.yamsql:186
     explain: ISCAN(t1$a1_a2 [EQUALS promote(@c22 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1
         [EQUALS promote(@c22 AS LONG)]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2
         AS a2, q0.a3 AS a3) AS _0, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS
         b3) AS _1) }
     task_count: 602
-    task_total_time_ms: 70
+    task_total_time_ms: 45
     transform_count: 173
-    transform_time_ms: 30
+    transform_time_ms: 17
     transform_yield_count: 68
-    insert_time_ms: 1
+    insert_time_ms: 8
     insert_new_count: 65
     insert_reused_count: 7
 -   query: EXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 = 1 and t3.aRef =
         t1.id
-    ref: join-with-order-by-tests.yamsql:227
+    ref: join-with-order-by-tests.yamsql:229
     explain: ISCAN(t1$a1 [EQUALS promote(@c22 AS LONG)]) | FLATMAP q0 -> { ISCAN(t3$aRef
         [EQUALS q0.id]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3
         AS a3) AS _0, (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef
         AS aRef) AS _1) }
-    task_count: 1496
-    task_total_time_ms: 97
-    transform_count: 364
-    transform_time_ms: 30
-    transform_yield_count: 126
-    insert_time_ms: 2
-    insert_new_count: 223
-    insert_reused_count: 10
+    task_count: 1600
+    task_total_time_ms: 135
+    transform_count: 390
+    transform_time_ms: 54
+    transform_yield_count: 139
+    insert_time_ms: 3
+    insert_new_count: 245
+    insert_reused_count: 11
 -   query: EXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 = 1 and t3.aRef =
         t1.id order by t1.a2 desc
-    ref: join-with-order-by-tests.yamsql:239
+    ref: join-with-order-by-tests.yamsql:241
     explain: ISCAN(t1$a1_a2 [EQUALS promote(@c22 AS LONG)] REVERSE) | FLATMAP q0 ->
         { ISCAN(t3$aRef [EQUALS q0.id]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2
         AS a2, q0.a3 AS a3) AS _0, (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS
         c3, q1.aRef AS aRef) AS _1) }
-    task_count: 827
-    task_total_time_ms: 101
-    transform_count: 245
-    transform_time_ms: 47
-    transform_yield_count: 92
-    insert_time_ms: 1
-    insert_new_count: 92
-    insert_reused_count: 5
+    task_count: 931
+    task_total_time_ms: 497
+    transform_count: 270
+    transform_time_ms: 389
+    transform_yield_count: 105
+    insert_time_ms: 13
+    insert_new_count: 108
+    insert_reused_count: 6
 -   query: EXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 = 1 and t3.aRef =
         t1.id order by t3.c1, t3.c2
-    ref: join-with-order-by-tests.yamsql:251
-    explain: 'ISCAN(t3$c1_c2_c3 <,>) | FLATMAP q0 -> { COVERING(t1$a1 [EQUALS promote(@c22
+    ref: join-with-order-by-tests.yamsql:253
+    explain: 'ISCAN(t3$c1_c2 <,>) | FLATMAP q0 -> { COVERING(t1$a1 [EQUALS promote(@c22
         AS LONG)] -> [a1: KEY:[0], id: KEY:[1]]) | FILTER q0.aRef EQUALS _.id | FETCH
         AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0,
         (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS _1)
         }'
-    task_count: 1092
-    task_total_time_ms: 156
-    transform_count: 290
-    transform_time_ms: 75
-    transform_yield_count: 104
-    insert_time_ms: 2
-    insert_new_count: 132
-    insert_reused_count: 6
+    task_count: 1196
+    task_total_time_ms: 55
+    transform_count: 315
+    transform_time_ms: 24
+    transform_yield_count: 117
+    insert_time_ms: 1
+    insert_new_count: 150
+    insert_reused_count: 7
 -   query: EXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 = 1 and t1.id = t3.aRef
         order by t3.c1, t3.c2
-    ref: join-with-order-by-tests.yamsql:264
-    explain: ISCAN(t3$c1_c2_c3 <,>) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c22
+    ref: join-with-order-by-tests.yamsql:266
+    explain: ISCAN(t3$c1_c2 <,>) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c22
         AS LONG), EQUALS q0.aRef]) AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2
         AS a2, q1.a3 AS a3) AS _0, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS
         c3, q0.aRef AS aRef) AS _1) }
-    task_count: 1053
-    task_total_time_ms: 182
-    transform_count: 282
-    transform_time_ms: 82
-    transform_yield_count: 103
-    insert_time_ms: 3
-    insert_new_count: 127
-    insert_reused_count: 5
+    task_count: 1157
+    task_total_time_ms: 155
+    transform_count: 307
+    transform_time_ms: 83
+    transform_yield_count: 116
+    insert_time_ms: 5
+    insert_new_count: 145
+    insert_reused_count: 6
 -   query: EXPLAIN select t3.* from t3, (select max(t1.a2) as maxA2 from t1 where
         t1.a1 = 1) as m where t3.c1 = 1 and t3.c2 = m.maxA2 order by t3.c3 desc
-    ref: join-with-order-by-tests.yamsql:277
+    ref: join-with-order-by-tests.yamsql:279
     explain: ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2)
         AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t3$c1_c2_c3 [EQUALS promote(@c25
         AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.c1 AS c1,
         q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) }
-    task_count: 959
-    task_total_time_ms: 66
-    transform_count: 280
-    transform_time_ms: 23
-    transform_yield_count: 94
+    task_count: 977
+    task_total_time_ms: 43
+    transform_count: 286
+    transform_time_ms: 19
+    transform_yield_count: 103
     insert_time_ms: 1
     insert_new_count: 95
     insert_reused_count: 4
 -   query: EXPLAIN select t1.* from t1, (select max(t1.a2) as maxA2 from t1 where
         t1.a1 = 1) as m where t1.a1 = 1 and t1.a2 = m.maxA2 order by t1.id desc
-    ref: join-with-order-by-tests.yamsql:294
+    ref: join-with-order-by-tests.yamsql:296
     explain: ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2)
         AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c25
         AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1,
         q1.a2 AS a2, q1.a3 AS a3) }
     task_count: 1190
-    task_total_time_ms: 81
+    task_total_time_ms: 532
     transform_count: 310
-    transform_time_ms: 22
+    transform_time_ms: 370
     transform_yield_count: 90
-    insert_time_ms: 2
+    insert_time_ms: 40
     insert_new_count: 140
     insert_reused_count: 7
 -   query: EXPLAIN select * from t1, (select max(a2) as maxA2 from t1 where a1 = 1)
         as m where a1 = 1 and a2 = maxA2 order by id desc
-    ref: join-with-order-by-tests.yamsql:304
+    ref: join-with-order-by-tests.yamsql:306
     explain: ISCAN(t1$a1 [EQUALS promote(@c19 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2)
         AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c19
         AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1,
         q1.a2 AS a2, q1.a3 AS a3, q0._0._0 AS maxA2) }
     task_count: 1190
-    task_total_time_ms: 84
+    task_total_time_ms: 506
     transform_count: 311
-    transform_time_ms: 23
+    transform_time_ms: 327
     transform_yield_count: 90
-    insert_time_ms: 2
+    insert_time_ms: 34
     insert_new_count: 140
     insert_reused_count: 7
 -   query: EXPLAIN select a.* from t1 as a, (select max(b.a2) as maxA2 from t1 as
         b where b.a1 = 1) as m where a.a1 = 1 and a.a2 = m.maxA2 order by a.id desc
-    ref: join-with-order-by-tests.yamsql:314
+    ref: join-with-order-by-tests.yamsql:316
     explain: ISCAN(t1$a1 [EQUALS promote(@c29 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2)
         AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c29
         AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1,
         q1.a2 AS a2, q1.a3 AS a3) }
     task_count: 1190
-    task_total_time_ms: 42
+    task_total_time_ms: 50
     transform_count: 310
-    transform_time_ms: 14
+    transform_time_ms: 19
     transform_yield_count: 90
     insert_time_ms: 1
     insert_new_count: 140
     insert_reused_count: 7
 -   query: EXPLAIN select a.* from t1 as a, (select max(a.a2) as maxA2 from a where
         a.a1 = 1) as m where a.a1 = 1 and a.a2 = m.maxA2 order by a.id desc
-    ref: join-with-order-by-tests.yamsql:324
+    ref: join-with-order-by-tests.yamsql:326
     explain: ISCAN(t1$a1 [EQUALS promote(@c27 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2)
         AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c27
         AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1,
         q1.a2 AS a2, q1.a3 AS a3) }
     task_count: 1190
-    task_total_time_ms: 81
+    task_total_time_ms: 57
     transform_count: 310
-    transform_time_ms: 23
+    transform_time_ms: 21
     transform_yield_count: 90
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 140
     insert_reused_count: 7
 -   query: EXPLAIN select t1.* from t1, (select max(t1.a2) as maxA2 from t1 where
         t1.a1 = 1) as m where t1.a1 = 1 and m.maxA2 = t1.a2 order by t1.id desc
-    ref: join-with-order-by-tests.yamsql:334
+    ref: join-with-order-by-tests.yamsql:336
     explain: ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)] REVERSE) | FLATMAP q0 -> {
         ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2)
         AS _0) | ON EMPTY NULL | FILTER _._0._0 EQUALS q0.a2 AS q1 RETURN (q0.id AS
         id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }
     task_count: 1165
-    task_total_time_ms: 80
+    task_total_time_ms: 83
     transform_count: 304
-    transform_time_ms: 23
+    transform_time_ms: 32
     transform_yield_count: 88
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 135
     insert_reused_count: 7
 -   query: EXPLAIN select t1.* from t1 where exists (select 1 from t2 where t2.b2
         = t1.a2 + 9) and t1.a1 = 1 order by t1.a2 desc
-    ref: join-with-order-by-tests.yamsql:346
+    ref: join-with-order-by-tests.yamsql:348
     explain: ISCAN(t1$a1_a2 [EQUALS promote(@c11 AS LONG)] REVERSE) | FLATMAP q0 ->
         { ISCAN(t2$b1 <,>) | FILTER _.b2 EQUALS q0.a2 + @c23 | MAP (@c11 AS _0) |
         DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) AS q1 RETURN (q0.id AS id,
         q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }
     task_count: 776
-    task_total_time_ms: 30
+    task_total_time_ms: 24
     transform_count: 232
-    transform_time_ms: 14
+    transform_time_ms: 13
     transform_yield_count: 77
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 78
     insert_reused_count: 6
 -   query: EXPLAIN select t1.* from t1 where exists (select 1 from t2 where t2.b1
         = 1) and t1.a1 = 1 order by t1.a2 desc
-    ref: join-with-order-by-tests.yamsql:359
-    explain: 'ISCAN(t1$a1_a2 [EQUALS promote(@c19 AS LONG)] REVERSE) | FLATMAP q0
-        -> { COVERING(t2$b1 [EQUALS promote(@c19 AS LONG)] -> [b1: KEY:[0], id: KEY:[1]])
-        | MAP (@c19 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) AS q1
-        RETURN (q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }'
+    ref: join-with-order-by-tests.yamsql:361
+    explain: 'COVERING(t2$b1 [EQUALS promote(@c19 AS LONG)] -> [b1: KEY:[0], id: KEY:[1]])
+        | MAP (@c19 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) | FLATMAP
+        q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c19 AS LONG)] REVERSE) AS q1 RETURN
+        (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }'
     task_count: 914
-    task_total_time_ms: 58
+    task_total_time_ms: 72
     transform_count: 248
-    transform_time_ms: 25
+    transform_time_ms: 28
     transform_yield_count: 85
-    insert_time_ms: 2
+    insert_time_ms: 6
     insert_new_count: 99
     insert_reused_count: 7
+-   query: EXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.id = 1003 and t2.b3
+        >= t1.a3 and t2.b1 = 1 order by t2.b3
+    ref: join-with-order-by-tests.yamsql:382
+    explain: SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER t1 | FLATMAP q0 -> { ISCAN(t2$b1_b3
+        [EQUALS promote(@c37 AS LONG), [GREATER_THAN_OR_EQUALS q0.a3]]) AS q1 RETURN
+        ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS _0, (q1.id AS id,
+        q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS _1) }
+    task_count: 1013
+    task_total_time_ms: 92
+    transform_count: 285
+    transform_time_ms: 45
+    transform_yield_count: 100
+    insert_time_ms: 2
+    insert_new_count: 126
+    insert_reused_count: 7
+-   query: EXPLAIN select (t1.*), (t3.*) from t1, t3 where t3.c1 = 1 and t3.c2 = 12
+        and t1.a1 = t3.c1 and t1.a2 >= t3.c2 order by t1.a2 desc
+    ref: join-with-order-by-tests.yamsql:412
+    explain: ISCAN(t3$c1_c2 [EQUALS promote(@c22 AS LONG), EQUALS promote(@c28 AS
+        LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS q0.c1, [GREATER_THAN_OR_EQUALS
+        q0.c2]] REVERSE) AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3
+        AS a3) AS _0, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef
+        AS aRef) AS _1) }
+    task_count: 1368
+    task_total_time_ms: 162
+    transform_count: 352
+    transform_time_ms: 64
+    transform_yield_count: 130
+    insert_time_ms: 12
+    insert_new_count: 158
+    insert_reused_count: 7
+-   query: EXPLAIN select (t1.*), (t3.*) from t1, t3 where t3.c1 = 1 and t1.a1 = t3.c1
+        and t1.a2 >= t3.c2 order by t3.c2 desc
+    ref: join-with-order-by-tests.yamsql:423
+    explain: ISCAN(t3$c1_c2 [EQUALS promote(@c22 AS LONG)] REVERSE) | FLATMAP q0 ->
+        { ISCAN(t1$a1_a2 [EQUALS q0.c1, [GREATER_THAN_OR_EQUALS q0.c2]]) AS q1 RETURN
+        ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q0.id AS id,
+        q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS _1) }
+    task_count: 904
+    task_total_time_ms: 131
+    transform_count: 261
+    transform_time_ms: 69
+    transform_yield_count: 104
+    insert_time_ms: 3
+    insert_new_count: 96
+    insert_reused_count: 4
 -   query: EXPLAIN select (t1.*) as a, (t2.*) as b, (t3.*) as c from t1, t2, t3 where
         t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1 and t2.b3 = t1.a3 and t3.c2 = t1.a2
         and t3.c3 = t2.b3
-    ref: join-with-order-by-tests.yamsql:385
+    ref: join-with-order-by-tests.yamsql:460
     explain: ISCAN(t1$a1 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3
-        [EQUALS promote(@c36 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2_c3
-        [EQUALS promote(@c36 AS LONG), EQUALS q0.a2, EQUALS q1.b3]) AS q2 RETURN (q2
-        AS _0, q1 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3
-        AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS
-        b3) AS b, (q3._0.id AS id, q3._0.c1 AS c1, q3._0.c2 AS c2, q3._0.c3 AS c3,
-        q3._0.aRef AS aRef) AS c) }
-    task_count: 8461
-    task_total_time_ms: 779
-    transform_count: 2417
-    transform_time_ms: 140
-    transform_yield_count: 507
-    insert_time_ms: 30
-    insert_new_count: 1506
-    insert_reused_count: 80
+        [EQUALS promote(@c36 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2
+        [EQUALS promote(@c36 AS LONG), EQUALS q0.a2]) | FILTER _.c3 EQUALS q1.b3 AS
+        q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1,
+        q0.a2 AS a2, q0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2
+        AS b2, q3._1.b3 AS b3) AS b, (q3._0.id AS id, q3._0.c1 AS c1, q3._0.c2 AS
+        c2, q3._0.c3 AS c3, q3._0.aRef AS aRef) AS c) }
+    task_count: 9219
+    task_total_time_ms: 1397
+    transform_count: 2559
+    transform_time_ms: 611
+    transform_yield_count: 554
+    insert_time_ms: 76
+    insert_new_count: 1699
+    insert_reused_count: 82
 -   query: EXPLAIN select (t1.*) as a, (t2.*) as b, (t3.*) as c from t1, t2, t3 where
         t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1 and t2.b3 = t1.a3 and t3.c2 = t1.a2
         and t3.c3 = t2.b3 order by t1.a2
-    ref: join-with-order-by-tests.yamsql:400
+    ref: join-with-order-by-tests.yamsql:475
     explain: ISCAN(t1$a1_a2 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3
-        [EQUALS promote(@c36 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2_c3
-        [EQUALS promote(@c36 AS LONG), EQUALS q0.a2, EQUALS q1.b3]) AS q2 RETURN (q2
-        AS _0, q1 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3
-        AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS
-        b3) AS b, (q3._0.id AS id, q3._0.c1 AS c1, q3._0.c2 AS c2, q3._0.c3 AS c3,
-        q3._0.aRef AS aRef) AS c) }
-    task_count: 5236
-    task_total_time_ms: 1042
-    transform_count: 1874
-    transform_time_ms: 494
-    transform_yield_count: 365
-    insert_time_ms: 41
-    insert_new_count: 706
-    insert_reused_count: 70
+        [EQUALS promote(@c36 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2
+        [EQUALS promote(@c36 AS LONG), EQUALS q0.a2]) | FILTER _.c3 EQUALS q1.b3 AS
+        q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1,
+        q0.a2 AS a2, q0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2
+        AS b2, q3._1.b3 AS b3) AS b, (q3._0.id AS id, q3._0.c1 AS c1, q3._0.c2 AS
+        c2, q3._0.c3 AS c3, q3._0.aRef AS aRef) AS c) }
+    task_count: 5758
+    task_total_time_ms: 1595
+    transform_count: 1975
+    transform_time_ms: 926
+    transform_yield_count: 405
+    insert_time_ms: 106
+    insert_new_count: 830
+    insert_reused_count: 72
 -   query: EXPLAIN select (t1.*) as a, (t2.*) as b, (t3.*) as c from t1, t2, t3 where
         t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1 and t2.b3 = t1.a3 and t3.c2 = t1.a2
         and t3.c3 = t2.b3 order by t2.b3
-    ref: join-with-order-by-tests.yamsql:415
+    ref: join-with-order-by-tests.yamsql:490
     explain: ISCAN(t2$b1_b3 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1
         [EQUALS promote(@c36 AS LONG)]) | FILTER q0.b3 EQUALS _.a3 | FLATMAP q1 ->
-        { ISCAN(t3$c1_c2_c3 [EQUALS promote(@c36 AS LONG), EQUALS q1.a2, EQUALS q0.b3])
-        AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1
-        AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q0.id AS id, q0.b1 AS b1, q0.b2
-        AS b2, q0.b3 AS b3) AS b, (q3._1.id AS id, q3._1.c1 AS c1, q3._1.c2 AS c2,
-        q3._1.c3 AS c3, q3._1.aRef AS aRef) AS c) }
-    task_count: 5306
-    task_total_time_ms: 946
-    transform_count: 1879
-    transform_time_ms: 449
-    transform_yield_count: 364
-    insert_time_ms: 35
-    insert_new_count: 699
-    insert_reused_count: 73
+        { ISCAN(t3$c1_c2 [EQUALS promote(@c36 AS LONG), EQUALS q1.a2]) | FILTER _.c3
+        EQUALS q0.b3 AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS
+        id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q0.id AS id, q0.b1
+        AS b1, q0.b2 AS b2, q0.b3 AS b3) AS b, (q3._1.id AS id, q3._1.c1 AS c1, q3._1.c2
+        AS c2, q3._1.c3 AS c3, q3._1.aRef AS aRef) AS c) }
+    task_count: 5817
+    task_total_time_ms: 720
+    transform_count: 1981
+    transform_time_ms: 419
+    transform_yield_count: 401
+    insert_time_ms: 26
+    insert_new_count: 792
+    insert_reused_count: 75
 -   query: EXPLAIN select (t1.*) as a, (t2.*) as b, (t3.*) as c from t1, t2, t3 where
         t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1 and t2.b3 = t1.a3 and t3.c2 = t1.a2
         and t3.c3 = t2.b3 order by t3.c2
-    ref: join-with-order-by-tests.yamsql:430
-    explain: 'ISCAN(t3$c1_c2_c3 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> {
-        COVERING(t1$a1_a2 [EQUALS promote(@c36 AS LONG)] -> [a1: KEY:[0], a2: KEY:[1],
-        id: KEY:[2]]) | FILTER q0.c2 EQUALS _.a2 | FETCH | FLATMAP q1 -> { COVERING(t2$b1_b3
-        [EQUALS promote(@c36 AS LONG), EQUALS q1.a3] -> [b1: KEY:[0], b3: KEY:[1],
-        id: KEY:[2]]) | FILTER q0.c3 EQUALS _.b3 | FETCH AS q2 RETURN (q1 AS _0, q2
-        AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3
-        AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS
-        b3) AS b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS
-        aRef) AS c) }'
-    task_count: 4993
-    task_total_time_ms: 1166
-    transform_count: 1810
-    transform_time_ms: 584
-    transform_yield_count: 346
-    insert_time_ms: 61
-    insert_new_count: 633
+    ref: join-with-order-by-tests.yamsql:505
+    explain: 'ISCAN(t3$c1_c2 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> { COVERING(t1$a1_a2
+        [EQUALS promote(@c36 AS LONG)] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]])
+        | FILTER q0.c2 EQUALS _.a2 | FETCH | FLATMAP q1 -> { COVERING(t2$b1_b3 [EQUALS
+        promote(@c36 AS LONG), EQUALS q1.a3] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]])
+        | FILTER q0.c3 EQUALS _.b3 | FETCH AS q2 RETURN (q1 AS _0, q2 AS _1) } AS
+        q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3)
+        AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS
+        b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS
+        c) }'
+    task_count: 5161
+    task_total_time_ms: 706
+    transform_count: 1853
+    transform_time_ms: 366
+    transform_yield_count: 370
+    insert_time_ms: 55
+    insert_new_count: 670
     insert_reused_count: 68
 -   query: EXPLAIN select (t1.*) as a, (t2.*) as b, (t3.*) as c from t1, t2, t3 where
         t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1 and t2.b3 = t1.a3 and t3.c2 = t1.a2
         and t3.c3 = t2.b3 order by t3.c2, t3.c3
-    ref: join-with-order-by-tests.yamsql:445
+    ref: join-with-order-by-tests.yamsql:520
     explain: 'ISCAN(t3$c1_c2_c3 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> {
         COVERING(t1$a1_a2 [EQUALS promote(@c36 AS LONG)] -> [a1: KEY:[0], a2: KEY:[1],
         id: KEY:[2]]) | FILTER q0.c2 EQUALS _.a2 | FETCH | FLATMAP q1 -> { COVERING(t2$b1_b3
@@ -378,134 +424,134 @@ joins-with-order-by-tests:
         AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS
         b3) AS b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS
         aRef) AS c) }'
-    task_count: 4960
-    task_total_time_ms: 867
-    transform_count: 1795
-    transform_time_ms: 430
-    transform_yield_count: 343
-    insert_time_ms: 34
+    task_count: 4988
+    task_total_time_ms: 439
+    transform_count: 1804
+    transform_time_ms: 241
+    transform_yield_count: 357
+    insert_time_ms: 20
     insert_new_count: 600
     insert_reused_count: 68
 -   query: EXPLAIN select (t1.*) as a, (t3.*) as b from t1, t3 where t1.a1 = 1 and
         t3.c1 = 1 and exists (select 1 from t2 where t2.b1 = t1.a1) and t3.c2 = t1.a2
         order by t1.a2 desc
-    ref: join-with-order-by-tests.yamsql:459
+    ref: join-with-order-by-tests.yamsql:534
     explain: 'ISCAN(t1$a1_a2 [EQUALS promote(@c26 AS LONG)] REVERSE) | FLATMAP q0
         -> { COVERING(t2$b1 [EQUALS q0.a1] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c26
-        AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q1 -> { ISCAN(t3$c1_c2_c3
-        [EQUALS promote(@c26 AS LONG), EQUALS q0.a2]) AS q2 RETURN q2 } AS q2 RETURN
-        ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q2.id AS id,
-        q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS b) }'
-    task_count: 2500
-    task_total_time_ms: 317
-    transform_count: 810
-    transform_time_ms: 97
-    transform_yield_count: 212
-    insert_time_ms: 8
-    insert_new_count: 364
-    insert_reused_count: 35
+        AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 ->
+        { ISCAN(t3$c1_c2 [EQUALS promote(@c26 AS LONG), EQUALS q0.a2]) AS q3 RETURN
+        ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3.id AS id,
+        q3.c1 AS c1, q3.c2 AS c2, q3.c3 AS c3, q3.aRef AS aRef) AS b) }'
+    task_count: 2736
+    task_total_time_ms: 389
+    transform_count: 853
+    transform_time_ms: 127
+    transform_yield_count: 234
+    insert_time_ms: 21
+    insert_new_count: 431
+    insert_reused_count: 37
 -   query: EXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 IN (1, 2) and t3.aRef
         = t1.id order by t1.a2
-    ref: join-with-order-by-tests.yamsql:476
+    ref: join-with-order-by-tests.yamsql:551
     explain: '[IN arrayDistinct(promote(@c22 AS ARRAY(LONG)))] INUNION q0 -> { COVERING(t1$a1_a2
         [EQUALS q0] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } COMPARE BY (_.a2,
         _.id, _.a1) | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2
         RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0, (q2.id
         AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS _1) }'
-    task_count: 3002
-    task_total_time_ms: 472
-    transform_count: 1121
-    transform_time_ms: 201
-    transform_yield_count: 218
-    insert_time_ms: 17
-    insert_new_count: 411
-    insert_reused_count: 42
+    task_count: 3224
+    task_total_time_ms: 1062
+    transform_count: 1170
+    transform_time_ms: 590
+    transform_yield_count: 239
+    insert_time_ms: 128
+    insert_new_count: 472
+    insert_reused_count: 45
 -   query: EXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 IN (1, 2) and t3.aRef
         = t1.id order by t1.a1, t1.a2
-    ref: join-with-order-by-tests.yamsql:493
+    ref: join-with-order-by-tests.yamsql:568
     explain: '[IN arrayDistinct(promote(@c22 AS ARRAY(LONG))) SORTED] | INJOIN q0
         -> { ISCAN(t1$a1_a2 [EQUALS q0]) } | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS
         q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3)
         AS _0, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef)
         AS _1) }'
-    task_count: 4068
-    task_total_time_ms: 1012
-    transform_count: 1327
-    transform_time_ms: 485
-    transform_yield_count: 272
-    insert_time_ms: 37
-    insert_new_count: 611
-    insert_reused_count: 44
+    task_count: 4290
+    task_total_time_ms: 1391
+    transform_count: 1379
+    transform_time_ms: 813
+    transform_yield_count: 293
+    insert_time_ms: 70
+    insert_new_count: 677
+    insert_reused_count: 47
 -   query: EXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 IN (1, 2) and t3.aRef
         = t1.id order by t1.a1 asc, t1.a2 desc
-    ref: join-with-order-by-tests.yamsql:510
+    ref: join-with-order-by-tests.yamsql:585
     explain: '[IN arrayDistinct(promote(@c22 AS ARRAY(LONG))) SORTED] | INJOIN q0
         -> { ISCAN(t1$a1_a2 [EQUALS q0] REVERSE) } | FLATMAP q1 -> { ISCAN(t3$aRef
         [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3
         AS a3) AS _0, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef
         AS aRef) AS _1) }'
-    task_count: 2729
-    task_total_time_ms: 409
-    transform_count: 1071
-    transform_time_ms: 210
-    transform_yield_count: 204
-    insert_time_ms: 16
-    insert_new_count: 334
-    insert_reused_count: 40
+    task_count: 2951
+    task_total_time_ms: 282
+    transform_count: 1120
+    transform_time_ms: 148
+    transform_yield_count: 225
+    insert_time_ms: 42
+    insert_new_count: 387
+    insert_reused_count: 43
 -   query: EXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 IN (1, 2) and t3.aRef
         = t1.id order by t1.a1 desc, t1.a2 asc
-    ref: join-with-order-by-tests.yamsql:527
+    ref: join-with-order-by-tests.yamsql:602
     explain: '[IN arrayDistinct(promote(@c22 AS ARRAY(LONG))) SORTED DESC] | INJOIN
         q0 -> { ISCAN(t1$a1_a2 [EQUALS q0]) } | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS
         q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3)
         AS _0, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef)
         AS _1) }'
-    task_count: 2729
-    task_total_time_ms: 485
-    transform_count: 1071
-    transform_time_ms: 239
-    transform_yield_count: 204
-    insert_time_ms: 19
-    insert_new_count: 334
-    insert_reused_count: 40
+    task_count: 2951
+    task_total_time_ms: 233
+    transform_count: 1120
+    transform_time_ms: 141
+    transform_yield_count: 225
+    insert_time_ms: 16
+    insert_new_count: 387
+    insert_reused_count: 43
 -   query: EXPLAIN select (t1.*) as a, (t3.*) as b from t1, t3 where t1.a1 IN (1,
         2) and t3.c1 = t1.a1 and exists (select 4 from t2 where t2.b1 = t1.a1) and
         t3.c2 = t1.a2 order by t1.a1 asc, t1.a2 desc
-    ref: join-with-order-by-tests.yamsql:545
+    ref: join-with-order-by-tests.yamsql:620
     explain: '[IN arrayDistinct(promote(@c26 AS ARRAY(LONG))) SORTED] | INJOIN q0
         -> { ISCAN(t1$a1_a2 [EQUALS q0] REVERSE) } | FLATMAP q1 -> { COVERING(t2$b1
         [EQUALS q1.a1] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c43 AS _0) | DEFAULT
-        NULL | FILTER _ NOT_NULL AS q2 RETURN q1 } | FLATMAP q1 -> { ISCAN(t3$c1_c2_c3
+        NULL | FILTER _ NOT_NULL AS q2 RETURN q1 } | FLATMAP q1 -> { ISCAN(t3$c1_c2
         [EQUALS q1.a1, EQUALS q1.a2]) AS q4 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2
         AS a2, q1.a3 AS a3) AS a, (q4.id AS id, q4.c1 AS c1, q4.c2 AS c2, q4.c3 AS
         c3, q4.aRef AS aRef) AS b) }'
-    task_count: 4005
-    task_total_time_ms: 694
-    transform_count: 1756
-    transform_time_ms: 332
-    transform_yield_count: 297
-    insert_time_ms: 63
-    insert_new_count: 513
-    insert_reused_count: 85
+    task_count: 4207
+    task_total_time_ms: 262
+    transform_count: 1789
+    transform_time_ms: 103
+    transform_yield_count: 317
+    insert_time_ms: 22
+    insert_new_count: 605
+    insert_reused_count: 86
 -   query: EXPLAIN select (a.*), (b.*) from t1_f(1) as a, t2_f(1) as b where a.a3
         = b.b3
-    ref: join-with-order-by-tests.yamsql:560
+    ref: join-with-order-by-tests.yamsql:635
     explain: ISCAN(t2$b1 [EQUALS promote(@c16 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1
         [EQUALS promote(@c16 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.__ROW_VERSION
         AS __ROW_VERSION, q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0,
         (q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.b1 AS b1, q0.b2 AS b2,
         q0.b3 AS b3) AS _1) }
     task_count: 2105
-    task_total_time_ms: 189
+    task_total_time_ms: 146
     transform_count: 481
-    transform_time_ms: 55
+    transform_time_ms: 64
     transform_yield_count: 158
-    insert_time_ms: 6
+    insert_time_ms: 3
     insert_new_count: 310
     insert_reused_count: 13
 -   query: EXPLAIN select (a.*), (b.*) from t1_f(1) as a, t2_f(1) as b where a.a3
         = b.b3 order by a.a2
-    ref: join-with-order-by-tests.yamsql:576
+    ref: join-with-order-by-tests.yamsql:651
     explain: 'ISCAN(t1$a1_a2 [EQUALS promote(@c16 AS LONG)]) | FLATMAP q0 -> { COVERING(t2$b1_b3
         [EQUALS promote(@c16 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]])
         | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION,
@@ -513,26 +559,26 @@ joins-with-order-by-tests:
         AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS _1)
         }'
     task_count: 1312
-    task_total_time_ms: 213
+    task_total_time_ms: 89
     transform_count: 342
-    transform_time_ms: 90
+    transform_time_ms: 32
     transform_yield_count: 122
-    insert_time_ms: 5
+    insert_time_ms: 3
     insert_new_count: 171
     insert_reused_count: 8
 -   query: EXPLAIN select (a.*), (b.*) from t1_f(1) as a, t2_f(1) as b where a.a3
         = b.b3 order by b.b3
-    ref: join-with-order-by-tests.yamsql:592
+    ref: join-with-order-by-tests.yamsql:667
     explain: ISCAN(t2$b1_b3 [EQUALS promote(@c16 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1
         [EQUALS promote(@c16 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.__ROW_VERSION
         AS __ROW_VERSION, q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS _0,
         (q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.b1 AS b1, q0.b2 AS b2,
         q0.b3 AS b3) AS _1) }
     task_count: 1297
-    task_total_time_ms: 170
+    task_total_time_ms: 100
     transform_count: 344
-    transform_time_ms: 65
+    transform_time_ms: 54
     transform_yield_count: 122
-    insert_time_ms: 4
+    insert_time_ms: 1
     insert_new_count: 168
     insert_reused_count: 5
