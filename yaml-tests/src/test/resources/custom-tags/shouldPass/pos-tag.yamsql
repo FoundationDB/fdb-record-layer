@@ -1,9 +1,9 @@
 #
-# ignore_column_name-tag.yamsql
+# pos-tag.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
-# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,17 +18,18 @@
 # limitations under the License.
 ---
 schema_template:
-    create table t1(c1 bigint, c2 bigint, c3 bigint, primary key(c1))
+    create table t1(c1 bigint, c2 string, c3 bigint, primary key(c1))
 ---
 test_block:
   preset: single_repetition_ordered
   tests:
     -
-      - query: insert into t1 values (10, 20, 30)
-      - count: 1
+      - query: insert into t1 values (10, 'test 20', 30),
+                                     (11, 'test 21', null)
     -
       - query: select * from t1
-      - result: [{!pos 1: 10, !pos 2: 20, !pos 3: 30}]
+      - unorderedResult: [{!pos 1: 10, !pos 2: 'test 20', !pos 3: !ignore _ },
+                          {!pos 1: 11, !pos 2: 'test 21', !pos 3: !null }]
     -
-      - query: select * from t1
-      - result: [{!pos 2: 20, !pos 3: 30, !pos 1: 10}]
+      - query: select * from t1 where c1 = 10
+      - unorderedResult: [{!pos 2: 'test 20', !pos 3: 30, !pos 1: 10}]
