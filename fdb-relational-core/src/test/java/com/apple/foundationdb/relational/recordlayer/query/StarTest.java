@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class StarTest {
@@ -41,13 +42,20 @@ class StarTest {
                 .hasMessageContaining("attempt to name a star expression");
     }
 
+    // @Test
+    // void asHiddenThrowsException() {
+    //     final Star star = createSimpleStar();
+    //
+    //     assertThatThrownBy(star::asHidden)
+    //             .isInstanceOf(UncheckedRelationalException.class)
+    //             .hasMessageContaining("attempt to recreate new star expression");
+    // }
+
     @Test
-    void asHiddenThrowsException() {
+    void asHidden() {
         final Star star = createSimpleStar();
 
-        assertThatThrownBy(star::asHidden)
-                .isInstanceOf(UncheckedRelationalException.class)
-                .hasMessageContaining("attempt to recreate new star expression");
+        assertThat(star.asHidden()).isSameAs(star);
     }
 
     @Test
