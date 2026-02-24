@@ -74,7 +74,7 @@ class StarTest {
 
         return Star.overIndividualExpressions(
                 Optional.of(Identifier.of("t")),
-                "startype",
+                "unknown",
                 Expressions.of(List.of(expr))
         );
     }
