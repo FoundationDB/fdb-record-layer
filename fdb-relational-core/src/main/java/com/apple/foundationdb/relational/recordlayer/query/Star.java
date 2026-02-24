@@ -61,8 +61,6 @@ public final class Star extends Expression {
     @Nonnull
     @Override
     protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, @Nonnull Visibility newVisibility) {
-//        Assert.failUnchecked("attempt to recreate new star expression");
-//        return null;
         return this;
     }
 
