@@ -155,13 +155,13 @@ you are working on an aspect of the RPC protocol. This can be run with `./gradle
 #### mixedModeTest
 
 For tests that use `@YamlTest`, this will run all the tests with the test alternating between talking to the current
-version, and some older version. This helps ensure that we remain backwards compatibility for data, and continuations.
+version and some older version. This helps ensure that we remain backwards compatibility for data and continuations.
 This can be run with `./gradlew mixedModeTest`.
-By default it runs against the 10 most recent versions, but can be run against a single version by:
+By default it runs against the 10 most recent versions, but it can be run against a single version by:
 `./gradlew mixedModeTest -Ptests.mixedModeVersion=${{ matrix.version }}`.
 
-These tests are run during the nightly build, and also as part of the release process. By default they are not run
-during PRB, but if you want to validate you can add the
+These tests are run during the nightly build and also as part of the release process. By default, they are not run
+during PRB, but if you want to validate, you can add the
 [Run mixed-mode](https://github.com/FoundationDB/fdb-record-layer/labels/Run%20mixed-mode) label.
 
 #### singleVersionTest
