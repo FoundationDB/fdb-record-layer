@@ -35,17 +35,19 @@ public final class TestSchemas {
     }
 
     private static final String RESTAURANT_SCHEMA =
-            "CREATE TYPE AS STRUCT Location (address string, latitude string, longitude string)" +
-                    "CREATE TYPE AS ENUM cuisine ('indian', 'british', 'mexican', 'japanese', 'korean')" +
-                    "CREATE TYPE AS STRUCT restaurant_review (reviewer bigint, rating bigint)" +
-                    "CREATE TYPE AS STRUCT restaurant_tag (tag string, weight bigint)" +
-                    "CREATE TYPE AS STRUCT reviewer_stats (start_date bigint, school_name string, hometown string)" +
-                    "CREATE TYPE AS STRUCT item (name string, price float)" +
-                    "CREATE TABLE restaurant (rest_no bigint, name string, location Location, reviews restaurant_review ARRAY, tags restaurant_tag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
-                    "CREATE TABLE restaurant_reviewer (id bigint, name string, email string, stats reviewer_stats, PRIMARY KEY(id))" +
-                    "CREATE TABLE restaurant_menu(id bigint, rest_no bigint, cuisine cuisine, items item array not null, reviews restaurant_review ARRAY, primary key(id, rest_no))" +
-                    "CREATE INDEX record_name_idx as select name from restaurant " +
-                    "CREATE INDEX reviewer_name_idx as select name from restaurant_reviewer ";
+            """
+             CREATE TYPE AS STRUCT Location (address string, latitude string, longitude string)
+             CREATE TYPE AS ENUM cuisine ('indian', 'british', 'mexican', 'japanese', 'korean')
+             CREATE TYPE AS STRUCT restaurant_review (reviewer bigint, rating bigint)
+             CREATE TYPE AS STRUCT restaurant_tag (tag string, weight bigint)
+             CREATE TYPE AS STRUCT reviewer_stats (start_date bigint, school_name string, hometown string)
+             CREATE TYPE AS STRUCT item (name string, price float)
+             CREATE TABLE restaurant (rest_no bigint, name string, location Location, reviews restaurant_review ARRAY, tags restaurant_tag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))
+             CREATE TABLE restaurant_reviewer (id bigint, name string, email string, stats reviewer_stats, PRIMARY KEY(id))
+             CREATE TABLE restaurant_menu(id bigint, rest_no bigint, cuisine cuisine, items item array not null, reviews restaurant_review ARRAY, primary key(id, rest_no))
+             CREATE INDEX record_name_idx as select name from restaurant
+             CREATE INDEX reviewer_name_idx as select name from restaurant_reviewer
+             """;
 
     @Nonnull
     public static String restaurant() {
@@ -60,12 +62,14 @@ public final class TestSchemas {
 
     @Nonnull
     private static final String PLAYING_CARD =
-            "CREATE TYPE AS ENUM suit ('SPADES', 'HEARTS', 'DIAMONDS', 'CLUBS') " +
-                    "CREATE TYPE AS STRUCT SuitAndRank (suit suit, rank bigint)" +
-                    "CREATE TABLE Card (id bigint, suit suit, rank bigint, PRIMARY KEY(id))" +
-                    "CREATE TABLE Card_Nested (id bigint, info SuitAndRank, PRIMARY KEY(id))" +
-                    "CREATE TABLE Card_Array (id bigint, collection SuitAndRank array, PRIMARY KEY(id))" +
-                    "CREATE INDEX suit_idx ON Card(suit)";
+            """
+            CREATE TYPE AS ENUM suit ('SPADES', 'HEARTS', 'DIAMONDS', 'CLUBS')
+            CREATE TYPE AS STRUCT SuitAndRank (suit suit, rank bigint)
+            CREATE TABLE Card (id bigint, suit suit, rank bigint, PRIMARY KEY(id))
+            CREATE TABLE Card_Nested (id bigint, info SuitAndRank, PRIMARY KEY(id))
+            CREATE TABLE Card_Array (id bigint, collection SuitAndRank array, PRIMARY KEY(id))
+            CREATE INDEX suit_idx ON Card(suit)
+            """;
 
     @Nonnull
     public static String playingCard() {
@@ -74,11 +78,13 @@ public final class TestSchemas {
 
     @Nonnull
     private static final String BOOKS_SCHEMAS =
-            "CREATE TABLE BOOKS(id integer, TITLE string, YEAR integer, primary key (id))" +
-                    "CREATE INDEX IDX_1970 AS SELECT YEAR FROM BOOKS WHERE YEAR > 1970 AND YEAR <= 1979" +
-                    "CREATE INDEX IDX_1980 AS SELECT YEAR FROM BOOKS WHERE YEAR > 1980 AND YEAR <= 1989" +
-                    "CREATE INDEX IDX_1990 AS SELECT YEAR FROM BOOKS WHERE YEAR > 1990 AND YEAR <= 1999" +
-                    "CREATE INDEX IDX_2000 AS SELECT YEAR FROM BOOKS WHERE YEAR > 2000";
+            """
+            CREATE TABLE BOOKS(id integer, TITLE string, YEAR integer, primary key (id))
+            CREATE INDEX IDX_1970 AS SELECT YEAR FROM BOOKS WHERE YEAR > 1970 AND YEAR <= 1979
+            CREATE INDEX IDX_1980 AS SELECT YEAR FROM BOOKS WHERE YEAR > 1980 AND YEAR <= 1989
+            CREATE INDEX IDX_1990 AS SELECT YEAR FROM BOOKS WHERE YEAR > 1990 AND YEAR <= 1999
+            CREATE INDEX IDX_2000 AS SELECT YEAR FROM BOOKS WHERE YEAR > 2000
+            """;
 
     @Nonnull
     public static String books() {
@@ -87,11 +93,13 @@ public final class TestSchemas {
 
     @Nonnull
     private static final String SCORE_SCHEMA =
-            "CREATE TABLE score(id bigint, player string, game bigint, score bigint, playDuration bigint, primary key(id))" +
-                    "CREATE INDEX maxScoreByGame10 AS SELECT MAX(score), game + 10 FROM score GROUP BY game + 10" +
-                    "CREATE INDEX maxScoreByGame20 AS SELECT MAX(score), game + 20 FROM score GROUP BY game + 20" +
-                    "CREATE INDEX bitAndScore2 AS SELECT game & 2, MAX(score) FROM score GROUP BY game & 2" +
-                    "CREATE INDEX bitAndScore4 AS SELECT game & 4, MAX(score) FROM score GROUP BY game & 4";
+            """
+            CREATE TABLE score(id bigint, player string, game bigint, score bigint, playDuration bigint, primary key(id))
+            CREATE INDEX maxScoreByGame10 AS SELECT MAX(score), game + 10 FROM score GROUP BY game + 10
+            CREATE INDEX maxScoreByGame20 AS SELECT MAX(score), game + 20 FROM score GROUP BY game + 20
+            CREATE INDEX bitAndScore2 AS SELECT game & 2, MAX(score) FROM score GROUP BY game & 2
+            CREATE INDEX bitAndScore4 AS SELECT game & 4, MAX(score) FROM score GROUP BY game & 4
+            """;
 
     @Nonnull
     public static String score() {

@@ -47,8 +47,11 @@ import java.util.List;
  * has records that share a single primary key extent.
  */
 public class DeleteRangeNoMetadataKeyTest {
-    private static final String SCHEMA_TEMPLATE = " CREATE TABLE t1 (id bigint, a string, b string, c string, d string, PRIMARY KEY(id, a, b)) " +
-            "CREATE TABLE t2 (id bigint, a string, b string, e bigint, f boolean, PRIMARY KEY(id, a, b))";
+    private static final String SCHEMA_TEMPLATE =
+             """
+             CREATE TABLE t1 (id bigint, a string, b string, c string, d string, PRIMARY KEY(id, a, b))
+             CREATE TABLE t2 (id bigint, a string, b string, e bigint, f boolean, PRIMARY KEY(id, a, b))
+             """;
 
     @RegisterExtension
     @Order(0)
