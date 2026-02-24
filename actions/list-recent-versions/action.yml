@@ -14,6 +14,7 @@ runs:
       gradle_command: listRecentVersions
   - name: create output
     id: versions
+    shell: bash
     # This is, somewhat unfortunately tied to yaml-tests, but we don't currently have anything else that supports
     # mixed-mode in reality. We'll have to assess how to deal with that in order to have mixed-mode tests elsewhere
     run: |
