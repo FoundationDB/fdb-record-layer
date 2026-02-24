@@ -60,15 +60,8 @@ jobs:
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Calculate versions
-        uses: ./actions/run-gradle
-        with:
-          gradle_command: listRecentVersions
-      - name: create output
         id: versions
-        # This is, somewhat unfortunately tied to yaml-tests, but we don't currently have anything else that supports
-        # mixed-mode in reality. We'll have to assess how to deal with that in order to have mixed-mode tests elsewhere
-        run: |
-          cat yaml-tests/.out/recentVersions.txt >> "$GITHUB_OUTPUT"
+        uses: ./actions/list-recent-versions
 
   # Run the actual mixed-mode tests
   # This runs them in parallel by version, which is unnecessary, because it's nightly and we don't care if it takes
