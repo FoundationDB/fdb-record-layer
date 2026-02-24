@@ -265,7 +265,7 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
 
             try (FDBRecordContext context = openContext()) {
                 FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-                LuceneScanBounds scanBounds = LuceneIndexTestUtils.fullTextSearch(recordStore, index, searchTerm, false);
+                LuceneScanBounds scanBounds = LuceneIndexTestUtils.fullTextSearch(recordStore, index, "text:" + searchTerm, false);
                 try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, scanBounds, null, ScanProperties.FORWARD_SCAN)) {
                     List<Long> actualDocIds = cursor
                             .map(IndexEntry::getPrimaryKey)
