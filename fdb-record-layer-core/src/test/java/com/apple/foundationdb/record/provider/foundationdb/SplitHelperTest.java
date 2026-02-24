@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.Versionstamp;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.Lists;
@@ -131,13 +132,23 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         private final boolean unrollRecordDeletes;
         private final boolean loadViaGets;
         private final boolean isDryRun;
+        private final boolean useVersionInKey;
 
-        public SplitHelperTestConfig(boolean splitLongRecords, boolean omitUnsplitSuffix, boolean unrollRecordDeletes, boolean loadViaGets, boolean isDryRun) {
+        public SplitHelperTestConfig(boolean splitLongRecords, boolean omitUnsplitSuffix, boolean unrollRecordDeletes,
+                                     boolean loadViaGets, boolean isDryRun, boolean useVersionInKey) {
             this.splitLongRecords = splitLongRecords;
             this.omitUnsplitSuffix = omitUnsplitSuffix;
             this.unrollRecordDeletes = unrollRecordDeletes;
             this.loadViaGets = loadViaGets;
             this.isDryRun = isDryRun;
+            this.useVersionInKey = useVersionInKey;
+        }
+
+        public SplitKeyValueHelper keyHelper(int localVersion) {
+            if (useVersionInKey) {
+                return new VersioningSplitKeyValueHelper(Versionstamp.incomplete(localVersion));
+            }
+            return DefaultSplitKeyValueHelper.INSTANCE;
         }
 
         @Nonnull
@@ -159,6 +170,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                    ", unrollRecordDeletes=" + unrollRecordDeletes +
                    ", loadViaGets=" + loadViaGets +
                    ", isDryRun=" + isDryRun +
+                   ", useVersionInKey=" + useVersionInKey +
                    '}';
         }
 
@@ -171,28 +183,34 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                 return false;
             }
             final SplitHelperTestConfig that = (SplitHelperTestConfig)o;
-            return splitLongRecords == that.splitLongRecords && omitUnsplitSuffix == that.omitUnsplitSuffix && unrollRecordDeletes == that.unrollRecordDeletes && loadViaGets == that.loadViaGets && isDryRun == that.isDryRun;
+            return splitLongRecords == that.splitLongRecords && omitUnsplitSuffix == that.omitUnsplitSuffix &&
+                    unrollRecordDeletes == that.unrollRecordDeletes && loadViaGets == that.loadViaGets &&
+                    isDryRun == that.isDryRun && useVersionInKey == that.useVersionInKey;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(splitLongRecords, omitUnsplitSuffix, unrollRecordDeletes, loadViaGets);
+            return Objects.hash(splitLongRecords, omitUnsplitSuffix, unrollRecordDeletes, loadViaGets, useVersionInKey);
         }
 
         public static Stream<SplitHelperTestConfig> allValidConfigs() {
             // Note that splitLongRecords="true" && omitUnsplitSuffix="true" is not valid
-            return Stream.of(false, true).flatMap(splitLongRecords ->
-                    (splitLongRecords ? Stream.of(false) : Stream.of(false, true)).flatMap(omitUnsplitSuffix ->
-                            Stream.of(false, true).flatMap(unrollRecordDeletes ->
-                                    Stream.of(false, true).flatMap(loadViaGets ->
-                                            Stream.of(false, true).map(isDryRun ->
-                                                    new SplitHelperTestConfig(splitLongRecords, omitUnsplitSuffix, unrollRecordDeletes, loadViaGets, isDryRun))))));
+            // Note that useVersionInKey="true" && isDryRun="true" is not valid (versionstamp never completes without commit)
+            return Stream.of(false, true).flatMap(useVersionInKey ->
+                    Stream.of(false, true).flatMap(splitLongRecords ->
+                            (splitLongRecords ? Stream.of(false) : Stream.of(false, true)).flatMap(omitUnsplitSuffix ->
+                                    Stream.of(false, true).flatMap(unrollRecordDeletes ->
+                                            Stream.of(false, true).flatMap(loadViaGets ->
+                                                    Stream.of(false, true)
+                                                            .filter(isDryRun -> !useVersionInKey || !isDryRun)
+                                                            .map(isDryRun ->
+                                                                    new SplitHelperTestConfig(splitLongRecords, omitUnsplitSuffix, unrollRecordDeletes, loadViaGets, isDryRun, useVersionInKey)))))));
         }
 
         public static SplitHelperTestConfig getDefault() {
             return new SplitHelperTestConfig(true, false,
                     FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(),
-                    FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS.getDefaultValue(), false);
+                    FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS.getDefaultValue(), false, false);
         }
     }
 
@@ -825,7 +843,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     @ParameterizedTest(name = "scan[reverse = {0}]")
     @BooleanSource
     public void scanSingleRecords(boolean reverse) {
-        loadSingleRecords(new SplitHelperTestConfig(true, false, FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(), false, false),
+        loadSingleRecords(new SplitHelperTestConfig(true, false, FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(), false, false, false),
                 (context, key, expectedSizes, expectedContents, version) -> scanSingleRecord(context, reverse, key, expectedSizes, expectedContents, version));
     }
 
