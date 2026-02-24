@@ -1,7 +1,9 @@
 name: List Recent Server Versions
 
 outputs:
-  versions: ${{ steps.versions.outputs.versions }}
+  versions:
+    description: "The versions as json"
+    value: ${{ steps.versions.outputs.versions }}
 
 runs:
   using: "composite"
