@@ -193,6 +193,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void joinRowVersionTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("join-tests-row-version.yamsql");
+    }
+
+    @TestTemplate
     void like(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("like.yamsql");
     }

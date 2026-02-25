@@ -64,6 +64,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.relational.generated.RelationalParser.ALL;
 
@@ -347,9 +348,21 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nullable
     @Override
     public Void visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
-        Assert.isNullUnchecked(ctx.uidList(), ErrorCode.UNSUPPORTED_QUERY, "using is not yet supported for inner join");
-        getDelegate().getCurrentPlanFragment().addOperator(Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class));
-        getDelegate().getCurrentPlanFragment().addInnerJoinExpression(Assert.castUnchecked(ctx.expression().accept(this), Expression.class));
+        var rightTableSource = Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class);
+        if (ctx.uidList() != null && !ctx.uidList().isEmpty()) {    // JOIN with USING syntax
+            for (final var uidContext : ctx.uidList().uid()) {
+                final var uid = visitUid(uidContext);
+                final var leftExpression = getDelegate().getSemanticAnalyzer().resolveIdentifier(uid, getDelegate().getCurrentPlanFragment().getLogicalOperators());
+                final var rightExpressionOld = getDelegate().getSemanticAnalyzer().resolveIdentifier(uid, LogicalOperators.ofSingle(rightTableSource));
+                final var rightExpressionNew = rightExpressionOld.asHidden();
+                rightTableSource = rightTableSource.withOutput(Expressions.of(rightTableSource.getOutput().stream().map(e -> e == rightExpressionOld ? rightExpressionNew : e).collect(Collectors.toUnmodifiableList())));
+                getDelegate().getCurrentPlanFragment().addInnerJoinExpression(getDelegate().resolveFunction("=", leftExpression, rightExpressionNew));
+            }
+            getDelegate().getCurrentPlanFragment().addOperator(rightTableSource);
+        } else {    // JOIN with ON syntax
+            getDelegate().getCurrentPlanFragment().addOperator(rightTableSource);
+            getDelegate().getCurrentPlanFragment().addInnerJoinExpression(Assert.castUnchecked(ctx.expression().accept(this), Expression.class));
+        }
         return null;
     }
 
