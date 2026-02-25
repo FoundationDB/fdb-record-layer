@@ -380,3 +380,20 @@ recursive-cte-tests-with-hints:
     insert_time_ms: 0
     insert_new_count: 148
     insert_reused_count: 3
+-   query: EXPLAIN with recursive allDescendants as ( select *  from t1 where id =
+        50 union all select c.* from allDescendants as p, t1 as c use index (childIdx)
+        where c.parent is not null and c.parent = p.id) traversal order pre_order
+        select * from allDescendants
+    ref: recursive-cte.yamsql:475
+    explain: 'RUNION-DFS PREORDER q0 { ISCAN(CHILDIDX [EQUALS promote(@c13 AS LONG)])
+        } { RECURSIVE COVERING(CHILDIDX <,> -> [ID: KEY:[0], PARENT: KEY:[1]]) | FILTER
+        _.PARENT EQUALS q0.ID AND _.PARENT NOT_NULL | MAP (_.ID AS ID, _.PARENT AS
+        PARENT) }'
+    task_count: 1299
+    task_total_time_ms: 98
+    transform_count: 300
+    transform_time_ms: 34
+    transform_yield_count: 85
+    insert_time_ms: 4
+    insert_new_count: 166
+    insert_reused_count: 9
