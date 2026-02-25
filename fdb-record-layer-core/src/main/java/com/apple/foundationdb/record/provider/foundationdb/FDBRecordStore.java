@@ -5807,7 +5807,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         /**
          * In the event that a store has been corrupted, and the header has been lost, this method can be used to open
-         * the store, and fill in the missing header; replaced by {@link #repairMissingHeader(int, FormatVersion, String)}.
+         * the store, and fill in the missing header; replaced by {@link #repairMissingHeader(int, FormatVersion, RepairMissingHeaderOptions)}.
          *
          * @param userVersion the user version to set in the store header
          * @param minimumPossibleFormatVersion the minimum {@link FormatVersion} that this store could have possibly
@@ -5821,7 +5821,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          */
         @API(API.Status.DEPRECATED)
         public CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(final int userVersion, FormatVersion minimumPossibleFormatVersion) {
-            return repairMissingHeader(userVersion, minimumPossibleFormatVersion, null);
+            return repairMissingHeader(userVersion, minimumPossibleFormatVersion, RepairMissingHeaderOptions.DEFAULT);
         }
 
         /**
@@ -5879,11 +5879,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * to {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX} requires storing whether the store should have the unsplit
          * suffix or not. It is probably possible for {@code repairMissingHeader} to determine what to do based on the
          * rest of the data in the store, but to keep this simple, upgrading across those versions is not supported.
-         * @param leavePotentiallyCorruptIndexesReadableReason if not {@code null}, indexes will not be marked as
-         * disabled during repair, even though they could be corrupt. If this is not {@code null}, the store will be
-         * locked with {@link com.apple.foundationdb.record.RecordMetaDataProto.DataStoreInfo.StoreLockState.State#FULL_STORE},
-         * and this reason as the reason. It is <em>your</em> responsibility to disable the indexes (and optionally rebuild
-         * them) before clearing the lock.
+         * @param repairMissingHeaderOptions options for how to do the repair
          *
          * @return a boolean indicating whether a repair needed to be done ({@code true}) or not ({@code false}) and
          * the opened store.
@@ -5891,7 +5887,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @API(API.Status.EXPERIMENTAL)
         public CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(
                 final int userVersion, @Nonnull final FormatVersion minimumPossibleFormatVersion,
-                @Nullable final String leavePotentiallyCorruptIndexesReadableReason) {
+                @Nonnull final RepairMissingHeaderOptions repairMissingHeaderOptions) {
             if (!formatVersion.isAtLeast(minimumPossibleFormatVersion)) {
                 throw new RecordCoreArgumentException("minimumPossibleFormatVersion is greater than the target formatVerson")
                         .addLogInfo(LogMessageKeys.FORMAT_VERSION, minimumPossibleFormatVersion)
@@ -5907,14 +5903,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             store.getStoreStateCache().get(store, StoreExistenceCheck.NONE)
                                     .thenCompose(storeStateCacheEntry ->
                                             repairMissingHeader(userVersion, store,
-                                                    storeStateCacheEntry.getRecordStoreState().getStoreHeader(), leavePotentiallyCorruptIndexesReadableReason)));
+                                                    storeStateCacheEntry.getRecordStoreState().getStoreHeader(),
+                                                    repairMissingHeaderOptions)));
         }
 
         private CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(
                 final int userVersion,
                 @Nonnull final FDBRecordStore store,
                 @Nonnull final RecordMetaDataProto.DataStoreInfo existing,
-                @Nullable String leavePotentiallyCorruptIndexesReadableReason) {
+                @Nonnull final RepairMissingHeaderOptions repairMissingHeaderOptions) {
             if (!existing.equals(RecordMetaDataProto.DataStoreInfo.getDefaultInstance())) {
                 return store.checkVersion(userVersionChecker, StoreExistenceCheck.ERROR_IF_NOT_EXISTS)
                         .thenApply(checkVersionDidSomething -> NonnullPair.of(false, store));
@@ -5989,11 +5986,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             //    had an older version of the index. If it wasn't readable on the current version, then
             //    leaving the index would leave it in a corrupted state.
             return bumpMetaDataVersionStamp.thenCompose(vignore -> {
-                if (leavePotentiallyCorruptIndexesReadableReason != null) {
+                if (repairMissingHeaderOptions.isLeaveIndexesReadable()) {
                     // Do not disable the indexes, but lock the store so that unaware code won't accidentally interact
                     // with corrupt indexes
                     return store.setStoreLockStateAsync(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
-                            leavePotentiallyCorruptIndexesReadableReason);
+                            repairMissingHeaderOptions.getLockReason());
                 } else {
                     return AsyncUtil.whenAll(
                             recordMetaData.getAllIndexes().stream()

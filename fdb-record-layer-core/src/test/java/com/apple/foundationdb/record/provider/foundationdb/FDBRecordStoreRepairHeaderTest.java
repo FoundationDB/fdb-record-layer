@@ -435,7 +435,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
             final FDBRecordStore.Builder builder = getStoreBuilder(context, recordMetaData)
                     .setFormatVersion(FormatVersion.getMaximumSupportedVersion());
             final NonnullPair<Boolean, FDBRecordStore> result = context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION,
-                    builder.repairMissingHeader(1, FormatVersion.SAVE_VERSION_WITH_RECORD, null));
+                    builder.repairMissingHeader(1, FormatVersion.SAVE_VERSION_WITH_RECORD, RepairMissingHeaderOptions.DEFAULT));
             assertFalse(result.getLeft(), "Repairing header should have just opened it");
             commit(context);
         }
@@ -1018,13 +1018,14 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
         LeaveCorrupted {
             FDBRecordStore repair(FDBRecordContext context, FDBRecordStore.Builder builder, int userVersion, FormatVersion minimalPossibleFormatVersion) {
                 return joinRepair(context,
-                        builder.repairMissingHeader(userVersion, minimalPossibleFormatVersion, REPAIR_REASON));
+                        builder.repairMissingHeader(userVersion, minimalPossibleFormatVersion,
+                                RepairMissingHeaderOptions.leavePotentiallyCorruptedIndexesReadable(REPAIR_REASON)));
             }
         },
         ExplicitlyDisableThem {
             FDBRecordStore repair(FDBRecordContext context, FDBRecordStore.Builder builder, int userVersion, FormatVersion minimalPossibleFormatVersion) {
                 return joinRepair(context,
-                        builder.repairMissingHeader(userVersion, minimalPossibleFormatVersion, null));
+                        builder.repairMissingHeader(userVersion, minimalPossibleFormatVersion, RepairMissingHeaderOptions.DEFAULT));
             }
         },
         /** Call the old overload that does not specify the argument. **/
