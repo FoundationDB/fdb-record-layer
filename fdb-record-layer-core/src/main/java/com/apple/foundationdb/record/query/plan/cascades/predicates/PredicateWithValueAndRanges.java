@@ -531,6 +531,13 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                     .stream()
                     .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
                     .map(valueComparison -> ((Comparisons.ValueComparison)valueComparison).getComparandValue())
+                    // Plan constraints are only defined for constant-bound comparands. Non-constant comparands
+                    // (such as join predicates) are filtered out here.
+                    // This situation can occur when query predicates have been subsumed by static comparisons
+                    // without constant-bound comparands (such as IS NOT NULL), which are no-ops for plan constraints
+                    // since they are statically defined in the query string and are not prepared in a way that
+                    // necessitates as compile-time constraint of their constant literals.
+                    .filter(comparandValue -> comparandValue instanceof Value.RangeMatchableValue)
                     .map(constant -> PredicateWithValueAndRanges.ofRanges(constant, candidateRanges))
                     .collect(Collectors.toList())));
         }

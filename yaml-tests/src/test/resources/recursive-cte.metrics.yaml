@@ -3,37 +3,37 @@ recursive-cte-tests:
         id = 250 union all select b.id, b.parent, a.y as level from t1 as b, (select
         id, parent, level + 1 as y from c1) as a  where a.parent = b.id) traversal
         order pre_order select id, parent, level from c1
-    ref: recursive-cte.yamsql:41
+    ref: recursive-cte.yamsql:42
     explain: 'RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c19 AS LONG)]
         -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT,
         @c11 AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT:
         KEY:[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT,
         q0.LEVEL + @c49 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL
         AS LEVEL)'
-    task_count: 1845
-    task_total_time_ms: 415
-    transform_count: 415
-    transform_time_ms: 224
-    transform_yield_count: 116
-    insert_time_ms: 25
+    task_count: 1851
+    task_total_time_ms: 351
+    transform_count: 418
+    transform_time_ms: 183
+    transform_yield_count: 119
+    insert_time_ms: 21
     insert_new_count: 261
     insert_reused_count: 11
 -   query: EXPLAIN with recursive c1 as ( select id, parent, 0 as level from t1 where
         id = 250 union all select b.id, b.parent, a.y as level from t1 as b, (select
         id, parent, level + 1 as y from c1) as a  where a.parent = b.id) traversal
         order post_order select id, parent, level from c1
-    ref: recursive-cte.yamsql:54
+    ref: recursive-cte.yamsql:55
     explain: 'RUNION-DFS POSTORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c19 AS
         LONG)] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT,
         @c11 AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT:
         KEY:[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT,
         q0.LEVEL + @c49 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL
         AS LEVEL)'
-    task_count: 1845
-    task_total_time_ms: 95
-    transform_count: 415
-    transform_time_ms: 37
-    transform_yield_count: 116
+    task_count: 1851
+    task_total_time_ms: 130
+    transform_count: 418
+    transform_time_ms: 38
+    transform_yield_count: 119
     insert_time_ms: 7
     insert_new_count: 261
     insert_reused_count: 11
@@ -41,131 +41,131 @@ recursive-cte-tests:
         id = 250 union all select b.id, b.parent, a.y as level from (select id, parent,
         level + 1 as y from c1) as a, t1 as b where a.parent = b.id) traversal order
         level_order select id, parent, level from c1
-    ref: recursive-cte.yamsql:67
+    ref: recursive-cte.yamsql:68
     explain: 'RUNION q0, q1 { INITIAL { COVERING(CHILDIDX [EQUALS promote(@c19 AS
         LONG)] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT,
         @c11 AS LEVEL) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) |
         FLATMAP q2 -> { TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN
         (q2.ID AS ID, q2.PARENT AS PARENT, q3.LEVEL + @c45 AS LEVEL) } | INSERT INTO
         TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)'
-    task_count: 1438
-    task_total_time_ms: 62
-    transform_count: 359
+    task_count: 1444
+    task_total_time_ms: 71
+    transform_count: 362
     transform_time_ms: 29
-    transform_yield_count: 101
+    transform_yield_count: 104
     insert_time_ms: 4
     insert_new_count: 196
     insert_reused_count: 11
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
         select id from c1
-    ref: recursive-cte.yamsql:77
+    ref: recursive-cte.yamsql:78
     explain: 'RUNION-DFS PREORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)])
         } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) |
         FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
-    task_count: 2196
-    task_total_time_ms: 28
-    transform_count: 439
-    transform_time_ms: 6
-    transform_yield_count: 132
-    insert_time_ms: 1
-    insert_new_count: 326
+    task_count: 2280
+    task_total_time_ms: 96
+    transform_count: 458
+    transform_time_ms: 30
+    transform_yield_count: 141
+    insert_time_ms: 6
+    insert_new_count: 338
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
         traversal order post_order select id from c1
-    ref: recursive-cte.yamsql:107
+    ref: recursive-cte.yamsql:108
     explain: 'RUNION-DFS POSTORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)])
         } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) |
         FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
-    task_count: 2157
-    task_total_time_ms: 27
-    transform_count: 433
-    transform_time_ms: 6
-    transform_yield_count: 129
-    insert_time_ms: 1
-    insert_new_count: 317
+    task_count: 2241
+    task_total_time_ms: 80
+    transform_count: 452
+    transform_time_ms: 24
+    transform_yield_count: 138
+    insert_time_ms: 5
+    insert_new_count: 329
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
         traversal order level_order select id from c1
-    ref: recursive-cte.yamsql:125
+    ref: recursive-cte.yamsql:126
     explain: RUNION q0, q1 { INITIAL { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)])
         | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> {
         TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
-    task_count: 1324
-    task_total_time_ms: 17
-    transform_count: 319
-    transform_time_ms: 5
-    transform_yield_count: 98
-    insert_time_ms: 0
-    insert_new_count: 184
+    task_count: 1408
+    task_total_time_ms: 54
+    transform_count: 338
+    transform_time_ms: 21
+    transform_yield_count: 107
+    insert_time_ms: 3
+    insert_new_count: 196
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where id = 250
         union all select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
         select id from c1
-    ref: recursive-cte.yamsql:140
+    ref: recursive-cte.yamsql:141
     explain: 'RUNION-DFS PREORDER q0 { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)])
         } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) |
         FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
-    task_count: 2196
-    task_total_time_ms: 26
-    transform_count: 439
-    transform_time_ms: 6
-    transform_yield_count: 132
-    insert_time_ms: 1
+    task_count: 2202
+    task_total_time_ms: 61
+    transform_count: 442
+    transform_time_ms: 16
+    transform_yield_count: 135
+    insert_time_ms: 4
     insert_new_count: 326
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where id = 250
         union all select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
         traversal order level_order select id from c1
-    ref: recursive-cte.yamsql:153
+    ref: recursive-cte.yamsql:154
     explain: RUNION q0, q1 { INITIAL { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)])
         | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> {
         TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
-    task_count: 1324
-    task_total_time_ms: 16
-    transform_count: 319
-    transform_time_ms: 5
-    transform_yield_count: 98
-    insert_time_ms: 0
+    task_count: 1330
+    task_total_time_ms: 41
+    transform_count: 322
+    transform_time_ms: 17
+    transform_yield_count: 101
+    insert_time_ms: 2
     insert_new_count: 184
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where id = 250
         union all select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
         traversal order pre_order select id from c1
-    ref: recursive-cte.yamsql:166
+    ref: recursive-cte.yamsql:167
     explain: 'RUNION-DFS PREORDER q0 { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)])
         } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) |
         FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
-    task_count: 2157
-    task_total_time_ms: 26
-    transform_count: 433
-    transform_time_ms: 7
-    transform_yield_count: 129
-    insert_time_ms: 1
+    task_count: 2163
+    task_total_time_ms: 71
+    transform_count: 436
+    transform_time_ms: 17
+    transform_yield_count: 132
+    insert_time_ms: 4
     insert_new_count: 317
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where id = 250
         union all select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
         traversal order post_order select id from c1
-    ref: recursive-cte.yamsql:179
+    ref: recursive-cte.yamsql:180
     explain: 'RUNION-DFS POSTORDER q0 { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)])
         } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) |
         FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
-    task_count: 2157
-    task_total_time_ms: 27
-    transform_count: 433
-    transform_time_ms: 7
-    transform_yield_count: 129
-    insert_time_ms: 1
+    task_count: 2163
+    task_total_time_ms: 57
+    transform_count: 436
+    transform_time_ms: 17
+    transform_yield_count: 132
+    insert_time_ms: 4
     insert_new_count: 317
     insert_reused_count: 9
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
@@ -173,19 +173,19 @@ recursive-cte-tests:
         from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent
         from ancestorsOf250 union all select b.id, b.parent from allDescendants as
         a, t1 as b where a.id = b.parent) select id, parent from allDescendants
-    ref: recursive-cte.yamsql:192
+    ref: recursive-cte.yamsql:193
     explain: 'RUNION-DFS PREORDER q0 { RUNION-DFS PREORDER q1 { ISCAN(CHILDIDX [EQUALS
         promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1],
         PARENT: KEY:[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT
         AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX
         <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP
         (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
-    task_count: 3419
-    task_total_time_ms: 45
-    transform_count: 703
-    transform_time_ms: 10
-    transform_yield_count: 202
-    insert_time_ms: 2
+    task_count: 3427
+    task_total_time_ms: 87
+    transform_count: 707
+    transform_time_ms: 25
+    transform_yield_count: 206
+    insert_time_ms: 6
     insert_new_count: 514
     insert_reused_count: 15
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
@@ -194,87 +194,87 @@ recursive-cte-tests:
         select id, parent from ancestorsOf250 union all select b.id, b.parent from
         allDescendants as a, t1 as b where a.id = b.parent) traversal order post_order
         select id, parent from allDescendants
-    ref: recursive-cte.yamsql:242
+    ref: recursive-cte.yamsql:243
     explain: 'RUNION-DFS POSTORDER q0 { RUNION-DFS POSTORDER q1 { ISCAN(CHILDIDX [EQUALS
         promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1],
         PARENT: KEY:[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT
         AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX
         <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP
         (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
-    task_count: 3129
-    task_total_time_ms: 37
-    transform_count: 662
-    transform_time_ms: 9
-    transform_yield_count: 188
-    insert_time_ms: 2
+    task_count: 3137
+    task_total_time_ms: 88
+    transform_count: 666
+    transform_time_ms: 33
+    transform_yield_count: 192
+    insert_time_ms: 6
     insert_new_count: 462
     insert_reused_count: 15
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
         select id from c1
-    ref: recursive-cte.yamsql:266
+    ref: recursive-cte.yamsql:267
     explain: 'RUNION-DFS PREORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)])
         } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) |
         FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
-    task_count: 2196
-    task_total_time_ms: 28
-    transform_count: 439
-    transform_time_ms: 6
-    transform_yield_count: 132
-    insert_time_ms: 1
-    insert_new_count: 326
+    task_count: 2280
+    task_total_time_ms: 96
+    transform_count: 458
+    transform_time_ms: 30
+    transform_yield_count: 141
+    insert_time_ms: 6
+    insert_new_count: 338
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
         select id from c1
-    ref: recursive-cte.yamsql:283
+    ref: recursive-cte.yamsql:284
     explain: 'RUNION-DFS PREORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)])
         } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) |
         FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
-    task_count: 2196
-    task_total_time_ms: 28
-    transform_count: 439
-    transform_time_ms: 6
-    transform_yield_count: 132
-    insert_time_ms: 1
-    insert_new_count: 326
+    task_count: 2280
+    task_total_time_ms: 96
+    transform_count: 458
+    transform_time_ms: 30
+    transform_yield_count: 141
+    insert_time_ms: 6
+    insert_new_count: 338
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
         traversal order post_order select id from c1
-    ref: recursive-cte.yamsql:308
+    ref: recursive-cte.yamsql:309
     explain: 'RUNION-DFS POSTORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)])
         } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) |
         FILTER q0.ID EQUALS _.PARENT | MAP (_.ID AS ID, _.PARENT AS PARENT) } | MAP
         (_.ID AS ID)'
-    task_count: 2157
-    task_total_time_ms: 27
-    transform_count: 433
-    transform_time_ms: 6
-    transform_yield_count: 129
-    insert_time_ms: 1
-    insert_new_count: 317
+    task_count: 2241
+    task_total_time_ms: 80
+    transform_count: 452
+    transform_time_ms: 24
+    transform_yield_count: 138
+    insert_time_ms: 5
+    insert_new_count: 329
     insert_reused_count: 9
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
         as ( select id, parent from t1 where id = 250 union all select b.id, b.parent
         from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent
         from ancestorsOf250 union all select b.id, b.parent from allDescendants as
         a, t1 as b where a.id = b.parent) select id, parent from allDescendants
-    ref: recursive-cte.yamsql:329
+    ref: recursive-cte.yamsql:330
     explain: 'RUNION-DFS PREORDER q0 { RUNION-DFS PREORDER q1 { ISCAN(CHILDIDX [EQUALS
         promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1],
         PARENT: KEY:[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT
         AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX
         <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP
         (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
-    task_count: 3419
-    task_total_time_ms: 45
-    transform_count: 703
-    transform_time_ms: 10
-    transform_yield_count: 202
-    insert_time_ms: 2
+    task_count: 3427
+    task_total_time_ms: 87
+    transform_count: 707
+    transform_time_ms: 25
+    transform_yield_count: 206
+    insert_time_ms: 6
     insert_new_count: 514
     insert_reused_count: 15
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
@@ -282,19 +282,19 @@ recursive-cte-tests:
         from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent
         from ancestorsOf250 union all select b.id, b.parent from allDescendants as
         a, t1 as b where a.id = b.parent) select id, parent from allDescendants
-    ref: recursive-cte.yamsql:357
+    ref: recursive-cte.yamsql:358
     explain: 'RUNION-DFS PREORDER q0 { RUNION-DFS PREORDER q1 { ISCAN(CHILDIDX [EQUALS
         promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1],
         PARENT: KEY:[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT
         AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX
         <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP
         (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
-    task_count: 3419
-    task_total_time_ms: 45
-    transform_count: 703
-    transform_time_ms: 10
-    transform_yield_count: 202
-    insert_time_ms: 2
+    task_count: 3427
+    task_total_time_ms: 87
+    transform_count: 707
+    transform_time_ms: 25
+    transform_yield_count: 206
+    insert_time_ms: 6
     insert_new_count: 514
     insert_reused_count: 15
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
@@ -303,19 +303,19 @@ recursive-cte-tests:
         select id, parent from ancestorsOf250 union all select b.id, b.parent from
         allDescendants as a, t1 as b where a.id = b.parent) traversal order post_order
         select id, parent from allDescendants
-    ref: recursive-cte.yamsql:394
+    ref: recursive-cte.yamsql:395
     explain: 'RUNION-DFS POSTORDER q0 { RUNION-DFS POSTORDER q1 { ISCAN(CHILDIDX [EQUALS
         promote(@c20 AS LONG)]) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1],
         PARENT: KEY:[0]]) | FILTER q1.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT
         AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT) } { RECURSIVE COVERING(PARENTIDX
         <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q0.ID EQUALS _.PARENT | MAP
         (_.ID AS ID, _.PARENT AS PARENT) } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
-    task_count: 3129
-    task_total_time_ms: 37
-    transform_count: 662
-    transform_time_ms: 9
-    transform_yield_count: 188
-    insert_time_ms: 2
+    task_count: 3137
+    task_total_time_ms: 88
+    transform_count: 666
+    transform_time_ms: 33
+    transform_yield_count: 192
+    insert_time_ms: 6
     insert_new_count: 462
     insert_reused_count: 15
 recursive-cte-tests-with-hints:
@@ -324,7 +324,7 @@ recursive-cte-tests-with-hints:
         from t1 as b use index (parentIdx), (select id, parent, level + 1 as y from
         c1) as a  where a.parent = b.id) traversal order pre_order select id, parent,
         level from c1
-    ref: recursive-cte.yamsql:435
+    ref: recursive-cte.yamsql:436
     explain: 'RUNION-DFS PREORDER q0 { COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT:
         KEY:[0]]) | FILTER _.ID EQUALS promote(@c24 AS LONG) | MAP (_.ID AS ID, _.PARENT
         AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1],
@@ -332,9 +332,9 @@ recursive-cte-tests-with-hints:
         AS PARENT, q0.LEVEL + @c59 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT,
         _.LEVEL AS LEVEL)'
     task_count: 1060
-    task_total_time_ms: 21
+    task_total_time_ms: 29
     transform_count: 260
-    transform_time_ms: 8
+    transform_time_ms: 10
     transform_yield_count: 58
     insert_time_ms: 1
     insert_new_count: 133
@@ -344,7 +344,7 @@ recursive-cte-tests-with-hints:
         from t1 as b use index (childIdx), (select id, parent, level + 1 as y from
         c1) as a  where a.parent = b.id) traversal order pre_order select id, parent,
         level from c1
-    ref: recursive-cte.yamsql:448
+    ref: recursive-cte.yamsql:449
     explain: 'RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c24 AS LONG)]
         -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT,
         @c11 AS LEVEL) } { RECURSIVE COVERING(CHILDIDX <,> -> [ID: KEY:[0], PARENT:
@@ -352,9 +352,9 @@ recursive-cte-tests-with-hints:
         q0.LEVEL + @c59 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL
         AS LEVEL)'
     task_count: 1029
-    task_total_time_ms: 21
+    task_total_time_ms: 23
     transform_count: 254
-    transform_time_ms: 7
+    transform_time_ms: 6
     transform_yield_count: 57
     insert_time_ms: 1
     insert_new_count: 128
@@ -365,7 +365,7 @@ recursive-cte-tests-with-hints:
         where parent is not null and id is not null) as b, (select id, parent, level
         + 1 as y from c1) as a  where b.id = a.parent) traversal order pre_order select
         id, parent, level from c1
-    ref: recursive-cte.yamsql:461
+    ref: recursive-cte.yamsql:462
     explain: 'RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c24 AS LONG),
         [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT
         AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(CHILDIDX [EQUALS q0.PARENT,
@@ -373,27 +373,27 @@ recursive-cte-tests-with-hints:
         AS PARENT, q0.LEVEL + @c81 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT,
         _.LEVEL AS LEVEL)'
     task_count: 1194
-    task_total_time_ms: 14
+    task_total_time_ms: 34
     transform_count: 295
-    transform_time_ms: 4
+    transform_time_ms: 8
     transform_yield_count: 66
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 148
     insert_reused_count: 3
 -   query: EXPLAIN with recursive allDescendants as ( select *  from t1 where id =
-        50 union all select c.* from allDescendants as p, t1 as c use index (childIdx)
+        50 union all select c.* from allDescendants as p, t1 as c use index (childIdxNoNulls)
         where c.parent is not null and c.parent = p.id) traversal order pre_order
         select * from allDescendants
     ref: recursive-cte.yamsql:475
     explain: 'RUNION-DFS PREORDER q0 { ISCAN(CHILDIDX [EQUALS promote(@c13 AS LONG)])
-        } { RECURSIVE COVERING(CHILDIDX <,> -> [ID: KEY:[0], PARENT: KEY:[1]]) | FILTER
-        _.PARENT EQUALS q0.ID AND _.PARENT NOT_NULL | MAP (_.ID AS ID, _.PARENT AS
-        PARENT) }'
-    task_count: 1299
-    task_total_time_ms: 98
-    transform_count: 300
-    transform_time_ms: 34
-    transform_yield_count: 85
-    insert_time_ms: 4
-    insert_new_count: 166
-    insert_reused_count: 9
+        } { RECURSIVE COVERING(CHILDIDXNONULLS <,> -> [ID: KEY:[0], PARENT: KEY:[1]])
+        | FILTER _.PARENT EQUALS q0.ID AND _.PARENT NOT_NULL | MAP (_.ID AS ID, _.PARENT
+        AS PARENT) }'
+    task_count: 988
+    task_total_time_ms: 20
+    transform_count: 254
+    transform_time_ms: 8
+    transform_yield_count: 72
+    insert_time_ms: 1
+    insert_new_count: 112
+    insert_reused_count: 5
