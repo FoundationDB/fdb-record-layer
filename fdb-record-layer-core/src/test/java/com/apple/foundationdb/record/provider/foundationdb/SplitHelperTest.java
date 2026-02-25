@@ -1281,4 +1281,80 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
             commit(context);
         }
     }
+
+    @MethodSource("limitsAndReverseArgs")
+    @ParameterizedTest(name = "scanContinuationsMultipleTransactions [returnLimit = {0}, readLimit = {1}, reverse = {2}]")
+    void scanContinuationsMultipleTransactions(final int returnLimit, final int readLimit, final boolean reverse) {
+        List<FDBRawRecord> rawRecords = writeDummyRecordsMultipleTransactions(true);
+        if (reverse) {
+            rawRecords = Lists.reverse(rawRecords);
+        }
+        final Iterator<FDBRawRecord> expectedRecordIterator = rawRecords.iterator();
+
+        try (FDBRecordContext context = openContext()) {
+            byte[] continuation = null;
+
+            do {
+                final ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
+                        .setReturnedRowLimit(returnLimit)
+                        .setScannedRecordsLimit(readLimit)
+                        .build();
+                ScanProperties scanProperties = new ScanProperties(executeProperties, reverse);
+                RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
+                        .setContext(context)
+                        .setRange(TupleRange.ALL)
+                        .setScanProperties(scanProperties.with(ExecuteProperties::clearRowAndTimeLimits).with(ExecuteProperties::clearState))
+                        .setContinuation(continuation)
+                        .build();
+                RecordCursorIterator<FDBRawRecord> recordCursor = new SplitHelper.KeyValueUnsplitter(context, subspace, kvCursor, false, null, scanProperties.with(ExecuteProperties::clearReturnedRowLimit))
+                        .limitRowsTo(returnLimit)
+                        .asIterator();
+
+                int retrieved = 0;
+                int rowsScanned = 0;
+                while (recordCursor.hasNext()) {
+                    assertThat(retrieved, lessThan(returnLimit));
+                    assertThat(rowsScanned, lessThanOrEqualTo(readLimit));
+
+                    FDBRawRecord nextRecord = recordCursor.next();
+                    assertNotNull(nextRecord);
+                    assertThat(expectedRecordIterator.hasNext(), is(true));
+                    FDBRawRecord expectedRecord = expectedRecordIterator.next();
+                    assertEquals(expectedRecord, nextRecord);
+
+                    rowsScanned += nextRecord.getKeyCount();
+                    retrieved += 1;
+                }
+
+                if (retrieved > 0) {
+                    continuation = recordCursor.getContinuation();
+                    if (retrieved >= returnLimit) {
+                        assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, recordCursor.getNoNextReason());
+                        assertNotNull(continuation);
+                    } else if (rowsScanned > readLimit) {
+                        assertEquals(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, recordCursor.getNoNextReason());
+                        assertNotNull(continuation);
+                    } else if (rowsScanned < readLimit) {
+                        assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, recordCursor.getNoNextReason());
+                    } else {
+                        // If we read exactly as many records as is allowed by the read record limit, then
+                        // this probably means that we hit SCAN_LIMIT_REACHED, but it's also possible to
+                        // hit SOURCE_EXHAUSTED if we hit the record read limit at exactly the same time
+                        // as we needed to do another speculative read to determine if a split record
+                        // continues or not.
+                        assertEquals(readLimit, rowsScanned);
+                        assertThat(recordCursor.getNoNextReason(), is(oneOf(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, RecordCursor.NoNextReason.SOURCE_EXHAUSTED)));
+                        if (!recordCursor.getNoNextReason().isSourceExhausted()) {
+                            assertNotNull(recordCursor.getContinuation());
+                        }
+                    }
+                } else {
+                    assertNull(recordCursor.getContinuation());
+                    continuation = null;
+                }
+            } while (continuation != null);
+
+            commit(context);
+        }
+    }
 }
