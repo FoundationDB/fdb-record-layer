@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
@@ -61,8 +62,7 @@ public final class Star extends Expression {
     @Nonnull
     @Override
     protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, @Nonnull Visibility newVisibility) {
-        Assert.failUnchecked("attempt to recreate new star expression");
-        return null;
+        throw Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "attempt to recreate new star expression");
     }
 
     @Nonnull
@@ -116,8 +116,7 @@ public final class Star extends Expression {
     @Nonnull
     @Override
     public EphemeralExpression asEphemeral() {
-        Assert.failUnchecked("attempt to create an ephemeral expression from a star");
-        return null;
+        throw Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "attempt to create an ephemeral expression from a star");
     }
 
     @Override
