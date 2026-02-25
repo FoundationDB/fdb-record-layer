@@ -20,7 +20,12 @@
 ---
 schema_template:
     create table emp(id bigint, fname string, lname string, dept_id bigint, primary key(id))
+    create index empDept as select dept_id from emp
+    create index empName as select lname, fname from emp order by lname, fname
+
     create table dept(id bigint, name string, primary key(id))
+    create index deptName as select name from dept
+
     create table project(id bigint, name string, dsc string, emp_id bigint, primary key(id))
     create table a(ida bigint, a1 bigint, a2 bigint, a3 bigint, primary key(ida))
     create table b(idb bigint, b1 bigint, b2 bigint, b3 bigint, primary key(idb))
@@ -50,6 +55,7 @@ setup:
     - query: INSERT INTO B VALUES (4, 0, 0, 200)
 ---
 test_block:
+  name: join-tests
   tests:
     -
       - query: select ida from a where exists (select ida from a where ida = 1);
@@ -313,6 +319,16 @@ test_block:
     -
       # Join with both IN and NOT IN conditions
       - query: select emp.id, fname from emp, dept where emp.dept_id = dept.id and dept.id in (1, 2) and emp.id not in (1, 5)
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c24 AS ARRAY(LONG))) | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c35 AS ARRAY(LONG)) AND q0.ID EQUALS q1 | FETCH AS q2 RETURN q2 } AS q3 RETURN (q3.ID AS ID, q3.FNAME AS FNAME) }"
+      - unorderedResult: [{ID: 2, FNAME: "Thomas"},
+                          {ID: 3, FNAME: "Emily"},
+                          {ID: 4, FNAME: "Amelia"},
+                          {ID: 6, FNAME: "Chloe"},
+                          {ID: 7, FNAME: "Charlotte"}]
+    -
+      # Join with both IN and NOT IN conditions
+      - query: select emp.id, fname from emp, dept where dept.id = emp.dept_id and dept.id in (1, 2) and emp.id not in (1, 5)
+      - explain: "COVERING(EMPDEPT <,> -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c35 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c24 AS ARRAY(LONG))) | FLATMAP q1 -> { COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER _.ID EQUALS q1 AND _.ID EQUALS q0.DEPT_ID | MAP (1 AS _0) AS q2 RETURN (1 AS _0) } AS q3 RETURN (q0.ID AS ID, q0.FNAME AS FNAME) }"
       - unorderedResult: [{ID: 2, FNAME: "Thomas"},
                           {ID: 3, FNAME: "Emily"},
                           {ID: 4, FNAME: "Amelia"},
@@ -321,6 +337,7 @@ test_block:
     -
       # Join with IN on non-existent values (should return empty)
       - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id in (10, 20, 30)
+      - explain: "COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER _.ID EQUALS promote(@c22 AS LONG) | FETCH | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { EXPLODE arrayDistinct(promote(@c28 AS ARRAY(LONG))) | FILTER q1.ID EQUALS _ | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN (q1.ID AS ID) }"
       - result: []
 
     -
@@ -328,4 +345,33 @@ test_block:
       - query: select fname, lname, name from emp inner join dept using (fname);
       - supported_version: 4.9.1.0
       - error: "0AF00"
+
+    -
+      # Query using the name indexes to join the emp and dept tables. Note that there are join and non-join predicates on dept.name
+      - query: select emp.fname, emp.lname from emp, dept where emp.lname > dept.name and dept.name = 'Sales' and emp.lname < 'W'
+      - explain: "ISCAN(DEPTNAME [EQUALS promote(@c26 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPNAME [[GREATER_THAN q0.NAME && LESS_THAN promote(@c32 AS STRING)]]) AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME) }"
+      - result: [
+           { FNAME: "Harry", LNAME: "Smith" },
+        ]
+
+    -
+      # Same query as above but with one comparison flipped. This should not result in a different result set
+      - query: select emp.fname, emp.lname from emp, dept where dept.name < emp.lname and dept.name = 'Sales' and emp.lname < 'W'
+      - explain: "ISCAN(EMPNAME [[LESS_THAN promote(@c32 AS STRING)]]) | FLATMAP q0 -> { COVERING(DEPTNAME [EQUALS promote(@c26 AS STRING)] -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER _.NAME LESS_THAN q0.LNAME | FETCH AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME) }"
+      - initialVersionLessThan: !current_version
+      # Prior to !current_version, we used to drop the "dept.name < emp.lname" predicate due to: https://github.com/FoundationDB/fdb-record-layer/pull/3965
+      - unorderedResult: [
+               { FNAME: "Thomas",    LNAME: "Johnson" },
+               { FNAME: "Emily",     LNAME: "Martinez" },
+               { FNAME: "Amelia",    LNAME: "Johnson" },
+               { FNAME: "Daniel",    LNAME: "Miller" },
+               { FNAME: "Chloe",     LNAME: "Jones" },
+               { FNAME: "Charlotte", LNAME: "Garcia" },
+               { FNAME: "Megan",     LNAME: "Miller" },
+               { FNAME: "Harry",     LNAME: "Smith" },
+        ]
+      - initialVersionAtLeast: !current_version
+      - result: [
+           { FNAME: "Harry", LNAME: "Smith" },
+        ]
 ...
