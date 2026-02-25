@@ -82,7 +82,7 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
 
     @Nonnull
     private static final BindingMatcher<Reference> outerReferenceMatcher =
-            planPartitions(rollUpPartitionsTo(all(outerPlanPartitionsMatcher), ImmutableSet.of(OrderingProperty.ordering(), CardinalitiesProperty.cardinalities())));
+            planPartitions(rollUpPartitionsTo(all(outerPlanPartitionsMatcher), ImmutableSet.of(OrderingProperty.ordering())));
     @Nonnull
     private static final BindingMatcher<Quantifier> outerQuantifierMatcher = anyQuantifierOverRef(outerReferenceMatcher);
     @Nonnull
@@ -232,14 +232,30 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
         //
         // Separate out the plans with max cardinality one from the other plans
         //
+        // In an ideal world, all plans in a reference should share the same cardinality. This is because the cardinality
+        // is a property of the semantics of the expression they are implementing, and so it should be invariant to
+        // the actual implementation. However, there are circumstances where we can prove this property for some plans,
+        // but not for all of them. See: https://github.com/FoundationDB/fdb-record-layer/issues/3968
+        //
         final ImmutableList.Builder<PlanPartition> maxCardinalityOnePartitions = ImmutableList.builderWithExpectedSize(planPartitions.size());
         final ImmutableList.Builder<PlanPartition> maxCardinalityNonOnePartitions = ImmutableList.builderWithExpectedSize(planPartitions.size());
+
         for (PlanPartition planPartition : planPartitions) {
-            final CardinalitiesProperty.Cardinality partitionMaxCardinality = planPartition.getPartitionPropertyValue(CardinalitiesProperty.cardinalities()).getMaxCardinality();
-            if (!partitionMaxCardinality.isUnknown() && partitionMaxCardinality.getCardinality() == 1L) {
-                maxCardinalityOnePartitions.add(planPartition);
-            } else {
+            final PlanPartition maxCardinalityOnePartition = planPartition.filter(p -> {
+                final CardinalitiesProperty.Cardinalities planCardinality = CardinalitiesProperty.cardinalities().evaluate(p);
+                return !planCardinality.getMaxCardinality().isUnknown() && planCardinality.getMaxCardinality().getCardinality() == 1L;
+            });
+            if (maxCardinalityOnePartition.getPlans().isEmpty()) {
+                // No max cardinality one plans. Put the whole partition into the non-one bucket
                 maxCardinalityNonOnePartitions.add(planPartition);
+            } else {
+                // Some max cardinality one plans. Put the those plans into the max-one bucket, and then place the remaining plans
+                // (if there are any) into the non-one bucket
+                maxCardinalityOnePartitions.add(maxCardinalityOnePartition);
+                final PlanPartition maxCardinalityNonOnePartition = planPartition.filter(p -> !maxCardinalityOnePartition.getPlans().contains(p));
+                if (!maxCardinalityNonOnePartition.getPlans().isEmpty()) {
+                    maxCardinalityNonOnePartitions.add(maxCardinalityNonOnePartition);
+                }
             }
         }
 
@@ -247,9 +263,9 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
                 // The ones with max cardinality 1 we want to collapse into a single plan partition, as the order of the
                 // final plan will depend only on the inner plan's order, so we don't need to keep the outer plans segmented
                 PlanPartitions.rollUpTo(maxCardinalityOnePartitions.build(), ImmutableSet.of()),
-                // The ones with higher max cardinality need to be segmented by ordering. We can, however, group the plans with
-                // different cardinalities back together.
-                PlanPartitions.rollUpTo(maxCardinalityNonOnePartitions.build(), ImmutableSet.of(OrderingProperty.ordering()))
+                // The ordering of these other plans will be dictated primarily by the outer, so retain their original
+                // partitioning (by ordering)
+                maxCardinalityNonOnePartitions.build()
         );
     }
 
