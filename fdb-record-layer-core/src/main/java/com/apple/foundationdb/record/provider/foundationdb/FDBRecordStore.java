@@ -5978,8 +5978,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // 2. If the index has never been modified, and it has an index state, we could leave it. But
             //    this would basically just allow WriteOnly indexes or ReadableUniquePending to stay, as we
             //    do not store anything for Readable indexes.
-            // 3. We could give the users an option to leave them as-is and use IndexScrubbing to repair the
-            //    indexes, but (at least right now) scrubbing can only repair value indexes.
+            // 3. Users can leave them readable and use IndexScrubbing to repair the indexes, but (at least right now)
+            //    scrubbing can only repair value indexes.
             // In the general case, we have no idea whether the index should be readable or not because:
             // 1. We don't store that the index should be readable, so it could be that the index was readable
             //    or that the store was on a metadata version that didn't have the index, or

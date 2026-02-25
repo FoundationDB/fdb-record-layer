@@ -640,7 +640,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
 
     @ParameterizedTest
     @EnumSource(DisableIndexBehavior.class)
-    void repairWithoutDisablingIndexes(final DisableIndexBehavior disableIndexBehavior) {
+    void repairWithIndexes(final DisableIndexBehavior disableIndexBehavior) {
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
         clearStoreHeader(recordMetaData);
@@ -695,7 +695,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
     private void clearStoreLock(final FDBRecordStore.Builder builder) {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = builder.setContext(context).open();
-            recordStore.clearStoreLockStateAsync();
+            recordStore.clearStoreLockStateAsync().join();
             commit(context);
         }
     }
@@ -821,9 +821,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
      * It is possible that the old (lost) metadata version was after the record type was created, and before the
      * index was added, and thus the index needs to be rebuilt. We could optimize this if the record type was added
      * in the same version as the index, but for now, we're just going to disable all indexes unless
-     * leavePotentiallyCorruptIndexesReadable is true.
-     * If leavePotentiallyCorruptIndexesReadable is false, all indexes should be disabled.
-     * If leavePotentiallyCorruptIndexesReadable is true, indexes should remain in their previous state.
+     * the options say not to do so.
      */
     private void validateIndexesAreDisabled(final FDBRecordStore recordStore, final RecordMetaData recordMetaData) {
         for (final Index index : recordMetaData.getAllIndexes()) {
