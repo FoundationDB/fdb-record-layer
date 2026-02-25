@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.ReadTransaction;
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
@@ -646,47 +646,61 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private FDBStoredSizes writeDummyRecord(@Nonnull FDBRecordContext context, @Nonnull Tuple key, @Nullable FDBRecordVersion version, int splits, boolean omitUnsplitSuffix) {
-        final Transaction tr = context.ensureActive();
+    private FDBStoredSizes writeDummyRecord(@Nonnull FDBRecordContext context, @Nonnull Tuple key, @Nullable FDBRecordVersion version, int splits, boolean omitUnsplitSuffix, boolean useVersionInKey, int localVersion) {
         SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
         if (version != null) {
             assertThat(omitUnsplitSuffix, is(false));
             sizeInfo.setVersionedInline(true);
-            byte[] keyBytes = subspace.pack(key.add(SplitHelper.RECORD_VERSION));
+            Tuple keyTuple = key.add(SplitHelper.RECORD_VERSION);
             byte[] valueBytes = SplitHelper.packVersion(version);
-            tr.set(keyBytes, valueBytes);
-            sizeInfo.add(keyBytes, valueBytes);
+            // Note that this will not mutate the version in the value
+            writeDummyKV(context, keyTuple, valueBytes, sizeInfo, useVersionInKey, localVersion);
         }
         if (splits == 1) {
             if (omitUnsplitSuffix) {
-                byte[] keyBytes = subspace.pack(key);
-                sizeInfo.add(keyBytes, SHORT_STRING);
-                tr.set(keyBytes, SHORT_STRING);
+                Tuple keyTuple = key;
+                byte[] valueBytes = SHORT_STRING;
+                writeDummyKV(context, keyTuple, valueBytes, sizeInfo, useVersionInKey, localVersion);
             } else {
-                byte[] keyBytes = subspace.pack(key.add(SplitHelper.UNSPLIT_RECORD));
-                sizeInfo.add(keyBytes, SHORT_STRING);
-                tr.set(keyBytes, SHORT_STRING);
+                Tuple keyTuple = key.add(SplitHelper.UNSPLIT_RECORD);
+                byte[] valueBytes = SHORT_STRING;
+                writeDummyKV(context, keyTuple, valueBytes, sizeInfo, useVersionInKey, localVersion);
             }
             sizeInfo.setSplit(false);
         } else {
             for (int i = 0; i < splits; i++) {
-                byte[] keyBytes = subspace.pack(key.add(SplitHelper.START_SPLIT_RECORD + i));
-                sizeInfo.add(keyBytes, SHORT_STRING);
-                tr.set(keyBytes, SHORT_STRING);
+                Tuple keyTuple = key.add(SplitHelper.START_SPLIT_RECORD + i);
+                byte[] valueBytes = SHORT_STRING;
+                writeDummyKV(context, keyTuple, valueBytes, sizeInfo, useVersionInKey, localVersion);
             }
             sizeInfo.setSplit(true);
         }
         return sizeInfo;
     }
 
+    private void writeDummyKV(@Nonnull FDBRecordContext context, @Nonnull Tuple keyTuple,
+                              byte[] valueBytes, @Nonnull SplitHelper.SizeInfo sizeInfo, boolean useVersionInKey, int localVersion) {
+        byte[] keyBytes;
+        // Mimic the work done in both SplitKeyValueHelper
+        if (useVersionInKey) {
+            Tuple versionedKeyTuple = Tuple.from(Versionstamp.incomplete(localVersion)).addAll(keyTuple);
+            keyBytes = subspace.packWithVersionstamp(versionedKeyTuple);
+            context.addVersionMutation(MutationType.SET_VERSIONSTAMPED_KEY, keyBytes, valueBytes);
+        } else {
+            keyBytes = subspace.pack(keyTuple);
+            context.ensureActive().set(keyBytes, valueBytes);
+        }
+        sizeInfo.add(keyBytes, valueBytes);
+    }
+
     @Nonnull
     private FDBStoredSizes writeDummyRecord(@Nonnull FDBRecordContext context, @Nonnull Tuple key, int splits, boolean omitUnsplitSuffix) {
-        return writeDummyRecord(context, key, null, splits, omitUnsplitSuffix);
+        return writeDummyRecord(context, key, null, splits, omitUnsplitSuffix, false, 0);
     }
 
     @Nonnull
     private FDBStoredSizes writeDummyRecord(@Nonnull FDBRecordContext context, @Nonnull Tuple key, @Nonnull FDBRecordVersion version, int splits) {
-        return writeDummyRecord(context, key, version, splits, false);
+        return writeDummyRecord(context, key, version, splits, false, false, 0);
     }
 
     private void deleteSplit(@Nonnull FDBRecordContext context, @Nonnull Tuple key,
@@ -726,6 +740,90 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
             }
 
             commit(context);
+        }
+    }
+
+    @MethodSource("testConfigs")
+    @ParameterizedTest(name = "deleteWithSplitMultipleTransactions[{0}]")
+    public void deleteWithSplitMultipleTransactions(@Nonnull SplitHelperTestConfig testConfig) {
+        this.testConfig = testConfig;
+
+        final Tuple key1 = Tuple.from(-660L);
+        final Tuple key2 = Tuple.from(-581L);
+        final Tuple key3 = Tuple.from(-549L);
+        final Tuple key4 = Tuple.from(-510L);
+
+        // tx1: write records
+        final int localVersion1;
+        final int localVersion2;
+        final int localVersion3;
+        final int localVersion4;
+        final byte[] globalVs;
+        try (FDBRecordContext context = openContext()) {
+            if (testConfig.useVersionInKey) {
+                localVersion1 = context.claimLocalVersion();
+                writeDummyRecord(context, key1, null, 1, testConfig.omitUnsplitSuffix, true, localVersion1);
+                localVersion2 = context.claimLocalVersion();
+                writeDummyRecord(context, key2, null, 1, testConfig.omitUnsplitSuffix, true, localVersion2);
+                if (testConfig.splitLongRecords) {
+                    localVersion3 = context.claimLocalVersion();
+                    writeDummyRecord(context, key3, null, 5, testConfig.omitUnsplitSuffix, true, localVersion3);
+                    localVersion4 = context.claimLocalVersion();
+                    writeDummyRecord(context, key4, null, 5, testConfig.omitUnsplitSuffix, true, localVersion4);
+                } else {
+                    localVersion3 = -1;
+                    localVersion4 = -1;
+                }
+            } else {
+                writeDummyRecord(context, key1, 1, testConfig.omitUnsplitSuffix);
+                writeDummyRecord(context, key2, 1, testConfig.omitUnsplitSuffix);
+                localVersion1 = localVersion2 = localVersion3 = localVersion4 = -1;
+                if (testConfig.splitLongRecords) {
+                    writeDummyRecord(context, key3, 5, testConfig.omitUnsplitSuffix);
+                    writeDummyRecord(context, key4, 5, testConfig.omitUnsplitSuffix);
+                }
+            }
+            commit(context);
+            globalVs = context.getVersionStamp();
+        }
+
+        // Resolve the delete keys: for versioning helper the stored key is [vs][originalKey]
+        final Tuple deleteKey1;
+        final Tuple deleteKey2;
+        final Tuple deleteKey3;
+        final Tuple deleteKey4;
+        if (testConfig.useVersionInKey) {
+            deleteKey1 = Tuple.from(Versionstamp.complete(globalVs, localVersion1)).addAll(key1);
+            deleteKey2 = Tuple.from(Versionstamp.complete(globalVs, localVersion2)).addAll(key2);
+            deleteKey3 = testConfig.splitLongRecords ? Tuple.from(Versionstamp.complete(globalVs, localVersion3)).addAll(key3) : null;
+            deleteKey4 = testConfig.splitLongRecords ? Tuple.from(Versionstamp.complete(globalVs, localVersion4)).addAll(key4) : null;
+        } else {
+            deleteKey1 = key1;
+            deleteKey2 = key2;
+            deleteKey3 = key3;
+            deleteKey4 = key4;
+        }
+
+        // tx2: delete records
+        try (FDBRecordContext context = openContext()) {
+            SplitHelper.deleteSplit(context, subspace, deleteKey1, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, false, null);
+            SplitHelper.deleteSplit(context, subspace, deleteKey2, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, false, null);
+            if (testConfig.splitLongRecords) {
+                SplitHelper.deleteSplit(context, subspace, deleteKey3, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, false, null);
+                SplitHelper.deleteSplit(context, subspace, deleteKey4, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, false, null);
+            }
+            commit(context);
+        }
+
+        // tx3: verify subspace is empty
+        try (FDBRecordContext context = openContext()) {
+            int count = KeyValueCursor.Builder.withSubspace(subspace)
+                    .setContext(context)
+                    .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .build()
+                    .getCount()
+                    .join();
+            assertEquals(0, count);
         }
     }
 
