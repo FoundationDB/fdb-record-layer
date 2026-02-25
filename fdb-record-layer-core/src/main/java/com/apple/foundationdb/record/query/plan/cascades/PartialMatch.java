@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -467,5 +468,15 @@ public class PartialMatch {
     @Override
     public String toString() {
         return getQueryExpression().getClass().getSimpleName() + "[" + getMatchCandidate().getName() + "]";
+    }
+
+    @Nonnull
+    public PPartialMatch toPlannerEventPartialMatchProto() {
+        return PPartialMatch.newBuilder()
+                .setMatchCandidate(toString())
+                .setQueryRef(getQueryRef().toPlannerEventReferenceProto())
+                .setQueryExpression(getQueryExpression().toPlannerEventExpressionProto())
+                .setCandidateRef(getCandidateRef().toPlannerEventReferenceProto())
+                .build();
     }
 }
