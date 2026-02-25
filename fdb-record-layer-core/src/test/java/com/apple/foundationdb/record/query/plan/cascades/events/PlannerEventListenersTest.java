@@ -30,7 +30,6 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -65,22 +64,30 @@ class PlannerEventListenersTest {
 
     @Test
     void addMultipleListeners() {
-        final var listeners = List.of(new DummyEventListener(), new SecondDummyEventListener());
+        final var dummyListener = new DummyEventListener();
+        final var secondListener = new SecondDummyEventListener();
+
         final var plannerEvent = new InitiatePhasePlannerEvent(
                 PlannerPhase.PLANNING, Reference.empty(), new ArrayDeque<>(), Location.BEGIN);
-        listeners.forEach((l) -> PlannerEventListeners.addListener(l.getClass(), l));
+
+        PlannerEventListeners.addListener(DummyEventListener.class, dummyListener);
+        PlannerEventListeners.addListener(SecondDummyEventListener.class, secondListener);
 
         PlannerEventListeners.dispatchOnQuery("SELECT * from A", PlanContext.EMPTY_CONTEXT);
         PlannerEventListeners.dispatchEvent(() -> plannerEvent);
         PlannerEventListeners.dispatchOnDone();
 
-        listeners.forEach(l -> {
-            assertThat(PlannerEventListeners.getListener(l.getClass())).isSameAs(l);
-            assertThat(l.onQueryCalled).isTrue();
-            assertThat(l.onEventCalled).isTrue();
-            assertThat(l.onDoneCalled).isTrue();
-            assertThat(l.receivedEvent).isSameAs(plannerEvent);
-        });
+        assertThat(PlannerEventListeners.getListener(DummyEventListener.class)).isSameAs(dummyListener);
+        assertThat(dummyListener.onQueryCalled).isTrue();
+        assertThat(dummyListener.onEventCalled).isTrue();
+        assertThat(dummyListener.onDoneCalled).isTrue();
+        assertThat(dummyListener.receivedEvent).isSameAs(plannerEvent);
+
+        assertThat(PlannerEventListeners.getListener(SecondDummyEventListener.class)).isSameAs(secondListener);
+        assertThat(secondListener.onQueryCalled).isTrue();
+        assertThat(secondListener.onEventCalled).isTrue();
+        assertThat(secondListener.onDoneCalled).isTrue();
+        assertThat(secondListener.receivedEvent).isSameAs(plannerEvent);
     }
 
     @Test

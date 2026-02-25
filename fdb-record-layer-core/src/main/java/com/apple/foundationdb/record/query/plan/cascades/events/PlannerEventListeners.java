@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.events;
 
 
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
-import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -52,9 +51,8 @@ public final class PlannerEventListeners {
      * @param listenerClass the class that the provided listener is an instance of.
      * @param listener the new listener instance to use
      */
-    public static void addListener(@Nonnull final Class<? extends EventListener> listenerClass,
-                                   @Nonnull final EventListener listener) {
-        Verify.verify(listenerClass.isAssignableFrom(listener.getClass()), "%s is not a superclass of %s", listenerClass, listener.getClass());
+    public static <T extends EventListener, T1 extends T> void addListener(@Nonnull final Class<T> listenerClass,
+                                                                           @Nonnull final T1 listener) {
         THREAD_LOCAL.get().put(listenerClass, listener);
     }
 
