@@ -38,6 +38,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -399,6 +400,59 @@ public class RecordQueryPlannerConfiguration {
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        final RecordQueryPlannerConfiguration that = (RecordQueryPlannerConfiguration)o;
+        return attemptFailedInJoinAsOr == that.attemptFailedInJoinAsOr
+               && attemptFailedInJoinAsUnionMaxSize == that.attemptFailedInJoinAsUnionMaxSize
+               && complexityThreshold == that.complexityThreshold
+               && checkForDuplicateConditions == that.checkForDuplicateConditions
+               && deferFetchAfterUnionAndIntersection == that.deferFetchAfterUnionAndIntersection
+               && optimizeForIndexFilters == that.optimizeForIndexFilters
+               && maxTaskQueueSize == that.maxTaskQueueSize
+               && maxTotalTaskCount == that.maxTotalTaskCount
+               && useFullKeyForValueIndex == that.useFullKeyForValueIndex
+               && maxNumMatchesPerRuleCall == that.maxNumMatchesPerRuleCall
+               && deferCrossProducts == that.deferCrossProducts
+               && planOtherAttemptWholeFilter == that.planOtherAttemptWholeFilter
+               && maxNumReplansForInToJoin == that.maxNumReplansForInToJoin
+               && orToUnionMaxNumConjuncts == that.orToUnionMaxNumConjuncts
+               && indexScanPreference == that.indexScanPreference
+               && Objects.equals(sortConfiguration, that.sortConfiguration)
+               && Objects.equals(disabledTransformationRules, that.disabledTransformationRules)
+               && indexFetchMethod == that.indexFetchMethod
+               && Objects.equals(valueIndexesOverScanNeeded, that.valueIndexesOverScanNeeded);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(indexScanPreference,
+                attemptFailedInJoinAsOr,
+                attemptFailedInJoinAsUnionMaxSize,
+                complexityThreshold,
+                checkForDuplicateConditions,
+                deferFetchAfterUnionAndIntersection,
+                optimizeForIndexFilters,
+                maxTaskQueueSize,
+                maxTotalTaskCount,
+                useFullKeyForValueIndex,
+                maxNumMatchesPerRuleCall,
+                sortConfiguration,
+                disabledTransformationRules,
+                deferCrossProducts,
+                indexFetchMethod,
+                valueIndexesOverScanNeeded,
+                planOtherAttemptWholeFilter,
+                maxNumReplansForInToJoin,
+                orToUnionMaxNumConjuncts);
     }
 
     @Nonnull
