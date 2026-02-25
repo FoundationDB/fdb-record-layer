@@ -265,7 +265,7 @@ public class PlanningCostModel implements CascadesCostModel {
         }
 
         //
-        // Both plans are joins
+        // Both plans are nested loop joins. Attempt to pick a plan with a more preferable join ordering
         //
         if (a instanceof RecordQueryFlatMapPlan && b instanceof RecordQueryFlatMapPlan) {
             final List<RecordQueryPlan> aChildren = ((RecordQueryFlatMapPlan)a).getChildren();
@@ -276,7 +276,17 @@ public class PlanningCostModel implements CascadesCostModel {
             Verify.verify(bChildren.size() == 2);
             final RecordQueryPlan bOuter = bChildren.get(0);
 
-            // Return the one with lower outer cardinality
+            //
+            // Return the one with lower cardinality on the outer plan
+            //
+            // This is an imperfect heuristic, but the idea is that if we have something that
+            // only returns a small number (especially 1) number of results, we want that to
+            // be on the outside so that we execute the inner (with more results) fewer times.
+            // If there's just one result, that's probably safe, though we may have to adjust
+            // this, as the actual more important thing is going to be the discard rate--the
+            // optimal plan should have fewer discarded records, which may involve placing the
+            // lower cardinality plan in the inner
+            //
             final Cardinalities aOuterCardinalities = cardinalities().evaluate(aOuter);
             final Cardinalities bOuterCardinalities = cardinalities().evaluate(bOuter);
             if (!aOuterCardinalities.getMaxCardinality().isUnknown() || !bOuterCardinalities.getMaxCardinality().isUnknown()) {
