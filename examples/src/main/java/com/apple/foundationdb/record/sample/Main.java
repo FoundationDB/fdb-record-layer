@@ -63,6 +63,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -368,7 +369,7 @@ public class Main {
                                     .thenRun(() -> LOGGER.info("  Index build of {} is complete.", indexName))
                                     .whenComplete((vignore, eignore) -> indexBuilder.close());
                         })
-                        .toList())
+                        .collect(Collectors.toList()))
         );
 
         // Write larger records for Customer (and Order).
