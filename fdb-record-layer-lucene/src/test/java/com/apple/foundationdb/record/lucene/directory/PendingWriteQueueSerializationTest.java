@@ -59,7 +59,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
  * Verifies that records written through the queue are identical to those written directly.
  */
 @Tag(Tags.RequiresFDB)
-public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
+class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @BooleanSource
