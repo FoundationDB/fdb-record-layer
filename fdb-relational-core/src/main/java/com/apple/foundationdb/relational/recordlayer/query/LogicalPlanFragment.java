@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
@@ -165,10 +166,15 @@ public final class LogicalPlanFragment {
         @Nonnull
         private final Optional<StringTrieNode> targetTypeReorderings;
 
+        @Nonnull
+        private final Optional<Quantifier.ForEach> updateQuantifier;
+
         private State(@Nonnull Optional<Type> targetType,
-                      @Nonnull Optional<StringTrieNode> targetTypeReorderings) {
+                      @Nonnull Optional<StringTrieNode> targetTypeReorderings,
+                      @Nonnull Optional<Quantifier.ForEach> updateQuantifier) {
             this.targetType = targetType;
             this.targetTypeReorderings = targetTypeReorderings;
+            this.updateQuantifier = updateQuantifier;
         }
 
         @Nonnull
@@ -186,6 +192,11 @@ public final class LogicalPlanFragment {
             return targetTypeReorderings;
         }
 
+        @Nonnull
+        public Optional<Quantifier.ForEach> getUpdateQuantifier() {
+            return updateQuantifier;
+        }
+
         public static final class Builder {
 
             @Nullable
@@ -193,6 +204,9 @@ public final class LogicalPlanFragment {
 
             @Nullable
             StringTrieNode targetTypeReorderings;
+
+            @Nullable
+            private Quantifier.ForEach updateQuantifier;
 
             private Builder() {
             }
@@ -210,8 +224,14 @@ public final class LogicalPlanFragment {
             }
 
             @Nonnull
+            public Builder withUpdateQuantifier(@Nonnull Quantifier.ForEach updateQuantifier) {
+                this.updateQuantifier = updateQuantifier;
+                return this;
+            }
+
+            @Nonnull
             public State build() {
-                return new State(Optional.ofNullable(targetType), Optional.ofNullable(targetTypeReorderings));
+                return new State(Optional.ofNullable(targetType), Optional.ofNullable(targetTypeReorderings), Optional.ofNullable(updateQuantifier));
             }
         }
     }

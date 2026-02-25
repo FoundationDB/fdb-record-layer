@@ -180,7 +180,7 @@ public class UpdateTest {
 
     private static RelationalPreparedStatement prepareUpdate(RelationalConnection conn, String updateField, Object param, Continuation continuation) throws SQLException {
         if (continuation.atBeginning()) {
-            final var statement = conn.prepareStatement("UPDATE RestaurantReviewer SET " + updateField + " = ?param WHERE id >= 0 RETURNING \"new\"." + updateField + ", \"new\".id");
+            final var statement = conn.prepareStatement("UPDATE RestaurantReviewer SET " + updateField + " = ?param WHERE id >= 0 RETURNING NEW." + updateField + ", NEW.id");
             statement.setObject("param", param);
             return statement;
         } else {
