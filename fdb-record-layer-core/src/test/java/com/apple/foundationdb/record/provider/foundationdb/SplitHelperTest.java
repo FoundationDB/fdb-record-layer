@@ -1084,7 +1084,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                 FDBRecordVersion version = (i % 2 == 0) ? FDBRecordVersion.complete(globalVersion, context.claimLocalVersion()) : null;
                 byte[] rawBytes = (i % 4 < 2) ? SHORT_STRING : MEDIUM_STRING;
                 Tuple key = Tuple.from(currKey);
-                FDBStoredSizes sizes = writeDummyRecord(context, key, version, (i % 4 < 2) ? 1 : MEDIUM_COPIES, false);
+                FDBStoredSizes sizes = writeDummyRecord(context, key, version, (i % 4 < 2) ? 1 : MEDIUM_COPIES, false, false, 0);
                 rawRecords.add(new FDBRawRecord(key, rawBytes, version, sizes));
 
                 long temp = currKey + nextKey;
@@ -1098,11 +1098,92 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         return rawRecords;
     }
 
+    private List<FDBRawRecord> writeDummyRecordsMultipleTransactions(boolean useVersionInKey) {
+        final byte[] globalVersion = "_cushions_".getBytes(StandardCharsets.US_ASCII);
+        // Generate primary keys using a generalization of the Fibonacci formula: https://oeis.org/A247698
+        long currKey = 2308L;
+        long nextKey = 4261L;
+
+        final Tuple[] keys = new Tuple[50];
+        final byte[][] rawBytesArr = new byte[50][];
+        final FDBRecordVersion[] versions = new FDBRecordVersion[50];
+        final int[] localVersions = new int[50];
+
+        final byte[] globalVs;
+        try (FDBRecordContext context = openContext()) {
+            for (int i = 0; i < 50; i++) {
+                keys[i] = Tuple.from(currKey);
+                rawBytesArr[i] = (i % 4 < 2) ? SHORT_STRING : MEDIUM_STRING;
+                versions[i] = (!useVersionInKey && i % 2 == 0) ? FDBRecordVersion.complete(globalVersion, context.claimLocalVersion()) : null;
+                localVersions[i] = useVersionInKey ? context.claimLocalVersion() : 0;
+                writeDummyRecord(context, keys[i], versions[i], (i % 4 < 2) ? 1 : MEDIUM_COPIES, false, useVersionInKey, localVersions[i]);
+
+                long temp = currKey + nextKey;
+                currKey = nextKey;
+                nextKey = temp;
+            }
+            commit(context);
+            globalVs = context.getVersionStamp();
+        }
+
+        // Scan back in a second transaction to build expected FDBRawRecord list with accurate committed sizes
+        final List<FDBRawRecord> rawRecords = new ArrayList<>();
+        try (FDBRecordContext context = openContext()) {
+            KeyValueCursor kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
+                    .setContext(context)
+                    .setRange(TupleRange.ALL)
+                    .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .build();
+            List<FDBRawRecord> scannedRecords = new SplitHelper.KeyValueUnsplitter(context, subspace, kvCursor, false, null, ScanProperties.FORWARD_SCAN)
+                    .asList().join();
+            for (int i = 0; i < 50; i++) {
+                Tuple expectedKey = useVersionInKey
+                                    ? Tuple.from(Versionstamp.complete(globalVs, localVersions[i])).addAll(keys[i])
+                                    : keys[i];
+                FDBRawRecord scanned = scannedRecords.stream()
+                        .filter(r -> r.getPrimaryKey().equals(expectedKey))
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("Missing record for key " + expectedKey));
+                rawRecords.add(new FDBRawRecord(expectedKey, rawBytesArr[i], versions[i], scanned));
+            }
+            commit(context);
+        }
+
+        return rawRecords;
+    }
+
     @ParameterizedTest(name = "scanMultipleRecords[reverse = {0}]")
     @BooleanSource
     public void scanMultipleRecords(boolean reverse) {
         final ScanProperties scanProperties = reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN;
         List<FDBRawRecord> rawRecords = writeDummyRecords();
+
+        try (FDBRecordContext context = openContext()) {
+            KeyValueCursor kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
+                    .setContext(context)
+                    .setRange(TupleRange.ALL)
+                    .setScanProperties(scanProperties)
+                    .build();
+            List<FDBRawRecord> readRecords = new SplitHelper.KeyValueUnsplitter(context, subspace, kvCursor, false, null, scanProperties)
+                    .asList().join();
+            if (reverse) {
+                readRecords = Lists.reverse(readRecords);
+            }
+            assertEquals(rawRecords.size(), readRecords.size());
+            for (int i = 0; i < rawRecords.size(); i++) {
+                assertEquals(rawRecords.get(i), readRecords.get(i));
+            }
+            assertEquals(rawRecords, readRecords);
+
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest(name = "scanMultipleRecordsMultipleTransactions[reverse = {0}]")
+    @BooleanSource
+    void scanMultipleRecordsMultipleTransactions(boolean reverse) {
+        final ScanProperties scanProperties = reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN;
+        List<FDBRawRecord> rawRecords = writeDummyRecordsMultipleTransactions(true);
 
         try (FDBRecordContext context = openContext()) {
             KeyValueCursor kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
