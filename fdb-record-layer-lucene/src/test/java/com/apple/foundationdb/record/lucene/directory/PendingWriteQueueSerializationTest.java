@@ -76,6 +76,7 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         final long queuedRecordId = 2002L;
         final String textContent = "The quick brown fox jumps over the lazy dog";
         final String tempTextContent = "The slow blue rabbit crawled under the hard-working donkey";
+        final List<String> searchTerms = List.of("text:quick", "text:lazy", "*:*");
 
         // Write record directly to index (no queue)
         try (FDBRecordContext context = openContext()) {
@@ -98,13 +99,13 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         }
 
         // Verify both records queryable: direct from index + replayed from queue
-        assertQueryFindsRecords(schemaSetup, index, textContent, List.of(directRecordId, queuedRecordId), false);
+        assertQueryFindsRecords(schemaSetup, index, searchTerms, List.of(directRecordId, queuedRecordId), false);
 
         // Drain the queue via merge
         mergeIndex(schemaSetup, index);
 
         // Verify both records still queryable: both now from index
-        assertQueryFindsRecords(schemaSetup, index, textContent, List.of(directRecordId, queuedRecordId), false);
+        assertQueryFindsRecords(schemaSetup, index, searchTerms, List.of(directRecordId, queuedRecordId), false);
 
         // Verify that the records are identical (sort of)
         assertRecordsIdenticalExceptIds(schemaSetup, index);
@@ -127,6 +128,7 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         final int score = 42;
         final boolean isSeen = false;
         final double time = 123.456;
+        final List<String> searchTerms = List.of("score:42", "text:quick", "text:dog", "time:123.456", "*:*");
 
         // Write record directly to index (no queue)
         try (FDBRecordContext context = openContext()) {
@@ -152,13 +154,13 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         }
 
         // Verify both records queryable: direct from index + replayed from queue
-        assertQueryFindsRecords(schemaSetup, index, text, List.of(directRecordId, queuedRecordId), true);
+        assertQueryFindsRecords(schemaSetup, index, searchTerms, List.of(directRecordId, queuedRecordId), true);
 
         // Drain the queue via merge
         mergeIndex(schemaSetup, index);
 
         // Verify both records still queryable: both now from index
-        assertQueryFindsRecords(schemaSetup, index, text, List.of(directRecordId, queuedRecordId), true);
+        assertQueryFindsRecords(schemaSetup, index, searchTerms, List.of(directRecordId, queuedRecordId), true);
 
         // Verify that the records are identical (sort of)
         assertComplexRecordsIdenticalExceptIds(schemaSetup);
@@ -256,16 +258,11 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
     }
 
     private void assertQueryFindsRecords(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index,
-                                         String fullText, List<Long> expectedDocIds, boolean isComplex) {
-        for (String searchTerm: fullText.split(" ")) {
-            if (searchTerm.compareToIgnoreCase("the") >= 0) {
-                // not indexed
-                continue;
-            }
-
+                                         List<String> searchTerms, List<Long> expectedDocIds, boolean isComplex) {
+        for (String searchTerm: searchTerms) {
             try (FDBRecordContext context = openContext()) {
                 FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-                LuceneScanBounds scanBounds = LuceneIndexTestUtils.fullTextSearch(recordStore, index, "text:" + searchTerm, false);
+                LuceneScanBounds scanBounds = LuceneIndexTestUtils.fullTextSearch(recordStore, index, searchTerm, false);
                 try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, scanBounds, null, ScanProperties.FORWARD_SCAN)) {
                     List<Long> actualDocIds = cursor
                             .map(IndexEntry::getPrimaryKey)
@@ -274,7 +271,7 @@ public class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
                             .join();
 
                     HashSet<Long> expected = new HashSet<>(expectedDocIds);
-                    assertEquals(expected, new HashSet<>(actualDocIds));
+                    assertEquals(expected, new HashSet<>(actualDocIds), "failed for: " + searchTerm);
                 }
                 commit(context);
             }
