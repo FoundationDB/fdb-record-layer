@@ -144,7 +144,7 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
         final var outerPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
         final var outerInnerPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
 
-        for (final var predicate : selectExpression.getPredicates()) {
+        for (final QueryPredicate predicate : selectExpression.getPredicates()) {
             if (predicate.isIndexOnly()) {
                 return;
             }
@@ -177,11 +177,11 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
         final List<PlanPartition> outerMaxCardinalityOnePartitions = outerPlanPartitionsByCardinality.getLeft();
         final List<PlanPartition> outerMaxCardinalityNonOnePartitions = outerPlanPartitionsByCardinality.getRight();
 
-        for (RequestedOrdering requestedOrdering : requestedOrderings) {
+        for (final RequestedOrdering requestedOrdering : requestedOrderings) {
             // Case 1: Ordering is based on the inner
-            for (PlanPartition outerPlanPartition : outerMaxCardinalityOnePartitions) {
+            for (final PlanPartition outerPlanPartition : outerMaxCardinalityOnePartitions) {
                 final Quantifier.Physical newOuterQuantifier = planPartitionToPhysical(call, outerQuantifier, outerReference, outerPredicates, outerPlanPartition);
-                for (PlanPartition innerPlanPartition : rollUpIfSatisfyOrdering(requestedOrdering, innerQuantifier, bindings.getAll(innerPlanPartitionsMatcher), Ordering.empty(),
+                for (final PlanPartition innerPlanPartition : rollUpIfSatisfyOrdering(requestedOrdering, innerQuantifier, bindings.getAll(innerPlanPartitionsMatcher), Ordering.empty(),
                         o -> pullUpOrderingFromSelectChild(o, selectExpression, innerAlias))) {
                     final Quantifier.Physical newInnerQuantifier = planPartitionToPhysical(call, innerQuantifier, innerReference, outerInnerPredicates, innerPlanPartition);
                     call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
@@ -194,9 +194,9 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
                     o -> pullUpOrderingFromSelectChild(o, selectExpression, outerAlias));
 
             // Case 2a: Non-distinct ordering means that the ordering is based solely on the outer. Roll up the inners and return an outer which must satisfy the ordering
-            for (PlanPartition outerPlanPartition : satisfyingAndDistinctOuters.getLeft()) {
+            for (final PlanPartition outerPlanPartition : satisfyingAndDistinctOuters.getLeft()) {
                 final Quantifier.Physical newOuterQuantifier = planPartitionToPhysical(call, outerQuantifier, outerReference, outerPredicates, outerPlanPartition);
-                for (PlanPartition innerPlanPartition : PlanPartitions.rollUpTo(bindings.getAll(innerPlanPartitionsMatcher), ImmutableSet.of())) {
+                for (final PlanPartition innerPlanPartition : PlanPartitions.rollUpTo(bindings.getAll(innerPlanPartitionsMatcher), ImmutableSet.of())) {
                     final Quantifier.Physical newInnerQuantifier = planPartitionToPhysical(call, innerQuantifier, innerReference, outerInnerPredicates, innerPlanPartition);
                     call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
                 }
@@ -204,11 +204,11 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
 
             // Case 2b: Distinct outer ordering means that the ordering is based on the outer and the inner together. Find the
             // inner values which produce a valid ordering
-            for (Map.Entry<Ordering, PlanPartition> distinctOrderingAndOuter : satisfyingAndDistinctOuters.getRight().entrySet()) {
+            for (final Map.Entry<Ordering, PlanPartition> distinctOrderingAndOuter : satisfyingAndDistinctOuters.getRight().entrySet()) {
                 final Ordering outerOrdering = distinctOrderingAndOuter.getKey();
                 final PlanPartition outerPlanPartition = distinctOrderingAndOuter.getValue();
                 final Quantifier.Physical newOuterQuantifier = planPartitionToPhysical(call, outerQuantifier, outerReference, outerPredicates, outerPlanPartition);
-                for (PlanPartition innerPlanPartition : rollUpIfSatisfyOrdering(requestedOrdering, innerQuantifier, bindings.getAll(innerPlanPartitionsMatcher), outerOrdering,
+                for (final PlanPartition innerPlanPartition : rollUpIfSatisfyOrdering(requestedOrdering, innerQuantifier, bindings.getAll(innerPlanPartitionsMatcher), outerOrdering,
                         o -> pullUpOrderingFromSelectChild(o, selectExpression, innerAlias))) {
                     final Quantifier.Physical newInnerQuantifier = planPartitionToPhysical(call, innerQuantifier, innerReference, outerInnerPredicates, innerPlanPartition);
                     call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
@@ -218,12 +218,12 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
     }
 
     @Nonnull
-    private Ordering pullUpOrderingFromSelectChild(@Nonnull Ordering ordering, @Nonnull SelectExpression selectExpression, @Nonnull CorrelationIdentifier childAlias) {
+    private Ordering pullUpOrderingFromSelectChild(@Nonnull final Ordering ordering, @Nonnull final SelectExpression selectExpression, @Nonnull final CorrelationIdentifier childAlias) {
         return ordering.pullUp(selectExpression.getResultValue(), EvaluationContext.empty(), AliasMap.ofAliases(childAlias, Quantifier.current()), selectExpression.getResultValue().getCorrelatedTo());
     }
 
     @Nonnull
-    private NonnullPair<List<PlanPartition>, List<PlanPartition>> separateByMaxCardinalityOne(@Nonnull Quantifier quantifier, @Nonnull List<PlanPartition> planPartitions) {
+    private NonnullPair<List<PlanPartition>, List<PlanPartition>> separateByMaxCardinalityOne(@Nonnull final Quantifier quantifier, @Nonnull final List<PlanPartition> planPartitions) {
         if (quantifier instanceof Quantifier.Existential) {
             // Existential quantifiers always have an effective cardinality of exactly one. Group all the plans together in the max-cardinality-one bucket
             return NonnullPair.of(PlanPartitions.rollUpTo(planPartitions, ImmutableSet.of()), ImmutableList.of());
@@ -240,7 +240,7 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
         final ImmutableList.Builder<PlanPartition> maxCardinalityOnePartitions = ImmutableList.builderWithExpectedSize(planPartitions.size());
         final ImmutableList.Builder<PlanPartition> maxCardinalityNonOnePartitions = ImmutableList.builderWithExpectedSize(planPartitions.size());
 
-        for (PlanPartition planPartition : planPartitions) {
+        for (final PlanPartition planPartition : planPartitions) {
             final PlanPartition maxCardinalityOnePartition = planPartition.filter(p -> {
                 final CardinalitiesProperty.Cardinalities planCardinality = CardinalitiesProperty.cardinalities().evaluate(p);
                 return !planCardinality.getMaxCardinality().isUnknown() && planCardinality.getMaxCardinality().getCardinality() == 1L;
@@ -270,9 +270,9 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
     }
 
     @Nonnull
-    private List<PlanPartition> rollUpIfSatisfyOrdering(@Nonnull final RequestedOrdering requestedOrdering, @Nonnull Quantifier quantifier, @Nonnull List<PlanPartition> planPartitions, @Nonnull Ordering prefix, @Nonnull Function<Ordering, Ordering> pullUpFn) {
+    private List<PlanPartition> rollUpIfSatisfyOrdering(@Nonnull final RequestedOrdering requestedOrdering, @Nonnull final Quantifier quantifier, @Nonnull final List<PlanPartition> planPartitions, @Nonnull final Ordering prefix, @Nonnull final Function<Ordering, Ordering> pullUpFn) {
         final ImmutableList.Builder<PlanPartition> satisfyingOrdering = ImmutableList.builderWithExpectedSize(planPartitions.size());
-        for (PlanPartition planPartition : planPartitions) {
+        for (final PlanPartition planPartition : planPartitions) {
             final Ordering pulledUpOrdering = quantifier instanceof Quantifier.Existential ? Ordering.empty() : pullUpFn.apply(planPartition.getPartitionPropertyValue(OrderingProperty.ordering()));
             final Ordering ordering = prefix.isEmpty() ? pulledUpOrdering : Ordering.concatOrderings(prefix, pulledUpOrdering);
             if (ordering.satisfies(requestedOrdering)) {
@@ -289,11 +289,11 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
     }
 
     @Nonnull
-    private NonnullPair<List<PlanPartition>, Map<Ordering, PlanPartition>> partitionOuterBySatisfyingAndDistinct(@Nonnull final RequestedOrdering requestedOrdering, @Nonnull List<PlanPartition> planPartitions, @Nonnull Function<Ordering, Ordering> pullUpFn) {
+    private NonnullPair<List<PlanPartition>, Map<Ordering, PlanPartition>> partitionOuterBySatisfyingAndDistinct(@Nonnull final RequestedOrdering requestedOrdering, @Nonnull final List<PlanPartition> planPartitions, @Nonnull final Function<Ordering, Ordering> pullUpFn) {
         final ImmutableList.Builder<PlanPartition> satisfyingOrderings = ImmutableList.builderWithExpectedSize(planPartitions.size());
         final LinkedIdentityMap<Ordering, PlanPartition> distinctPartitionsByOrdering = new LinkedIdentityMap<>();
 
-        for (PlanPartition planPartition : planPartitions) {
+        for (final PlanPartition planPartition : planPartitions) {
             final Ordering pulledUpOrdering = pullUpFn.apply(planPartition.getPartitionPropertyValue(OrderingProperty.ordering()));
             if (pulledUpOrdering.satisfies(requestedOrdering)) {
                 satisfyingOrderings.add(planPartition);
@@ -307,7 +307,7 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
     }
 
     @Nonnull
-    private Quantifier.Physical planPartitionToPhysical(@Nonnull ImplementationCascadesRuleCall call, @Nonnull Quantifier quantifier, @Nonnull Reference reference, @Nonnull List<QueryPredicate> predicates, @Nonnull PlanPartition planPartition) {
+    private Quantifier.Physical planPartitionToPhysical(@Nonnull final ImplementationCascadesRuleCall call, @Nonnull final Quantifier quantifier, @Nonnull final Reference reference, @Nonnull final List<QueryPredicate> predicates, @Nonnull final PlanPartition planPartition) {
         var ref = call.memoizeMemberPlansFromOther(reference, planPartition.getPlans());
 
         if (quantifier instanceof Quantifier.Existential) {
