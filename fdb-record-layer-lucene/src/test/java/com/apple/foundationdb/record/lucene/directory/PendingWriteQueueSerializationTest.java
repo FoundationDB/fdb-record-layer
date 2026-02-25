@@ -128,7 +128,7 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         final int score = 42;
         final boolean isSeen = false;
         final double time = 123.456;
-        final List<String> searchTerms = List.of("score:42", "text:quick", "text:dog", "time:123.456", "*:*");
+        final List<String> searchTerms = List.of("score:42", "text:quick", "text:dog", "time:123.456", "is_seen:false", "group:5", "*:*");
 
         // Write record directly to index (no queue)
         try (FDBRecordContext context = openContext()) {
