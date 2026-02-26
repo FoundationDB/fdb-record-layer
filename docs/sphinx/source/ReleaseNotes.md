@@ -7,6 +7,46 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.10.4.0
+
+<h4> New Features </h4>
+
+* Add basic `ORDER BY` for `JOIN` queries with single leg orders - [PR #3867](https://github.com/FoundationDB/fdb-record-layer/pull/3867)
+* Include stats for each planner phase in EXPLAIN metrics - [PR #3512](https://github.com/FoundationDB/fdb-record-layer/pull/3512)
+* `INNER JOIN` syntax now supports `USING` - [PR #3893](https://github.com/FoundationDB/fdb-record-layer/pull/3893)
+<h4> Bug Fixes </h4>
+
+* Fix Incorrect Plan Constraints Generated for Join Predicates - [PR #3971](https://github.com/FoundationDB/fdb-record-layer/pull/3971)
+* refetch node references for the current layer - [PR #3966](https://github.com/FoundationDB/fdb-record-layer/pull/3966)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Parallelize the test steps of the release process - [PR #3977](https://github.com/FoundationDB/fdb-record-layer/pull/3977)
+* Lucene queue: add end to end serialization/deserialization tests - [PR #3963](https://github.com/FoundationDB/fdb-record-layer/pull/3963)
+* Parallelize mixed-mode testing - [PR #3964](https://github.com/FoundationDB/fdb-record-layer/pull/3964)
+* Lucene pending write queue: Add a concurrency test - [PR #3961](https://github.com/FoundationDB/fdb-record-layer/pull/3961)
+* `!pos` tag for `yaml` tests - [PR #3946](https://github.com/FoundationDB/fdb-record-layer/pull/3946)
+
+</details>
+
+
+**[Full Changelog (4.10.3.0...4.10.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.3.0...4.10.4.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.9.2.0`, ❌`4.9.3.0`, ✅`4.9.4.0`, ✅`4.9.6.0`, ✅`4.9.7.0`, ✅`4.9.8.0`, ✅`4.9.9.0`, ✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/22452643118)
+
+
+
 ### 4.10.3.0
 
 <h4> New Features </h4>
