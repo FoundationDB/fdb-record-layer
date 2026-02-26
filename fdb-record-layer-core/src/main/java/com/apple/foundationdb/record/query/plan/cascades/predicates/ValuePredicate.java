@@ -65,21 +65,20 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Nonnull
     private final Comparison comparison;
     @Nonnull
-    private final Supplier<Boolean> isIndexOnlySupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Boolean> isIndexOnlySupplier = Suppliers.memoize(() -> getValue().isIndexOnly());
 
     private ValuePredicate(@Nonnull final PlanSerializationContext serializationContext,
                            @Nonnull final PValuePredicate valuePredicate) {
         super(serializationContext, Objects.requireNonNull(valuePredicate.getSuper()));
         this.value = Value.fromValueProto(serializationContext, Objects.requireNonNull(valuePredicate.getValue()));
         this.comparison = Comparison.fromComparisonProto(serializationContext, Objects.requireNonNull(valuePredicate.getComparison()));
-        this.isIndexOnlySupplier = Suppliers.memoize(() -> getValue().isIndexOnly());
     }
 
     public ValuePredicate(@Nonnull final Value value, @Nonnull final Comparison comparison) {
         super(false);
         this.value = value;
         this.comparison = comparison;
-        this.isIndexOnlySupplier = Suppliers.memoize(() -> getValue().isIndexOnly());
     }
 
     @Nonnull

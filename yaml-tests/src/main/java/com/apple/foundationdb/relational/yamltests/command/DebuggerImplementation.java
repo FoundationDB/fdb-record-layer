@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import java.util.function.Supplier;
 public enum DebuggerImplementation {
     INSANE(true, DebuggerWithSymbolTables::withSanityChecks),
     SANE(true, DebuggerWithSymbolTables::withoutSanityChecks),
+    RECORDING(true, DebuggerWithSymbolTables::withEventRecording),
     REPL(false, () -> {
         try {
             return new PlannerRepl(TerminalBuilder.builder().dumb(true).build(), false);

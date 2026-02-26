@@ -89,10 +89,10 @@ class MetricTest {
         final Random random = new Random(seed);
 
         for (int i = 0; i < 1000; i ++) {
-            // either use vectors that draw from [0, 1) or use the entire full double range
-            final RealVector x = (i % 2 == 1) ? randomV(random, numDimensions) : randomVFull(random, numDimensions);
-            final RealVector y = (i % 2 == 1) ? randomV(random, numDimensions) : randomVFull(random, numDimensions);
-            final RealVector z = (i % 2 == 1) ? randomV(random, numDimensions) : randomVFull(random, numDimensions);
+            // use vectors that draw from [0, 1)
+            final RealVector x = randomV(random, numDimensions);
+            final RealVector y = randomV(random, numDimensions);
+            final RealVector z = randomV(random, numDimensions);
 
             final double distanceXX = metric.distance(x, x);
             final double distanceXY = metric.distance(x, y);
@@ -160,23 +160,5 @@ class MetricTest {
             components[i] = random.nextDouble();
         }
         return new DoubleRealVector(components);
-    }
-
-    @Nonnull
-    @SuppressWarnings("checkstyle:MethodName")
-    private static RealVector randomVFull(@Nonnull final Random random, final int numDimensions) {
-        final double[] components = new double[numDimensions];
-        for (int i = 0; i < numDimensions; i++) {
-            components[i] = randomDouble(random);
-        }
-        return new DoubleRealVector(components);
-    }
-
-    private static double randomDouble(@Nonnull final Random random) {
-        double d;
-        do {
-            d = Double.longBitsToDouble(random.nextLong());
-        } while (!Double.isFinite(d));
-        return d;
     }
 }

@@ -91,7 +91,7 @@ public class PlannerBindings {
      */
     @Nonnull
     @SuppressWarnings("unchecked")
-    public <T> List<? extends T> getAll(@Nonnull BindingMatcher<T> key) {
+    public <T> List<T> getAll(@Nonnull BindingMatcher<T> key) {
         if (bindings.containsKey(key)) {
             return (List<T>)bindings.get(key);
         }

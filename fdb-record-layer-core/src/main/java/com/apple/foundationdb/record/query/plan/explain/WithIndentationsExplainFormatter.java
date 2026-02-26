@@ -36,10 +36,10 @@ public class WithIndentationsExplainFormatter extends DefaultExplainFormatter {
     private int indentationLevel;
     private int width;
 
-    public WithIndentationsExplainFormatter(@Nonnull final Supplier<ExplainSymbolMap> symbolMapSupplier,
-                                            final int initialIndentation,
-                                            final int maxWidth,
-                                            final int tabSize) {
+    protected WithIndentationsExplainFormatter(@Nonnull final Supplier<ExplainSymbolMap> symbolMapSupplier,
+                                               final int initialIndentation,
+                                               final int maxWidth,
+                                               final int tabSize) {
         super(symbolMapSupplier);
         this.initialIndentation = initialIndentation;
         this.maxWidth = maxWidth;
@@ -144,7 +144,9 @@ public class WithIndentationsExplainFormatter extends DefaultExplainFormatter {
 
     @Nonnull
     public static WithIndentationsExplainFormatter forDot(final int initialIndentation) {
-        return new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, initialIndentation,
+        final WithIndentationsExplainFormatter formatter = new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, initialIndentation,
                 50, 4);
+        formatter.register();
+        return formatter;
     }
 }

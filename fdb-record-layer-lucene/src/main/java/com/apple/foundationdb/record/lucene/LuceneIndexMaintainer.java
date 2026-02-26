@@ -106,6 +106,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Nonnull
     private final LucenePartitioner partitioner;
 
+    @SuppressWarnings("this-escape")
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
         super(state);
         this.executor = executor;
@@ -177,6 +178,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         if (shouldUseQueue(entry.getKey(), partitionId)) {
             PendingWriteQueue queue = directoryManager.getPendingWriteQueue(entry.getKey(), partitionId);
             queue.enqueueInsert(state.context, newRecord.getPrimaryKey(), entry.getValue());
+            // Require deferred merge (+ drain) in case there is a merge indicator without an active merge
+            this.state.store.getIndexDeferredMaintenanceControl().setMergeRequiredIndexes(this.state.index);
         } else {
             writeDocumentBypassQueue(newRecord, entry, partitionId);
         }
@@ -194,16 +197,21 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                          Integer partitionId,
                                          Tuple primaryKey,
                                          @Nonnull List<LuceneDocumentFromRecord.DocumentField> fields) throws IOException {
-        LuceneIndexMaintainerHelper.writeDocument(state.context,
+        final long startTime = System.nanoTime();
+        LuceneIndexMaintainerHelper.writeDocument(
                 directoryManager.getIndexWriter(groupingKey, partitionId),
                 state.index,
                 primaryKey, fields);
+        // Record the event's duration in caller's context.
+        state.context.record(LuceneEvents.Events.LUCENE_ADD_DOCUMENT, System.nanoTime() - startTime);
     }
 
     private int deleteDocument(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey) throws IOException {
         if (shouldUseQueue(groupingKey, partitionId)) {
             PendingWriteQueue queue = directoryManager.getPendingWriteQueue(groupingKey, partitionId);
             queue.enqueueDelete(state.context, primaryKey);
+            // Require deferred merge (+ drain) in case there is a merge indicator without an active merge
+            this.state.store.getIndexDeferredMaintenanceControl().setMergeRequiredIndexes(this.state.index);
             return 0; // partition count will be adjusted during drain
         } else {
             return deleteDocumentBypassQueue(groupingKey, partitionId, primaryKey);

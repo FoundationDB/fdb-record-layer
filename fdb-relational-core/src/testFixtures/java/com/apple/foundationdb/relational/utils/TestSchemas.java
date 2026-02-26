@@ -88,10 +88,12 @@ public final class TestSchemas {
     @Nonnull
     private static final String SCORE_SCHEMA =
             "CREATE TABLE score(id bigint, player string, game bigint, score bigint, playDuration bigint, primary key(id))" +
+                    "CREATE TABLE game(id bigint, score_id bigint, name string, primary key(id))" +
                     "CREATE INDEX maxScoreByGame10 AS SELECT MAX(score), game + 10 FROM score GROUP BY game + 10" +
                     "CREATE INDEX maxScoreByGame20 AS SELECT MAX(score), game + 20 FROM score GROUP BY game + 20" +
                     "CREATE INDEX bitAndScore2 AS SELECT game & 2, MAX(score) FROM score GROUP BY game & 2" +
-                    "CREATE INDEX bitAndScore4 AS SELECT game & 4, MAX(score) FROM score GROUP BY game & 4";
+                    "CREATE INDEX bitAndScore4 AS SELECT game & 4, MAX(score) FROM score GROUP BY game & 4" +
+                    "CREATE INDEX gameIdx AS SELECT score_id, id, name FROM game WHERE score_id IS NOT NULL ORDER BY score_id, id, name";
 
     @Nonnull
     public static String score() {

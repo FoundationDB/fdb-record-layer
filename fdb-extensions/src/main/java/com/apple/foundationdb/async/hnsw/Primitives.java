@@ -325,7 +325,7 @@ public class Primitives {
                                         @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
         return fetchSomeNodesAndApply(storageAdapter, readTransaction, storageTransform, layer, neighborReferences,
                 neighborReference -> {
-                    if (neighborReference.isNodeReferenceWithVector()) {
+                    if (storageAdapter.isInliningStorageAdapter() && neighborReference.isNodeReferenceWithVector()) {
                         final NodeReferenceWithVector nodeReferenceWithVector =
                                 neighborReference.asNodeReferenceWithVector();
                         return new NodeReferenceWithVectorAndAdditionalValues(nodeReferenceWithVector.getPrimaryKey(),

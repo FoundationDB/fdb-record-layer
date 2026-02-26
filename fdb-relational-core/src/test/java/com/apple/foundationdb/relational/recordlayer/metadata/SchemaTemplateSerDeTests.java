@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
@@ -46,7 +47,6 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.DescriptorProtos;
@@ -1028,17 +1028,23 @@ public class SchemaTemplateSerDeTests {
         public RecordMetadataDeserializerWithPeekingFunctionSupplier(@Nonnull final RecordMetaData recordMetaData) {
             super(recordMetaData);
             invocationsCount = new HashMap<>();
+            hookInvokedRoutines(builder, invocationsCount);
         }
 
-        @Nonnull
-        @Override
-        protected Function<Boolean, com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction> getSqlFunctionCompiler(@Nonnull final String name,
-                                                                                                                                  @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
-                                                                                                                                  @Nonnull final String functionBody) {
-            return isCaseSensitive -> {
-                invocationsCount.merge(name, 1, Integer::sum);
-                return super.getSqlFunctionCompiler(name, metadata, functionBody).apply(isCaseSensitive);
-            };
+        private static void hookInvokedRoutines(@Nonnull final RecordLayerSchemaTemplate.Builder schemaBuilder,
+                                                @Nonnull final Map<String, Integer> invocationsCount) {
+            final List<RecordLayerInvokedRoutine> invokedRoutines = schemaBuilder.getInvokedRoutines();
+            for (RecordLayerInvokedRoutine routine : invokedRoutines) {
+                final String name = routine.getName();
+                final Function<Boolean, UserDefinedFunction> provider = routine.getUserDefinedFunctionProvider();
+                final RecordLayerInvokedRoutine.Builder routineBuilder = routine.toBuilder();
+                routineBuilder.withUserDefinedFunctionProvider(isCaseSensitive -> {
+                    invocationsCount.merge(name, 1, Integer::sum);
+                    return provider.apply(isCaseSensitive);
+                });
+                schemaBuilder.removeInvokedRoutine(name);
+                schemaBuilder.addInvokedRoutine(routineBuilder.build());
+            }
         }
 
         boolean hasNoCompilationRequestsFor(@Nonnull final String functionName) {

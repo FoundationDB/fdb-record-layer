@@ -106,6 +106,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     private final LogicalOperatorCatalog logicalOperatorCatalog;
 
+    @SuppressWarnings("this-escape")
     public BaseVisitor(@Nonnull MutablePlanGenerationContext mutablePlanGenerationContext,
                        @Nonnull RecordLayerSchemaTemplate metadata,
                        @Nonnull DdlQueryFactory ddlQueryFactory,
@@ -615,9 +616,9 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return queryVisitor.visitQuery(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
-    public LogicalOperators visitCtes(RelationalParser.CtesContext ctx) {
+    public Void visitCtes(RelationalParser.CtesContext ctx) {
         return queryVisitor.visitCtes(ctx);
     }
 

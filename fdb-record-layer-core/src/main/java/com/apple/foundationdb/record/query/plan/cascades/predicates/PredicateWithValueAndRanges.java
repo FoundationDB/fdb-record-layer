@@ -369,7 +369,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
             if (compensatedQueryPredicate.getRanges()
                     .stream()
                     .allMatch(range -> candidateRanges.stream()
-                            .anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext).coalesce()))) {
+                            .anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext)))) {
                 if (candidatePredicateWithValuesAndRanges instanceof WithAlias) {
                     final var alias = ((WithAlias)candidatePredicateWithValuesAndRanges).getParameterAlias();
                     final var predicateMappingBuilder =
@@ -396,7 +396,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                                         // no need for compensation if range boundaries match between candidate constraint and query sargable
                                         if (candidateRanges.stream()
                                                 .allMatch(candidateRange -> getRanges().stream()
-                                                        .anyMatch(range -> range.encloses(candidateRange, evaluationContext).coalesce()))) {
+                                                        .anyMatch(range -> range.encloses(candidateRange, evaluationContext)))) {
                                             return PredicateCompensationFunction.noCompensationNeeded();
                                         }
 
@@ -531,6 +531,12 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                     .stream()
                     .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
                     .map(valueComparison -> ((Comparisons.ValueComparison)valueComparison).getComparandValue())
+                    // Plan constraints are only defined for constant-bound comparands (e.g., field = 5).
+                    // Non-constant comparands (such as join predicates like field1 = field2) are filtered out here.
+                    // This filtering is essential when queries combine join predicates with static predicates
+                    // like IS NOT NULL. Since neither predicate has constant literals to bind, we must avoid
+                    // incorrectly generating constraints for the join predicate, which would be semantically invalid.
+                    .filter(comparandValue -> comparandValue instanceof Value.RangeMatchableValue)
                     .map(constant -> PredicateWithValueAndRanges.ofRanges(constant, candidateRanges))
                     .collect(Collectors.toList())));
         }
@@ -585,7 +591,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
             if (!compiledRange.isCompileTimeEvaluable()) {
                 continue;
             }
-            if (compiledRange.encloses(valueRange, context).coalesce()) {
+            if (compiledRange.encloses(valueRange, context)) {
                 return true;
             }
         }

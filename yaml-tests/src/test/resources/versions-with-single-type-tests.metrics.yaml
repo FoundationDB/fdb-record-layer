@@ -10,16 +10,15 @@ single-type-versions-queries:
     insert_new_count: 12
     insert_reused_count: 2
 -   query: EXPLAIN select *, "__ROW_VERSION" from t1;
-    explain: SCAN(<,>) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2, version([_])
-        AS __ROW_VERSION)
-    task_count: 146
-    task_total_time_ms: 109
-    transform_count: 40
-    transform_time_ms: 90
-    transform_yield_count: 13
-    insert_time_ms: 1
-    insert_new_count: 12
-    insert_reused_count: 2
+    explain: SCAN(<,>)
+    task_count: 160
+    task_total_time_ms: 7
+    transform_count: 45
+    transform_time_ms: 1
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 13
+    insert_reused_count: 1
 -   query: EXPLAIN select "__ROW_VERSION", * from t1 where col1 = 20;
     explain: SCAN(<,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (version([_])
         AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)

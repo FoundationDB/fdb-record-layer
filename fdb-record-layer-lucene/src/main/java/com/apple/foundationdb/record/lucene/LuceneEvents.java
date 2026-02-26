@@ -184,7 +184,8 @@ public class LuceneEvents {
         WAIT_LUCENE_READ_PENDING_QUEUE("lucene pending queue get item(s)"),
         /** Replay items from queue in a read-only transaction. */
         WAIT_LUCENE_REPLAY_QUEUE("lucene replay pending writes queue"),
-        ;
+        /** Get the number of entries in the pending writes queue. */
+        WAIT_LUCENE_GET_QUEUE_SIZE("lucene get pending writes queue size");
         private final String title;
         private final String logKey;
 

@@ -57,6 +57,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -481,6 +482,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             verifyNameIsNotUsed(invokedRoutine.getName());
             invokedRoutines.put(invokedRoutine.getName(), invokedRoutine);
             return this;
+        }
+
+        @Nonnull
+        public List<RecordLayerInvokedRoutine> getInvokedRoutines() {
+            return ImmutableList.copyOf(invokedRoutines.values());
         }
 
         @Nonnull

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsCollector;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -37,6 +39,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.net.URI;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Collections;
 import java.util.List;
 
 public class ExplainTests {
@@ -74,6 +77,23 @@ public class ExplainTests {
                 "SERIALIZED_PLAN_COMPLEXITY"
         );
         final var expectedContTypes = List.of(Types.BINARY, Types.INTEGER, Types.VARCHAR, Types.INTEGER, Types.INTEGER);
+        final var expectedPlannerMetricsLabels = List.of(
+                "TASK_COUNT",
+                "TASK_TOTAL_TIME_NS",
+                "TRANSFORM_COUNT",
+                "TRANSFORM_TIME_NS",
+                "TRANSFORM_YIELD_COUNT",
+                "INSERT_TIME_NS",
+                "INSERT_NEW_COUNT",
+                "INSERT_REUSED_COUNT",
+                "TRANSFORM_DISCARDED_INTERSECTION_COMBINATIONS_COUNT",
+                "TRANSFORM_ALL_INTERSECTION_COMBINATIONS_COUNT",
+                "REWRITING_PHASE_TASK_COUNT",
+                "PLANNING_PHASE_TASK_COUNT",
+                "REWRITING_PHASE_TASKS_TOTAL_TIME_NS",
+                "PLANNING_PHASE_TASKS_TOTAL_TIME_NS"
+        );
+        final var expectedPlannerMetricsTypes = Collections.nCopies(expectedPlannerMetricsLabels.size(), Types.BIGINT);
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
@@ -90,7 +110,12 @@ public class ExplainTests {
                         org.junit.jupiter.api.Assertions.assertEquals(expectedContLabels.get(i), actualContinuationMetadata.getColumnLabel(i + 1));
                         org.junit.jupiter.api.Assertions.assertEquals(expectedContTypes.get(i), actualContinuationMetadata.getColumnType(i + 1));
                     }
-
+                    final var actualPlannerMetricsMetadata = actualMetadata.getStructMetaData(6);
+                    org.junit.jupiter.api.Assertions.assertEquals(expectedPlannerMetricsLabels.size(), actualPlannerMetricsMetadata.getColumnCount());
+                    for (int i = 0; i < expectedPlannerMetricsLabels.size(); i++) {
+                        org.junit.jupiter.api.Assertions.assertEquals(expectedPlannerMetricsLabels.get(i), actualPlannerMetricsMetadata.getColumnLabel(i + 1));
+                        org.junit.jupiter.api.Assertions.assertEquals(expectedPlannerMetricsTypes.get(i), actualPlannerMetricsMetadata.getColumnType(i + 1));
+                    }
                 }
             }
         }
@@ -111,6 +136,61 @@ public class ExplainTests {
                     assertResult.hasNoNextRow();
                 }
             }
+        }
+    }
+
+    @Test
+    void explainContainsEventStatsWithADebuggerInstalled() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            executeInsert(ddl);
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
+                ps.setMaxRows(2);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    final var assertResult = ResultSetAssert.assertThat(resultSet);
+                    assertResult.hasNextRow()
+                            .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
+                            .hasColumn("PLAN_HASH", -1635569052)
+                            .hasColumn("PLAN_CONTINUATION", null);
+                    final var plannerMetrics = resultSet.getStruct("PLANNER_METRICS");
+                    org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
+                    RelationalStructAssert.assertThat(plannerMetrics)
+                            .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
+                            .hasValue("PLANNING_PHASE_TASK_COUNT", 204L);
+                    assertResult.hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void explainContainsEventStatsWithDefaultEventStatsCollectorEnabled() throws Exception {
+        final var defaultDebugger = Debugger.getDebugger();
+        try {
+            Debugger.setDebugger(null);
+            org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
+            PlannerEventStatsCollector.enableDefaultStatsCollector();
+
+            try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+                executeInsert(ddl);
+                try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
+                    ps.setMaxRows(2);
+                    try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                        final var assertResult = ResultSetAssert.assertThat(resultSet);
+                        assertResult.hasNextRow()
+                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
+                                .hasColumn("PLAN_HASH", -1635569052)
+                                .hasColumn("PLAN_CONTINUATION", null);
+                        final var plannerMetrics = resultSet.getStruct("PLANNER_METRICS");
+                        org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
+                        RelationalStructAssert.assertThat(plannerMetrics)
+                                .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
+                                .hasValue("PLANNING_PHASE_TASK_COUNT", 204L);
+                        assertResult.hasNoNextRow();
+                    }
+                }
+            }
+        } finally {
+            Debugger.setDebugger(defaultDebugger);
         }
     }
 

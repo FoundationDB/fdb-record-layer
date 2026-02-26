@@ -59,11 +59,13 @@ public class BoundRecordQuery {
     @Nonnull
     private final RecordQuery recordQuery;
     @Nonnull
-    private final Supplier<Set<String>> parametersSupplier;
+    private final Supplier<Set<String>> parametersSupplier = Suppliers.memoize(this::computeParameters);
     @Nonnull
+    @SuppressWarnings("this-escape")
     private final ParameterRelationshipGraph parameterRelationshipGraph;
     @Nonnull
-    private final Supplier<Integer> hashCodeSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
     public BoundRecordQuery(@Nonnull final RecordStoreState recordStoreState, @Nonnull final RecordQuery recordQuery) {
         this(recordStoreState, recordQuery, ParameterRelationshipGraph.empty());
@@ -77,8 +79,6 @@ public class BoundRecordQuery {
         this.recordStoreState = recordStoreState;
         this.recordQuery = recordQuery;
         this.parameterRelationshipGraph = parameterRelationshipGraph;
-        this.parametersSupplier = Suppliers.memoize(this::computeParameters);
-        this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
     }
 
     @Nonnull

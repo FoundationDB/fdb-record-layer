@@ -24,6 +24,8 @@
 # ./gradlew mixedModeTest
 
 import argparse
+import glob
+import re
 import subprocess
 import sys
 
@@ -52,6 +54,24 @@ def get_results(results_path):
                 results[version] = result
     return results
 
+def get_results_from_glob(results_glob):
+    version_pattern = re.compile(r'\d+(?:\.\d+)+')
+    results = {}
+    for filepath in glob.glob(results_glob):
+        versions = version_pattern.findall(filepath)
+        if len(versions) != 1:
+            raise Exception("Expected exactly one version in path " + filepath + ", found: " + str(versions))
+        version = versions[0]
+        with open(filepath) as f:
+            result = f.read().strip()
+        if result not in ('SUCCESS', 'FAILURE'):
+            raise Exception("File " + filepath + " contains invalid result: " + result)
+        if result == 'FAILURE':
+            results[version] = result
+        elif version not in results:
+            results[version] = result
+    return results
+
 def emoji(result_word):
     if result_word == 'FAILURE':
         return '❌'
@@ -69,14 +89,19 @@ def generate_markdown(version, results, header_size):
 def main(argv):
     '''Process the output of a mixedModeTest run and convert it into a short markdown'''
     parser = argparse.ArgumentParser()
-    parser.add_argument('--results-path', help='Path to the results', default='.out/reports/mixed-mode-results.log')
+    parser.add_argument('--results-path', help='Path to the results file, or a glob matching per-version result files', default='.out/reports/mixed-mode-results.log')
     parser.add_argument('--header-size', help='Markdown header level (e.g. # or ##)', default='####')
     parser.add_argument('--run-link', help='A link to the test run that generated the results')
     parser.add_argument('--output', required=True, help='Output to print the markdown to')
     parser.add_argument('version', help='Version of the server that was tested')
     args = parser.parse_args(argv)
 
-    markdown = generate_markdown(args.version, get_results(args.results_path), args.header_size)
+    if glob.has_magic(args.results_path):
+        results = get_results_from_glob(args.results_path)
+    else:
+        results = get_results(args.results_path)
+
+    markdown = generate_markdown(args.version, results, args.header_size)
     if args.run_link is not None:
         markdown = markdown + "\n\n[See full test run](" + args.run_link +")\n"
     with open(args.output, mode='w') as fout:

@@ -93,7 +93,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
                 // If this new format version is adding additional items to the store header, make sure to update the
                 // comments as to how it is being reset in the repair, even if it is not. Then update this
                 // to the new value
-                .isEqualTo(FormatVersion.INCARNATION);
+                .isEqualTo(FormatVersion.FULL_STORE_LOCK);
     }
 
     @ParameterizedTest
