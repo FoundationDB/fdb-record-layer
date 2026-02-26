@@ -55,6 +55,24 @@ class VectorReference {
         return vector;
     }
 
+    @Nonnull
+    public VectorReference toPrimaryCopy() {
+        return withPrimaryCopy(true);
+    }
+
+    @Nonnull
+    public VectorReference toReplicatedCopy() {
+        return withPrimaryCopy(false);
+    }
+
+    @Nonnull
+    public VectorReference withPrimaryCopy(final boolean isPrimaryCopy) {
+        if (isPrimaryCopy() == isPrimaryCopy) {
+            return this;
+        }
+        return new VectorReference(getId(), isPrimaryCopy, getVector());
+    }
+
     @Override
     public boolean equals(final Object o) {
         if (o == null || getClass() != o.getClass()) {

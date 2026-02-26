@@ -385,7 +385,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
             Verify.verify(Double.isFinite(distanceToPrimaryCentroid));
             assignedVectorsMultimapBuilder.put(
                     primaryCluster.getClusterMetadata().getId(),
-                    vectorReference);
+                    vectorReference.toPrimaryCopy());
 
             while (!nearestClusters.isEmpty()) {
                 final ClusterMetadataWithDistance replicatedCluster =
@@ -403,7 +403,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                 if (distance / distanceToPrimaryCentroid <= 1.0d + config.getClusterOverlap()) {
                     assignedVectorsMultimapBuilder.put(
                             replicatedCluster.getClusterMetadata().getId(),
-                            vectorReference);
+                            vectorReference.toReplicatedCopy());
                 } else {
                     break;
                 }
