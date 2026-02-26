@@ -37,7 +37,7 @@ test_block:
               FROM emp INNER JOIN dept
               ON emp.dept_id = dept.id
                 AND dept.name = 'Engineering'
-      - supported_version: !current_version
+      - supported_version: 4.10.4.0
       - unorderedResult: [{fname: "Jack", lname: "Williams"},
                           {fname: "Thomas", lname: "Johnson"},
                           {fname: "Emily", lname: "Martinez"}]
@@ -47,7 +47,7 @@ test_block:
       - query: SELECT dept.name, project.name
               FROM emp INNER JOIN dept ON emp.dept_id = dept.id
               INNER JOIN project ON project.emp_id = emp.id
-      - supported_version: !current_version
+      - supported_version: 4.10.4.0
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -62,7 +62,7 @@ test_block:
               ) AS sq INNER JOIN dept
               ON sq.dept_id = dept.id
                 AND dept.name = 'Sales'
-      - supported_version: !current_version
+      - supported_version: 4.10.4.0
       - unorderedResult: [{fname: "Daniel", lname: "Miller"}]
 
     # Nested Joins
@@ -74,7 +74,7 @@ test_block:
                   ON emp.dept_id = dept.id
               ) AS sq INNER JOIN project
               ON project.emp_id = sq.id
-      - supported_version: !current_version
+      - supported_version: 4.10.4.0
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]

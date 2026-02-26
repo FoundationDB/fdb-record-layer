@@ -19,8 +19,8 @@
 
 ---
 options:
-    # Joins with order bys were not supported prior to !current_version
-    supported_version: !current_version
+    # Joins with order bys were not supported prior to 4.10.4.0
+    supported_version: 4.10.4.0
     connection_options:
       CASE_SENSITIVE_IDENTIFIERS: true
 ---

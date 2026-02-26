@@ -37,11 +37,11 @@ test_block:
     -
       # union join to the same table using row version
       - query: select X.c1 from jua as X join jua using("__ROW_VERSION");
-      - supported_version: !current_version
+      - supported_version: 4.10.4.0
       - result: [{1}]
     -
       # union join on row version
       - query: select * from jua join jub using("__ROW_VERSION");
-      - supported_version: !current_version
+      - supported_version: 4.10.4.0
       - result: []
 ...
