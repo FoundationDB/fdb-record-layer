@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +26,10 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Event;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.EventWithState;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Location;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Shorthand;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventWithState;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.auto.service.AutoService;
@@ -68,7 +69,7 @@ public class Commands {
      *
      * @param <E> the type of the event
      */
-    public interface Command<E extends Event> {
+    public interface Command<E extends PlannerEvent> {
         /**
          * Method that is called from the REPL when a command is interpreted that starts with the string that
          * {@link #getCommandToken()} returns.
@@ -103,10 +104,10 @@ public class Commands {
      *
      */
     @AutoService(Command.class)
-    public static class BreakCommand implements Command<Event> {
+    public static class BreakCommand implements Command<PlannerEvent> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final Event event,
+                                      @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
             final List<String> words = parsedLine.words();
 
@@ -205,15 +206,15 @@ public class Commands {
                     return false;
                 }
 
-                final Optional<Debugger.Shorthand> shorthandOptional =
-                        Enums.getIfPresent(Debugger.Shorthand.class, word1).toJavaUtil();
+                final Optional<Shorthand> shorthandOptional =
+                        Enums.getIfPresent(Shorthand.class, word1).toJavaUtil();
                 if (shorthandOptional.isEmpty()) {
                     plannerRepl.printlnError("unknown event class, should be one of [" +
-                                             Arrays.stream(Debugger.Shorthand.values()).map(Enum::name).collect(Collectors.joining(", ")) +
+                                             Arrays.stream(Shorthand.values()).map(Enum::name).collect(Collectors.joining(", ")) +
                                              "].");
                     return false;
                 }
-                final Debugger.Shorthand shorthand = shorthandOptional.get();
+                final Shorthand shorthand = shorthandOptional.get();
 
                 if (words.size() == 2) {
                     // "break event_type" sets a break point to the event_type on any location
@@ -280,10 +281,10 @@ public class Commands {
      * Continue execution.
      */
     @AutoService(Command.class)
-    public static class ContinueCommand implements Command<Event> {
+    public static class ContinueCommand implements Command<PlannerEvent> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final Event event,
+                                      @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
             return true;
         }
@@ -304,18 +305,18 @@ public class Commands {
      * Dump the current event.
      */
     @AutoService(Command.class)
-    public static class CurrentCommand implements Command<Event> {
+    public static class CurrentCommand implements Command<PlannerEvent> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final Event event,
+                                      @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
-            final List<Event> events = state.getEvents();
-            if (events == null) {
+            final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
+            final List<PlannerEvent> plannerEvents = registeredEntities.getEvents();
+            if (plannerEvents == null) {
                 plannerRepl.printlnError("Configuration mandates to not record events. Please turn on event recording and restart.");
                 return false;
             }
-            final Event e = events.get(state.getCurrentTick());
+            final PlannerEvent e = plannerEvents.get(registeredEntities.getCurrentTick());
             plannerRepl.withProcessors(e, processor -> processor.onDetail(plannerRepl, e));
             return false;
         }
@@ -336,20 +337,20 @@ public class Commands {
      * List out all events already seen.
      */
     @AutoService(Command.class)
-    public static class EventsCommand implements Command<Event> {
+    public static class EventsCommand implements Command<PlannerEvent> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final Event event,
+                                      @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
-            final List<Event> events = state.getEvents();
-            if (events == null) {
+            final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
+            final List<PlannerEvent> plannerEvents = registeredEntities.getEvents();
+            if (plannerEvents == null) {
                 plannerRepl.printlnError("Configuration mandates to not record events. Please turn on event recording and restart.");
                 return false;
             }
-            for (int tick = 0; tick < events.size(); tick++) {
-                final Event e = events.get(tick);
-                if (state.getCurrentTick() == tick) {
+            for (int tick = 0; tick < plannerEvents.size(); tick++) {
+                final PlannerEvent e = plannerEvents.get(tick);
+                if (registeredEntities.getCurrentTick() == tick) {
                     plannerRepl.printHighlighted("==> ");
                 } else {
                     plannerRepl.print("    ");
@@ -377,13 +378,13 @@ public class Commands {
      * List out all expressions.
      */
     @AutoService(Command.class)
-    public static class ExpsCommand implements Command<Event> {
+    public static class ExpsCommand implements Command<PlannerEvent> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final Event event,
+                                      @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
-            final Cache<Integer, RelationalExpression> expressionCache = state.getExpressionCache();
+            final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
+            final Cache<Integer, RelationalExpression> expressionCache = registeredEntities.getExpressionCache();
             final List<Integer> ids = Lists.newArrayList(expressionCache.asMap().keySet());
             Collections.sort(ids);
             for (Integer id : ids) {
@@ -417,14 +418,14 @@ public class Commands {
      * Print help and usage information.
      */
     @AutoService(Command.class)
-    public static class HelpCommand implements Command<Event> {
+    public static class HelpCommand implements Command<PlannerEvent> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final Event event,
+                                      @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
             plannerRepl.printlnHighlighted("Basic Usage");
             plannerRepl.println();
-            for (final Command<Event> command : PlannerRepl.getCommands()) {
+            for (final Command<PlannerEvent> command : PlannerRepl.getCommands()) {
                 command.printUsage(plannerRepl);
             }
             plannerRepl.println();
@@ -447,13 +448,13 @@ public class Commands {
      * List out all references.
      */
     @AutoService(Command.class)
-    public static class RefsCommand implements Command<Event> {
+    public static class RefsCommand implements Command<PlannerEvent> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final Event event,
+                                      @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
-            final Cache<Integer, Reference> referenceCache = state.getReferenceCache();
+            final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
+            final Cache<Integer, Reference> referenceCache = registeredEntities.getReferenceCache();
             final List<Integer> ids = Lists.newArrayList(referenceCache.asMap().keySet());
             Collections.sort(ids);
             for (Integer id : ids) {
@@ -469,7 +470,7 @@ public class Commands {
                             .filter(Optional::isPresent)
                             .map(Optional::get)
                             .collect(Collectors.joining(", "));
-                    plannerRepl.printKeyValue("members: ", "{" + membersString + "}");
+                    plannerRepl.printKeyValue("members", "{" + membersString + "}");
                 }
                 plannerRepl.println();
             }
@@ -492,10 +493,10 @@ public class Commands {
      * Restart execution. All entity names remain stable.
      */
     @AutoService(Command.class)
-    public static class RestartCommand implements Command<Event> {
+    public static class RestartCommand implements Command<PlannerEvent> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final Event event,
+                                      @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
             plannerRepl.restartState();
             plannerRepl.addInternalBreakPoint(new PlannerRepl.CountingTautologyBreakPoint(1));
@@ -521,10 +522,10 @@ public class Commands {
      * {@code show <entityname>} where entity name is {@code exp<id>, ref<id>, or qun<id>}.
      */
     @AutoService(Command.class)
-    public static class ShowCommand implements Command<Event> {
+    public static class ShowCommand implements Command<PlannerEvent> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final Event event,
+                                      @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
             final List<String> words = parsedLine.words();
             if (words.size() < 2) {
@@ -538,8 +539,8 @@ public class Commands {
                     reference -> reference.show(true),
                     quantifier -> plannerRepl.printlnError("show is not supported for quantifiers."));
             if (!identifiersProcessed) {
-                if (event instanceof EventWithState) {
-                    final EventWithState eventWithState = (EventWithState)event;
+                if (plannerEvent instanceof PlannerEventWithState) {
+                    final PlannerEventWithState eventWithState = (PlannerEventWithState)plannerEvent;
                     final Reference rootReference = eventWithState.getRootReference();
                     if ("GRAPH".equals(word1)) {
                         PlannerGraphVisitor.show(PlannerGraphVisitor.EMPTY_FLAGS, rootReference);
@@ -591,16 +592,16 @@ public class Commands {
      */
     @AutoService(Command.class)
     @SuppressWarnings("PMD.ForLoopCanBeForeach") // false positive due to the descending iteration
-    public static class TasksCommand implements Command<Event> {
+    public static class TasksCommand implements Command<PlannerEvent> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final Event event,
+                                      @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
-            if (event instanceof EventWithState) {
-                final Deque<CascadesPlanner.Task> taskStack = ((Debugger.EventWithState)event).getTaskStack();
+            if (plannerEvent instanceof PlannerEventWithState) {
+                final Deque<CascadesPlanner.Task> taskStack = ((PlannerEventWithState)plannerEvent).getTaskStack();
                 for (final Iterator<CascadesPlanner.Task> iterator = taskStack.descendingIterator(); iterator.hasNext();) {
                     final CascadesPlanner.Task task = iterator.next();
-                    final Event e = task.toTaskEvent(Location.ANY);
+                    final PlannerEvent e = task.toTaskEvent(Location.ANY);
 
                     plannerRepl.print("     ");
 
@@ -633,10 +634,10 @@ public class Commands {
      * {@code step [<number>]} continue execution for the next number of steps.
      */
     @AutoService(Command.class)
-    public static class StepCommand implements Command<Event> {
+    public static class StepCommand implements Command<PlannerEvent> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final Event event,
+                                      @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
             final List<String> words = parsedLine.words();
             final int steps;
@@ -675,14 +676,14 @@ public class Commands {
 
     /**
      * Continue execution until the next
-     * {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Shorthand#INITPHASE} of the desired
+     * {@link com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Shorthand#INITPHASE} of the desired
      * planner phase occurs.
      */
     @AutoService(Command.class)
-    public static class PhaseCommand implements Command<Event> {
+    public static class PhaseCommand implements Command<PlannerEvent> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final Event event,
+                                      @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
             final List<String> words = parsedLine.words();
             final PlannerPhase plannerPhase;
@@ -719,17 +720,17 @@ public class Commands {
      * List out all quantifiers.
      */
     @AutoService(Command.class)
-    public static class QunsCommand implements Command<Event> {
+    public static class QunsCommand implements Command<PlannerEvent> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final Event event,
+                                      @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
-            final List<Integer> ids = Lists.newArrayList(state.getQuantifierCache().asMap().keySet());
+            final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
+            final List<Integer> ids = Lists.newArrayList(registeredEntities.getQuantifierCache().asMap().keySet());
             Collections.sort(ids);
             for (Integer id : ids) {
                 plannerRepl.printKeyValue("id", "qun" + id + "; ");
-                @Nullable final Quantifier quantifier = state.getQuantifierCache().getIfPresent(id);
+                @Nullable final Quantifier quantifier = registeredEntities.getQuantifierCache().getIfPresent(id);
                 if (quantifier != null) {
                     plannerRepl.printKeyValue("kind", quantifier.getShorthand() + "; ");
                     plannerRepl.printKeyValue("alias", quantifier.getAlias() + "; ");
@@ -759,10 +760,10 @@ public class Commands {
     @AutoService(Command.class)
     @SpotBugsSuppressWarnings("DM_EXIT")
     @SuppressWarnings("PMD.DoNotTerminateVM")
-    public static class QuitCommand implements Command<Event> {
+    public static class QuitCommand implements Command<PlannerEvent> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final Event event,
+                                      @Nonnull final PlannerEvent plannerEvent,
                                       @Nonnull final ParsedLine parsedLine) {
             plannerRepl.printlnHighlighted("I hope you found the problem.");
             if (plannerRepl.shouldExitOnQuit()) {

@@ -309,7 +309,7 @@ public class SemanticAnalyzer {
         final var forEachOperators = operators.forEachOnly();
         // Case 1: no qualifier, e.g. SELECT * FROM T, R;
         if (optionalQualifier.isEmpty()) {
-            final var expansion = forEachOperators.getExpressions().nonEphemeral();
+            final var expansion = forEachOperators.getExpressions().nonEphemeralVisible();
             return Star.overQuantifiers(Optional.empty(), Streams.stream(forEachOperators).map(LogicalOperator::getQuantifier)
                     .map(Quantifier::getFlowedObjectValue).collect(ImmutableList.toImmutableList()), "unknown", expansion);
         }
@@ -320,7 +320,7 @@ public class SemanticAnalyzer {
                 .findFirst();
         if (logicalTableMaybe.isPresent()) {
             return Star.overQuantifier(optionalQualifier, logicalTableMaybe.get().getQuantifier().getFlowedObjectValue(),
-                    qualifier.getName(), logicalTableMaybe.get().getOutput().nonEphemeral());
+                    qualifier.getName(), logicalTableMaybe.get().getOutput().nonEphemeralVisible());
         }
         // Case 2.1: represents a rare case where a logical operator contains a mix of columns that are qualified
         // differently.
@@ -338,7 +338,7 @@ public class SemanticAnalyzer {
         final var expression = resolveIdentifier(qualifier, forEachOperators);
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.STRUCT, ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "attempt to expand non-struct column %s", qualifier));
-        final var expressions = expandStructExpression(expression).nonEphemeral();
+        final var expressions = expandStructExpression(expression).nonEphemeralVisible();
         return Star.overQuantifier(optionalQualifier, expression.getUnderlying(), qualifier.getName(), expressions);
     }
 
@@ -413,7 +413,11 @@ public class SemanticAnalyzer {
                 if (attributeIdentifier.equals(referenceIdentifier)) {
                     matchedAttributes.add(attribute);
                     continue;
-                } else if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
+                }
+                if (!referenceIdentifier.isQualified() && !attribute.isVisible()) {
+                    continue;
+                }
+                if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
                     matchedAttributes.add(attribute);
                     continue;
                 }

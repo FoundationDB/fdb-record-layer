@@ -34,21 +34,20 @@ test_block:
     # Simple Two-Table Join
     -
       - query: SELECT fname, lname
-              FROM emp, dept
-              WHERE emp.dept_id = dept.id
+              FROM emp INNER JOIN dept
+              ON emp.dept_id = dept.id
                 AND dept.name = 'Engineering'
-      - supported_version: 4.3.2.0
+      - supported_version: !current_version
       - unorderedResult: [{fname: "Jack", lname: "Williams"},
                           {fname: "Thomas", lname: "Johnson"},
                           {fname: "Emily", lname: "Martinez"}]
 
-    # Three-Way Join
+    # Consecutive Join
     -
       - query: SELECT dept.name, project.name
-              FROM emp, dept, project
-              WHERE emp.dept_id = dept.id
-                AND project.emp_id = emp.id
-      - supported_version: 4.3.2.0
+              FROM emp INNER JOIN dept ON emp.dept_id = dept.id
+              INNER JOIN project ON project.emp_id = emp.id
+      - supported_version: !current_version
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -60,10 +59,10 @@ test_block:
                   SELECT fname, lname, dept_id
                   FROM emp
                   WHERE EXISTS (SELECT * FROM project WHERE emp_id = emp.id)
-              ) AS sq, dept
-              WHERE sq.dept_id = dept.id
+              ) AS sq INNER JOIN dept
+              ON sq.dept_id = dept.id
                 AND dept.name = 'Sales'
-      - supported_version: 4.3.2.0
+      - supported_version: !current_version
       - unorderedResult: [{fname: "Daniel", lname: "Miller"}]
 
     # Nested Joins
@@ -71,11 +70,11 @@ test_block:
       - query: SELECT sq.name, project.name
               FROM (
                   SELECT dept.name, emp.id
-                  FROM emp, dept
-                  WHERE emp.dept_id = dept.id
-              ) AS sq, project
-              WHERE project.emp_id = sq.id
-      - supported_version: 4.3.2.0
+                  FROM emp INNER JOIN dept
+                  ON emp.dept_id = dept.id
+              ) AS sq INNER JOIN project
+              ON project.emp_id = sq.id
+      - supported_version: !current_version
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]

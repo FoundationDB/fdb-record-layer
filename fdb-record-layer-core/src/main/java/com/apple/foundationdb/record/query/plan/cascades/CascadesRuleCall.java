@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,10 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InsertIntoMemoEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.InsertIntoMemoPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
+import com.apple.foundationdb.record.query.plan.cascades.events.TransformRuleCallPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -183,12 +185,11 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     }
 
     @Override
-    public void emitEvent(@Nonnull final Debugger.Location location) {
-        Verify.verify(location != Debugger.Location.BEGIN && location != Debugger.Location.END);
-        Debugger.withDebugger(debugger ->
-                debugger.onEvent(
-                        new Debugger.TransformRuleCallEvent(plannerPhase, root, taskStack, location, root,
-                                bindings.get(rule.getMatcher()), rule, this)));
+    public void emitEvent(@Nonnull final Location location) {
+        Verify.verify(location != Location.BEGIN && location != Location.END);
+        PlannerEventListeners.dispatchEvent(() ->
+                new TransformRuleCallPlannerEvent(plannerPhase, root, taskStack, location, root,
+                        bindings.get(rule.getMatcher()), rule, this));
     }
 
     @Override
@@ -295,7 +296,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     @Nonnull
     private Reference addNewReference(@Nonnull final Reference newRef) {
         for (RelationalExpression expression : newRef.getAllMemberExpressions()) {
-            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.newExp(expression)));
+            PlannerEventListeners.dispatchEvent(() -> InsertIntoMemoPlannerEvent.newExp(expression));
             traversal.addExpression(newRef, expression);
         }
         newReferences.add(newRef);
@@ -352,7 +353,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
         // least one variation) or it will be a new reference, but that reference must be missing at least
         // one child from the first variation and therefore cannot be reused
         //
-        Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.begin()));
+        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::begin);
         try {
             Preconditions.checkArgument(expressions.stream().noneMatch(expression -> expression instanceof RecordQueryPlan));
 
@@ -411,9 +412,9 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             // If we found such a reference, re-use it
             if (!existingRefs.isEmpty()) {
                 Reference existingReference = existingRefs.get(0);
-                expressions.forEach(expr ->
-                        Debugger.withDebugger(debugger ->
-                                debugger.onEvent(InsertIntoMemoEvent.reusedExpWithReferences(expr, existingRefs))));
+                PlannerEventListeners.withListeners(() ->
+                        expressions.forEach(expr ->
+                            PlannerEventListeners.dispatchEvent(() -> InsertIntoMemoPlannerEvent.reusedExpWithReferences(expr, existingRefs))));
                 Verify.verify(existingReference != this.root);
                 return existingReference;
             }
@@ -421,7 +422,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             // If we didn't find one, create a new reference and add it to the memo
             return addNewReference(Reference.ofExploratoryExpressions(plannerPhase.getTargetPlannerStage(), expressions));
         } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
+            PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::end);
         }
     }
 
@@ -436,7 +437,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
 
     @Nonnull
     private Reference memoizeLeafExpressions(@Nonnull final Collection<? extends RelationalExpression> expressions) {
-        Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.begin()));
+        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::begin);
         try {
             Preconditions.checkArgument(expressions.stream()
                     .allMatch(expression -> !(expression instanceof RecordQueryPlan) && expression.getQuantifiers().isEmpty()));
@@ -449,16 +450,16 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                     continue;
                 }
                 if (leafRef.containsAllInMemo(expressions, AliasMap.emptyMap(), false)) {
-                    for (RelationalExpression expression : expressions) {
-                        Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.reusedExp(expression)));
-                    }
+                    PlannerEventListeners.withListeners(() ->
+                            expressions.forEach(expression ->
+                                PlannerEventListeners.dispatchEvent(() -> InsertIntoMemoPlannerEvent.reusedExp(expression))));
                     return leafRef;
                 }
             }
 
             return addNewReference(Reference.ofExploratoryExpressions(plannerPhase.getTargetPlannerStage(), expressions));
         } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
+            PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::end);
         }
     }
 
@@ -534,15 +535,15 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                                                 @Nonnull BiFunction<Set<? extends RelationalExpression>, Set<? extends RelationalExpression>, Reference> referenceCreator) {
         final var allExpressions =
                 Iterables.concat(exploratoryExpressions, finalExpressions);
-        Debugger.withDebugger(debugger -> allExpressions.forEach(
-                expression -> debugger.onEvent(InsertIntoMemoEvent.begin())));
+        PlannerEventListeners.withListeners(() ->
+                allExpressions.forEach(expression -> PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::begin)));
         try {
             final var exploratoryExpressionSet = new LinkedIdentitySet<>(exploratoryExpressions);
             final var finalExpressionSet = new LinkedIdentitySet<>(finalExpressions);
             return addNewReference(referenceCreator.apply(exploratoryExpressionSet, finalExpressionSet));
         } finally {
-            Debugger.withDebugger(debugger -> allExpressions.forEach(
-                    expression -> debugger.onEvent(InsertIntoMemoEvent.end())));
+            PlannerEventListeners.withListeners(() ->
+                    allExpressions.forEach(expression -> PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::end)));
         }
     }
 

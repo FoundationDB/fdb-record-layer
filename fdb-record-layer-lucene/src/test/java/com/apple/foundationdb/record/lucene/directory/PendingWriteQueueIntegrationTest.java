@@ -44,10 +44,12 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -59,8 +61,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
@@ -751,6 +755,137 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
             assertTrue(mergeRequired == null || mergeRequired.isEmpty());
 
             commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testConcurrentMixedOperations(boolean withMerge) {
+        // Test concurrent INSERT/UPDATE/DELETE operations from multiple threads while in pending queue mode
+        // Note - if multiple partitions mode is enabled, concurrently attempting to adjust the documents count will cause
+        // commit conflicts. This is "not worse" than what happens without an ongoing merge.
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Setup: Create initial records before queue mode
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            for (long i = 1001L; i <= 1010L; i++) {
+                recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(i, "original " + i, 1));
+            }
+            commit(context);
+        }
+
+        // Enable pending queue mode
+        setOngoingMergeIndicator(schemaSetup, index, null, null);
+
+        // Concurrent operations from multiple threads
+        final int numThreads = 5;
+        final AtomicInteger insertCount = new AtomicInteger(0);
+        final AtomicInteger updateCount = new AtomicInteger(0);
+        final AtomicInteger deleteCount = new AtomicInteger(0);
+
+        IntStream.rangeClosed(1, numThreads).parallel().forEach(threadId -> {
+            snooze(1); // allow other threads to kick in
+            try (FDBRecordContext context = openContext()) {
+                FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+
+                long baseId = 2000L + (threadId * 100);
+
+                // INSERT new records
+                recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(baseId, "thread " + threadId + " insert 1", 1));
+                recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(baseId + 1, "thread " + threadId + " insert 2", 1));
+                insertCount.addAndGet(2);
+
+                // UPDATE existing record
+                long updateId = 1000L + threadId;
+                recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(updateId, "updated by thread " + threadId, 1));
+                updateCount.incrementAndGet();
+
+                // DELETE existing record
+                long deleteId = 1005L + threadId;
+                recordStore.deleteRecord(Tuple.from(deleteId));
+                deleteCount.incrementAndGet();
+
+                snooze(10); // increase the chances of concurrency
+                commit(context);
+            }
+            if (threadId == 2 && withMerge) {
+                mergeIndexNow(schemaSetup, index);
+            }
+        });
+
+        // Verify operation counts
+        assertEquals(10, insertCount.get());  // 5 threads * 2 inserts
+        assertEquals(5, updateCount.get());   // 5 threads * 1 update (DELETE+INSERT in queue)
+        assertEquals(5, deleteCount.get());   // 5 threads * 1 delete
+
+        // Verify queue contains all operations
+        // Expected: 10 INSERTs (new) + 5*2 (UPDATE=DELETE+INSERT) + 5 DELETEs = 25 operations
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+            FDBDirectory directory = directoryManager.getDirectory(null, null);
+
+            PendingWriteQueue queue = directory.createPendingWritesQueue();
+            List<PendingWriteQueue.QueueEntry> entries = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null)
+                    .asList().join();
+
+            // Count operation types
+            long insertOps = entries.stream()
+                    .filter(e -> e.getOperationType() == LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT)
+                    .count();
+            long deleteOps = entries.stream()
+                    .filter(e -> e.getOperationType() == LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE)
+                    .count();
+
+            if (withMerge) {
+                assertFalse(directory.shouldUseQueue(), "Queue mode should have been cleared by the merge");
+                assertEquals(0, insertOps);
+                assertEquals(0, deleteOps);
+                assertEquals(0, entries.size());
+            } else {
+                assertTrue(directory.shouldUseQueue(), "Queue mode should still be active");
+                assertEquals(15, insertOps);  // 10 new inserts + 5 updates (each is DELETE+INSERT)
+                assertEquals(10, deleteOps);  // 5 updates + 5 deletes
+                assertEquals(25, entries.size()); // 10 INSERTS, 5 UPDATES (double entries), 5 DELETES
+            }
+            commit(context);
+        }
+
+        // Verify documents are queryable (considering updates and deletes)
+        Set<Long> expectedDocIds = new HashSet<>();
+        // Original records 1001-1010, minus deleted ones (1006-1010), plus thread inserts (2100, 2101, 2200, 2201, ...)
+        for (long i = 1001L; i <= 1005L; i++) {
+            expectedDocIds.add(i);
+        }
+        for (int threadId = 1; threadId <= numThreads; threadId++) {
+            long baseId = 2000L + (threadId * 100);
+            expectedDocIds.add(baseId);
+            expectedDocIds.add(baseId + 1);
+        }
+        verifyExpectedDocIds(schemaSetup, index, expectedDocIds);
+
+        // Drain queue via merge
+        mergeIndexNow(schemaSetup, index);
+
+        // Verify queue cleared and final state correct
+        verifyClearedQueueAndIndicator(schemaSetup, index, null, null);
+        verifyExpectedDocIds(schemaSetup, index, expectedDocIds);
+    }
+
+    protected static void snooze(int millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();  //set the flag back to true
+            throw new RuntimeException(e);
         }
     }
 

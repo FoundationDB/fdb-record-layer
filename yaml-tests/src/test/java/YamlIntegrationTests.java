@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -190,6 +190,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void joinTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("join-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void joinRowVersionTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("join-tests-row-version.yamsql");
     }
 
     @TestTemplate
@@ -407,5 +412,10 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void viewsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("views.yamsql");
+    }
+
+    @TestTemplate
+    public void simpleQueryWithDifferentDebuggersTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("simple-query-with-different-debuggers.yamsql");
     }
 }
