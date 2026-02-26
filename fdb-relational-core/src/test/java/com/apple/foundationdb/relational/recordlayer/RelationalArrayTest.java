@@ -55,30 +55,34 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RelationalArrayTest {
+
+    // "enumeration_null enumeration array, enumeration_not_null enumeration array not null, " +
+    private static final String SCHEMA_TEMPLATE =
+            """
+            CREATE TYPE AS STRUCT STRUCTURE(a integer, b string)
+            CREATE TYPE as enum enumeration('a', 'b')
+            CREATE TABLE T(
+                pk integer,
+                boolean_null boolean array, boolean_not_null boolean array not null,
+                integer_null integer array, integer_not_null integer array not null,
+                bigint_null bigint array, bigint_not_null bigint array not null,
+                float_null float array, float_not_null float array not null,
+                double_null double array, double_not_null double array not null,
+                string_null string array, string_not_null string array not null,
+                bytes_null bytes array, bytes_not_null bytes array not null,
+                struct_null structure array, struct_not_null structure array not null,
+                uuid_null uuid array, uuid_not_null uuid array not null,
+                primary key(pk))
+            CREATE TABLE B(pk integer, uuid_null uuid array, primary key(pk))
+            """;
+
     @RegisterExtension
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(RelationalArrayTest.class, SCHEMA);
-
-    private static final String SCHEMA = "CREATE TYPE AS STRUCT STRUCTURE(a integer, b string) " +
-            "CREATE TYPE as enum enumeration('a', 'b') " +
-            "CREATE TABLE T(" +
-            "pk integer, " +
-            "boolean_null boolean array, boolean_not_null boolean array not null, " +
-            "integer_null integer array, integer_not_null integer array not null, " +
-            "bigint_null bigint array, bigint_not_null bigint array not null, " +
-            "float_null float array, float_not_null float array not null, " +
-            "double_null double array, double_not_null double array not null, " +
-            "string_null string array, string_not_null string array not null, " +
-            "bytes_null bytes array, bytes_not_null bytes array not null, " +
-            "struct_null structure array, struct_not_null structure array not null, " +
-            "uuid_null uuid array, uuid_not_null uuid array not null, " +
-            // "enumeration_null enumeration array, enumeration_not_null enumeration array not null, " +
-            "primary key(pk)) " +
-            "CREATE TABLE B(pk integer, uuid_null uuid array, primary key(pk))";
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(RelationalArrayTest.class, SCHEMA_TEMPLATE);
 
     public void insertQuery(@Nonnull String q) throws SQLException {
         try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {

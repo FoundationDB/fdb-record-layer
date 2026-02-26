@@ -34,16 +34,18 @@ import javax.annotation.Nonnull;
 
 public class SqlFunctionsTest {
     @Nonnull
-    private static final String SCHEMA_TEMPLATE = " " +
-            "create table t1(col1 bigint, col2 string, col3 integer, primary key(col1))\n" +
-            "create function f1 ( in a bigint, in b string )\n" +
-            "as select col1, col2 from t1 where col1 < a and col2 = b\n" +
-            "create function f2 ( in k bigint )\n" +
-            "as select col1, col2 from f1(102, 'b')\n" +
-            "create function f3 (in x bigint, in y string)\n" +
-            "as select a.col1 as col1a, a.col2 as col2a, b.col1 as col1b, b.col2 as col2b from f2(x) as a, f1(x, y) as b\n" +
-            "create function f4 (in x bigint, in y string)\n" +
-            "as select col1a + col1b as s, col2a, col2b from f3(x, y)\n";
+    private static final String SCHEMA_TEMPLATE =
+            """
+            create table t1(col1 bigint, col2 string, col3 integer, primary key(col1))
+            create function f1 ( in a bigint, in b string )
+              as select col1, col2 from t1 where col1 < a and col2 = b
+            create function f2 ( in k bigint )
+              as select col1, col2 from f1 (102, 'b')
+            create function f3 (in x bigint, in y string)
+              as select a.col1 as col1a, a.col2 as col2a, b.col1 as col1b, b.col2 as col2b from f2(x) as a, f1(x, y) as b
+            create function f4 (in x bigint, in y string)
+              as select col1a + col1b as s, col2a, col2b from f3(x, y)
+            """;
 
     @RegisterExtension
     @Order(0)
