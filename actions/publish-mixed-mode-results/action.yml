@@ -5,7 +5,7 @@ runs:
   steps:
   - name: Generate markdown
     shell: bash
-    run: python3 build/publish-mixed-mode-results.py --results-path "mixed-mode-*-test-reports/overall.txt" --output mixed-mode-results.md $(python build/versionutils.py gradle.properties)
+    run: python3 build/publish-mixed-mode-results.py --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} --results-path "mixed-mode-*-test-reports/overall.txt" --output mixed-mode-results.md
   - name: Preview mixed-mode results
     shell: bash
     run: cat mixed-mode-results.md >> $GITHUB_STEP_SUMMARY
