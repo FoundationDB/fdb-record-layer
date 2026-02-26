@@ -119,6 +119,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
     private final RelationalKeyspaceProvider.RelationalSchemaPath catalogSchemaPath;
 
     private final RecordMetaDataProvider catalogRecordMetaDataProvider;
+    private final KeySpace keySpace;
 
     private SchemaTemplateCatalog schemaTemplateCatalog;
 
@@ -128,6 +129,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
 
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Hard to remove exception with current inheritance")
     RecordLayerStoreCatalog(@Nonnull final KeySpace keySpace) throws RelationalException {
+        this.keySpace = keySpace;
         this.catalogSchemaPath = RelationalKeyspaceProvider.toDatabasePath(DASH_DASH_SYS, keySpace)
                 .schemaPath(RelationalKeyspaceProvider.CATALOG);
         final var schemaBuilder = RecordLayerSchemaTemplate.newBuilder();
@@ -366,6 +368,12 @@ class RecordLayerStoreCatalog implements StoreCatalog {
             throw ExceptionUtil.toRelationalException(rce);
         }
         return true;
+    }
+
+    @Nonnull
+    @Override
+    public KeySpace getKeySpace() throws RelationalException {
+        return keySpace;
     }
 
     // delete schemas for the matching dbUri.

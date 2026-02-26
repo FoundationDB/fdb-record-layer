@@ -102,7 +102,7 @@ public class BackingLocatableResolverStoreTest {
         path = keySpace.path("test")
                 .add("test_id", UUID.randomUUID());
 
-        catalog = new InMemoryCatalog();
+        catalog = new InMemoryCatalog(keySpace);
         dbPath = URI.create("blah/blah");
         try (Transaction transaction = createTransaction()) {
             SchemaTemplate template = LocatableResolverMetaDataProvider.getSchemaTemplate();
