@@ -144,8 +144,9 @@ public class SplitHelper {
             writeSplitRecord(context, subspace, key, serialized, splitKeyHelper, clearBasedOnPreviousSizeInfo, previousSizeInfo, sizeInfo);
         } else {
             if (splitKeyHelper.shouldClearBeforeWrite() && (splitLongRecords || previousSizeInfo == null || previousSizeInfo.isVersionedInline())) {
-                // Note that the clearPreviousSplitRecords also removes previous entries from cache, and in the case
-                // of !shouldClearBeforeWrite this is OK since the new cached version will be replaced by this one
+                // Note that the clearPreviousSplitRecords also removes version splits from the context cache
+                // We can skip this for the shouldClearBeforeWrite==false case since we don't have a version split either
+                // TODO: Do we need to clear the cache for the in-transaction keyWithValues with the same local version?
                 clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
             }
             final Tuple recordKey;
@@ -206,6 +207,7 @@ public class SplitHelper {
             return;
         }
         if (!splitKeyHelper.supportsVersionInValue()) {
+            // Cannot write version in the k/v value since it is not supported by this helper (e.g. version is needed in the key)
             throw new RecordCoreInternalException("Split version is not supported for this helper");
         }
         final byte[] keyBytes = splitKeyHelper.packSplitKey(subspace, key.add(RECORD_VERSION));

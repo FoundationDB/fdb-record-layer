@@ -51,6 +51,7 @@ public class VersioningSplitKeyValueHelper implements SplitKeyValueHelper {
      * Since the key has a unique component (version), no conflicts are expected, so no need to clean before saving new splits.
      * Furthermore, since the key contains a version stamp, we don't know the actual key contents ahead of committing
      * the transaction, and so no clean can be done.
+     * TODO: We may need to clear the local transaction version mutation cache
      * @return false, as new keys should not interfere with old ones.
      */
     @Override

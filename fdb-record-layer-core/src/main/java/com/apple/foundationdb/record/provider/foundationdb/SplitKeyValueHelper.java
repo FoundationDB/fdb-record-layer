@@ -30,14 +30,14 @@ public interface SplitKeyValueHelper {
     /**
      * Whether the {@link SplitHelper} should clear older entries before writing new ones.
      * In the cases where old splits may exist and overlap with the new entries, the SplitHelper should clear the
-     * subspace before writing any new splits. THis method is used to determine whether this is necessary.
+     * subspace before writing any new splits. This method is used to determine whether this is necessary.
      * @return TRUE if the SplitHelper should clear the subspace before writing new splits.
      */
     boolean shouldClearBeforeWrite();
 
     /**
      * Whether the helper allows version mutation in the values.
-     * There are cases where the value cannot have version mutation, for example, when the needs to have one.
+     * There are cases where the value cannot have version mutation, for example, when the key needs to have one.
      * @return true if version mutations are allowed for the value of the k/v pair, false if not
      */
     boolean supportsVersionInValue();

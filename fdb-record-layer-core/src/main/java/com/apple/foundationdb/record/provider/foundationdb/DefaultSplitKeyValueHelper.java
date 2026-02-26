@@ -42,7 +42,7 @@ public class DefaultSplitKeyValueHelper implements SplitKeyValueHelper {
 
     /**
      * Value can mutate version stamp with this helper.
-     * @return true if the SplitHelper should mutate a version in the value
+     * @return true since the SplitHelper should mutate a version in the value
      */
     @Override
     public boolean supportsVersionInValue() {
