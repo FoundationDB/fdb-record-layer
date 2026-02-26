@@ -262,7 +262,7 @@ class StorageAdapter {
 
     @Nonnull
     static Tuple valueTupleFromClusterMetadata(@Nonnull final ClusterMetadata clusterMetadata) {
-        return Tuple.from(clusterMetadata.getId(), clusterMetadata.getNumVectors(), clusterMetadata.getState().getCode());
+        return Tuple.from(clusterMetadata.getId(), clusterMetadata.getNumVectors(), clusterMetadata.getStatesCode());
     }
 
     @Nonnull

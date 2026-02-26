@@ -266,7 +266,7 @@ public class Insert {
                                 final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.getClusterMetadata();
                                 final ClusterMetadata newClusterMetadata;
                                 final UUID clusterId = clusterMetadata.getId();
-                                if (clusterMetadata.getState() == ClusterMetadata.State.ACTIVE &&
+                                if (!clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE) && // not already splitting
                                         clusterMetadata.getNumVectors() >= config.getClusterMax()) {
                                     // create a split/merge task
                                     primitives.writeDeferredTask(transaction,
@@ -274,12 +274,11 @@ public class Insert {
                                                     clusterId, clusterMetadataWithDistance.getCentroid()));
 
                                     newClusterMetadata =
-                                            clusterMetadata.withAdditionalVectors(ClusterMetadata.State.SPLIT_MERGE,
-                                                    1);
+                                            clusterMetadata.withNewStateAndAdditionalVectors(
+                                                    ClusterMetadata.State.SPLIT_MERGE, 1);
                                 } else {
                                     newClusterMetadata =
-                                            clusterMetadata.withAdditionalVectors(clusterMetadata.getState(),
-                                                    1);
+                                            clusterMetadata.withAdditionalVectors(1);
                                 }
 
                                 primitives.writeVectorReference(transaction, quantizer, clusterId,

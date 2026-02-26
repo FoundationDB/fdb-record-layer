@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.guardiann;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -32,16 +33,16 @@ class ClusterMetadata {
     private final UUID id;
     private final int numVectors;
     @Nonnull
-    private final State state;
+    private final EnumSet<State> states;
 
     public ClusterMetadata(@Nonnull final UUID id, final int numVectors, final int stateCode) {
         this(id, numVectors, State.ofCode(stateCode));
     }
 
-    public ClusterMetadata(@Nonnull final UUID id, final int numVectors, @Nonnull final State state) {
+    public ClusterMetadata(@Nonnull final UUID id, final int numVectors, @Nonnull final EnumSet<State> states) {
         this.id = id;
         this.numVectors = numVectors;
-        this.state = state;
+        this.states = states;
     }
 
     @Nonnull
@@ -54,13 +55,28 @@ class ClusterMetadata {
     }
 
     @Nonnull
-    public State getState() {
-        return state;
+    public EnumSet<State> getStates() {
+        return states;
+    }
+
+    public int getStatesCode() {
+        int result = 0;
+        for (final State state : getStates()) {
+            result |= state.getCode();
+        }
+        return result;
     }
 
     @Nonnull
-    public ClusterMetadata withAdditionalVectors(@Nonnull final State state, final int numVectorsAdded) {
-        return new ClusterMetadata(getId(), getNumVectors() + numVectorsAdded, state);
+    public ClusterMetadata withAdditionalVectors(final int numVectorsAdded) {
+        return new ClusterMetadata(getId(), getNumVectors() + numVectorsAdded, EnumSet.copyOf(getStates()));
+    }
+
+    @Nonnull
+    public ClusterMetadata withNewStateAndAdditionalVectors(@Nonnull final State additionalState, final int numVectorsAdded) {
+        final EnumSet<State> newStates = EnumSet.copyOf(getStates());
+        newStates.add(additionalState);
+        return new ClusterMetadata(getId(), getNumVectors() + numVectorsAdded, newStates);
     }
 
     @Override
@@ -71,17 +87,17 @@ class ClusterMetadata {
         final ClusterMetadata cluster = (ClusterMetadata)o;
         return Objects.equals(getId(), cluster.getId()) &&
                 getNumVectors() == cluster.getNumVectors() &&
-                getState() == cluster.getState();
+                getStates().equals(cluster.getStates());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getId(), getNumVectors(), getState().name());
+        return Objects.hash(getId(), getNumVectors(), getStatesCode());
     }
 
     public enum State {
-        ACTIVE(0),
-        SPLIT_MERGE(1);
+        SPLIT_MERGE(1),
+        REASSIGN(2);
 
         private static final Map<Integer, State> BY_CODE =
                 Arrays.stream(values())
@@ -97,8 +113,16 @@ class ClusterMetadata {
             return code;
         }
 
-        public static State ofCode(final int code) {
-            return Objects.requireNonNull(BY_CODE.getOrDefault(code, null));
+        public static EnumSet<State> ofCode(final int code) {
+            final EnumSet<State> resultSet = EnumSet.noneOf(State.class);
+            for (int i = 0; i < 32; i++) {
+                if ((code & (1 << i)) != 0) {
+                    final State lookup = BY_CODE.getOrDefault(code, null);
+                    Objects.requireNonNull(lookup, "unable to look up state");
+                    resultSet.add(lookup);
+                }
+            }
+            return resultSet;
         }
     }
 }

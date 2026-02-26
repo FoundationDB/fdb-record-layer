@@ -44,6 +44,7 @@ import com.google.common.collect.Maps;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -102,15 +103,17 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
         return primitives.fetchClusterMetadata(transaction, getClusterId())
                 .thenCompose(clusterMetadata -> {
-                    if (clusterMetadata == null || clusterMetadata.getState() != ClusterMetadata.State.SPLIT_MERGE) {
+                    if (clusterMetadata == null || !clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE)) {
                         return AsyncUtil.DONE;
                     }
 
                     if (clusterMetadata.getNumVectors() >= config.getClusterMin() ||
                             clusterMetadata.getNumVectors() <= config.getClusterMax()) {
                         // false alarm
+                        final EnumSet<ClusterMetadata.State> newStates = EnumSet.copyOf(clusterMetadata.getStates());
+                        newStates.remove(ClusterMetadata.State.SPLIT_MERGE);
                         primitives.writeClusterMetadata(transaction, new ClusterMetadata(clusterMetadata.getId(),
-                                clusterMetadata.getNumVectors(), ClusterMetadata.State.ACTIVE));
+                                clusterMetadata.getNumVectors(), newStates));
                         return AsyncUtil.DONE;
                     }
 
@@ -142,10 +145,6 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final int numInnerNeighborhood = 3;
         final int numOuterNeighborhood = 3;
 
-        final CompletableFuture<List<ClusterMetadataWithDistance>> neighborhoodClusterMetadataFuture =
-                fetchNeighborhoodClusterMetadata(transaction, targetClusterCentroid, storageTransform,
-                        numInnerNeighborhood + numOuterNeighborhood);
-
         final CompletableFuture<NeighborhoodsResult> separatedNeighborhoodsFuture =
                 separateNeighborhoods(transaction, storageTransform, targetClusterMetadata, targetClusterCentroid,
                         numInnerNeighborhood, numOuterNeighborhood);
@@ -162,8 +161,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
             return fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
                     .thenCompose(innerClusters -> cleanUpVectorReferences(transaction, innerClusters))
                     .thenApply(cleanedUpVectorReferences ->
-                            assignVectorReferences(random, estimator, innerNeighborhood,
-                                    outerNeighborhood, cleanedUpVectorReferences, innerNeighborhood.size() - 1))
+                            assignVectorReferences(random, estimator, outerNeighborhood, cleanedUpVectorReferences,
+                                    innerNeighborhood.size() - 1))
                     .thenAccept(assignmentResult ->
                             updateAssignments(transaction, innerNeighborhood, assignmentResult, quantizer));
         });
@@ -243,8 +242,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
             return fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
                     .thenCompose(innerClusters -> cleanUpVectorReferences(transaction, innerClusters))
                     .thenApply(cleanedUpVectorReferences ->
-                            assignVectorReferences(random, estimator, innerNeighborhood,
-                                    outerNeighborhood, cleanedUpVectorReferences,
+                            assignVectorReferences(random, estimator, outerNeighborhood, cleanedUpVectorReferences,
                                     innerNeighborhood.size() + 1))
                     .thenAccept(assignmentResult ->
                             updateAssignments(transaction, innerNeighborhood, assignmentResult, quantizer));
@@ -323,7 +321,6 @@ public class SplitMergeTask extends AbstractDeferredTask {
     @Nonnull
     private AssignmentResult assignVectorReferences(@Nonnull final SplittableRandom random,
                                                     @Nonnull final Estimator estimator,
-                                                    @Nonnull final List<ClusterMetadataWithDistance> innerNeighborhood,
                                                     @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood,
                                                     @Nonnull final List<VectorReference> vectorReferences,
                                                     final int targetNumPartitions) {
@@ -357,7 +354,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                     new ClusterMetadataWithDistance(
                             new ClusterMetadata(newClusterId,
                                     0,
-                                    ClusterMetadata.State.ACTIVE),
+                                    EnumSet.noneOf(ClusterMetadata.State.class)),
                             clusterCentroids.get(i), 0.0d));
         }
         final Set<UUID> newClusterIds = newClusterIdsBuilder.build();
@@ -450,19 +447,19 @@ public class SplitMergeTask extends AbstractDeferredTask {
             if (assignmentMultiMap.containsKey(toBeWritten)) {
                 final int numVectorsAdded = assignmentMultiMap.get(toBeWritten).size();
                 final ClusterMetadata newClusterMetadata;
-                if (clusterMetadata.getNumVectors() + numVectorsAdded > config.getClusterMax()) {
+                if (!clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE) &&
+                        clusterMetadata.getNumVectors() + numVectorsAdded > config.getClusterMax()) {
                     // create a split/merge task
                     primitives.writeDeferredTask(transaction,
                             SplitMergeTask.of(getLocator(), getAccessInfo(), UUID.randomUUID(),
                                     clusterId, clusterMetadataWithDistance.getCentroid()));
 
                     newClusterMetadata =
-                            clusterMetadata.withAdditionalVectors(ClusterMetadata.State.SPLIT_MERGE,
+                            clusterMetadata.withNewStateAndAdditionalVectors(ClusterMetadata.State.SPLIT_MERGE,
                                     numVectorsAdded);
                 } else {
                     newClusterMetadata =
-                            clusterMetadata.withAdditionalVectors(ClusterMetadata.State.ACTIVE,
-                                    numVectorsAdded);
+                            clusterMetadata.withAdditionalVectors(numVectorsAdded);
                 }
 
                 primitives.writeClusterMetadata(transaction, newClusterMetadata);
