@@ -285,6 +285,7 @@ test_block:
                 where t3.c1 = 1 and t3.c2 = m.maxA2
                 order by t3.c3 desc
       # This can't be planned because it can't figure out that m has max cardinality 1 (coming from the fact that the group by columns are all equality bound by the having)
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3975
       - error: '0AF00'
     -
       - query: select t1.*
@@ -392,6 +393,7 @@ test_block:
                 order by t1.id, t2.b3
       # This should be possible to plan, as there is an equality predicate on t1.id, so we should be able to freely
       # introduce it into the ordering
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3974
       - error: '0AF00'
     -
       - query: select (t1.*), (t2.*)
@@ -400,6 +402,7 @@ test_block:
                 order by t1.a2, t2.b3
       # This should be possible to plan, as the fact that the max cardinality on the t1 quantifier should allow us to move
       # the order around as we want
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3974
       - error: '0AF00'
     -
       - query: select (t1.*), (t3.*)
@@ -445,6 +448,7 @@ test_block:
       # t3$c1_c2 index as the outer, and then we should be able to scan the t1$a1_a2 index as the inner. That
       # will give us the right order, as the index scan on t3$c1_c2 produces distinct elements. However, this
       # fails as we are unable to parlay the uniqueness constraint into a distinct ordering
+      # See: https://github.com/FoundationDB/fdb-record-layer/issues/3976
       - error: '0AF00'
 
     #
