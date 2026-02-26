@@ -116,10 +116,12 @@ public class StreamGrouping<M extends Message> {
             this.accumulator = aggregateValue.createAccumulatorWithInitialState(context.getTypeRepository(), null);
         } else {
             this.accumulator = aggregateValue.createAccumulatorWithInitialState(context.getTypeRepository(), partialAggregationResult.getAccumulatorStatesList());
-            try {
-                this.currentGroup = DynamicMessage.parseFrom(context.getTypeRepository().newMessageBuilder(groupingKeyValue.getResultType()).getDescriptorForType(), partialAggregationResult.getGroupKey().toByteArray());
-            } catch (InvalidProtocolBufferException e) {
-                throw new RuntimeException(e);
+            if (groupingKeyValue != null) {
+                try {
+                    this.currentGroup = DynamicMessage.parseFrom(context.getTypeRepository().newMessageBuilder(groupingKeyValue.getResultType()).getDescriptorForType(), partialAggregationResult.getGroupKey().toByteArray());
+                } catch (InvalidProtocolBufferException e) {
+                    throw new RuntimeException(e);
+                }
             }
         }
         this.store = store;
@@ -212,16 +214,18 @@ public class StreamGrouping<M extends Message> {
 
     @Nullable
     public RecordCursorProto.PartialAggregationResult getPartialAggregationResult() {
-        if (currentGroup == null) {
+        if (groupingKeyValue != null && currentGroup == null) {
             return null;
         }
         List<RecordCursorProto.AccumulatorState> accumulatorStates = accumulator.getAccumulatorStates();
         if (accumulatorStates.isEmpty()) {
             return null;
         }
-        return RecordCursorProto.PartialAggregationResult.newBuilder()
-                .setGroupKey(Objects.requireNonNull((Message)currentGroup).toByteString())
-                .addAllAccumulatorStates(accumulatorStates)
-                .build();
+        final RecordCursorProto.PartialAggregationResult.Builder builder = RecordCursorProto.PartialAggregationResult.newBuilder()
+                .addAllAccumulatorStates(accumulatorStates);
+        if (groupingKeyValue != null) {
+            builder.setGroupKey(Objects.requireNonNull((Message)currentGroup).toByteString());
+        }
+        return builder.build();
     }
 }
