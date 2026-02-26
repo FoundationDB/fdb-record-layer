@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -44,6 +45,7 @@ import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -74,6 +76,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for checking the validity of the "split helper" utility class that handles breaking
@@ -1355,6 +1358,37 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
             } while (continuation != null);
 
             commit(context);
+        }
+    }
+
+    /**
+     * When two saveWithSplit calls use the same incomplete versionstamp (same localVersion, same key) within
+     * one transaction, we may get a failure or data corruption. The localVersionCache (map by key) may contain
+     * previous
+     * values from an identical key (same versionstamp/localversion/PK) but different splits and may not collide
+     * directly
+     * with the previous values. This test shows the case where there is a collision since the split numbers are the
+     * same.
+     */
+    @Test
+    void saveWithSplitVersionInKeyOverwriteInTransaction() {
+        final Tuple key = Tuple.from(1066L);
+        final int localVersion;
+        try (FDBRecordContext context = openContext()) {
+            localVersion = context.claimLocalVersion();
+            // First write: VERY_LONG_STRING requires multiple splits
+            final VersioningSplitKeyValueHelper splitKeyHelper = new VersioningSplitKeyValueHelper(Versionstamp.incomplete(localVersion));
+            SplitHelper.saveWithSplit(context, subspace, key, VERY_LONG_STRING, null,
+                    true, false,
+                    splitKeyHelper,
+                    false, null, null);
+
+            // Second write: LONG_STRING — same localVersion, same key, shorter value (fewer splits)
+            final RecordCoreInternalException ex = assertThrows(RecordCoreInternalException.class, () -> SplitHelper.saveWithSplit(context, subspace, key, LONG_STRING, null,
+                    true, false,
+                    splitKeyHelper,
+                    false, null, null));
+            assertTrue(ex.getMessage().contains("Key with version overwritten"));
         }
     }
 }

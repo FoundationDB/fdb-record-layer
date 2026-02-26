@@ -38,6 +38,12 @@ import com.apple.foundationdb.tuple.Versionstamp;
  * </pre>
  * <p>which means that the entries are sorted by their insertion order (versionstamp order), then by the
  * original key, with split fragments last.</p>
+ *
+ * NOTE: Since this class uses versionstamps in the FDB Key, it does not know the actual key used until after the commit.
+ * As a result, it cannot override previous values saved within the same transaction. Split records saved using this feature
+ * are not stored in the RYW cache and attempts to write over them (using the same local version and PK) before the commit
+ * may result in corrupt data.
+ * Do not override records with another write using teh same local version and PK.
  */
 public class VersioningSplitKeyValueHelper implements SplitKeyValueHelper {
     private Versionstamp versionstamp;
@@ -51,7 +57,6 @@ public class VersioningSplitKeyValueHelper implements SplitKeyValueHelper {
      * Since the key has a unique component (version), no conflicts are expected, so no need to clean before saving new splits.
      * Furthermore, since the key contains a version stamp, we don't know the actual key contents ahead of committing
      * the transaction, and so no clean can be done.
-     * TODO: We may need to clear the local transaction version mutation cache
      * @return false, as new keys should not interfere with old ones.
      */
     @Override

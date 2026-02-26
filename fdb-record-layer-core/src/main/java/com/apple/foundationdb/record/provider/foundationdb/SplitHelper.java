@@ -145,8 +145,7 @@ public class SplitHelper {
         } else {
             if (splitKeyHelper.shouldClearBeforeWrite() && (splitLongRecords || previousSizeInfo == null || previousSizeInfo.isVersionedInline())) {
                 // Note that the clearPreviousSplitRecords also removes version splits from the context cache
-                // We can skip this for the shouldClearBeforeWrite==false case since we don't have a version split either
-                // TODO: Do we need to clear the cache for the in-transaction keyWithValues with the same local version?
+                // This is not currently supported for the case where we have versions in the keys since we can't trace the old values down
                 clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
             }
             final Tuple recordKey;
@@ -172,6 +171,8 @@ public class SplitHelper {
                                          final boolean clearBasedOnPreviousSizeInfo, @Nullable final FDBStoredSizes previousSizeInfo,
                                          @Nullable SizeInfo sizeInfo) {
         if (splitKeyHelper.shouldClearBeforeWrite()) {
+            // Note that the clearPreviousSplitRecords also removes version splits from the context cache
+            // This is not currently supported for the case where we have versions in the keys since we can't trace the old values down
             clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
         }
         long index = SplitHelper.START_SPLIT_RECORD;
