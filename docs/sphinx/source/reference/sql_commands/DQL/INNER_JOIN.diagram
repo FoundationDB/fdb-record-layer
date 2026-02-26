@@ -1,0 +1,16 @@
+Diagram(
+    Terminal('INNER JOIN'),
+    NonTerminal('source'),
+    Choice(0,
+        Sequence(
+            Terminal('ON'),
+            NonTerminal('joinCondition')
+        ),
+        Sequence(
+            Terminal('USING'),
+            Terminal('('),
+            NonTerminal('column(s)'),
+            Terminal(')')
+        )
+    )
+)

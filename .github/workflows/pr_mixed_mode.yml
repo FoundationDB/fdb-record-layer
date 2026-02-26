@@ -1,0 +1,75 @@
+name: Pull Request Mixed Mode
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+
+jobs:
+  get-mixed-mode-versions:
+    # Run these jobs only when adding the label, or when updating HEAD when it already has the label
+    if: ${{ github.event.label.name == 'Run mixed-mode' || (github.event.label.name == '' && contains(github.event.pull_request.labels.*.name, 'Run mixed-mode')) }}
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.versions.outputs.versions }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Calculate versions
+        id: versions
+        uses: ./actions/list-recent-versions
+
+  mixed-mode:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    needs: get-mixed-mode-versions
+    strategy:
+      matrix:
+        version: ${{ fromJSON(needs.get-mixed-mode-versions.outputs.versions) }}
+    permissions:
+      checks: write
+      contents: read
+      pull-requests: write
+    timeout-minutes: 40
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_command: mixedModeTest
+          gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }}
+          report_name: mixed-mode-${{ matrix.version }}-test-reports
+      - name: Publish Coverage Data
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: mixed-mode-${{ matrix.version }}-coverage-data
+          path: |
+            **/.out/jacoco/*.exec
+            **/.out/libs/*.jar
+          include-hidden-files: true
+          retention-days: 1
+
+  mixed-mode-results:
+    needs: [mixed-mode]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout HEAD sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: 'Download results'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: 'mixed-mode-*-test-reports'
+      - name: Generate mixed mode results
+        uses: ./actions/publish-mixed-mode-results

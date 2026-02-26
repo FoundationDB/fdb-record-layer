@@ -42,6 +42,16 @@ runs:
            ln -s "../$d/.out/reports" "test-reports/$d"
          fi
        done
+  - name: Overall failure
+    if: ${{ failure() }}
+    shell: bash
+    run: |
+      echo "FAILURE" >> test-reports/overall.txt
+  - name: Overall success
+    if: ${{ success() }}
+    shell: bash
+    run: |
+      echo "SUCCESS" >> test-reports/overall.txt
   - name: Publish Test Reports
     if: ${{ !cancelled() }}
     uses: actions/upload-artifact@v4.6.0
@@ -65,3 +75,4 @@ runs:
             test-reports/fdb-relational-jdbc/
             test-reports/fdb-relational-server/
             test-reports/yaml-tests/
+            test-reports/overall.txt
