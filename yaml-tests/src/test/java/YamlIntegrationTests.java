@@ -198,6 +198,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void joinWithOrderByTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("join-with-order-by-tests.yamsql");
+    }
+
+    @TestTemplate
     void like(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("like.yamsql");
     }

@@ -213,11 +213,11 @@ semantic-search-queries:
         @c95}:[] BY_DISTANCE) AS q2 RETURN q2 } AS q2 RETURN (q0.REVIEWID AS REVIEWID,
         q0.RATING AS RATING, q2.DOCID AS DOCID, q2.TITLE AS TITLE) }'
     task_count: 1454
-    task_total_time_ms: 118
-    transform_count: 693
-    transform_time_ms: 56
+    task_total_time_ms: 72
+    transform_count: 694
+    transform_time_ms: 37
     transform_yield_count: 112
-    insert_time_ms: 6
+    insert_time_ms: 4
     insert_new_count: 120
     insert_reused_count: 35
 -   query: EXPLAIN select r.reviewText, d2.title from reviews r join documents d1
