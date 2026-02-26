@@ -2,7 +2,8 @@
 schema_template:
     create table t1(id bigint, parent bigint, primary key(id))
     create index parentIdx as select parent, id from t1 order by parent, id
-    create index childIdx as select id, parent from t1 order by id, parent
+    create index childIdx as select id, parent from t1 order by  id, parent
+    create index childIdxNoNulls as select id, parent from t1 where parent is not null order by  id, parent
 ---
 setup:
   steps:
@@ -28,7 +29,6 @@ setup:
 ---
 test_block:
   name: recursive-cte-tests
-  preset: single_repetition_ordered
   tests:
     -
       - query: with recursive c1 as (
@@ -422,7 +422,6 @@ test_block:
 ---
 test_block:
   name: recursive-cte-tests-with-hints
-  preset: single_repetition_ordered
   tests:
     -
       - query: with recursive c1 as (
@@ -463,4 +462,15 @@ test_block:
                  {50, 10, 1},
                  {10, 1, 2},
                  {1, -1, 3}]
+    -
+      - query: with recursive allDescendants as (
+            select *  from t1 where id = 50
+            union all
+            select c.* from allDescendants as p, t1 as c use index (childIdxNoNulls) where c.parent is not null and c.parent = p.id)
+            traversal order pre_order
+            select * from allDescendants
+      - supported_version: !current_version
+      - explain: "RUNION-DFS PREORDER q0 { ISCAN(CHILDIDX [EQUALS promote(@c13 AS LONG)]) } { RECURSIVE COVERING(CHILDIDXNONULLS <,> -> [ID: KEY:[0], PARENT: KEY:[1]]) | FILTER _.PARENT EQUALS q0.ID AND _.PARENT NOT_NULL | MAP (_.ID AS ID, _.PARENT AS PARENT) }"
+      - result: [{50, 10},
+                 {250, 50}]
 ...
