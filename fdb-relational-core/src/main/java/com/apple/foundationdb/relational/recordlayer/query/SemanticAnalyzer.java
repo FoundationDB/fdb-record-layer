@@ -392,27 +392,6 @@ public class SemanticAnalyzer {
         return Optional.of(attributes.get(0));
     }
 
-    private static Optional<Expression> lookupPseudoField(@Nonnull LogicalOperator logicalOperator,
-                                                          @Nonnull Identifier identifier,
-                                                          boolean matchQualifiedOnly) {
-        if (matchQualifiedOnly && (!identifier.isQualified() || logicalOperator.getName().isEmpty())) {
-            return Optional.empty();
-        }
-        if (matchQualifiedOnly && identifier.isQualified() && identifier.fullyQualifiedName().size() != 2) {
-            return Optional.empty();
-        }
-        if (!identifier.isQualified()) {
-            return PseudoColumn.mapToExpressionMaybe(logicalOperator, identifier.getName());
-        }
-        if (logicalOperator.getName().isEmpty()) {
-            return Optional.empty();
-        }
-        if (!identifier.prefixedWith(logicalOperator.getName().get())) {
-            return Optional.empty();
-        }
-        return PseudoColumn.mapToExpressionMaybe(logicalOperator, identifier.getName());
-    }
-
     @Nonnull
     private List<Expression> lookup(@Nonnull Identifier referenceIdentifier,
                                     @Nonnull LogicalOperators operators,
@@ -426,7 +405,6 @@ public class SemanticAnalyzer {
                 continue;
             }
             final var operatorNameMaybe = operator.getName();
-            boolean checkForPseudoColumns = true;
             for (final var attribute : operator.getOutput()) {
                 if (attribute.getName().isEmpty()) {
                     continue;
@@ -434,29 +412,21 @@ public class SemanticAnalyzer {
                 final var attributeIdentifier = attribute.getName().get();
                 if (attributeIdentifier.equals(referenceIdentifier)) {
                     matchedAttributes.add(attribute);
-                    checkForPseudoColumns = false;
                     continue;
                 } else if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
                     matchedAttributes.add(attribute);
-                    checkForPseudoColumns = false;
                     continue;
                 }
                 if (matchQualifiedOnly && operatorNameMaybe.isPresent()) {
                     if (attributeIdentifier.withQualifier(operatorNameMaybe.get().getName()).equals(referenceIdentifier)) {
                         matchedAttributes.add(attribute);
-                        checkForPseudoColumns = false;
                         continue;
                     }
                 }
                 final var nestedFieldMaybe = lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
                 if (nestedFieldMaybe.isPresent()) {
                     matchedAttributes.add(nestedFieldMaybe.get());
-                    checkForPseudoColumns = false;
                 }
-            }
-            if (checkForPseudoColumns) {
-                lookupPseudoField(operator, referenceIdentifier, matchQualifiedOnly)
-                        .ifPresent(matchedAttributes::add);
             }
         }
         return matchedAttributes.build();
@@ -1163,7 +1133,7 @@ public class SemanticAnalyzer {
     public Optional<Type> getRecursiveCteType(@Nonnull final RelationalParser.QueryContext namedQueryBody,
                                               @Nonnull final Identifier queryName,
                                               @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser,
-                                              @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                              @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
                                               @Nonnull final QueryVisitor queryVisitor) {
         final AtomicReference<Optional<Type>> result = new AtomicReference<>(Optional.empty());
         recursiveQueryTraversal(namedQueryBody, queryName, idParser,
@@ -1193,7 +1163,7 @@ public class SemanticAnalyzer {
     public NonnullPair<List<LogicalOperator>, List<LogicalOperator>> partitionRecursiveQuery(@Nonnull final RelationalParser.QueryContext namedQueryBody,
                                                                                              @Nonnull final Identifier queryName,
                                                                                              @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser,
-                                                                                             @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                                                                             @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
                                                                                              @Nonnull final QueryVisitor queryVisitor) {
         final var nonRecursiveBranchesBuilder = ImmutableList.<LogicalOperator>builder();
         final var recursiveBranchesBuilder = ImmutableList.<LogicalOperator>builder();
@@ -1294,17 +1264,17 @@ public class SemanticAnalyzer {
     @Nonnull
     private static LogicalOperator handleQueryFragment(@Nonnull final ParserRuleContext queryFragment,
                                                        @Nonnull final RelationalParser.QueryContext namedQueryBody,
-                                                       @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                                       @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
                                                        @Nonnull final QueryVisitor queryVisitor) {
         LogicalOperator logicalOperator;
         if (namedQueryBody.ctes() != null) {
             final var ctes = namedQueryBody.ctes();
-            final var currentPlanFragment = queryVisitor.getDelegate().pushPlanFragment();
-            memoizer.apply(ctes).forEach(currentPlanFragment::addOperator);
-            logicalOperator = memoizer.apply(queryFragment).first();
+            queryVisitor.getDelegate().pushPlanFragment();
+            memoizer.apply(ctes);
+            logicalOperator = Assert.optionalUnchecked(memoizer.apply(queryFragment));
             queryVisitor.getDelegate().popPlanFragment();
         } else {
-            logicalOperator = memoizer.apply(queryFragment).first();
+            logicalOperator = Assert.optionalUnchecked(memoizer.apply(queryFragment));
         }
         return logicalOperator;
     }

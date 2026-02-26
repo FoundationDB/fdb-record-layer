@@ -99,19 +99,22 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * represents that cached set.
      */
     @Nonnull
-    private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier = Suppliers.memoize(() -> getRangesOver().getCorrelatedTo());
 
     /**
      * As a quantifier is immutable, the columns that flow along the quantifier can be lazily computed.
      */
     @Nonnull
-    private final Supplier<List<Column<? extends FieldValue>>> flowedColumnsSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<List<Column<? extends FieldValue>>> flowedColumnsSupplier = Suppliers.memoize(this::computeFlowedColumns);
 
     /**
      * As a quantifier is immutable, the values that flow along the quantifier can be lazily computed.
      */
     @Nonnull
-    private final Supplier<List<? extends FieldValue>> flowedValuesSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<List<? extends FieldValue>> flowedValuesSupplier = Suppliers.memoize(this::computeFlowedValues);
 
     /**
      * Builder class for quantifiers.
@@ -613,11 +616,9 @@ public abstract class Quantifier implements Correlated<Quantifier> {
                 .build(reference);
     }
 
+    @SuppressWarnings("this-escape")
     protected Quantifier(@Nonnull final CorrelationIdentifier alias) {
         this.alias = alias;
-        this.correlatedToSupplier = Suppliers.memoize(() -> getRangesOver().getCorrelatedTo());
-        this.flowedColumnsSupplier = Suppliers.memoize(this::computeFlowedColumns);
-        this.flowedValuesSupplier = Suppliers.memoize(this::computeFlowedValues);
         // Call debugger hook for this new quantifier.
         Debugger.registerQuantifier(this);
     }

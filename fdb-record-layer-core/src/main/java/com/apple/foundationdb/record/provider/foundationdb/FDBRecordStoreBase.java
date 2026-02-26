@@ -83,6 +83,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.IntFunction;
 import java.util.function.Supplier;
 
 /**
@@ -197,6 +198,32 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @Nonnull
     IndexMaintainer getIndexMaintainer(@Nonnull Index index);
+
+    /**
+     * Get the current incarnation of the store.
+     * <p>
+     * The incarnation is intended to be incremented when moving data from one cluster to another.
+     * By combining the incarnation with version information in indexes, you can maintain proper ordering
+     * of modifications even when data is moved between clusters with different versions.
+     * </p>
+     * @return the current incarnation value, or 0 if not set
+     */
+    @API(API.Status.EXPERIMENTAL)
+    int getIncarnation();
+
+    /**
+     * Update the incarnation of the store.
+     * <p>
+     * The incarnation is intended to be incremented when moving data from one cluster to another.
+     * This should typically be called before moving data to ensure proper version ordering across clusters.
+     * </p>
+     * @param updater a function that takes the current incarnation value and returns the new value
+     * (must not be less than the current value)
+     * @return a future that updates this incarnation
+     * @throws RecordCoreException if the updated incarnation is less than the current one
+     */
+    @API(API.Status.EXPERIMENTAL)
+    CompletableFuture<Void> updateIncarnation(@Nonnull IntFunction<Integer> updater);
 
     /**
      * Hook for checking if store state for client changes.

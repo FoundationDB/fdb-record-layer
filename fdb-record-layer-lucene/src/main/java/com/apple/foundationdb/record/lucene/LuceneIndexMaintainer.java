@@ -106,6 +106,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Nonnull
     private final LucenePartitioner partitioner;
 
+    @SuppressWarnings("this-escape")
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
         super(state);
         this.executor = executor;
@@ -196,10 +197,13 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                          Integer partitionId,
                                          Tuple primaryKey,
                                          @Nonnull List<LuceneDocumentFromRecord.DocumentField> fields) throws IOException {
-        LuceneIndexMaintainerHelper.writeDocument(state.context,
+        final long startTime = System.nanoTime();
+        LuceneIndexMaintainerHelper.writeDocument(
                 directoryManager.getIndexWriter(groupingKey, partitionId),
                 state.index,
                 primaryKey, fields);
+        // Record the event's duration in caller's context.
+        state.context.record(LuceneEvents.Events.LUCENE_ADD_DOCUMENT, System.nanoTime() - startTime);
     }
 
     private int deleteDocument(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey) throws IOException {

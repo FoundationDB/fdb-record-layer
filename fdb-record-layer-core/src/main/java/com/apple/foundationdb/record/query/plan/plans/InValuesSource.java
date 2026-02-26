@@ -61,8 +61,7 @@ public class InValuesSource extends InSource {
     private final List<Object> values;
 
     @Nonnull
-    private final Supplier<List<Object>> valuesWithRealEqualsSupplier = Suppliers.memoize(() -> Lists.transform(getValues(),
-            Comparisons::toClassWithRealEquals));
+    private final Supplier<List<Object>> valuesWithRealEqualsSupplier;
 
     protected InValuesSource(@Nonnull final PlanSerializationContext serializationContext,
                              @Nonnull final PInValuesSource inValuesSourceProto) {
@@ -71,11 +70,15 @@ public class InValuesSource extends InSource {
         for (int i = 0; i < inValuesSourceProto.getValuesCount(); i ++) {
             this.values.add(PlanSerialization.protoToValueObject(inValuesSourceProto.getValues(i)));
         }
+        valuesWithRealEqualsSupplier = Suppliers.memoize(() -> Lists.transform(this.values,
+                                                                               Comparisons::toClassWithRealEquals));
     }
 
     public InValuesSource(@Nonnull String bindingName, @Nonnull final List<Object> values) {
         super(bindingName);
         this.values = values;
+        valuesWithRealEqualsSupplier = Suppliers.memoize(() -> Lists.transform(this.values,
+                                                                               Comparisons::toClassWithRealEquals));
     }
 
     @Nonnull
