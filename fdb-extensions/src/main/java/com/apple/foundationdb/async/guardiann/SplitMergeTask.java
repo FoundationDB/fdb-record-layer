@@ -20,29 +20,27 @@
 
 package com.apple.foundationdb.async.guardiann;
 
-import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.StorageHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
+import com.apple.foundationdb.async.guardiann.Primitives.NeighborhoodsResult;
 import com.apple.foundationdb.kmeans.BoundedKMeans;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.util.Lens;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
@@ -53,13 +51,10 @@ import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-
-import static com.apple.foundationdb.async.MoreAsyncUtil.forEach;
 
 public class SplitMergeTask extends AbstractDeferredTask {
-    private static final Lens<VectorReference, RealVector> vectorReferenceVectorLens =
-            new VectorReferenceVectorLens().compose(Transformed.underlyingLens());
+    @Nonnull
+    private static final Logger logger = LoggerFactory.getLogger(SplitMergeTask.class);
 
     @Nonnull
     private final UUID clusterId;
@@ -89,7 +84,13 @@ public class SplitMergeTask extends AbstractDeferredTask {
     public Tuple valueTuple() {
         final Quantizer quantizer = getLocator().primitives().quantizer(getAccessInfo());
         final Transformed<RealVector> encodedVector = quantizer.encode(getCentroid());
-        return Tuple.from(getKind().getCode(), clusterId, encodedVector.getUnderlyingVector().getRawData());
+        return Tuple.from(getKind().getCode(), getClusterId(), encodedVector.getUnderlyingVector().getRawData());
+    }
+
+    @Nonnull
+    @Override
+    public Kind getKind() {
+        return Kind.SPLIT_MERGE;
     }
 
     @Nonnull
@@ -127,11 +128,6 @@ public class SplitMergeTask extends AbstractDeferredTask {
     }
 
     @Nonnull
-    public Kind getKind() {
-        return Kind.SPLIT_MERGE;
-    }
-
-    @Nonnull
     private CompletableFuture<Void> merge(@Nonnull final Transaction transaction,
                                           @Nonnull final ClusterMetadata targetClusterMetadata,
                                           @Nonnull final RealVector targetClusterCentroid) {
@@ -145,70 +141,26 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final int numInnerNeighborhood = 3;
         final int numOuterNeighborhood = 3;
 
-        final CompletableFuture<NeighborhoodsResult> separatedNeighborhoodsFuture =
-                separateNeighborhoods(transaction, storageTransform, targetClusterMetadata, targetClusterCentroid,
+        final CompletableFuture<NeighborhoodsResult> neighborhoodsFuture =
+                primitives.neighborhoods(transaction, storageTransform, targetClusterMetadata, targetClusterCentroid,
                         numInnerNeighborhood, numOuterNeighborhood);
 
-        return separatedNeighborhoodsFuture.thenCompose(separatedNeighborhoods -> {
-            final List<ClusterMetadataWithDistance> innerNeighborhood = separatedNeighborhoods.getInnerNeighborhood();
-            final List<ClusterMetadataWithDistance> outerNeighborhood = separatedNeighborhoods.getOuterNeighborhood();
+        return neighborhoodsFuture.thenCompose(neighborhoods -> {
+            final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.getInnerNeighborhood();
+            final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.getOuterNeighborhood();
 
             //
             // At this point innerNeighborhood contains the clusters we want to split into
             // innerNeighborhood.size() - 1 number of clusters and outerNeighborhood contains all clusters we
             // may assign some vectors from innerNeighborhood to.
             //
-            return fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
-                    .thenCompose(innerClusters -> cleanUpVectorReferences(transaction, innerClusters))
+            return primitives.fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
+                    .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction, innerClusters))
                     .thenApply(cleanedUpVectorReferences ->
                             assignVectorReferences(random, estimator, outerNeighborhood, cleanedUpVectorReferences,
                                     innerNeighborhood.size() - 1))
                     .thenAccept(assignmentResult ->
                             updateAssignments(transaction, innerNeighborhood, assignmentResult, quantizer));
-        });
-    }
-
-    @Nonnull
-    private CompletableFuture<NeighborhoodsResult> separateNeighborhoods(@Nonnull final ReadTransaction readTransaction,
-                                                                         @Nonnull final StorageTransform storageTransform,
-                                                                         @Nonnull final ClusterMetadata targetClusterMetadata,
-                                                                         @Nonnull final RealVector targetClusterCentroid,
-                                                                         final int numInnerNeighborhood,
-                                                                         final int numOuterNeighborhood) {
-        final CompletableFuture<List<ClusterMetadataWithDistance>> neighborhoodClusterMetadataFuture =
-                fetchNeighborhoodClusterMetadata(readTransaction, targetClusterCentroid, storageTransform,
-                        numInnerNeighborhood + numOuterNeighborhood);
-
-        return neighborhoodClusterMetadataFuture.thenApply(clusterMetadatas -> {
-            //
-            // Not having the primary cluster in the neighborhood should be next to impossible. It can happen, however,
-            // and we need to build for that rare corner case. Here we look for the primary cluster in the cluster
-            // neighborhood and adjust the inner and outer neighborhood accordingly. Also log, if we cannot find the
-            // primary cluster as that should be almost indicative of another problem.
-            //
-            boolean foundPrimaryCluster = false;
-            for (final ClusterMetadataWithDistance clusterMetadata : clusterMetadatas) {
-                if (clusterMetadata.getClusterMetadata().getId().equals(targetClusterMetadata.getId())) {
-                    foundPrimaryCluster = true;
-                    break;
-                }
-            }
-
-            final List<ClusterMetadataWithDistance> innerNeighborhood;
-            final List<ClusterMetadataWithDistance> outerNeighborhood;
-            if (foundPrimaryCluster) {
-                innerNeighborhood = clusterMetadatas.subList(0, numInnerNeighborhood);
-                outerNeighborhood = clusterMetadatas.subList(numInnerNeighborhood, clusterMetadatas.size());
-            } else {
-                final ImmutableList.Builder<ClusterMetadataWithDistance> innerNeighborhoodBuilder = ImmutableList.builder();
-                innerNeighborhoodBuilder.add(
-                        new ClusterMetadataWithDistance(targetClusterMetadata,
-                                storageTransform.transform(targetClusterCentroid), 0.0d));
-                innerNeighborhoodBuilder.addAll(clusterMetadatas.subList(0, numInnerNeighborhood - 1));
-                innerNeighborhood = innerNeighborhoodBuilder.build();
-                outerNeighborhood = clusterMetadatas.subList(numInnerNeighborhood - 1, clusterMetadatas.size() - 1);
-            }
-            return new NeighborhoodsResult(innerNeighborhood, outerNeighborhood);
         });
     }
 
@@ -226,96 +178,27 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final int numInnerNeighborhood = 2;
         final int numOuterNeighborhood = 3;
 
-        final CompletableFuture<NeighborhoodsResult> separatedNeighborhoodsFuture =
-                separateNeighborhoods(transaction, storageTransform, targetClusterMetadata, targetClusterCentroid,
+        final CompletableFuture<NeighborhoodsResult> neighborhoodsFuture =
+                primitives.neighborhoods(transaction, storageTransform, targetClusterMetadata, targetClusterCentroid,
                         numInnerNeighborhood, numOuterNeighborhood);
 
-        return separatedNeighborhoodsFuture.thenCompose(separatedNeighborhoods -> {
-            final List<ClusterMetadataWithDistance> innerNeighborhood = separatedNeighborhoods.getInnerNeighborhood();
-            final List<ClusterMetadataWithDistance> outerNeighborhood = separatedNeighborhoods.getOuterNeighborhood();
+        return neighborhoodsFuture.thenCompose(neighborhoods -> {
+            final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.getInnerNeighborhood();
+            final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.getOuterNeighborhood();
 
             //
             // At this point innerNeighborhood contains the clusters we want to split into
             // innerNeighborhood.size() + 1 number of clusters and outerNeighborhood contains all clusters we
             // may assign some vectors from innerNeighborhood to.
             //
-            return fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
-                    .thenCompose(innerClusters -> cleanUpVectorReferences(transaction, innerClusters))
+            return primitives.fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
+                    .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction, innerClusters))
                     .thenApply(cleanedUpVectorReferences ->
                             assignVectorReferences(random, estimator, outerNeighborhood, cleanedUpVectorReferences,
                                     innerNeighborhood.size() + 1))
                     .thenAccept(assignmentResult ->
                             updateAssignments(transaction, innerNeighborhood, assignmentResult, quantizer));
         });
-    }
-
-    private CompletableFuture<List<ClusterMetadataWithDistance>>
-            fetchNeighborhoodClusterMetadata(@Nonnull final ReadTransaction transaction,
-                                             @Nonnull final RealVector targetClusterCentroid,
-                                             @Nonnull final StorageTransform storageTransform,
-                                             final int numClusters) {
-        final Primitives primitives = getLocator().primitives();
-        final Executor executor = getLocator().getExecutor();
-
-        return AsyncUtil.collect(
-                MoreAsyncUtil.mapIterablePipelined(executor,
-                        MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
-                                                primitives.centroidsOrderedByDistance(transaction, targetClusterCentroid),
-                                        executor),
-                                numClusters, executor),
-                        resultEntry ->
-                                primitives.fetchClusterMetadataWithDistance(transaction,
-                                        StorageAdapter.clusterIdFromTuple(resultEntry.getPrimaryKey()),
-                                        storageTransform.transform(Objects.requireNonNull(resultEntry.getVector())),
-                                        0.0d), 10));
-    }
-
-    @Nonnull
-    private CompletableFuture<List<Cluster>> fetchInnerClusters(@Nonnull final Transaction transaction,
-                                                                @Nonnull final List<ClusterMetadataWithDistance> innerNeighborhood,
-                                                                @Nonnull final StorageTransform storageTransform) {
-        final Primitives primitives = getLocator().primitives();
-        final Executor executor = getLocator().getExecutor();
-
-        return forEach(innerNeighborhood,
-                clusterMetadata ->
-                        primitives.fetchCluster(transaction, storageTransform,
-                                clusterMetadata.getClusterMetadata().getId(), clusterMetadata.getCentroid()),
-                10,
-                executor);
-    }
-
-    @Nonnull
-    private CompletableFuture<List<VectorReference>> cleanUpVectorReferences(@Nonnull final Transaction transaction,
-                                                                             @Nonnull final List<Cluster> clusters) {
-        final Primitives primitives = getLocator().primitives();
-        final Executor executor = getLocator().getExecutor();
-
-        final Map<UUID, VectorReference> vectorsByUuidMap = Maps.newHashMap();
-        for (final Cluster cluster : clusters) {
-            for (final VectorReference vectorReference : cluster.getVectorReferences()) {
-                vectorsByUuidMap.put(vectorReference.getId().getUuid(), vectorReference);
-            }
-        }
-
-        return forEach(vectorsByUuidMap.values(),
-                vectorReference ->
-                        primitives.fetchVectorMetadata(transaction, vectorReference.getId().getPrimaryKey())
-                                .thenApply(vectorMetadata ->
-                                        vectorMetadata.getUuid().equals(vectorReference.getId().getUuid())
-                                        ? vectorReference
-                                        : null),
-                10,
-                executor)
-                .thenApply(vectorReferences -> {
-                    final ImmutableList.Builder<VectorReference> nonnullReferencesBuilder = ImmutableList.builder();
-                    for (final VectorReference vectorReference : vectorReferences) {
-                        if (Objects.nonNull(vectorReference)) {
-                            nonnullReferencesBuilder.add(vectorReference);
-                        }
-                    }
-                    return nonnullReferencesBuilder.build();
-                });
     }
 
     @Nonnull
@@ -334,7 +217,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final ImmutableList<VectorReference> primaryVectorReferences = primaryVectorReferencesBuilder.build();
 
         final BoundedKMeans.Result<Transformed<RealVector>> kMeansResult =
-                BoundedKMeans.fit(random, estimator, vectorReferenceVectorLens,
+                BoundedKMeans.fit(random, estimator, VectorReference.vectorLens(),
                         Transformed.underlyingLens(), primaryVectorReferences, targetNumPartitions, 3,
                         1, 0.05, BoundedKMeans.overflowQuadraticPenalty(),
                         true);
@@ -437,29 +320,54 @@ public class SplitMergeTask extends AbstractDeferredTask {
         // update all affected cluster metadata
         final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap =
                 assignmentResult.getClusterIdMetadataMap();
+        final Set<UUID> newClusterIds = assignmentResult.getNewClusterIds();
         for (final Map.Entry<UUID, ClusterMetadataWithDistance> entry : clusterIdMetadataMap.entrySet()) {
             final UUID toBeWritten = entry.getKey();
             final ClusterMetadataWithDistance clusterMetadataWithDistance =
                     entry.getValue();
             final ClusterMetadata clusterMetadata =
                     clusterMetadataWithDistance.getClusterMetadata();
-
+            final boolean isNewCluster = newClusterIds.contains(clusterMetadata.getId());
             if (assignmentMultiMap.containsKey(toBeWritten)) {
                 final int numVectorsAdded = assignmentMultiMap.get(toBeWritten).size();
-                final ClusterMetadata newClusterMetadata;
+                ClusterMetadata newClusterMetadata;
+                final int numTotalVectors = clusterMetadata.getNumVectors() + numVectorsAdded;
                 if (!clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE) &&
-                        clusterMetadata.getNumVectors() + numVectorsAdded > config.getClusterMax()) {
+                        numTotalVectors > config.getClusterMax()) {
+                    if (isNewCluster) {
+                        logger.warn("number of vectors after split is greater than cluster max; clusterId={}; numTotalVectors={}",
+                                toBeWritten, numTotalVectors);
+                    }
+
                     // create a split/merge task
                     primitives.writeDeferredTask(transaction,
                             SplitMergeTask.of(getLocator(), getAccessInfo(), UUID.randomUUID(),
                                     clusterId, clusterMetadataWithDistance.getCentroid()));
 
                     newClusterMetadata =
-                            clusterMetadata.withNewStateAndAdditionalVectors(ClusterMetadata.State.SPLIT_MERGE,
-                                    numVectorsAdded);
+                            clusterMetadata.withAdditionalVectorsAndNewStates(numVectorsAdded,
+                                    ClusterMetadata.State.SPLIT_MERGE);
                 } else {
+                    //
+                    // Note that we treat these cases in a slightly asymmetric way. If there are too many vectors in
+                    // a new cluster, we still split, but if there are too few we do not merge.
+                    //
+                    if (isNewCluster && numTotalVectors < config.getClusterMin()) {
+                        logger.warn("number of vectors after split is less than cluster min; clusterId={}; numTotalVectors={}",
+                                toBeWritten, numTotalVectors);
+                    }
+
                     newClusterMetadata =
                             clusterMetadata.withAdditionalVectors(numVectorsAdded);
+                }
+
+                if (!isNewCluster) {
+                    newClusterMetadata = newClusterMetadata.withNewStates(ClusterMetadata.State.REASSIGN);
+
+                    // create a split/merge task
+                    primitives.writeDeferredTask(transaction,
+                            ReassignTask.of(getLocator(), getAccessInfo(), UUID.randomUUID(),
+                                    clusterId, clusterMetadataWithDistance.getCentroid()));
                 }
 
                 primitives.writeClusterMetadata(transaction, newClusterMetadata);
@@ -484,50 +392,6 @@ public class SplitMergeTask extends AbstractDeferredTask {
                              @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
                              @Nonnull final Transformed<RealVector> centroid) {
         return new SplitMergeTask(locator, accessInfo, taskId, clusterId, centroid);
-    }
-
-    private static class NeighborhoodsResult {
-        @Nonnull
-        public final List<ClusterMetadataWithDistance> innerNeighborhood;
-        @Nonnull
-        public final List<ClusterMetadataWithDistance> outerNeighborhood;
-
-        public NeighborhoodsResult(@Nonnull final List<ClusterMetadataWithDistance> innerNeighborhood,
-                                   @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood) {
-            this.innerNeighborhood = innerNeighborhood;
-            this.outerNeighborhood = outerNeighborhood;
-        }
-
-        @Nonnull
-        public List<ClusterMetadataWithDistance> getInnerNeighborhood() {
-            return innerNeighborhood;
-        }
-
-        @Nonnull
-        public List<ClusterMetadataWithDistance> getOuterNeighborhood() {
-            return outerNeighborhood;
-        }
-    }
-
-    /**
-     * Lens to access the underlying vector of a transformed vector in logic that can be called for containers of
-     * both vectors and transformed vectors.
-     */
-    private static class VectorReferenceVectorLens implements Lens<VectorReference, Transformed<RealVector>> {
-        @Nullable
-        @Override
-        public Transformed<RealVector> get(@Nonnull final VectorReference vectorReference) {
-            return vectorReference.getVector();
-        }
-
-        @Nonnull
-        @Override
-        public VectorReference set(@Nullable final VectorReference vectorReference,
-                                   @Nullable final Transformed<RealVector> transformed) {
-            Objects.requireNonNull(vectorReference);
-            return new VectorReference(vectorReference.getId(), vectorReference.isPrimaryCopy(),
-                    Objects.requireNonNull(transformed));
-        }
     }
 
     private static class AssignmentResult {

@@ -28,6 +28,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.async.hnsw.ResultEntry;
@@ -42,18 +43,21 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
+import static com.apple.foundationdb.async.MoreAsyncUtil.forEach;
 import static com.apple.foundationdb.async.MoreAsyncUtil.forLoop;
 
 /**
@@ -411,6 +415,16 @@ public class Primitives {
         transaction.set(key, value);
     }
 
+    void deleteVectorReference(@Nonnull final Transaction transaction,
+                               @Nonnull final UUID clusterId,
+                               @Nonnull final Tuple primaryKey) {
+        final Subspace vectorReferencesSubspace = getVectorReferencesSubspace();
+        final byte[] key = vectorReferencesSubspace.pack(Tuple.from(clusterId, primaryKey));
+
+        getOnWriteListener().onKeyDeleted(-1, key);
+        transaction.clear(key);
+    }
+
     void deleteVectorReferencesForCluster(@Nonnull final Transaction transaction,
                                           @Nonnull final UUID clusterId) {
         final Subspace vectorReferencesSubspace = getVectorReferencesSubspace();
@@ -477,6 +491,127 @@ public class Primitives {
         transaction.clear(key);
     }
 
+    @Nonnull
+    CompletableFuture<NeighborhoodsResult> neighborhoods(@Nonnull final ReadTransaction readTransaction,
+                                                         @Nonnull final StorageTransform storageTransform,
+                                                         @Nonnull final ClusterMetadata targetClusterMetadata,
+                                                         @Nonnull final RealVector targetClusterCentroid,
+                                                         final int numInnerNeighborhood,
+                                                         final int numOuterNeighborhood) {
+        final CompletableFuture<List<ClusterMetadataWithDistance>> neighborhoodClusterMetadataFuture =
+                fetchNeighborhoodClusterMetadata(readTransaction, targetClusterMetadata, targetClusterCentroid,
+                        storageTransform, numInnerNeighborhood + numOuterNeighborhood);
+
+        return neighborhoodClusterMetadataFuture.thenApply(clusterMetadatas -> {
+            //
+            // Not having the primary cluster in the neighborhood should be next to impossible. It can happen, however,
+            // and we need to build for that rare corner case. Here we look for the primary cluster in the cluster
+            // neighborhood and adjust the inner and outer neighborhood accordingly. Also log, if we cannot find the
+            // primary cluster as that should be almost indicative of another problem.
+            //
+            boolean foundPrimaryCluster = false;
+            for (final ClusterMetadataWithDistance clusterMetadata : clusterMetadatas) {
+                if (clusterMetadata.getClusterMetadata().getId().equals(targetClusterMetadata.getId())) {
+                    foundPrimaryCluster = true;
+                    break;
+                }
+            }
+
+            final List<ClusterMetadataWithDistance> innerNeighborhood;
+            final List<ClusterMetadataWithDistance> outerNeighborhood;
+            if (foundPrimaryCluster) {
+                innerNeighborhood = clusterMetadatas.subList(0, numInnerNeighborhood);
+                outerNeighborhood = clusterMetadatas.subList(numInnerNeighborhood, clusterMetadatas.size());
+            } else {
+                final ImmutableList.Builder<ClusterMetadataWithDistance> innerNeighborhoodBuilder = ImmutableList.builder();
+                innerNeighborhoodBuilder.add(
+                        new ClusterMetadataWithDistance(targetClusterMetadata,
+                                storageTransform.transform(targetClusterCentroid), 0.0d));
+                innerNeighborhoodBuilder.addAll(clusterMetadatas.subList(0, numInnerNeighborhood - 1));
+                innerNeighborhood = innerNeighborhoodBuilder.build();
+                outerNeighborhood = clusterMetadatas.subList(numInnerNeighborhood - 1, clusterMetadatas.size() - 1);
+            }
+            return new NeighborhoodsResult(innerNeighborhood, outerNeighborhood);
+        });
+    }
+
+    private CompletableFuture<List<ClusterMetadataWithDistance>>
+            fetchNeighborhoodClusterMetadata(@Nonnull final ReadTransaction transaction,
+                                             @Nonnull final ClusterMetadata targetClusterMetadata,
+                                             @Nonnull final RealVector targetClusterCentroid,
+                                             @Nonnull final StorageTransform storageTransform,
+                                             final int numClusters) {
+        final Primitives primitives = getLocator().primitives();
+        final Executor executor = getLocator().getExecutor();
+
+        return AsyncUtil.collect(
+                MoreAsyncUtil.mapIterablePipelined(executor,
+                        MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
+                                                primitives.centroidsOrderedByDistance(transaction, targetClusterCentroid),
+                                        executor),
+                                numClusters, executor),
+                        resultEntry -> {
+                            final UUID clusterId = StorageAdapter.clusterIdFromTuple(resultEntry.getPrimaryKey());
+                            final Transformed<RealVector> transformedClusterCentroid =
+                                    storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
+                            if (clusterId.equals(targetClusterMetadata.getId())) {
+                                return CompletableFuture.completedFuture(new ClusterMetadataWithDistance(targetClusterMetadata,
+                                        transformedClusterCentroid, 0.0d));
+                            }
+                            return primitives.fetchClusterMetadataWithDistance(transaction,
+                                    clusterId,
+                                    transformedClusterCentroid,
+                                    0.0d);
+                        }, 10));
+    }
+
+    @Nonnull
+    CompletableFuture<List<Cluster>> fetchInnerClusters(@Nonnull final Transaction transaction,
+                                                        @Nonnull final List<ClusterMetadataWithDistance> innerNeighborhood,
+                                                        @Nonnull final StorageTransform storageTransform) {
+        final Primitives primitives = getLocator().primitives();
+        final Executor executor = getLocator().getExecutor();
+
+        return forEach(innerNeighborhood,
+                clusterMetadata ->
+                        primitives.fetchCluster(transaction, storageTransform,
+                                clusterMetadata.getClusterMetadata().getId(), clusterMetadata.getCentroid()),
+                10,
+                executor);
+    }
+
+    @Nonnull
+    CompletableFuture<List<VectorReference>> cleanUpVectorReferences(@Nonnull final Transaction transaction,
+                                                                     @Nonnull final List<Cluster> clusters) {
+        final Primitives primitives = getLocator().primitives();
+        final Executor executor = getLocator().getExecutor();
+
+        final Map<UUID, VectorReference> vectorsByUuidMap = Maps.newHashMap();
+        for (final Cluster cluster : clusters) {
+            for (final VectorReference vectorReference : cluster.getVectorReferences()) {
+                vectorsByUuidMap.put(vectorReference.getId().getUuid(), vectorReference);
+            }
+        }
+
+        return forEach(vectorsByUuidMap.values(),
+                vectorReference ->
+                        primitives.fetchVectorMetadata(transaction, vectorReference.getId().getPrimaryKey())
+                                .thenApply(vectorMetadata ->
+                                        vectorMetadata.getUuid().equals(vectorReference.getId().getUuid())
+                                        ? vectorReference : null),
+                10,
+                executor)
+                .thenApply(vectorReferences -> {
+                    final ImmutableList.Builder<VectorReference> nonnullReferencesBuilder = ImmutableList.builder();
+                    for (final VectorReference vectorReference : vectorReferences) {
+                        if (Objects.nonNull(vectorReference)) {
+                            nonnullReferencesBuilder.add(vectorReference);
+                        }
+                    }
+                    return nonnullReferencesBuilder.build();
+                });
+    }
+
     static class AccessInfoAndNodeExistence {
         @Nullable
         private final AccessInfo accessInfo;
@@ -494,6 +629,29 @@ public class Primitives {
 
         public boolean isNodeExists() {
             return nodeExists;
+        }
+    }
+
+    static class NeighborhoodsResult {
+        @Nonnull
+        public final List<ClusterMetadataWithDistance> innerNeighborhood;
+        @Nonnull
+        public final List<ClusterMetadataWithDistance> outerNeighborhood;
+
+        public NeighborhoodsResult(@Nonnull final List<ClusterMetadataWithDistance> innerNeighborhood,
+                                   @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood) {
+            this.innerNeighborhood = innerNeighborhood;
+            this.outerNeighborhood = outerNeighborhood;
+        }
+
+        @Nonnull
+        public List<ClusterMetadataWithDistance> getInnerNeighborhood() {
+            return innerNeighborhood;
+        }
+
+        @Nonnull
+        public List<ClusterMetadataWithDistance> getOuterNeighborhood() {
+            return outerNeighborhood;
         }
     }
 }

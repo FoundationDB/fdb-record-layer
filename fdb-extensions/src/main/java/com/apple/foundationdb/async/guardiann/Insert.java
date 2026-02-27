@@ -274,8 +274,8 @@ public class Insert {
                                                     clusterId, clusterMetadataWithDistance.getCentroid()));
 
                                     newClusterMetadata =
-                                            clusterMetadata.withNewStateAndAdditionalVectors(
-                                                    ClusterMetadata.State.SPLIT_MERGE, 1);
+                                            clusterMetadata.withAdditionalVectorsAndNewStates(1,
+                                                    ClusterMetadata.State.SPLIT_MERGE);
                                 } else {
                                     newClusterMetadata =
                                             clusterMetadata.withAdditionalVectors(1);

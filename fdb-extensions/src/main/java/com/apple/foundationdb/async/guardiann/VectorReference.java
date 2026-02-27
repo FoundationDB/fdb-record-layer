@@ -22,14 +22,18 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
+import com.apple.foundationdb.util.Lens;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 
 class VectorReference {
+    private static final Lens<VectorReference, RealVector> VECTOR_LENS =
+            new VectorReferenceVectorLens().compose(Transformed.underlyingLens());
+
     @Nonnull
     private final VectorId id;
-    @Nonnull
     private final boolean isPrimaryCopy;
     @Nonnull
     private final Transformed<RealVector> vector;
@@ -85,5 +89,31 @@ class VectorReference {
     @Override
     public int hashCode() {
         return Objects.hash(getId(), getVector());
+    }
+
+    @Nonnull
+    public static Lens<VectorReference, RealVector> vectorLens() {
+        return VECTOR_LENS;
+    }
+
+    /**
+     * Lens to access the underlying vector of a transformed vector in logic that can be called for containers of
+     * both vectors and transformed vectors.
+     */
+    static class VectorReferenceVectorLens implements Lens<VectorReference, Transformed<RealVector>> {
+        @Nullable
+        @Override
+        public Transformed<RealVector> get(@Nonnull final VectorReference vectorReference) {
+            return vectorReference.getVector();
+        }
+
+        @Nonnull
+        @Override
+        public VectorReference set(@Nullable final VectorReference vectorReference,
+                                   @Nullable final Transformed<RealVector> transformed) {
+            Objects.requireNonNull(vectorReference);
+            return new VectorReference(vectorReference.getId(), vectorReference.isPrimaryCopy(),
+                    Objects.requireNonNull(transformed));
+        }
     }
 }

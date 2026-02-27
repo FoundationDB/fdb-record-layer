@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.guardiann;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
@@ -69,13 +70,27 @@ class ClusterMetadata {
 
     @Nonnull
     public ClusterMetadata withAdditionalVectors(final int numVectorsAdded) {
-        return new ClusterMetadata(getId(), getNumVectors() + numVectorsAdded, EnumSet.copyOf(getStates()));
+        return withAdditionalVectorsAndNewStates(numVectorsAdded);
     }
 
     @Nonnull
-    public ClusterMetadata withNewStateAndAdditionalVectors(@Nonnull final State additionalState, final int numVectorsAdded) {
+    public ClusterMetadata withNewStates(@Nonnull final State... additionalStates) {
+        return withAdditionalVectorsAndNewStates(0, additionalStates);
+    }
+
+    @Nonnull
+    public ClusterMetadata withAdditionalVectorsAndNewStates(final int numVectorsAdded,
+                                                             @Nonnull final State... additionalStates) {
         final EnumSet<State> newStates = EnumSet.copyOf(getStates());
-        newStates.add(additionalState);
+        Collections.addAll(newStates, additionalStates);
+        return withAdditionalVectorsAndNewStates(numVectorsAdded, newStates);
+    }
+
+    @Nonnull
+    public ClusterMetadata withAdditionalVectorsAndNewStates(final int numVectorsAdded,
+                                                             @Nonnull final EnumSet<State> additionalStates) {
+        final EnumSet<State> newStates = EnumSet.copyOf(getStates());
+        newStates.addAll(additionalStates);
         return new ClusterMetadata(getId(), getNumVectors() + numVectorsAdded, newStates);
     }
 
