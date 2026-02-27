@@ -1406,9 +1406,13 @@ Mixed mode testing run against the following previous versions:
 
 ### 4.5.3.0
 
+<h4> Bug Fixes </h4>
+
+* Fix some software rot in the sqlline CLI - [PR #3502](https://github.com/FoundationDB/fdb-record-layer/pull/3502)
+* `NULL` handling fixes in plan generator - [PR #3506](https://github.com/FoundationDB/fdb-record-layer/pull/3506)
 
 
-**[Full Changelog (4.5.2.0...4.5.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.2.0...4.5.3.0)**
+**[Full Changelog (4.5.1.0...4.5.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.1.0...4.5.3.0)**
 
 #### Mixed Mode Test Results
 
@@ -1417,26 +1421,6 @@ Mixed mode testing run against the following previous versions:
 ❌`4.4.7.0`, ❌`4.4.8.0`, ❌`4.4.9.0`, ❌`4.4.10.0`, ❌`4.4.11.0`, ✅`4.4.12.0`, ✅`4.4.14.0`, ✅`4.4.15.0`, ✅`4.5.1.0`, ✅`4.5.2.0`
 
 [See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16629945151)
-
-
-
-### 4.5.2.0
-
-<h4> Bug Fixes </h4>
-
-* Fix some software rot in the sqlline CLI - [PR #3502](https://github.com/FoundationDB/fdb-record-layer/pull/3502)
-* `NULL` handling fixes in plan generator - [PR #3506](https://github.com/FoundationDB/fdb-record-layer/pull/3506)
-
-
-**[Full Changelog (4.5.1.0...4.5.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.1.0...4.5.2.0)**
-
-#### Mixed Mode Test Results
-
-Mixed mode testing run against the following previous versions:
-
-✅`4.4.4.0`, ❌`4.4.7.0`, ❌`4.4.8.0`, ❌`4.4.9.0`, ❌`4.4.10.0`, ❌`4.4.11.0`, ✅`4.4.12.0`, ✅`4.4.14.0`, ✅`4.4.15.0`, ✅`4.5.1.0`
-
-[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16627768059)
 
 
 
