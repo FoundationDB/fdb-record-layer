@@ -35,26 +35,26 @@ standard-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select * from T1 where COL1 >= 10 OR COL1 <= 20
     explain: 'COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]] -> [COL1:
-        KEY[0], ID: KEY[2]]) ⊎ COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]]
-        -> [COL1: KEY[0], ID: KEY[2]]) | DISTINCT BY PK | FETCH'
-    task_count: 1285
-    task_total_time_ms: 98
+        KEY:[0], ID: KEY:[2]]) ⊎ COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS
+        LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) | DISTINCT BY PK | FETCH'
+    task_count: 1291
+    task_total_time_ms: 130
     transform_count: 260
-    transform_time_ms: 36
+    transform_time_ms: 48
     transform_yield_count: 79
-    insert_time_ms: 5
+    insert_time_ms: 7
     insert_new_count: 159
     insert_reused_count: 23
 -   query: EXPLAIN select * from T1 where COL1 >= 10 OR COL1 <= 20 ORDER BY COL1
     explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]]) ∪ ISCAN(I1
-        [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]]) COMPARE BY (_.COL1, recordType(_),
+        [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]]) COMPARE BY (_.COL1, recordType([_]),
         _.ID)
-    task_count: 1080
-    task_total_time_ms: 47
+    task_count: 1085
+    task_total_time_ms: 117
     transform_count: 224
-    transform_time_ms: 14
+    transform_time_ms: 43
     transform_yield_count: 62
-    insert_time_ms: 2
+    insert_time_ms: 5
     insert_new_count: 125
     insert_reused_count: 14
 -   query: EXPLAIN select * from T1 where COL1 >= 10 AND COL1 <= 20
@@ -111,27 +111,27 @@ standard-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20
         OR COL1 = 10)
-    explain: 'COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY[0], ID: KEY[2]])
-        ⊎ COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY[0], ID: KEY[2]])
+    explain: 'COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]])
+        ⊎ COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]])
         | DISTINCT BY PK | FETCH'
-    task_count: 1325
-    task_total_time_ms: 51
+    task_count: 1331
+    task_total_time_ms: 89
     transform_count: 270
-    transform_time_ms: 18
+    transform_time_ms: 30
     transform_yield_count: 83
-    insert_time_ms: 3
+    insert_time_ms: 4
     insert_new_count: 165
     insert_reused_count: 24
 -   query: EXPLAIN select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20
         OR COL1 = 10) ORDER BY COL1
     explain: ISCAN(I1 [EQUALS promote(@c9 AS LONG)]) ∪ ISCAN(I1 [EQUALS promote(@c13
-        AS LONG)]) COMPARE BY (_.COL1, recordType(_), _.ID)
-    task_count: 1192
-    task_total_time_ms: 59
+        AS LONG)]) COMPARE BY (_.COL1, recordType([_]), _.ID)
+    task_count: 1197
+    task_total_time_ms: 122
     transform_count: 241
-    transform_time_ms: 21
+    transform_time_ms: 44
     transform_yield_count: 64
-    insert_time_ms: 2
+    insert_time_ms: 4
     insert_new_count: 132
     insert_reused_count: 21
 -   query: EXPLAIN select * from T1 where (COL1 >= 10 AND COL1 <= 20) OR (COL1 >=

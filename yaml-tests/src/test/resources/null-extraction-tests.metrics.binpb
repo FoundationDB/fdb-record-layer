@@ -8,10 +8,10 @@ Y
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS LONG), EQUALS @c12]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, STRING AS B2, LONG AS B3)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, STRING AS B2, LONG AS B3)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‹
+}Ž
 e
-agg-index-tests-countLEXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1 < 20)¡
-’å”òŠ ¨˜è	(T0½ƒu8¯@·COVERING(I1 [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)] -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER @c15 IS_NULL OR _.B1 LESS_THAN promote(@c21 AS INT) | FETCHÇdigraph G {
+agg-index-tests-countLEXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1 < 20)¤
+˜ÓóƒŠ ŠöÈ	(T0ûÊn8¯@ºCOVERING(I1 [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)] -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]]) | FILTER @c15 IS_NULL OR _.B1 LESS_THAN promote(@c21 AS INT) | FETCHÇdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
