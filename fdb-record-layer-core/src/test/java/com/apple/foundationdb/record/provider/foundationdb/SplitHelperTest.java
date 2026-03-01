@@ -436,6 +436,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         this.testConfig = testConfig;
         final byte[] versionstamp;
         try (FDBRecordContext context = openContext()) {
+            // With incomplete version
             saveWithSplit(context, Tuple.from(962L), SHORT_STRING, FDBRecordVersion.incomplete(context.claimLocalVersion()), testConfig);
             saveWithSplit(context, Tuple.from(967L), LONG_STRING, FDBRecordVersion.incomplete(context.claimLocalVersion()), testConfig);
             saveWithSplit(context, Tuple.from(996L), VERY_LONG_STRING, FDBRecordVersion.incomplete(context.claimLocalVersion()), testConfig);
