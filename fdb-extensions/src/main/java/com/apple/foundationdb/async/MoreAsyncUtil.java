@@ -158,16 +158,16 @@ public class MoreAsyncUtil {
     }
 
     @Nonnull
-    public static <T> AsyncIterable<T> whileIterable(@Nonnull final AsyncIterable<T> iterable,
-                                                     @Nonnull final Predicate<T> whilePredicate,
-                                                     @Nonnull final Executor executor) {
-        return iterableOf(() -> whileRemaining(iterable.iterator(), whilePredicate), executor);
+    public static <T> AsyncIterable<T> takeWhileIterable(@Nonnull final AsyncIterable<T> iterable,
+                                                         @Nonnull final Predicate<T> whilePredicate,
+                                                         @Nonnull final Executor executor) {
+        return iterableOf(() -> takeWhileRemaining(iterable.iterator(), whilePredicate), executor);
     }
 
     @Nonnull
-    public static <T> CloseableAsyncIterator<T> whileRemaining(@Nonnull final AsyncIterator<T> iterator,
-                                                               @Nonnull final Predicate<T> whilePredicate) {
-        return new CloseableAsyncIterator<T>() {
+    public static <T> CloseableAsyncIterator<T> takeWhileRemaining(@Nonnull final AsyncIterator<T> iterator,
+                                                                   @Nonnull final Predicate<T> whilePredicate) {
+        return new CloseableAsyncIterator<>() {
             boolean done = false;
             boolean hasComputedNext = false;
             @Nullable

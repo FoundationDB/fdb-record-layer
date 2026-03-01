@@ -82,7 +82,7 @@ public class ReassignTask extends AbstractDeferredTask {
     public Kind getKind() {
         return Kind.REASSIGN;
     }
-    
+
     @Nonnull
     public CompletableFuture<Void> runTask(@Nonnull final Transaction transaction) {
         final Primitives primitives = getLocator().primitives();
@@ -233,6 +233,7 @@ public class ReassignTask extends AbstractDeferredTask {
                     Objects.requireNonNull(nearestClusters.poll());
             final double distanceToPrimaryCentroid = primaryCluster.getDistance();
             Verify.verify(Double.isFinite(distanceToPrimaryCentroid));
+
             assignedVectorsMultimapBuilder.put(
                     primaryCluster.getClusterMetadata().getId(),
                     vectorReference.toPrimaryCopy());

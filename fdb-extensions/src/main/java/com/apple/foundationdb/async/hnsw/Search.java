@@ -676,7 +676,7 @@ public class Search {
                                 distanceToSphericalSurface(estimator, targetVector, minimumRadius));
         final CompactStorageAdapter storageAdapter = primitives().storageAdapterForLayer(0).asCompactStorageAdapter();
         return new OutwardTraversalIterator(getLocator(), storageAdapter, readTransaction, zoomInResultFuture, centerVector,
-                minimumRadius, minimumPrimaryKey, efOutwardSearch, shouldQuickStart && minimumRadius == 0.0d);
+                minimumRadius, minimumPrimaryKey, efOutwardSearch, shouldQuickStart);
     }
 
     @Nonnull

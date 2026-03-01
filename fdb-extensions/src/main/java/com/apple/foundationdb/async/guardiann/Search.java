@@ -1,5 +1,5 @@
 /*
- * Insert.java
+ * Search.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,9 +20,11 @@
 
 package com.apple.foundationdb.async.guardiann;
 
+import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
+import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.AggregatedVector;
@@ -64,9 +66,9 @@ import static com.apple.foundationdb.async.common.StorageHelpers.deleteAllSample
  * TODO.
  */
 @API(API.Status.EXPERIMENTAL)
-public class Insert {
+public class Search {
     @Nonnull
-    private static final Logger logger = LoggerFactory.getLogger(Insert.class);
+    private static final Logger logger = LoggerFactory.getLogger(Search.class);
 
     @Nonnull
     private final Locator locator;
@@ -78,7 +80,7 @@ public class Insert {
      * @param locator the {@link Locator} where the graph data is stored, which config to use, which executor to use,
      *        etc.
      */
-    public Insert(@Nonnull final Locator locator) {
+    public Search(@Nonnull final Locator locator) {
         this.locator = locator;
     }
 
@@ -148,25 +150,17 @@ public class Insert {
         return getStorageAdapter().getSamplesSubspace();
     }
 
+    AsyncIterator<ResultEntry> orderByDistance(@Nonnull final ReadTransaction readTransaction,
+                                               final int efOutwardSearch,
+                                               final boolean includeVectors,
+                                               @Nonnull final RealVector centerVector,
+                                               final double minimumRadius,
+                                               @Nullable final Tuple minimumPrimaryKey,
+                                               final boolean shouldQuickStart) {
+    }
+
     /**
-     * Inserts a new vector with its associated primary key into the HNSW graph.
-     * <p>
-     * The method first determines a layer for the new node, called the {@code top layer}.
-     * It then traverses the graph from the entry point downwards, greedily searching for the nearest
-     * neighbors to the {@code newVector} at each layer. This search identifies the optimal
-     * connection points for the new node.
-     * <p>
-     * Once the nearest neighbors are found, the new node is linked into the graph structure at all
-     * layers up to its {@code top layer}. Special handling is included for inserting the
-     * first-ever node into the graph or when a new node's layer is higher than any existing node,
-     * which updates the graph's entry point. All operations are performed asynchronously.
-     *
-     * @param transaction the {@link Transaction} context for all database operations
-     * @param newPrimaryKey the unique {@link Tuple} primary key for the new node being inserted
-     * @param newVector the {@link RealVector} data to be inserted into the graph
-     * @param newAdditionalValues additional values that are associated with the new vector and stored with the node
-     *
-     * @return a {@link CompletableFuture} that completes when the insertion operation is finished
+     * TODO.
      */
     @Nonnull
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
@@ -209,8 +203,7 @@ public class Insert {
 
                     final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
                             MoreAsyncUtil.iterableOf(() ->
-                                    primitives.centroidsOrderedByDistance(transaction, newVector,
-                                            0.0d, null), getExecutor());
+                                    primitives.centroidsOrderedByDistance(transaction, newVector), getExecutor());
 
                     final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
                             mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,

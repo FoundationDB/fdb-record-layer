@@ -310,11 +310,13 @@ public class Primitives {
 
     @Nonnull
     AsyncIterator<ResultEntry> centroidsOrderedByDistance(@Nonnull final ReadTransaction readTransaction,
-                                                          @Nonnull final RealVector centerVector) {
+                                                          @Nonnull final RealVector centerVector,
+                                                          final double minimumRadius,
+                                                          @Nullable final Tuple minimumPrimaryKey) {
         final HNSW centroidsHnsw = getClusterCentroidsHnsw();
 
         return centroidsHnsw.orderByDistance(readTransaction, 100, 400, true,
-                centerVector, 0.0d, null, true);
+                centerVector, minimumRadius, minimumPrimaryKey, true);
     }
 
     @Nonnull
