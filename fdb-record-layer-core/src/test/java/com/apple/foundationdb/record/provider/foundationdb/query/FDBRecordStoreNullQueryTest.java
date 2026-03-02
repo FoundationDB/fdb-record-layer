@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsNulls2Proto;
 import com.apple.foundationdb.record.TestRecordsNulls3Proto;
 import com.apple.foundationdb.record.TestRecordsNulls3ExplicitProto;
+import com.apple.foundationdb.record.TestRecordsNullsEditionsProto;
 import com.apple.foundationdb.record.TestRecordsTupleFieldsProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.metadata.Key;
@@ -113,6 +114,10 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
         return RecordMetaData.newBuilder().setRecords(TestRecordsNulls3ExplicitProto.getDescriptor()).getRecordMetaData();
     }
 
+    protected static RecordMetaData protoEditionsMetaData() {
+        return RecordMetaData.newBuilder().setRecords(TestRecordsNullsEditionsProto.getDescriptor()).getRecordMetaData();
+    }
+
     @FunctionalInterface
     interface RecordBuilder<M extends Message> {
         M build(@Nonnull String name, @Nullable Integer intValue, @Nullable String stringValue);
@@ -182,6 +187,18 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
 
     protected static TestRecordsNulls3ExplicitProto.MyNullRecord buildRecord3Explicit(@Nonnull String name, @Nullable Integer intValue, @Nullable String stringValue) {
         TestRecordsNulls3ExplicitProto.MyNullRecord.Builder builder = TestRecordsNulls3ExplicitProto.MyNullRecord.newBuilder();
+        builder.setName(name);
+        if (intValue != null) {
+            builder.setIntValue(intValue);
+        }
+        if (stringValue != null) {
+            builder.setStringValue(stringValue);
+        }
+        return builder.build();
+    }
+
+    protected static TestRecordsNullsEditionsProto.MyNullRecord buildRecordEditions(@Nonnull String name, @Nullable Integer intValue, @Nullable String stringValue) {
+        TestRecordsNullsEditionsProto.MyNullRecord.Builder builder = TestRecordsNullsEditionsProto.MyNullRecord.newBuilder();
         builder.setName(name);
         if (intValue != null) {
             builder.setIntValue(intValue);
@@ -388,6 +405,53 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, proto3ExplicitMetaData());
             saveTestRecords(FDBRecordStoreNullQueryTest::buildRecord3Explicit);
+
+            assertThat(executeQuery(RecordQuery.newBuilder()
+                            .setRecordType("MyNullRecord")
+                            .setFilter(Query.field("int_value").equalsValue(2))
+                            .build()),
+                    is(Collections.singletonList("two")));
+            assertThat(executeQuery(RecordQuery.newBuilder()
+                            .setRecordType("MyNullRecord")
+                            .setFilter(Query.field("string_value").equalsValue("B"))
+                            .build()),
+                    is(Collections.singletonList("two")));
+
+            assertThat(executeQuery(RecordQuery.newBuilder()
+                    .setRecordType("MyNullRecord")
+                    .setFilter(Query.field("int_value").isNull())
+                    .build()),
+                    is(Collections.singletonList("empty")));
+            assertThat(executeQuery(RecordQuery.newBuilder()
+                    .setRecordType("MyNullRecord")
+                    .setFilter(Query.field("int_value").equalsValue(0))
+                    .build()),
+                    is(Collections.singletonList("default")));
+            assertThat(executeQuery(RecordQuery.newBuilder()
+                            .setRecordType("MyNullRecord")
+                            .setFilter(Query.field("string_value").isNull())
+                            .build()),
+                    is(Collections.singletonList("empty")));
+            assertThat(executeQuery(RecordQuery.newBuilder()
+                            .setRecordType("MyNullRecord")
+                            .setFilter(Query.field("string_value").equalsValue(""))
+                            .build()),
+                    is(Collections.singletonList("default")));
+
+            assertThat(executeQuery(RecordQuery.newBuilder()
+                    .setRecordType("MyNullRecord")
+                    .setSort(Key.Expressions.field("int_value"))
+                    .build()),
+                    is(Arrays.asList("empty", "minus", "default", "one", "two")));
+        }
+    }
+
+    // Explicit presence is now the default.
+    @Test
+    public void testProtoEditions() {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, protoEditionsMetaData());
+            saveTestRecords(FDBRecordStoreNullQueryTest::buildRecordEditions);
 
             assertThat(executeQuery(RecordQuery.newBuilder()
                             .setRecordType("MyNullRecord")
