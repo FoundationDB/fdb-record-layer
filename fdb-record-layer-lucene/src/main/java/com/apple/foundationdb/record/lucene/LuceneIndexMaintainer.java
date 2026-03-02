@@ -242,7 +242,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             state.store.getIndexDeferredMaintenanceControl().setExplicitMergePath(true);
             directoryManager.mergeIndexWithContext(groupingKey, partitionId, agilityContext);
         } finally {
-            directoryManager.drainPendingQueue(groupingKey, partitionId, agilityContext);
+            state.context.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DRAIN_PENDING_QUEUE,
+                    directoryManager.drainPendingQueue(groupingKey, partitionId, agilityContext));
         }
     }
 
