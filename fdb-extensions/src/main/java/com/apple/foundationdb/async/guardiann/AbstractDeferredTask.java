@@ -53,6 +53,11 @@ public abstract class AbstractDeferredTask {
     }
 
     @Nonnull
+    Primitives primitives() {
+        return getLocator().primitives();
+    }
+
+    @Nonnull
     AccessInfo getAccessInfo() {
         return accessInfo;
     }

@@ -257,12 +257,14 @@ class StorageAdapter {
     @Nonnull
     static ClusterMetadata clusterMetadataFromTuple(@Nonnull final Tuple valueTuple) {
         return new ClusterMetadata(valueTuple.getUUID(0), Math.toIntExact(valueTuple.getLong(1)),
-                Math.toIntExact(valueTuple.getLong(2)));
+                Math.toIntExact(valueTuple.getLong(1)),
+                Math.toIntExact(valueTuple.getLong(3)));
     }
 
     @Nonnull
     static Tuple valueTupleFromClusterMetadata(@Nonnull final ClusterMetadata clusterMetadata) {
-        return Tuple.from(clusterMetadata.getId(), clusterMetadata.getNumVectors(), clusterMetadata.getStatesCode());
+        return Tuple.from(clusterMetadata.getId(), clusterMetadata.getNumPrimaryVectors(),
+                clusterMetadata.getNumReplicatedVectors(), clusterMetadata.getStatesCode());
     }
 
     @Nonnull

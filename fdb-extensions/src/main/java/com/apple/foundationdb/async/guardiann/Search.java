@@ -261,7 +261,7 @@ public class Search {
                                 final ClusterMetadata newClusterMetadata;
                                 final UUID clusterId = clusterMetadata.getId();
                                 if (!clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE) && // not already splitting
-                                        clusterMetadata.getNumVectors() >= config.getClusterMax()) {
+                                        clusterMetadata.getNumPrimaryVectors() >= config.getPrimaryClusterMax()) {
                                     // create a split/merge task
                                     primitives.writeDeferredTask(transaction,
                                             SplitMergeTask.of(getLocator(), accessInfo, UUID.randomUUID(),

@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.StorageHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.Estimator;
@@ -29,11 +30,14 @@ import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.ReservoirSampler;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.Comparator;
@@ -42,10 +46,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.PriorityQueue;
+import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public class ReassignTask extends AbstractDeferredTask {
+    @Nonnull
+    private static final Logger logger = LoggerFactory.getLogger(ReassignTask.class);
+
     @Nonnull
     private final UUID clusterId;
     @Nonnull
@@ -111,6 +119,7 @@ public class ReassignTask extends AbstractDeferredTask {
     private CompletableFuture<Void> reassign(@Nonnull final Transaction transaction,
                                              @Nonnull final ClusterMetadata targetClusterMetadata,
                                              @Nonnull final RealVector targetClusterCentroid) {
+        final SplittableRandom random = RandomHelpers.random(targetClusterMetadata.getId());
         final Primitives primitives = getLocator().primitives();
         final AccessInfo accessInfo = getAccessInfo();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
@@ -137,9 +146,9 @@ public class ReassignTask extends AbstractDeferredTask {
                     .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction, innerClusters)
                             .thenAccept(cleanedUpVectorReferences -> {
                                 final ReassignmentResult reassignmentResult =
-                                        reassignVectorReferences(estimator, Iterables.getOnlyElement(innerNeighborhood),
+                                        reassignVectorReferences(random, estimator, Iterables.getOnlyElement(innerNeighborhood),
                                                 outerNeighborhood, cleanedUpVectorReferences);
-                                final ImmutableListMultimap<UUID, VectorReference> assignmentMultimap = reassignmentResult.getAssignmentMultimap();
+                                final ImmutableListMultimap<UUID, VectorReference> assignmentMultimap = reassignmentResult.getPrimaryAssignmentMultimap();
                                 final ImmutableList<VectorReference> targetClusterAssignedVectors =
                                         assignmentMultimap.get(targetClusterMetadata.getId());
                                 final ImmutableMap.Builder<Tuple, VectorReference> targetClusterAssignedVectorsAsMapBuilder = ImmutableMap.builder();
@@ -197,7 +206,8 @@ public class ReassignTask extends AbstractDeferredTask {
     }
 
     @Nonnull
-    private ReassignmentResult reassignVectorReferences(@Nonnull final Estimator estimator,
+    private ReassignmentResult reassignVectorReferences(@Nonnull final SplittableRandom random,
+                                                        @Nonnull final Estimator estimator,
                                                         @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
                                                         @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood,
                                                         @Nonnull final List<VectorReference> vectorReferences) {
@@ -215,9 +225,19 @@ public class ReassignTask extends AbstractDeferredTask {
         final ImmutableMap<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap =
                 clusterIdMetadataMapBuilder.build();
 
-        final ImmutableListMultimap.Builder<UUID, VectorReference> assignedVectorsMultimapBuilder =
+        final ImmutableListMultimap.Builder<UUID, VectorReference> primaryAssignmentBuilder =
                 ImmutableListMultimap.builder();
+        final ImmutableListMultimap.Builder<UUID, VectorReference> replicatedAssignmentBuilder =
+                ImmutableListMultimap.builder();
+        final ReservoirSampler<VectorReference> replicatedAssignmentSampler =
+                new ReservoirSampler<>(config.getReplicatedClusterTarget(), random);
+
         for (final VectorReference vectorReference : vectorReferences) {
+            if (!vectorReference.isPrimaryCopy()) {
+                replicatedAssignmentSampler.add(vectorReference);
+                continue;
+            }
+
             final PriorityQueue<ClusterMetadataWithDistance> nearestClusters =
                     new PriorityQueue<>(1 + outerNeighborhood.size(),
                             Comparator.comparing(ClusterMetadataWithDistance::getDistance));
@@ -234,7 +254,7 @@ public class ReassignTask extends AbstractDeferredTask {
             final double distanceToPrimaryCentroid = primaryCluster.getDistance();
             Verify.verify(Double.isFinite(distanceToPrimaryCentroid));
 
-            assignedVectorsMultimapBuilder.put(
+            primaryAssignmentBuilder.put(
                     primaryCluster.getClusterMetadata().getId(),
                     vectorReference.toPrimaryCopy());
 
@@ -252,7 +272,7 @@ public class ReassignTask extends AbstractDeferredTask {
                 // clusters.
                 //
                 if (distance / distanceToPrimaryCentroid <= 1.0d + config.getClusterOverlap()) {
-                    assignedVectorsMultimapBuilder.put(
+                    replicatedAssignmentBuilder.put(
                             replicatedCluster.getClusterMetadata().getId(),
                             vectorReference.toReplicatedCopy());
                 } else {
@@ -260,7 +280,12 @@ public class ReassignTask extends AbstractDeferredTask {
                 }
             }
         }
-        return new ReassignmentResult(clusterIdMetadataMap, assignedVectorsMultimapBuilder.build());
+
+        replicatedAssignmentBuilder.putAll(targetClusterMetadataWithDistance.getClusterMetadata().getId(),
+                replicatedAssignmentSampler.sample());
+
+        return new ReassignmentResult(clusterIdMetadataMap, primaryAssignmentBuilder.build(),
+                replicatedAssignmentBuilder.build());
     }
 
     private void updateAssignments(@Nonnull final Transaction transaction,
@@ -269,13 +294,20 @@ public class ReassignTask extends AbstractDeferredTask {
                                    @Nonnull final ImmutableList<VectorReference> writeTargetClusterAssignedVectors,
                                    @Nonnull final ImmutableList<Tuple> deleteTargetClusterAssignedVectors,
                                    @Nonnull final Quantizer quantizer) {
-        final Config config = getConfig();
         final Primitives primitives = getLocator().primitives();
 
         // write all vector references
-        final var assignmentMultiMap =
-                reassignmentResult.getAssignmentMultimap();
-        for (final Map.Entry<UUID, VectorReference> entry : assignmentMultiMap.entries()) {
+        final var primaryAssignmentMultiMap =
+                reassignmentResult.getPrimaryAssignmentMultimap();
+        for (final Map.Entry<UUID, VectorReference> entry : primaryAssignmentMultiMap.entries()) {
+            if (!entry.getKey().equals(targetClusterMetadata.getId())) {
+                primitives.writeVectorReference(transaction, quantizer, entry.getKey(),
+                        entry.getValue());
+            }
+        }
+        final var replicatedAssignmentMultiMap =
+                reassignmentResult.getReplicatedAssignmentMultimap();
+        for (final Map.Entry<UUID, VectorReference> entry : replicatedAssignmentMultiMap.entries()) {
             if (!entry.getKey().equals(targetClusterMetadata.getId())) {
                 primitives.writeVectorReference(transaction, quantizer, entry.getKey(),
                         entry.getValue());
@@ -300,26 +332,20 @@ public class ReassignTask extends AbstractDeferredTask {
             final UUID toBeWritten = entry.getKey();
             final ClusterMetadataWithDistance clusterMetadataWithDistance = entry.getValue();
             final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.getClusterMetadata();
-            if (assignmentMultiMap.containsKey(toBeWritten)) {
-                final int numVectorsAdded = assignmentMultiMap.get(toBeWritten).size();
-                ClusterMetadata newClusterMetadata;
-                final int numTotalVectors = clusterMetadata.getNumVectors() + numVectorsAdded;
-                if (!clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE) &&
-                        (numTotalVectors > config.getClusterMax() ||
-                                 numTotalVectors < config.getClusterMin())) {
-                    // create a split/merge task
-                    primitives.writeDeferredTask(transaction,
-                            SplitMergeTask.of(getLocator(), getAccessInfo(), UUID.randomUUID(),
-                                    clusterId, clusterMetadataWithDistance.getCentroid()));
 
-                    newClusterMetadata =
-                            clusterMetadata.withAdditionalVectorsAndNewStates(numVectorsAdded,
-                                    ClusterMetadata.State.SPLIT_MERGE);
+            if (primaryAssignmentMultiMap.containsKey(toBeWritten) ||
+                    replicatedAssignmentMultiMap.containsKey(toBeWritten)) {
+                final int numPrimaryVectorsAdded = primaryAssignmentMultiMap.get(toBeWritten).size();
+                final int numReplicatedVectorsAdded = replicatedAssignmentMultiMap.get(toBeWritten).size();
+
+                final ClusterMetadata newClusterMetadata;
+                if (targetClusterMetadata.getId().equals(clusterMetadata.getId())) {
+                    newClusterMetadata = clusterMetadata.withNewVectors(numPrimaryVectorsAdded, numReplicatedVectorsAdded, EnumSet.noneOf(ClusterMetadata.State.class));
                 } else {
-                    newClusterMetadata =
-                            clusterMetadata.withAdditionalVectors(numVectorsAdded);
+                    newClusterMetadata = primitives.writeDeferredTasks(transaction, clusterMetadata,
+                            clusterMetadataWithDistance.getCentroid(), getAccessInfo(), numPrimaryVectorsAdded,
+                            numReplicatedVectorsAdded, false);
                 }
-
                 primitives.writeClusterMetadata(transaction, newClusterMetadata);
             }
         }
@@ -348,12 +374,16 @@ public class ReassignTask extends AbstractDeferredTask {
         @Nonnull
         private final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap;
         @Nonnull
-        private final ImmutableListMultimap<UUID, VectorReference> assignmentMultimap;
+        private final ImmutableListMultimap<UUID, VectorReference> primaryAssignmentMultimap;
+        @Nonnull
+        private final ImmutableListMultimap<UUID, VectorReference> replicatedAssignmentMultimap;
 
         public ReassignmentResult(@Nonnull final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap,
-                                  @Nonnull final ImmutableListMultimap<UUID, VectorReference> assignmentMultimap) {
+                                  @Nonnull final ImmutableListMultimap<UUID, VectorReference> primaryAssignmentMultimap,
+                                  @Nonnull final ImmutableListMultimap<UUID, VectorReference> replicatedAssignmentMultimap) {
             this.clusterIdMetadataMap = clusterIdMetadataMap;
-            this.assignmentMultimap = assignmentMultimap;
+            this.primaryAssignmentMultimap = primaryAssignmentMultimap;
+            this.replicatedAssignmentMultimap = replicatedAssignmentMultimap;
         }
 
         @Nonnull
@@ -362,8 +392,13 @@ public class ReassignTask extends AbstractDeferredTask {
         }
 
         @Nonnull
-        public ImmutableListMultimap<UUID, VectorReference> getAssignmentMultimap() {
-            return assignmentMultimap;
+        public ImmutableListMultimap<UUID, VectorReference> getPrimaryAssignmentMultimap() {
+            return primaryAssignmentMultimap;
+        }
+
+        @Nonnull
+        public ImmutableListMultimap<UUID, VectorReference> getReplicatedAssignmentMultimap() {
+            return replicatedAssignmentMultimap;
         }
     }
 }

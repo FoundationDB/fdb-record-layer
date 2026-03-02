@@ -65,7 +65,7 @@ import static com.apple.foundationdb.async.MoreAsyncUtil.forLoop;
  * efficient approximate nearest neighbor (ANN) search.
  */
 @API(API.Status.EXPERIMENTAL)
-public class Primitives {
+class Primitives {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(Primitives.class);
 
@@ -405,6 +405,15 @@ public class Primitives {
                 });
     }
 
+    void writeVectorReferences(@Nonnull final Transaction transaction,
+                               @Nonnull final Quantizer quantizer,
+                               @Nonnull final UUID clusterId,
+                               @Nonnull final Iterable<VectorReference> vectorReferences) {
+        for (final VectorReference vectorReference : vectorReferences) {
+            writeVectorReference(transaction, quantizer, clusterId, vectorReference);
+        }
+    }
+
     void writeVectorReference(@Nonnull final Transaction transaction,
                               @Nonnull final Quantizer quantizer,
                               @Nonnull final UUID clusterId,
@@ -485,6 +494,51 @@ public class Primitives {
         transaction.set(key, value);
     }
 
+    @Nonnull
+    ClusterMetadata writeDeferredTasks(@Nonnull final Transaction transaction,
+                                       @Nonnull final ClusterMetadata clusterMetadata,
+                                       @Nonnull final Transformed<RealVector> clusterCentroid,
+                                       @Nonnull final AccessInfo accessInfo,
+                                       final int numPrimaryVectorsAdded, final int numReplicatedVectorsAdded,
+                                       final boolean forceReassign) {
+        final Config config = getConfig();
+
+        final int numTotalPrimaryVectors = clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded;
+        if (!clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE) && // not already splitting
+                numTotalPrimaryVectors > config.getPrimaryClusterMax()) {
+            if (logger.isInfoEnabled()) {
+                logger.info("enqueuing split/merge; clusterId={}; numTotalPrimaryVectors={}",
+                        clusterMetadata.getId(), numTotalPrimaryVectors);
+            }
+
+            // create a split/merge task
+            writeDeferredTask(transaction,
+                    SplitMergeTask.of(getLocator(), accessInfo, UUID.randomUUID(),
+                            clusterMetadata.getId(), clusterCentroid));
+
+            return clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
+                    numReplicatedVectorsAdded, ClusterMetadata.State.SPLIT_MERGE);
+        }
+
+        int numTotalReplicatedVectors = clusterMetadata.getNumReplicatedVectors() + numReplicatedVectorsAdded;
+        if (!clusterMetadata.getStates().contains(ClusterMetadata.State.REASSIGN) && // not already reassigning
+                (forceReassign || numTotalReplicatedVectors > config.getReplicatedClusterMaxWrites())) {
+            if (logger.isInfoEnabled()) {
+                logger.info("enqueuing reassign; clusterId={}; numTotalPrimaryVectors={}, numTotalReplicatedVectors={}",
+                        clusterMetadata.getId(), numTotalPrimaryVectors, numTotalReplicatedVectors);
+            }
+
+            // create a reassign task
+            writeDeferredTask(transaction,
+                    SplitMergeTask.of(getLocator(), accessInfo, UUID.randomUUID(),
+                            clusterMetadata.getId(), clusterCentroid));
+
+            return clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
+                    numReplicatedVectorsAdded, ClusterMetadata.State.REASSIGN);
+        }
+        return clusterMetadata.withAdditionalVectors(numPrimaryVectorsAdded, numReplicatedVectorsAdded);
+    }
+
     void deleteDeferredTask(@Nonnull final Transaction transaction,
                             @Nonnull final AbstractDeferredTask deferredTask) {
         final Subspace tasksSubspace = getTasksSubspace();
@@ -549,7 +603,8 @@ public class Primitives {
         return AsyncUtil.collect(
                 MoreAsyncUtil.mapIterablePipelined(executor,
                         MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
-                                                primitives.centroidsOrderedByDistance(transaction, targetClusterCentroid),
+                                                primitives.centroidsOrderedByDistance(transaction,
+                                                        targetClusterCentroid, 0.0d, null),
                                         executor),
                                 numClusters, executor),
                         resultEntry -> {

@@ -267,24 +267,17 @@ public class Insert {
                                 final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.getClusterMetadata();
                                 final ClusterMetadata newClusterMetadata;
                                 final UUID clusterId = clusterMetadata.getId();
-                                if (!clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE) && // not already splitting
-                                        clusterMetadata.getNumVectors() >= config.getClusterMax()) {
-                                    // create a split/merge task
-                                    primitives.writeDeferredTask(transaction,
-                                            SplitMergeTask.of(getLocator(), accessInfo, UUID.randomUUID(),
-                                                    clusterId, clusterMetadataWithDistance.getCentroid()));
+                                final boolean isPrimaryCluster = clusterId.equals(primaryClusterIdAtomic.get());
 
-                                    newClusterMetadata =
-                                            clusterMetadata.withAdditionalVectorsAndNewStates(1,
-                                                    ClusterMetadata.State.SPLIT_MERGE);
-                                } else {
-                                    newClusterMetadata =
-                                            clusterMetadata.withAdditionalVectors(1);
-                                }
+                                newClusterMetadata = primitives.writeDeferredTasks(transaction, clusterMetadata,
+                                        clusterMetadataWithDistance.getCentroid(), accessInfo,
+                                        isPrimaryCluster ? 1 : 0,
+                                        isPrimaryCluster ? 0 : 1,
+                                        false);
 
                                 primitives.writeVectorReference(transaction, quantizer, clusterId,
                                         new VectorReference(newVectorMetadata,
-                                                clusterId.equals(primaryClusterIdAtomic.get()), transformedNewVector));
+                                                isPrimaryCluster, transformedNewVector));
                                 primitives.writeClusterMetadata(transaction, newClusterMetadata);
                                 return AsyncUtil.DONE;
                             },
