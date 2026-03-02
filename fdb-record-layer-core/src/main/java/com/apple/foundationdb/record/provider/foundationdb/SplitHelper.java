@@ -33,6 +33,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
@@ -104,7 +105,7 @@ public class SplitHelper {
      */
     public static void saveWithSplit(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
                                      @Nonnull final Tuple key, @Nonnull final byte[] serialized, @Nullable final FDBRecordVersion version) {
-        saveWithSplit(context, subspace, key, serialized, version, true, false, false, null, null);
+        saveWithSplit(context, subspace, key, serialized, version, true, false, DefaultSplitKeyValueHelper.INSTANCE, false, null, null);
     }
 
     /**
@@ -124,6 +125,7 @@ public class SplitHelper {
     public static void saveWithSplit(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
                                      @Nonnull final Tuple key, @Nonnull final byte[] serialized, @Nullable final FDBRecordVersion version,
                                      final boolean splitLongRecords, final boolean omitUnsplitSuffix,
+                                     final SplitKeyValueHelper splitKeyHelper,
                                      final boolean clearBasedOnPreviousSizeInfo, @Nullable final FDBStoredSizes previousSizeInfo,
                                      @Nullable SizeInfo sizeInfo) {
         if (omitUnsplitSuffix && version != null) {
@@ -132,7 +134,10 @@ public class SplitHelper {
                     .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
                     .addLogInfo(LogMessageKeys.VERSION, version);
         }
-        final Transaction tr = context.ensureActive();
+        if ((version != null) && !splitKeyHelper.supportsVersionInValue()) {
+            // Cannot write version in the k/v value since it is not supported by this helper (e.g. version is needed in the key)
+            throw new RecordCoreArgumentException("Split version is not supported for this helper");
+        }
         if (serialized.length > SplitHelper.SPLIT_RECORD_SIZE) {
             if (!splitLongRecords) {
                 throw new RecordCoreException("Record is too long to be stored in a single value; consider split_long_records")
@@ -140,9 +145,11 @@ public class SplitHelper {
                         .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
                         .addLogInfo(LogMessageKeys.VALUE_SIZE, serialized.length);
             }
-            writeSplitRecord(context, subspace, key, serialized, clearBasedOnPreviousSizeInfo, previousSizeInfo, sizeInfo);
+            writeSplitRecord(context, subspace, key, serialized, splitKeyHelper, clearBasedOnPreviousSizeInfo, previousSizeInfo, sizeInfo);
         } else {
-            if (splitLongRecords || previousSizeInfo == null || previousSizeInfo.isVersionedInline()) {
+            if (splitKeyHelper.shouldClearBeforeWrite() && (splitLongRecords || previousSizeInfo == null || previousSizeInfo.isVersionedInline())) {
+                // Note that the clearPreviousSplitRecords also removes version splits from the context cache
+                // This is not currently supported for the case where we have versions in the keys since we can't trace the old values down
                 clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
             }
             final Tuple recordKey;
@@ -151,24 +158,27 @@ public class SplitHelper {
             } else {
                 recordKey = key;
             }
-            final byte[] keyBytes = subspace.pack(recordKey);
-            tr.set(keyBytes, serialized);
+            final byte[] keyBytes = splitKeyHelper.packSplitKey(subspace, recordKey);
+            splitKeyHelper.writeSplit(context, keyBytes, serialized);
             if (sizeInfo != null) {
                 sizeInfo.set(keyBytes, serialized);
                 sizeInfo.setSplit(false);
             }
         }
-        writeVersion(context, subspace, key, version, sizeInfo);
+        writeVersion(context, subspace, key, version, sizeInfo, splitKeyHelper);
     }
 
     @SuppressWarnings("PMD.CloseResource")
     private static void writeSplitRecord(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
                                          @Nonnull final Tuple key, @Nonnull final byte[] serialized,
+                                         final SplitKeyValueHelper splitKeyHelper,
                                          final boolean clearBasedOnPreviousSizeInfo, @Nullable final FDBStoredSizes previousSizeInfo,
                                          @Nullable SizeInfo sizeInfo) {
-        final Transaction tr = context.ensureActive();
-        final Subspace keySplitSubspace = subspace.subspace(key);
-        clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
+        if (splitKeyHelper.shouldClearBeforeWrite()) {
+            // Note that the clearPreviousSplitRecords also removes version splits from the context cache
+            // This is not currently supported for the case where we have versions in the keys since we can't trace the old values down
+            clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
+        }
         long index = SplitHelper.START_SPLIT_RECORD;
         int offset = 0;
         while (offset < serialized.length) {
@@ -176,9 +186,9 @@ public class SplitHelper {
             if (nextOffset > serialized.length) {
                 nextOffset = serialized.length;
             }
-            final byte[] keyBytes = keySplitSubspace.pack(index);
+            final byte[] keyBytes = splitKeyHelper.packSplitKey(subspace, key.add(index));
             final byte[] valueBytes = Arrays.copyOfRange(serialized, offset, nextOffset);
-            tr.set(keyBytes, valueBytes);
+            splitKeyHelper.writeSplit(context, keyBytes, valueBytes);
             if (sizeInfo != null) {
                 if (offset == 0) {
                     sizeInfo.set(keyBytes, valueBytes);
@@ -194,18 +204,17 @@ public class SplitHelper {
 
     @SuppressWarnings("PMD.CloseResource")
     private static void writeVersion(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace, @Nonnull final Tuple key,
-                                     @Nullable final FDBRecordVersion version, @Nullable final SizeInfo sizeInfo) {
+                                     @Nullable final FDBRecordVersion version, @Nullable final SizeInfo sizeInfo, final SplitKeyValueHelper splitKeyHelper) {
         if (version == null) {
             if (sizeInfo != null) {
                 sizeInfo.setVersionedInline(false);
             }
             return;
         }
-        final Transaction tr = context.ensureActive();
-        final byte[] keyBytes = subspace.pack(key.add(RECORD_VERSION));
+        final byte[] keyBytes = splitKeyHelper.packSplitKey(subspace, key.add(RECORD_VERSION));
         final byte[] valueBytes = packVersion(version);
         if (version.isComplete()) {
-            tr.set(keyBytes, valueBytes);
+            splitKeyHelper.writeSplit(context, keyBytes, valueBytes);
         } else {
             context.addVersionMutation(MutationType.SET_VERSIONSTAMPED_VALUE, keyBytes, valueBytes);
             context.addToLocalVersionCache(keyBytes, version.getLocalVersion());
