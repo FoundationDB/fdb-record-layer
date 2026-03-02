@@ -545,8 +545,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         getWriter().maybeMerge();
     }
 
-    public void clearOngoingMergeIndicator() {
-        getDirectory().clearOngoingMergeIndicatorButFailIfNonEmpty();
+    public CompletableFuture<Void> clearOngoingMergeIndicator() {
+        return getDirectory().clearOngoingMergeIndicatorIfQueueEmptyAsync();
     }
 
     public CompletableFuture<Void> drainPendingQueue(@Nonnull final Tuple groupingKey,
@@ -563,8 +563,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         return AsyncUtil.whileTrue(() -> {
             agilityContext.flush(); // before potentially long drain (Note that the drain iteration does not use agilityContext)
             return drainPendingQueueNow(groupingKey, partitionId)
+                    .thenCompose(vIgnore -> clearOngoingMergeIndicator())
                     .thenApply(vIgnore -> {
-                        clearOngoingMergeIndicator();
                         agilityContext.flush(); // commit clear indicator
                         return false; // done, stop looping
                     })

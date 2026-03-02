@@ -1035,21 +1035,20 @@ public class FDBDirectory extends Directory {
     }
 
     /**
-     * Clears the ongoing merge indicator, throw exception if the queue is not empty.
+     * Clears the ongoing merge indicator, completing exceptionally if the queue is not empty.
      *
-     * @throws RecordCoreException if the pending write queue is not empty
+     * @return a future that completes when the indicator is cleared
      */
-    public void clearOngoingMergeIndicatorButFailIfNonEmpty() {
-        asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_PENDING_QUEUE,
-                agilityContext.apply(aContext ->
-                        createPendingWritesQueue().isQueueEmpty(aContext)
-                                .thenAccept(isEmptyQueue -> {
-                                    if (Boolean.FALSE.equals(isEmptyQueue)) {
-                                        throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
-                                    }
-                                    // Clear the ongoing merge indicator
-                                    aContext.ensureActive().clear(ongoingMergeSubspace.pack());
-                                })));
+    public CompletableFuture<Void> clearOngoingMergeIndicatorIfQueueEmptyAsync() {
+        return agilityContext.apply(aContext ->
+                createPendingWritesQueue().isQueueEmpty(aContext)
+                        .thenAccept(isEmptyQueue -> {
+                            if (Boolean.FALSE.equals(isEmptyQueue)) {
+                                throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
+                            }
+                            // Clear the ongoing merge indicator
+                            aContext.ensureActive().clear(ongoingMergeSubspace.pack());
+                        }));
     }
 
     public PendingWriteQueue createPendingWritesQueue() {

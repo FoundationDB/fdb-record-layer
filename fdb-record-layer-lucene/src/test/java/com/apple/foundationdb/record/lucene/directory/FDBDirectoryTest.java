@@ -403,7 +403,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
             RecordCoreException exception =
                     assertThrows(RecordCoreException.class,
-                            newDirectory::clearOngoingMergeIndicatorButFailIfNonEmpty,
+                            () -> newDirectory.clearOngoingMergeIndicatorIfQueueEmptyAsync().join(),
                             "clearUseQueueFailIfNonEmpty should throw when queue is not empty");
 
             assertThat(exception.getMessage(),
@@ -438,7 +438,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
                     "shouldUseQueue should return true before clear");
 
             // Clear should succeed now
-            newDirectory.clearOngoingMergeIndicatorButFailIfNonEmpty();
+            newDirectory.clearOngoingMergeIndicatorIfQueueEmptyAsync().join();
 
             // Should be false immediately after clear in same transaction
             assertFalse(newDirectory.shouldUseQueue(),
