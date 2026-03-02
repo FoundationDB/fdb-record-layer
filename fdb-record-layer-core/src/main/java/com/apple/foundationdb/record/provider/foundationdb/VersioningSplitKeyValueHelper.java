@@ -43,7 +43,7 @@ import com.apple.foundationdb.tuple.Versionstamp;
  * As a result, it cannot override previous values saved within the same transaction. Split records saved using this feature
  * are not stored in the RYW cache and attempts to write over them (using the same local version and PK) before the commit
  * may result in corrupt data.
- * Do not override records with another write using teh same local version and PK.
+ * Do not override records with another write using the same local version and PK.
  */
 public class VersioningSplitKeyValueHelper implements SplitKeyValueHelper {
     private Versionstamp versionstamp;

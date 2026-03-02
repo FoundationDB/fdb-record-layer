@@ -93,7 +93,7 @@ public class SplitHelperTestConfig {
 
     @Override
     public int hashCode() {
-        return Objects.hash(splitLongRecords, omitUnsplitSuffix, unrollRecordDeletes, loadViaGets, useVersionInKey);
+        return Objects.hash(splitLongRecords, omitUnsplitSuffix, unrollRecordDeletes, loadViaGets, isDryRun, useVersionInKey);
     }
 
     public static Stream<SplitHelperTestConfig> allValidConfigs() {
