@@ -356,9 +356,14 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                         if (mergeResult.getResidualComparisons().isEmpty()) {
                             residualPredicate = null;
                         } else {
-                            residualPredicate = AndPredicate.and(mergeResult.getResidualComparisons().stream()
-                                    .map(c -> candidatePredicateWithValuesAndRanges.getValue().withComparison(c))
-                                    .collect(ImmutableList.toImmutableList()));
+                            final RangeConstraints.Builder newRangeConstraintsBuilder = RangeConstraints.newBuilder();
+                            boolean allComparisonsAdded = mergeResult.getResidualComparisons().stream().allMatch(newRangeConstraintsBuilder::addComparisonMaybe);
+                            final Optional<RangeConstraints> newRangeConstraints = newRangeConstraintsBuilder.build();
+                            if (allComparisonsAdded && newRangeConstraints.isPresent()) {
+                                residualPredicate = new PredicateWithValueAndRanges(((PredicateWithValueAndRanges)candidatePredicate).getValue(), ImmutableSet.of(newRangeConstraints.get()));
+                            } else {
+                                residualPredicate = compensatedQueryPredicate;
+                            }
                         }
                     } else {
                         residualPredicate = null;
@@ -398,9 +403,14 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                         if (mergeResult.getResidualComparisons().isEmpty()) {
                             residualPredicate = null;
                         } else {
-                            residualPredicate = AndPredicate.and(mergeResult.getResidualComparisons().stream()
-                                    .map(c -> candidatePredicateWithValuesAndRanges.getValue().withComparison(c))
-                                    .collect(ImmutableList.toImmutableList()));
+                            final RangeConstraints.Builder newRangeConstraintsBuilder = RangeConstraints.newBuilder();
+                            boolean allComparisonsAdded = mergeResult.getResidualComparisons().stream().allMatch(newRangeConstraintsBuilder::addComparisonMaybe);
+                            final Optional<RangeConstraints> newRangeConstraints = newRangeConstraintsBuilder.build();
+                            if (allComparisonsAdded && newRangeConstraints.isPresent()) {
+                                residualPredicate = new PredicateWithValueAndRanges(((PredicateWithValueAndRanges)candidatePredicate).getValue(), ImmutableSet.of(newRangeConstraints.get()));
+                            } else {
+                                residualPredicate = compensatedQueryPredicate;
+                            }
                         }
                     } else {
                         residualPredicate = null;
