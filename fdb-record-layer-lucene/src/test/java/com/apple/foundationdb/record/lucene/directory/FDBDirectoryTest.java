@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -401,12 +402,12 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         try (FDBRecordContext newContext = fdb.openContext()) {
             FDBDirectory newDirectory = createDirectory(subspace, newContext, indexOptionAllowQueue());
 
-            RecordCoreException exception =
-                    assertThrows(RecordCoreException.class,
+            CompletionException completionException =
+                    assertThrows(CompletionException.class,
                             () -> newDirectory.clearOngoingMergeIndicatorIfQueueEmptyAsync().join(),
                             "clearUseQueueFailIfNonEmpty should throw when queue is not empty");
-
-            assertThat(exception.getMessage(),
+            assertThat(completionException.getCause(), Matchers.instanceOf(RecordCoreException.class));
+            assertThat(completionException.getCause().getMessage(),
                     Matchers.containsString("pending write queue is not empty"));
 
             // Indicator should still be set
@@ -438,7 +439,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
                     "shouldUseQueue should return true before clear");
 
             // Clear should succeed now
-            newDirectory.clearOngoingMergeIndicatorIfQueueEmptyAsync().join();
+            clearOngoingMergeIndicatorIfQueueEmptyNow(newDirectory);
 
             // Should be false immediately after clear in same transaction
             assertFalse(newDirectory.shouldUseQueue(),
@@ -458,6 +459,10 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
     private Map<String, String> indexOptionAllowQueue() {
         return Map.of(LuceneIndexOptions.ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, "true");
+    }
+
+    private static void clearOngoingMergeIndicatorIfQueueEmptyNow(FDBDirectory directory) {
+        directory.clearOngoingMergeIndicatorIfQueueEmptyAsync().join();
     }
 
     private List<LuceneDocumentFromRecord.DocumentField> createTestFields() {
