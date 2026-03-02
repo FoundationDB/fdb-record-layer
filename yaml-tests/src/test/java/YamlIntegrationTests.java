@@ -198,6 +198,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     public void joinWithOrderByTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("join-with-order-by-tests.yamsql");
     }
@@ -318,6 +319,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     public void sqlFunctionsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("sql-functions.yamsql");
     }
@@ -343,6 +345,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     public void subqueryTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("subquery-tests.yamsql");
     }
@@ -373,6 +376,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     public void userDefinedMacroFunctionTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("user-defined-macro-function-tests.yamsql");
     }
@@ -390,6 +394,7 @@ public class YamlIntegrationTests {
      * @see MetaDataExportUtilityTests#createValidIdentifiersMetaData() for how the custom meta-data is generated
      */
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     public void validIdentifierTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("valid-identifiers.yamsql");
     }
@@ -400,6 +405,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     public void versionsTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("versions-tests.yamsql");
     }
