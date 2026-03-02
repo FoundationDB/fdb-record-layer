@@ -134,6 +134,10 @@ public class SplitHelper {
                     .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
                     .addLogInfo(LogMessageKeys.VERSION, version);
         }
+        if ((version != null) && !splitKeyHelper.supportsVersionInValue()) {
+            // Cannot write version in the k/v value since it is not supported by this helper (e.g. version is needed in the key)
+            throw new RecordCoreArgumentException("Split version is not supported for this helper");
+        }
         if (serialized.length > SplitHelper.SPLIT_RECORD_SIZE) {
             if (!splitLongRecords) {
                 throw new RecordCoreException("Record is too long to be stored in a single value; consider split_long_records")
@@ -206,10 +210,6 @@ public class SplitHelper {
                 sizeInfo.setVersionedInline(false);
             }
             return;
-        }
-        if (!splitKeyHelper.supportsVersionInValue()) {
-            // Cannot write version in the k/v value since it is not supported by this helper (e.g. version is needed in the key)
-            throw new RecordCoreInternalException("Split version is not supported for this helper");
         }
         final byte[] keyBytes = splitKeyHelper.packSplitKey(subspace, key.add(RECORD_VERSION));
         final byte[] valueBytes = packVersion(version);

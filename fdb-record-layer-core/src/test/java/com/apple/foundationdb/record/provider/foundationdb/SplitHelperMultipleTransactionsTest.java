@@ -41,7 +41,6 @@ import com.apple.foundationdb.tuple.Versionstamp;
 import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.Lists;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -58,7 +57,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -88,8 +86,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *     <li>Save record and record global and local version</li>
  *     <li>Verify the saved content using the recorded version</li>
  * </ul>
- * In addition to testing <pre>useKeyInVersion</pre> this way, other configurations were also tested
- * to extend coverage over the single-transaction tests.
+ * In addition to testing <pre>useVersionInKey</pre> this way, other configurations are also tested
+ * to extend coverage beyond the single-transaction tests.
  * -
  */
 @Tag(Tags.RequiresFDB)
@@ -139,97 +137,8 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         }
     }
 
-    static class SplitHelperTestConfig {
-        private final boolean splitLongRecords;
-        private final boolean omitUnsplitSuffix;
-        private final boolean unrollRecordDeletes;
-        private final boolean loadViaGets;
-        private final boolean isDryRun;
-        private final boolean useVersionInKey;
-
-        public SplitHelperTestConfig(boolean splitLongRecords, boolean omitUnsplitSuffix, boolean unrollRecordDeletes,
-                                     boolean loadViaGets, boolean isDryRun, boolean useVersionInKey) {
-            this.splitLongRecords = splitLongRecords;
-            this.omitUnsplitSuffix = omitUnsplitSuffix;
-            this.unrollRecordDeletes = unrollRecordDeletes;
-            this.loadViaGets = loadViaGets;
-            this.isDryRun = isDryRun;
-            this.useVersionInKey = useVersionInKey;
-        }
-
-        public SplitKeyValueHelper keyHelper(int localVersion) {
-            if (useVersionInKey) {
-                return new VersioningSplitKeyValueHelper(Versionstamp.incomplete(localVersion));
-            } else {
-                return DefaultSplitKeyValueHelper.INSTANCE;
-            }
-        }
-
-        @Nonnull
-        public RecordLayerPropertyStorage.Builder setProps(@Nonnull RecordLayerPropertyStorage.Builder props) {
-            return props
-                    .addProp(FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES, unrollRecordDeletes)
-                    .addProp(FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS, loadViaGets);
-        }
-
-        public boolean hasSplitPoints() {
-            return splitLongRecords || !omitUnsplitSuffix;
-        }
-
-        @Override
-        public String toString() {
-            return "SplitHelperTestConfig{" +
-                    "splitLongRecords=" + splitLongRecords +
-                    ", omitUnsplitSuffix=" + omitUnsplitSuffix +
-                    ", unrollRecordDeletes=" + unrollRecordDeletes +
-                    ", loadViaGets=" + loadViaGets +
-                    ", isDryRun=" + isDryRun +
-                    ", useVersionInKey=" + useVersionInKey +
-                    '}';
-        }
-
-        @Override
-        public boolean equals(final Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            final SplitHelperTestConfig that = (SplitHelperTestConfig)o;
-            return splitLongRecords == that.splitLongRecords && omitUnsplitSuffix == that.omitUnsplitSuffix &&
-                    unrollRecordDeletes == that.unrollRecordDeletes && loadViaGets == that.loadViaGets &&
-                    isDryRun == that.isDryRun && useVersionInKey == that.useVersionInKey;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(splitLongRecords, omitUnsplitSuffix, unrollRecordDeletes, loadViaGets, useVersionInKey);
-        }
-
-        public static Stream<SplitHelperTestConfig> allValidConfigs() {
-            // Note that splitLongRecords="true" && omitUnsplitSuffix="true" is not valid
-            // Note that useVersionInKey="true" && isDryRun="true" is not valid (versionstamp never completes without commit)
-            return Stream.of(false, true).flatMap(useVersionInKey ->
-                    Stream.of(false, true).flatMap(splitLongRecords ->
-                            (splitLongRecords ? Stream.of(false) : Stream.of(false, true)).flatMap(omitUnsplitSuffix ->
-                                    Stream.of(false, true).flatMap(unrollRecordDeletes ->
-                                            Stream.of(false, true).flatMap(loadViaGets ->
-                                                    Stream.of(false, true)
-                                                            .filter(isDryRun -> !useVersionInKey || !isDryRun)
-                                                            .map(isDryRun ->
-                                                                    new SplitHelperTestConfig(splitLongRecords, omitUnsplitSuffix, unrollRecordDeletes, loadViaGets, isDryRun, useVersionInKey)))))));
-        }
-
-        public static SplitHelperTestConfig getDefault() {
-            return new SplitHelperTestConfig(true, false,
-                    FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(),
-                    FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS.getDefaultValue(), false, false);
-        }
-    }
-
-    public static Stream<Arguments> testConfigs() {
-        return SplitHelperTestConfig.allValidConfigs().map(Arguments::of);
+    public static Stream<Arguments> testConfigsNoDryRun() {
+        return SplitHelperTestConfig.getConfigsNoDryRun().map(Arguments::of);
     }
 
     @Override
@@ -259,7 +168,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
     }
 
     /**
-     * This represents the first part of {@link SplitHelperTest#saveSuccessfully(FDBRecordContext, Tuple, byte[], FDBRecordVersion, SplitHelperTest.SplitHelperTestConfig, FDBStoredSizes)}.
+     * This represents the first part of {@link SplitHelperTest#saveSuccessfully}.
      * The other part is located in {@link #verifySuccessfullySaved(FDBRecordContext, Tuple, byte[], FDBRecordVersion, SplitHelperTestConfig)}.
      */
     private SplitHelper.SizeInfo saveOnly(@Nonnull FDBRecordContext context, @Nonnull Tuple key, byte[] serialized,
@@ -302,7 +211,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
     }
 
     /**
-     * This represents the second part of {@link SplitHelperTest#saveSuccessfully(FDBRecordContext, Tuple, byte[], FDBRecordVersion, SplitHelperTest.SplitHelperTestConfig, FDBStoredSizes)}.
+     * This represents the second part of {@link SplitHelperTest#saveSuccessfully}.
      */
     private void verifySuccessfullySaved(@Nonnull FDBRecordContext context, @Nonnull Tuple key, byte[] serialized,
                                          @Nullable FDBRecordVersion version,
@@ -310,6 +219,9 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         // do nothing if not saveOnly was not actually invoked
         if (testConfig.omitUnsplitSuffix && version != null) {
             // cannot include version
+            return;
+        } else if (testConfig.useVersionInKey && (version != null)) {
+            // cannot use version in both key and value
             return;
         } else if (!testConfig.splitLongRecords && serialized.length > SplitHelper.SPLIT_RECORD_SIZE) {
             // Record is too long
@@ -392,11 +304,10 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         }
     }
 
-    @MethodSource("testConfigs")
+    @MethodSource("testConfigsNoDryRun")
     @ParameterizedTest(name = "saveWithSplitMultipleTransactions[{0}]")
     void saveWithSplitMultipleTransactions(@Nonnull SplitHelperTestConfig testConfig) {
         // dry run does not support transactions
-        Assumptions.assumeFalse(testConfig.isDryRun);
         this.testConfig = testConfig;
 
         final Tuple key1 = Tuple.from(1066L);
@@ -409,6 +320,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         final SplitHelper.SizeInfo sizes2;
         final SplitHelper.SizeInfo sizes3;
         byte[] globalVersionstamp;
+        // Transaction #1: save some values
         try (FDBRecordContext context = openContext()) {
             // save with no version and no previousSizeInfo
             localVersion1 = context.claimLocalVersion();
@@ -425,6 +337,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         final Tuple verifyKey1 = toCompleteKey(key1, globalVersionstamp, localVersion1, testConfig.useVersionInKey);
         final Tuple verifyKey2 = toCompleteKey(key2, globalVersionstamp, localVersion2, testConfig.useVersionInKey);
         final Tuple verifyKey3 = toCompleteKey(key3, globalVersionstamp, localVersion3, testConfig.useVersionInKey);
+        // Transaction #2: verify saved values
         try (FDBRecordContext context = openContext()) {
             verifySuccessfullySaved(context, verifyKey1, SHORT_STRING, null, testConfig);
             verifySuccessfullySaved(context, verifyKey2, LONG_STRING, null, testConfig);
@@ -434,6 +347,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         int localVersion4 = 0;
         int localVersion5 = 0;
         int localVersion6 = 0;
+        // Transaction #3: modify saved values
         try (FDBRecordContext context = openContext()) {
             // Save over some things using the previous split points
             if (testConfig.splitLongRecords) {
@@ -450,6 +364,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         Tuple verifyKey4 = toCompleteKey(key1, globalVersionstamp, localVersion4, testConfig.useVersionInKey);
         Tuple verifyKey5 = toCompleteKey(key3, globalVersionstamp, localVersion5, testConfig.useVersionInKey);
         Tuple verifyKey6 = toCompleteKey(key2, globalVersionstamp, localVersion6, testConfig.useVersionInKey);
+        // Transaction #4: verify changes
         try (FDBRecordContext context = openContext()) {
             if (testConfig.splitLongRecords) {
                 verifySuccessfullySaved(context, verifyKey4, VERY_LONG_STRING, null, testConfig);
@@ -468,6 +383,9 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         if (testConfig.omitUnsplitSuffix && version != null) {
             return saveUnsuccessfully(context, key, serialized, version, testConfig, previousSizeInfo,
                     RecordCoreArgumentException.class, "Cannot include version");
+        } else if (testConfig.useVersionInKey && version != null) {
+            return saveUnsuccessfully(context, key, serialized, version, testConfig, previousSizeInfo,
+                    RecordCoreException.class, "Split version is not supported for this helper");
         } else if (!testConfig.splitLongRecords && serialized.length > SplitHelper.SPLIT_RECORD_SIZE) {
             return saveUnsuccessfully(context, key, serialized, version, testConfig, previousSizeInfo,
                     RecordCoreException.class, "Record is too long");
@@ -476,12 +394,18 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         }
     }
 
-    @MethodSource("testConfigs")
+    @MethodSource("testConfigsNoDryRun")
     @ParameterizedTest(name = "saveWithSplitAndCompleteVersion[{0}]")
     public void saveWithSplitAndCompleteVersionsMultipleTransactions(SplitHelperTestConfig testConfig) {
         this.testConfig = testConfig;
-        Assumptions.assumeFalse(testConfig.useVersionInKey);
-        byte[] globalVersion = "karlgrosse".getBytes(StandardCharsets.US_ASCII);
+        byte[] globalValueVersion = "karlgrosse".getBytes(StandardCharsets.US_ASCII);
+        byte[] globalKeyVersion;
+        int localVersion1;
+        int localVersion2;
+        int localVersion3;
+        Tuple completeKey1;
+        Tuple completeKey2;
+        Tuple completeKey3;
         final Tuple key1 = Tuple.from(800L);
         final Tuple key2 = Tuple.from(813L);
         final Tuple key3 = Tuple.from(823L);
@@ -489,31 +413,49 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         FDBRecordVersion version2;
         FDBRecordVersion version3;
         try (FDBRecordContext context = openContext()) {
-            version1 = FDBRecordVersion.complete(globalVersion, context.claimLocalVersion());
-            saveWithSplitForMultipleTransactions(context, key1, SHORT_STRING, version1, testConfig, null, 0);
-            version2 = FDBRecordVersion.complete(globalVersion, context.claimLocalVersion());
-            saveWithSplitForMultipleTransactions(context, key2, LONG_STRING, version2, testConfig, null, 0);
-            version3 = FDBRecordVersion.complete(globalVersion, context.claimLocalVersion());
-            saveWithSplitForMultipleTransactions(context, key3, VERY_LONG_STRING, version3, testConfig, null, 0);
+            version1 = FDBRecordVersion.complete(globalValueVersion, context.claimLocalVersion());
+            localVersion1 = context.claimLocalVersion();
+            saveWithSplitForMultipleTransactions(context, key1, SHORT_STRING, version1, testConfig, null, localVersion1);
+            localVersion2 = context.claimLocalVersion();
+            version2 = FDBRecordVersion.complete(globalValueVersion, context.claimLocalVersion());
+            saveWithSplitForMultipleTransactions(context, key2, LONG_STRING, version2, testConfig, null, localVersion2);
+            localVersion3 = context.claimLocalVersion();
+            version3 = FDBRecordVersion.complete(globalValueVersion, context.claimLocalVersion());
+            saveWithSplitForMultipleTransactions(context, key3, VERY_LONG_STRING, version3, testConfig, null, localVersion3);
             commit(context);
+            globalKeyVersion = context.getVersionStamp();
         }
-        try (FDBRecordContext context = openContext()) {
-            verifySuccessfullySaved(context, key1, SHORT_STRING, version1, testConfig);
-            verifySuccessfullySaved(context, key2, LONG_STRING, version2, testConfig);
-            verifySuccessfullySaved(context, key3, VERY_LONG_STRING, version3, testConfig);
+        // in some cases nothing gets written (all saves are "saveUnsuccessfully) so the transaction is read-only
+        // and there is no global version
+        if (globalKeyVersion != null) {
+            completeKey1 = toCompleteKey(key1, globalKeyVersion, localVersion1, testConfig.useVersionInKey);
+            completeKey2 = toCompleteKey(key2, globalKeyVersion, localVersion2, testConfig.useVersionInKey);
+            completeKey3 = toCompleteKey(key3, globalKeyVersion, localVersion3, testConfig.useVersionInKey);
+            try (FDBRecordContext context = openContext()) {
+                verifySuccessfullySaved(context, completeKey1, SHORT_STRING, version1, testConfig);
+                verifySuccessfullySaved(context, completeKey2, LONG_STRING, version2, testConfig);
+                verifySuccessfullySaved(context, completeKey3, VERY_LONG_STRING, version3, testConfig);
+            }
         }
 
         // Save over the records *without* using the previous size info
         try (FDBRecordContext context = openContext()) {
-            saveWithSplitForMultipleTransactions(context, key1, SHORT_STRING, null, testConfig, null, 0);
-            saveWithSplitForMultipleTransactions(context, key2, LONG_STRING, null, testConfig, null, 0);
-            saveWithSplitForMultipleTransactions(context, key3, VERY_LONG_STRING, null, testConfig, null, 0);
+            localVersion1 = context.claimLocalVersion();
+            saveWithSplitForMultipleTransactions(context, key1, SHORT_STRING, null, testConfig, null, localVersion1);
+            localVersion2 = context.claimLocalVersion();
+            saveWithSplitForMultipleTransactions(context, key2, LONG_STRING, null, testConfig, null, localVersion2);
+            localVersion3 = context.claimLocalVersion();
+            saveWithSplitForMultipleTransactions(context, key3, VERY_LONG_STRING, null, testConfig, null, localVersion3);
             commit(context);
+            globalKeyVersion = context.getVersionStamp();
         }
+        completeKey1 = toCompleteKey(key1, globalKeyVersion, localVersion1, testConfig.useVersionInKey);
+        completeKey2 = toCompleteKey(key2, globalKeyVersion, localVersion2, testConfig.useVersionInKey);
+        completeKey3 = toCompleteKey(key3, globalKeyVersion, localVersion3, testConfig.useVersionInKey);
         try (FDBRecordContext context = openContext()) {
-            verifySuccessfullySaved(context, key1, SHORT_STRING, null, testConfig);
-            verifySuccessfullySaved(context, key2, LONG_STRING, null, testConfig);
-            verifySuccessfullySaved(context, key3, VERY_LONG_STRING, null, testConfig);
+            verifySuccessfullySaved(context, completeKey1, SHORT_STRING, null, testConfig);
+            verifySuccessfullySaved(context, completeKey2, LONG_STRING, null, testConfig);
+            verifySuccessfullySaved(context, completeKey3, VERY_LONG_STRING, null, testConfig);
             commit(context);
         }
 
@@ -524,33 +466,50 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         FDBRecordVersion version5;
         FDBRecordVersion version6;
         try (FDBRecordContext context = openContext()) {
-            version4 = FDBRecordVersion.complete(globalVersion, context.claimLocalVersion());
-            sizes4 = saveWithSplitForMultipleTransactions(context, key1, SHORT_STRING, version4, testConfig, null, 0);
-            version5 = FDBRecordVersion.complete(globalVersion, context.claimLocalVersion());
-            sizes5 = saveWithSplitForMultipleTransactions(context, key2, LONG_STRING, version5, testConfig, null, 0);
-            version6 = FDBRecordVersion.complete(globalVersion, context.claimLocalVersion());
-            sizes6 = saveWithSplitForMultipleTransactions(context, key3, VERY_LONG_STRING, version6, testConfig, null, 0);
+            localVersion1 = context.claimLocalVersion();
+            version4 = FDBRecordVersion.complete(globalValueVersion, context.claimLocalVersion());
+            sizes4 = saveWithSplitForMultipleTransactions(context, key1, SHORT_STRING, version4, testConfig, null, localVersion1);
+            localVersion2 = context.claimLocalVersion();
+            version5 = FDBRecordVersion.complete(globalValueVersion, context.claimLocalVersion());
+            sizes5 = saveWithSplitForMultipleTransactions(context, key2, LONG_STRING, version5, testConfig, null, localVersion2);
+            localVersion3 = context.claimLocalVersion();
+            version6 = FDBRecordVersion.complete(globalValueVersion, context.claimLocalVersion());
+            sizes6 = saveWithSplitForMultipleTransactions(context, key3, VERY_LONG_STRING, version6, testConfig, null, localVersion3);
             commit(context);
+            globalKeyVersion = context.getVersionStamp();
         }
-        try (FDBRecordContext context = openContext()) {
-            verifySuccessfullySaved(context, key1, SHORT_STRING, version4, testConfig);
-            verifySuccessfullySaved(context, key2, LONG_STRING, version5, testConfig);
-            verifySuccessfullySaved(context, key3, VERY_LONG_STRING, version6, testConfig);
-            commit(context);
+        // in some cases nothing gets written (all saves are "saveUnsuccessfully) so the transaction is read-only
+        // and there is no global version
+        if (globalKeyVersion != null) {
+            completeKey1 = toCompleteKey(key1, globalKeyVersion, localVersion1, testConfig.useVersionInKey);
+            completeKey2 = toCompleteKey(key2, globalKeyVersion, localVersion2, testConfig.useVersionInKey);
+            completeKey3 = toCompleteKey(key3, globalKeyVersion, localVersion3, testConfig.useVersionInKey);
+            try (FDBRecordContext context = openContext()) {
+                verifySuccessfullySaved(context, completeKey1, SHORT_STRING, version4, testConfig);
+                verifySuccessfullySaved(context, completeKey2, LONG_STRING, version5, testConfig);
+                verifySuccessfullySaved(context, completeKey3, VERY_LONG_STRING, version6, testConfig);
+                commit(context);
+            }
         }
 
         // Save over the records *with* using the previous size info
         try (FDBRecordContext context = openContext()) {
-            saveWithSplitForMultipleTransactions(context, key1, SHORT_STRING, null, testConfig, sizes4, 0);
-            saveWithSplitForMultipleTransactions(context, key2, LONG_STRING, null, testConfig, sizes5, 0);
-            saveWithSplitForMultipleTransactions(context, key3, VERY_LONG_STRING, null, testConfig, sizes6, 0);
+            localVersion1 = context.claimLocalVersion();
+            saveWithSplitForMultipleTransactions(context, key1, SHORT_STRING, null, testConfig, sizes4, localVersion1);
+            localVersion2 = context.claimLocalVersion();
+            saveWithSplitForMultipleTransactions(context, key2, LONG_STRING, null, testConfig, sizes5, localVersion2);
+            localVersion3 = context.claimLocalVersion();
+            saveWithSplitForMultipleTransactions(context, key3, VERY_LONG_STRING, null, testConfig, sizes6, localVersion3);
             commit(context);
+            globalKeyVersion = context.getVersionStamp();
         }
-
+        completeKey1 = toCompleteKey(key1, globalKeyVersion, localVersion1, testConfig.useVersionInKey);
+        completeKey2 = toCompleteKey(key2, globalKeyVersion, localVersion2, testConfig.useVersionInKey);
+        completeKey3 = toCompleteKey(key3, globalKeyVersion, localVersion3, testConfig.useVersionInKey);
         try (FDBRecordContext context = openContext()) {
-            verifySuccessfullySaved(context, key1, SHORT_STRING, null, testConfig);
-            verifySuccessfullySaved(context, key2, LONG_STRING, null, testConfig);
-            verifySuccessfullySaved(context, key3, VERY_LONG_STRING, null, testConfig);
+            verifySuccessfullySaved(context, completeKey1, SHORT_STRING, null, testConfig);
+            verifySuccessfullySaved(context, completeKey2, LONG_STRING, null, testConfig);
+            verifySuccessfullySaved(context, completeKey3, VERY_LONG_STRING, null, testConfig);
             commit(context);
         }
     }
@@ -621,7 +580,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         assertEquals(0, count);
     }
 
-    @MethodSource("testConfigs")
+    @MethodSource("testConfigsNoDryRun")
     @ParameterizedTest(name = "deleteWithSplitMultipleTransactions[{0}]")
     public void deleteWithSplitMultipleTransactions(@Nonnull SplitHelperTestConfig testConfig) {
         this.testConfig = testConfig;
@@ -676,11 +635,6 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
     @FunctionalInterface
     private interface LoadRecordFunction {
         FDBRawRecord load(@Nonnull FDBRecordContext context, @Nonnull Tuple key, @Nullable FDBStoredSizes sizes, @Nullable byte[] expectedContents, @Nullable FDBRecordVersion version);
-
-        // TODO: Remoe this implementation
-        default FDBRawRecord load(@Nonnull FDBRecordContext context, @Nonnull Tuple key, @Nullable FDBStoredSizes sizes, @Nullable byte[] expectedContents) {
-            return load(context, key, sizes, expectedContents, null);
-        }
     }
 
     private void loadSingleRecordsMultipleTransactions(SplitHelperTestConfig testConfig, @Nonnull LoadRecordFunction loadRecordFunction) {
@@ -797,9 +751,9 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         // transaction 3 - verify
         try (FDBRecordContext context = openContext()) {
             // No record
-            loadRecordFunction.load(context, completeKey1, null, null);
+            loadRecordFunction.load(context, completeKey1, null, null, null);
             // One unsplit record
-            loadRecordFunction.load(context, completeKey2, sizes2, HUMPTY_DUMPTY);
+            loadRecordFunction.load(context, completeKey2, sizes2, HUMPTY_DUMPTY, null);
             if ((!testConfig.omitUnsplitSuffix) && (!testConfig.useVersionInKey)) {
                 // One record with version
                 loadRecordFunction.load(context, completeKey3, sizes3, HUMPTY_DUMPTY, version3);
@@ -811,21 +765,21 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
             if (testConfig.splitLongRecords) {
                 // One split record
                 // One split record but then delete the last split point (no way to distinguish this from just inserting one fewer split)
-                loadRecordFunction.load(context, completeKey5, sizes5, MEDIUM_STRING);
+                loadRecordFunction.load(context, completeKey5, sizes5, MEDIUM_STRING, null);
                 // One split record then delete the first split point
                 if (testConfig.loadViaGets) {
-                    loadRecordFunction.load(context, completeKey6, null, null);
+                    loadRecordFunction.load(context, completeKey6, null, null, null);
                 } else {
                     assertThrows(SplitHelper.FoundSplitWithoutStartException.class,
-                            () -> loadRecordFunction.load(context, completeKey6, null, null));
+                            () -> loadRecordFunction.load(context, completeKey6, null, null, null));
                 }
                 // One split record then delete the middle split point
                 RecordCoreException err7 = assertThrows(RecordCoreException.class,
-                        () -> loadRecordFunction.load(context, completeKey7, null, null));
+                        () -> loadRecordFunction.load(context, completeKey7, null, null, null));
                 assertThat(err7.getMessage(), containsString("Split record segments out of order"));
                 // One split record then add an extra key in the middle
                 RecordCoreException err8 = assertThrows(RecordCoreException.class,
-                        () -> loadRecordFunction.load(context, completeKey8, null, null));
+                        () -> loadRecordFunction.load(context, completeKey8, null, null, null));
                 assertThat(err8.getMessage(), anyOf(
                         containsString("Expected only a single key extension"),
                         containsString("Split record segments out of order")
@@ -901,10 +855,9 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         return rawRecord;
     }
 
-    @MethodSource("testConfigs")
+    @MethodSource("testConfigsNoDryRun")
     @ParameterizedTest(name = "loadWithSplitMultipleTransactions[{0}]")
     public void loadWithSplitMultipleTransactions(SplitHelperTestConfig testConfig) {
-        Assumptions.assumeFalse(testConfig.isDryRun);
         this.testConfig = testConfig;
         loadSingleRecordsMultipleTransactions(testConfig,
                 (context, key, expectedSizes, expectedContents, version) ->
