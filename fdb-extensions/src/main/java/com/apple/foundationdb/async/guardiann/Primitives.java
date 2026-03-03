@@ -26,6 +26,7 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
@@ -385,23 +386,26 @@ class Primitives {
     CompletableFuture<List<VectorReference>> fetchVectorReferences(@Nonnull final ReadTransaction readTransaction,
                                                                    @Nonnull final StorageTransform storageTransform,
                                                                    @Nonnull final UUID clusterId) {
+        return AsyncUtil.collect(fetchVectorReferencesIterable(readTransaction, storageTransform, clusterId),
+                getExecutor());
+    }
+
+    @Nonnull
+    AsyncIterable<VectorReference> fetchVectorReferencesIterable(@Nonnull final ReadTransaction readTransaction,
+                                                                 @Nonnull final StorageTransform storageTransform,
+                                                                 @Nonnull final UUID clusterId) {
         final Subspace vectorReferencesSubspace = getVectorReferencesSubspace();
         final byte[] rangeKey = vectorReferencesSubspace.pack(Tuple.from(clusterId));
 
-        return AsyncUtil.collect(readTransaction.getRange(Range.startsWith(rangeKey),
-                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL), readTransaction.getExecutor())
-                .thenApply(keyValues -> {
-                    final ImmutableList.Builder<VectorReference> vectorReferencesBuilder = ImmutableList.builder();
-                    for (final KeyValue keyValue : keyValues) {
-                        final Tuple primaryKey = vectorReferencesSubspace.unpack(keyValue.getKey()).getNestedTuple(1);
-                        final byte[] keyBytes = keyValue.getKey();
-                        final byte[] valueBytes = keyValue.getValue();
-                        vectorReferencesBuilder.add(
-                                StorageAdapter.vectorReferenceFromTuples(getConfig(), storageTransform,
-                                        primaryKey, Tuple.fromBytes(valueBytes)));
-                        getOnReadListener().onKeyValueRead(-1, keyBytes, valueBytes);
-                    }
-                    return vectorReferencesBuilder.build();
+        return AsyncUtil.mapIterable(readTransaction.getRange(Range.startsWith(rangeKey),
+                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL),
+                keyValue -> {
+                    final Tuple primaryKey = vectorReferencesSubspace.unpack(keyValue.getKey()).getNestedTuple(1);
+                    final byte[] keyBytes = keyValue.getKey();
+                    final byte[] valueBytes = keyValue.getValue();
+                    getOnReadListener().onKeyValueRead(-1, keyBytes, valueBytes);
+                    return StorageAdapter.vectorReferenceFromTuples(getConfig(), storageTransform,
+                            primaryKey, Tuple.fromBytes(valueBytes));
                 });
     }
 
@@ -505,7 +509,8 @@ class Primitives {
 
         final int numTotalPrimaryVectors = clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded;
         if (!clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE) && // not already splitting
-                numTotalPrimaryVectors > config.getPrimaryClusterMax()) {
+                ((numPrimaryVectorsAdded > 0 && numTotalPrimaryVectors > config.getPrimaryClusterMax()) ||
+                         (numPrimaryVectorsAdded < 0 && numTotalPrimaryVectors < config.getPrimaryClusterMin()))) {
             if (logger.isInfoEnabled()) {
                 logger.info("enqueuing split/merge; clusterId={}; numTotalPrimaryVectors={}",
                         clusterMetadata.getId(), numTotalPrimaryVectors);
