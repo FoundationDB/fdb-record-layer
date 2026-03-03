@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.MutationType;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -28,7 +29,7 @@ import com.apple.foundationdb.tuple.Versionstamp;
 
 /**
  * A {@link SplitKeyValueHelper} that is used when the Key contains a {@link Versionstamp}.
- * <p>This implementation should be used when the key contains a version stamp, as it will ensure that the proper FDB APIs
+ * <p>This implementation should be used when the key contains a {@link Versionstamp}, as it will ensure that the proper FDB APIs
  * encode and decode the key correctly.</p>
  * <p>This class is stateful (has a single {@link Versionstamp}) that is going to be used for all splits of a single K/V,
  * so that all contain the same fixed part and can be correlated after the commit.</p>
@@ -39,12 +40,13 @@ import com.apple.foundationdb.tuple.Versionstamp;
  * <p>which means that the entries are sorted by their insertion order (versionstamp order), then by the
  * original key, with split fragments last.</p>
  *
- * NOTE: Since this class uses versionstamps in the FDB Key, it does not know the actual key used until after the commit.
+ * NOTE: Since this class uses {@link Versionstamp} in the FDB Key, it does not know the actual key used until after the commit.
  * As a result, it cannot override previous values saved within the same transaction. Split records saved using this feature
  * are not stored in the RYW cache and attempts to write over them (using the same local version and PK) before the commit
  * may result in corrupt data.
  * Do not override records with another write using the same local version and PK.
  */
+@API(API.Status.INTERNAL)
 public class VersioningSplitKeyValueHelper implements SplitKeyValueHelper {
     private Versionstamp versionstamp;
 
@@ -55,9 +57,9 @@ public class VersioningSplitKeyValueHelper implements SplitKeyValueHelper {
     /**
      * No need to clear subspace.
      * Since the key has a unique component (version), no conflicts are expected, so no need to clean before saving new splits.
-     * Furthermore, since the key contains a version stamp, we don't know the actual key contents ahead of committing
+     * Furthermore, since the key contains a {@link Versionstamp}, we don't know the actual key contents ahead of committing
      * the transaction, and so no clean can be done.
-     * @return false, as new keys should not interfere with old ones.
+     * @return {@code false}, as new keys should not interfere with old ones.
      */
     @Override
     public boolean shouldClearBeforeWrite() {
@@ -66,7 +68,7 @@ public class VersioningSplitKeyValueHelper implements SplitKeyValueHelper {
 
     /**
      * Since the key has versions, prevent the values from having them.
-     * @return false, since only keys or values are allowed to mutate in FDB, and this mutates the keys
+     * @return {@code false}, since only keys or values are allowed to mutate in FDB, and this mutates the keys
      */
     @Override
     public boolean supportsVersionInValue() {
@@ -89,7 +91,9 @@ public class VersioningSplitKeyValueHelper implements SplitKeyValueHelper {
                 valueBytes);
 
         if (current != null) {
-            // This should never happen
+            // This should never happen. It means that the same key (and suffix) and local version were used for subsequent
+            // write. It is most likely not an intended flow and this check will protect against that.
+            // It is an incomplete check since the same record can have different suffixes to the primary key that would not collide.
             throw new RecordCoreInternalException("Key with version overwritten");
         }
     }

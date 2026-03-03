@@ -21,13 +21,17 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
 /**
  * The default implementation of the {@link SplitKeyValueHelper}.
  * This implementation is using the subspace serialization and transaction set methods.
+ * This implementation does not support {@link com.apple.foundationdb.tuple.Versionstamp} in the key (as it allows
+ * one to reside in the value).
  */
+@API(API.Status.INTERNAL)
 public class DefaultSplitKeyValueHelper implements SplitKeyValueHelper {
     public static final DefaultSplitKeyValueHelper INSTANCE = new DefaultSplitKeyValueHelper();
 
