@@ -80,6 +80,183 @@ v
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
+}´%
+‚
+joins-with-order-by-testseEXPLAIN select (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3 order by t1.a2 desc¬$
+·Úã¡&ª ²’À(c0°‡m8u@´ISCAN(t1$a1_a2 [EQUALS promote(@c16 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c16 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS _0, q0.a2 AS a2) } | MAP (_._0 AS _0)Ö!digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q10._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3 AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP ((q6.id AS id, q6.b1 AS b1, q6.b2 AS b2, q6.b3 AS b3) AS _0, q2.a2 AS a2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3 AS _0, LONG AS a2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c16 AS LONG)]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t1$a1_a2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.a3 EQUALS q161.b3</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c16 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t2$b1_b3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q163> label="q163" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q161> label="q161" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    6 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}!
+–
+joins-with-order-by-testsyEXPLAIN select t1.a2, t1.a3, t2.b2, t2.b3 from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3 order by t1.a2 descå
+÷¸ÈÏ$š —Ûö(a0êè}8q@ŒISCAN(t1$a1_a2 [EQUALS promote(@c26 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c26 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a2 AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3) }·digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.a2 AS a2, q2.a3 AS a3, q6.b2 AS b2, q6.b3 AS b3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS a2, STRING AS a3, LONG AS b2, STRING AS b3)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c26 AS LONG)]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t1$a1_a2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.a3 EQUALS q158.b3</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c26 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t2$b1_b3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q160> label="q160" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q158> label="q158" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
+  }
+}«%
+
+joins-with-order-by-testsrEXPLAIN select t1.a3, t2.b2, t2.b3 from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3 order by t1.a2 desc–$
+·”øø%ª ùýî(c0Îû8u@·ISCAN(t1$a1_a2 [EQUALS promote(@c22 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c22 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS a2) } | MAP (_.a3 AS a3, _.b2 AS b2, _.b3 AS b3)½!digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q10.a3 AS a3, q10.b2 AS b2, q10.b3 AS b3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS a3, LONG AS b2, STRING AS b3)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.a3 AS a3, q6.b2 AS b2, q6.b3 AS b3, q2.a2 AS a2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS a3, LONG AS b2, STRING AS b3, LONG AS a2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c22 AS LONG)]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t1$a1_a2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.a3 EQUALS q161.b3</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c22 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t2$b1_b3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q163> label="q163" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q161> label="q161" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    6 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}ü#
+}
+joins-with-order-by-tests`EXPLAIN select (x.*), (y.*) from t1_f(1) as x, t2_f(1) as y where x.a3 = y.b3 order by x.a2 descú"
+ 
+€À•"Ö î‡’(z0ú„¡8«@–ISCAN(t1$a1_a2 [EQUALS promote(@c16 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c16 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS _0, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS _1) }Àdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP ((q12.__ROW_VERSION AS __ROW_VERSION, q12.id AS id, q12.a1 AS a1, q12.a2 AS a2, q12.a3 AS a3) AS _0, (q33.__ROW_VERSION AS __ROW_VERSION, q33.id AS id, q33.b1 AS b1, q33.b2 AS b2, q33.b3 AS b3) AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(VERSION AS __ROW_VERSION, LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3 AS _0, VERSION AS __ROW_VERSION, LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3 AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c16 AS LONG)]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t1$a1_a2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q12.a3 EQUALS q214.b3</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c16 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t2$b1_b3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q12> label="q12" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q216> label="q216" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q214> label="q214" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q33> label="q33" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
+  }
+}ç$
+
+joins-with-order-by-testsdEXPLAIN select (x.*), (y.*) from t1_g(1) as x, t2_g(1) as y where x.a3 = y.b3 order by x.the_a2 descà#
+ 
+ëõ¡?Ö œíù(z0ÓÀå8«@¸ISCAN(t1$a1_a2 [EQUALS promote(@c16 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c16 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3, q0.a2 AS the_a2) AS _0, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2 AS the_b2) AS _1) }„ digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP ((q12.__ROW_VERSION AS __ROW_VERSION, q12.id AS id, q12.a1 AS a1, q12.a2 AS a2, q12.a3 AS a3, q12.a2 AS the_a2) AS _0, (q33.__ROW_VERSION AS __ROW_VERSION, q33.id AS id, q33.b1 AS b1, q33.b2 AS b2, q33.b3 AS b3, q33.b2 AS the_b2) AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(VERSION AS __ROW_VERSION, LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, LONG AS the_a2 AS _0, VERSION AS __ROW_VERSION, LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, LONG AS the_b2 AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c16 AS LONG)]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t1$a1_a2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q12.a3 EQUALS q214.b3</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c16 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t2$b1_b3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q12> label="q12" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q216> label="q216" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q214> label="q214" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q33> label="q33" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
+  }
+}‹&
+‹
+joins-with-order-by-testsnEXPLAIN select x.a2, x.a3, y.b2, y.b3 from t1_g(1) as x, t2_g(1) as y where x.a3 = y.b3 order by x.the_a2 descú$
+à
+–ÈÛ<æ ‚»Ô(|0œ™£8¯@ÔISCAN(t1$a1_a2 [EQUALS promote(@c20 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c20 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a2 AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS the_a2) } | MAP (_.a2 AS a2, _.a3 AS a3, _.b2 AS b2, _.b3 AS b3)‚"digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q44.a2 AS a2, q44.a3 AS a3, q44.b2 AS b2, q44.b3 AS b3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS a2, STRING AS a3, LONG AS b2, STRING AS b3)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q12.a2 AS a2, q12.a3 AS a3, q33.b2 AS b2, q33.b3 AS b3, q12.a2 AS the_a2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS a2, STRING AS a3, LONG AS b2, STRING AS b3, LONG AS the_a2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c20 AS LONG)]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t1$a1_a2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q12.a3 EQUALS q217.b3</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c20 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t2$b1_b3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  3 -> 2 [ label=<&nbsp;q12> label="q12" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q33> label="q33" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q219> label="q219" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q217> label="q217" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q44> label="q44" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    6 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
 }”
 •
 joins-with-order-by-testsxEXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t2.b3 = t1.a3 order by t1.a1 asc, t1.a2 descù
