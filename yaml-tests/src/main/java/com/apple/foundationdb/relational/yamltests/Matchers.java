@@ -729,4 +729,9 @@ public class Matchers {
                 throw new IllegalArgumentException("Unsupported vector precision: " + precision + ". Expected 16, 32, or 64.");
         }
     }
+
+    @Nonnull
+    public static String constructRandomString(@Nonnull final ScalarNode yamlElementsNode) {
+        return RandomStringParser.parse(yamlElementsNode.getValue());
+    }
 }
