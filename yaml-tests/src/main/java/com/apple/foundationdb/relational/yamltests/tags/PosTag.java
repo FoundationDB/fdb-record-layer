@@ -1,5 +1,5 @@
 /*
- * IgnoreColumnNameTag.java
+ * PosTag.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -32,7 +32,7 @@ import javax.annotation.Nonnull;
 
 /**
  * YAML tag for ignoring column name validation in result sets.
- *
+ * <br>
  * Usage: !pos {position of the column, 1-based}
  */
 @AutoService(CustomTag.class)

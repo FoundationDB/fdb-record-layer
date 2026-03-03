@@ -383,7 +383,7 @@ public class Matchers {
             } else if (cell instanceof byte[]) {
                 cellString = ByteArrayUtil2.loggable((byte[]) cell);
             } else {
-                cellString = cell.toString();
+                cellString = limitString(cell.toString());
             }
             resultSet.get(resultSet.size() - 1).add(cellString);
         }
@@ -420,6 +420,17 @@ public class Matchers {
                 return at.render();
             }
         }
+    }
+
+    public static String limitString(String input) {
+        if (input == null) {
+            return "<NULL>";
+        }
+        final int maxLength = 400;
+        if (input.length() > maxLength) {
+            return input.substring(0, maxLength) + "...(" + (input.length() - maxLength) + " more chars)";
+        }
+        return input;
     }
 
     public static Pair<ResultSetMatchResult, ResultSetPrettyPrinter> matchResultSet(final Object expected, final RelationalResultSet actual, final boolean isExpectedOrdered) throws SQLException {

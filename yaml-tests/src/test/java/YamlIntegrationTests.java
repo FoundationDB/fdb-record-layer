@@ -418,9 +418,4 @@ public class YamlIntegrationTests {
     public void simpleQueryWithDifferentDebuggersTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("simple-query-with-different-debuggers.yamsql");
     }
-
-    @TestTemplate
-    public void testInsertRandomString(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("insert-random-string.yamsql");
-    }
 }

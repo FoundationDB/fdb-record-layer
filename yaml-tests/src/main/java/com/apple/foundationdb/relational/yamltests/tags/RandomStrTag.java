@@ -1,5 +1,5 @@
 /*
- * Vector16Field.java
+ * RandomStrTag.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -34,6 +34,35 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Locale;
 
+/**
+ * YAML custom tag {@code !randomStr} that generates a deterministic random alphanumeric string
+ * from a descriptor specifying a seed and a length.
+ *
+ * <h3>Syntax</h3>
+ * <pre>{@code
+ * !randomStr seed <N> length <M>
+ * }</pre>
+ * where {@code N} is the {@code long} seed and {@code M} is the desired string length.
+ *
+ * <h3>Usage in queries (parameter injection)</h3>
+ * <pre>{@code
+ * INSERT INTO t (col) VALUES (!! !randomStr seed 42 length 500 !!)
+ * }</pre>
+ * The tag is resolved once at parse time, so the same descriptor always produces the same string,
+ * making tests fully reproducible across runs.
+ *
+ * <h3>Usage in expected results</h3>
+ * <pre>{@code
+ * - col: !randomStr seed 42 length 500
+ * }</pre>
+ * The generated string is compared against the actual column value returned by the query.
+ * On mismatch, the error message reports the lengths of both strings and a ±10-character
+ * context snippet around the first differing character, avoiding printing the full string.
+ *
+ * <p>The character set used for generation is {@code a-z0-9}.
+ *
+ * @see com.apple.foundationdb.relational.yamltests.RandomStringParser
+ */
 @AutoService(CustomTag.class)
 public class RandomStrTag implements CustomTag {
 
@@ -67,13 +96,17 @@ public class RandomStrTag implements CustomTag {
         @Nonnull
         private final ScalarNode yamlNode;
 
+        @Nonnull
+        private final String randomString;
+
         public RandomStrMatcher(@Nonnull final Node node) {
             this.yamlNode = Assert.castUnchecked(node, ScalarNode.class);
+            this.randomString = Matchers.constructRandomString(yamlNode);
         }
 
         @Override
         public String toString() {
-            return yamlNode.getValue();
+            return tag + " " + yamlNode.getValue() + " → " + Matchers.limitString(randomString);
         }
 
         @Nonnull
@@ -83,12 +116,11 @@ public class RandomStrTag implements CustomTag {
             if (maybeNull.isPresent()) {
                 return maybeNull.get();
             }
-            final String expected = Matchers.constructRandomString(Assert.castUnchecked(yamlNode, ScalarNode.class));
-            if (Verify.verifyNotNull(other).equals(expected)) {
+            if (Verify.verifyNotNull(other).equals(randomString)) {
                 return Matchers.ResultSetMatchResult.success();
             }
             final String actual = Verify.verifyNotNull(other).toString();
-            return Matchable.prettyPrintError(stringDiff(expected, actual), rowNumber, cellRef);
+            return Matchable.prettyPrintError(stringDiff(randomString, actual), rowNumber, cellRef);
         }
 
         @Nonnull

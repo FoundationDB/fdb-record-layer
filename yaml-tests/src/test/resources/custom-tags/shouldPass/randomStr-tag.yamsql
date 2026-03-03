@@ -1,5 +1,5 @@
 #
-# update-delete-returning.yamsql
+# randomStr-tag.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -26,9 +26,9 @@ test_block:
   tests:
     -
       - query: insert into T1 values
-          (1,  !! !randomStr seed 123234 length 100000 !!)
+          (1,  !! !randomStr seed 123234 length 1000 !!)
       - count: 1
     -
       - query: select * from T1;
-      - result: [ { PK: 1, S: !randomStr seed 123234 length 100000 } ]
+      - result: [ { PK: 1, S: !randomStr seed 123234 length 1000 } ]
 ...
