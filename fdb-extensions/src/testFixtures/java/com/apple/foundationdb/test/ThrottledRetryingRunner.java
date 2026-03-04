@@ -227,13 +227,11 @@ public class ThrottledRetryingRunner implements AutoCloseable {
         private int deletedCount;
         private boolean hasMore;
         private int limit;
-        private int lastProcessedCount;
         private final int maxLimit;
 
         QuotaManager(int maxLimit) {
             this.maxLimit = maxLimit;
-            this.limit = 0;
-            this.lastProcessedCount = 0;
+            this.limit = maxLimit;
         }
 
         /**
@@ -302,7 +300,6 @@ public class ThrottledRetryingRunner implements AutoCloseable {
         }
 
         void initTransaction() {
-            lastProcessedCount = processedCount;
             processedCount = 0;
             deletedCount = 0;
             hasMore = true;
@@ -320,7 +317,8 @@ public class ThrottledRetryingRunner implements AutoCloseable {
             if (limit == 0) {
                 return; // no-limit mode: never adjust
             }
-            limit = Math.max(1, (lastProcessedCount * 9) / 10);
+            // Use the count from the transaction that just failed (before the next initTransaction resets it)
+            limit = Math.max(1, (processedCount * 9) / 10);
         }
     }
 
