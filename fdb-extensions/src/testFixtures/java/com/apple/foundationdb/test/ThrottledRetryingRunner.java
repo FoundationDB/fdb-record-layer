@@ -32,35 +32,33 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Runs a task repeatedly across multiple transactions, with adaptive limit management, optional
  * rate limiting, and retry logic.
  * <p>
- * The caller supplies a {@link BiFunction} that receives a fresh {@link Transaction} and a
- * {@link QuotaManager}, and returns a {@code CompletableFuture<Void>}. The task reads
- * {@link QuotaManager#getLimit()} to know how much work to attempt in this transaction, reports
- * how many items it processed via {@link QuotaManager#processedCountInc()} (and optionally
- * {@link QuotaManager#deletedCountInc()}), and signals completion by calling
- * {@link QuotaManager#markExhausted()}.
+ * The caller supplies a {@link Task} that receives a fresh {@link Transaction}, a
+ * {@link QuotaManager}, and the {@link Continuation} from the last <em>successful</em>
+ * transaction (or {@link StartContinuation} on the first call). The task returns a
+ * {@code CompletableFuture<Continuation>}; returning a continuation with
+ * {@link Continuation#hasMore()} {@code == false} stops the loop.
  * </p>
  * <p>
- * The runner adjusts the limit across transactions:
+ * On failure the continuation is <em>not</em> advanced — the last successful continuation is
+ * re-passed to the retry, so the task can resume from the same position. This distinguishes a
+ * retry (same continuation) from a fresh transaction after success (new continuation).
  * </p>
- * <ul>
- *   <li>After {@code increaseLimitAfter} consecutive successes the limit is increased.</li>
- *   <li>After any failure the limit is decreased based on how many items were processed before
- *       the failure, so the next attempt is less likely to exceed the transaction budget.</li>
- * </ul>
+ * <p>
+ * The {@link QuotaManager} is reset at the start of each transaction. The task uses it to report
+ * how many items were processed ({@link QuotaManager#processedCountInc()}) and deleted
+ * ({@link QuotaManager#deletedCountInc()}). These counts drive the between-transaction throttle
+ * delay when {@code maxItemsScannedPerSec} or {@code maxItemsDeletedPerSec} are configured, and
+ * inform the adaptive limit adjustment on failure.
+ * </p>
  * <p>
  * A limit of {@code 0} is treated as "no limit" — the task may do as much work as it likes in
  * each transaction and the limit is never adjusted.
- * </p>
- * <p>
- * Between successful transactions the runner can optionally delay to enforce a maximum item
- * processing or deletion rate ({@code maxItemsScannedPerSec} / {@code maxItemsDeletedPerSec}).
- * On failure the transaction is retried up to {@code numOfRetries} times before failing.
  * </p>
  */
 public class ThrottledRetryingRunner implements AutoCloseable {
@@ -96,50 +94,60 @@ public class ThrottledRetryingRunner implements AutoCloseable {
     }
 
     /**
-     * Run the given task repeatedly across multiple transactions until it calls
-     * {@link QuotaManager#markExhausted()}.
+     * Run the given task repeatedly across multiple transactions until it returns a
+     * {@link Continuation} with {@link Continuation#hasMore()} {@code == false}.
+     * <p>
+     * On the very first call the task receives {@link StartContinuation#INSTANCE}. On each
+     * subsequent call after a successful commit it receives the continuation returned by the
+     * previous call. On a retry after failure it receives the same continuation that was passed
+     * to the failed attempt — i.e. the last <em>successful</em> continuation is preserved.
+     * </p>
      * <p>
      * A single {@link QuotaManager} is created for the lifetime of this call. Its per-transaction
-     * counts ({@link QuotaManager#getProcessedCount()}, {@link QuotaManager#getDeletedCount()})
-     * are reset at the start of each transaction. Its limit ({@link QuotaManager#getLimit()}) is
-     * adjusted by the runner after each transaction and persists across them.
+     * counts are reset at the start of each transaction; its limit persists and is adjusted
+     * between transactions.
      * </p>
      *
-     * @param task the task to run; reads the limit, reports counts, calls
-     *             {@link QuotaManager#markExhausted()} to stop
-     * @return a future that completes normally when the task exhausts the source, or exceptionally
-     *         if the retry limit is exceeded or the runner is closed
+     * @param task the task to run
+     * @return a future that completes normally when the task returns a continuation with
+     *         {@link Continuation#hasMore()} {@code == false}, or exceptionally if the retry
+     *         limit is exceeded or the runner is closed
      */
     @Nonnull
-    public CompletableFuture<Void> iterateAll(
-            @Nonnull BiFunction<? super Transaction, QuotaManager, CompletableFuture<Void>> task) {
+    public CompletableFuture<Void> iterateAll(@Nonnull Task task) {
         if (closed) {
             return CompletableFuture.failedFuture(new TransactionalRunner.RunnerClosed());
         }
 
         final QuotaManager quotaManager = new QuotaManager(maxLimit);
+        final AtomicReference<Continuation> lastSuccessfulCont =
+                new AtomicReference<>(StartContinuation.INSTANCE);
         return AsyncUtil.whileTrue(() ->
-                runOneTransaction(task, quotaManager)
-                        .handle((ignored, ex) -> {
+                runOneTransaction(task, quotaManager, lastSuccessfulCont.get())
+                        .handle((continuation, ex) -> {
                             if (ex == null) {
-                                return handleSuccess(quotaManager);
+                                lastSuccessfulCont.set(continuation);
+                                return handleSuccess(quotaManager, continuation);
                             }
                             return handleFailure(ex, quotaManager);
                         })
                         .thenCompose(ret -> ret));
     }
 
-    private CompletableFuture<Void> runOneTransaction(
-            @Nonnull BiFunction<? super Transaction, QuotaManager, CompletableFuture<Void>> task,
-            @Nonnull QuotaManager quotaManager) {
+    private CompletableFuture<Continuation> runOneTransaction(
+            @Nonnull Task task,
+            @Nonnull QuotaManager quotaManager,
+            @Nonnull Continuation continuation) {
         transactionStartTimeMillis = System.currentTimeMillis();
         return transactionalRunner.runAsync(commitWhenDone, transaction -> {
             quotaManager.initTransaction();
-            return task.apply(transaction, quotaManager);
+            return task.run(transaction, quotaManager, continuation);
         });
     }
 
-    private CompletableFuture<Boolean> handleSuccess(QuotaManager quotaManager) {
+    private CompletableFuture<Boolean> handleSuccess(
+            @Nonnull QuotaManager quotaManager,
+            @Nonnull Continuation continuation) {
         failureRetriesCounter = 0;
         ++consecutiveSuccessCount;
 
@@ -149,7 +157,7 @@ public class ThrottledRetryingRunner implements AutoCloseable {
             consecutiveSuccessCount = 0;
         }
 
-        if (!quotaManager.hasMore) {
+        if (!continuation.hasMore()) {
             return AsyncUtil.READY_FALSE;
         }
 
@@ -166,7 +174,9 @@ public class ThrottledRetryingRunner implements AutoCloseable {
         return AsyncUtil.READY_TRUE;
     }
 
-    private CompletableFuture<Boolean> handleFailure(Throwable ex, QuotaManager quotaManager) {
+    private CompletableFuture<Boolean> handleFailure(
+            @Nonnull Throwable ex,
+            @Nonnull QuotaManager quotaManager) {
         ++failureRetriesCounter;
         consecutiveSuccessCount = 0;
 
@@ -208,9 +218,80 @@ public class ThrottledRetryingRunner implements AutoCloseable {
         transactionalRunner.close();
     }
 
+    // -------------------------------------------------------------------------
+    // Continuation
+    // -------------------------------------------------------------------------
+
     /**
-     * Tracks per-transaction resource usage, exposes the adaptive limit, and controls whether
-     * the loop continues.
+     * Represents the result of one transaction's work and signals whether the runner should
+     * start another transaction.
+     * <p>
+     * Implementations are free to carry any state needed to resume work at the right position
+     * in the next transaction. The runner itself only inspects {@link #hasMore()}.
+     * </p>
+     */
+    @FunctionalInterface
+    public interface Continuation {
+        /**
+         * Returns {@code true} if there is more work to do; {@code false} if the source has
+         * been exhausted and the loop should stop after committing the current transaction.
+         */
+        boolean hasMore();
+    }
+
+    /**
+     * The continuation passed to the task on the very first transaction.
+     * <p>
+     * Tasks can detect the first call with {@code continuation instanceof StartContinuation}.
+     * </p>
+     */
+    public static final class StartContinuation implements Continuation {
+        /** The singleton instance to pass on the first call. */
+        public static final StartContinuation INSTANCE = new StartContinuation();
+
+        private StartContinuation() {
+        }
+
+        @Override
+        public boolean hasMore() {
+            return true;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Task
+    // -------------------------------------------------------------------------
+
+    /**
+     * A task that performs work inside a single transaction and returns a continuation.
+     */
+    @FunctionalInterface
+    public interface Task {
+        /**
+         * Run one transaction's worth of work.
+         *
+         * @param transaction the transaction for this attempt
+         * @param quotaManager tracks work done this transaction and exposes the current limit
+         * @param continuation the continuation from the last <em>successful</em> transaction,
+         *                     or {@link StartContinuation#INSTANCE} on the very first call;
+         *                     on a retry this is the same continuation that was passed to the
+         *                     failed attempt
+         * @return a future containing the continuation describing where the next transaction
+         *         should resume; return a continuation with {@link Continuation#hasMore()}
+         *         {@code == false} to stop the loop
+         */
+        @Nonnull
+        CompletableFuture<Continuation> run(@Nonnull Transaction transaction,
+                                             @Nonnull QuotaManager quotaManager,
+                                             @Nonnull Continuation continuation);
+    }
+
+    // -------------------------------------------------------------------------
+    // QuotaManager
+    // -------------------------------------------------------------------------
+
+    /**
+     * Tracks per-transaction resource usage and exposes the adaptive limit.
      * <p>
      * One instance is created per {@link #iterateAll} call. Per-transaction counts are reset at
      * the start of each transaction; the limit persists and is adjusted by the runner between
@@ -218,14 +299,12 @@ public class ThrottledRetryingRunner implements AutoCloseable {
      * </p>
      * <p>
      * The task should call {@link #getLimit()} at the start of each transaction to know how much
-     * work to attempt, increment the counts as it goes, and call {@link #markExhausted()} when
-     * the source is fully consumed.
+     * work to attempt, and increment the counts as it goes.
      * </p>
      */
     public static class QuotaManager {
         private int processedCount;
         private int deletedCount;
-        private boolean hasMore;
         private int limit;
         private final int maxLimit;
 
@@ -291,18 +370,9 @@ public class ThrottledRetryingRunner implements AutoCloseable {
             deletedCount++;
         }
 
-        /**
-         * Signal that the source is exhausted. The loop will stop after the current transaction
-         * commits, without starting a new one.
-         */
-        public void markExhausted() {
-            hasMore = false;
-        }
-
         void initTransaction() {
             processedCount = 0;
             deletedCount = 0;
-            hasMore = true;
         }
 
         void increaseLimit() {
@@ -321,6 +391,10 @@ public class ThrottledRetryingRunner implements AutoCloseable {
             limit = Math.max(1, (processedCount * 9) / 10);
         }
     }
+
+    // -------------------------------------------------------------------------
+    // Builder
+    // -------------------------------------------------------------------------
 
     /**
      * Create a new builder for a {@link ThrottledRetryingRunner}.
@@ -396,9 +470,9 @@ public class ThrottledRetryingRunner implements AutoCloseable {
          * Set the initial and maximum per-transaction limit passed to the task via
          * {@link QuotaManager#getLimit()}.
          * <p>
-         * The limit starts at this value. It will not be increased beyond {@code maxLimit} on
-         * success. If {@code maxLimit} is {@code 0} (the default) the limit feature is disabled:
-         * {@link QuotaManager#getLimit()} always returns {@code 0} and is never adjusted.
+         * The limit starts at this value and will not be increased beyond it. If {@code 0}
+         * (the default) the limit feature is disabled: {@link QuotaManager#getLimit()} always
+         * returns {@code 0} and is never adjusted.
          * </p>
          *
          * @param maxLimit the initial and maximum limit; {@code 0} disables limit management

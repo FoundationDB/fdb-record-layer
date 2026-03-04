@@ -42,6 +42,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -170,12 +171,11 @@ class ThrottledRetryingRunnerTest {
         AtomicInteger callCount = new AtomicInteger(0);
 
         try (ThrottledRetryingRunner runner = runnerBuilder().build()) {
-            runner.iterateAll((tr, quota) -> {
-                int n = callCount.incrementAndGet();
-                if (n >= iterations) {
-                    quota.markExhausted();
+            runner.iterateAll((tr, quota, cont) -> {
+                if (callCount.incrementAndGet() >= iterations) {
+                    return exhausted();
                 }
-                return CompletableFuture.completedFuture(null);
+                return hasMore();
             }).join();
         }
 
@@ -187,10 +187,9 @@ class ThrottledRetryingRunnerTest {
         AtomicInteger callCount = new AtomicInteger(0);
 
         try (ThrottledRetryingRunner runner = runnerBuilder().build()) {
-            runner.iterateAll((tr, quota) -> {
+            runner.iterateAll((tr, quota, cont) -> {
                 callCount.incrementAndGet();
-                quota.markExhausted();
-                return CompletableFuture.completedFuture(null);
+                return exhausted();
             }).join();
         }
 
@@ -204,17 +203,11 @@ class ThrottledRetryingRunnerTest {
     @Test
     void cannotRunWhenClosed() {
         ThrottledRetryingRunner runner = runnerBuilder().build();
-        runner.iterateAll((tr, quota) -> {
-            quota.markExhausted();
-            return CompletableFuture.completedFuture(null);
-        }).join();
+        runner.iterateAll((tr, quota, cont) -> exhausted()).join();
         runner.close();
 
         assertThatThrownBy(() ->
-                runner.iterateAll((tr, quota) -> {
-                    quota.markExhausted();
-                    return CompletableFuture.completedFuture(null);
-                }).join())
+                runner.iterateAll((tr, quota, cont) -> exhausted()).join())
                 .hasCauseInstanceOf(TransactionalRunner.RunnerClosed.class);
     }
 
@@ -231,7 +224,7 @@ class ThrottledRetryingRunnerTest {
                 .withNumOfRetries(numRetries)
                 .build()) {
             Throwable ex = catchThrowableOfType(RuntimeException.class, () ->
-                    runner.iterateAll((tr, quota) -> {
+                    runner.iterateAll((tr, quota, cont) -> {
                         callCount.incrementAndGet();
                         return CompletableFuture.failedFuture(new RuntimeException("always fails"));
                     }).join());
@@ -254,7 +247,7 @@ class ThrottledRetryingRunnerTest {
         try (ThrottledRetryingRunner runner = runnerBuilder()
                 .withNumOfRetries(2)
                 .build()) {
-            runner.iterateAll((tr, quota) -> {
+            runner.iterateAll((tr, quota, cont) -> {
                 int call = totalCalls.incrementAndGet();
                 // Fail on calls 1 and 2
                 if (call == 1 || call == 2) {
@@ -266,9 +259,9 @@ class ThrottledRetryingRunnerTest {
                 }
                 successCount.incrementAndGet();
                 if (successCount.get() == 2) {
-                    quota.markExhausted();
+                    return exhausted();
                 }
-                return CompletableFuture.completedFuture(null);
+                return hasMore();
             }).join();
         }
 
@@ -283,10 +276,9 @@ class ThrottledRetryingRunnerTest {
         runner.close(); // close before iterating
 
         assertThatThrownBy(() ->
-                runner.iterateAll((tr, quota) -> {
+                runner.iterateAll((tr, quota, cont) -> {
                     callCount.incrementAndGet();
-                    quota.markExhausted();
-                    return CompletableFuture.completedFuture(null);
+                    return exhausted();
                 }).join())
                 .hasCauseInstanceOf(TransactionalRunner.RunnerClosed.class);
 
@@ -305,13 +297,13 @@ class ThrottledRetryingRunnerTest {
         AtomicInteger totalCalls = new AtomicInteger(0);
 
         try (ThrottledRetryingRunner runner = runnerBuilder().build()) {
-            runner.iterateAll((tr, quota) -> {
+            runner.iterateAll((tr, quota, cont) -> {
                 observedCounts.add(quota.getProcessedCount()); // always 0 at start
                 quota.processedCountAdd(10);
                 if (totalCalls.incrementAndGet() >= 3) {
-                    quota.markExhausted();
+                    return exhausted();
                 }
-                return CompletableFuture.completedFuture(null);
+                return hasMore();
             }).join();
         }
 
@@ -324,13 +316,12 @@ class ThrottledRetryingRunnerTest {
         AtomicInteger observedDeleted = new AtomicInteger(-1);
 
         try (ThrottledRetryingRunner runner = runnerBuilder().build()) {
-            runner.iterateAll((tr, quota) -> {
+            runner.iterateAll((tr, quota, cont) -> {
                 quota.processedCountAdd(7);
                 quota.deletedCountAdd(3);
                 observedProcessed.set(quota.getProcessedCount());
                 observedDeleted.set(quota.getDeletedCount());
-                quota.markExhausted();
-                return CompletableFuture.completedFuture(null);
+                return exhausted();
             }).join();
         }
 
@@ -349,10 +340,9 @@ class ThrottledRetryingRunnerTest {
         try (ThrottledRetryingRunner runner = runnerBuilder()
                 .withMaxLimit(50)
                 .build()) {
-            runner.iterateAll((tr, quota) -> {
+            runner.iterateAll((tr, quota, cont) -> {
                 observedLimit.set(quota.getLimit());
-                quota.markExhausted();
-                return CompletableFuture.completedFuture(null);
+                return exhausted();
             }).join();
         }
 
@@ -364,10 +354,9 @@ class ThrottledRetryingRunnerTest {
         AtomicInteger observedLimit = new AtomicInteger(-1);
 
         try (ThrottledRetryingRunner runner = runnerBuilder().build()) {
-            runner.iterateAll((tr, quota) -> {
+            runner.iterateAll((tr, quota, cont) -> {
                 observedLimit.set(quota.getLimit());
-                quota.markExhausted();
-                return CompletableFuture.completedFuture(null);
+                return exhausted();
             }).join();
         }
 
@@ -376,8 +365,6 @@ class ThrottledRetryingRunnerTest {
 
     @Test
     void limitDecreasesOnFailureThenIncreasesOnSuccess() {
-        // On failure: limit = max(1, processedCount * 9/10)
-        // On success: after increaseLimitAfter consecutive successes, limit increases
         AtomicInteger callCount = new AtomicInteger(0);
         List<Integer> observedLimits = new ArrayList<>();
 
@@ -386,7 +373,7 @@ class ThrottledRetryingRunnerTest {
                 .withIncreaseLimitAfter(2) // increase after 2 successes to keep the test short
                 .withNumOfRetries(10)
                 .build()) {
-            runner.iterateAll((tr, quota) -> {
+            runner.iterateAll((tr, quota, cont) -> {
                 int call = callCount.incrementAndGet();
                 observedLimits.add(quota.getLimit());
 
@@ -398,10 +385,9 @@ class ThrottledRetryingRunnerTest {
                 if (call <= 3) {
                     // Two successes → limit increases from 90
                     quota.processedCountInc();
-                    return CompletableFuture.completedFuture(null); // keep going
+                    return hasMore();
                 }
-                quota.markExhausted();
-                return CompletableFuture.completedFuture(null);
+                return exhausted();
             }).join();
         }
 
@@ -417,7 +403,6 @@ class ThrottledRetryingRunnerTest {
 
     @Test
     void limitDecreasesProgressivelyTowardOne() {
-        // Each failure with very few processed items should converge the limit toward 1
         AtomicInteger callCount = new AtomicInteger(0);
         List<Integer> observedLimits = new ArrayList<>();
 
@@ -425,20 +410,18 @@ class ThrottledRetryingRunnerTest {
                 .withMaxLimit(1000)
                 .withNumOfRetries(20)
                 .build()) {
-            runner.iterateAll((tr, quota) -> {
+            runner.iterateAll((tr, quota, cont) -> {
                 int call = callCount.incrementAndGet();
                 observedLimits.add(quota.getLimit());
                 if (call <= 10) {
-                    // Process 1 item each time → limit = max(1, 1*9/10) = 1 after first decrease
-                    quota.processedCountInc();
+                    quota.processedCountInc(); // 1 item processed → limit floor at 1
                     return CompletableFuture.failedFuture(new RuntimeException("fail"));
                 }
-                quota.markExhausted();
-                return CompletableFuture.completedFuture(null);
+                return exhausted();
             }).join();
         }
 
-        // After first failure with 1 processed: max(1, 0) = 1
+        // After first failure with 1 processed: max(1, 1*9/10=0) = 1
         assertThat(observedLimits.get(1)).isEqualTo(1);
         // Stays at 1 regardless of further failures
         for (int i = 2; i < 10; i++) {
@@ -455,15 +438,14 @@ class ThrottledRetryingRunnerTest {
                 .withNumOfRetries(5)
                 // no withMaxLimit → limit stays 0
                 .build()) {
-            runner.iterateAll((tr, quota) -> {
+            runner.iterateAll((tr, quota, cont) -> {
                 int call = callCount.incrementAndGet();
                 observedLimits.add(quota.getLimit());
                 quota.processedCountAdd(100);
                 if (call <= 3) {
                     return CompletableFuture.failedFuture(new RuntimeException("fail"));
                 }
-                quota.markExhausted();
-                return CompletableFuture.completedFuture(null);
+                return exhausted();
             }).join();
         }
 
@@ -480,18 +462,15 @@ class ThrottledRetryingRunnerTest {
         byte[] key = subspace.pack(Tuple.from("commit-test"));
         byte[] value = "hello".getBytes();
 
-        // Write a key inside iterateAll
         try (ThrottledRetryingRunner runner = runnerBuilder()
                 .withCommitWhenDone(commitWhenDone)
                 .build()) {
-            runner.iterateAll((tr, quota) -> {
+            runner.iterateAll((tr, quota, cont) -> {
                 tr.set(key, value);
-                quota.markExhausted();
-                return CompletableFuture.completedFuture(null);
+                return exhausted();
             }).join();
         }
 
-        // Check whether the key is actually present
         byte[] read = db.run(tr -> tr.get(key).join());
         if (commitWhenDone) {
             assertThat(read).isEqualTo(value);
@@ -510,29 +489,26 @@ class ThrottledRetryingRunnerTest {
         AtomicInteger callCount = new AtomicInteger(0);
 
         try (ThrottledRetryingRunner runner = runnerBuilder().build()) {
-            runner.iterateAll((tr, quota) -> {
+            runner.iterateAll((tr, quota, cont) -> {
                 seenTransactions.add(tr);
                 if (callCount.incrementAndGet() >= 3) {
-                    quota.markExhausted();
+                    return exhausted();
                 }
-                return CompletableFuture.completedFuture(null);
+                return hasMore();
             }).join();
         }
 
         assertThat(seenTransactions).hasSize(3);
-        // All three must be distinct objects
         assertThat(seenTransactions.get(0)).isNotSameAs(seenTransactions.get(1));
         assertThat(seenTransactions.get(1)).isNotSameAs(seenTransactions.get(2));
     }
 
     // -------------------------------------------------------------------------
-    // Rate limiting: elapsed time grows when throttling is applied
+    // Rate limiting
     // -------------------------------------------------------------------------
 
     @Test
     void throttlingByScannedItemsSlowsItDown() {
-        // 3 transactions each processing 100 items at max 50/sec → each batch should take ≥2s
-        // Use a low count to keep the test fast: 3 transactions × 10 items at max 20/sec = ≥1.5s
         final int itemsPerTransaction = 10;
         final int maxPerSec = 20;
         final int transactions = 3;
@@ -542,12 +518,12 @@ class ThrottledRetryingRunnerTest {
         try (ThrottledRetryingRunner runner = runnerBuilder()
                 .withMaxItemsScannedPerSec(maxPerSec)
                 .build()) {
-            runner.iterateAll((tr, quota) -> {
+            runner.iterateAll((tr, quota, cont) -> {
                 quota.processedCountAdd(itemsPerTransaction);
                 if (callCount.incrementAndGet() >= transactions) {
-                    quota.markExhausted();
+                    return exhausted();
                 }
-                return CompletableFuture.completedFuture(null);
+                return hasMore();
             }).join();
         }
         long elapsed = System.currentTimeMillis() - start;
@@ -568,12 +544,12 @@ class ThrottledRetryingRunnerTest {
         try (ThrottledRetryingRunner runner = runnerBuilder()
                 .withMaxItemsDeletedPerSec(maxPerSec)
                 .build()) {
-            runner.iterateAll((tr, quota) -> {
+            runner.iterateAll((tr, quota, cont) -> {
                 quota.deletedCountAdd(deletesPerTransaction);
                 if (callCount.incrementAndGet() >= transactions) {
-                    quota.markExhausted();
+                    return exhausted();
                 }
-                return CompletableFuture.completedFuture(null);
+                return hasMore();
             }).join();
         }
         long elapsed = System.currentTimeMillis() - start;
@@ -584,17 +560,15 @@ class ThrottledRetryingRunnerTest {
 
     @Test
     void noThrottlingWithZeroRateLimit() {
-        // With no rate limit configured the runner should complete nearly instantly
-        // (well under 1 second for trivial work). We just assert it completes normally.
         AtomicInteger callCount = new AtomicInteger(0);
 
         try (ThrottledRetryingRunner runner = runnerBuilder().build()) {
-            runner.iterateAll((tr, quota) -> {
-                quota.processedCountAdd(1000); // lots of items but no limit configured
+            runner.iterateAll((tr, quota, cont) -> {
+                quota.processedCountAdd(1000);
                 if (callCount.incrementAndGet() >= 5) {
-                    quota.markExhausted();
+                    return exhausted();
                 }
-                return CompletableFuture.completedFuture(null);
+                return hasMore();
             }).join();
         }
 
@@ -602,23 +576,22 @@ class ThrottledRetryingRunnerTest {
     }
 
     // -------------------------------------------------------------------------
-    // Real DB writes: data persisted across transactions within one iterateAll
+    // Real DB writes
     // -------------------------------------------------------------------------
 
     @Test
     void dataWrittenInEachTransactionIsVisible() {
-        // Write one key per transaction, confirm all are present at the end
         final int numTransactions = 5;
         AtomicInteger callCount = new AtomicInteger(0);
 
         try (ThrottledRetryingRunner runner = runnerBuilder().build()) {
-            runner.iterateAll((tr, quota) -> {
+            runner.iterateAll((tr, quota, cont) -> {
                 int n = callCount.incrementAndGet();
                 tr.set(subspace.pack(Tuple.from(n)), Tuple.from(n).pack());
                 if (n >= numTransactions) {
-                    quota.markExhausted();
+                    return exhausted();
                 }
-                return CompletableFuture.completedFuture(null);
+                return hasMore();
             }).join();
         }
 
@@ -632,8 +605,166 @@ class ThrottledRetryingRunnerTest {
     }
 
     // -------------------------------------------------------------------------
+    // Continuation passing
+    // -------------------------------------------------------------------------
+
+    @Test
+    void firstCallReceivesStartContinuation() {
+        AtomicReference<ThrottledRetryingRunner.Continuation> observed = new AtomicReference<>();
+
+        try (ThrottledRetryingRunner runner = runnerBuilder().build()) {
+            runner.iterateAll((tr, quota, cont) -> {
+                observed.set(cont);
+                return exhausted();
+            }).join();
+        }
+
+        assertThat(observed.get()).isInstanceOf(ThrottledRetryingRunner.StartContinuation.class);
+        assertThat(observed.get()).isSameAs(ThrottledRetryingRunner.StartContinuation.INSTANCE);
+    }
+
+    @Test
+    void continuationFromSuccessIsPassedToNextCall() {
+        // Each transaction returns a custom continuation object; the next call should receive it.
+        List<ThrottledRetryingRunner.Continuation> received = new ArrayList<>();
+        AtomicInteger callCount = new AtomicInteger(0);
+
+        // Distinct continuation objects for each transaction
+        ThrottledRetryingRunner.Continuation cont1 = () -> true;
+        ThrottledRetryingRunner.Continuation cont2 = () -> true;
+
+        try (ThrottledRetryingRunner runner = runnerBuilder().build()) {
+            runner.iterateAll((tr, quota, cont) -> {
+                received.add(cont);
+                int call = callCount.incrementAndGet();
+                if (call == 1) {
+                    return CompletableFuture.completedFuture(cont1);
+                }
+                if (call == 2) {
+                    return CompletableFuture.completedFuture(cont2);
+                }
+                return exhausted();
+            }).join();
+        }
+
+        // call 1: receives StartContinuation
+        assertThat(received.get(0)).isInstanceOf(ThrottledRetryingRunner.StartContinuation.class);
+        // call 2: receives the continuation returned by call 1
+        assertThat(received.get(1)).isSameAs(cont1);
+        // call 3: receives the continuation returned by call 2
+        assertThat(received.get(2)).isSameAs(cont2);
+    }
+
+    @Test
+    void continuationIsNotAdvancedOnRetry() {
+        // When a transaction fails, the retry should receive the same continuation as the failed
+        // attempt — not a new one — so that the task can resume from the same position.
+        List<ThrottledRetryingRunner.Continuation> received = new ArrayList<>();
+        AtomicInteger callCount = new AtomicInteger(0);
+
+        ThrottledRetryingRunner.Continuation contAfterFirstSuccess = () -> true;
+
+        try (ThrottledRetryingRunner runner = runnerBuilder()
+                .withNumOfRetries(3)
+                .build()) {
+            runner.iterateAll((tr, quota, cont) -> {
+                received.add(cont);
+                int call = callCount.incrementAndGet();
+
+                if (call == 1) {
+                    // First success: return a custom continuation
+                    return CompletableFuture.completedFuture(contAfterFirstSuccess);
+                }
+                if (call == 2 || call == 3) {
+                    // Fail twice: continuation should NOT advance
+                    return CompletableFuture.failedFuture(new RuntimeException("transient"));
+                }
+                // Final success
+                return exhausted();
+            }).join();
+        }
+
+        // call 1: StartContinuation (first call)
+        assertThat(received.get(0)).isInstanceOf(ThrottledRetryingRunner.StartContinuation.class);
+        // call 2: contAfterFirstSuccess (first call succeeded)
+        assertThat(received.get(1)).isSameAs(contAfterFirstSuccess);
+        // call 3: still contAfterFirstSuccess — call 2 failed, continuation not advanced
+        assertThat(received.get(2)).isSameAs(contAfterFirstSuccess);
+        // call 4: still contAfterFirstSuccess — call 3 failed too
+        assertThat(received.get(3)).isSameAs(contAfterFirstSuccess);
+    }
+
+    @Test
+    void startContinuationReusedAcrossRetriesBeforeAnySuccess() {
+        // Before any successful transaction, all retries should receive StartContinuation.
+        List<ThrottledRetryingRunner.Continuation> received = new ArrayList<>();
+        AtomicInteger callCount = new AtomicInteger(0);
+
+        try (ThrottledRetryingRunner runner = runnerBuilder()
+                .withNumOfRetries(3)
+                .build()) {
+            runner.iterateAll((tr, quota, cont) -> {
+                received.add(cont);
+                if (callCount.incrementAndGet() <= 2) {
+                    return CompletableFuture.failedFuture(new RuntimeException("transient"));
+                }
+                return exhausted();
+            }).join();
+        }
+
+        // All three calls should receive StartContinuation since no success ever happened
+        assertThat(received).hasSize(3);
+        assertThat(received).allMatch(c -> c instanceof ThrottledRetryingRunner.StartContinuation);
+    }
+
+    @Test
+    void continuationCarriesStateToNextTransaction() {
+        // A realistic scenario: the continuation carries a "cursor position" (last key seen).
+        // Each transaction processes one key and the next transaction picks up where it left off.
+        final int numKeys = 4;
+
+        // Write test data
+        db.run(tr -> {
+            for (int i = 0; i < numKeys; i++) {
+                tr.set(subspace.pack(Tuple.from(i)), Tuple.from(i * 10).pack());
+            }
+            return null;
+        });
+
+        // A continuation that carries the next index to read
+        class IndexContinuation implements ThrottledRetryingRunner.Continuation {
+            final int nextIndex;
+            IndexContinuation(int nextIndex) { this.nextIndex = nextIndex; }
+            @Override public boolean hasMore() { return nextIndex < numKeys; }
+        }
+
+        List<Integer> processedValues = new ArrayList<>();
+
+        try (ThrottledRetryingRunner runner = runnerBuilder().build()) {
+            runner.iterateAll((tr, quota, cont) -> {
+                int idx = (cont instanceof IndexContinuation) ? ((IndexContinuation) cont).nextIndex : 0;
+                byte[] raw = tr.get(subspace.pack(Tuple.from(idx))).join();
+                processedValues.add((int) Tuple.fromBytes(raw).getLong(0));
+                return CompletableFuture.completedFuture(new IndexContinuation(idx + 1));
+            }).join();
+        }
+
+        assertThat(processedValues).containsExactly(0, 10, 20, 30);
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    /** Returns a completed future with a continuation indicating there is more work to do. */
+    private static CompletableFuture<ThrottledRetryingRunner.Continuation> hasMore() {
+        return CompletableFuture.completedFuture(() -> true);
+    }
+
+    /** Returns a completed future with a continuation indicating the source is exhausted. */
+    private static CompletableFuture<ThrottledRetryingRunner.Continuation> exhausted() {
+        return CompletableFuture.completedFuture(() -> false);
+    }
 
     private ThrottledRetryingRunner.Builder runnerBuilder() {
         return ThrottledRetryingRunner.builder(db, scheduledExecutor);
