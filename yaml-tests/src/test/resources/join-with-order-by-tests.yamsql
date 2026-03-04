@@ -32,12 +32,18 @@ schema_template:
     create function t1_f(x bigint)
       as select "__ROW_VERSION", t1.* from t1 where a1 = x
 
+    create function t1_g(x bigint)
+      as select "__ROW_VERSION", t1.*, t1.a2 as "the_a2" from t1 where a1 = x
+
     create table t2(id bigint, b1 bigint, b2 bigint, b3 string, primary key(id))
     create index "t2$b1" as select b1 from t2
     create index "t2$b1_b3" as select b1, b3 from t2 order by b1, b3
 
     create function t2_f(x bigint)
       as select "__ROW_VERSION", t2.* from t2 where b1 = x
+
+    create function t2_g(x bigint)
+      as select "__ROW_VERSION", t2.*, t2.b2 as "the_b2" from t2 where b1 = x
 
     create table t3(id bigint, c1 bigint, c2 bigint, c3 string, aRef bigint, primary key(id))
     create index "t3$c1" as select c1 from t3
@@ -128,6 +134,148 @@ test_block:
           { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
+        ]
+    -
+      # Project just the t2 side of the query, even though the order is on t1
+      - query: select (t2.*)
+                from t1, t2
+                where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
+                order by t1.a2 desc
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c16 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c16 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS _0, q0.a2 AS a2) } | MAP (_._0 AS _0)"
+      - result: [
+          { { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { id: 2002, b1: 1, b2: 19, b3: "a" } },
+        ]
+    -
+      # Project a subset of fields, including the ordering columns
+      - query: select t1.a2, t1.a3, t2.b2, t2.b3
+                from t1, t2
+                where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
+                order by t1.a2 desc
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c26 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c26 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a2 AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3) }"
+      - result: [
+          { a2: 13, a3: "b", b2: 18, b3: "b" },
+          { a2: 13, a3: "b", b2: 17, b3: "b" },
+          { a2: 12, a3: "a", b2: 20, b3: "a" },
+          { a2: 12, a3: "a", b2: 19, b3: "a" },
+          { a2: 11, a3: "b", b2: 18, b3: "b" },
+          { a2: 11, a3: "b", b2: 17, b3: "b" },
+          { a2: 10, a3: "a", b2: 20, b3: "a" },
+          { a2: 10, a3: "a", b2: 19, b3: "a" },
+        ]
+    -
+      # Project a subset of fields, missing the ordering columns
+      - query: select t1.a3, t2.b2, t2.b3
+                from t1, t2
+                where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
+                order by t1.a2 desc
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c22 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c22 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS a2) } | MAP (_.a3 AS a3, _.b2 AS b2, _.b3 AS b3)"
+      - result: [
+          { a3: "b", b2: 18, b3: "b" },
+          { a3: "b", b2: 17, b3: "b" },
+          { a3: "a", b2: 20, b3: "a" },
+          { a3: "a", b2: 19, b3: "a" },
+          { a3: "b", b2: 18, b3: "b" },
+          { a3: "b", b2: 17, b3: "b" },
+          { a3: "a", b2: 20, b3: "a" },
+          { a3: "a", b2: 19, b3: "a" },
+        ]
+    -
+      # Order by a field that comes from a function execution
+      - query: select (x.*), (y.*)
+                from t1_f(1) as x, t2_f(1) as y
+                where x.a3 = y.b3
+                order by x.a2 desc
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c16 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c16 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS _0, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS _1) }"
+      - result: [
+          { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 1003, a1: 1, a2: 12, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1003, a1: 1, a2: 12, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1002, a1: 1, a2: 11, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 1002, a1: 1, a2: 11, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a" } },
+        ]
+    -
+      # Order by a field that comes from a underlying function execution but whose quantifier is missing from the final projection
+      - query: select (y.*)
+                from t1_f(1) as x, t2_f(1) as y
+                where x.a3 = y.b3
+                order by x.a2 desc
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c10 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c10 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS _0, q0.a2 AS a2) } | MAP (_._0 AS _0)"
+      - initialVersionLessThan: !current_version
+      - error: 'XX000'
+      - initialVersionAtLeast: !current_version
+      - result: [
+          { { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b" } },
+          { { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
+          { { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a" } },
+        ]
+    -
+      # Order by a field that comes from a function execution
+      - query: select (x.*), (y.*)
+                from t1_g(1) as x, t2_g(1) as y
+                where x.a3 = y.b3
+                order by x.the_a2 desc
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c16 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c16 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3, q0.a2 AS the_a2) AS _0, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2 AS the_b2) AS _1) }"
+      - result: [
+          { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b", the_a2: 13 }, { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b", the_b2: 18 } },
+          { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b", the_a2: 13 }, { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b", the_b2: 17 } },
+          { { '__ROW_VERSION': !not_null _, id: 1003, a1: 1, a2: 12, a3: "a", the_a2: 12 }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a", the_b2: 20 } },
+          { { '__ROW_VERSION': !not_null _, id: 1003, a1: 1, a2: 12, a3: "a", the_a2: 12 }, { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a", the_b2: 19 } },
+          { { '__ROW_VERSION': !not_null _, id: 1002, a1: 1, a2: 11, a3: "b", the_a2: 11 }, { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b", the_b2: 18 } },
+          { { '__ROW_VERSION': !not_null _, id: 1002, a1: 1, a2: 11, a3: "b", the_a2: 11 }, { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b", the_b2: 17 } },
+          { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a", the_a2: 10 }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a", the_b2: 20 } },
+          { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a", the_a2: 10 }, { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a", the_b2: 19 } },
+        ]
+    -
+      # Order by a field that has a separate projection from an underlying function and whose quantifier is missing from the final projection
+      - query: select (y.*)
+                from t1_g(1) as x, t2_g(1) as y
+                where x.a3 = y.b3
+                order by x.the_a2 desc
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c10 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c10 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2 AS the_b2) AS _0, q0.a2 AS the_a2) } | MAP (_._0 AS _0)"
+      - initialVersionLessThan: !current_version
+      - error: 'XX000'
+      - initialVersionAtLeast: !current_version
+      - result: [
+          { { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b", the_b2: 18 } },
+          { { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b", the_b2: 17 } },
+          { { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a", the_b2: 20 } },
+          { { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a", the_b2: 19 } },
+          { { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b", the_b2: 18 } },
+          { { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b", the_b2: 17 } },
+          { { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a", the_b2: 20 } },
+          { { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a", the_b2: 19 } },
+        ]
+    -
+      # Order by a field that is missing from the final projection, but which is aliasing a field that is. The final map in the explain could be removed if the correspondence is utilized fully
+      - query: select x.a2, x.a3, y.b2, y.b3
+                from t1_g(1) as x, t2_g(1) as y
+                where x.a3 = y.b3
+                order by x.the_a2 desc
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c20 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c20 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a2 AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS the_a2) } | MAP (_.a2 AS a2, _.a3 AS a3, _.b2 AS b2, _.b3 AS b3)"
+      - result: [
+          { a2: 13, a3: "b", b2: 18, b3: "b" },
+          { a2: 13, a3: "b", b2: 17, b3: "b" },
+          { a2: 12, a3: "a", b2: 20, b3: "a" },
+          { a2: 12, a3: "a", b2: 19, b3: "a" },
+          { a2: 11, a3: "b", b2: 18, b3: "b" },
+          { a2: 11, a3: "b", b2: 17, b3: "b" },
+          { a2: 10, a3: "a", b2: 20, b3: "a" },
+          { a2: 10, a3: "a", b2: 19, b3: "a" },
         ]
     -
       - query: select (t1.*), (t2.*)
