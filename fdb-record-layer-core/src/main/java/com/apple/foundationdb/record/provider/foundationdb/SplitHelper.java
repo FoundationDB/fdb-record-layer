@@ -125,6 +125,30 @@ public class SplitHelper {
     public static void saveWithSplit(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
                                      @Nonnull final Tuple key, @Nonnull final byte[] serialized, @Nullable final FDBRecordVersion version,
                                      final boolean splitLongRecords, final boolean omitUnsplitSuffix,
+                                     final boolean clearBasedOnPreviousSizeInfo, @Nullable final FDBStoredSizes previousSizeInfo,
+                                     @Nullable SizeInfo sizeInfo) {
+
+        saveWithSplit(context, subspace, key, serialized, version, splitLongRecords, omitUnsplitSuffix, DefaultSplitKeyValueHelper.INSTANCE, clearBasedOnPreviousSizeInfo, previousSizeInfo, sizeInfo);
+    }
+
+    /**
+     * Save serialized representation using multiple keys if necessary, clearing only as much as needed.
+     * @param context write transaction
+     * @param subspace subspace to save in
+     * @param key key within subspace
+     * @param serialized serialized representation
+     * @param version the version to store inline with this record
+     * @param splitLongRecords <code>true</code> if multiple keys should be used; if <code>false</code>, <code>serialized</code> must fit in a single key
+     * @param omitUnsplitSuffix if <code>splitLongRecords</code> is <code>false</code>, then this will omit a suffix added to the end of the key if <code>true</code> for backwards-compatibility reasons
+     * @param splitKeyHelper an instance of {@link SplitKeyValueHelper} to use for the operation
+     * @param clearBasedOnPreviousSizeInfo if <code>splitLongRecords</code>, whether to use <code>previousSizeInfo</code> to determine how much to clear
+     * @param previousSizeInfo if <code>clearBasedOnPreviousSizeInfo</code>, the {@link FDBStoredSizes} for any old record, or <code>null</code> if there was no old record
+     * @param sizeInfo optional size information to populate
+     */
+    @SuppressWarnings("PMD.CloseResource")
+    public static void saveWithSplit(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
+                                     @Nonnull final Tuple key, @Nonnull final byte[] serialized, @Nullable final FDBRecordVersion version,
+                                     final boolean splitLongRecords, final boolean omitUnsplitSuffix,
                                      final SplitKeyValueHelper splitKeyHelper,
                                      final boolean clearBasedOnPreviousSizeInfo, @Nullable final FDBStoredSizes previousSizeInfo,
                                      @Nullable SizeInfo sizeInfo) {
