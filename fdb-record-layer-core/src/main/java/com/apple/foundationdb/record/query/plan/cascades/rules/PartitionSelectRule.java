@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -308,6 +308,15 @@ public class PartitionSelectRule extends ExplorationCascadesRule<SelectExpressio
             upperGraphExpansionBuilder.addAllPredicates(newUpperPredicates);
             upperSelectExpression = upperGraphExpansionBuilder.build().buildSelectWithResultValue(newResultValue);
         }
+//        final var exp = Debugger.getDebugger().nameForObject(selectExpression);
+//        final var aQs = selectExpression.getQuantifiers();
+//        final var aQn = selectExpression.getQuantifiers().size();
+//        final var bQs = upperSelectExpression.getQuantifiers();
+//        final var bQn = upperSelectExpression.getQuantifiers().size();
+//
+//        System.out.printf("%s :: (%d) %s :: (%d) %s%n", exp, aQn, aQs, bQn, bQs);
+//        final var stats = PlannerEventStatsCollector.getCollector().getStatsMaps().get().getPlannerRuleClassStatsMap().get(PartitionSelectRule.class);
+//        System.out.println(stats.getCount(PlannerEvent.Location.MATCH_PRE) + "  :::  " + stats.getCount(PlannerEvent.Location.YIELD));
         call.yieldExploratoryExpression(upperSelectExpression);
     }
 

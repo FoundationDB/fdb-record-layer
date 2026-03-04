@@ -145,7 +145,7 @@ public class ExternalServer {
         File outFile;
         @Nullable
         File errFile;
-        if (saveServerLogs) {
+        if (true) {
             // Include current time in file names so that things sort nicely. We want the out and err logs
             // for the same server start to be adjacent, and it would be nice for the log files to sort
             // chronologically
