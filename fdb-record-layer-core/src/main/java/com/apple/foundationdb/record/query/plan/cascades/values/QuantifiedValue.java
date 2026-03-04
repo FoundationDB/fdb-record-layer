@@ -63,11 +63,13 @@ public interface QuantifiedValue extends LeafValue {
                                           @Nonnull final AliasMap aliasMap,
                                           @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                           @Nonnull final CorrelationIdentifier upperBaseAlias) {
+        // If all the values to be pulled up are only correlated to this value's correlation ID (or to constants),
+        // then we can do a pull up just by translating correlations
         final var alias = getAlias();
         final var areSimpleReferences =
                 Streams.stream(toBePulledUpValues)
                         .flatMap(toBePulledUpValue -> toBePulledUpValue.getCorrelatedTo().stream())
-                        .noneMatch(a -> !alias.equals(a) && !constantAliases.contains(a));
+                        .allMatch(a -> alias.equals(a) || constantAliases.contains(a));
         if (areSimpleReferences) {
             final var translationMap =
                     TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(alias, upperBaseAlias));
