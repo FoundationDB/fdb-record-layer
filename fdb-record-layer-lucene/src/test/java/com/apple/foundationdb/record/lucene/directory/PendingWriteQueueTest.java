@@ -55,6 +55,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -69,6 +71,8 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @Tag(Tags.RequiresFDB)
 class PendingWriteQueueTest extends FDBRecordStoreTestBase {
+    private static final String CHARACTERS = "abcdefghijklmnopqrstuvwxyz0123456789";
+
     LuceneSerializer serializer;
 
     @BeforeEach
@@ -372,7 +376,7 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, serializerToUse);
-            // save a single doc using the (should succeed since we split the records even for uncompressed)
+            // save a single doc using the appropriate serializer (should succeed since we split the records even for uncompressed)
             queue.enqueueInsert(context, docWithHugeString.getPrimaryKey(), docWithHugeString.getFields());
             commit(context);
         }
@@ -437,9 +441,13 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
 
     @Nonnull
     private TestDocument createHugeDocument() {
-        String hugeString = "Hello ".repeat(100_000);
+        Random random = ThreadLocalRandom.current();
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0 ; i < 500_000 ; i++) {
+            builder.append(CHARACTERS.charAt(random.nextInt(CHARACTERS.length())));
+        }
         TestDocument docWithHugeString = new TestDocument(primaryKey("Huge"),
-                List.of(createField("f", hugeString, LuceneIndexExpressions.DocumentFieldType.STRING, false, false)));
+                List.of(createField("f", builder.toString(), LuceneIndexExpressions.DocumentFieldType.STRING, false, false)));
         return docWithHugeString;
     }
 

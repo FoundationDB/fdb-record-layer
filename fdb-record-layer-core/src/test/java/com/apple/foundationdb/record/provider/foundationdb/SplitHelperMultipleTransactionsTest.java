@@ -38,6 +38,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
+import com.apple.test.BooleanSource;
 import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.Lists;
@@ -415,6 +416,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         FDBRecordVersion version1;
         FDBRecordVersion version2;
         FDBRecordVersion version3;
+        // Save records with complete version in the value
         try (FDBRecordContext context = openContext()) {
             version1 = FDBRecordVersion.complete(globalValueVersion, context.claimLocalVersion());
             localVersion1 = context.claimLocalVersion();
@@ -428,7 +430,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
             commit(context);
             globalKeyVersion = context.getVersionStamp();
         }
-        // in some cases nothing gets written (all saves are "saveUnsuccessfully) so the transaction is read-only
+        // in some cases nothing gets written (all saves are "saveUnsuccessfully") so the transaction is read-only
         // and there is no global version
         if (globalKeyVersion != null) {
             completeKey1 = toCompleteKey(key1, globalKeyVersion, localVersion1, testConfig.useVersionInKey);
@@ -441,7 +443,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
             }
         }
 
-        // Save over the records *without* using the previous size info
+        // Save over the records *without* using the previous size info and with no version in the value
         try (FDBRecordContext context = openContext()) {
             localVersion1 = context.claimLocalVersion();
             saveWithSplit(context, key1, SHORT_STRING, null, testConfig, null, localVersion1);
@@ -468,6 +470,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         FDBRecordVersion version4;
         FDBRecordVersion version5;
         FDBRecordVersion version6;
+        // save again with complete version in key and no previous size info
         try (FDBRecordContext context = openContext()) {
             localVersion1 = context.claimLocalVersion();
             version4 = FDBRecordVersion.complete(globalValueVersion, context.claimLocalVersion());
@@ -929,7 +932,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
     }
 
     @ParameterizedTest(name = "scan[reverse = {0}, useVersionInKey = {1}]")
-    @CsvSource({"false, false", "false, true", "true, false", "true, true"})
+    @BooleanSource({"reverse", "useVersionInKey"})
     public void scanSingleRecords(boolean reverse, boolean useVersionInKey) {
         loadSingleRecords(new SplitHelperTestConfig(true, false, FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(), false, false, useVersionInKey),
                 (context, key, expectedSizes, expectedContents, version) ->
@@ -977,7 +980,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
     }
 
     @ParameterizedTest(name = "scanMultipleRecords[reverse = {0}, useVersionInKey = {1}]")
-    @CsvSource({"false, false", "false, true", "true, false", "true, true"})
+    @BooleanSource({"reverse", "useVersionInKey"})
     void scanMultipleRecords(boolean reverse, boolean useVersionInKey) {
         final ScanProperties scanProperties = reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN;
         List<FDBRawRecord> rawRecords = writeDummyRecords(useVersionInKey);

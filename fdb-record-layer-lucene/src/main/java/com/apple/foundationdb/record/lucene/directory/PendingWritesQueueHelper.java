@@ -48,7 +48,8 @@ public final class PendingWritesQueueHelper {
             LucenePendingWriteQueueProto.PendingWriteItem item = LucenePendingWriteQueueProto.PendingWriteItem.parseFrom(value);
             return new PendingWriteQueue.QueueEntry(versionstamp, item);
         } catch (InvalidProtocolBufferException e) {
-            throw new RecordCoreStorageException("Failed to parse queue item", e);
+            throw new RecordCoreStorageException("Failed to parse queue item", e)
+                    .addLogInfo("key", keyTuple);
         }
     }
 
