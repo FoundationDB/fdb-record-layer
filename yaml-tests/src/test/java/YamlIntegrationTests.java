@@ -418,4 +418,14 @@ public class YamlIntegrationTests {
     public void simpleQueryWithDifferentDebuggersTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("simple-query-with-different-debuggers.yamsql");
     }
+
+    @TestTemplate
+    public void largeRecord(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("large-record.yamsql");
+    }
+
+    @TestTemplate
+    public void largeRecordFails(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("large-record-fails.yamsql");
+    }
 }
