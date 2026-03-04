@@ -22,8 +22,11 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.async.AsyncIterator;
-import com.apple.foundationdb.async.hnsw.TestHelpers.PrimaryKeyAndVector;
-import com.apple.foundationdb.async.hnsw.TestHelpers.PrimaryKeyVectorAndDistance;
+import com.apple.foundationdb.async.common.BaseTest;
+import com.apple.foundationdb.async.common.CommonTestHelpers;
+import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
+import com.apple.foundationdb.async.common.PrimaryKeyVectorAndDistance;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.hnsw.TestHelpers.TestOnReadListener;
 import com.apple.foundationdb.async.hnsw.TestHelpers.TestOnWriteListener;
 import com.apple.foundationdb.linear.DoubleRealVector;
@@ -159,7 +162,7 @@ class SiftTest implements BaseTest {
         final var queryVector = readQuery(queryIndex);
 
         final NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances =
-                TestHelpers.orderedByDistances(Metric.EUCLIDEAN_METRIC, insertedData, queryVector);
+                CommonTestHelpers.orderedByDistances(Metric.EUCLIDEAN_METRIC, insertedData, queryVector);
 
         // pick a random marker and a non-zero length
         final int minIndex = random.nextInt(insertedData.size());

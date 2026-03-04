@@ -1,5 +1,5 @@
 /*
- * BaseTest.java
+ * SiftTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,22 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.async.guardiann;
 
-import com.apple.foundationdb.Database;
-import com.apple.foundationdb.subspace.Subspace;
-
-import javax.annotation.Nonnull;
-import java.nio.file.Path;
-
-public interface BaseTest {
-
-    @Nonnull
-    Database getDb();
-
-    @Nonnull
-    Subspace getSubspace();
-
-    @Nonnull
-    Path getTempDir();
+public class SiftTest {
 }

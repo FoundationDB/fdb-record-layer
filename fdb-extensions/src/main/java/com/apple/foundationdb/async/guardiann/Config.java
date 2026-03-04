@@ -48,6 +48,8 @@ public final class Config implements BaseConfig {
     // RaBitQ
     public static final boolean DEFAULT_USE_RABITQ = false;
     public static final int DEFAULT_RABITQ_NUM_EX_BITS = 4;
+    // randomness
+    public static final boolean DEFAULT_PERSIST_SEQUENTIAL_UUIDS = false;
     // concurrency
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES = 16;
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES = 10;
@@ -66,6 +68,7 @@ public final class Config implements BaseConfig {
     private final int statsThreshold;
     private final boolean useRaBitQ;
     private final int raBitQNumExBits;
+    private final boolean persistSequentialUuids;
     private final int maxNumConcurrentNodeFetches;
     private final int maxNumConcurrentNeighborhoodFetches;
     private final int maxNumConcurrentDeleteFromLayer;
@@ -74,8 +77,9 @@ public final class Config implements BaseConfig {
                    final int primaryClusterMax, final int replicatedClusterMaxWrites, final int replicatedClusterTarget,
                    final double clusterOverlap, final double sampleVectorStatsProbability,
                    final double maintainStatsProbability, final int statsThreshold, final boolean useRaBitQ,
-                   final int raBitQNumExBits, final int maxNumConcurrentNodeFetches,
-                   final int maxNumConcurrentNeighborhoodFetches, final int maxNumConcurrentDeleteFromLayer) {
+                   final int raBitQNumExBits, final boolean persistSequentialUuids,
+                   final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches,
+                   final int maxNumConcurrentDeleteFromLayer) {
         Preconditions.checkArgument(numDimensions >= 1, "numDimensions must be (1, MAX_INT]");
 
         this.metric = metric;
@@ -90,6 +94,7 @@ public final class Config implements BaseConfig {
         this.statsThreshold = statsThreshold;
         this.useRaBitQ = useRaBitQ;
         this.raBitQNumExBits = raBitQNumExBits;
+        this.persistSequentialUuids = persistSequentialUuids;
         this.maxNumConcurrentNodeFetches = maxNumConcurrentNodeFetches;
         this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
         this.maxNumConcurrentDeleteFromLayer = maxNumConcurrentDeleteFromLayer;
@@ -167,6 +172,10 @@ public final class Config implements BaseConfig {
         return raBitQNumExBits;
     }
 
+    public boolean isPersistSequentialUuids() {
+        return persistSequentialUuids;
+    }
+
     /**
      * Maximum number of concurrent node fetches during search and modification operations.
      */
@@ -193,7 +202,7 @@ public final class Config implements BaseConfig {
         return new ConfigBuilder(getMetric(), getPrimaryClusterMin(), getPrimaryClusterMax(),
                 getReplicatedClusterMaxWrites(), getReplicatedClusterTarget(), getClusterOverlap(),
                 getSampleVectorStatsProbability(), getMaintainStatsProbability(), getStatsThreshold(),
-                isUseRaBitQ(), getRaBitQNumExBits(), getMaxNumConcurrentNodeFetches(),
+                isUseRaBitQ(), getRaBitQNumExBits(), isPersistSequentialUuids(), getMaxNumConcurrentNodeFetches(),
                 getMaxNumConcurrentNeighborhoodFetches(), getMaxNumConcurrentDeleteFromLayer());
     }
 
@@ -214,6 +223,7 @@ public final class Config implements BaseConfig {
                 Double.compare(maintainStatsProbability, config.maintainStatsProbability) == 0 &&
                 statsThreshold == config.statsThreshold && useRaBitQ == config.useRaBitQ &&
                 raBitQNumExBits == config.raBitQNumExBits && metric == config.metric &&
+                persistSequentialUuids == config.persistSequentialUuids &&
                 maxNumConcurrentNodeFetches == config.maxNumConcurrentNodeFetches &&
                 maxNumConcurrentNeighborhoodFetches == config.maxNumConcurrentNeighborhoodFetches &&
                 maxNumConcurrentDeleteFromLayer == config.maxNumConcurrentDeleteFromLayer;
@@ -223,7 +233,7 @@ public final class Config implements BaseConfig {
     public int hashCode() {
         return Objects.hash(metric, numDimensions, primaryClusterMin, primaryClusterMax, replicatedClusterMaxWrites,
                 replicatedClusterTarget, clusterOverlap, sampleVectorStatsProbability, maintainStatsProbability,
-                statsThreshold, useRaBitQ, raBitQNumExBits, maxNumConcurrentNodeFetches,
+                statsThreshold, useRaBitQ, raBitQNumExBits, persistSequentialUuids, maxNumConcurrentNodeFetches,
                 maxNumConcurrentNeighborhoodFetches, maxNumConcurrentDeleteFromLayer);
     }
 
@@ -237,6 +247,7 @@ public final class Config implements BaseConfig {
                 ", sampleVectorStatsProbability=" + getSampleVectorStatsProbability() +
                 ", mainStatsProbability=" + getMaintainStatsProbability() + ", statsThreshold=" + getStatsThreshold() +
                 ", useRaBitQ=" + isUseRaBitQ() + ", raBitQNumExBits=" + getRaBitQNumExBits() +
+                ", persistSequentialUuids=" + isPersistSequentialUuids() +
                 ", maxNumConcurrentNodeFetches=" + getMaxNumConcurrentNodeFetches() +
                 ", maxNumConcurrentNeighborhoodFetches=" + getMaxNumConcurrentNeighborhoodFetches() +
                 ", maxNumConcurrentDeleteFromLayer=" + getMaxNumConcurrentDeleteFromLayer() +
@@ -266,6 +277,7 @@ public final class Config implements BaseConfig {
         private boolean useRaBitQ = DEFAULT_USE_RABITQ;
         private int raBitQNumExBits = DEFAULT_RABITQ_NUM_EX_BITS;
 
+        private boolean persistSequentialUuids = DEFAULT_PERSIST_SEQUENTIAL_UUIDS;
         private int maxNumConcurrentNodeFetches = DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES;
         private int maxNumConcurrentNeighborhoodFetches = DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES;
         private int maxNumConcurrentDeleteFromLayer = DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER;
@@ -277,8 +289,9 @@ public final class Config implements BaseConfig {
                              final int replicatedClusterMaxWrites, final int replicatedClusterTarget,
                              final double clusterOverlap, final double sampleVectorStatsProbability,
                              final double maintainStatsProbability, final int statsThreshold, final boolean useRaBitQ,
-                             final int raBitQNumExBits, final int maxNumConcurrentNodeFetches,
-                             final int maxNumConcurrentNeighborhoodFetches, final int maxNumConcurrentDeleteFromLayer) {
+                             final int raBitQNumExBits, final boolean persistSequentialUuids,
+                             final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches,
+                             final int maxNumConcurrentDeleteFromLayer) {
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
             this.primaryClusterMax = primaryClusterMax;
@@ -290,6 +303,7 @@ public final class Config implements BaseConfig {
             this.statsThreshold = statsThreshold;
             this.useRaBitQ = useRaBitQ;
             this.raBitQNumExBits = raBitQNumExBits;
+            this.persistSequentialUuids = persistSequentialUuids;
             this.maxNumConcurrentNodeFetches = maxNumConcurrentNodeFetches;
             this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
             this.maxNumConcurrentDeleteFromLayer = maxNumConcurrentDeleteFromLayer;
@@ -406,6 +420,16 @@ public final class Config implements BaseConfig {
             return this;
         }
 
+        public boolean isPersistSequentialUuids() {
+            return persistSequentialUuids;
+        }
+
+        @Nonnull
+        public ConfigBuilder setPersistSequentialUuids(final boolean persistSequentialUuids) {
+            this.persistSequentialUuids = persistSequentialUuids;
+            return this;
+        }
+
         public int getMaxNumConcurrentNodeFetches() {
             return maxNumConcurrentNodeFetches;
         }
@@ -437,7 +461,7 @@ public final class Config implements BaseConfig {
             return new Config(getMetric(), numDimensions, getPrimaryClusterMin(), getPrimaryClusterMax(),
                     getReplicatedClusterMaxWrites(), getReplicatedClusterTarget(), getClusterOverlap(),
                     getSampleVectorStatsProbability(), getMaintainStatsProbability(), getStatsThreshold(),
-                    isUseRaBitQ(), getRaBitQNumExBits(), getMaxNumConcurrentNodeFetches(),
+                    isUseRaBitQ(), getRaBitQNumExBits(), isPersistSequentialUuids(), getMaxNumConcurrentNodeFetches(),
                     getMaxNumConcurrentNeighborhoodFetches(), getMaxNumConcurrentDeleteFromLayer());
         }
     }

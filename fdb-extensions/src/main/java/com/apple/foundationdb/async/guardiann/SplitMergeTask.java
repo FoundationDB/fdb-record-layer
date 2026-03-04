@@ -160,7 +160,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                             assignVectorReferences(random, estimator, outerNeighborhood, cleanedUpVectorReferences,
                                     innerNeighborhood.size() - 1))
                     .thenAccept(assignmentResult ->
-                            updateAssignments(transaction, innerNeighborhood, assignmentResult, quantizer));
+                            updateAssignments(transaction, random, innerNeighborhood, assignmentResult, quantizer));
         });
     }
 
@@ -197,7 +197,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                             assignVectorReferences(random, estimator, outerNeighborhood, cleanedUpVectorReferences,
                                     innerNeighborhood.size() + 1))
                     .thenAccept(assignmentResult ->
-                            updateAssignments(transaction, innerNeighborhood, assignmentResult, quantizer));
+                            updateAssignments(transaction, random, innerNeighborhood, assignmentResult, quantizer));
         });
     }
 
@@ -230,7 +230,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final ImmutableSet.Builder<UUID> newClusterIdsBuilder =
                 ImmutableSet.builder();
         for (int i = 0; i < targetNumPartitions; i++) {
-            final UUID newClusterId = UUID.randomUUID();
+            final UUID newClusterId = RandomHelpers.nextUuid(random, config.isPersistSequentialUuids());
             newClusterIdsBuilder.add(newClusterId);
 
             clusterIdMetadataMapBuilder.put(newClusterId,
@@ -301,10 +301,10 @@ public class SplitMergeTask extends AbstractDeferredTask {
     }
 
     private void updateAssignments(@Nonnull final Transaction transaction,
+                                   @Nonnull final SplittableRandom random,
                                    @Nonnull final List<ClusterMetadataWithDistance> innerNeighborhood,
                                    @Nonnull final AssignmentResult assignmentResult,
                                    @Nonnull final Quantizer quantizer) {
-        final Config config = getConfig();
         final Primitives primitives = primitives();
 
         // delete old clusters
@@ -340,7 +340,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                 final int numPrimaryVectorsAdded = primaryAssignmentMultiMap.get(toBeWritten).size();
                 final int numReplicatedVectorsAdded = replicatedAssignmentMultiMap.get(toBeWritten).size();
                 final ClusterMetadata newClusterMetadata =
-                        primitives.writeDeferredTasks(transaction, clusterMetadata,
+                        primitives.writeDeferredTasks(transaction, random, clusterMetadata,
                                 clusterMetadataWithDistance.getCentroid(), getAccessInfo(), numPrimaryVectorsAdded,
                                 numReplicatedVectorsAdded, !isNewCluster);
                 primitives.writeClusterMetadata(transaction, newClusterMetadata);

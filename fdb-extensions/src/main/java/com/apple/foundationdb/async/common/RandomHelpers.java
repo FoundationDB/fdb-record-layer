@@ -22,6 +22,8 @@ package com.apple.foundationdb.async.common;
 
 import javax.annotation.Nonnull;
 import java.util.SplittableRandom;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 public final class RandomHelpers {
     private RandomHelpers() {
@@ -64,6 +66,27 @@ public final class RandomHelpers {
         return x;
     }
 
+    @Nonnull
+    public static UUID nextUuid(@Nonnull final SplittableRandom random, final boolean sequential) {
+        return sequential ? SequentialUUID.getNext() : randomUUID(random);
+    }
+
+    @Nonnull
+    public static UUID randomUUID(@Nonnull final SplittableRandom random) {
+        long msb = random.nextLong();
+        long lsb = random.nextLong();
+
+        // Set version to 4
+        msb &= 0xffffffffffff0fffL;
+        msb |= 0x0000000000004000L;
+
+        // Set variant to IETF variant
+        lsb &= 0x3fffffffffffffffL;
+        lsb |= 0x8000000000000000L;
+
+        return new UUID(msb, lsb);
+    }
+
     public static final class GaussianSampler {
 
         private final SplittableRandom random;
@@ -96,6 +119,15 @@ public final class RandomHelpers {
             hasSpare = true;
 
             return u * mul;
+        }
+    }
+
+    private static class SequentialUUID {
+        private static final AtomicLong sequenceAtomic = new AtomicLong(0L);
+
+        @Nonnull
+        private static UUID getNext() {
+            return new UUID(0, sequenceAtomic.getAndIncrement());
         }
     }
 }

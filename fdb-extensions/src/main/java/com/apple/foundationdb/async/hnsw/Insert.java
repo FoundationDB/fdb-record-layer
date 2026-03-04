@@ -254,7 +254,7 @@ public class Insert {
                                             transformedNewVector, newAdditionalValues, nodeReference, lMax,
                                             insertionLayer))
                             .thenCompose(ignored ->
-                                    addToStatsIfNecessary(random, transaction, currentAccessInfo, transformedNewVector));
+                                    addToStatsIfNecessary(transaction, random, currentAccessInfo, transformedNewVector));
                 }).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
@@ -317,21 +317,22 @@ public class Insert {
      * in order to finally compute the centroid if {@link Config#getStatsThreshold()} number of vectors have been
      * sampled and aggregated. That centroid is then used to update the access info.
      *
-     * @param random a random to use
      * @param transaction the transaction
+     * @param random a random to use
      * @param currentAccessInfo this current access info that was fetched as part of an insert
      * @param transformedNewVector the new vector (in the transformed coordinate system) that may be added
+     *
      * @return a future that returns {@code null} when completed
      */
     @Nonnull
-    private CompletableFuture<Void> addToStatsIfNecessary(@Nonnull final SplittableRandom random,
-                                                          @Nonnull final Transaction transaction,
+    private CompletableFuture<Void> addToStatsIfNecessary(@Nonnull final Transaction transaction,
+                                                          @Nonnull final SplittableRandom random,
                                                           @Nonnull final AccessInfo currentAccessInfo,
                                                           @Nonnull final Transformed<RealVector> transformedNewVector) {
         if (getConfig().isUseRaBitQ() &&
                 !currentAccessInfo.canUseRaBitQ()) {
             if (shouldSampleVector(random)) {
-                appendSampledVector(transaction, getSamplesSubspace(), 1, transformedNewVector,
+                appendSampledVector(transaction, random, getSamplesSubspace(), 1, transformedNewVector,
                         getOnWriteListener());
             }
             if (shouldMaintainStats(random)) {
@@ -344,7 +345,7 @@ public class Insert {
                             if (aggregatedSampledVector != null) {
                                 final int partialCount = aggregatedSampledVector.getPartialCount();
                                 final Transformed<RealVector> partialVector = aggregatedSampledVector.getPartialVector();
-                                appendSampledVector(transaction, getSamplesSubspace(),
+                                appendSampledVector(transaction, random, getSamplesSubspace(),
                                         partialCount, partialVector, getOnWriteListener());
                                 if (logger.isTraceEnabled()) {
                                     logger.trace("updated stats with numVectors={}, partialCount={}, partialVector={}",

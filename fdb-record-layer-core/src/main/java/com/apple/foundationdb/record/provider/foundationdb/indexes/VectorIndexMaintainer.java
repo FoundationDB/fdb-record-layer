@@ -31,7 +31,7 @@ import com.apple.foundationdb.async.hnsw.Node;
 import com.apple.foundationdb.async.hnsw.NodeReference;
 import com.apple.foundationdb.async.hnsw.OnReadListener;
 import com.apple.foundationdb.async.hnsw.OnWriteListener;
-import com.apple.foundationdb.async.hnsw.ResultEntry;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EndpointType;

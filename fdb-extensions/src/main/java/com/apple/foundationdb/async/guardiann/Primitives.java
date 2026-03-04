@@ -30,9 +30,10 @@ import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.async.hnsw.HNSW;
-import com.apple.foundationdb.async.hnsw.ResultEntry;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.LinearOperator;
 import com.apple.foundationdb.linear.Metric;
@@ -53,6 +54,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -500,6 +502,7 @@ class Primitives {
 
     @Nonnull
     ClusterMetadata writeDeferredTasks(@Nonnull final Transaction transaction,
+                                       @Nonnull final SplittableRandom random,
                                        @Nonnull final ClusterMetadata clusterMetadata,
                                        @Nonnull final Transformed<RealVector> clusterCentroid,
                                        @Nonnull final AccessInfo accessInfo,
@@ -518,7 +521,7 @@ class Primitives {
 
             // create a split/merge task
             writeDeferredTask(transaction,
-                    SplitMergeTask.of(getLocator(), accessInfo, UUID.randomUUID(),
+                    SplitMergeTask.of(getLocator(), accessInfo, RandomHelpers.randomUUID(random),
                             clusterMetadata.getId(), clusterCentroid));
 
             return clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
@@ -535,7 +538,7 @@ class Primitives {
 
             // create a reassign task
             writeDeferredTask(transaction,
-                    SplitMergeTask.of(getLocator(), accessInfo, UUID.randomUUID(),
+                    ReassignTask.of(getLocator(), accessInfo, RandomHelpers.randomUUID(random),
                             clusterMetadata.getId(), clusterCentroid));
 
             return clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,

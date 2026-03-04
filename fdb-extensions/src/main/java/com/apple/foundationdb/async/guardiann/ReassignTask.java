@@ -198,7 +198,7 @@ public class ReassignTask extends AbstractDeferredTask {
                                 final ImmutableList<Tuple> deleteTargetClusterAssignedVectors =
                                         deleteTargetClusterAssignedVectorsBuilder.build();
 
-                                updateAssignments(transaction, targetClusterMetadata, reassignmentResult,
+                                updateAssignments(transaction, random, targetClusterMetadata, reassignmentResult,
                                         writeTargetClusterAssignedVectors, deleteTargetClusterAssignedVectors,
                                         quantizer);
                             }));
@@ -289,6 +289,7 @@ public class ReassignTask extends AbstractDeferredTask {
     }
 
     private void updateAssignments(@Nonnull final Transaction transaction,
+                                   @Nonnull final SplittableRandom random,
                                    @Nonnull final ClusterMetadata targetClusterMetadata,
                                    @Nonnull final ReassignmentResult reassignmentResult,
                                    @Nonnull final ImmutableList<VectorReference> writeTargetClusterAssignedVectors,
@@ -340,9 +341,10 @@ public class ReassignTask extends AbstractDeferredTask {
 
                 final ClusterMetadata newClusterMetadata;
                 if (targetClusterMetadata.getId().equals(clusterMetadata.getId())) {
-                    newClusterMetadata = clusterMetadata.withNewVectors(numPrimaryVectorsAdded, numReplicatedVectorsAdded, EnumSet.noneOf(ClusterMetadata.State.class));
+                    newClusterMetadata = clusterMetadata.withNewVectors(numPrimaryVectorsAdded,
+                            numReplicatedVectorsAdded, EnumSet.noneOf(ClusterMetadata.State.class));
                 } else {
-                    newClusterMetadata = primitives.writeDeferredTasks(transaction, clusterMetadata,
+                    newClusterMetadata = primitives.writeDeferredTasks(transaction, random, clusterMetadata,
                             clusterMetadataWithDistance.getCentroid(), getAccessInfo(), numPrimaryVectorsAdded,
                             numReplicatedVectorsAdded, false);
                 }

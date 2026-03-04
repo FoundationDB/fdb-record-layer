@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,11 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.async.common;
 
 import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.async.hnsw.Config;
+import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.tuple.Tuple;
 

@@ -50,13 +50,37 @@ class VectorReference {
         return id;
     }
 
+    @Nonnull
+    public VectorReference withVectorId(final VectorId newVectorId) {
+        if (getId() == newVectorId) {
+            return this;
+        }
+        return new VectorReference(newVectorId, isPrimaryCopy(), getVector());
+    }
+
     public boolean isPrimaryCopy() {
         return isPrimaryCopy;
     }
 
     @Nonnull
+    public VectorReference withPrimaryCopy(final boolean isPrimaryCopy) {
+        if (isPrimaryCopy() == isPrimaryCopy) {
+            return this;
+        }
+        return new VectorReference(getId(), isPrimaryCopy(), getVector());
+    }
+
+    @Nonnull
     public Transformed<RealVector> getVector() {
         return vector;
+    }
+
+    @Nonnull
+    public VectorReference withVector(final Transformed<RealVector> newVector) {
+        if (getVector() == newVector) {
+            return this;
+        }
+        return new VectorReference(getId(), isPrimaryCopy(), newVector);
     }
 
     @Nonnull
@@ -67,14 +91,6 @@ class VectorReference {
     @Nonnull
     public VectorReference toReplicatedCopy() {
         return withPrimaryCopy(false);
-    }
-
-    @Nonnull
-    public VectorReference withPrimaryCopy(final boolean isPrimaryCopy) {
-        if (isPrimaryCopy() == isPrimaryCopy) {
-            return this;
-        }
-        return new VectorReference(getId(), isPrimaryCopy, getVector());
     }
 
     @Override
@@ -112,8 +128,7 @@ class VectorReference {
         public VectorReference set(@Nullable final VectorReference vectorReference,
                                    @Nullable final Transformed<RealVector> transformed) {
             Objects.requireNonNull(vectorReference);
-            return new VectorReference(vectorReference.getId(), vectorReference.isPrimaryCopy(),
-                    Objects.requireNonNull(transformed));
+            return vectorReference.withVector(transformed);
         }
     }
 }

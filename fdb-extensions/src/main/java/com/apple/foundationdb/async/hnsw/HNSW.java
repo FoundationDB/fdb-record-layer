@@ -25,6 +25,7 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;

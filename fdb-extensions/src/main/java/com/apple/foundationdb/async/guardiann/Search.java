@@ -23,20 +23,18 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
-import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.StorageTransform;
-import com.apple.foundationdb.async.hnsw.ResultEntry;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.AtomicDouble;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,16 +45,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
-import static com.apple.foundationdb.async.MoreAsyncUtil.limitIterable;
 import static com.apple.foundationdb.async.MoreAsyncUtil.mapConcatIterable;
 import static com.apple.foundationdb.async.MoreAsyncUtil.mapIterablePipelined;
-import static com.apple.foundationdb.async.MoreAsyncUtil.takeWhileIterable;
 
 /**
  * TODO.
@@ -146,16 +139,6 @@ public class Search {
         return getStorageAdapter().getSamplesSubspace();
     }
 
-    AsyncIterator<ResultEntry> orderByDistance(@Nonnull final ReadTransaction readTransaction,
-                                               final int efOutwardSearch,
-                                               final boolean includeVectors,
-                                               @Nonnull final RealVector centerVector,
-                                               final double minimumRadius,
-                                               @Nullable final Tuple minimumPrimaryKey,
-                                               final boolean shouldQuickStart) {
-        return null;
-    }
-
     @SuppressWarnings("checkstyle:MethodName")
     public CompletableFuture<List<? extends ResultEntry>>
             kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
@@ -163,13 +146,23 @@ public class Search {
                                     final int efSearch,
                                     final boolean includeVectors,
                                     @Nonnull final RealVector queryVector) {
-        final Config config = getConfig();
+        return search(readTransaction, k, efSearch, queryVector)
+                .thenApply(searchResult ->
+                        postProcessSearchResult(searchResult.getStorageTransform(),
+                                searchResult.getNearestReferences(), includeVectors));
+    }
+
+    @SuppressWarnings("checkstyle:MethodName")
+    CompletableFuture<SearchResult> search(@Nonnull final ReadTransaction readTransaction,
+                                           final int k,
+                                           final int efSearch,
+                                           @Nonnull final RealVector queryVector) {
         final Primitives primitives = primitives();
 
         return primitives.fetchAccessInfo(readTransaction)
                 .thenCompose(accessInfo -> {
                     if (accessInfo == null) {
-                        return AsyncUtil.DONE;
+                        return CompletableFuture.completedFuture(null);
                     }
                     final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
                     final Transformed<RealVector> transformedQueryVector = storageTransform.transform(queryVector);
@@ -187,7 +180,8 @@ public class Search {
                                                             StorageAdapter.clusterIdFromTuple(resultEntry.getPrimaryKey()))
                                                     .thenApply(clusterMetadata -> {
                                                         final Transformed<RealVector> transformedCentroid =
-                                                                storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
+                                                                storageTransform.transform(
+                                                                        Objects.requireNonNull(resultEntry.getVector()));
                                                         return new ClusterMetadataWithDistance(clusterMetadata,
                                                                 transformedCentroid,
                                                                 resultEntry.getDistance());
@@ -209,39 +203,65 @@ public class Search {
 
                     final AsyncIterable<VectorReferenceAndDistance> almostSortedVectorReferencesIterable =
                             almostSortedVectorReferencesIterable(vectorReferenceAndDistancesIterable,
-                                    1000, getExecutor());
+                                    efSearch, getExecutor());
 
-                    final Map<Tuple, CompletableFuture<UUID>> primaryKeyToVectorMetadataUuidFutureMap =
+                    final Map<Tuple, CompletableFuture<VectorMetadata>> primaryKeyToVectorMetadataUuidFutureMap =
                             Maps.newConcurrentMap();
                     final AsyncIterable<VectorReferenceAndDistance> filteredByCurrentMetadataIterable =
                             MoreAsyncUtil.filterIterablePipelined(getExecutor(), almostSortedVectorReferencesIterable,
                                     vectorReferenceAndDistance -> {
                                         final VectorId vectorReferenceId =
                                                 vectorReferenceAndDistance.getVectorReference().getId();
-                                        final CompletableFuture<UUID> vectorMetadataFuture =
+                                        final CompletableFuture<VectorMetadata> vectorMetadataFuture =
                                                 primaryKeyToVectorMetadataUuidFutureMap.computeIfAbsent(
                                                         vectorReferenceId.getPrimaryKey(),
                                                         primaryKey ->
-                                                                primitives.fetchVectorMetadata(readTransaction, primaryKey)
-                                                                        .thenApply(VectorId::getUuid));
-                                        return vectorMetadataFuture.thenApply(vectorMetadataUuid ->
-                                                vectorMetadataUuid.equals(vectorReferenceId.getUuid()));
+                                                                primitives.fetchVectorMetadata(readTransaction, primaryKey));
+                                        return vectorMetadataFuture.thenApply(vectorMetadata ->
+                                                vectorMetadata.getUuid().equals(vectorReferenceId.getUuid()));
                                     }, 10);
 
                     final Set<Tuple> seenPrimaryKeys = Sets.newHashSet();
-                    final var dedupedVectorReferenceAndDistances =
+                    final AsyncIterable<VectorReferenceAndDistance> dedupedVectorReferenceAndDistancesIterable =
                             MoreAsyncUtil.filterIterable(getExecutor(), filteredByCurrentMetadataIterable,
                                     vectorReferenceAndDistance ->
                                             seenPrimaryKeys.add(vectorReferenceAndDistance.getVectorReference()
                                                     .getId().getPrimaryKey()));
-
-
-                    return AsyncUtil.collect(updatedNeighborhood, getExecutor())
-                            .thenCompose(results -> {
-                                Verify.verify(!results.isEmpty());
-                                return addToStatsIfNecessary(random, transaction, accessInfo, transformedNewVector);
-                            });
+                    final CompletableFuture<List<VectorReferenceAndDistance>> nearestKReferencesFuture =
+                            AsyncUtil.collect(
+                                    AsyncUtil.mapIterable(
+                                            MoreAsyncUtil.limitIterable(dedupedVectorReferenceAndDistancesIterable,
+                                                    k, getExecutor()),
+                                            vectorReferenceAndDistance ->
+                                                    new VectorReferenceAndDistance(enrichVectorReference(primaryKeyToVectorMetadataUuidFutureMap,
+                                                            vectorReferenceAndDistance.getVectorReference()),
+                                                            vectorReferenceAndDistance.getDistance())), getExecutor());
+                    return nearestKReferencesFuture.thenApply(nearestKReferences ->
+                            new SearchResult(accessInfo, storageTransform, nearestKReferences));
                 });
+    }
+
+    @Nonnull
+    private ImmutableList<ResultEntry> postProcessSearchResult(@Nonnull final StorageTransform storageTransform,
+                                                               @Nonnull List<VectorReferenceAndDistance> nearestReferences,
+                                                               final boolean includeVectors) {
+        final ImmutableList.Builder<ResultEntry> resultBuilder = ImmutableList.builder();
+
+        for (int i = 0; i < nearestReferences.size(); i++) {
+            final VectorReferenceAndDistance vectorReferenceAndDistance = nearestReferences.get(i);
+            final VectorReference vectorReference = vectorReferenceAndDistance.getVectorReference();
+            @Nullable final RealVector reconstructedVector =
+                    includeVectors ? storageTransform.untransform(vectorReference.getVector()) : null;
+
+            final VectorId vectorId = vectorReference.getId();
+            @Nullable final Tuple additionalValues =
+                    vectorId instanceof VectorMetadata ? ((VectorMetadata)vectorId).getAdditionalValues() : null;
+            resultBuilder.add(
+                    new ResultEntry(vectorReference.getId().getPrimaryKey(),
+                            reconstructedVector, additionalValues, vectorReferenceAndDistance.getDistance(),
+                            i));
+        }
+        return resultBuilder.build();
     }
 
     @Nonnull
@@ -251,5 +271,47 @@ public class Search {
         return MoreAsyncUtil.iterableOf(() -> new AlmostSortedAsyncIterator<>(iterable.iterator(),
                 Comparator.comparing(VectorReferenceAndDistance::getDistance), maxQueueSize, executor),
                 executor);
+    }
+
+    @Nonnull
+    private static VectorReference enrichVectorReference(@Nonnull final Map<Tuple, CompletableFuture<VectorMetadata>> primaryKeyToVectorMetadataUuidFutureMap,
+                                                         @Nonnull final VectorReference vectorReference) {
+        final var vectorMetadata =
+                Objects.requireNonNull(
+                        Objects.requireNonNull(
+                                        primaryKeyToVectorMetadataUuidFutureMap.get(vectorReference.getId().getPrimaryKey())).getNow(null));
+        return vectorReference.withVectorId(vectorMetadata);
+    }
+
+    static class SearchResult {
+        @Nullable
+        private final AccessInfo accessInfo;
+        @Nonnull
+        private final StorageTransform storageTransform;
+        @Nonnull
+        private final List<VectorReferenceAndDistance> nearestReferences;
+
+        public SearchResult(@Nullable final AccessInfo accessInfo,
+                            @Nonnull final StorageTransform storageTransform,
+                            @Nonnull final List<VectorReferenceAndDistance> nearestReferences) {
+            this.accessInfo = accessInfo;
+            this.storageTransform = storageTransform;
+            this.nearestReferences = ImmutableList.copyOf(nearestReferences);
+        }
+
+        @Nullable
+        public AccessInfo getAccessInfo() {
+            return accessInfo;
+        }
+
+        @Nonnull
+        public StorageTransform getStorageTransform() {
+            return storageTransform;
+        }
+
+        @Nonnull
+        public List<VectorReferenceAndDistance> getNearestReferences() {
+            return nearestReferences;
+        }
     }
 }

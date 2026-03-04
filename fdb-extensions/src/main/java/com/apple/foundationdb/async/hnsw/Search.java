@@ -24,6 +24,7 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Quantizer;

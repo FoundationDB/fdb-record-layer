@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.async.common.AggregatedVector;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.RealVectorTest;

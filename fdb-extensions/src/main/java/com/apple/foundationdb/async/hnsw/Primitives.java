@@ -25,6 +25,7 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.common.RandomHelpers;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.FhtKacRotator;

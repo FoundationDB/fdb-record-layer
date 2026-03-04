@@ -22,9 +22,12 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.async.AsyncIterator;
+import com.apple.foundationdb.async.common.BaseTest;
+import com.apple.foundationdb.async.common.CommonTestHelpers;
+import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
+import com.apple.foundationdb.async.common.PrimaryKeyVectorAndDistance;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.StorageTransform;
-import com.apple.foundationdb.async.hnsw.TestHelpers.PrimaryKeyAndVector;
-import com.apple.foundationdb.async.hnsw.TestHelpers.PrimaryKeyVectorAndDistance;
 import com.apple.foundationdb.async.hnsw.TestHelpers.TestOnReadListener;
 import com.apple.foundationdb.async.hnsw.TestHelpers.TestOnWriteListener;
 import com.apple.foundationdb.linear.DoubleRealVector;
@@ -83,8 +86,8 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
-import static com.apple.foundationdb.async.hnsw.TestHelpers.orderedByDistances;
-import static com.apple.foundationdb.async.hnsw.TestHelpers.randomVectors;
+import static com.apple.foundationdb.async.common.CommonTestHelpers.orderedByDistances;
+import static com.apple.foundationdb.async.common.CommonTestHelpers.randomVectors;
 import static com.apple.foundationdb.linear.RealVectorTest.createRandomDoubleVector;
 import static com.apple.foundationdb.linear.RealVectorTest.createRandomHalfVector;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -351,7 +354,7 @@ class OperationsTest implements BaseTest {
         for (int i = 0; i < 100; ) {
             i += TestHelpers.basicInsertBatch(getDb(), hnsw, 100, 0,
                     (tr, ignored) -> {
-                        final var primaryKey = TestHelpers.createPrimaryKey(random.nextInt(1000));
+                        final var primaryKey = CommonTestHelpers.createPrimaryKey(random.nextInt(1000));
                         final HalfRealVector dataVector = createRandomHalfVector(random, config.getNumDimensions());
                         return new PrimaryKeyAndVector(primaryKey, dataVector);
                     }).size();
@@ -476,7 +479,7 @@ class OperationsTest implements BaseTest {
         List<PrimaryKeyAndVector> remainingData = insertedData;
         do {
             final List<PrimaryKeyAndVector> toBeDeleted =
-                    TestHelpers.pickRandomVectors(random, remainingData, numVectorsPerDeleteBatch);
+                    CommonTestHelpers.pickRandomVectors(random, remainingData, numVectorsPerDeleteBatch);
 
             final long beginTs = System.nanoTime();
             db.run(tr -> {
@@ -655,7 +658,7 @@ class OperationsTest implements BaseTest {
         final HalfRealVector queryVector = createRandomHalfVector(random, config.getNumDimensions());
 
         final NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances =
-                TestHelpers.orderedByDistances(config.getMetric(), insertedData, queryVector);
+                CommonTestHelpers.orderedByDistances(config.getMetric(), insertedData, queryVector);
         final PrimaryKeyVectorAndDistance discriminator = Iterables.get(orderedByDistances, skip - 1);
 
         onReadListener.reset();

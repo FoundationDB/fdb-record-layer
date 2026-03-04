@@ -40,7 +40,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.UUID;
+import java.util.SplittableRandom;
 import java.util.concurrent.CompletableFuture;
 
 public final class StorageHelpers {
@@ -87,11 +87,12 @@ public final class StorageHelpers {
     }
 
     public static void appendSampledVector(@Nonnull final Transaction transaction,
+                                           @Nonnull final SplittableRandom random,
                                            @Nonnull final Subspace prefixSubspace,
                                            final int partialCount,
                                            @Nonnull final Transformed<RealVector> vector,
                                            @Nonnull final OnKeyValueWriteListener onWriteListener) {
-        final Subspace keySubspace = prefixSubspace.subspace(Tuple.from(partialCount, UUID.randomUUID()));
+        final Subspace keySubspace = prefixSubspace.subspace(Tuple.from(partialCount, RandomHelpers.randomUUID(random)));
         final byte[] prefixKey = keySubspace.pack();
         // getting underlying is okay as it is only written to the database
         final byte[] value = tupleFromVector(vector.getUnderlyingVector().toDoubleRealVector()).pack();

@@ -29,7 +29,7 @@ import com.apple.foundationdb.async.common.AggregatedVector;
 import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.async.guardiann.Primitives.AccessInfoAndNodeExistence;
-import com.apple.foundationdb.async.hnsw.ResultEntry;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.Quantizer;
@@ -189,7 +189,7 @@ public class Insert {
                 .thenCompose(accessInfoAndNodeExistence -> {
                     final AccessInfo accessInfo = accessInfoAndNodeExistence.getAccessInfo();
                     if (accessInfo == null) {
-                        return initialAccessInfoAndFirstCluster(transaction, newVector, random)
+                        return initialAccessInfoAndFirstCluster(transaction, random, newVector)
                                 .thenApply(initialAccessInfo ->
                                         new AccessInfoAndNodeExistence(initialAccessInfo, false));
                     }
@@ -259,7 +259,9 @@ public class Insert {
                                     }, getExecutor());
 
                     final VectorMetadata newVectorMetadata =
-                            new VectorMetadata(newPrimaryKey, UUID.randomUUID(), newAdditionalValues);
+                            new VectorMetadata(newPrimaryKey,
+                                    RandomHelpers.nextUuid(random, config.isPersistSequentialUuids()),
+                                    newAdditionalValues);
                     primitives.writeVectorMetadata(transaction, newVectorMetadata);
 
                     final AsyncIterable<Void> updatedNeighborhood = mapIterablePipelined(affectedNeighborhood,
@@ -269,7 +271,8 @@ public class Insert {
                                 final UUID clusterId = clusterMetadata.getId();
                                 final boolean isPrimaryCluster = clusterId.equals(primaryClusterIdAtomic.get());
 
-                                newClusterMetadata = primitives.writeDeferredTasks(transaction, clusterMetadata,
+                                newClusterMetadata = primitives.writeDeferredTasks(transaction, random.split(),
+                                        clusterMetadata,
                                         clusterMetadataWithDistance.getCentroid(), accessInfo,
                                         isPrimaryCluster ? 1 : 0,
                                         isPrimaryCluster ? 0 : 1,
@@ -286,15 +289,15 @@ public class Insert {
                     return AsyncUtil.collect(updatedNeighborhood, getExecutor())
                             .thenCompose(results -> {
                                 Verify.verify(!results.isEmpty());
-                                return addToStatsIfNecessary(random, transaction, accessInfo, transformedNewVector);
+                                return addToStatsIfNecessary(transaction, random, accessInfo, transformedNewVector);
                             });
                 });
     }
 
     @Nonnull
     private CompletableFuture<AccessInfo> initialAccessInfoAndFirstCluster(@Nonnull final Transaction transaction,
-                                                                           @Nonnull final RealVector newVector,
-                                                                           @Nonnull final SplittableRandom random) {
+                                                                           @Nonnull final SplittableRandom random,
+                                                                           @Nonnull final RealVector newVector) {
         final Config config = getConfig();
         final Primitives primitives = primitives();
         final long rotatorSeed;
@@ -321,7 +324,9 @@ public class Insert {
         }
 
         return primitives.getClusterCentroidsHnsw()
-                .insert(transaction, StorageAdapter.tupleFromClusterId(UUID.randomUUID()),
+                .insert(transaction,
+                        StorageAdapter.tupleFromClusterId(RandomHelpers.nextUuid(random,
+                                config.isPersistSequentialUuids())),
                         newVector, null)
                 .thenApply(ignored -> initialAccessInfo);
     }
@@ -337,15 +342,16 @@ public class Insert {
      * in order to finally compute the centroid if {@link Config#getStatsThreshold()} number of vectors have been
      * sampled and aggregated. That centroid is then used to update the access info.
      *
-     * @param random a random to use
      * @param transaction the transaction
+     * @param random a random to use
      * @param currentAccessInfo this current access info that was fetched as part of an insert
      * @param transformedNewVector the new vector (in the transformed coordinate system) that may be added
+     *
      * @return a future that returns {@code null} when completed
      */
     @Nonnull
-    private CompletableFuture<Void> addToStatsIfNecessary(@Nonnull final SplittableRandom random,
-                                                          @Nonnull final Transaction transaction,
+    private CompletableFuture<Void> addToStatsIfNecessary(@Nonnull final Transaction transaction,
+                                                          @Nonnull final SplittableRandom random,
                                                           @Nonnull final AccessInfo currentAccessInfo,
                                                           @Nonnull final Transformed<RealVector> transformedNewVector) {
         final Subspace samplesSubspace = getSamplesSubspace();
@@ -353,7 +359,7 @@ public class Insert {
                 !currentAccessInfo.canUseRaBitQ()) {
             final Primitives primitives = primitives();
             if (shouldSampleVector(random)) {
-                appendSampledVector(transaction, samplesSubspace, 1, transformedNewVector,
+                appendSampledVector(transaction, random, samplesSubspace, 1, transformedNewVector,
                         getOnWriteListener());
             }
             if (shouldMaintainStats(random)) {
@@ -366,7 +372,7 @@ public class Insert {
                             if (aggregatedSampledVector != null) {
                                 final int partialCount = aggregatedSampledVector.getPartialCount();
                                 final Transformed<RealVector> partialVector = aggregatedSampledVector.getPartialVector();
-                                appendSampledVector(transaction, samplesSubspace, partialCount, partialVector,
+                                appendSampledVector(transaction, random, samplesSubspace, partialCount, partialVector,
                                         getOnWriteListener());
                                 if (logger.isTraceEnabled()) {
                                     logger.trace("updated stats with numVectors={}, partialCount={}, partialVector={}",
