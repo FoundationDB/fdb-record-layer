@@ -410,7 +410,8 @@ public class PendingWriteQueue {
                         final Long actualSize = decodeQueueSize(size);
                         context.recordSize(LuceneEvents.SizeEvents.LUCENE_QUEUE_SIZE, actualSize);
                         return actualSize;
-                    }});
+                    }
+                });
     }
 
     private byte[] encodeQueueSize(long count) {
