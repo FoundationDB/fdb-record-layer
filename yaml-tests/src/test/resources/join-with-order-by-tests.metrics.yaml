@@ -110,6 +110,22 @@ joins-with-order-by-tests:
     insert_time_ms: 2
     insert_new_count: 171
     insert_reused_count: 8
+-   query: EXPLAIN select (y.*) from t1_f(1) as x, t2_f(1) as y where x.a3 = y.b3
+        order by x.a2 desc
+    ref: join-with-order-by-tests.yamsql:212
+    explain: 'ISCAN(t1$a1_a2 [EQUALS promote(@c10 AS LONG)] REVERSE) | FLATMAP q0
+        -> { COVERING(t2$b1_b3 [EQUALS promote(@c10 AS LONG)] -> [b1: KEY:[0], b3:
+        KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.__ROW_VERSION
+        AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS _0,
+        q0.a2 AS a2) } | MAP (_._0 AS _0)'
+    task_count: 1376
+    task_total_time_ms: 96
+    transform_count: 358
+    transform_time_ms: 45
+    transform_yield_count: 124
+    insert_time_ms: 5
+    insert_new_count: 175
+    insert_reused_count: 8
 -   query: EXPLAIN select (x.*), (y.*) from t1_g(1) as x, t2_g(1) as y where x.a3
         = y.b3 order by x.the_a2 desc
     ref: join-with-order-by-tests.yamsql:229
@@ -126,6 +142,22 @@ joins-with-order-by-tests:
     transform_yield_count: 122
     insert_time_ms: 3
     insert_new_count: 171
+    insert_reused_count: 8
+-   query: EXPLAIN select (y.*) from t1_g(1) as x, t2_g(1) as y where x.a3 = y.b3
+        order by x.the_a2 desc
+    ref: join-with-order-by-tests.yamsql:246
+    explain: 'ISCAN(t1$a1_a2 [EQUALS promote(@c10 AS LONG)] REVERSE) | FLATMAP q0
+        -> { COVERING(t2$b1_b3 [EQUALS promote(@c10 AS LONG)] -> [b1: KEY:[0], b3:
+        KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.__ROW_VERSION
+        AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2
+        AS the_b2) AS _0, q0.a2 AS the_a2) } | MAP (_._0 AS _0)'
+    task_count: 1376
+    task_total_time_ms: 130
+    transform_count: 358
+    transform_time_ms: 51
+    transform_yield_count: 124
+    insert_time_ms: 3
+    insert_new_count: 175
     insert_reused_count: 8
 -   query: EXPLAIN select x.a2, x.a3, y.b2, y.b3 from t1_g(1) as x, t2_g(1) as y where
         x.a3 = y.b3 order by x.the_a2 desc
@@ -622,13 +654,13 @@ joins-with-order-by-tests:
         [EQUALS q1.a1, EQUALS q1.a2]) AS q4 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2
         AS a2, q1.a3 AS a3) AS a, (q4.id AS id, q4.c1 AS c1, q4.c2 AS c2, q4.c3 AS
         c3, q4.aRef AS aRef) AS b) }'
-    task_count: 4207
-    task_total_time_ms: 687
-    transform_count: 1789
-    transform_time_ms: 287
-    transform_yield_count: 317
-    insert_time_ms: 38
-    insert_new_count: 605
+    task_count: 4166
+    task_total_time_ms: 486
+    transform_count: 1778
+    transform_time_ms: 189
+    transform_yield_count: 313
+    insert_time_ms: 43
+    insert_new_count: 587
     insert_reused_count: 86
 -   query: EXPLAIN select (a.*), (b.*) from t1_f(1) as a, t2_f(1) as b where a.a3
         = b.b3

@@ -67,7 +67,7 @@ public interface QuantifiedValue extends LeafValue {
         final var areSimpleReferences =
                 Streams.stream(toBePulledUpValues)
                         .flatMap(toBePulledUpValue -> toBePulledUpValue.getCorrelatedTo().stream())
-                        .noneMatch(a -> !alias.equals(a) && constantAliases.contains(a));
+                        .noneMatch(a -> !alias.equals(a) && !constantAliases.contains(a));
         if (areSimpleReferences) {
             final var translationMap =
                     TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(alias, upperBaseAlias));
