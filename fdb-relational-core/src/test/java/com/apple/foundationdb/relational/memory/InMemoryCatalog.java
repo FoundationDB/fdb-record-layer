@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.memory;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -33,9 +32,9 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.transactionbound.catalog.HollowDataLayout;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -52,17 +51,11 @@ public class InMemoryCatalog implements StoreCatalog {
     private final Map<URI, List<InMemorySchema>> dbToSchemas = new ConcurrentHashMap<>();
     @Nonnull
     final SchemaTemplateCatalog schemaTemplateCatalog = new InMemorySchemaTemplateCatalog();
-    @Nullable
-    private final KeySpace keySpace;
 
     /**
-     * Create a new catalog, with an optional {@link KeySpace}.
-     * @param keySpace An optional keyspace. At the time of writing this is only used by
-     * {@link com.apple.foundationdb.relational.recordlayer.query.CopyPlan}, and trying to access it will throw a clear
-     * error if it is not provided here.
+     * Create a new catalog.
      */
-    public InMemoryCatalog(@Nullable final KeySpace keySpace) {
-        this.keySpace = keySpace;
+    public InMemoryCatalog() {
     }
 
     @Override
@@ -160,7 +153,7 @@ public class InMemoryCatalog implements StoreCatalog {
     @Nonnull
     @Override
     public DataLayout getDataLayout() {
-        return new DataLayout() { };
+        return HollowDataLayout.INSTANCE;
     }
 
     public InMemoryTable loadTable(URI database, String schemaName, String tableName) throws RelationalException {

@@ -284,7 +284,7 @@ public class TransactionBoundDatabaseTest {
         Assertions.assertThat(getDataInPath(embeddedConnection, sourcePath2)).isEqualTo(schema2Data);
 
         // export the data
-        final List<byte[]> data = exportDataWithCopy(embeddedConnection, sourceUri, destUri, DATA_LAYOUT_FOR_COPY_TEST);
+        final List<byte[]> data = exportDataWithCopy(embeddedConnection, sourceUri, destUri);
         Assertions.assertThat(data).hasSizeGreaterThanOrEqualTo(2);
 
         importDataWithCopy(embeddedConnection, destUri, data, DATA_LAYOUT_FOR_COPY_TEST);
@@ -352,7 +352,7 @@ public class TransactionBoundDatabaseTest {
             saveSimpleRecord(store1, "Beta");
         });
         // export the data
-        final List<byte[]> data = exportDataWithCopy(embeddedConnection, sourceUri, destUri, DATA_LAYOUT_FOR_COPY_TEST);
+        final List<byte[]> data = exportDataWithCopy(embeddedConnection, sourceUri, destUri);
         Assertions.assertThat(data).hasSizeGreaterThanOrEqualTo(2);
 
         importDataWithCopy(embeddedConnection, destUri, data, DATA_LAYOUT_FOR_COPY_TEST);
@@ -458,18 +458,19 @@ public class TransactionBoundDatabaseTest {
 
     @Nonnull
     private List<byte[]> exportDataWithCopy(final EmbeddedRelationalConnection embeddedConnection, final URI sourceUri,
-                                            final URI destUri, final DataLayout dataLayout) throws RelationalException, SQLException {
+                                            final URI destUri) throws RelationalException, SQLException {
         List<byte[]> data = new ArrayList<>();
-        withTransactionBoundConnection(embeddedConnection, Options.NONE, dataLayout, conn -> {
-            try (RelationalStatement statement = conn.createStatement()) {
-                final RelationalResultSet resultSet = statement.executeQuery("COPY \"" + sourceUri + "\"");
-                data.addAll(getExportedData(resultSet));
-            }
-            // sanity check that the destination is already empty
-            try (RelationalStatement statement = conn.createStatement()) {
-                final RelationalResultSet resultSet = statement.executeQuery("COPY \"" + destUri + "\"");
-                Assertions.assertThat(resultSet.next()).isFalse();
-            }
+        withTransactionBoundConnection(embeddedConnection, Options.NONE, TransactionBoundDatabaseTest.DATA_LAYOUT_FOR_COPY_TEST,
+                conn -> {
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        final RelationalResultSet resultSet = statement.executeQuery("COPY \"" + sourceUri + "\"");
+                        data.addAll(getExportedData(resultSet));
+                    }
+                    // sanity check that the destination is already empty
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        final RelationalResultSet resultSet = statement.executeQuery("COPY \"" + destUri + "\"");
+                        Assertions.assertThat(resultSet.next()).isFalse();
+                    }
         });
         return data;
     }

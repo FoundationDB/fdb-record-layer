@@ -29,6 +29,9 @@ import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import javax.annotation.Nonnull;
 import java.net.URI;
 
+/**
+ * A {@link DataLayout} for when the organization is defined by a {@link KeySpace}.
+ */
 public class KeySpaceDataLayout implements DataLayout {
     @Nonnull
     private final KeySpace keySpace;

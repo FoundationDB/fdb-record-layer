@@ -21,10 +21,11 @@
 package com.apple.foundationdb.relational.api.catalog;
 
 /**
- * An abstraction for how the paths within are organized.
- * This currently has no methods because we don't have a clear implementation beyond one based on
- * {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace}.
- *
+ * An abstraction for how the paths are organized.
+ * <p>
+ *     This currently has no methods because we don't have a clear implementation beyond
+ *     {@link com.apple.foundationdb.relational.recordlayer.catalog.KeySpaceDataLayout}.
+ * </p>
  */
 public interface DataLayout {
 }
