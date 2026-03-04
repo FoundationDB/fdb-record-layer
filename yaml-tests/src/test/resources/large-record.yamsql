@@ -46,7 +46,7 @@ test_block:
       - result: [ { 3 } ]
     -
       - query: select * from T1;
-      - unorderedResults: [
+      - unorderedResult: [
         { PK: 1, S: !randomStr seed 123234 length 1000000 },
         { PK: 2, S: !randomStr seed 55366 length 500000 },
         { PK: 3, S: "a string" }]
