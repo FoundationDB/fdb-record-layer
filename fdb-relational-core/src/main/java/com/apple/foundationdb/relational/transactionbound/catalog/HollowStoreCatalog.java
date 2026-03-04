@@ -21,10 +21,10 @@
 package com.apple.foundationdb.relational.transactionbound.catalog;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.DataLayout;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 
 @API(API.Status.EXPERIMENTAL)
@@ -41,12 +40,12 @@ public class HollowStoreCatalog implements StoreCatalog {
 
     @Nonnull
     public final SchemaTemplate schemaTemplate;
-    @Nullable
-    private final KeySpace keySpace;
+    @Nonnull
+    private final DataLayout dataLayout;
 
-    public HollowStoreCatalog(@Nonnull final SchemaTemplate schemaTemplate, @Nullable final KeySpace keySpace) {
+    public HollowStoreCatalog(@Nonnull final SchemaTemplate schemaTemplate, @Nonnull final DataLayout dataLayout) {
         this.schemaTemplate = schemaTemplate;
-        this.keySpace = keySpace;
+        this.dataLayout = dataLayout;
     }
 
     @Override
@@ -114,11 +113,7 @@ public class HollowStoreCatalog implements StoreCatalog {
 
     @Nonnull
     @Override
-    public KeySpace getKeySpace() throws RelationalException {
-        if (keySpace == null) {
-            throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
-        } else {
-            return keySpace;
-        }
+    public DataLayout getDataLayout() {
+        return dataLayout;
     }
 }

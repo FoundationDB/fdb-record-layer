@@ -44,6 +44,7 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.CatalogValidator;
+import com.apple.foundationdb.relational.api.catalog.DataLayout;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
@@ -119,7 +120,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
     private final RelationalKeyspaceProvider.RelationalSchemaPath catalogSchemaPath;
 
     private final RecordMetaDataProvider catalogRecordMetaDataProvider;
-    private final KeySpace keySpace;
+    private final DataLayout dataLayout;
 
     private SchemaTemplateCatalog schemaTemplateCatalog;
 
@@ -129,7 +130,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
 
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Hard to remove exception with current inheritance")
     RecordLayerStoreCatalog(@Nonnull final KeySpace keySpace) throws RelationalException {
-        this.keySpace = keySpace;
+        this.dataLayout = new KeySpaceDataLayout(keySpace);
         this.catalogSchemaPath = RelationalKeyspaceProvider.toDatabasePath(DASH_DASH_SYS, keySpace)
                 .schemaPath(RelationalKeyspaceProvider.CATALOG);
         final var schemaBuilder = RecordLayerSchemaTemplate.newBuilder();
@@ -372,8 +373,8 @@ class RecordLayerStoreCatalog implements StoreCatalog {
 
     @Nonnull
     @Override
-    public KeySpace getKeySpace() throws RelationalException {
-        return keySpace;
+    public DataLayout getDataLayout() {
+        return dataLayout;
     }
 
     // delete schemas for the matching dbUri.

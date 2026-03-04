@@ -40,10 +40,13 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.DataLayout;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.catalog.KeySpaceDataLayout;
 import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.transactionbound.catalog.HollowDataLayout;
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
@@ -62,7 +65,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -84,6 +86,8 @@ public class TransactionBoundDatabaseTest {
                                     .addSubdirectory(new KeySpaceDirectory("schema1", KeySpaceDirectory.KeyType.NULL, null))
                                     .addSubdirectory(new KeySpaceDirectory("schema2", KeySpaceDirectory.KeyType.LONG, 1L)))));
 
+    private static final DataLayout DATA_LAYOUT_FOR_COPY_TEST = new KeySpaceDataLayout(KEY_SPACE_FOR_COPY_TEST);
+
     @RegisterExtension
     @Order(0)
     public static final RelationalExtension relational = new EmbeddedRelationalExtension();
@@ -101,7 +105,7 @@ public class TransactionBoundDatabaseTest {
     @Test
     void simpleSelect() throws RelationalException, SQLException {
         final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
-        withTransactionBoundConnection(embeddedConnection, Options.NONE, null, conn -> {
+        withTransactionBoundConnection(embeddedConnection, Options.NONE, HollowDataLayout.INSTANCE, conn -> {
             try (RelationalStatement statement = conn.createStatement()) {
                 var record = EmbeddedRelationalStruct.newBuilder()
                         .addLong("REST_NO", 42)
@@ -280,10 +284,10 @@ public class TransactionBoundDatabaseTest {
         Assertions.assertThat(getDataInPath(embeddedConnection, sourcePath2)).isEqualTo(schema2Data);
 
         // export the data
-        final List<byte[]> data = exportDataWithCopy(embeddedConnection, sourceUri, destUri);
+        final List<byte[]> data = exportDataWithCopy(embeddedConnection, sourceUri, destUri, DATA_LAYOUT_FOR_COPY_TEST);
         Assertions.assertThat(data).hasSizeGreaterThanOrEqualTo(2);
 
-        importDataWithCopy(embeddedConnection, destUri, data, KEY_SPACE_FOR_COPY_TEST);
+        importDataWithCopy(embeddedConnection, destUri, data, DATA_LAYOUT_FOR_COPY_TEST);
 
         Assertions.assertThat(getDataInPath(embeddedConnection, destPath.add("schema1"))).isEqualTo(schema1Data);
         Assertions.assertThat(getDataInPath(embeddedConnection, destPath.add("schema2"))).isEqualTo(schema2Data);
@@ -303,21 +307,22 @@ public class TransactionBoundDatabaseTest {
 
         final EmbeddedRelationalConnection embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
         List<byte[]> data = new ArrayList<>();
-        withTransactionBoundConnection(embeddedConnection, Options.NONE, onExport ? null : KEY_SPACE_FOR_COPY_TEST, conn -> {
-            try (RelationalStatement statement = conn.createStatement()) {
-                final ConnectionUtils.SQLFunction<RelationalStatement, RelationalResultSet> export =
-                        stmt -> stmt.executeQuery("COPY \"" + sourceUri + "\"");
-                if (onExport) {
-                    RelationalAssertions.assertThrowsSqlException(() -> export.apply(statement))
-                            .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
-                } else {
-                    data.addAll(getExportedData(export.apply(statement)));
-                }
-            }
-        });
+        withTransactionBoundConnection(embeddedConnection, Options.NONE,
+                onExport ? HollowDataLayout.INSTANCE : DATA_LAYOUT_FOR_COPY_TEST, conn -> {
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        final ConnectionUtils.SQLFunction<RelationalStatement, RelationalResultSet> export =
+                                stmt -> stmt.executeQuery("COPY \"" + sourceUri + "\"");
+                        if (onExport) {
+                            RelationalAssertions.assertThrowsSqlException(() -> export.apply(statement))
+                                    .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
+                        } else {
+                            data.addAll(getExportedData(export.apply(statement)));
+                        }
+                    }
+                });
         if (!onExport) {
             RelationalAssertions.assertThrowsSqlException(
-                    () -> importDataWithCopy(embeddedConnection, destUri, data, null))
+                    () -> importDataWithCopy(embeddedConnection, destUri, data, HollowDataLayout.INSTANCE))
                     .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
         }
     }
@@ -347,10 +352,10 @@ public class TransactionBoundDatabaseTest {
             saveSimpleRecord(store1, "Beta");
         });
         // export the data
-        final List<byte[]> data = exportDataWithCopy(embeddedConnection, sourceUri, destUri);
+        final List<byte[]> data = exportDataWithCopy(embeddedConnection, sourceUri, destUri, DATA_LAYOUT_FOR_COPY_TEST);
         Assertions.assertThat(data).hasSizeGreaterThanOrEqualTo(2);
 
-        importDataWithCopy(embeddedConnection, destUri, data, KEY_SPACE_FOR_COPY_TEST);
+        importDataWithCopy(embeddedConnection, destUri, data, DATA_LAYOUT_FOR_COPY_TEST);
 
         withStore(embeddedConnection, destPath.add("schema1"), metadata,
                 store -> {
@@ -439,8 +444,8 @@ public class TransactionBoundDatabaseTest {
     private void importDataWithCopy(final EmbeddedRelationalConnection embeddedConnection,
                                     final URI destUri,
                                     final List<byte[]> data,
-                                    @Nullable final KeySpace keySpace) throws RelationalException, SQLException {
-        withTransactionBoundConnection(embeddedConnection, Options.NONE, keySpace, conn -> {
+                                    @Nonnull DataLayout dataLayout) throws RelationalException, SQLException {
+        withTransactionBoundConnection(embeddedConnection, Options.NONE, dataLayout, conn -> {
             try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY \"" + destUri + "\" FROM ?")) {
                 stmt.setObject(1, data);
                 final RelationalResultSet relationalResultSet = stmt.executeQuery();
@@ -452,9 +457,10 @@ public class TransactionBoundDatabaseTest {
     }
 
     @Nonnull
-    private List<byte[]> exportDataWithCopy(final EmbeddedRelationalConnection embeddedConnection, final URI sourceUri, final URI destUri) throws RelationalException, SQLException {
+    private List<byte[]> exportDataWithCopy(final EmbeddedRelationalConnection embeddedConnection, final URI sourceUri,
+                                            final URI destUri, final DataLayout dataLayout) throws RelationalException, SQLException {
         List<byte[]> data = new ArrayList<>();
-        withTransactionBoundConnection(embeddedConnection, Options.NONE, KEY_SPACE_FOR_COPY_TEST, conn -> {
+        withTransactionBoundConnection(embeddedConnection, Options.NONE, dataLayout, conn -> {
             try (RelationalStatement statement = conn.createStatement()) {
                 final RelationalResultSet resultSet = statement.executeQuery("COPY \"" + sourceUri + "\"");
                 data.addAll(getExportedData(resultSet));
@@ -500,13 +506,13 @@ public class TransactionBoundDatabaseTest {
     }
 
     private void withTransactionBoundConnection(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
-                                                @Nonnull Options engineOptions,
-                                                @Nullable final KeySpace keySpace,
+                                                @Nonnull final Options engineOptions,
+                                                @Nonnull final DataLayout dataLayout,
                                                 @Nonnull final ConnectionUtils.SQLConsumer<RelationalConnection> action)
             throws RelationalException, SQLException {
         try (FDBRecordContext context = createNewContext(embeddedConnection)) {
             try (Transaction transaction = createRecordStoreAndRecordContextTransaction(embeddedConnection, context)) {
-                EmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine(engineOptions, keySpace);
+                EmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine(engineOptions, dataLayout);
                 withTransactionBoundConnection(engine, transaction, context, action);
             }
         }
