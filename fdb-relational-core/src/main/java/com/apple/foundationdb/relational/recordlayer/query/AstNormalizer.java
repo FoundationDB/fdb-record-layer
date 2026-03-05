@@ -59,6 +59,7 @@ import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -241,7 +242,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         // (yhatem) this is probably not needed, since a cached physical plan _knows_ it is either forExplain or not.
         //          we should remove this, but ok for now.
         queryHasherContextBuilder.setForExplain(ctx.EXPLAIN() != null);
-        return visitChildren(ctx);
+        //        return visitChildren(ctx);
+        if (ctx.getChildCount() > 1) {
+            Assert.notNullUnchecked(ctx.getChild(1)).accept(this);
+        }
+        return null;
     }
 
     @Override
@@ -569,6 +574,20 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         }
     }
 
+    private static String truncateExplainStatement(@Nonnull final String query) {
+        int begin = 0;
+        while (begin < query.length() && Character.isWhitespace(query.charAt(begin))) {
+            begin++;
+        }
+        final List<String> tags = List.of("EXPLAIN", "DESCRIBE", "DESC");
+        for (final var tag : tags) {
+            if (query.regionMatches(true, begin, tag, 0, tag.length())) {
+                return query.substring(begin + tag.length());
+            }
+        }
+        return query;
+    }
+
     /**
      * Normalizes the SQL query using a given planning context.
      * @param context The planning context, captures all the state required to plan and execution query such as prepared parameter values.
@@ -585,7 +604,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         // lexing, parsing, and normalization are profiled through the metric collector.
         final var metricCollector = context.getMetricsCollector();
         final var rootContext = metricCollector.clock(RelationalMetric.RelationalEvent.LEX_PARSE,
-                () -> QueryParser.parse(query).getRootContext());
+                () -> QueryParser.parse(truncateExplainStatement(query)).getRootContext());
         return metricCollector.clock(RelationalMetric.RelationalEvent.NORMALIZE_QUERY,
                 () -> normalizeAst(
                         context.getSchemaTemplate(), rootContext,

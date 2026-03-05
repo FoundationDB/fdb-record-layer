@@ -642,7 +642,7 @@ public class AstNormalizerTests {
     void parseUtilityStatementCorrectCachingFlags() throws Exception {
         validate(List.of("explain select * from t1 where col1 > 42", "  explain select  \t * from    t1 \n\n where col1 > 42   \n\n"),
                 PreparedParams.empty(),
-                "explain select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(8), 42), Map.of(constantId(8), 42)),
                 null,
                 -1,
@@ -1042,7 +1042,7 @@ public class AstNormalizerTests {
     void parseUtilityStatementCorrectCachingFlagsWithPreparedParameters() throws Exception {
         validate(List.of("explain select * from t1 where col1 > ?namedParam1 and col2   > ?", "  explain select  \t * from    t1 \n\n where col1 > ?namedParam1 and   col2 > ?   \n\n"),
                 PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "explain select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(8), 43, constantId(12), 42),
                         Map.of(constantId(8), 43, constantId(12), 42)),
                 null,
