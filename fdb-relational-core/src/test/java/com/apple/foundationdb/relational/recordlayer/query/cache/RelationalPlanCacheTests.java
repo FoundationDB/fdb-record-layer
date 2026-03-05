@@ -65,7 +65,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -408,19 +407,17 @@ public class RelationalPlanCacheTests {
         Map<Tuple, Map<PhysicalPlanEquivalence, String>> result = new HashMap<>();
         for (String key : cache.getStats().getAllKeys()) {
             for (QueryCacheKey secondaryKey : cache.getStats().getAllSecondaryKeys(key)) {
-                result.put(
-                        new Tuple(
-                                secondaryKey.getCanonicalQueryString(),
-                                key,
-                                secondaryKey.getSchemaTemplateVersion(),
-                                secondaryKey.getUserVersion(),
-                                secondaryKey.getPlannerConfiguration(),
-                                secondaryKey.getAuxiliaryMetadata()),
-                        cache.getStats().getAllTertiaryMappings(key, secondaryKey)
-                                .entrySet()
-                                .stream()
-                                .map(k -> new AbstractMap.SimpleEntry<>(k.getKey(), inferScanType(k.getValue())))
-                                .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue)));
+                final var resMap = result.computeIfAbsent(
+                        new Tuple(secondaryKey.getCanonicalQueryString(),
+                                    key,
+                                    secondaryKey.getSchemaTemplateVersion(),
+                                    secondaryKey.getUserVersion(),
+                                    secondaryKey.getPlannerConfiguration(),
+                                    secondaryKey.getAuxiliaryMetadata()),
+                        k -> new HashMap<>());
+                for (final var entry3 : cache.getStats().getAllTertiaryMappings(key, secondaryKey).entrySet()) {
+                    resMap.put(entry3.getKey(), inferScanType(entry3.getValue()));
+                }
             }
         }
 
