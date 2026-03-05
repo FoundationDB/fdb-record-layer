@@ -734,8 +734,15 @@ class ThrottledRetryingRunnerTest {
         // A continuation that carries the next index to read
         class IndexContinuation implements ThrottledRetryingRunner.Continuation {
             final int nextIndex;
-            IndexContinuation(int nextIndex) { this.nextIndex = nextIndex; }
-            @Override public boolean hasMore() { return nextIndex < numKeys; }
+
+            IndexContinuation(int nextIndex) {
+                this.nextIndex = nextIndex;
+            }
+
+            @Override
+            public boolean hasMore() {
+                return nextIndex < numKeys;
+            }
         }
 
         List<Integer> processedValues = new ArrayList<>();
@@ -753,7 +760,147 @@ class ThrottledRetryingRunnerTest {
     }
 
     // -------------------------------------------------------------------------
-    // Helpers
+    // Real transaction conflict
+    // -------------------------------------------------------------------------
+
+    @Test
+    void retriesOnRealTransactionConflict() {
+        // Arrange a genuine FDB NOT_COMMITTED conflict without any threading:
+        //   1. Task (attempt 1) reads conflictKey  →  establishes a read-conflict range on tr
+        //   2. Task also writes to ownWriteKey  →  makes tr a write transaction so FDB actually
+        //      checks read conflicts on commit (FDB silently skips conflict checking for
+        //      read-only transactions)
+        //   3. Task opens a second transaction, writes to conflictKey, and commits it
+        //   4. TransactionalRunner then commits tr  →  FDB detects the conflict and rejects it
+        //   5. Runner retries; attempt 2 sees no conflict and succeeds
+        byte[] conflictKey = subspace.pack(Tuple.from("conflict-key"));
+        byte[] ownWriteKey = subspace.pack(Tuple.from("own-write"));
+        AtomicInteger attemptCount = new AtomicInteger(0);
+
+        try (ThrottledRetryingRunner runner = runnerBuilder().withNumOfRetries(3).build()) {
+            runner.iterateAll((tr, quota, cont) -> {
+                int attempt = attemptCount.incrementAndGet();
+                if (attempt == 1) {
+                    // Write to a separate key to make tr a write transaction.
+                    tr.set(ownWriteKey, new byte[]{0});
+                    // Read conflictKey to add it to tr's read-conflict range, then commit a
+                    // write to the same key in a separate transaction before tr commits.
+                    return tr.get(conflictKey)
+                            .thenCompose(ignored ->
+                                db.runAsync(tr2 -> {
+                                    tr2.set(conflictKey, new byte[]{1});
+                                    return CompletableFuture.completedFuture(null);
+                                })
+                            )
+                            .thenCompose(ignored -> exhausted());
+                }
+                // Attempt 2: no conflict
+                return exhausted();
+            }).join();
+        }
+
+        assertThat(attemptCount.get()).isEqualTo(2);
+    }
+
+    @Test
+    void conflictDoesNotAdvanceContinuation() {
+        // Write 6 data keys to process in batches of 2 across 3 transactions.
+        //
+        // Expected flow:
+        //   Attempt 1 (idx=0): processes items 0,1 — commits → continuation advances to idx=2
+        //   Attempt 2 (idx=2): processes items 2,3 — CONFLICT → not committed
+        //   Attempt 3 (idx=2): retry receives idx=2 (not idx=4!) — processes 2,3 again — commits
+        //   Attempt 4 (idx=4): processes items 4,5 — commits → hasMore()=false, loop ends
+        //
+        // The key assertion is that attempt 3 starts at idx=2, not idx=4. If the continuation
+        // were incorrectly advanced on failure, items 2 and 3 would never be written to FDB.
+        final int numKeys = 6;
+        final int batchSize = 2;
+
+        db.run(tr -> {
+            for (int i = 0; i < numKeys; i++) {
+                tr.set(subspace.pack(Tuple.from("data", i)), Tuple.from(i).pack());
+            }
+            return null;
+        });
+
+        byte[] conflictKey = subspace.pack(Tuple.from("conflict-trigger"));
+        byte[] ownWriteKey  = subspace.pack(Tuple.from("own-write"));
+
+        AtomicInteger attemptCount = new AtomicInteger(0);
+        AtomicInteger retryStartIdx = new AtomicInteger(-1); // captured from attempt 3
+
+        class IndexContinuation implements ThrottledRetryingRunner.Continuation {
+            final int nextIndex;
+
+            IndexContinuation(int nextIndex) {
+                this.nextIndex = nextIndex;
+            }
+
+            @Override
+            public boolean hasMore() {
+                return nextIndex < numKeys;
+            }
+        }
+
+        try (ThrottledRetryingRunner runner = runnerBuilder().withNumOfRetries(3).build()) {
+            runner.iterateAll((tr, quota, cont) -> {
+                int attempt = attemptCount.incrementAndGet();
+                int startIdx = (cont instanceof IndexContinuation)
+                        ? ((IndexContinuation) cont).nextIndex : 0;
+                int endIdx = Math.min(startIdx + batchSize, numKeys);
+
+                if (attempt == 3) {
+                    retryStartIdx.set(startIdx);
+                }
+
+                // Write a "processed" marker for each item in this batch
+                for (int i = startIdx; i < endIdx; i++) {
+                    tr.set(subspace.pack(Tuple.from("done", i)), Tuple.from(i).pack());
+                }
+
+                if (attempt == 2) {
+                    // Inject a conflict on the second attempt:
+                    // - write to ownWriteKey to make tr a write transaction (FDB only checks
+                    //   read conflicts when the transaction has writes)
+                    // - read conflictKey to add it to tr's read-conflict range
+                    // - commit a write to conflictKey in a separate transaction so that tr
+                    //   fails with NOT_COMMITTED
+                    tr.set(ownWriteKey, new byte[]{0});
+                    return tr.get(conflictKey)
+                            .thenCompose(ignored ->
+                                db.runAsync(tr2 -> {
+                                    tr2.set(conflictKey, new byte[]{1});
+                                    return CompletableFuture.completedFuture(null);
+                                })
+                            )
+                            .thenCompose(ignored ->
+                                CompletableFuture.completedFuture(new IndexContinuation(endIdx)));
+                }
+
+                return CompletableFuture.completedFuture(new IndexContinuation(endIdx));
+            }).join();
+        }
+
+        // Attempt 3 must have restarted at idx=2 (the last committed continuation),
+        // not at idx=4 (what would have been returned if the failed attempt had committed)
+        assertThat(retryStartIdx.get()).isEqualTo(2);
+
+        // 4 attempts total: tx1(0-1) + tx2(2-3, conflict) + retry(2-3) + tx3(4-5)
+        assertThat(attemptCount.get()).isEqualTo(4);
+
+        // All 6 items must be present in FDB exactly once — none skipped, none missing
+        db.run(tr -> {
+            for (int i = 0; i < numKeys; i++) {
+                byte[] val = tr.get(subspace.pack(Tuple.from("done", i))).join();
+                assertThat(val).as("item %d should be committed", i)
+                        .isEqualTo(Tuple.from(i).pack());
+            }
+            return null;
+        });
+    }
+
+
     // -------------------------------------------------------------------------
 
     /** Returns a completed future with a continuation indicating there is more work to do. */
