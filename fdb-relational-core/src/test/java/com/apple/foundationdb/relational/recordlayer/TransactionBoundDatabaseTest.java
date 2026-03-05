@@ -471,7 +471,7 @@ public class TransactionBoundDatabaseTest {
                         final RelationalResultSet resultSet = statement.executeQuery("COPY \"" + destUri + "\"");
                         Assertions.assertThat(resultSet.next()).isFalse();
                     }
-        });
+                });
         return data;
     }
 
