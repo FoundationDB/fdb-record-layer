@@ -46,6 +46,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
+import org.apache.lucene.index.IndexWriter;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -878,6 +879,46 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         // Verify queue cleared and final state correct
         verifyClearedQueueAndIndicator(schemaSetup, index, null, null);
         verifyExpectedDocIds(schemaSetup, index, expectedDocIds);
+    }
+
+    @Test
+    void testFailedLockMergeShouldNotDrain() {
+        // To avoid one merge process from clearing the ongoing merge indicator of another merge process, merge
+        // should avoid draining after a file lock failure
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // 1. Set ongoing merge indicator
+        setOngoingMergeIndicator(schemaSetup, index, null, null);
+
+        // 2. Obtain a file lock in a separate context (simulating another merge process)
+        FDBDirectoryLockFactory lockFactory;
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            Subspace subspace = recordStore.indexSubspace(index).subspace(Tuple.from(FDBDirectory.FILE_LOCK_SUBSPACE));
+            byte[] fileLockKey = subspace.pack(Tuple.from(IndexWriter.WRITE_LOCK_NAME));
+            lockFactory = new FDBDirectoryLockFactory(null, 10_000);
+            lockFactory.obtainLock(new NonAgileContext(context), fileLockKey, IndexWriter.WRITE_LOCK_NAME);
+            commit(context);
+        }
+
+        // 3. Run a high-level merge — should fail due to the held lock
+        assertThrows(CompletionException.class, () -> mergeIndexNow(schemaSetup, index));
+
+        // 4. Assert that the ongoing merge indicator was NOT removed
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
+            FDBDirectory directory = directoryManager.getDirectory(null, null);
+            assertTrue(directory.shouldUseQueue(), "Ongoing merge indicator should not have been cleared after lock failure");
+            commit(context);
+        }
     }
 
     protected static void snooze(int millis) {
