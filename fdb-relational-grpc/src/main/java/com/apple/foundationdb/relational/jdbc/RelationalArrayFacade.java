@@ -181,7 +181,7 @@ class RelationalArrayFacade implements RelationalArray {
 
         final var columnMetadata = delegateMetadata.toBuilder().setName("VALUE").build();
         resultSetBuilder.setMetadata(ResultSetMetadata.newBuilder().setColumnMetadata(ListColumnMetadata.newBuilder()
-                .addColumnMetadata(ColumnMetadata.newBuilder().setName("INDEX").setType(Type.INTEGER).setJavaSqlTypesCode(Types.INTEGER).build())
+                .addColumnMetadata(ColumnMetadata.newBuilder().setName("INDEX").setType(Type.INTEGER).build())
                 .addColumnMetadata(columnMetadata).build()).build());
         for (int i = index; i < count; i++) {
             final var listColumnBuilder = ListColumn.newBuilder();
@@ -257,7 +257,7 @@ class RelationalArrayFacade implements RelationalArray {
 
         private void initOrCheckMetadata(ListColumnMetadata innerMetadata) {
             if (metadata == null) {
-                final var builder = ColumnMetadata.newBuilder().setName("ARRAY").setJavaSqlTypesCode(Types.STRUCT).setType(Type.STRUCT);
+                final var builder = ColumnMetadata.newBuilder().setName("ARRAY").setType(Type.STRUCT);
                 builder.setStructMetadata(innerMetadata);
                 metadata = builder.build();
             } else {

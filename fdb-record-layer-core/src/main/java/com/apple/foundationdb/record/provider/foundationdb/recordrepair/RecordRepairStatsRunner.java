@@ -38,7 +38,8 @@ public class RecordRepairStatsRunner extends RecordRepair {
     private final RepairStatsResults statsResult;
 
     RecordRepairStatsRunner(@Nonnull final Builder config) {
-        super(config);
+        // stats runner never commits a transaction
+        super(config, false);
         statsResult = new RepairStatsResults();
     }
 

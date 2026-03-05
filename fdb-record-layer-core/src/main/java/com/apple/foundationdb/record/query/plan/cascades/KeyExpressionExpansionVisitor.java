@@ -40,9 +40,11 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
@@ -119,7 +121,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull FieldKeyExpression fieldKeyExpression) {
-        final String fieldName = fieldKeyExpression.getFieldName();
+        final String fieldName = ProtoUtils.toUserIdentifier(fieldKeyExpression.getFieldName());
         final KeyExpression.FanType fanType = fieldKeyExpression.getFanType();
         final VisitorState state = getCurrentState();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
@@ -241,7 +243,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             case None:
                 List<String> newPrefix = ImmutableList.<String>builder()
                         .addAll(fieldNamePrefix)
-                        .add(parent.getFieldName())
+                        .add(ProtoUtils.toUserIdentifier((parent.getFieldName())))
                         .build();
                 if (NullableArrayTypeUtils.isArrayWrapper(nestingKeyExpression)) {
                     final RecordKeyExpressionProto.KeyExpression childProto = nestingKeyExpression.getChild().toKeyExpression();
@@ -348,7 +350,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     final var pulledUpValue = pulledUpPlaceholderValuesMap.get(value);
                     final var parameterAlias =
                             Objects.requireNonNull(childExpansionPlaceholderValuesMap.get(value));
-                    return Placeholder.newInstanceWithoutRanges(pulledUpValue, parameterAlias);
+                    return Placeholder.newInstanceWithoutRanges(Iterables.getOnlyElement(pulledUpValue), parameterAlias);
                 })
                 .collect(ImmutableList.toImmutableList());
     }
@@ -371,7 +373,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                         throw new RecordCoreException("could not pull expansion value " + value)
                                 .addLogInfo(LogMessageKeys.VALUE, value);
                     }
-                    return pulledUpValuesMap.get(value);
+                    return Iterables.getOnlyElement(pulledUpValuesMap.get(value));
                 })
                 .map(Column::unnamedOf)
                 .collect(ImmutableList.toImmutableList());

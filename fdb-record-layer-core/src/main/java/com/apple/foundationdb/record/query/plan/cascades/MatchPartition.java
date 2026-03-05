@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PMatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 import javax.annotation.Nonnull;
@@ -54,5 +55,14 @@ public class MatchPartition {
     @Override
     public String toString() {
         return partialMatches.toString();
+    }
+
+    @Nonnull
+    public PMatchPartition toPlannerEventMatchPartitionProto() {
+        final var builder = PMatchPartition.newBuilder();
+        for (final var partialMatch : getPartialMatches()) {
+            builder.addPartialMatches(partialMatch.toPlannerEventPartialMatchProto());
+        }
+        return builder.build();
     }
 }

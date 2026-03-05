@@ -48,7 +48,7 @@ message ColumnMetadata {
   string name = 1;
   string label = 2;
   //taken from java.sql.Types
-  int32 java_sql_types_code = 3;
+  int32 java_sql_types_code = 3 [deprecated = true];
   bool nullable = 4;
   // Indicates a column that isn't part of the DDL for a query, but is part of the returned
   // tuple (and therefore necessary to keep so that our positional ordering is intact)

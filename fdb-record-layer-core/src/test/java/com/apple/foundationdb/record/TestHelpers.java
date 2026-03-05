@@ -37,8 +37,11 @@ import org.junit.jupiter.api.function.Executable;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -243,6 +246,19 @@ public class TestHelpers {
             }
             current = System.currentTimeMillis();
         }
+    }
+
+    public static <T extends Throwable> T findCause(@Nullable Throwable ex, Class<T> classT) {
+        Set<Throwable> seenSet = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable current = ex;
+                current != null && !seenSet.contains(current);
+                current = current.getCause()) {
+            if (classT.isInstance(current)) {
+                return classT.cast(current);
+            }
+            seenSet.add(current);
+        }
+        return null;
     }
 
     /**

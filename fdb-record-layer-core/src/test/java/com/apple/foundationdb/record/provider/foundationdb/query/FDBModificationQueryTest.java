@@ -63,7 +63,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 
@@ -800,7 +799,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @NonNull
+    @Nonnull
     private RecordQueryPlan getUpdatePlan(final CascadesPlanner cascadesPlanner) {
         return cascadesPlanner.planGraph(
                 () -> {
@@ -843,7 +842,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                 EvaluationContext.empty()).getPlan();
     }
 
-    @NonNull
+    @Nonnull
     private RecordQueryPlan getUpdateArrayPlan(final CascadesPlanner cascadesPlanner) {
         return cascadesPlanner.planGraph(
                 () -> {

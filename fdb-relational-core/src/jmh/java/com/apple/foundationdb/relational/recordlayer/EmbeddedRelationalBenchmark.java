@@ -63,8 +63,8 @@ public abstract class EmbeddedRelationalBenchmark {
                     "CREATE TABLE \"RestaurantRecord\" (\"rest_no\" bigint, \"name\" string, \"location\" \"Location\", \"reviews\" \"RestaurantReview\" ARRAY, \"tags\" \"RestaurantTag\" ARRAY, \"customer\" string ARRAY, PRIMARY KEY(\"rest_no\")) " +
                     "CREATE TABLE \"RestaurantReviewer\" (\"id\" bigint, \"name\" string, \"email\" string, \"stats\" \"ReviewerStats\", PRIMARY KEY(\"id\")) " +
 
-                    "CREATE INDEX \"record_name_idx\" as select \"name\" from \"RestaurantRecord\" " +
-                    "CREATE INDEX \"reviewer_name_idx\" as select \"name\" from \"RestaurantReviewer\" ";
+                    "CREATE INDEX \"record_name_idx\" ON \"RestaurantRecord\"(\"name\") " +
+                    "CREATE INDEX \"reviewer_name_idx\" ON \"RestaurantReviewer\"(\"name\") ";
 
     static final String restaurantRecordTable = "RestaurantRecord";
 

@@ -21,12 +21,12 @@
 package com.apple.foundationdb.relational.autotest.engine;
 
 import com.apple.foundationdb.relational.autotest.AutomatedTest;
-
 import org.junit.jupiter.engine.config.CachingJupiterConfiguration;
 import org.junit.jupiter.engine.config.DefaultJupiterConfiguration;
 import org.junit.jupiter.engine.config.JupiterConfiguration;
 import org.junit.jupiter.engine.descriptor.JupiterEngineDescriptor;
 import org.junit.jupiter.engine.execution.JupiterEngineExecutionContext;
+import org.junit.jupiter.engine.execution.LauncherStoreFacade;
 import org.junit.platform.commons.support.AnnotationSupport;
 import org.junit.platform.commons.support.ReflectionSupport;
 import org.junit.platform.engine.EngineDiscoveryRequest;
@@ -54,7 +54,8 @@ public class AutoTestEngine extends HierarchicalTestEngine<JupiterEngineExecutio
     @Override
     public TestDescriptor discover(EngineDiscoveryRequest discoveryRequest, UniqueId uniqueId) {
         JupiterConfiguration config = new CachingJupiterConfiguration(
-                new DefaultJupiterConfiguration(discoveryRequest.getConfigurationParameters()));
+                new DefaultJupiterConfiguration(discoveryRequest.getConfigurationParameters(),
+                        discoveryRequest.getOutputDirectoryCreator()));
         TestDescriptor rootDescriptor = new JupiterEngineDescriptor(uniqueId, config);
 
         discoveryRequest.getSelectorsByType(ClasspathRootSelector.class).forEach(selector ->
@@ -72,7 +73,8 @@ public class AutoTestEngine extends HierarchicalTestEngine<JupiterEngineExecutio
     protected JupiterEngineExecutionContext createExecutionContext(ExecutionRequest request) {
         JupiterEngineDescriptor engineDescriptor = (JupiterEngineDescriptor) request.getRootTestDescriptor();
         JupiterConfiguration config = engineDescriptor.getConfiguration();
-        return new JupiterEngineExecutionContext(request.getEngineExecutionListener(), config);
+        return new JupiterEngineExecutionContext(request.getEngineExecutionListener(), config,
+                new LauncherStoreFacade(request.getStore()));
     }
 
     private void appendTestsInClass(Class<?> javaClass, TestDescriptor engineDesc, JupiterConfiguration config) {
@@ -109,5 +111,4 @@ public class AutoTestEngine extends HierarchicalTestEngine<JupiterEngineExecutio
         new AutomatedTestExecutor().execute(request,root);
     }
      */
-
 }

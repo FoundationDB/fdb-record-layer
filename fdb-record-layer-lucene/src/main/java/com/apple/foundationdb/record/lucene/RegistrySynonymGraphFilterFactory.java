@@ -33,7 +33,7 @@ import java.util.Map;
  * synonym mappings, which is _significantly_ more efficient when using lots of distinct analyzers (such
  * as during highlighting, or with lots of parallel record stores).
  */
-public class RegistrySynonymGraphFilterFactory extends TokenFilterFactory {
+public final class RegistrySynonymGraphFilterFactory extends TokenFilterFactory {
     private final SynonymMap map;
 
     private final boolean ignoreCase;

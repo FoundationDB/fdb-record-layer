@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -70,7 +69,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
      * Base type.
      */
     @Nonnull
-    private final Type baseType;
+    private final Type.Record baseType;
 
     /**
      * Base alias.
@@ -112,7 +111,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                         @Nonnull final Collection<RecordType> queriedRecordTypes,
                                         @Nonnull final Traversal traversal,
                                         @Nonnull final List<CorrelationIdentifier> parameters,
-                                        @Nonnull final Type baseType,
+                                        @Nonnull final Type.Record baseType,
                                         @Nonnull final CorrelationIdentifier baseAlias,
                                         @Nonnull final List<Value> indexKeyValues,
                                         @Nonnull final List<Value> indexValueValues,
@@ -177,7 +176,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
     @Nonnull
     @Override
-    public Type getBaseType() {
+    public Type.Record getBaseType() {
         return baseType;
     }
 
@@ -232,9 +231,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                             final boolean reverseScanOrder) {
         final var matchInfo = partialMatch.getRegularMatchInfo();
 
-        final var baseRecordType =
-                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes));
-        return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder, baseRecordType)
+        return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder, baseType)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
                                 primaryKey,
@@ -244,7 +241,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 reverseScanOrder,
                                 false,
                                 partialMatch.getMatchCandidate(),
-                                baseRecordType,
+                                baseType,
                                 matchInfo.getConstraint()));
     }
 

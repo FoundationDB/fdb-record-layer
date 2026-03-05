@@ -252,7 +252,6 @@ public class ValueTranslationTest {
                         fv(t_, "b", "m")),
                 fv(t_, "j", "s"),
                 fv(t_, "j", "q"),
-                fv(t_, "b", "t"),
                 fv(t_, "b", "m")
         );
 
@@ -471,7 +470,7 @@ public class ValueTranslationTest {
     public void maxMatchValueWithMatchableArithmeticOperationAndOtherConstantCorrelations() {
         /*
              1st level:
-             (t.a.q + s, t.a.r, (t.b.t), t.j.s)      ((t'.a.q + s', t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t, t'.b.m)
+             (t.a.q + s, t.a.r, (t.b.t), t.j.s)      ((t'.a.q + s', t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.m)
                     |                                                 |
                   T |                                              T' |
                     |                                                 |
@@ -491,7 +490,6 @@ public class ValueTranslationTest {
                         fv(t_, "b", "m")),
                 fv(t_, "j", "s"),
                 fv(t_, "j", "q"),
-                fv(t_, "b", "t"),
                 fv(t_, "b", "m")
         );
 
@@ -534,7 +532,7 @@ public class ValueTranslationTest {
                     |                                                 |
                   P |                                              p' |
                     |                                                 |
-             (t.a.q + s, t.a.r, (t.b.t), t.j.s)      ((t'.a.q + s', t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t, t'.b.m)
+             (t.a.q + s, t.a.r, (t.b.t), t.j.s)      ((t'.a.q + s', t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.m)
                     |                                                 |
                   T |                                              T' |
                     |                                                 |
@@ -600,7 +598,7 @@ public class ValueTranslationTest {
     public void maxMatchValueWithCompositionOfTranslationMaps() {
         /*
              1st level:
-             (t.a.q, t.a.r, (t.b.t), t.j.s)      ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t)
+             (t.a.q, t.a.r, (t.b.t), t.j.s)      ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q)
                     |                                                 |
                   T |                                              T' |
                     |                                                 |
@@ -631,8 +629,7 @@ public class ValueTranslationTest {
                 rcv(fv(t_, "b", "t"),
                         fv(t_, "b", "m")),
                 fv(t_, "j", "s"),
-                fv(t_, "j", "q"),
-                fv(t_, "b", "t")
+                fv(t_, "j", "q")
         );
 
         final var mv = rcv(
@@ -748,7 +745,7 @@ public class ValueTranslationTest {
                         |
                      P' |
                         |
-               ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t, t'.b.m)
+               ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.m)
                         |
                      T' |
                         |
@@ -892,8 +889,7 @@ public class ValueTranslationTest {
                 rcv(fv(t_, "b", "t"),
                         fv(t_, "b", "m")),
                 fv(t_, "j", "s"),
-                fv(t_, "j", "q"),
-                fv(t_, "b", "t")
+                fv(t_, "j", "q")
         );
 
         final var mv = rcv(
@@ -920,7 +916,7 @@ public class ValueTranslationTest {
 
         /*
              1st level:
-             (t.a.q, t.a.r, (t.b.t), t.j.s)      ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t)
+             (t.a.q, t.a.r, (t.b.t), t.j.s)      ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q)
                     |                                                 |
                   T |                                              T' |
                     |                                                 |
@@ -988,7 +984,7 @@ public class ValueTranslationTest {
                         |
                      P' |
                         |
-               ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t, t'.b.m)
+               ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.m)
                         |
                      T' |
                         |
@@ -1224,8 +1220,9 @@ public class ValueTranslationTest {
      */
     @Test
     public void maxMatchVersionToQovRoot() {
-        final var qrv = QuantifiedRecordValue.of(t_Alias, getTType());
-        final var versionValue = (VersionValue)new VersionValue.VersionFn().encapsulate(ImmutableList.of(qrv));
+        final var tType = getTType().addPseudoFields();
+        final var qrv = QuantifiedRecordValue.of(t_Alias, tType);
+        final var versionValue = (Value) new VersionValue.VersionFn().encapsulate(ImmutableList.of(qrv));
         final var pv =
                 rcv(versionValue, rcv(t_));
         final var p_v =

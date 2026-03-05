@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Predicate;
 
 /**
@@ -84,6 +85,11 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
         return parent;
     }
 
+    @Override
+    public boolean hasChanges() {
+        return true;
+    }
+
     /**
      * Merges the neighbors from this level of the hierarchy with all neighbors from parent levels.
      * <p>
@@ -95,7 +101,9 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
     @Nonnull
     @Override
     public Iterable<N> merge() {
-        return Iterables.concat(getParent().merge(), insertedNeighborsMap.values());
+        return Iterables.concat(Iterables.filter(getParent().merge(),
+                current -> !insertedNeighborsMap.containsKey(Objects.requireNonNull(current).getPrimaryKey())),
+                insertedNeighborsMap.values());
     }
 
     /**

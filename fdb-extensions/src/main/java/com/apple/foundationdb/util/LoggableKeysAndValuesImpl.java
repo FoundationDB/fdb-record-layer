@@ -33,7 +33,7 @@ import java.util.Map;
  */
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
-public class LoggableKeysAndValuesImpl implements LoggableKeysAndValues<LoggableKeysAndValuesImpl> {
+public final class LoggableKeysAndValuesImpl implements LoggableKeysAndValues<LoggableKeysAndValuesImpl> {
     private static final Object[] EMPTY_LOG_INFO = new Object[0];
     @Nullable private Map<String, Object> logInfo;
 

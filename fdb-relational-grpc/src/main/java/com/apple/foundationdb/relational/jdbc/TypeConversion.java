@@ -176,7 +176,6 @@ public class TypeConversion {
         final var protobufType = toProtobufType(type);
         var columnMetadataBuilder = ColumnMetadata.newBuilder()
                 .setName(metadata.getColumnName(oneBasedIndex))
-                .setJavaSqlTypesCode(metadata.getColumnType(oneBasedIndex))
                 .setNullable(metadata.isNullable(oneBasedIndex) == DatabaseMetaData.columnNullable)
                 .setType(protobufType);
         // TODO phantom.
@@ -255,7 +254,6 @@ public class TypeConversion {
             throws SQLException {
         var columnMetadataBuilder = ColumnMetadata.newBuilder()
                 .setName(metadata.getElementName())
-                .setJavaSqlTypesCode(metadata.getElementType())
                 .setType(toProtobufType(metadata.asRelationalType().getElementType()))
                 .setNullable(metadata.isElementNullable() == DatabaseMetaData.columnNullable);
         final var elementRelationalType = metadata.asRelationalType().getElementType();
@@ -481,6 +479,10 @@ public class TypeConversion {
             case VERSION:
                 column = toColumn(wasNull ? null : (byte[]) value,
                         (a, b) -> a == null ? b.clearBinary() : b.setBinary(ByteString.copyFrom(a)));
+                break;
+            case FLOAT:
+                column = toColumn(wasNull ? null : (Float) value,
+                        (a, b) -> a == null ? b.clearFloat() : b.setFloat(a));
                 break;
             case DOUBLE:
                 column = toColumn(wasNull ? null : (Double) value,

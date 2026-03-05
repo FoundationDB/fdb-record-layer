@@ -57,6 +57,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -484,6 +485,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
+        public List<RecordLayerInvokedRoutine> getInvokedRoutines() {
+            return ImmutableList.copyOf(invokedRoutines.values());
+        }
+
+        @Nonnull
         public Builder replaceInvokedRoutine(@Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
             if (invokedRoutines.containsKey(invokedRoutine.getName())) {
                 Assert.thatUnchecked(invokedRoutines.get(invokedRoutine.getName()).isTemporary(), ErrorCode.INVALID_FUNCTION_DEFINITION,
@@ -570,9 +576,10 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
-        public RecordLayerTable findTable(@Nonnull final String name) {
-            Assert.thatUnchecked(tables.containsKey(name), ErrorCode.UNDEFINED_TABLE, "could not find '%s'", name);
-            return tables.get(name);
+        public RecordLayerTable findTableByStorageName(@Nonnull final String storageName) {
+            return tables.values().stream().filter(t -> t.getType().getStorageName().equals(storageName))
+                    .findAny()
+                    .orElseThrow(() -> Assert.failUnchecked(ErrorCode.UNDEFINED_TABLE, "could not find '" + storageName + "'"));
         }
 
         @Nonnull

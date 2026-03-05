@@ -32,15 +32,15 @@ import com.apple.foundationdb.record.planprotos.PRecordTypeComparison;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -106,8 +106,13 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
                                  @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
                                  @Nonnull final List<String> fieldNamePrefix) {
+        // Note: this is broken. The comparison requires access to the store's meta-data in order
+        // to look up the record type key in order to produce an appropriate comparison.
+        // This shouldn't be too much of a problem, as this component shouldn't appear in
+        // the kinds of queries that the Cascades planner can plan, but alas.
+        // See: https://github.com/FoundationDB/fdb-record-layer/issues/3813
         return GraphExpansion.ofPredicate(
-                new RecordTypeValue(QuantifiedObjectValue.of(baseQuantifier))
+                new RecordTypeValue(QuantifiedRecordValue.of(baseQuantifier))
                         .withComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS,
                                 Objects.requireNonNull(comparison.getComparand()))));
     }
@@ -123,9 +128,6 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
             return true;
         }
         if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        if (!super.equals(o)) {
             return false;
         }
         RecordTypeKeyComparison that = (RecordTypeKeyComparison) o;
@@ -150,7 +152,14 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     }
 
     @Override
-    public QueryComponent withOtherComparison(Comparisons.Comparison comparison) {
+    public QueryComponent withOtherComparison(Comparisons.Comparison newComparison) {
+        if (newComparison instanceof RecordTypeComparison) {
+            final String newRecordTypeName = ((RecordTypeComparison)newComparison).getRecordTypeName();
+            if (comparison.getRecordTypeName().equals(newRecordTypeName)) {
+                return this;
+            }
+            return new RecordTypeKeyComparison(newRecordTypeName);
+        }
         throw new UnsupportedOperationException("Cannot change comparison");
     }
 
@@ -192,6 +201,11 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         public Comparisons.Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                             final boolean shouldSimplifyValues) {
             return this;
+        }
+
+        @Nonnull
+        public String getRecordTypeName() {
+            return recordTypeName;
         }
 
         @Nonnull

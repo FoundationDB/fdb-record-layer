@@ -1,0 +1,18 @@
+Diagram(
+    Stack(
+        Sequence(
+            Terminal('CREATE'),
+            Terminal('FUNCTION'),
+            NonTerminal('functionName'),
+            Terminal('('),
+            Optional(
+                NonTerminal('functionParameters')
+            ),
+            Terminal(')')
+        ),
+        Sequence(
+            Terminal('AS'),
+            NonTerminal('selectStatement')
+        )
+    )
+)

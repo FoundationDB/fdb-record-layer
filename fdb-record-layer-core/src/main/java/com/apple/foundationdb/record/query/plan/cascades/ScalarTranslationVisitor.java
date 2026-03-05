@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -124,7 +125,7 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
         }
 
         final ScalarVisitorState state = getCurrentState();
-        final String fieldName = fieldKeyExpression.getFieldName();
+        final String fieldName = ProtoUtils.toUserIdentifier(fieldKeyExpression.getFieldName());
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
@@ -169,9 +170,10 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
         final ScalarVisitorState state = getCurrentState();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
         final KeyExpression child = nestingKeyExpression.getChild();
+        final String parentFieldName = ProtoUtils.toUserIdentifier(parent.getFieldName());
         final List<String> newPrefix = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
-                .add(parent.getFieldName())
+                .add(parentFieldName)
                 .build();
         // TODO resolve type
         return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));

@@ -37,7 +37,6 @@ import com.google.protobuf.ByteString;
 import javax.annotation.Nonnull;
 import java.sql.Array;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -46,77 +45,56 @@ public class ParameterHelper {
 
     public static Parameter ofBoolean(boolean b) {
         return Parameter.newBuilder()
-                .setType(Type.BOOLEAN) // deprecated
-                .setJavaSqlTypesCode(Types.BOOLEAN) // deprecated
                 .setMetadata(ParameterMetadata.newBuilder()
-                        .setType(Type.BOOLEAN)
-                        .setJavaSqlTypesCode(Types.BOOLEAN))
+                        .setType(Type.BOOLEAN))
                 .setParameter(Column.newBuilder().setBoolean(b))
                 .build();
     }
 
     public static Parameter ofInt(int i) {
         return Parameter.newBuilder()
-                .setType(Type.INTEGER) // deprecated
-                .setJavaSqlTypesCode(Types.INTEGER) // deprecated
                 .setMetadata(ParameterMetadata.newBuilder()
-                        .setType(Type.INTEGER)
-                        .setJavaSqlTypesCode(Types.INTEGER))
+                        .setType(Type.INTEGER))
                 .setParameter(Column.newBuilder().setInteger(i))
                 .build();
     }
 
     public static Parameter ofLong(long l) {
         return Parameter.newBuilder()
-                .setType(Type.LONG) // deprecated
-                .setJavaSqlTypesCode(Types.BIGINT) // deprecated
                 .setMetadata(ParameterMetadata.newBuilder()
-                        .setType(Type.LONG)
-                        .setJavaSqlTypesCode(Types.BIGINT))
+                        .setType(Type.LONG))
                 .setParameter(Column.newBuilder().setLong(l))
                 .build();
     }
 
     public static Parameter ofFloat(float f) {
         return Parameter.newBuilder()
-                .setType(Type.FLOAT) // deprecated
-                .setJavaSqlTypesCode(Types.FLOAT) // deprecated
                 .setMetadata(ParameterMetadata.newBuilder()
-                        .setType(Type.FLOAT)
-                        .setJavaSqlTypesCode(Types.FLOAT))
+                        .setType(Type.FLOAT))
                 .setParameter(Column.newBuilder().setFloat(f))
                 .build();
     }
 
     public static Parameter ofDouble(double d) {
         return Parameter.newBuilder()
-                .setType(Type.DOUBLE) // deprecated
-                .setJavaSqlTypesCode(Types.DOUBLE) // deprecated
                 .setMetadata(ParameterMetadata.newBuilder()
-                        .setType(Type.DOUBLE)
-                        .setJavaSqlTypesCode(Types.DOUBLE))
+                        .setType(Type.DOUBLE))
                 .setParameter(Column.newBuilder().setDouble(d))
                 .build();
     }
 
     public static Parameter ofString(String s) {
         return Parameter.newBuilder()
-                .setType(Type.STRING) // deprecated
-                .setJavaSqlTypesCode(Types.VARCHAR) // deprecated
                 .setMetadata(ParameterMetadata.newBuilder()
-                        .setType(Type.STRING)
-                        .setJavaSqlTypesCode(Types.VARCHAR))
+                        .setType(Type.STRING))
                 .setParameter(Column.newBuilder().setString(s))
                 .build();
     }
 
     public static Parameter ofUUID(UUID id) {
         return Parameter.newBuilder()
-                .setType(Type.UUID) // deprecated
-                .setJavaSqlTypesCode(Types.OTHER) // deprecated
                 .setMetadata(ParameterMetadata.newBuilder()
-                        .setType(Type.UUID)
-                        .setJavaSqlTypesCode(Types.OTHER))
+                        .setType(Type.UUID))
                 .setParameter(Column.newBuilder().setUuid(Uuid.newBuilder()
                         .setMostSignificantBits(id.getMostSignificantBits())
                         .setLeastSignificantBits(id.getLeastSignificantBits())
@@ -130,8 +108,7 @@ public class ParameterHelper {
                         .setType(Type.VECTOR)
                         .setVectorMetadata(VectorMetadata.newBuilder()
                                 .setDimensions(vector.getNumDimensions())
-                                .setPrecision(getVectorPrecision(vector)).build())
-                        .setJavaSqlTypesCode(Types.OTHER))
+                                .setPrecision(getVectorPrecision(vector)).build()))
                 // TODO use PB ZeroCopyByteString.
                 .setParameter(Column.newBuilder().setBinary(ByteString.copyFrom(vector.getRawData())))
                 .build();
@@ -152,22 +129,16 @@ public class ParameterHelper {
 
     public static Parameter ofBytes(byte[] bytes) {
         return Parameter.newBuilder()
-                .setType(Type.BYTES) // deprecated
-                .setJavaSqlTypesCode(Types.BINARY) // deprecated
                 .setMetadata(ParameterMetadata.newBuilder()
-                        .setType(Type.BYTES)
-                        .setJavaSqlTypesCode(Types.BINARY))
+                        .setType(Type.BYTES))
                 .setParameter(Column.newBuilder().setBinary(ByteString.copyFrom(bytes)))
                 .build();
     }
 
     public static Parameter ofNull(int sqlType) {
         return Parameter.newBuilder()
-                .setType(Type.NULL) // deprecated
-                .setJavaSqlTypesCode(Types.NULL) // deprecated
                 .setMetadata(ParameterMetadata.newBuilder()
-                        .setType(Type.NULL)
-                        .setJavaSqlTypesCode(Types.NULL))
+                        .setType(Type.NULL))
                 .setParameter(Column.newBuilder().setNullType(sqlType))
                 .build();
     }
@@ -182,11 +153,8 @@ public class ParameterHelper {
             throw new SQLException("Array type not supported: " + a.getClass().getName(), ErrorCode.INVALID_PARAMETER.getErrorCode());
         }
         return Parameter.newBuilder()
-                .setType(Type.ARRAY)  // deprecated
-                .setJavaSqlTypesCode(Types.ARRAY) // deprecated
                 .setMetadata(ParameterMetadata.newBuilder()
-                        .setType(Type.ARRAY)
-                        .setJavaSqlTypesCode(Types.ARRAY))
+                        .setType(Type.ARRAY))
                 .setParameter(Column.newBuilder()
                         .setArray(com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array.newBuilder()
                                 .setElementType(a.getBaseType())

@@ -104,4 +104,8 @@ test_block:
       - query: select col1, min(col2), max(col2) from T3 group by col1, col3;
       - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL2) AS _0, max_l(_._0.COL2) AS _1) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._0 AS COL1, _._1._0 AS _1, _._1._1 AS _2)"
       - result: []
+    -
+      - query: select col1 as "a", col1 as "b", sum(col2) as "a1", sum(col2) as "b1" from T2 group by col1;
+      - explain: "AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS a, _._0 AS b, _._1 AS a1, _._1 AS b1)"
+      - result: [{'a':!l 1, 'b':!l 1, 'a1':!l 17, 'b1':!l 17}, {'a':!l 2, 'b':!l 2, 'a1':!l 160, 'b1':!l 160}]
 ...

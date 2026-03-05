@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan;
 
-import com.apple.foundationdb.record.query.plan.cascades.debug.StatsMaps;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsMaps;
 
 /**
  * Container for {@link QueryPlanInfo.QueryPlanInfoKey} static instances used in the planner.
@@ -32,7 +32,7 @@ public class QueryPlanInfoKeys {
             new QueryPlanInfo.QueryPlanInfoKey<>("maxTaskQueueSize");
     public static final QueryPlanInfo.QueryPlanInfoKey<QueryPlanConstraint> CONSTRAINTS =
             new QueryPlanInfo.QueryPlanInfoKey<>("constraints");
-    public static final QueryPlanInfo.QueryPlanInfoKey<StatsMaps> STATS_MAPS =
+    public static final QueryPlanInfo.QueryPlanInfoKey<PlannerEventStatsMaps> STATS_MAPS =
             new QueryPlanInfo.QueryPlanInfoKey<>("statsMaps");
 
     private QueryPlanInfoKeys() {

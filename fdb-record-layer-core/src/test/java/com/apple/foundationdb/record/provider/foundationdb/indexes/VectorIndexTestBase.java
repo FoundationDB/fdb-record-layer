@@ -21,12 +21,14 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.hnsw.NodeReference;
 import com.apple.foundationdb.async.hnsw.NodeReferenceWithDistance;
 import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.Index;
@@ -35,13 +37,23 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
+import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
@@ -54,9 +66,13 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -133,29 +149,29 @@ public class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         return new HalfRealVector(componentData);
     }
 
-    protected List<FDBStoredRecord<Message>> saveRecords(final boolean useAsync,
-                                                         @Nonnull final RecordMetaDataHook hook,
-                                                         @Nonnull final Random random,
-                                                         final int numSamples) throws Exception {
-        return saveRecords(useAsync, hook, random, numSamples, 0.0d);
+    protected List<FDBStoredRecord<Message>> saveRandomRecords(final boolean useAsync,
+                                                               @Nonnull final RecordMetaDataHook hook,
+                                                               @Nonnull final Random random,
+                                                               final int numRecords) throws Exception {
+        return saveRandomRecords(useAsync, hook, random, numRecords, 0.0d);
     }
 
-    protected List<FDBStoredRecord<Message>> saveRecords(final boolean useAsync,
-                                                         @Nonnull final RecordMetaDataHook hook,
-                                                         @Nonnull final Random random,
-                                                         final int numSamples,
-                                                         final double nullProbability) throws Exception {
+    protected List<FDBStoredRecord<Message>> saveRandomRecords(final boolean useAsync,
+                                                               @Nonnull final RecordMetaDataHook hook,
+                                                               @Nonnull final Random random,
+                                                               final int numRecords,
+                                                               final double nullProbability) throws Exception {
         final var recordGenerator = getRecordGenerator(random, nullProbability);
         if (useAsync) {
-            return asyncBatch(hook, numSamples, 100,
+            return asyncBatch(hook, numRecords, 100,
                     recNo -> recordStore.saveRecordAsync(recordGenerator.apply(recNo)));
         } else {
-            return batch(hook, numSamples, 100,
+            return batch(hook, numRecords, 100,
                     recNo -> recordStore.saveRecord(recordGenerator.apply(recNo)));
         }
     }
 
-    private <M extends Message> List<FDBStoredRecord<M>> batch(final RecordMetaDataHook hook, final int numRecords,
+    protected  <M extends Message> List<FDBStoredRecord<M>> batch(final RecordMetaDataHook hook, final int numRecords,
                                                                final int batchSize,
                                                                Function<Long, FDBStoredRecord<M>> recordConsumer) throws Exception {
         final List<FDBStoredRecord<M>> records = Lists.newArrayList();
@@ -200,6 +216,30 @@ public class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         return records;
     }
 
+    @Nonnull
+    protected static Map<Integer, Set<Long>> trueTopK(@Nonnull final Map<Integer, List<Long>> sortedByDistances,
+                                                      final int k) {
+        return sortedByDistances.entrySet()
+                .stream()
+                .collect(Collectors.toMap(Map.Entry::getKey,
+                        entry ->
+                                entry.getValue()
+                                        .stream()
+                                        .limit(k)
+                                        .collect(ImmutableSet.toImmutableSet())));
+    }
+
+    @Nonnull
+    protected static Map<Integer, List<Long>> groupAndSortByDistances(@Nonnull final List<FDBStoredRecord<Message>> savedRecords,
+                                                                      @Nonnull final HalfRealVector queryVector) {
+        return sortByDistances(savedRecords, queryVector, Metric.EUCLIDEAN_METRIC)
+                .stream()
+                .map(NodeReference::getPrimaryKey)
+                .map(primaryKey -> primaryKey.getLong(0))
+                .collect(Collectors.groupingBy(nodeId -> Math.toIntExact(nodeId) % 2, Collectors.toList()));
+    }
+
+    @Nonnull
     protected static <M extends Message> List<NodeReferenceWithDistance>
               sortByDistances(@Nonnull final List<FDBStoredRecord<M>> storedRecords,
                               @Nonnull final RealVector queryVector,
@@ -215,6 +255,34 @@ public class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
                 })
                 .sorted(Comparator.comparing(NodeReferenceWithDistance::getDistance))
                 .collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
+    protected static RecordQueryIndexPlan createIndexPlan(@Nonnull final HalfRealVector queryVector, final int k,
+                                                        @Nonnull final String indexName) {
+        final VectorIndexScanComparisons vectorIndexScanComparisons =
+                createVectorIndexScanComparisons(queryVector, k, VectorIndexScanOptions.empty());
+
+        final Type.Record baseRecordType =
+                Type.Record.fromFieldDescriptorsMap(
+                        Type.Record.toFieldDescriptorMap(VectorRecord.getDescriptor().getFields()));
+
+        return new RecordQueryIndexPlan(indexName, field("recNo"),
+                vectorIndexScanComparisons, IndexFetchMethod.SCAN_AND_FETCH,
+                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY, false, false,
+                Optional.empty(), baseRecordType, QueryPlanConstraint.noConstraint());
+    }
+
+    @Nonnull
+    protected static VectorIndexScanComparisons createVectorIndexScanComparisons(@Nonnull final HalfRealVector queryVector, final int k,
+                                                                               @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
+        final Comparisons.DistanceRankValueComparison distanceRankComparison =
+                new Comparisons.DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
+                        new LiteralValue<>(Type.Vector.of(false, 16, 128), queryVector),
+                        new LiteralValue<>(k), null, null);
+
+        return VectorIndexScanComparisons.byDistance(ScanComparisons.EMPTY,
+                distanceRankComparison, vectorIndexScanOptions);
     }
 
     protected static void logRecord(final long recNo, @Nonnull final ByteString vectorData) {

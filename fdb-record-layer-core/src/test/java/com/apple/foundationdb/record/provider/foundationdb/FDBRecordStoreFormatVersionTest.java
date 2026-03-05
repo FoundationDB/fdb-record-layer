@@ -24,13 +24,13 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.test.Tags;
-import com.google.common.base.Charsets;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.nio.charset.StandardCharsets;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -97,7 +97,7 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             recordStore = storeBuilder.setContext(context).open();
             RecordCoreException err = assertThrows(RecordCoreException.class,
-                    () -> recordStore.setHeaderUserField("foo", "bar".getBytes(Charsets.UTF_8)));
+                    () -> recordStore.setHeaderUserField("foo", "bar".getBytes(StandardCharsets.UTF_8)));
             assertEquals(expectedErrMsg, err.getMessage());
             commit(context);
         }
@@ -115,7 +115,7 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
             recordStore = storeBuilder.setFormatVersion(FormatVersion.HEADER_USER_FIELDS)
                     .setContext(context).open();
             assertEquals(FormatVersion.HEADER_USER_FIELDS, recordStore.getFormatVersionEnum());
-            recordStore.setHeaderUserField("foo", "bar".getBytes(Charsets.UTF_8));
+            recordStore.setHeaderUserField("foo", "bar".getBytes(StandardCharsets.UTF_8));
             String val = recordStore.getHeaderUserField("foo").toStringUtf8();
             assertEquals("bar", val);
             recordStore.clearHeaderUserField("foo");

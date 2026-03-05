@@ -2,7 +2,30 @@ Diagram(
     Stack(
         Optional(Sequence(Terminal('WITH'), NonTerminal('withClause'))),
         Sequence(Terminal('SELECT'), NonTerminal('selectClause')),
-        Optional(Sequence(Terminal('FROM'), NonTerminal('fromClause'))),
+        Optional(
+            Sequence(
+                Terminal('FROM'),
+                NonTerminal('source'),
+                Optional(
+                    Sequence(
+                        Terminal('INNER JOIN'),
+                        NonTerminal('source'),
+                        Choice(0,
+                            Sequence(
+                                Terminal('ON'),
+                                NonTerminal('joinCondition')
+                            ),
+                            Sequence(
+                                Terminal('USING'),
+                                Terminal('('),
+                                NonTerminal('column(s)'),
+                                Terminal(')')
+                            )
+                        )
+                    )
+                )
+            )
+        ),
         Optional(Sequence(Terminal('WHERE'), NonTerminal('whereClause'))),
         Optional(
             Sequence(

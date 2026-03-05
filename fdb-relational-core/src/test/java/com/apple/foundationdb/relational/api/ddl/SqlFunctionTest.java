@@ -51,7 +51,7 @@ import static com.apple.foundationdb.relational.matchers.SchemaTemplateMatchers.
 import static com.apple.foundationdb.relational.matchers.SchemaTemplateMatchers.routine;
 import static com.apple.foundationdb.relational.utils.RelationalAssertions.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
+import static org.junit.jupiter.params.ParameterizedInvocationConstants.ARGUMENTS_PLACEHOLDER;
 
 /**
  * Contains a number of tests for creating SQL functions.

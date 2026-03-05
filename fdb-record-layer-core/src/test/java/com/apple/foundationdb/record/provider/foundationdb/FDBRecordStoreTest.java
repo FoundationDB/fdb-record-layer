@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
-import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
@@ -46,6 +45,7 @@ import com.apple.foundationdb.record.TestRecordsDuplicateUnionFields;
 import com.apple.foundationdb.record.TestRecordsImportProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -61,7 +61,6 @@ import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
-import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
@@ -76,6 +75,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -744,7 +744,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             assertNull(recordStore.getHeaderUserField("foo"));
-            recordStore.setHeaderUserField("foo", "bar".getBytes(Charsets.UTF_8));
+            recordStore.setHeaderUserField("foo", "bar".getBytes(StandardCharsets.UTF_8));
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
@@ -754,7 +754,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertEquals(1, storeHeader.getUserFieldCount());
 
             // Validate that one can overwrite an existing value
-            recordStore.setHeaderUserField("foo", "µs".getBytes(Charsets.UTF_8));
+            recordStore.setHeaderUserField("foo", "µs".getBytes(StandardCharsets.UTF_8));
             storeHeader = recordStore.getRecordStoreState().getStoreHeader();
             assertEquals(1, storeHeader.getUserFieldCount());
 

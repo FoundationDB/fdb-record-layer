@@ -20,23 +20,38 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.MetaDataValidator;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
+import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.ddl.DdlTestUtil.IndexedColumn;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
@@ -46,7 +61,9 @@ import com.apple.foundationdb.relational.utils.PermutationIterator;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -55,6 +72,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -65,7 +83,10 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -78,6 +99,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
  * that the underlying execution is correct, only that the language is parsed as expected.
  */
 public class DdlStatementParsingTest {
+
     @RegisterExtension
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
@@ -101,17 +123,22 @@ public class DdlStatementParsingTest {
         Utils.enableCascadesDebugger();
     }
 
-    private static final String[] validPrimitiveDataTypes = new String[]{
+    private static final String[] validPrimitiveDataTypes = new String[] {
             "integer", "bigint", "double", "boolean", "string", "bytes", "vector(3, float)", "vector(4, double)", "vector(5, half)"
     };
 
     @Nonnull
-    public static Stream<Arguments> columnTypePermutations() {
+    static Stream<List<String>> columnTypePermutations() {
         int numColumns = 2;
         final List<String> items = List.of(validPrimitiveDataTypes);
 
-        final PermutationIterator<String> permutations = PermutationIterator.generatePermutations(items, numColumns);
-        return permutations.stream().map(Arguments::of);
+        return PermutationIterator.generatePermutations(items, numColumns).stream();
+    }
+
+    @Nonnull
+    static Stream<Arguments> indexSyntaxAndColumnTypes() {
+        return columnTypePermutations().flatMap(permutation -> Arrays.stream(DdlTestUtil.IndexSyntax.values())
+                .map(syntax -> Arguments.of(syntax, permutation)));
     }
 
     void shouldFailWith(@Nonnull final String query, @Nullable final ErrorCode errorCode) throws Exception {
@@ -180,29 +207,32 @@ public class DdlStatementParsingTest {
     @Nonnull
     private static DescriptorProtos.FileDescriptorProto getProtoDescriptor(@Nonnull final SchemaTemplate schemaTemplate) {
         Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, schemaTemplate);
-        final var asRecordLayerSchemaTemplate = (RecordLayerSchemaTemplate) schemaTemplate;
+        final var asRecordLayerSchemaTemplate = (RecordLayerSchemaTemplate)schemaTemplate;
         return asRecordLayerSchemaTemplate.toRecordMetadata().toProto().getRecords();
     }
 
-    @Test
-    void indexFailsWithNonExistingTable() throws Exception {
+    @EnumSource(DdlTestUtil.IndexSyntax.class)
+    @ParameterizedTest
+    void indexFailsWithNonExistingTable(DdlTestUtil.IndexSyntax indexSyntax) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE INDEX t_idx as select a from foo";
+                DdlTestUtil.generateIndexDdlStatement(indexSyntax, "t_idx", List.of(new IndexedColumn("a")), List.of(), "foo");
         shouldFailWith(stmt, ErrorCode.INVALID_SCHEMA_TEMPLATE);
     }
 
-    @Test
-    void indexFailsWithNonExistingIndexColumn() throws Exception {
+    @EnumSource(DdlTestUtil.IndexSyntax.class)
+    @ParameterizedTest
+    void indexFailsWithNonExistingIndexColumn(DdlTestUtil.IndexSyntax indexSyntax) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TABLE foo(a bigint, PRIMARY KEY(a))" +
-                " CREATE INDEX t_idx as select non_existing from foo";
+                "CREATE TABLE foo(a bigint, PRIMARY KEY(a)) " +
+                DdlTestUtil.generateIndexDdlStatement(indexSyntax, "t_idx", List.of(new IndexedColumn("non_existing")), List.of(), "foo");
         shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN);
     }
 
-    @Test
-    void indexFailsWithReservedKeywordAsName() throws Exception {
+    @EnumSource(DdlTestUtil.IndexSyntax.class)
+    @ParameterizedTest
+    void indexFailsWithReservedKeywordAsName(DdlTestUtil.IndexSyntax indexSyntax) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE INDEX table as select a from foo";
+                DdlTestUtil.generateIndexDdlStatement(indexSyntax, "table", List.of(new IndexedColumn("a")), List.of(), "foo");
         shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR);
     }
 
@@ -233,7 +263,7 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
-                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "should have only 1 table");
+                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate)template).getTables().size(), "should have only 1 table");
                 DescriptorProtos.FileDescriptorProto fileDescriptorProto = getProtoDescriptor(template);
                 Assertions.assertEquals(1, fileDescriptorProto.getEnumTypeCount(), "should have one enum defined");
                 fileDescriptorProto.getEnumTypeList().forEach(enumDescriptorProto -> {
@@ -302,19 +332,30 @@ public class DdlStatementParsingTest {
         }
     }
 
+    @Test
+    void versionColumnTypeNotSupported() throws Exception {
+        // The Relational Type hierarchy supports fields with type "version", and it's the type associated with the
+        // built-in pseudo-field "__ROW_VERSION" if store_row_versions is enabled. This test validates that we can't
+        // create a column with this version type. If we did, we'd have to worry a little bit about the user creating
+        // a column that is called "__ROW_VERSION" and has type version, which would be indistinguishable from the
+        // pseudo-field.
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE bar (id bigint, foo_field version, PRIMARY KEY(id))";
+        shouldFailWith(stmt, ErrorCode.UNKNOWN_TYPE);
+    }
 
     @Test
     void failsToParseEmptyTemplateStatements() throws Exception {
         //empty template statements are invalid, and can be rejected in the parser
         final String stmt = "CREATE SCHEMA TEMPLATE test_template ";
-        boolean[] visited = new boolean[]{false};
+        boolean[] visited = new boolean[] {false};
         shouldFailWithInjectedFactory(stmt, ErrorCode.SYNTAX_ERROR, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
-                Assertions.assertEquals(0, ((RecordLayerSchemaTemplate) template).getTables().size(), "Tables defined!");
+                Assertions.assertEquals(0, ((RecordLayerSchemaTemplate)template).getTables().size(), "Tables defined!");
                 visited[0] = true;
                 return txn -> {
                 };
@@ -333,6 +374,133 @@ public class DdlStatementParsingTest {
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
                 Assertions.fail("Should fail during parsing!");
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    /**
+     * Validate that Protobuf escaping on a schema template by looking at the produced meta-data.
+     * This works with the tests in {@code valid-identifiers.yamsql}, which validate actual query semantics
+     * on such a meta-data. This test allows us to validate which parts of the meta-data are actually
+     * translated (it should only be things that get turned into Protobuf identifiers, like message types,
+     * field names, and enum values) and which parts are preserved (like function, view, and index names).
+     *
+     * @throws Exception from generating the schema-template
+     */
+    @Test
+    void translateNames() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT \"a.b$c__struct\" (\"___a$\" bigint, \"_b.x\" string, \"c__\" bigint)  " +
+                "CREATE TYPE AS ENUM \"a.b$c__enum\" ('___A$', '_B.X', 'C__')  " +
+                "CREATE TABLE \"__4a.b$c__table\"(\"__h__s\" \"a.b$c__struct\", \"_x.y\" bigint, \"enum.field\" \"a.b$c__enum\", primary key (\"__h__s\".\"_b.x\")) " +
+                "CREATE INDEX \"a.b$c__index\" AS SELECT \"_x.y\", \"__h__s\".\"___a$\", \"__h__s\".\"c__\" FROM \"__4a.b$c__table\" ORDER BY \"_x.y\", \"__h__s\".\"___a$\" " +
+                "CREATE VIEW \"a.b$c__view\" AS SELECT \"__h__s\".\"___a$\" AS \"f__00\" FROM \"__4a.b$c__table\" WHERE \"_x.y\" > 4 " +
+                "CREATE FUNCTION \"a.b$c__function\"(in \"__param__int\" bigint, in \"__param__enum\" TYPE \"a.b$c__enum\") " +
+                "  AS SELECT \"__h__s\".\"___a$\" AS \"f__00\" FROM \"__4a.b$c__table\" WHERE \"_x.y\" > \"__param__int\" AND \"enum.field\" = \"__param__enum\" " +
+                "CREATE FUNCTION \"a.b$c__macro_function\"(in \"__in__4a.b$c__table\" TYPE \"__4a.b$c__table\") RETURNS string AS \"__in__4a.b$c__table\".\"__h__s\".\"_b.x\" ";
+
+        shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template, @Nonnull final Options templateProperties) {
+                try {
+                    // Assert all the user-visible names look like the user identifiers in the schema
+
+                    Set<? extends Table> tables = template.getTables();
+                    Assertions.assertEquals(1, tables.size(), () -> "tables " + tables + " should have only one element");
+
+                    final Table table = Iterables.getOnlyElement(tables);
+                    Assertions.assertEquals("__4a.b$c__table", table.getName());
+
+                    final DataType.StructType structType = DataType.StructType.from("a.b$c__struct", List.of(
+                            DataType.StructType.Field.from("___a$", DataType.LongType.nullable(), 1),
+                            DataType.StructType.Field.from("_b.x", DataType.StringType.nullable(), 2),
+                            DataType.StructType.Field.from("c__", DataType.LongType.nullable(), 3)
+                    ), true);
+                    final DataType.EnumType enumType = DataType.EnumType.from("a.b$c__enum", List.of(
+                            DataType.EnumType.EnumValue.of("___A$", 0),
+                            DataType.EnumType.EnumValue.of("_B.X", 1),
+                            DataType.EnumType.EnumValue.of("C__", 2)
+                    ), true);
+                    Assertions.assertEquals(List.of(
+                            RecordLayerColumn.newBuilder().setName("__h__s").setDataType(structType).setIndex(1).build(),
+                            RecordLayerColumn.newBuilder().setName("_x.y").setDataType(DataType.LongType.nullable()).setIndex(2).build(),
+                            RecordLayerColumn.newBuilder().setName("enum.field").setDataType(enumType).setIndex(3).build()
+                    ), table.getColumns());
+
+                    Set<? extends Index> indexes = table.getIndexes();
+                    Assertions.assertEquals(1, indexes.size(), () -> "indexes " + indexes + " for table " + table.getName() + " should have only one element");
+                    Index index = Iterables.getOnlyElement(indexes);
+                    Assertions.assertEquals("a.b$c__index", index.getName());
+                    Assertions.assertEquals("__4a.b$c__table", index.getTableName());
+
+                    Set<? extends View> views = template.getViews();
+                    Assertions.assertEquals(1, views.size(), () -> "views " + views + " should have only one element");
+                    View view = Iterables.getOnlyElement(views);
+                    Assertions.assertEquals("a.b$c__view", view.getName());
+
+                    template.findInvokedRoutineByName("a.b$c__function")
+                            .orElseGet(() -> Assertions.fail("could not find function a.b$c__function"));
+                    template.findInvokedRoutineByName("a.b$c__macro_function")
+                            .orElseGet(() -> Assertions.fail("could not find function a.b$c__macro_function"));
+
+                    // Assert all the internal fields are using escaped protobuf identifiers
+
+                    Assertions.assertInstanceOf(RecordLayerTable.class, table);
+                    final RecordLayerTable recordLayerTable = (RecordLayerTable) table;
+                    Assertions.assertEquals(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("__h__0s").nest("_b__2x")), recordLayerTable.getPrimaryKey());
+
+                    Assertions.assertInstanceOf(RecordLayerIndex.class, index);
+                    final RecordLayerIndex recordLayerIndex = (RecordLayerIndex) index;
+                    Assertions.assertEquals(Key.Expressions.keyWithValue(Key.Expressions.concat(
+                                    Key.Expressions.field("_x__2y"),
+                                    Key.Expressions.field("__h__0s").nest(
+                                            Key.Expressions.concatenateFields("___a__1", "c__0")
+                                    )
+                            ), 2),
+                            recordLayerIndex.getKeyExpression());
+
+                    Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
+                    final RecordLayerSchemaTemplate recordLayerSchemaTemplate = (RecordLayerSchemaTemplate) template;
+                    final RecordMetaData metaData = recordLayerSchemaTemplate.toRecordMetadata();
+
+                    Assertions.assertFalse(metaData.getRecordTypes().containsKey("__4a.b$c__table"), () -> "meta-data should not contain unescaped table name " + table.getName());
+                    Assertions.assertTrue(metaData.getRecordTypes().containsKey("__4a__2b__1c__0table"), () -> "meta-data should contain unescaped table name of " + table.getName());
+                    final RecordType recordType = metaData.getRecordType("__4a__2b__1c__0table");
+                    final Descriptors.Descriptor typeDescriptor = recordType.getDescriptor();
+                    Assertions.assertEquals("__4a__2b__1c__0table", typeDescriptor.getName());
+                    Assertions.assertEquals(List.of("__h__0s", "_x__2y", "enum__2field"), typeDescriptor.getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toList()));
+                    final Descriptors.Descriptor structDescriptor = typeDescriptor.findFieldByName("__h__0s").getMessageType();
+                    Assertions.assertEquals("a__2b__1c__0struct", structDescriptor.getName());
+                    Assertions.assertEquals(List.of("___a__1", "_b__2x", "c__0"), structDescriptor.getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toList()));
+                    final Descriptors.EnumDescriptor enumDescriptor = typeDescriptor.findFieldByName("enum__2field").getEnumType();
+                    Assertions.assertEquals("a__2b__1c__0enum", enumDescriptor.getName());
+                    Assertions.assertEquals(List.of("___A__1", "_B__2X", "C__0"), enumDescriptor.getValues().stream().map(Descriptors.EnumValueDescriptor::getName).collect(Collectors.toList()));
+
+                    var metaDataIndex = metaData.getIndex(index.getName());
+                    Assertions.assertEquals("a.b$c__index", metaDataIndex.getName()); // Index name is _not_ translated
+                    Assertions.assertEquals(recordLayerIndex.getKeyExpression(), metaDataIndex.getRootExpression()); // key expression is already validated as translated
+
+                    final Map<String, com.apple.foundationdb.record.metadata.View> viewMap = metaData.getViewMap();
+                    Assertions.assertTrue(viewMap.containsKey("a.b$c__view"), "should contain function a.b$c__view without escaping name");
+
+                    final Map<String, UserDefinedFunction> functionMap = metaData.getUserDefinedFunctionMap();
+                    Assertions.assertTrue(functionMap.containsKey("a.b$c__function"), "should contain function a.b$c__function without escaping name");
+                    final UserDefinedFunction sqlFunction = functionMap.get("a.b$c__function");
+                    Assertions.assertInstanceOf(RawSqlFunction.class, sqlFunction);
+                    Assertions.assertTrue(functionMap.containsKey("a.b$c__macro_function"), "should contain function a.b$c__macro_function without escaping name");
+                    final UserDefinedFunction macroFunction = functionMap.get("a.b$c__macro_function");
+                    Assertions.assertInstanceOf(UserDefinedMacroFunction.class, macroFunction);
+
+                    // Validates that referenced fields and types all line up
+                    final MetaDataValidator validator = new MetaDataValidator(metaData, IndexMaintainerFactoryRegistryImpl.instance());
+                    Assertions.assertDoesNotThrow(validator::validate, "Meta-data validation should complete successfully");
+                } catch (RelationalException e) {
+                    return Assertions.fail(e);
+                }
+
                 return txn -> {
                 };
             }
@@ -396,7 +564,7 @@ public class DdlStatementParsingTest {
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
-                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
+                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate)template).getTables().size(), "Incorrect number of tables");
                 return txn -> {
                 };
             }
@@ -421,6 +589,35 @@ public class DdlStatementParsingTest {
                 return txn -> {
                     try {
                         final DdlTestUtil.ParsedType type = schema.getType("foo");
+                        assertColumnsMatch(type, columns);
+                    } catch (Exception ve) {
+                        throw ExceptionUtil.toRelationalException(ve);
+                    }
+                };
+            }
+        });
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypePermutations")
+    void createSchemaTemplatesWithRowVersions(List<String> columns) throws Exception {
+        final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                " CREATE TYPE AS STRUCT foo " + makeColumnDefinition(columns, false) +
+                " CREATE TABLE bar (col0 bigint, col1 foo, PRIMARY KEY(col0)) " +
+                " WITH OPTIONS(store_row_versions=true) ";
+        shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
+                DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
+                Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
+                Assertions.assertTrue(template.isStoreRowVersions(), "Schema template should store row versions");
+                return txn -> {
+                    try {
+                        final DdlTestUtil.ParsedType type = schema.getType("foo");
+                        Assertions.assertFalse(type.getColumnStrings().contains("__ROW_VERSION"), "__ROW_VERSION column should not be in table definition");
                         assertColumnsMatch(type, columns);
                     } catch (Exception ve) {
                         throw ExceptionUtil.toRelationalException(ve);
@@ -458,13 +655,13 @@ public class DdlStatementParsingTest {
     }
 
     @ParameterizedTest
-    @MethodSource("columnTypePermutations")
-    void createSchemaTemplateWithDuplicateIndexesFails(List<String> columns) throws Exception {
+    @MethodSource("indexSyntaxAndColumnTypes")
+    void createSchemaTemplateWithDuplicateIndexesFails(DdlTestUtil.IndexSyntax indexSyntax, List<String> columns) throws Exception {
         final String baseTableDef = makeColumnDefinition(columns, true);
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE FOO " + baseTableDef +
-                " CREATE INDEX foo_idx as select col0 from foo order by col0" +
-                " CREATE INDEX foo_idx as select col1 from foo order by col1"; //duplicate with the same name  on same table should fail
+                DdlTestUtil.generateIndexDdlStatement(indexSyntax, "foo_idx", List.of(new IndexedColumn("col0")), List.of(), "foo") +
+                DdlTestUtil.generateIndexDdlStatement(indexSyntax, "foo_idx", List.of(new IndexedColumn("col1")), List.of(), "foo"); //duplicate with the same name  on same table should fail
 
         shouldFailWithInjectedFactory(columnStatement, ErrorCode.INDEX_ALREADY_EXISTS, new AbstractMetadataOperationsFactory() {
             @Nonnull
@@ -479,13 +676,13 @@ public class DdlStatementParsingTest {
     }
 
     @ParameterizedTest
-    @MethodSource("columnTypePermutations")
-    void createSchemaTemplateWithIndex(List<String> columns) throws Exception {
-        final String indexColumns = String.join(",", chooseIndexColumns(columns, n -> n % 2 == 0));
+    @MethodSource("indexSyntaxAndColumnTypes")
+    void createSchemaTemplateWithIndex(DdlTestUtil.IndexSyntax indexSyntax, List<String> columns) throws Exception {
+        final List<String> indexColumns = chooseIndexColumns(columns, n -> n % 2 == 0);
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template  " +
                 "CREATE TYPE AS STRUCT foo " + makeColumnDefinition(columns, false) +
                 "CREATE TABLE tbl " + makeColumnDefinition(columns, true) +
-                "CREATE INDEX v_idx as select " + indexColumns + " from tbl order by " + indexColumns;
+                DdlTestUtil.generateIndexDdlStatement(indexSyntax, "v_idx", indexColumns.stream().map(IndexedColumn::new).collect(Collectors.toList()), List.of(), "tbl");
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
@@ -493,13 +690,13 @@ public class DdlStatementParsingTest {
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
-                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
-                Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
+                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate)template).getTables().size(), "Incorrect number of tables");
+                Table info = ((RecordLayerSchemaTemplate)template).getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
                 final Index index = Assert.optionalUnchecked(info.getIndexes().stream().findFirst());
                 Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
 
-                final var actualKe = ((RecordLayerIndex) index).getKeyExpression().toKeyExpression();
+                final var actualKe = ((RecordLayerIndex)index).getKeyExpression().toKeyExpression();
                 List<RecordKeyExpressionProto.KeyExpression> keys = null;
                 if (actualKe.hasThen()) {
                     keys = new ArrayList<>(actualKe.getThen().getChildList());
@@ -525,27 +722,27 @@ public class DdlStatementParsingTest {
     }
 
     @ParameterizedTest
-    @MethodSource("columnTypePermutations")
-    void createSchemaTemplateWithIndexAndInclude(List<String> columns) throws Exception {
+    @MethodSource("indexSyntaxAndColumnTypes")
+    void createSchemaTemplateWithIndexAndInclude(DdlTestUtil.IndexSyntax indexSyntax, List<String> columns) throws Exception {
         Assumptions.assumeTrue(columns.size() > 1); //the test only works with multiple columns
         final List<String> indexedColumns = chooseIndexColumns(columns, n -> n % 2 == 0); //choose every other column
         final List<String> unindexedColumns = chooseIndexColumns(columns, n -> n % 2 != 0);
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 " CREATE TYPE AS STRUCT foo " + makeColumnDefinition(columns, false) +
                 " CREATE TABLE tbl " + makeColumnDefinition(columns, true) +
-                " CREATE INDEX v_idx as select " + Stream.concat(indexedColumns.stream(), unindexedColumns.stream()).collect(Collectors.joining(",")) + " from tbl order by " + String.join(",", indexedColumns);
+                DdlTestUtil.generateIndexDdlStatement(indexSyntax, "v_idx", indexedColumns.stream().map(IndexedColumn::new).collect(Collectors.toList()), unindexedColumns, "tbl");
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                       @Nonnull Options templateProperties) {
-                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
-                Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
+                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate)template).getTables().size(), "Incorrect number of tables");
+                Table info = ((RecordLayerSchemaTemplate)template).getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
                 final Index index = Assert.optionalUnchecked(info.getIndexes().stream().findFirst());
                 Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
 
-                RecordKeyExpressionProto.KeyExpression actualKe = ((RecordLayerIndex) index).getKeyExpression().toKeyExpression();
+                RecordKeyExpressionProto.KeyExpression actualKe = ((RecordLayerIndex)index).getKeyExpression().toKeyExpression();
                 Assertions.assertNotNull(actualKe.getKeyWithValue(), "Null KeyExpression for included columns!");
                 final RecordKeyExpressionProto.KeyWithValue keyWithValue = actualKe.getKeyWithValue();
 
@@ -604,7 +801,7 @@ public class DdlStatementParsingTest {
     @Test
     void dropSchemaTemplates() throws Exception {
         final String columnStatement = "DROP SCHEMA TEMPLATE test_template";
-        boolean[] called = new boolean[]{false};
+        boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
@@ -750,7 +947,7 @@ public class DdlStatementParsingTest {
     void listDatabasesWithoutPrefixParsesCorrectly() throws Exception {
         final String command = "SHOW DATABASES";
 
-        boolean[] called = new boolean[]{false};
+        boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedQueryFactory(command, new AbstractQueryFactory() {
             @Override
             public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
@@ -768,7 +965,7 @@ public class DdlStatementParsingTest {
     void listDatabasesWithPrefixParsesCorrectly() throws Exception {
         final String command = "SHOW DATABASES WITH PREFIX /prefix";
 
-        boolean[] called = new boolean[]{false};
+        boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedQueryFactory(command, new AbstractQueryFactory() {
 
             @Override
@@ -787,7 +984,7 @@ public class DdlStatementParsingTest {
     void listSchemaTemplatesParsesProperly() throws Exception {
         final String command = "SHOW SCHEMA TEMPLATES";
 
-        boolean[] called = new boolean[]{false};
+        boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedQueryFactory(command, new AbstractQueryFactory() {
             @Override
             public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
@@ -821,7 +1018,7 @@ public class DdlStatementParsingTest {
     void describeSchemaTemplate() throws Exception {
         final String templateName = "TEST_TEMPLATE";
 
-        boolean[] called = new boolean[]{false};
+        boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedQueryFactory("DESCRIBE SCHEMA TEMPLATE " + templateName, new AbstractQueryFactory() {
             @Override
             public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
@@ -864,7 +1061,7 @@ public class DdlStatementParsingTest {
     void describeSchemaSucceedsWithoutDatabase() throws Exception { // because parser falls back to connection's database.
         final String templateName = "TEST_TEMPLATE";
 
-        boolean[] called = new boolean[]{false};
+        boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedQueryFactory("DESCRIBE SCHEMA " + templateName, new AbstractQueryFactory() {
             @Override
             public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbUri, @Nonnull String schemaId) {
@@ -882,7 +1079,7 @@ public class DdlStatementParsingTest {
     void describeSchemaPathSucceeds() throws Exception {
         final String templateName = "TEST_TEMPLATE";
 
-        boolean[] called = new boolean[]{false};
+        boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedQueryFactory("DESCRIBE SCHEMA " + "/test_db/" + templateName, new AbstractQueryFactory() {
             @Override
             public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbUri, @Nonnull String schemaId) {
@@ -900,7 +1097,7 @@ public class DdlStatementParsingTest {
     void describeSchemaWithSetDatabaseSucceeds() throws Exception {
         final String templateName = "TEST_TEMPLATE";
 
-        boolean[] called = new boolean[]{false};
+        boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedQueryFactory("DESCRIBE SCHEMA " + templateName, new AbstractQueryFactory() {
             @Override
             public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbUri, @Nonnull String schemaId) {
@@ -918,7 +1115,7 @@ public class DdlStatementParsingTest {
     void createSchemaWithPath() throws Exception {
         final String templateName = "test_template";
 
-        boolean[] called = new boolean[]{false};
+        boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedFactory("CREATE SCHEMA /test_db/" + templateName + " WITH TEMPLATE " + templateName, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
@@ -1126,9 +1323,9 @@ public class DdlStatementParsingTest {
         final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
                 "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) " +
                 "CREATE FUNCTION F1 (IN A BIGINT) AS SELECT id, baz_field, foo_field FROM bar WHERE id > A " +
-                "CREATE VIEW v AS WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM F1(20)) SELECT * FROM C2) SELECT * FROM C1 " +
-                "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) ";
+                "CREATE VIEW v AS WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM F1(20)) SELECT * FROM C2) SELECT * FROM C1 ";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
@@ -1180,6 +1377,247 @@ public class DdlStatementParsingTest {
                 final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
                 assertThat(viewMaybe).isPresent();
                 assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("SELECT * FROM bar");
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createIndexOnBasicSyntax() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, a bigint, b bigint, c bigint, PRIMARY KEY(id)) " +
+                "CREATE INDEX i1 on bar(a, b) include (c)";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("bar"));
+                assertThat(tableMaybe).isPresent();
+                final var table = Assert.optionalUnchecked(tableMaybe);
+                assertThat(table.getIndexes().size()).isEqualTo(1);
+                final var index = Assert.optionalUnchecked(table.getIndexes().stream().findFirst());
+                assertThat(index.getName()).isEqualTo("i1");
+                assertThat(index.getIndexType()).isEqualTo(IndexTypes.VALUE);
+                assertThat(index).isInstanceOf(RecordLayerIndex.class);
+                final var recordLayerIndex = Assert.castUnchecked(index, RecordLayerIndex.class);
+                assertThat(recordLayerIndex.getKeyExpression()).isEqualTo(Key.Expressions.keyWithValue(
+                        Key.Expressions.concat(Key.Expressions.field("a"), Key.Expressions.field("b"), Key.Expressions.field("c")), 2));
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createIndexOnPredicatedView() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, a bigint, b bigint, c bigint, PRIMARY KEY(id)) " +
+                "CREATE VIEW v1 AS SELECT b, c FROM bar WHERE a < 100 " +
+                "CREATE INDEX i1 on v1(b, c)";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("bar"));
+                assertThat(tableMaybe).isPresent();
+                final var table = Assert.optionalUnchecked(tableMaybe);
+                assertThat(table.getIndexes().size()).isEqualTo(1);
+                final var index = Assert.optionalUnchecked(table.getIndexes().stream().findFirst());
+                assertThat(index.getName()).isEqualTo("i1");
+                assertThat(index.getIndexType()).isEqualTo(IndexTypes.VALUE);
+                assertThat(index).isInstanceOf(RecordLayerIndex.class);
+                final var recordLayerIndex = Assert.castUnchecked(index, RecordLayerIndex.class);
+                assertThat(recordLayerIndex.getKeyExpression()).isEqualTo(
+                        Key.Expressions.concat(Key.Expressions.field("b"), Key.Expressions.field("c")));
+                assertThat(recordLayerIndex.getPredicate()).isNotNull();
+                final var predicate = Assert.notNullUnchecked(recordLayerIndex.getPredicate());
+                final var expectedPredicateProto = RecordMetaDataProto.Predicate.newBuilder()
+                        .setValuePredicate(RecordMetaDataProto.ValuePredicate.newBuilder().addValue("a")
+                                .setComparison(RecordMetaDataProto.Comparison.newBuilder()
+                                        .setSimpleComparison(RecordMetaDataProto.SimpleComparison.newBuilder()
+                                                .setType(RecordMetaDataProto.ComparisonType.LESS_THAN)
+                                                .setOperand(RecordKeyExpressionProto.Value.newBuilder().setLongValue(100L).build())
+                                                .build())
+                                        .build())
+                                .build())
+                        .build();
+                assertThat(predicate).isEqualTo(expectedPredicateProto);
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createVectorIndex() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, a bigint, b bigint, c bigint, PRIMARY KEY(id)) " +
+                "CREATE VIEW v1 AS SELECT b, c FROM bar WHERE a < 100 " +
+                "CREATE INDEX i1 on v1(b, c)";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("bar"));
+                assertThat(tableMaybe).isPresent();
+                final var table = Assert.optionalUnchecked(tableMaybe);
+                assertThat(table.getIndexes().size()).isEqualTo(1);
+                final var index = Assert.optionalUnchecked(table.getIndexes().stream().findFirst());
+                assertThat(index.getName()).isEqualTo("i1");
+                assertThat(index.getIndexType()).isEqualTo(IndexTypes.VALUE);
+                assertThat(index).isInstanceOf(RecordLayerIndex.class);
+                final var recordLayerIndex = Assert.castUnchecked(index, RecordLayerIndex.class);
+                assertThat(recordLayerIndex.getKeyExpression()).isEqualTo(
+                        Key.Expressions.concat(Key.Expressions.field("b"), Key.Expressions.field("c")));
+                assertThat(recordLayerIndex.getPredicate()).isNotNull();
+                final var predicate = Assert.notNullUnchecked(recordLayerIndex.getPredicate());
+                final var expectedPredicateProto = RecordMetaDataProto.Predicate.newBuilder()
+                        .setValuePredicate(RecordMetaDataProto.ValuePredicate.newBuilder().addValue("a")
+                                .setComparison(RecordMetaDataProto.Comparison.newBuilder()
+                                        .setSimpleComparison(RecordMetaDataProto.SimpleComparison.newBuilder()
+                                                .setType(RecordMetaDataProto.ComparisonType.LESS_THAN)
+                                                .setOperand(RecordKeyExpressionProto.Value.newBuilder().setLongValue(100L).build())
+                                                .build())
+                                        .build())
+                                .build())
+                        .build();
+                assertThat(predicate).isEqualTo(expectedPredicateProto);
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createIndexOnBasicSyntaxComplex() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
+                "CREATE TYPE AS ENUM foo ('OPTION_1', 'OPTION_2') " +
+                "CREATE TABLE bar (id bigint, a bigint, b bigint, c bigint, PRIMARY KEY(id)) " +
+                "CREATE VIEW v1 AS SELECT * FROM (SELECT b as x, c as y FROM bar) as d " +
+                "CREATE INDEX i1 on v1(x desc nulls first, y asc nulls last)";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("bar"));
+                assertThat(tableMaybe).isPresent();
+                final var table = Assert.optionalUnchecked(tableMaybe);
+                assertThat(table.getIndexes().size()).isEqualTo(1);
+                final var index = Assert.optionalUnchecked(table.getIndexes().stream().findFirst());
+                assertThat(index.getIndexType()).isEqualTo(IndexTypes.VALUE);
+                assertThat(index.getName()).isEqualTo("i1");
+                assertThat(index).isInstanceOf(RecordLayerIndex.class);
+                final var recordLayerIndex = Assert.castUnchecked(index, RecordLayerIndex.class);
+                assertThat(recordLayerIndex.getKeyExpression()).isEqualTo(
+                        Key.Expressions.concat(Key.Expressions.function("order_desc_nulls_first", Key.Expressions.field("b")),
+                                Key.Expressions.function("order_asc_nulls_last", Key.Expressions.field("c"))));
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createIndexOnRepeated() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x bigint) " +
+                "CREATE TABLE T(p bigint, a A array, primary key(p)) " +
+                "CREATE VIEW mv1 AS SELECT SQ.x, t.p from T AS t, (select M.x from t.a AS M) SQ " +
+                "CREATE INDEX i1 on mv1(x, p)";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("T"));
+                assertThat(tableMaybe).isPresent();
+                final var table = Assert.optionalUnchecked(tableMaybe);
+                assertThat(table.getIndexes().size()).isEqualTo(1);
+                final var index = Assert.optionalUnchecked(table.getIndexes().stream().findFirst());
+                assertThat(index.getIndexType()).isEqualTo(IndexTypes.VALUE);
+                assertThat(index.getName()).isEqualTo("i1");
+                assertThat(index).isInstanceOf(RecordLayerIndex.class);
+                final var recordLayerIndex = Assert.castUnchecked(index, RecordLayerIndex.class);
+                assertThat(recordLayerIndex.getKeyExpression()).isEqualTo(
+                        Key.Expressions.concat(Key.Expressions.field("a", KeyExpression.FanType.None)
+                                .nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut).nest("x")), Key.Expressions.field("p")));
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Test
+    void createIndexOnRepeatedUsingMatViewSyntax() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x bigint) " +
+                "CREATE TABLE T(p bigint, a A array, primary key(p)) " +
+                "CREATE INDEX mv1 AS SELECT SQ.x, t.p from T AS t, (select M.x from t.a AS M) SQ order by SQ.x, t.p ";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("T"));
+                assertThat(tableMaybe).isPresent();
+                final var table = Assert.optionalUnchecked(tableMaybe);
+                assertThat(table.getIndexes().size()).isEqualTo(1);
+                final var index = Assert.optionalUnchecked(table.getIndexes().stream().findFirst());
+                assertThat(index.getIndexType()).isEqualTo(IndexTypes.VALUE);
+                assertThat(index.getName()).isEqualTo("mv1");
+                assertThat(index).isInstanceOf(RecordLayerIndex.class);
+                final var recordLayerIndex = Assert.castUnchecked(index, RecordLayerIndex.class);
+                assertThat(recordLayerIndex.getKeyExpression()).isEqualTo(
+                        Key.Expressions.concat(Key.Expressions.field("a", KeyExpression.FanType.None)
+                                .nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut).nest("x")), Key.Expressions.field("p")));
+                return txn -> {
+                };
+            }
+        });
+    }
+
+
+    @Test
+    void createIndexOnAggregate() throws Exception {
+        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, a bigint, b bigint, c bigint, primary key(p)) " +
+                "CREATE VIEW mv1 AS SELECT sum(c) as S, a, b from T group by a, b " +
+                "CREATE INDEX i1 on mv1(a, b) include (S)";
+
+        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
+                final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("T"));
+                assertThat(tableMaybe).isPresent();
+                final var table = Assert.optionalUnchecked(tableMaybe);
+                assertThat(table.getIndexes().size()).isEqualTo(1);
+                final var index = Assert.optionalUnchecked(table.getIndexes().stream().findFirst());
+                assertThat(index.getIndexType()).isEqualTo(IndexTypes.SUM);
+                assertThat(index.getName()).isEqualTo("i1");
+                assertThat(index).isInstanceOf(RecordLayerIndex.class);
+                final var recordLayerIndex = Assert.castUnchecked(index, RecordLayerIndex.class);
+                assertThat(recordLayerIndex.getKeyExpression()).isEqualTo(
+                        Key.Expressions.field("c").groupBy(Key.Expressions.concat(Key.Expressions.field("a"), Key.Expressions.field("b"))));
                 return txn -> {
                 };
             }

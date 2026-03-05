@@ -33,8 +33,8 @@ import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
@@ -53,7 +53,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -179,7 +178,7 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
 
     @Nonnull
     @Override
-    public Optional<PredicateMapping> impliesCandidatePredicateMaybe(@NonNull final ValueEquivalence valueEquivalence,
+    public Optional<PredicateMapping> impliesCandidatePredicateMaybe(@Nonnull final ValueEquivalence valueEquivalence,
                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
                                                                      @Nonnull final QueryPredicate candidatePredicate,
                                                                      @Nonnull final EvaluationContext evaluationContext) {

@@ -121,7 +121,6 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
         return childQuantifier;
     }
 
-    @SuppressWarnings("resource")
     @Nonnull
     @Override
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
@@ -138,7 +137,10 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
                             final EvaluationContext childContext = context.withBinding(Bindings.Internal.CORRELATION.bindingName(priorValueCorrelation.getId()), parentResult);
                             return childQuantifier.getRangesOverPlan().executePlan(store, childContext, innerContinuation, nestedExecuteProperties);
                         },
-                        null,
+                        // Best effort approach: serialize the primary key for continuation integrity checking.
+                        // Ideally, users should be able to determine which part of the record to serialize,
+                        // but this approach is acceptable for now as the alternative would be more complex to implement.
+                        item -> item != null && item.getPrimaryKey() != null ? item.getPrimaryKey().pack() : null,
                         continuation,
                         dfsTraversalStrategy == DfsTraversalStrategy.PREORDER
                 ).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())

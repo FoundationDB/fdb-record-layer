@@ -200,7 +200,7 @@ public class LuceneDocumentFromRecord {
         }
     }
 
-    protected static class DocumentField {
+    public static class DocumentField {
         @Nonnull
         private final String fieldName;
         @Nullable
@@ -241,6 +241,11 @@ public class LuceneDocumentFromRecord {
 
         public boolean isSorted() {
             return sorted;
+        }
+
+        @Nonnull
+        public Map<String, Object> getFieldConfigs() {
+            return Collections.unmodifiableMap(fieldConfigs);
         }
 
         @Nullable

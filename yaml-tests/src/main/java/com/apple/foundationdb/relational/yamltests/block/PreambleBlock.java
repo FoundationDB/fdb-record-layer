@@ -31,38 +31,26 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assumptions;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Map;
 
 /**
  * A block that collects all file-wide options. It does <li>not</li> have an execution, but merely acts as a placeholder
  * for global options set in the preamble of the test file.
  */
-public class PreambleBlock implements Block {
+public class PreambleBlock extends SupportBlock {
 
     public static final String OPTIONS = "options";
     public static final String PREAMBLE_BLOCK_SUPPORTED_VERSION = "supported_version";
     public static final String PREAMBLE_BLOCK_CONNECTION_OPTIONS = "connection_options";
     private static final Logger logger = LogManager.getLogger(PreambleBlock.class);
 
-    private final int lineNumber;
+    private PreambleBlock() {
 
-    PreambleBlock(int lineNumber) {
-        this.lineNumber = lineNumber;
-    }
-
-    @Override
-    public int getLineNumber() {
-        return this.lineNumber;
-    }
-
-    @Override
-    public void execute() {
-        // no-op.
     }
 
     @Nonnull
-    public static PreambleBlock parse(int lineNumber, @Nonnull final Object document,
-                                      @Nonnull final YamlExecutionContext executionContext) {
+    public static List<Block> parse(@Nonnull final Object document, @Nonnull final YamlExecutionContext executionContext) {
         final Map<?, ?> optionsMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, OPTIONS));
 
         // read the supported version option, and immediately abort the test if the version check fails.
@@ -80,7 +68,7 @@ public class PreambleBlock implements Block {
         }
 
         executionContext.setConnectionOptions(connectionOptions);
-        return new PreambleBlock(lineNumber);
+        return List.of();
     }
 
     @Nonnull

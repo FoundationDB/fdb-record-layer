@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstra
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -469,7 +469,7 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
                 boolean hasCommonOrderingForK = false;
                 for (final var kPartition : ChooseK.chooseK(bestMaximumCoverageMatches, k)) {
                     numCombinations ++;
-                    call.emitEvent(Debugger.Location.ALL_INTERSECTION_COMBINATIONS);
+                    call.emitEvent(Location.ALL_INTERSECTION_COMBINATIONS);
 
                     //
                     // For a combination of n orderings we enumerate find all the positions in that the combination
@@ -490,7 +490,7 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
 
                     if (!hasCommonOrdering(sieveBitMatrix, checkBitMatrix)) {
                         numDiscardedCombinations ++;
-                        call.emitEvent(Debugger.Location.DISCARDED_INTERSECTION_COMBINATIONS);
+                        call.emitEvent(Location.DISCARDED_INTERSECTION_COMBINATIONS);
                         continue;
                     }
 
@@ -658,6 +658,12 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
             final var satisfyingOrderingsPairOptional =
                     satisfiesAnyRequestedOrderings(partialMatch, topToTopTranslationMap, requestedOrderings);
             if (satisfyingOrderingsPairOptional.isEmpty()) {
+                continue;
+            }
+
+            if (!partialMatch.getBoundSargableAliases().containsAll(partialMatch.getMatchCandidate().getSargableAliasesRequiredForBinding())) {
+                // skip this match since it did not bind all the sargables required by the candidate making it impossible
+                // to create a produce a physical plan.
                 continue;
             }
 

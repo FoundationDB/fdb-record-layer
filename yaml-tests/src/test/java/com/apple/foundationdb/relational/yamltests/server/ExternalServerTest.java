@@ -25,13 +25,16 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class ExternalServerTest {
 
@@ -60,17 +63,41 @@ class ExternalServerTest {
             servers.add(new ExternalServer(currentServerPath, clusterFile));
         }
         try {
-            for (final ExternalServer server : servers) {
-                server.start();
-            }
-            // we can't assert about the actual values, because one of the ports may be busy,
-            // so assert that each server has its own port, and none of them have the same port
-            assertEquals(servers.stream().map(ExternalServer::getPort).distinct().collect(Collectors.toList()),
-                    servers.stream().map(ExternalServer::getPort).collect(Collectors.toList()));
+            ExternalServer.startMultiple(servers);
+            assertDistinctPorts(servers);
         } finally {
             for (final ExternalServer server : servers) {
                 server.stop();
             }
         }
+    }
+
+    @Test
+    void startMultipleWithAdditionalExclusions() throws Exception {
+        final List<ExternalServer> servers = new ArrayList<>();
+        final String clusterFile = FDBTestEnvironment.randomClusterFile();
+        for (int i = 0; i < 3; i++) {
+            servers.add(new ExternalServer(currentServerPath, clusterFile));
+        }
+        try {
+            final Set<Integer> explicitExcluded = Set.of(1111, 1115, 1116);
+            ExternalServer.startMultiple(servers, new HashSet<>(explicitExcluded));
+            assertDistinctPorts(servers);
+            assertThat(servers)
+                    .flatMap(ExternalServer::getPort, ExternalServer::getHttpPort)
+                    .doesNotContainAnyElementsOf(explicitExcluded);
+        } finally {
+            for (final ExternalServer server : servers) {
+                server.stop();
+            }
+        }
+    }
+
+    private static void assertDistinctPorts(@Nonnull Collection<ExternalServer> servers) {
+        // we can't assert about the actual values, because one of the ports may be busy,
+        // so assert that each server has its own port, and none of them have the same port
+        assertThat(servers)
+                .flatMap(ExternalServer::getPort, ExternalServer::getHttpPort)
+                .doesNotHaveDuplicates();
     }
 }

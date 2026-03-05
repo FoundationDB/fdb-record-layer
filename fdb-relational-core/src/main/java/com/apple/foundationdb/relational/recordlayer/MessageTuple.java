@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.VectorUtils;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.google.protobuf.ByteString;
@@ -81,7 +82,7 @@ public class MessageTuple extends AbstractRow {
             return TupleFieldsHelper.fromProto((Message) field, TupleFieldsProto.UUID.getDescriptor());
         }
         if (field instanceof Descriptors.EnumValueDescriptor) {
-            return ((Descriptors.EnumValueDescriptor) field).getName();
+            return ProtoUtils.toUserIdentifier(((Descriptors.EnumValueDescriptor) field).getName());
         }
         if (field instanceof ByteString) {
             final var byteString = (ByteString) field;

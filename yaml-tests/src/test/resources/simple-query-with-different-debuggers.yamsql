@@ -1,0 +1,55 @@
+#
+# simple-query-with-different-debuggers.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+schema_template:
+  create table t1(id bigint, col1 string, col2 string, col3 string, primary key(id))
+---
+setup:
+  steps:
+    - query: INSERT INTO T1 VALUES
+        (1, 'a', 'b', 'c'),
+        (2, 'd', 'e', 'f'),
+        (3, 'g', 'h', 'i')
+---
+# Tests in this block must have different queries to ensure that the query is actually planned using the different
+# debugger is instead of just retrieving the plan from the cache.
+test_block:
+  name: simple-query-with-different-debuggers
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select id, col1 from t1 where id > 1
+      - explain: "SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c10 AS LONG) | MAP (_.ID AS ID, _.COL1 AS COL1)"
+      - debugger: sane
+      - result: [{id: 2, col1: 'd'},
+                 {id: 3, col1: 'g'}]
+    -
+      - query: select id, col2 from t1 where id > 1
+      - explain: "SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c10 AS LONG) | MAP (_.ID AS ID, _.COL2 AS COL2)"
+      - debugger: insane
+      - result: [{id: 2, col2: 'e'},
+                 {id: 3, col2: 'h'}]
+    -
+      - query: select id, col3 from t1 where id > 1
+      - explain: "SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c10 AS LONG) | MAP (_.ID AS ID, _.COL3 AS COL3)"
+      - debugger: recording
+      - result: [ { id: 2, col3: 'f' },
+                  { id: 3, col3: 'i' } ]
+...

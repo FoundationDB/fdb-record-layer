@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -57,6 +58,13 @@ import java.util.List;
 public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Key-Expression");
 
+    /**
+     * The internal field name used in the underlying protobuf message. This name may differ from the user-visible
+     * identifier to ensure compliance with protobuf field naming conventions. When working with query planning or
+     * user-facing operations, use {@link ProtoUtils#toUserIdentifier(String)} to convert this to the user-visible
+     * form. However, when constructing physical operators that directly interact with stored protobuf messages,
+     * this internal name should be used as-is.
+     */
     @Nonnull
     private final String fieldName;
     @Nonnull
@@ -216,7 +224,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     public Quantifier.ForEach explodeField(@Nonnull Quantifier.ForEach baseQuantifier, @Nonnull List<String> fieldNamePrefix) {
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
-                .add(fieldName)
+                .add(ProtoUtils.toUserIdentifier(fieldName))
                 .build();
         switch (fanType) {
             case FanOut:

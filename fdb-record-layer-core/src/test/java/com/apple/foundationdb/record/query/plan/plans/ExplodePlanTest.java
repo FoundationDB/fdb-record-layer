@@ -32,6 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -118,7 +119,8 @@ public class ExplodePlanTest {
 
     private static class ArgumentProvider implements ArgumentsProvider {
         @Override
-        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
             return Stream.of(
                     Arguments.of(ExplodeCursorBuilder.instance().withLimit(1), ImmutableList.of(1), true),
                     Arguments.of(ExplodeCursorBuilder.instance().withLimit(4), ImmutableList.of(1, 2, 3, 4), true),

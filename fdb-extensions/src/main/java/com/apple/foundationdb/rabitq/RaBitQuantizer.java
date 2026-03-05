@@ -77,7 +77,8 @@ public final class RaBitQuantizer implements Quantizer {
         Preconditions.checkArgument(
                 metric == Metric.EUCLIDEAN_METRIC ||
                         metric == Metric.EUCLIDEAN_SQUARE_METRIC ||
-                        metric == Metric.DOT_PRODUCT_METRIC);
+                        metric == Metric.DOT_PRODUCT_METRIC ||
+                        metric == Metric.COSINE_METRIC);
 
         this.numExBits = numExBits;
         this.metric = metric;
@@ -140,51 +141,54 @@ public final class RaBitQuantizer implements Quantizer {
     Result encodeInternal(@Nonnull final RealVector data) {
         final int dims = data.getNumDimensions();
 
-        QuantizeExResult base = exBitsCode(data);
-        int[] signedCode = base.code;
-        double ipInv = base.ipNormInv;
+        final QuantizeExResult base = exBitsCode(data);
+        final int[] signedCode = base.code;
+        final double ipInv = base.ipNormInv;
 
-        int[] totalCode = new int[dims];
+        final int[] totalCode = new int[dims];
         for (int i = 0; i < dims; i++) {
-            int sgn = (data.getComponent(i) >= 0.0) ? +1 : 0;
+            final int sgn = (data.getComponent(i) >= 0.0) ? 1 : 0;
             totalCode[i] = signedCode[i] + (sgn << numExBits);
         }
 
         final double cb = -(((1 << numExBits) - 0.5));
-        double[] xuCbData = new double[dims];
+        final double[] xuCbData = new double[dims];
         for (int i = 0; i < dims; i++) {
             xuCbData[i] = totalCode[i] + cb;
         }
         final RealVector xuCb = new DoubleRealVector(xuCbData);
 
-        // 5) Precompute all needed values
         final double residualL2Sqr = data.dot(data);
         final double residualL2Norm = Math.sqrt(residualL2Sqr);
         final double ipResidualXuCb = data.dot(xuCb);
+
         final double xuCbNorm = xuCb.l2Norm();
         final double xuCbNormSqr = xuCbNorm * xuCbNorm;
 
-        final double ipResidualXuCbSafe =
-                (ipResidualXuCb == 0.0) ? Double.POSITIVE_INFINITY : ipResidualXuCb;
+        final double ipResidualXuCbSafe = (ipResidualXuCb == 0.0) ? Double.POSITIVE_INFINITY : ipResidualXuCb;
 
-        double tmpError = residualL2Norm * EPS0 *
-                Math.sqrt(((residualL2Sqr * xuCbNormSqr) / (ipResidualXuCbSafe * ipResidualXuCbSafe) - 1.0)
-                        / (Math.max(1, dims - 1)));
+        final double tmpError =
+                residualL2Norm * EPS0 *
+                        Math.sqrt(((residualL2Sqr * xuCbNormSqr)
+                                           / (ipResidualXuCbSafe * ipResidualXuCbSafe) - 1.0)
+                                / (Math.max(1, dims - 1)));
 
-        double fAddEx;
-        double fRescaleEx;
-        double fErrorEx;
+        final double fAddEx;
+        final double fRescaleEx;
+        final double fErrorEx;
 
-        if (metric == Metric.EUCLIDEAN_SQUARE_METRIC || metric == Metric.EUCLIDEAN_METRIC) {
-            fAddEx = residualL2Sqr;
-            fRescaleEx = ipInv * (-2.0 * residualL2Norm);
-            fErrorEx = 2.0 * tmpError;
-        } else if (metric == Metric.DOT_PRODUCT_METRIC) {
-            fAddEx = 1.0;
-            fRescaleEx = ipInv * (-1.0 * residualL2Norm);
-            fErrorEx = tmpError;
-        } else {
-            throw new IllegalArgumentException("Unsupported metric");
+        switch (metric) {
+            case COSINE_METRIC:
+            case DOT_PRODUCT_METRIC:
+            case EUCLIDEAN_SQUARE_METRIC:
+            case EUCLIDEAN_METRIC:
+                fAddEx = residualL2Sqr;
+                fRescaleEx = ipInv * (-2.0 * residualL2Norm);
+                fErrorEx = 2.0 * tmpError;
+                break;
+
+            default:
+                throw new IllegalArgumentException("Unsupported metric");
         }
 
         return new Result(new EncodedRealVector(numExBits, totalCode, fAddEx, fRescaleEx, fErrorEx), base.t, ipInv);

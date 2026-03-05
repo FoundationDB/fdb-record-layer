@@ -220,10 +220,11 @@ public class Index {
 
         rootExpression = expr;
         if (proto.hasSubspaceKey()) {
-            setSubspaceKey(normalizeSubspaceKey(name, decodeSubspaceKey(proto.getSubspaceKey())));
+            this.subspaceKey = normalizeSubspaceKey(name, decodeSubspaceKey(proto.getSubspaceKey()));
         } else {
-            setSubspaceKey(normalizeSubspaceKey(name, name));
+            this.subspaceKey = normalizeSubspaceKey(name, name);
         }
+        this.useExplicitSubspaceKey = true;
         if (proto.hasAddedVersion()) {
             addedVersion = proto.getAddedVersion();
         } else {

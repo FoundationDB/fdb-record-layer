@@ -93,7 +93,7 @@ public class AndPredicate extends AndOrPredicate {
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(Precedence.AND,
-                new ExplainTokens().addSequence(() -> new ExplainTokens().addWhitespace().addKeyword("AND").addWhitespace(),
+                new ExplainTokens().addSequence(() -> new ExplainTokens().addWhitespace().addKeyword("AND").addLinebreakOrWhitespace(),
                         () -> Streams.stream(explainSuppliers).map(Supplier::get)
                                 .map(Precedence.AND::parenthesizeChild).iterator()));
     }

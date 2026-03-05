@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -63,6 +64,9 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     private final Value value;
     @Nonnull
     private final Comparison comparison;
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<Boolean> isIndexOnlySupplier = Suppliers.memoize(() -> getValue().isIndexOnly());
 
     private ValuePredicate(@Nonnull final PlanSerializationContext serializationContext,
                            @Nonnull final PValuePredicate valuePredicate) {
@@ -123,6 +127,11 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Override
     public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         return comparison.eval(store, context, value.eval(store, context));
+    }
+
+    @Override
+    public boolean isIndexOnly() {
+        return isIndexOnlySupplier.get();
     }
 
     @Nonnull

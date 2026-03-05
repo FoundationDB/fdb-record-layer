@@ -75,7 +75,7 @@ public final class TypeUtils {
                     Optional.of(recordField.getFieldIndex()));
             newlyNamedFields.add(newField);
         }
-        return record.getName() == null ? Type.Record.fromFieldsWithName(record.getName(), record.isNullable(), newlyNamedFields.build())
+        return record.getName() != null ? Type.Record.fromFieldsWithName(record.getName(), record.isNullable(), newlyNamedFields.build())
                 : Type.Record.fromFields(record.isNullable(), newlyNamedFields.build());
     }
 

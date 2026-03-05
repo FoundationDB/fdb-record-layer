@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -175,7 +176,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 index,
                 recordTypes,
                 Traversal.withRoot(Reference.initialOf(matchableSortExpression)),
-                baseQuantifier.getFlowedObjectType(),
+                baseQuantifier.getFlowedObjectType().narrowRecordMaybe().orElseThrow(() -> new RecordCoreException("cannot create match candidate with non-record type")),
                 baseAlias,
                 groupingAliases,
                 scoreAlias,

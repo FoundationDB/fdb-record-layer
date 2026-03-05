@@ -46,6 +46,11 @@ message ContinuationProto {
   // The serialized package
   optional CompiledStatement compiled_statement = 5;
   optional Reason reason = 6;
+  // other_plan is used for Plan objects that don't go through the planner and have more special
+  // reconstruction
+  oneof other_plan {
+    CopyPlan copyPlan = 7;
+  }
 }
 
 message TypedQueryArgument {
@@ -88,4 +93,13 @@ message CompiledStatement {
   repeated TypedQueryArgument arguments = 4;
   // query plan constraints
   optional com.apple.foundationdb.record.planprotos.PQueryPlanConstraint plan_constraint = 5;
+  // query metadata
+  optional com.apple.foundationdb.record.planprotos.PType queryMetadata = 6;
+}
+
+// Continuation state required for COPY.
+// Only EXPORT allows a continuation
+message CopyPlan {
+  // The path being exported
+  optional string path = 1;
 }

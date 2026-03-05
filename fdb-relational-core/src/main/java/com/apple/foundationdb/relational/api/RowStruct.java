@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -211,7 +212,7 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
         } else if (o instanceof Enum<?>) {
             return ((Enum<?>) o).name();
         } else if (o instanceof Descriptors.EnumValueDescriptor) {
-            return ((Descriptors.EnumValueDescriptor) o).getName();
+            return ProtoUtils.toUserIdentifier(((Descriptors.EnumValueDescriptor) o).getName());
         } else if (o instanceof ByteString) {
             return ((ByteString) o).toString();
         } else {

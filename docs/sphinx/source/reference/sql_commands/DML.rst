@@ -8,3 +8,4 @@ DML
     DML/INSERT
     DML/UPDATE
     DML/DELETE
+    DML/COPY

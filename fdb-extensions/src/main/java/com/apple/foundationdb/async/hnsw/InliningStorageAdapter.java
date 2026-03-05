@@ -27,13 +27,13 @@ import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -75,6 +75,14 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         super(config, nodeFactory, subspace, onWriteListener, onReadListener);
     }
 
+    @Nonnull
+    @Override
+    public Transformed<RealVector> getVector(@Nonnull final NodeReferenceWithVector nodeReference,
+                                             @Nonnull final AbstractNode<NodeReferenceWithVector> node) {
+        Verify.verify(nodeReference.isNodeReferenceWithVector());
+        return nodeReference.asNodeReferenceWithVector().getVector();
+    }
+
     /**
      * Asynchronously fetches a single node from a given layer by its primary key.
      * <p>
@@ -82,9 +90,12 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * It then performs an asynchronous range scan to retrieve all key-value pairs associated with that prefix.
      * Finally, it reconstructs the complete {@link AbstractNode} object from the collected raw data using
      * the {@code nodeFromRaw} method.
+     * <p>
+     * Note that when using the inlining storage adapter it is not possible for distinguish between a node that has no
+     * neighbors and a node that is not present in the database (i.e. it was deleted).
      *
      * @param readTransaction the transaction to use for reading from the database
-     * @param storageTransform an affine transformation operator that is used to transform the fetched vector into the
+     * @param storageTransform a vector transformation operator that is used to transform the fetched vector into the
      *        storage space that is currently being used
      * @param layer the layer of the node to fetch
      * @param primaryKey the primary key of the node to fetch
@@ -96,7 +107,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
     @Override
     protected CompletableFuture<AbstractNode<NodeReferenceWithVector>>
               fetchNodeInternal(@Nonnull final ReadTransaction readTransaction,
-                                @Nonnull final AffineOperator storageTransform,
+                                @Nonnull final StorageTransform storageTransform,
                                 final int layer,
                                 @Nonnull final Tuple primaryKey) {
         final byte[] rangeKey = getNodeKey(layer, primaryKey);
@@ -112,12 +123,12 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * This method is responsible for deserializing a node and its neighbors. It processes a list of {@code KeyValue}
      * pairs, where each pair represents a neighbor of the node being constructed. Each neighbor is converted from its
      * raw form into a {@link NodeReferenceWithVector} by calling the
-     * {@link #neighborFromRaw(AffineOperator, int, byte[], byte[])} method.
+     * {@link #neighborFromRaw(StorageTransform, int, byte[], byte[])} method.
      * <p>
      * Once the node is created with its primary key and list of neighbors, it notifies the configured
      * {@link OnReadListener} of the read operation.
      *
-     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vector
+     * @param storageTransform a vector transformation operator that is used to transform the fetched vector
      *        into the storage space that is currently being used
      * @param layer the layer in the graph where this node exists
      * @param primaryKey the primary key that uniquely identifies the node
@@ -126,7 +137,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * @return a non-null, fully constructed {@link AbstractNode} object with its neighbors
      */
     @Nonnull
-    private AbstractNode<NodeReferenceWithVector> nodeFromRaw(@Nonnull final AffineOperator storageTransform,
+    private AbstractNode<NodeReferenceWithVector> nodeFromRaw(@Nonnull final StorageTransform storageTransform,
                                                               final int layer,
                                                               @Nonnull final Tuple primaryKey,
                                                               @Nonnull final List<KeyValue> keyValues) {
@@ -151,7 +162,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * primary key and unpacks the {@code value} to extract the neighbor's vector. It also notifies the configured
      * {@link OnReadListener} of the read operation.
      *
-     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vector
+     * @param storageTransform a vector transformation operator that is used to transform the fetched vector
      *        into the storage space that is currently being used
      * @param layer the layer of the graph where the neighbor node is located.
      * @param key the raw byte array key from the database, which contains the neighbor's primary key.
@@ -160,7 +171,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * @throws IllegalArgumentException if the key or value byte arrays are malformed and cannot be unpacked.
      */
     @Nonnull
-    private NodeReferenceWithVector neighborFromRaw(@Nonnull final AffineOperator storageTransform, final int layer,
+    private NodeReferenceWithVector neighborFromRaw(@Nonnull final StorageTransform storageTransform, final int layer,
                                                     @Nonnull final byte[] key, @Nonnull final byte[] value) {
         final OnReadListener onReadListener = getOnReadListener();
         onReadListener.onKeyValueRead(layer, key, value);
@@ -174,7 +185,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
     /**
      * Constructs a {@code NodeReferenceWithVector} from tuples retrieved from storage.
      * <p>
-     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vector
+     * @param storageTransform a vector transformation operator that is used to transform the fetched vector
      *        into the storage space that is currently being used
      * @param keyTuple the key tuple from the database, which contains the neighbor's primary key.
      * @param valueTuple the value tuple from the database, which represents the neighbor's vector.
@@ -182,7 +193,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * @throws IllegalArgumentException if the key or value byte arrays are malformed and cannot be unpacked.
      */
     @Nonnull
-    private NodeReferenceWithVector neighborFromTuples(@Nonnull final AffineOperator storageTransform,
+    private NodeReferenceWithVector neighborFromTuples(@Nonnull final StorageTransform storageTransform,
                                                        @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
         final Tuple neighborPrimaryKey = keyTuple.getNestedTuple(2); // neighbor primary key
         //
@@ -208,20 +219,30 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      *
      * @param transaction the transaction context for the write operation; must not be null
      * @param quantizer the quantizer to use
+     * @param layer the layer index where the node and its neighbor changes should be written
      * @param node the node to be written, which is expected to be an
      * {@code InliningNode}; must not be null
-     * @param layer the layer index where the node and its neighbor changes should be written
      * @param neighborsChangeSet the set of changes to the node's neighbors to be
      * persisted; must not be null
      */
     @Override
     public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
-                                  @Nonnull final AbstractNode<NodeReferenceWithVector> node, final int layer,
+                                  final int layer, @Nonnull final AbstractNode<NodeReferenceWithVector> node,
                                   @Nonnull final NeighborsChangeSet<NodeReferenceWithVector> neighborsChangeSet) {
         final InliningNode inliningNode = node.asInliningNode();
 
         neighborsChangeSet.writeDelta(this, transaction, quantizer, layer, inliningNode, t -> true);
         getOnWriteListener().onNodeWritten(layer, node);
+    }
+
+    @Override
+    protected void deleteNodeInternal(@Nonnull final Transaction transaction, final int layer,
+                                      @Nonnull final Tuple primaryKey) {
+        final byte[] key = getNodeKey(layer, primaryKey);
+        final Range range = Range.startsWith(key);
+        transaction.clear(range);
+        getOnWriteListener().onNodeDeleted(layer, primaryKey);
+        getOnWriteListener().onRangeDeleted(layer, range);
     }
 
     /**
@@ -351,7 +372,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
             final Tuple neighborKeyTuple = getDataSubspace().unpack(key);
             final Tuple neighborValueTuple = Tuple.fromBytes(value);
             final NodeReferenceWithVector neighbor =
-                    neighborFromTuples(AffineOperator.identity(), neighborKeyTuple, neighborValueTuple);
+                    neighborFromTuples(StorageTransform.identity(), neighborKeyTuple, neighborValueTuple);
             final Tuple nodePrimaryKeyFromNeighbor = neighborKeyTuple.getNestedTuple(1);
             if (nodePrimaryKey == null || !nodePrimaryKey.equals(nodePrimaryKeyFromNeighbor)) {
                 if (nodePrimaryKey != null) {

@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
-import com.apple.foundationdb.record.lucene.directory.AgilityContext;
+import com.apple.foundationdb.record.lucene.directory.AgileContext;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -356,7 +356,7 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
     }
 
 
-    private static class FailCommitsAgilityContext extends AgilityContext.Agile {
+    private static class FailCommitsAgilityContext extends AgileContext {
         private final Object indexSubspaceKey;
         private int commitCount = 0;
 

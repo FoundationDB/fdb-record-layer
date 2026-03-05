@@ -39,6 +39,7 @@ import java.util.concurrent.Executor;
 public class MockedLuceneIndexMaintainer extends LuceneIndexMaintainer {
     final InjectedFailureRepository injectedFailures;
 
+    @SuppressWarnings("this-escape")
     public MockedLuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull final Executor executor, final InjectedFailureRepository injectedFailures) {
         super(state, executor);
         this.injectedFailures = injectedFailures;

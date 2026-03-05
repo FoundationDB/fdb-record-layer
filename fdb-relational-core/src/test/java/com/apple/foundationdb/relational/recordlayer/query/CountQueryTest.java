@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.SQLException;
+import java.util.Base64;
 
 /**
  * Some basic count query tests. These are not too dissimilar from queries that are in some of the YAML tests,
@@ -43,7 +44,7 @@ import java.sql.SQLException;
 public class CountQueryTest {
     private static final String SCHEMA_TEMPLATE =
             "CREATE TABLE t1 (id bigint, a string, b bigint, primary key (id)) " +
-                    "CREATE INDEX i1 AS SELECT a FROM t1 " +
+                    "CREATE INDEX i1 ON t1(a) " +
                     "CREATE INDEX i2 AS SELECT count(*) FROM t1 GROUP BY a " +
                     "CREATE INDEX i3 AS SELECT count(a) FROM t1 GROUP BY b";
 
@@ -112,6 +113,28 @@ public class CountQueryTest {
                     .hasColumn("A", 1L)
                     .hasNoNextRow()
                     .continuationReasonIs(Continuation.Reason.CURSOR_AFTER_LAST);
+        }
+    }
+
+    @Test
+    void countWithoutAliasNamePreservedAfterContinuation() throws SQLException {
+        statement.setMaxRows(1);
+        Continuation continuation;
+        try (RelationalResultSet resultSet = statement.executeQuery("SELECT b, count(a) FROM t1 GROUP BY b")) {
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNextRow()
+                    .hasColumn("_1", 1L)
+                    .hasNoNextRow()
+                    .continuationReasonIs(Continuation.Reason.QUERY_EXECUTION_LIMIT_REACHED);
+            continuation = resultSet.getContinuation();
+        }
+        statement.setMaxRows(1);
+        try (RelationalResultSet resultSet = statement.executeQuery("EXECUTE CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'")) {
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNextRow()
+                    .hasColumn("_1", 1L)
+                    .hasNoNextRow()
+                    .continuationReasonIs(Continuation.Reason.QUERY_EXECUTION_LIMIT_REACHED);
         }
     }
 }

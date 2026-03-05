@@ -40,7 +40,6 @@ import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperati
 import com.apple.foundationdb.relational.recordlayer.ddl.CreateTemporaryFunctionConstantAction;
 import com.apple.foundationdb.relational.recordlayer.ddl.DropTemporaryFunctionConstantAction;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
-import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingRecordStore;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
@@ -70,9 +69,8 @@ public class TransactionBoundDatabase extends AbstractDatabase {
         @Nonnull
         @Override
         public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, final boolean throwIfExists,
-                                                                       @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
-                                                                       @Nonnull final PreparedParams preparedParams) {
-            return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams);
+                                                                       @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+            return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine);
         }
 
         @Nonnull
