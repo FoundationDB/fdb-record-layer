@@ -66,7 +66,7 @@ class EventKeeperTranslator implements EventKeeper {
     public void count(final EventKeeper.Event event, final long amount) {
         if (underlying != null) {
             StoreTimer.Event storeTimerEvent = getEvent(event);
-            if (storeTimerEvent instanceof Count) {
+            if (storeTimerEvent instanceof StoreTimer.Count) {
                 underlying.increment((StoreTimer.Count) storeTimerEvent, (int) amount);
             } else {
                 underlying.record(storeTimerEvent, amount);
