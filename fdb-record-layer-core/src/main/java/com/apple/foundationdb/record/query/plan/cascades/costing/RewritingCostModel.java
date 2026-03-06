@@ -103,6 +103,7 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
     }
 
     @Nullable
+    @Override
     public Integer compare(@Nonnull final RelationalExpression a,
                            @Nonnull final RelationalExpression b) {
         return tiebreaker.compare(getConfiguration(), ImmutableMap.of(), ImmutableMap.of(), a, b);

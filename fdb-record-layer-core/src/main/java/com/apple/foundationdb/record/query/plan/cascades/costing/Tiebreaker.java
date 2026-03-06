@@ -42,10 +42,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collector;
 
 interface Tiebreaker<T extends RelationalExpression> {
-    int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,
-                @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
-                @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
-                @Nonnull final T a, @Nonnull final T b);
+    int compare(@Nonnull RecordQueryPlannerConfiguration configuration,
+                @Nonnull Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
+                @Nonnull Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
+                @Nonnull T a, @Nonnull T b);
 
     @Nonnull
     static <T extends RelationalExpression> Tiebreaker<T> combineTiebreakers(@Nonnull final List<Tiebreaker<? super T>> tiebreakers) {

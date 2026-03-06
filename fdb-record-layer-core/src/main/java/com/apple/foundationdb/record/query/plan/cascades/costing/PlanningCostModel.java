@@ -88,6 +88,7 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
                     RecordQueryFetchFromPartialRecordPlan.class,
                     RecordQueryInJoinPlan.class,
                     RecordQueryMapPlan.class,
+                    RecordQueryTypeFilterPlan.class,
                     RecordQueryPredicatesFilterPlan.class);
 
     @Nonnull
@@ -147,11 +148,9 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
     }
 
     @Nullable
+    @Override
     public Integer compare(@Nonnull final RelationalExpression a,
                            @Nonnull final RelationalExpression b) {
-        final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache =
-                createOpsCache();
-
         if (!(a instanceof RecordQueryPlan) && !(b instanceof RecordQueryPlan)) {
             return null;
         }
