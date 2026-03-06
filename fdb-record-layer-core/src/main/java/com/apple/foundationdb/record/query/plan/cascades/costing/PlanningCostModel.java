@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionDe
 import com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedResidualPredicateProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
@@ -45,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
+import com.google.common.base.Verify;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -54,6 +56,7 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -102,6 +105,7 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
                     lowestNumUnmatchedFieldsTiebreaker(),
                     highestNumInJoinTiebreaker(),
                     lowestNumSimpleOperationsTiebreaker(),
+                    lowestOuterCardinalityTiebreaker(),
                     planHashTieBreaker(),
                     pickLeftTieBreaker()));
 
@@ -415,6 +419,11 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
     }
 
     @Nonnull
+    static LowestOuterCardinalityTiebreaker lowestOuterCardinalityTiebreaker() {
+        return LowestOuterCardinalityTiebreaker.INSTANCE;
+    }
+
+    @Nonnull
     static PlanHashTieBreaker planHashTieBreaker() {
         return PlanHashTieBreaker.INSTANCE;
     }
@@ -663,6 +672,50 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
 
             // smaller one wins
             return Integer.compare(numSimpleOperationsA, numSimpleOperationsB);
+        }
+    }
+
+    static class LowestOuterCardinalityTiebreaker implements Tiebreaker<RecordQueryPlan> {
+        private static final LowestOuterCardinalityTiebreaker INSTANCE = new LowestOuterCardinalityTiebreaker();
+
+        @Override
+        public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,
+                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
+                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
+                           @Nonnull final RecordQueryPlan a,
+                           @Nonnull final RecordQueryPlan b) {
+            //
+            // If both plans are nested loop joins. Attempt to pick a plan with a more preferable join ordering
+            //
+            if (a instanceof RecordQueryFlatMapPlan && b instanceof RecordQueryFlatMapPlan) {
+                final List<RecordQueryPlan> aChildren = a.getChildren();
+                Verify.verify(aChildren.size() == 2);
+                final RecordQueryPlan aOuter = aChildren.get(0);
+
+                final List<RecordQueryPlan> bChildren = b.getChildren();
+                Verify.verify(bChildren.size() == 2);
+                final RecordQueryPlan bOuter = bChildren.get(0);
+
+                //
+                // Return the one with lower cardinality on the outer plan
+                //
+                // This is an imperfect heuristic, but the idea is that if we have something that
+                // only returns a small number (especially 1) number of results, we want that to
+                // be on the outside so that we execute the inner (with more results) fewer times.
+                // If there's just one result, that's probably safe, though we may have to adjust
+                // this, as the actual more important thing is going to be the discard rate--the
+                // optimal plan should have fewer discarded records, which may involve placing the
+                // lower cardinality plan in the inner
+                //
+                final Cardinalities aOuterCardinalities = cardinalities().evaluate(aOuter);
+                final Cardinalities bOuterCardinalities = cardinalities().evaluate(bOuter);
+                if (!aOuterCardinalities.getMaxCardinality().isUnknown() || !bOuterCardinalities.getMaxCardinality().isUnknown()) {
+                    long aEffectiveMaxCardinality = aOuterCardinalities.getMaxCardinality().isUnknown() ? Long.MAX_VALUE : aOuterCardinalities.getMaxCardinality().getCardinality();
+                    long bEffectiveMaxCardinality = bOuterCardinalities.getMaxCardinality().isUnknown() ? Long.MAX_VALUE : bOuterCardinalities.getMaxCardinality().getCardinality();
+                    return Long.compare(aEffectiveMaxCardinality, bEffectiveMaxCardinality);
+                }
+            }
+            return 0;
         }
     }
 

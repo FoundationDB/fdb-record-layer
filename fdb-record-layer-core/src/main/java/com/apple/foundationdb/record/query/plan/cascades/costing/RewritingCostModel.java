@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.FindExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountByLevelProperty;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -42,8 +43,8 @@ import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.selectCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.tableFunctionCount;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateComplexityProperty.predicateComplexity;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateHeightProperty.predicateHeight;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedResidualPredicateProperty.countNormalizedConjuncts;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountByLevelProperty.predicateCountByLevel;
 
 /**
  * Cost model for {@link PlannerPhase#REWRITING}. TODO To be fleshed out whe we have actual rules.
@@ -59,8 +60,8 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
             Tiebreaker.combineTiebreakers(ImmutableList.of(
                     lowestNumSelectExpressionsTiebreaker(),
                     lowestNumTableFunctionsTiebreaker(),
-                    deepestPredicateTiebreaker(),
-                    simplestPredicateTiebreaker(),
+                    fewestNormalizedConjunctsTiebreaker(),
+                    deepestPredicatesTiebreaker(),
                     semanticHashTiebreaker(),
                     pickLeftTieBreaker()));
 
@@ -132,13 +133,13 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
     }
 
     @Nonnull
-    static DeepestPredicateTiebreaker deepestPredicateTiebreaker() {
-        return DeepestPredicateTiebreaker.INSTANCE;
+    static NormalizedConjuctsTiebreaker fewestNormalizedConjunctsTiebreaker() {
+        return NormalizedConjuctsTiebreaker.INSTANCE;
     }
 
     @Nonnull
-    static SimplestPredicateTiebreaker simplestPredicateTiebreaker() {
-        return SimplestPredicateTiebreaker.INSTANCE;
+    static PredicateCountByLevelTiebreaker deepestPredicatesTiebreaker() {
+        return PredicateCountByLevelTiebreaker.INSTANCE;
     }
 
     @Nonnull
@@ -185,38 +186,41 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
         }
     }
 
-    static class DeepestPredicateTiebreaker implements Tiebreaker<RelationalExpression> {
-        private static final DeepestPredicateTiebreaker INSTANCE = new DeepestPredicateTiebreaker();
+    static class NormalizedConjuctsTiebreaker implements Tiebreaker<RelationalExpression> {
+        private static final NormalizedConjuctsTiebreaker INSTANCE = new NormalizedConjuctsTiebreaker();
 
         @Override
         public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,
                            @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
                            @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
-                           @Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
+                           @Nonnull final RelationalExpression a,
+                           @Nonnull final RelationalExpression b) {
             //
-            // Pick the expression where predicates have been pushed down as far as they can go
+            // Pick the expression which has the least number of conjuncts in the normalized form of
+            // its combined query predicates.
             //
-            final int aPredicateHeight = predicateHeight().evaluate(a);
-            final int bPredicateHeight = predicateHeight().evaluate(b);
-            return Integer.compare(aPredicateHeight, bPredicateHeight);
+            final long aNormalizedConjuncts = countNormalizedConjuncts(a);
+            final long bNormalizedConjuncts = countNormalizedConjuncts(b);
+            return Long.compare(aNormalizedConjuncts, bNormalizedConjuncts);
         }
     }
 
-    static class SimplestPredicateTiebreaker implements Tiebreaker<RelationalExpression> {
-        private static final SimplestPredicateTiebreaker INSTANCE = new SimplestPredicateTiebreaker();
+    static class PredicateCountByLevelTiebreaker implements Tiebreaker<RelationalExpression> {
+        private static final PredicateCountByLevelTiebreaker INSTANCE = new PredicateCountByLevelTiebreaker();
 
         @Override
         public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,
                            @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
                            @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
-                           @Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
+                           @Nonnull final RelationalExpression a,
+                           @Nonnull final RelationalExpression b) {
             //
-            // Choose the expression with the simplest predicate.
+            // Pick the expression which has a higher number of query predicates at a deeper level of
+            // the expression tree.
             //
-            final int aPredicateComplexity = predicateComplexity().evaluate(a);
-            final int bPredicateComplexity = predicateComplexity().evaluate(b);
-            return Integer.compare(aPredicateComplexity, bPredicateComplexity);
-
+            final PredicateCountByLevelProperty.PredicateCountByLevelInfo aPredicateCountByLevel = predicateCountByLevel().evaluate(a);
+            final PredicateCountByLevelProperty.PredicateCountByLevelInfo bPredicateCountByLevel = predicateCountByLevel().evaluate(b);
+            return PredicateCountByLevelProperty.PredicateCountByLevelInfo.compare(bPredicateCountByLevel, aPredicateCountByLevel);
         }
     }
 

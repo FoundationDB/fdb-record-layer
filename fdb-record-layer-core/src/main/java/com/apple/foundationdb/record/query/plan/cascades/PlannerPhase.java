@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.costing.CascadesCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.costing.PlanningCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.costing.RewritingCostModel;
-import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PPlannerPhase;
+import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 import javax.annotation.Nonnull;
