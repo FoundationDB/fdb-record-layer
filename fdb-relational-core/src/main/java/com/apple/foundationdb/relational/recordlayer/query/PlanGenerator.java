@@ -33,8 +33,8 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.costing.StableSelectorCostModel;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.util.ProtoUtils;
@@ -81,6 +81,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedT
 @API(API.Status.EXPERIMENTAL)
 public final class PlanGenerator {
     private static final Logger logger = LogManager.getLogger(PlanGenerator.class);
+    @Nonnull
+    private static final StableSelectorCostModel stableSelectorCostModel = new StableSelectorCostModel();
 
     /**
      * An optional plan cache used to improve performance by storing execution plans.
@@ -192,7 +194,7 @@ public final class PlanGenerator {
                                     final var candidateQueryPlan = candidatePhysicalPlan.getRecordQueryPlan();
                                     final var bestQueryPlanSoFar = acc == null ? null : Assert.castUnchecked(acc, QueryPlan.PhysicalQueryPlan.class).getRecordQueryPlan();
                                     if (bestQueryPlanSoFar == null ||
-                                            Objects.requireNonNull(new StableSelectorCostModel().compare(candidateQueryPlan, bestQueryPlanSoFar)) < 0) {
+                                            Objects.requireNonNull(stableSelectorCostModel.compare(candidateQueryPlan, bestQueryPlanSoFar)) < 0) {
                                         return candidate;
                                     } else {
                                         return acc;
