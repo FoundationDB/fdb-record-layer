@@ -106,8 +106,8 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
                     highestNumInJoinTiebreaker(),
                     lowestNumSimpleOperationsTiebreaker(),
                     lowestOuterCardinalityTiebreaker(),
-                    planHashTieBreaker(),
-                    pickLeftTieBreaker()));
+                    planHashTiebreaker(),
+                    PickLeftTiebreaker.pickLeftTiebreaker()));
 
     @Nonnull
     private final RecordQueryPlannerConfiguration configuration;
@@ -424,13 +424,8 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
     }
 
     @Nonnull
-    static PlanHashTieBreaker planHashTieBreaker() {
-        return PlanHashTieBreaker.INSTANCE;
-    }
-
-    @Nonnull
-    static PickLeftTieBreaker<RecordQueryPlan> pickLeftTieBreaker() {
-        return PickLeftTieBreaker.INSTANCE_PLAN;
+    static PlanHashTiebreaker planHashTiebreaker() {
+        return PlanHashTiebreaker.INSTANCE;
     }
 
     static class SmallestCardinalityOfDataAccessesTiebreaker implements Tiebreaker<RecordQueryPlan> {
@@ -719,8 +714,8 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
         }
     }
 
-    static class PlanHashTieBreaker implements Tiebreaker<RecordQueryPlan> {
-        private static final PlanHashTieBreaker INSTANCE = new PlanHashTieBreaker();
+    static class PlanHashTiebreaker implements Tiebreaker<RecordQueryPlan> {
+        private static final PlanHashTiebreaker INSTANCE = new PlanHashTiebreaker();
 
         @Override
         public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,

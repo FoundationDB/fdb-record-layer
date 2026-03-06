@@ -63,7 +63,7 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
                     fewestNormalizedConjunctsTiebreaker(),
                     deepestPredicatesTiebreaker(),
                     semanticHashTiebreaker(),
-                    pickLeftTieBreaker()));
+                    PickLeftTiebreaker.pickLeftTiebreaker()));
 
     @Nonnull
     private final RecordQueryPlannerConfiguration configuration;
@@ -145,11 +145,6 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
     @Nonnull
     static SemanticHashTiebreaker semanticHashTiebreaker() {
         return SemanticHashTiebreaker.INSTANCE;
-    }
-
-    @Nonnull
-    static PickLeftTieBreaker<RelationalExpression> pickLeftTieBreaker() {
-        return PickLeftTieBreaker.INSTANCE_EXPRESSION;
     }
 
     static class LowestNumSelectExpressionsTiebreaker implements Tiebreaker<RelationalExpression> {

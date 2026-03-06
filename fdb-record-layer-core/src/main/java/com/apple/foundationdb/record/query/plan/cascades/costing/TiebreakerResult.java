@@ -33,7 +33,7 @@ interface TiebreakerResult<T extends RelationalExpression> {
     TiebreakerResult<T> thenApply(@Nonnull Tiebreaker<T> nextTiebreaker);
 
     @Nonnull
-    default TiebreakerResult<T> thenApply(@Nonnull List<Tiebreaker<T>> nextTiebreakers) {
+    default TiebreakerResult<T> thenApply(@Nonnull List<Tiebreaker<? super T>> nextTiebreakers) {
         return thenApply(Tiebreaker.combineTiebreakers(nextTiebreakers));
     }
 

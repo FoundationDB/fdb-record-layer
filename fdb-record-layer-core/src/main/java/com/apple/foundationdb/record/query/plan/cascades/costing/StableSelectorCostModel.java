@@ -55,7 +55,7 @@ public class StableSelectorCostModel implements CascadesCostModel<RelationalExpr
     private static final Tiebreaker<RelationalExpression> tiebreaker =
             Tiebreaker.combineTiebreakers(ImmutableList.of(
                     RewritingCostModel.semanticHashTiebreaker(),
-                    RewritingCostModel.pickLeftTieBreaker()));
+                    PickLeftTiebreaker.pickLeftTiebreaker()));
 
     @Nonnull
     @Override

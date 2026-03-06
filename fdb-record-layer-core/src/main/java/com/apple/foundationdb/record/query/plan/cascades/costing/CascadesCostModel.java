@@ -24,11 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -54,16 +52,4 @@ public interface CascadesCostModel<T extends RelationalExpression> {
     @Nullable
     Integer compare(@Nonnull RelationalExpression a, @Nonnull RelationalExpression b);
 
-    class PickLeftTieBreaker<T extends RelationalExpression> implements Tiebreaker<T> {
-        protected static final PickLeftTieBreaker<RelationalExpression> INSTANCE_EXPRESSION = new PickLeftTieBreaker<>();
-        protected static final PickLeftTieBreaker<RecordQueryPlan> INSTANCE_PLAN = new PickLeftTieBreaker<>();
-
-        @Override
-        public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,
-                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
-                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
-                           @Nonnull final T a, @Nonnull final T b) {
-            return -1;
-        }
-    }
 }

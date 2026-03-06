@@ -48,7 +48,7 @@ interface Tiebreaker<T extends RelationalExpression> {
                 @Nonnull final T a, @Nonnull final T b);
 
     @Nonnull
-    static <T extends RelationalExpression> Tiebreaker<T> combineTiebreakers(@Nonnull final List<Tiebreaker<T>> tiebreakers) {
+    static <T extends RelationalExpression> Tiebreaker<T> combineTiebreakers(@Nonnull final List<Tiebreaker<? super T>> tiebreakers) {
         return (configuration,
                 opsMapA, opsMapB,
                 a, b) -> {
