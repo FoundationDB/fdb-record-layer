@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 
-
 import javax.annotation.Nonnull;
 import java.net.URI;
 
@@ -142,5 +141,4 @@ public interface StoreCatalog {
      * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
      */
     boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl, boolean throwIfDoesNotExist) throws RelationalException;
-
 }
