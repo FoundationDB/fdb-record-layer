@@ -268,7 +268,6 @@ public class QueryExecutor {
     private Object executeStatementWithForcedContinuations(final @Nonnull Statement s,
                                                            final boolean statementHasQuery, final @Nonnull String queryString,
                                                            final @Nonnull YamlConnection connection) throws SQLException {
-        logger.info("executeStatementWithForcedContinuations begin");
         s.setMaxRows(FORCED_MAX_ROWS);
         Object result = executeStatement(s, statementHasQuery, queryString);
         if (result instanceof RelationalResultSet) {
@@ -311,11 +310,9 @@ public class QueryExecutor {
             }
             // Use first metadata for the aggregated result set as they are all the same
             // Use last continuation
-//            logger.info("executeStatementWithForcedContinuations end");
             return new AggregateResultSet(metadata, continuation, results.iterator());
         } else {
             // non-result set - just return
-//            logger.info("executeStatementWithForcedContinuations end");
             return result;
         }
     }
@@ -335,7 +332,6 @@ public class QueryExecutor {
     }
 
     private static Object executeStatement(@Nonnull Statement s, final boolean statementHasQuery, @Nonnull String q) throws SQLException {
-        logger.info(s.getConnection());
         final var execResult = statementHasQuery ? ((PreparedStatement) s).execute() : s.execute(q);
         return execResult ? s.getResultSet() : s.getUpdateCount();
     }

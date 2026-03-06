@@ -116,7 +116,6 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             final boolean singleExternalVersionOnly = Boolean.parseBoolean(System.getProperty("tests.singleVersion", "false"));
             Stream<YamlTestConfig> localTestingConfigs = localConfigs(mixedModeOnly, singleExternalVersionOnly);
             Stream<YamlTestConfig> externalServerConfigs = externalServerConfigs(singleExternalVersionOnly);
-//            Stream<YamlTestConfig> externalServerConfigs = Stream.<YamlTestConfig>builder().build();
 
             testConfigs = Stream.concat(
                     // The configs for local testing (single server)
