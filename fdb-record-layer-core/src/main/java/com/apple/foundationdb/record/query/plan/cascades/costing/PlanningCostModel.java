@@ -108,7 +108,7 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
                     lowestNumSimpleOperationsTiebreaker(),
                     lowestOuterCardinalityTiebreaker(),
                     planHashTiebreaker(),
-                    PickLeftTiebreaker.pickLeftTiebreaker()));
+                    PickRightTiebreaker.pickRightTiebreaker()));
 
     @Nonnull
     private final RecordQueryPlannerConfiguration configuration;
@@ -295,7 +295,7 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
         if (!isInPlan(leftExpression)) {
             return OptionalInt.empty();
         }
-        
+
         // If no scan comparison on the in union side uses a comparison to the in-values, then the in union
         // plan is not useful.
         final Set<Comparisons.Comparison> scanComparisonsSet = comparisons().evaluate(leftExpression);

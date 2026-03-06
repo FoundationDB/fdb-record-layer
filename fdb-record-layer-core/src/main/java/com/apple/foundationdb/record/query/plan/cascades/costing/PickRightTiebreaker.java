@@ -28,15 +28,15 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * {@link Tiebreaker} implementation that always picks the left most one. This is intended to be the
+ * {@link Tiebreaker} implementation that always picks the right most one. This is intended to be the
  * tiebreaker of last resort. That is, if all other tiebreakers are unable to distinguish between two
  * elements, including the hash of the objects (see {@link RewritingCostModel#semanticHashTiebreaker()} and
  * {@link PlanningCostModel#planHashTiebreaker()}), then this tiebreaker should be invoked.
  */
-final class PickLeftTiebreaker implements Tiebreaker<RelationalExpression> {
-    private static final PickLeftTiebreaker INSTANCE = new PickLeftTiebreaker();
+final class PickRightTiebreaker implements Tiebreaker<RelationalExpression> {
+    private static final PickRightTiebreaker INSTANCE = new PickRightTiebreaker();
 
-    private PickLeftTiebreaker() {
+    private PickRightTiebreaker() {
     }
 
     @Override
@@ -44,11 +44,11 @@ final class PickLeftTiebreaker implements Tiebreaker<RelationalExpression> {
                        @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
                        @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
                        @Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
-        return -1;
+        return 1;
     }
 
     @Nonnull
-    static PickLeftTiebreaker pickLeftTiebreaker() {
+    static PickRightTiebreaker pickRightTiebreaker() {
         return INSTANCE;
     }
 }

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.FindExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -46,16 +47,16 @@ import java.util.function.Consumer;
  */
 @API(API.Status.EXPERIMENTAL)
 @SpotBugsSuppressWarnings("SE_COMPARATOR_SHOULD_BE_SERIALIZABLE")
-public class StableSelectorCostModel implements CascadesCostModel<RelationalExpression> {
+public class StableSelectorCostModel implements CascadesCostModel<RecordQueryPlan> {
     @Nonnull
     private static final Set<Class<? extends RelationalExpression>> interestingExpressionClasses =
             ImmutableSet.of();
 
     @Nonnull
-    private static final Tiebreaker<RelationalExpression> tiebreaker =
+    private static final Tiebreaker<RecordQueryPlan> tiebreaker =
             Tiebreaker.combineTiebreakers(ImmutableList.of(
-                    RewritingCostModel.semanticHashTiebreaker(),
-                    PickLeftTiebreaker.pickLeftTiebreaker()));
+                    PlanningCostModel.planHashTiebreaker(),
+                    PickRightTiebreaker.pickRightTiebreaker()));
 
     @Nonnull
     @Override
@@ -65,25 +66,23 @@ public class StableSelectorCostModel implements CascadesCostModel<RelationalExpr
 
     @Nonnull
     @Override
-    public Optional<RelationalExpression> getBestExpression(@Nonnull final Set<? extends RelationalExpression> expressions,
-                                                            @Nonnull final Consumer<RelationalExpression> onRemoveConsumer) {
+    public Optional<RecordQueryPlan> getBestExpression(@Nonnull final Set<? extends RelationalExpression> expressions, @Nonnull final Consumer<RecordQueryPlan> onRemoveConsumer) {
         return costExpressions(expressions, onRemoveConsumer).getOnlyExpressionMaybe();
     }
 
     @Nonnull
     @Override
-    public Set<RelationalExpression> getBestExpressions(@Nonnull final Set<? extends RelationalExpression> expressions,
-                                                        @Nonnull final Consumer<RelationalExpression> onRemoveConsumer) {
+    public Set<RecordQueryPlan> getBestExpressions(@Nonnull final Set<? extends RelationalExpression> expressions, @Nonnull final Consumer<RecordQueryPlan> onRemoveConsumer) {
         return costExpressions(expressions, onRemoveConsumer).getBestExpressions();
     }
 
     @Nonnull
-    private TiebreakerResult<RelationalExpression> costExpressions(@Nonnull final Set<? extends RelationalExpression> expressions,
-                                                                   @Nonnull final Consumer<RelationalExpression> onRemoveConsumer) {
+    private TiebreakerResult<RecordQueryPlan> costExpressions(@Nonnull final Set<? extends RelationalExpression> expressions,
+                                                              @Nonnull final Consumer<RecordQueryPlan> onRemoveConsumer) {
         final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache =
                 createOpsCache();
 
-        return Tiebreaker.ofContext(getConfiguration(), opsCache, expressions, RelationalExpression.class, onRemoveConsumer)
+        return Tiebreaker.ofContext(getConfiguration(), opsCache, expressions, RecordQueryPlan.class, onRemoveConsumer)
                 .thenApply(tiebreaker);
     }
 
@@ -91,7 +90,16 @@ public class StableSelectorCostModel implements CascadesCostModel<RelationalExpr
     @Override
     public Integer compare(@Nonnull final RelationalExpression a,
                            @Nonnull final RelationalExpression b) {
-        return tiebreaker.compare(getConfiguration(), ImmutableMap.of(), ImmutableMap.of(), a, b);
+        if (a instanceof RecordQueryPlan && !(b instanceof RecordQueryPlan)) {
+            return -1;
+        }
+        if (!(a instanceof RecordQueryPlan) && b instanceof RecordQueryPlan) {
+            return 1;
+        }
+        if (!(a instanceof RecordQueryPlan) /* && !(b instanceof RecordQueryPlan)*/) {
+            return 0;
+        }
+        return tiebreaker.compare(getConfiguration(), ImmutableMap.of(), ImmutableMap.of(), (RecordQueryPlan) a, (RecordQueryPlan) b);
     }
 
     @Nonnull

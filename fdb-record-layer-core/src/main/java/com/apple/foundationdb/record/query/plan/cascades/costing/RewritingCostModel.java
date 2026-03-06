@@ -63,7 +63,7 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
                     fewestNormalizedConjunctsTiebreaker(),
                     deepestPredicatesTiebreaker(),
                     semanticHashTiebreaker(),
-                    PickLeftTiebreaker.pickLeftTiebreaker()));
+                    PickRightTiebreaker.pickRightTiebreaker()));
 
     @Nonnull
     private final RecordQueryPlannerConfiguration configuration;
