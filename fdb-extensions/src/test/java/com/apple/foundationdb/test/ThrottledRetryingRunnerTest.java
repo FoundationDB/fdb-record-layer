@@ -731,20 +731,6 @@ class ThrottledRetryingRunnerTest {
             return null;
         });
 
-        // A continuation that carries the next index to read
-        class IndexContinuation implements ThrottledRetryingRunner.Continuation {
-            final int nextIndex;
-
-            IndexContinuation(int nextIndex) {
-                this.nextIndex = nextIndex;
-            }
-
-            @Override
-            public boolean hasMore() {
-                return nextIndex < numKeys;
-            }
-        }
-
         List<Integer> processedValues = new ArrayList<>();
 
         try (ThrottledRetryingRunner runner = runnerBuilder().build()) {
@@ -752,7 +738,7 @@ class ThrottledRetryingRunnerTest {
                 int idx = (cont instanceof IndexContinuation) ? ((IndexContinuation) cont).nextIndex : 0;
                 byte[] raw = tr.get(subspace.pack(Tuple.from(idx))).join();
                 processedValues.add((int) Tuple.fromBytes(raw).getLong(0));
-                return CompletableFuture.completedFuture(new IndexContinuation(idx + 1));
+                return CompletableFuture.completedFuture(new IndexContinuation(idx + 1, numKeys));
             }).join();
         }
 
@@ -781,17 +767,7 @@ class ThrottledRetryingRunnerTest {
             runner.iterateAll((tr, quota, cont) -> {
                 int attempt = attemptCount.incrementAndGet();
                 if (attempt == 1) {
-                    // Write to a separate key to make tr a write transaction.
-                    tr.set(ownWriteKey, new byte[]{0});
-                    // Read conflictKey to add it to tr's read-conflict range, then commit a
-                    // write to the same key in a separate transaction before tr commits.
-                    return tr.get(conflictKey)
-                            .thenCompose(ignored ->
-                                db.runAsync(tr2 -> {
-                                    tr2.set(conflictKey, new byte[]{1});
-                                    return CompletableFuture.completedFuture(null);
-                                })
-                            )
+                    return injectConflict(tr, conflictKey, ownWriteKey)
                             .thenCompose(ignored -> exhausted());
                 }
                 // Attempt 2: no conflict
@@ -830,19 +806,6 @@ class ThrottledRetryingRunnerTest {
         AtomicInteger attemptCount = new AtomicInteger(0);
         AtomicInteger retryStartIdx = new AtomicInteger(-1); // captured from attempt 3
 
-        class IndexContinuation implements ThrottledRetryingRunner.Continuation {
-            final int nextIndex;
-
-            IndexContinuation(int nextIndex) {
-                this.nextIndex = nextIndex;
-            }
-
-            @Override
-            public boolean hasMore() {
-                return nextIndex < numKeys;
-            }
-        }
-
         try (ThrottledRetryingRunner runner = runnerBuilder().withNumOfRetries(3).build()) {
             runner.iterateAll((tr, quota, cont) -> {
                 int attempt = attemptCount.incrementAndGet();
@@ -860,25 +823,12 @@ class ThrottledRetryingRunnerTest {
                 }
 
                 if (attempt == 2) {
-                    // Inject a conflict on the second attempt:
-                    // - write to ownWriteKey to make tr a write transaction (FDB only checks
-                    //   read conflicts when the transaction has writes)
-                    // - read conflictKey to add it to tr's read-conflict range
-                    // - commit a write to conflictKey in a separate transaction so that tr
-                    //   fails with NOT_COMMITTED
-                    tr.set(ownWriteKey, new byte[]{0});
-                    return tr.get(conflictKey)
+                    return injectConflict(tr, conflictKey, ownWriteKey)
                             .thenCompose(ignored ->
-                                db.runAsync(tr2 -> {
-                                    tr2.set(conflictKey, new byte[]{1});
-                                    return CompletableFuture.completedFuture(null);
-                                })
-                            )
-                            .thenCompose(ignored ->
-                                CompletableFuture.completedFuture(new IndexContinuation(endIdx)));
+                                CompletableFuture.completedFuture(new IndexContinuation(endIdx, numKeys)));
                 }
 
-                return CompletableFuture.completedFuture(new IndexContinuation(endIdx));
+                return CompletableFuture.completedFuture(new IndexContinuation(endIdx, numKeys));
             }).join();
         }
 
@@ -913,7 +863,51 @@ class ThrottledRetryingRunnerTest {
         return CompletableFuture.completedFuture(() -> false);
     }
 
+    /**
+     * Injects a genuine FDB read-conflict into {@code tr} and returns a future that completes
+     * once the conflicting write has been committed.
+     * <p>
+     * How it works:
+     * <ol>
+     *   <li>Writes to {@code ownWriteKey} so that {@code tr} is a write transaction — FDB only
+     *       checks read-conflict ranges when the committing transaction has writes.</li>
+     *   <li>Reads {@code conflictKey} to add it to {@code tr}'s read-conflict range.</li>
+     *   <li>Opens a separate transaction, writes to {@code conflictKey}, and commits it, so that
+     *       when {@code TransactionalRunner} later commits {@code tr} it receives
+     *       {@code NOT_COMMITTED}.</li>
+     * </ol>
+     * </p>
+     */
+    private CompletableFuture<Void> injectConflict(Transaction tr, byte[] conflictKey, byte[] ownWriteKey) {
+        tr.set(ownWriteKey, new byte[]{0});
+        return tr.get(conflictKey)
+                .thenCompose(ignored -> db.runAsync(tr2 -> {
+                    tr2.set(conflictKey, new byte[]{1});
+                    return CompletableFuture.completedFuture(null);
+                }));
+    }
+
     private ThrottledRetryingRunner.Builder runnerBuilder() {
         return ThrottledRetryingRunner.builder(db, scheduledExecutor);
+    }
+
+    /**
+     * A continuation that carries a numeric index as cursor position.
+     * {@link #hasMore()} returns {@code true} while {@link #nextIndex} is less than
+     * {@link #totalKeys}.
+     */
+    private static class IndexContinuation implements ThrottledRetryingRunner.Continuation {
+        final int nextIndex;
+        private final int totalKeys;
+
+        IndexContinuation(int nextIndex, int totalKeys) {
+            this.nextIndex = nextIndex;
+            this.totalKeys = totalKeys;
+        }
+
+        @Override
+        public boolean hasMore() {
+            return nextIndex < totalKeys;
+        }
     }
 }
