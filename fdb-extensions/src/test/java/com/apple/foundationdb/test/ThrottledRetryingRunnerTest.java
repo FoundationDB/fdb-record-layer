@@ -43,6 +43,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
+import java.util.function.UnaryOperator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -100,12 +102,12 @@ class ThrottledRetryingRunnerTest {
     @Test
     void testIncreaseLimitFormula() {
         // limit=0 is no-limit mode; increaseLimit is a no-op
-        ThrottledRetryingRunner.QuotaManager qm = new ThrottledRetryingRunner.QuotaManager(0);
+        ThrottledRetryingRunner.QuotaManager qm = quotaManager(0);
         qm.increaseLimit();
         assertThat(qm.getLimit()).isEqualTo(0);
 
         // With a real maxLimit, decreaseLimit reads processedCount directly (before initTransaction)
-        ThrottledRetryingRunner.QuotaManager qm2 = new ThrottledRetryingRunner.QuotaManager(1000);
+        ThrottledRetryingRunner.QuotaManager qm2 = quotaManager(1000);
         qm2.processedCountAdd(80);
         qm2.decreaseLimit(); // limit = max(1, 80*9/10) = 72
         assertThat(qm2.getLimit()).isEqualTo(72);
@@ -115,7 +117,7 @@ class ThrottledRetryingRunnerTest {
 
     @Test
     void testDecreaseLimitFormula() {
-        ThrottledRetryingRunner.QuotaManager qm = new ThrottledRetryingRunner.QuotaManager(1000);
+        ThrottledRetryingRunner.QuotaManager qm = quotaManager(1000);
         // Process 100 items, then fail → limit = max(1, 100*9/10) = 90
         qm.processedCountAdd(100);
         qm.decreaseLimit();
@@ -141,7 +143,7 @@ class ThrottledRetryingRunnerTest {
 
     @Test
     void testDecreaseLimitNoOpWhenLimitIsZero() {
-        ThrottledRetryingRunner.QuotaManager qm = new ThrottledRetryingRunner.QuotaManager(0);
+        ThrottledRetryingRunner.QuotaManager qm = quotaManager(0);
         qm.processedCountAdd(100);
         qm.initTransaction();
         qm.decreaseLimit();
@@ -150,7 +152,7 @@ class ThrottledRetryingRunnerTest {
 
     @Test
     void testLimitCappedAtMaxLimit() {
-        ThrottledRetryingRunner.QuotaManager qm = new ThrottledRetryingRunner.QuotaManager(50);
+        ThrottledRetryingRunner.QuotaManager qm = quotaManager(50);
         // Drive limit down by simulating a failure with 40 in-flight items
         qm.processedCountAdd(40);
         qm.decreaseLimit(); // limit = max(1, 40*9/10) = 36
@@ -251,11 +253,11 @@ class ThrottledRetryingRunnerTest {
                 int call = totalCalls.incrementAndGet();
                 // Fail on calls 1 and 2
                 if (call == 1 || call == 2) {
-                    return CompletableFuture.failedFuture(new RuntimeException("transient"));
+                    return fail();
                 }
                 // Succeed on call 3 (resets counter), then fail on 4 and 5, succeed on 6, done
                 if (call == 4 || call == 5) {
-                    return CompletableFuture.failedFuture(new RuntimeException("transient"));
+                    return fail();
                 }
                 successCount.incrementAndGet();
                 if (successCount.get() == 2) {
@@ -333,12 +335,13 @@ class ThrottledRetryingRunnerTest {
     // Limit: adaptive adjustment
     // -------------------------------------------------------------------------
 
-    @Test
-    void limitStartsAtMaxLimitAndIsExposedToTask() {
+    @ParameterizedTest
+    @CsvSource({"0, 0", "50, 50"})
+    void limitStartsAtConfiguredMaxLimit(int maxLimit, int expectedLimit) {
         AtomicInteger observedLimit = new AtomicInteger(-1);
 
         try (ThrottledRetryingRunner runner = runnerBuilder()
-                .withMaxLimit(50)
+                .withMaxLimit(maxLimit)
                 .build()) {
             runner.iterateAll((tr, quota, cont) -> {
                 observedLimit.set(quota.getLimit());
@@ -346,21 +349,7 @@ class ThrottledRetryingRunnerTest {
             }).join();
         }
 
-        assertThat(observedLimit.get()).isEqualTo(50);
-    }
-
-    @Test
-    void limitIsZeroWhenMaxLimitNotConfigured() {
-        AtomicInteger observedLimit = new AtomicInteger(-1);
-
-        try (ThrottledRetryingRunner runner = runnerBuilder().build()) {
-            runner.iterateAll((tr, quota, cont) -> {
-                observedLimit.set(quota.getLimit());
-                return exhausted();
-            }).join();
-        }
-
-        assertThat(observedLimit.get()).isEqualTo(0);
+        assertThat(observedLimit.get()).isEqualTo(expectedLimit);
     }
 
     @Test
@@ -380,7 +369,7 @@ class ThrottledRetryingRunnerTest {
                 if (call == 1) {
                     // Process 100 items and fail → next limit = 90
                     quota.processedCountAdd(100);
-                    return CompletableFuture.failedFuture(new RuntimeException("fail"));
+                    return fail();
                 }
                 if (call <= 3) {
                     // Two successes → limit increases from 90
@@ -415,7 +404,7 @@ class ThrottledRetryingRunnerTest {
                 observedLimits.add(quota.getLimit());
                 if (call <= 10) {
                     quota.processedCountInc(); // 1 item processed → limit floor at 1
-                    return CompletableFuture.failedFuture(new RuntimeException("fail"));
+                    return fail();
                 }
                 return exhausted();
             }).join();
@@ -443,7 +432,7 @@ class ThrottledRetryingRunnerTest {
                 observedLimits.add(quota.getLimit());
                 quota.processedCountAdd(100);
                 if (call <= 3) {
-                    return CompletableFuture.failedFuture(new RuntimeException("fail"));
+                    return fail();
                 }
                 return exhausted();
             }).join();
@@ -509,53 +498,16 @@ class ThrottledRetryingRunnerTest {
 
     @Test
     void throttlingByScannedItemsSlowsItDown() {
-        final int itemsPerTransaction = 10;
-        final int maxPerSec = 20;
-        final int transactions = 3;
-        AtomicInteger callCount = new AtomicInteger(0);
-
-        long start = System.currentTimeMillis();
-        try (ThrottledRetryingRunner runner = runnerBuilder()
-                .withMaxItemsScannedPerSec(maxPerSec)
-                .build()) {
-            runner.iterateAll((tr, quota, cont) -> {
-                quota.processedCountAdd(itemsPerTransaction);
-                if (callCount.incrementAndGet() >= transactions) {
-                    return exhausted();
-                }
-                return hasMore();
-            }).join();
-        }
-        long elapsed = System.currentTimeMillis() - start;
-
-        // totalItems / maxPerSec = (3*10)/20 = 1.5s minimum
-        long expectedMinMs = TimeUnit.SECONDS.toMillis(itemsPerTransaction * transactions / maxPerSec);
-        assertThat(elapsed).isGreaterThanOrEqualTo(expectedMinMs);
+        assertThrottledByItemsPerSec(
+                b -> b.withMaxItemsScannedPerSec(20),
+                ThrottledRetryingRunner.QuotaManager::processedCountAdd);
     }
 
     @Test
     void throttlingByDeletedItemsSlowsItDown() {
-        final int deletesPerTransaction = 10;
-        final int maxPerSec = 20;
-        final int transactions = 3;
-        AtomicInteger callCount = new AtomicInteger(0);
-
-        long start = System.currentTimeMillis();
-        try (ThrottledRetryingRunner runner = runnerBuilder()
-                .withMaxItemsDeletedPerSec(maxPerSec)
-                .build()) {
-            runner.iterateAll((tr, quota, cont) -> {
-                quota.deletedCountAdd(deletesPerTransaction);
-                if (callCount.incrementAndGet() >= transactions) {
-                    return exhausted();
-                }
-                return hasMore();
-            }).join();
-        }
-        long elapsed = System.currentTimeMillis() - start;
-
-        long expectedMinMs = TimeUnit.SECONDS.toMillis(deletesPerTransaction * transactions / maxPerSec);
-        assertThat(elapsed).isGreaterThanOrEqualTo(expectedMinMs);
+        assertThrottledByItemsPerSec(
+                b -> b.withMaxItemsDeletedPerSec(20),
+                ThrottledRetryingRunner.QuotaManager::deletedCountAdd);
     }
 
     @Test
@@ -677,7 +629,7 @@ class ThrottledRetryingRunnerTest {
                 }
                 if (call == 2 || call == 3) {
                     // Fail twice: continuation should NOT advance
-                    return CompletableFuture.failedFuture(new RuntimeException("transient"));
+                    return fail();
                 }
                 // Final success
                 return exhausted();
@@ -706,7 +658,7 @@ class ThrottledRetryingRunnerTest {
             runner.iterateAll((tr, quota, cont) -> {
                 received.add(cont);
                 if (callCount.incrementAndGet() <= 2) {
-                    return CompletableFuture.failedFuture(new RuntimeException("transient"));
+                    return fail();
                 }
                 return exhausted();
             }).join();
@@ -861,6 +813,45 @@ class ThrottledRetryingRunnerTest {
     /** Returns a completed future with a continuation indicating the source is exhausted. */
     private static CompletableFuture<ThrottledRetryingRunner.Continuation> exhausted() {
         return CompletableFuture.completedFuture(() -> false);
+    }
+
+    /** Returns a pre-failed future simulating a transient task failure. */
+    private static CompletableFuture<ThrottledRetryingRunner.Continuation> fail() {
+        return CompletableFuture.failedFuture(new RuntimeException("transient"));
+    }
+
+    /** Convenience factory for a {@link ThrottledRetryingRunner.QuotaManager}. */
+    private static ThrottledRetryingRunner.QuotaManager quotaManager(int maxLimit) {
+        return new ThrottledRetryingRunner.QuotaManager(maxLimit);
+    }
+
+    /**
+     * Asserts that the runner throttles correctly when {@code reportItems} is used to count
+     * items and {@code configure} wires up the corresponding rate-limiter on the builder.
+     */
+    private void assertThrottledByItemsPerSec(
+            UnaryOperator<ThrottledRetryingRunner.Builder> configure,
+            BiConsumer<ThrottledRetryingRunner.QuotaManager, Integer> reportItems) {
+        final int itemsPerTransaction = 10;
+        final int maxPerSec = 20;
+        final int transactions = 3;
+        AtomicInteger callCount = new AtomicInteger(0);
+
+        long start = System.currentTimeMillis();
+        try (ThrottledRetryingRunner runner = configure.apply(runnerBuilder()).build()) {
+            runner.iterateAll((tr, quota, cont) -> {
+                reportItems.accept(quota, itemsPerTransaction);
+                if (callCount.incrementAndGet() >= transactions) {
+                    return exhausted();
+                }
+                return hasMore();
+            }).join();
+        }
+        long elapsed = System.currentTimeMillis() - start;
+
+        // totalItems / maxPerSec = (3 * 10) / 20 = 1.5s minimum
+        long expectedMinMs = TimeUnit.SECONDS.toMillis((long) itemsPerTransaction * transactions / maxPerSec);
+        assertThat(elapsed).isGreaterThanOrEqualTo(expectedMinMs);
     }
 
     /**
