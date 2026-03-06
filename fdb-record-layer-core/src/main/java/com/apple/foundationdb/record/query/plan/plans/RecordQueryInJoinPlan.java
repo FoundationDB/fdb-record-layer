@@ -44,6 +44,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
@@ -167,15 +168,15 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
-        final var resultType = inSource.getResultType();
+        final var dynamicTypes = inSource.getDynamicTypes();
 
-        if (!resultType.isAny()) {
+        if (dynamicTypes.size() == 1 && Iterables.getOnlyElement(dynamicTypes).isAny()) {
+            return RecordQueryPlanWithChild.super.getDynamicTypes();
+        } else {
             final var resultTypesBuilder = ImmutableSet.<Type>builder();
             resultTypesBuilder.addAll(RecordQueryPlanWithChild.super.getDynamicTypes());
-            resultTypesBuilder.add(resultType);
+            resultTypesBuilder.addAll(dynamicTypes);
             return resultTypesBuilder.build();
-        } else {
-            return RecordQueryPlanWithChild.super.getDynamicTypes();
         }
     }
 

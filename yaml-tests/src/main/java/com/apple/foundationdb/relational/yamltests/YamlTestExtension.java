@@ -134,7 +134,6 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             return Stream.of();
         } else {
             return Stream.of(new EmbeddedConfig(clusterFile), new JDBCInProcessConfig(clusterFile));
-//            return Stream.of(new EmbeddedConfig(clusterFile));
         }
     }
 

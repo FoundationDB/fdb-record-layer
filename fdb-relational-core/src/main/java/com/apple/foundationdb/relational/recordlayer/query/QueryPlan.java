@@ -636,7 +636,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 return optimizedPlan.get();
             }
             return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.OPTIMIZE_PLAN, () -> {
-                final TypeRepository.Builder builder = TypeRepository.newBuilder();
+                TypeRepository.Builder builder = TypeRepository.newBuilder();
                 final Set<Type> usedTypes = usedTypes().evaluate(relationalExpression);
                 usedTypes.forEach(builder::addTypeIfNeeded);
                 final var evaluationContext = context.getEvaluationContext();
@@ -658,6 +658,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 final RecordQueryPlan plannedPlan = planResult.getPlan();
                 final RecordQueryPlan minimizedPlan = plannedPlan.minimize();
 
+                builder = TypeRepository.newBuilder();
                 Set<Type> planTypes = usedTypes().evaluate(minimizedPlan);
                 planTypes.forEach(builder::addTypeIfNeeded);
                 final var constraint = QueryPlanConstraint.composeConstraints(
