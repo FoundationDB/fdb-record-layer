@@ -183,7 +183,7 @@ public final class PlanGenerator {
                                     throw vE.toUncheckedWrappedException();
                                 }
                                 RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.MISS, stepTimeMicros(), cache.get().getStats().numEntries());
-                                return NonnullPair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
+                                return NonnullPair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan.withExecutionContext(astHashResult.getQueryExecutionContext()));
                             },
                             value -> value.withExecutionContext(astHashResult.getQueryExecutionContext()),
                             plans -> plans.reduce(null, (acc, candidate) -> {
