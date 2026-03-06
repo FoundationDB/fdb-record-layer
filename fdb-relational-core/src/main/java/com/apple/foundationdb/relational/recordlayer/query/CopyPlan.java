@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataInKeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataNotAtLeafException;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePathSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
@@ -37,7 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
-import com.apple.foundationdb.relational.api.catalog.DataLayout;
+import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -48,10 +49,11 @@ import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationBuilder;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
-import com.apple.foundationdb.relational.recordlayer.catalog.KeySpaceDataLayout;
+import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
@@ -382,18 +384,18 @@ public final class CopyPlan extends QueryPlan {
 
     @Nonnull
     private KeySpacePath getPath(final ExecutionContext context) throws RelationalException, SQLException {
-        final DataLayout dataLayout = context.connection.unwrap(EmbeddedRelationalConnection.class).getBackingCatalog().getDataLayout();
-
-        if (dataLayout instanceof KeySpaceDataLayout) {
-            try {
-                return ((KeySpaceDataLayout)dataLayout).getKeySpacePath(URI.create(path));
-            } catch (RelationalException e) {
-                throw new RelationalException("Invalid COPY path: " + path,
-                        ErrorCode.INVALID_PATH, e);
+        final StoreCatalog catalog = context.connection.unwrap(EmbeddedRelationalConnection.class).getBackingCatalog();
+        if (catalog instanceof KeySpaceProvider) {
+            final KeySpace keySpace = ((KeySpaceProvider) catalog).getKeySpace();
+            if (keySpace != null) {
+                try {
+                    return KeySpaceUtils.toKeySpacePath(URI.create(path), keySpace);
+                } catch (RelationalException e) {
+                    throw new RelationalException("Invalid COPY path: " + path, ErrorCode.INVALID_PATH, e);
+                }
             }
-        } else {
-            throw new RelationalException("COPY not supported for this data layout", ErrorCode.UNSUPPORTED_OPERATION);
         }
+        throw new RelationalException("COPY not supported for this catalog", ErrorCode.UNSUPPORTED_OPERATION);
     }
 
     private static FDBRecordContext getRecordContext(@Nonnull final ExecutionContext context) throws InternalErrorException {

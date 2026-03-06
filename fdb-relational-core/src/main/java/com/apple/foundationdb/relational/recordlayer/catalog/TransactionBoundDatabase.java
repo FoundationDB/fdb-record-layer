@@ -22,11 +22,11 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
-import com.apple.foundationdb.relational.api.catalog.DataLayout;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
@@ -63,8 +63,8 @@ import java.net.URI;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TransactionBoundDatabase extends AbstractDatabase {
-    @Nonnull
-    private final DataLayout dataLayout;
+    @Nullable
+    private final KeySpace keySpace;
     BackingStore store;
     URI uri;
 
@@ -84,10 +84,10 @@ public class TransactionBoundDatabase extends AbstractDatabase {
     };
 
     public TransactionBoundDatabase(@Nonnull URI uri, @Nonnull Options options, @Nullable RelationalPlanCache planCache,
-                                    @Nonnull DataLayout dataLayout) {
+                                    @Nullable KeySpace keySpace) {
         super(onlyTemporaryFunctionOperationsFactory, NoOpQueryFactory.INSTANCE, planCache, options);
         this.uri = uri;
-        this.dataLayout = dataLayout;
+        this.keySpace = keySpace;
     }
 
     @Override
@@ -98,7 +98,7 @@ public class TransactionBoundDatabase extends AbstractDatabase {
         final var recordStoreAndRecordContextTx = transaction.unwrap(RecordStoreAndRecordContextTransaction.class);
         store = BackingRecordStore.fromTransactionWithStore(recordStoreAndRecordContextTx);
         final var boundSchemaTemplate = recordStoreAndRecordContextTx.getBoundSchemaTemplate();
-        EmbeddedRelationalConnection connection = new EmbeddedRelationalConnection(this, new HollowStoreCatalog(boundSchemaTemplate, dataLayout),
+        EmbeddedRelationalConnection connection = new EmbeddedRelationalConnection(this, new HollowStoreCatalog(boundSchemaTemplate, keySpace),
                 ((RecordStoreAndRecordContextTransaction) transaction).getRecordContextTransaction(), options);
         setConnection(connection);
         return connection;

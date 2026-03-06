@@ -21,10 +21,10 @@
 package com.apple.foundationdb.relational.transactionbound;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.TransactionManager;
-import com.apple.foundationdb.relational.api.catalog.DataLayout;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.recordlayer.HollowTransactionManager;
 import com.apple.foundationdb.relational.recordlayer.catalog.TransactionBoundDatabase;
@@ -42,19 +42,19 @@ import java.net.URI;
 public class TransactionBoundStorageCluster implements StorageCluster {
     @Nullable
     private final RelationalPlanCache planCache;
-    @Nonnull
-    private final DataLayout dataLayout;
+    @Nullable
+    private final KeySpace keySpace;
 
     public TransactionBoundStorageCluster(@Nullable RelationalPlanCache planCache,
-                                          @Nonnull final DataLayout dataLayout) {
+                                          @Nullable final KeySpace keySpace) {
         this.planCache = planCache;
-        this.dataLayout = dataLayout;
+        this.keySpace = keySpace;
     }
 
     @Nullable
     @Override
     public RelationalDatabase loadDatabase(@Nonnull URI url, @Nonnull Options connOptions) {
-        return new TransactionBoundDatabase(url, connOptions, planCache, dataLayout);
+        return new TransactionBoundDatabase(url, connOptions, planCache, keySpace);
     }
 
     @Override

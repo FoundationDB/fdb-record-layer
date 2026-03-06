@@ -21,31 +21,33 @@
 package com.apple.foundationdb.relational.transactionbound.catalog;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.catalog.DataLayout;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 
 @API(API.Status.EXPERIMENTAL)
-public class HollowStoreCatalog implements StoreCatalog {
+public class HollowStoreCatalog implements StoreCatalog, KeySpaceProvider {
 
     @Nonnull
     public final SchemaTemplate schemaTemplate;
-    @Nonnull
-    private final DataLayout dataLayout;
+    @Nullable
+    private final KeySpace keySpace;
 
-    public HollowStoreCatalog(@Nonnull final SchemaTemplate schemaTemplate, @Nonnull final DataLayout dataLayout) {
+    public HollowStoreCatalog(@Nonnull final SchemaTemplate schemaTemplate, @Nullable final KeySpace keySpace) {
         this.schemaTemplate = schemaTemplate;
-        this.dataLayout = dataLayout;
+        this.keySpace = keySpace;
     }
 
     @Override
@@ -111,9 +113,9 @@ public class HollowStoreCatalog implements StoreCatalog {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 
-    @Nonnull
+    @Nullable
     @Override
-    public DataLayout getDataLayout() {
-        return dataLayout;
+    public KeySpace getKeySpace() {
+        return keySpace;
     }
 }

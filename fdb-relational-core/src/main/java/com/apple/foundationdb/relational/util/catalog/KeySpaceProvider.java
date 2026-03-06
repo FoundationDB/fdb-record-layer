@@ -1,5 +1,5 @@
 /*
- * HollowdataLayout.java
+ * KeySpaceProvider.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,14 +18,16 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.transactionbound.catalog;
+package com.apple.foundationdb.relational.util.catalog;
 
-import com.apple.foundationdb.relational.api.catalog.DataLayout;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+
+import javax.annotation.Nullable;
 
 /**
- * Implementation of {@link DataLayout} where nothing is known about the layout of the data.
+ * Implemented by catalogs that organize data within a {@link KeySpace}.
  */
-public class HollowDataLayout implements DataLayout {
-
-    public static final HollowDataLayout INSTANCE = new HollowDataLayout();
+public interface KeySpaceProvider {
+    @Nullable
+    KeySpace getKeySpace();
 }

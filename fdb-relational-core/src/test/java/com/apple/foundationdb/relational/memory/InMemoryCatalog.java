@@ -25,14 +25,12 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.catalog.DataLayout;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.transactionbound.catalog.HollowDataLayout;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -148,12 +146,6 @@ public class InMemoryCatalog implements StoreCatalog {
             throw new RelationalException("Cannot delete unknown database " + dbUrl, ErrorCode.UNKNOWN_DATABASE);
         }
         return true;
-    }
-
-    @Nonnull
-    @Override
-    public DataLayout getDataLayout() {
-        return HollowDataLayout.INSTANCE;
     }
 
     public InMemoryTable loadTable(URI database, String schemaName, String tableName) throws RelationalException {

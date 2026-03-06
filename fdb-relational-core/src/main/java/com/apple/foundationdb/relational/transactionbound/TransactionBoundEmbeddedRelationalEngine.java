@@ -21,15 +21,15 @@
 package com.apple.foundationdb.relational.transactionbound;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
-import com.apple.foundationdb.relational.api.catalog.DataLayout;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
-import com.apple.foundationdb.relational.transactionbound.catalog.HollowDataLayout;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 
@@ -47,12 +47,12 @@ public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelational
     }
 
     public TransactionBoundEmbeddedRelationalEngine(@Nonnull Options engineOptions) {
-        this(engineOptions, HollowDataLayout.INSTANCE);
+        this(engineOptions, null);
     }
 
     public TransactionBoundEmbeddedRelationalEngine(@Nonnull Options engineOptions,
-                                                    @Nonnull DataLayout dataLayout) {
-        super(List.of(new TransactionBoundStorageCluster(null, dataLayout)), NoOpMetricRegistry.INSTANCE);
+                                                    @Nullable KeySpace keySpace) {
+        super(List.of(new TransactionBoundStorageCluster(null, keySpace)), NoOpMetricRegistry.INSTANCE);
         final Integer primaryCacheSize = engineOptions.getOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES);
         final Integer secondaryCacheSize = engineOptions.getOption(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES);
         final Integer tertiaryCacheSize = engineOptions.getOption(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES);
@@ -72,7 +72,7 @@ public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelational
                     .build();
         }
 
-        this.clusters = List.of(new TransactionBoundStorageCluster(planCache, dataLayout));
+        this.clusters = List.of(new TransactionBoundStorageCluster(planCache, keySpace));
     }
 
     @Override

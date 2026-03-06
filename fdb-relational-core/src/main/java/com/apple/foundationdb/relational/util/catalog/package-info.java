@@ -1,5 +1,5 @@
 /*
- * DataLayout.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,14 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.catalog;
-
 /**
- * An abstraction for how the paths are organized.
- * <p>
- *     This currently has no methods because we don't have a clear implementation beyond
- *     {@link com.apple.foundationdb.relational.recordlayer.catalog.KeySpaceDataLayout}.
- * </p>
+ * Internal utils for the {@link com.apple.foundationdb.relational.api.catalog}.
  */
-public interface DataLayout {
-}
+package com.apple.foundationdb.relational.util.catalog;
