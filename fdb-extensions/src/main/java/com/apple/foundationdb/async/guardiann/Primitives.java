@@ -44,6 +44,7 @@ import com.apple.foundationdb.rabitq.RaBitQuantizer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import org.slf4j.Logger;
@@ -54,6 +55,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -347,8 +349,12 @@ class Primitives {
                                             @Nonnull final Transformed<RealVector> centroid) {
         return fetchClusterMetadata(readTransaction, clusterId)
                 .thenCombine(fetchVectorReferences(readTransaction, storageTransform, clusterId),
-                        (clusterMetadata, vectorReferences) ->
-                                new Cluster(clusterMetadata, centroid, vectorReferences));
+                        (clusterMetadata, vectorReferences) -> {
+                            // TODO remove
+                            Verify.verify(clusterMetadata.getNumPrimaryVectors() ==
+                                    vectorReferences.stream().filter(VectorReference::isPrimaryCopy).count());
+                            return new Cluster(clusterMetadata, centroid, vectorReferences);
+                        });
     }
 
     @Nonnull
@@ -501,13 +507,13 @@ class Primitives {
     }
 
     @Nonnull
-    ClusterMetadata writeDeferredTasks(@Nonnull final Transaction transaction,
-                                       @Nonnull final SplittableRandom random,
-                                       @Nonnull final ClusterMetadata clusterMetadata,
-                                       @Nonnull final Transformed<RealVector> clusterCentroid,
-                                       @Nonnull final AccessInfo accessInfo,
-                                       final int numPrimaryVectorsAdded, final int numReplicatedVectorsAdded,
-                                       final boolean forceReassign) {
+    Optional<ClusterMetadata> writeDeferredTasks(@Nonnull final Transaction transaction,
+                                                 @Nonnull final SplittableRandom random,
+                                                 @Nonnull final ClusterMetadata clusterMetadata,
+                                                 @Nonnull final Transformed<RealVector> clusterCentroid,
+                                                 @Nonnull final AccessInfo accessInfo,
+                                                 final int numPrimaryVectorsAdded, final int numReplicatedVectorsAdded,
+                                                 final boolean forceReassign) {
         final Config config = getConfig();
 
         final int numTotalPrimaryVectors = clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded;
@@ -524,8 +530,8 @@ class Primitives {
                     SplitMergeTask.of(getLocator(), accessInfo, RandomHelpers.randomUUID(random),
                             clusterMetadata.getId(), clusterCentroid));
 
-            return clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
-                    numReplicatedVectorsAdded, ClusterMetadata.State.SPLIT_MERGE);
+            return Optional.of(clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
+                    numReplicatedVectorsAdded, ClusterMetadata.State.SPLIT_MERGE));
         }
 
         int numTotalReplicatedVectors = clusterMetadata.getNumReplicatedVectors() + numReplicatedVectorsAdded;
@@ -541,10 +547,14 @@ class Primitives {
                     ReassignTask.of(getLocator(), accessInfo, RandomHelpers.randomUUID(random),
                             clusterMetadata.getId(), clusterCentroid));
 
-            return clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
-                    numReplicatedVectorsAdded, ClusterMetadata.State.REASSIGN);
+            return Optional.of(clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
+                    numReplicatedVectorsAdded, ClusterMetadata.State.REASSIGN));
         }
-        return clusterMetadata.withAdditionalVectors(numPrimaryVectorsAdded, numReplicatedVectorsAdded);
+
+        if (numPrimaryVectorsAdded != 0 || numReplicatedVectorsAdded != 0) {
+            return Optional.of(clusterMetadata.withAdditionalVectors(numPrimaryVectorsAdded, numReplicatedVectorsAdded));
+        }
+        return Optional.empty();
     }
 
     void deleteDeferredTask(@Nonnull final Transaction transaction,
@@ -581,20 +591,34 @@ class Primitives {
                 }
             }
 
+            //
+            // If we are here, we have at least one cluster. However, there may not be enough clusters to properly
+            // populate both neighborhoods.
+            //
+
             final List<ClusterMetadataWithDistance> innerNeighborhood;
             final List<ClusterMetadataWithDistance> outerNeighborhood;
             if (foundPrimaryCluster) {
-                innerNeighborhood = clusterMetadatas.subList(0, numInnerNeighborhood);
-                outerNeighborhood = clusterMetadatas.subList(numInnerNeighborhood, clusterMetadatas.size());
-            } else {
-                final ImmutableList.Builder<ClusterMetadataWithDistance> innerNeighborhoodBuilder = ImmutableList.builder();
-                innerNeighborhoodBuilder.add(
-                        new ClusterMetadataWithDistance(targetClusterMetadata,
-                                storageTransform.transform(targetClusterCentroid), 0.0d));
-                innerNeighborhoodBuilder.addAll(clusterMetadatas.subList(0, numInnerNeighborhood - 1));
-                innerNeighborhood = innerNeighborhoodBuilder.build();
-                outerNeighborhood = clusterMetadatas.subList(numInnerNeighborhood - 1, clusterMetadatas.size() - 1);
+                final int cappedNumInnerNeighborhood = Math.min(numInnerNeighborhood, clusterMetadatas.size());
+                return new NeighborhoodsResult(clusterMetadatas.subList(0, cappedNumInnerNeighborhood),
+                        clusterMetadatas.subList(cappedNumInnerNeighborhood, clusterMetadatas.size()));
             }
+
+            final ImmutableList.Builder<ClusterMetadataWithDistance> innerNeighborhoodBuilder = ImmutableList.builder();
+            // add the target cluster (which we should have found but did not because of reasons)
+            innerNeighborhoodBuilder.add(
+                    new ClusterMetadataWithDistance(targetClusterMetadata,
+                            storageTransform.transform(targetClusterCentroid), 0.0d));
+            // now everything shifts
+            final int cappedNumInnerNeighborhood = Math.min(numInnerNeighborhood - 1, clusterMetadatas.size());
+
+            innerNeighborhoodBuilder.addAll(clusterMetadatas.subList(0, cappedNumInnerNeighborhood));
+            innerNeighborhood = innerNeighborhoodBuilder.build();
+
+            final int cappedNumOuterNeighborhood = Math.min(numOuterNeighborhood,
+                    clusterMetadatas.size() - cappedNumInnerNeighborhood);
+            outerNeighborhood = clusterMetadatas.subList(cappedNumInnerNeighborhood,
+                    cappedNumInnerNeighborhood + cappedNumOuterNeighborhood);
             return new NeighborhoodsResult(innerNeighborhood, outerNeighborhood);
         });
     }

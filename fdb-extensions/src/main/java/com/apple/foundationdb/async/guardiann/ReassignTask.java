@@ -55,21 +55,13 @@ public class ReassignTask extends AbstractDeferredTask {
     private static final Logger logger = LoggerFactory.getLogger(ReassignTask.class);
 
     @Nonnull
-    private final UUID clusterId;
-    @Nonnull
     private final Transformed<RealVector> centroid;
 
     private ReassignTask(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                         @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
+                         @Nonnull final UUID taskId, @Nonnull final UUID targetClusterId,
                          @Nonnull final Transformed<RealVector> centroid) {
-        super(locator, accessInfo, taskId);
-        this.clusterId = clusterId;
+        super(locator, accessInfo, taskId, targetClusterId);
         this.centroid = centroid;
-    }
-
-    @Nonnull
-    public UUID getClusterId() {
-        return clusterId;
     }
 
     @Nonnull
@@ -82,7 +74,7 @@ public class ReassignTask extends AbstractDeferredTask {
     public Tuple valueTuple() {
         final Quantizer quantizer = getLocator().primitives().quantizer(getAccessInfo());
         final Transformed<RealVector> encodedVector = quantizer.encode(getCentroid());
-        return Tuple.from(getKind().getCode(), getClusterId(), encodedVector.getUnderlyingVector().getRawData());
+        return Tuple.from(getKind().getCode(), getTargetClusterId(), encodedVector.getUnderlyingVector().getRawData());
     }
 
     @Nonnull
@@ -93,13 +85,14 @@ public class ReassignTask extends AbstractDeferredTask {
 
     @Nonnull
     public CompletableFuture<Void> runTask(@Nonnull final Transaction transaction) {
-        final Primitives primitives = getLocator().primitives();
+        logStart(logger);
 
+        final Primitives primitives = getLocator().primitives();
         final AccessInfo accessInfo = getAccessInfo();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
         final RealVector untransformedCentroid = storageTransform.untransform(getCentroid());
 
-        return primitives.fetchClusterMetadata(transaction, getClusterId())
+        return primitives.fetchClusterMetadata(transaction, getTargetClusterId())
                 .thenCompose(clusterMetadata -> {
                     if (clusterMetadata == null) {
                         return AsyncUtil.DONE;
@@ -112,7 +105,7 @@ public class ReassignTask extends AbstractDeferredTask {
                     }
 
                     return reassign(transaction, clusterMetadata, untransformedCentroid);
-                });
+                }).thenAccept(ignored -> logSuccessful(logger));
     }
 
     @Nonnull
@@ -148,11 +141,17 @@ public class ReassignTask extends AbstractDeferredTask {
                                 final ReassignmentResult reassignmentResult =
                                         reassignVectorReferences(random, estimator, Iterables.getOnlyElement(innerNeighborhood),
                                                 outerNeighborhood, cleanedUpVectorReferences);
-                                final ImmutableListMultimap<UUID, VectorReference> assignmentMultimap = reassignmentResult.getPrimaryAssignmentMultimap();
-                                final ImmutableList<VectorReference> targetClusterAssignedVectors =
-                                        assignmentMultimap.get(targetClusterMetadata.getId());
+                                final ImmutableListMultimap<UUID, VectorReference> primaryAssignmentMultimap =
+                                        reassignmentResult.getPrimaryAssignmentMultimap();
+                                final ImmutableList<VectorReference> targetClusterPrimaryAssignedVectors =
+                                        primaryAssignmentMultimap.get(targetClusterMetadata.getId());
+                                final ImmutableListMultimap<UUID, VectorReference> replicatedAssignmentMultimap =
+                                        reassignmentResult.getReplicatedAssignmentMultimap();
+                                final ImmutableList<VectorReference> targetClusterReplicatedAssignedVectors =
+                                        replicatedAssignmentMultimap.get(targetClusterMetadata.getId());
                                 final ImmutableMap.Builder<Tuple, VectorReference> targetClusterAssignedVectorsAsMapBuilder = ImmutableMap.builder();
-                                for (final VectorReference targetClusterAssignedVector : targetClusterAssignedVectors) {
+                                for (final VectorReference targetClusterAssignedVector :
+                                        Iterables.concat(targetClusterPrimaryAssignedVectors, targetClusterReplicatedAssignedVectors)) {
                                     targetClusterAssignedVectorsAsMapBuilder.put(targetClusterAssignedVector.getId().getPrimaryKey(),
                                             targetClusterAssignedVector);
                                 }
@@ -216,7 +215,8 @@ public class ReassignTask extends AbstractDeferredTask {
         final ImmutableMap.Builder<UUID, ClusterMetadataWithDistance> clusterIdMetadataMapBuilder =
                 ImmutableMap.builder();
 
-        clusterIdMetadataMapBuilder.put(targetClusterMetadataWithDistance.getClusterMetadata().getId(),
+        final UUID targetClusterId = targetClusterMetadataWithDistance.getClusterMetadata().getId();
+        clusterIdMetadataMapBuilder.put(targetClusterId,
                 targetClusterMetadataWithDistance);
         for (final ClusterMetadataWithDistance clusterMetadataWithDistance : outerNeighborhood) {
             clusterIdMetadataMapBuilder.put(clusterMetadataWithDistance.getClusterMetadata().getId(),
@@ -261,7 +261,7 @@ public class ReassignTask extends AbstractDeferredTask {
             while (!nearestClusters.isEmpty()) {
                 final ClusterMetadataWithDistance replicatedCluster =
                         Objects.requireNonNull(nearestClusters.poll());
-                final double distance = primaryCluster.getDistance();
+                final double distance = replicatedCluster.getDistance();
                 Verify.verify(Double.isFinite(distance));
 
                 //
@@ -272,16 +272,21 @@ public class ReassignTask extends AbstractDeferredTask {
                 // clusters.
                 //
                 if (distance / distanceToPrimaryCentroid <= 1.0d + config.getClusterOverlap()) {
-                    replicatedAssignmentBuilder.put(
-                            replicatedCluster.getClusterMetadata().getId(),
-                            vectorReference.toReplicatedCopy());
+                    final VectorReference newVectorReference = vectorReference.toReplicatedCopy();
+                    if (targetClusterId.equals(replicatedCluster.getClusterMetadata().getId())) {
+                        replicatedAssignmentSampler.add(newVectorReference);
+                    } else {
+                        replicatedAssignmentBuilder.put(
+                                replicatedCluster.getClusterMetadata().getId(),
+                                newVectorReference);
+                    }
                 } else {
                     break;
                 }
             }
         }
 
-        replicatedAssignmentBuilder.putAll(targetClusterMetadataWithDistance.getClusterMetadata().getId(),
+        replicatedAssignmentBuilder.putAll(targetClusterId,
                 replicatedAssignmentSampler.sample());
 
         return new ReassignmentResult(clusterIdMetadataMap, primaryAssignmentBuilder.build(),
@@ -297,6 +302,7 @@ public class ReassignTask extends AbstractDeferredTask {
                                    @Nonnull final Quantizer quantizer) {
         final Primitives primitives = getLocator().primitives();
 
+        int numPrimaryPushedOut = 0;
         // write all vector references
         final var primaryAssignmentMultiMap =
                 reassignmentResult.getPrimaryAssignmentMultimap();
@@ -304,27 +310,37 @@ public class ReassignTask extends AbstractDeferredTask {
             if (!entry.getKey().equals(targetClusterMetadata.getId())) {
                 primitives.writeVectorReference(transaction, quantizer, entry.getKey(),
                         entry.getValue());
+                numPrimaryPushedOut++;
             }
         }
+
+        int numReplicatedPushedOut = 0;
         final var replicatedAssignmentMultiMap =
                 reassignmentResult.getReplicatedAssignmentMultimap();
         for (final Map.Entry<UUID, VectorReference> entry : replicatedAssignmentMultiMap.entries()) {
             if (!entry.getKey().equals(targetClusterMetadata.getId())) {
                 primitives.writeVectorReference(transaction, quantizer, entry.getKey(),
                         entry.getValue());
+                numReplicatedPushedOut++;
             }
         }
 
         // delete vectors that have been assigned out
         // write updates
+        int numDeleted = 0;
         for (final Tuple primaryKey : deleteTargetClusterAssignedVectors) {
             primitives.deleteVectorReference(transaction, targetClusterMetadata.getId(), primaryKey);
+            numDeleted++;
         }
 
         // write updated vector references
+        int numUpdated = 0;
         for (final VectorReference vectorReference : writeTargetClusterAssignedVectors) {
             primitives.writeVectorReference(transaction, quantizer, targetClusterMetadata.getId(), vectorReference);
+            numUpdated++;
         }
+
+        ClusterMetadata newTargetClusterMetadata = null;
 
         // update all affected cluster metadata
         final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap =
@@ -334,34 +350,52 @@ public class ReassignTask extends AbstractDeferredTask {
             final ClusterMetadataWithDistance clusterMetadataWithDistance = entry.getValue();
             final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.getClusterMetadata();
 
-            if (primaryAssignmentMultiMap.containsKey(toBeWritten) ||
-                    replicatedAssignmentMultiMap.containsKey(toBeWritten)) {
-                final int numPrimaryVectorsAdded = primaryAssignmentMultiMap.get(toBeWritten).size();
-                final int numReplicatedVectorsAdded = replicatedAssignmentMultiMap.get(toBeWritten).size();
+            final int numPrimaryVectorsAdded = primaryAssignmentMultiMap.get(toBeWritten).size();
+            final int numReplicatedVectorsAdded = replicatedAssignmentMultiMap.get(toBeWritten).size();
 
-                final ClusterMetadata newClusterMetadata;
-                if (targetClusterMetadata.getId().equals(clusterMetadata.getId())) {
-                    newClusterMetadata = clusterMetadata.withNewVectors(numPrimaryVectorsAdded,
-                            numReplicatedVectorsAdded, EnumSet.noneOf(ClusterMetadata.State.class));
-                } else {
-                    newClusterMetadata = primitives.writeDeferredTasks(transaction, random, clusterMetadata,
-                            clusterMetadataWithDistance.getCentroid(), getAccessInfo(), numPrimaryVectorsAdded,
-                            numReplicatedVectorsAdded, false);
-                }
-                primitives.writeClusterMetadata(transaction, newClusterMetadata);
+            if (targetClusterMetadata.getId().equals(clusterMetadata.getId())) {
+                newTargetClusterMetadata = clusterMetadata.withNewVectors(numPrimaryVectorsAdded,
+                        numReplicatedVectorsAdded, EnumSet.noneOf(ClusterMetadata.State.class));
+                primitives.writeClusterMetadata(transaction, newTargetClusterMetadata);
+            } else {
+                primitives.writeDeferredTasks(transaction, random, clusterMetadata,
+                                clusterMetadataWithDistance.getCentroid(), getAccessInfo(), numPrimaryVectorsAdded,
+                                numReplicatedVectorsAdded, false)
+                        .ifPresent(newClusterMetadata -> {
+                            if (logger.isInfoEnabled()) {
+                                logger.info("pushing vectors; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
+                                                "numTotalReplicatedVectors={}, numReplicatedVectorsAdded={}",
+                                        clusterMetadata.getId(),
+                                        clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded, numPrimaryVectorsAdded,
+                                        clusterMetadata.getNumReplicatedVectors() + numReplicatedVectorsAdded, numReplicatedVectorsAdded);
+                            }
+
+                            primitives.writeClusterMetadata(transaction, newClusterMetadata);
+                        });
             }
+        }
+
+        // log everything
+        if (logger.isInfoEnabled()) {
+            Objects.requireNonNull(newTargetClusterMetadata);
+            logger.info("reassign stats; old.numPrimary={}, new.numPrimary={}, old.numReplicated={}, " +
+                    "new.numReplicated={}, numDeleted={}, numUpdated={}, numPrimaryPushedOut={}, " +
+                    "numReplicatedPushedOut={}", targetClusterMetadata.getNumPrimaryVectors(),
+                    newTargetClusterMetadata.getNumPrimaryVectors(), targetClusterMetadata.getNumReplicatedVectors(),
+                    newTargetClusterMetadata.getNumReplicatedVectors(), numDeleted, numUpdated, numPrimaryPushedOut,
+                    numReplicatedPushedOut);
         }
     }
 
     @Nonnull
     static ReassignTask fromTuples(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                                    @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
-        Verify.verify(Kind.fromValueTuple(valueTuple) == Kind.SPLIT_MERGE);
+        Verify.verify(Kind.fromValueTuple(valueTuple) == Kind.REASSIGN);
         final StorageTransform storageTransform = locator.primitives().storageTransform(accessInfo);
         final Transformed<RealVector> centroid = storageTransform.transform(
                 StorageHelpers.vectorFromBytes(locator.getConfig(), valueTuple.getBytes(2)));
 
-        return new ReassignTask(locator, accessInfo, keyTuple.getUUID(1),
+        return new ReassignTask(locator, accessInfo, keyTuple.getUUID(0),
                 valueTuple.getUUID(1), centroid);
     }
 

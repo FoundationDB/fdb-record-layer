@@ -150,8 +150,9 @@ class ClusterMetadata {
         public static EnumSet<State> ofCode(final int code) {
             final EnumSet<State> resultSet = EnumSet.noneOf(State.class);
             for (int i = 0; i < 32; i++) {
-                if ((code & (1 << i)) != 0) {
-                    final State lookup = BY_CODE.getOrDefault(code, null);
+                final int bitValue = 1 << i;
+                if ((code & bitValue) != 0) {
+                    final State lookup = BY_CODE.getOrDefault(bitValue, null);
                     Objects.requireNonNull(lookup, "unable to look up state");
                     resultSet.add(lookup);
                 }

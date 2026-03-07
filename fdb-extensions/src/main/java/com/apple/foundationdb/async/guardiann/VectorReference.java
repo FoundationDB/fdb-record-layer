@@ -67,7 +67,7 @@ class VectorReference {
         if (isPrimaryCopy() == isPrimaryCopy) {
             return this;
         }
-        return new VectorReference(getId(), isPrimaryCopy(), getVector());
+        return new VectorReference(getId(), isPrimaryCopy, getVector());
     }
 
     @Nonnull

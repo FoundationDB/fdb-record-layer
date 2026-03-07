@@ -33,7 +33,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 /**
@@ -257,7 +259,7 @@ class StorageAdapter {
     @Nonnull
     static ClusterMetadata clusterMetadataFromTuple(@Nonnull final Tuple valueTuple) {
         return new ClusterMetadata(valueTuple.getUUID(0), Math.toIntExact(valueTuple.getLong(1)),
-                Math.toIntExact(valueTuple.getLong(1)),
+                Math.toIntExact(valueTuple.getLong(2)),
                 Math.toIntExact(valueTuple.getLong(3)));
     }
 
@@ -284,5 +286,10 @@ class StorageAdapter {
         final Transformed<RealVector> encodedVector = quantizer.encode(vectorReference.getVector());
         return Tuple.from(vectorId.getUuid(), vectorReference.isPrimaryCopy(),
                 encodedVector.getUnderlyingVector().getRawData());
+    }
+
+    @Nonnull
+    static <T> CompletableFuture<T> requireNonNull(@Nonnull final CompletableFuture<T> future) {
+        return future.thenApply(Objects::requireNonNull);
     }
 }

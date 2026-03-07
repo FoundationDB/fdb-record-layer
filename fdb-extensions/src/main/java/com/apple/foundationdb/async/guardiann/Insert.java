@@ -27,9 +27,9 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.AggregatedVector;
 import com.apple.foundationdb.async.common.RandomHelpers;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.async.guardiann.Primitives.AccessInfoAndNodeExistence;
-import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.Quantizer;
@@ -44,6 +44,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.EnumSet;
 import java.util.Objects;
 import java.util.SplittableRandom;
 import java.util.UUID;
@@ -178,13 +179,13 @@ public class Insert {
 
         return primitives.fetchAccessInfo(transaction)
                 .thenCombine(primitives.exists(transaction, newPrimaryKey),
-                        (accessInfo, nodeAlreadyExists) -> {
-                            if (nodeAlreadyExists) {
+                        (accessInfo, recordAlreadyExists) -> {
+                            if (recordAlreadyExists) {
                                 if (logger.isDebugEnabled()) {
                                     logger.debug("new record already exists with key={}", newPrimaryKey);
                                 }
                             }
-                            return new AccessInfoAndNodeExistence(accessInfo, nodeAlreadyExists);
+                            return new AccessInfoAndNodeExistence(accessInfo, recordAlreadyExists);
                         })
                 .thenCompose(accessInfoAndNodeExistence -> {
                     final AccessInfo accessInfo = accessInfoAndNodeExistence.getAccessInfo();
@@ -215,8 +216,8 @@ public class Insert {
                     final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
                             mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
                                     resultEntry ->
-                                            primitives.fetchClusterMetadata(transaction,
-                                                            StorageAdapter.clusterIdFromTuple(resultEntry.getPrimaryKey()))
+                                            StorageAdapter.requireNonNull(primitives.fetchClusterMetadata(transaction,
+                                                            StorageAdapter.clusterIdFromTuple(resultEntry.getPrimaryKey())))
                                                     .thenApply(clusterMetadata -> {
                                                         final Transformed<RealVector> transformedCentroid =
                                                                 storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
@@ -224,7 +225,7 @@ public class Insert {
                                                                         transformedCentroid,
                                                                         resultEntry.getDistance());
                                                     }),
-                                    10);
+                                    1);
 
                     final AtomicInteger indexAtomic = new AtomicInteger(0);
                     final AtomicReference<UUID> primaryClusterIdAtomic = new AtomicReference<>();
@@ -267,21 +268,25 @@ public class Insert {
                     final AsyncIterable<Void> updatedNeighborhood = mapIterablePipelined(affectedNeighborhood,
                             clusterMetadataWithDistance -> {
                                 final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.getClusterMetadata();
-                                final ClusterMetadata newClusterMetadata;
                                 final UUID clusterId = clusterMetadata.getId();
                                 final boolean isPrimaryCluster = clusterId.equals(primaryClusterIdAtomic.get());
-
-                                newClusterMetadata = primitives.writeDeferredTasks(transaction, random.split(),
-                                        clusterMetadata,
-                                        clusterMetadataWithDistance.getCentroid(), accessInfo,
-                                        isPrimaryCluster ? 1 : 0,
-                                        isPrimaryCluster ? 0 : 1,
-                                        false);
 
                                 primitives.writeVectorReference(transaction, quantizer, clusterId,
                                         new VectorReference(newVectorMetadata,
                                                 isPrimaryCluster, transformedNewVector));
-                                primitives.writeClusterMetadata(transaction, newClusterMetadata);
+
+                                primitives.writeDeferredTasks(transaction, random.split(),
+                                                clusterMetadata,
+                                                clusterMetadataWithDistance.getCentroid(), accessInfo,
+                                                isPrimaryCluster ? 1 : 0,
+                                                isPrimaryCluster ? 0 : 1,
+                                                false)
+                                        .ifPresent(newClusterMetadata -> {
+                                            if (clusterId.getLeastSignificantBits() == 0x7b9) {
+                                                logger.info("0x7b9, newNumTotalPrimary={}", newClusterMetadata.getNumPrimaryVectors());
+                                            }
+                                            primitives.writeClusterMetadata(transaction, newClusterMetadata);
+                                        });
                                 return AsyncUtil.DONE;
                             },
                             10);
@@ -323,10 +328,14 @@ public class Insert {
             logger.trace("written initial access info");
         }
 
+        final UUID clusterId = RandomHelpers.nextUuid(random, config.isPersistSequentialUuids());
+        primitives.writeClusterMetadata(transaction,
+                new ClusterMetadata(clusterId, 0, 0,
+                        EnumSet.noneOf(ClusterMetadata.State.class)));
+
         return primitives.getClusterCentroidsHnsw()
                 .insert(transaction,
-                        StorageAdapter.tupleFromClusterId(RandomHelpers.nextUuid(random,
-                                config.isPersistSequentialUuids())),
+                        StorageAdapter.tupleFromClusterId(clusterId),
                         newVector, null)
                 .thenApply(ignored -> initialAccessInfo);
     }

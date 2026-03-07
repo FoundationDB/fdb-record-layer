@@ -167,7 +167,6 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
                 quickStart.add(nodeReferenceWithDistance);
             }
         }
-
         return new OutwardTraversalState(storageTransform, estimator,
                 transformedCenterVector, candidates, visited, out, quickStart, zoomInResult.getNodeCache());
     }

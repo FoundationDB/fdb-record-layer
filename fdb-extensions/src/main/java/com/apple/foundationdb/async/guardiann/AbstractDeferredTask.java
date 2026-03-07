@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.tuple.Tuple;
+import org.slf4j.Logger;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -38,13 +39,17 @@ public abstract class AbstractDeferredTask {
     private final AccessInfo accessInfo;
     @Nonnull
     private final UUID taskId;
+    @Nonnull
+    private final UUID targetClusterId;
 
     AbstractDeferredTask(@Nonnull final Locator locator,
                          @Nonnull final AccessInfo accessInfo,
-                         @Nonnull final UUID taskId) {
+                         @Nonnull final UUID taskId,
+                         @Nonnull final UUID targetClusterId) {
         this.locator = locator;
         this.accessInfo = accessInfo;
         this.taskId = taskId;
+        this.targetClusterId = targetClusterId;
     }
 
     @Nonnull
@@ -68,6 +73,11 @@ public abstract class AbstractDeferredTask {
     }
 
     @Nonnull
+    public UUID getTargetClusterId() {
+        return targetClusterId;
+    }
+
+    @Nonnull
     public Config getConfig() {
         return getLocator().getConfig();
     }
@@ -77,6 +87,19 @@ public abstract class AbstractDeferredTask {
 
     @Nonnull
     public abstract CompletableFuture<Void> runTask(@Nonnull Transaction transaction);
+
+    protected void logStart(@Nonnull final Logger logger) {
+        if (logger.isInfoEnabled()) {
+            logger.info("executing task kind={}, taskId={}, targetClusterId={}", getKind(), getTaskId(),
+                    getTargetClusterId());
+        }
+    }
+
+    protected void logSuccessful(@Nonnull final Logger logger) {
+        if (logger.isInfoEnabled()) {
+            logger.info("successfully finished executing task kind={}, taskId={}", getKind(), getTaskId());
+        }
+    }
 
     @Nonnull
     public abstract Kind getKind();

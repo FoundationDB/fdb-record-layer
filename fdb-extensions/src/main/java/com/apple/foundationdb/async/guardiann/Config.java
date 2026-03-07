@@ -365,7 +365,7 @@ public final class Config implements BaseConfig {
         }
 
         @Nonnull
-        public ConfigBuilder setClusterOverlap(final int clusterOverlap) {
+        public ConfigBuilder setClusterOverlap(final double clusterOverlap) {
             this.clusterOverlap = clusterOverlap;
             return this;
         }

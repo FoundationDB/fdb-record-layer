@@ -93,12 +93,12 @@ class TestHelpers {
                 }
                 data.add(record);
                 future = future.thenCompose(ignore ->
-                        guardiann.insert(tr, record.getPrimaryKey(), record.getVector(), null));
+                                guardiann.insert(tr, record.getPrimaryKey(), record.getVector(), null))/*.thenAccept(ignored -> logger.info("record inserted"))*/;
             }
             return future.thenApply(vignore -> data.build())
                     .whenComplete((result, error) -> {
                         if (error != null) {
-                            logger.info("Failed to insert batchSize={}", error);
+                            logger.info("failed to insert batchSize={}", error);
                         } else {
                             final long endTs = System.nanoTime();
                             logger.info("inserted batchSize={} records={} starting at nodeId={} took elapsedTime={}ms, readBytes={}",

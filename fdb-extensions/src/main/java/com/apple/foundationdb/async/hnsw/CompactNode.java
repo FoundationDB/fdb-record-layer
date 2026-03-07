@@ -53,7 +53,7 @@ class CompactNode extends AbstractNode<NodeReference> {
                                                   @Nullable final Tuple additionalValues,
                                                   @Nonnull final List<? extends NodeReference> neighbors) {
             return new CompactNode(primaryKey, (List<NodeReference>)neighbors, Objects.requireNonNull(vector),
-                    Objects.requireNonNull(additionalValues));
+                    additionalValues);
         }
 
         @Nonnull

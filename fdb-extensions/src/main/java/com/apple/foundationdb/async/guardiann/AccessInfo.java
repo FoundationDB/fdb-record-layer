@@ -85,7 +85,7 @@ class AccessInfo {
     @Override
     public String toString() {
         return "AccessInfo[" +
-                ", rotatorSeed=" + rotatorSeed +
+                "rotatorSeed=" + rotatorSeed +
                 ", centroid=" + negatedCentroid + "]";
     }
 }

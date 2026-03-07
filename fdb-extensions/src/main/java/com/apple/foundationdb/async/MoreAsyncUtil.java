@@ -124,6 +124,7 @@ public class MoreAsyncUtil {
 
             @Override
             public CompletableFuture<Boolean> onHasNext() {
+                //System.out.println("hNA " + count + " " + Thread.currentThread().getId() + " " + System.identityHashCode(this));
                 if (count < limit) {
                     return iterator.onHasNext();
                 } else {
@@ -133,12 +134,16 @@ public class MoreAsyncUtil {
 
             @Override
             public boolean hasNext() {
-                return (count < limit) && iterator.hasNext();
+                final boolean r = onHasNext().join();
+                //System.out.println("hN " + count + " " + Thread.currentThread().getId() + " " + System.identityHashCode(this) + " " + r);
+                return r;
             }
 
             @Override
             public T next() {
+                //System.out.println(count + " " + Thread.currentThread().getId() + " " + System.identityHashCode(this));
                 if (!hasNext()) {
+                    System.out.println("boom " + count + " " + Thread.currentThread().getId() + " " + System.identityHashCode(this));
                     throw new NoSuchElementException();
                 }
                 count++;
@@ -169,36 +174,35 @@ public class MoreAsyncUtil {
                                                                    @Nonnull final Predicate<T> whilePredicate) {
         return new CloseableAsyncIterator<>() {
             boolean done = false;
-            boolean hasComputedNext = false;
             @Nullable
+            CompletableFuture<Boolean> nextFuture = null;
             T next = null;
 
             @Override
             public CompletableFuture<Boolean> onHasNext() {
-                if (!done) {
-                    if (hasComputedNext) {
-                        return AsyncUtil.READY_TRUE;
-                    }
-
-                    return iterator.onHasNext()
-                            .thenApply(hasNext -> {
-                                if (hasNext) {
-                                    final T potentiallyNextItem = iterator.next();
-                                    if (whilePredicate.test(potentiallyNextItem)) {
-                                        hasComputedNext = true;
-                                        next = potentiallyNextItem;
+                if (nextFuture == null) {
+                    if (!done) {
+                        nextFuture = iterator.onHasNext()
+                                .thenApply(hasNext -> {
+                                    if (hasNext) {
+                                        final T potentiallyNextItem = iterator.next();
+                                        if (whilePredicate.test(potentiallyNextItem)) {
+                                            next = potentiallyNextItem;
+                                            return true;
+                                        } else {
+                                            done = true;
+                                            return false;
+                                        }
                                     } else {
                                         done = true;
                                         return false;
                                     }
-                                } else {
-                                    done = true;
-                                }
-                                return hasNext;
-                            });
-                } else {
-                    return AsyncUtil.READY_FALSE;
+                                });
+                    } else {
+                        nextFuture = AsyncUtil.READY_FALSE;
+                    }
                 }
+                return nextFuture;
             }
 
             @Override
@@ -211,8 +215,8 @@ public class MoreAsyncUtil {
                 if (!hasNext()) {
                     throw new NoSuchElementException();
                 }
-                hasComputedNext = false;
                 final T result = next;
+                nextFuture = null;
                 next = null;
                 return result;
             }
@@ -486,6 +490,7 @@ public class MoreAsyncUtil {
      * for up to a requested number of elements of the iterable, in parallel with requests to the mapping results.
      * This does not pipeline the overlapping concatenations, i.e. it won't grab the first item of the
      * second result of func, until it has exhausted the first result of func.
+     * @param executor the executor
      * @param iterable the source
      * @param func mapping function from each element of iterable to a new iterable
      * @param pipelineSize the number of elements to pipeline
@@ -494,18 +499,11 @@ public class MoreAsyncUtil {
      * @return the results of all the {@code AsyncIterable}s returned by func for each value of iterable, concatenated
      */
     @Nonnull
-    public static <T1, T2> AsyncIterable<T2> mapConcatIterable(@Nonnull final AsyncIterable<T1> iterable,
-                                                               @Nonnull final Function<T1, AsyncIterable<T2>> func,
-                                                               final int pipelineSize) {
-        return mapConcatIterable(ForkJoinPool.commonPool(), iterable, func, pipelineSize);
-    }
-
-    @Nonnull
     public static <T1, T2> AsyncIterable<T2> mapConcatIterable(@Nonnull Executor executor,
                                                                @Nonnull final AsyncIterable<T1> iterable,
                                                                @Nonnull final Function<T1, AsyncIterable<T2>> func,
                                                                final int pipelineSize) {
-        return new AsyncIterable<T2>() {
+        return new AsyncIterable<>() {
             @Nonnull
             @Override
             public CloseableAsyncIterator<T2> iterator() {
@@ -553,6 +551,9 @@ public class MoreAsyncUtil {
                                 } else {
                                     waitOn.add(inner);
                                 }
+                            }
+                            if (waitOn.isEmpty()) {
+                                return AsyncUtil.READY_FALSE;
                             }
                             // TODO whenAny should special handle elements of 1
                             if (waitOn.size() == 1) {
@@ -716,31 +717,12 @@ public class MoreAsyncUtil {
         };
     }
 
-    /**
-     * Filter an iterable, pipelining the asynchronous filter functions.
-     * Unlike filterIterable, the filter here is asynchronous.
-     * As items comes back from iterable, a pipeline of filter futures is kept without advancing
-     * the iterable.
-     * @param iterable the source
-     * @param filter only the values of iterable for which the future returned by this filter returns true
-     * will be in the resulting iterable
-     * @param pipelineSize the number of filter results to pipeline
-     * @param <T> the source type
-     * @return a new {@code AsyncIterable} containing the elements of iterable for which filter returns a true future
-     */
-    @Nonnull
-    public static <T> AsyncIterable<T> filterIterablePipelined(@Nonnull AsyncIterable<T> iterable,
-                                                               @Nonnull final Function<T, CompletableFuture<Boolean>> filter,
-                                                               int pipelineSize) {
-        return filterIterablePipelined(ForkJoinPool.commonPool(), iterable, filter, pipelineSize);
-    }
-
     @Nonnull
     public static <T> AsyncIterable<T> filterIterablePipelined(@Nonnull Executor executor,
                                                                @Nonnull AsyncIterable<T> iterable,
                                                                @Nonnull final Function<T, CompletableFuture<Boolean>> filter,
                                                                int pipelineSize) {
-        return mapConcatIterable(iterable,
+        return mapConcatIterable(executor, iterable,
                 item -> filterToIterable(item, filter),
                 pipelineSize);
     }
@@ -1235,7 +1217,7 @@ public class MoreAsyncUtil {
         return whileTrue(() -> {
             working.removeIf(CompletableFuture::isDone);
 
-            while (working.size() <= parallelism) {
+            while (working.size() < parallelism) {
                 final T currentItem = toBeProcessed.pollFirst();
                 if (currentItem == null) {
                     break;
