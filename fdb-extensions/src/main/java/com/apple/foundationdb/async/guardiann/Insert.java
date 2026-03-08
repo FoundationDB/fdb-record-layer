@@ -280,6 +280,7 @@ public class Insert {
                                                 clusterMetadata,
                                                 clusterMetadataWithDistance.getCentroid(), accessInfo,
                                                 isPrimaryCluster ? 1 : 0,
+                                                0,
                                                 isPrimaryCluster ? 0 : 1,
                                                 ImmutableSet.of());
                                 return AsyncUtil.DONE;

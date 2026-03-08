@@ -37,6 +37,8 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -160,17 +162,12 @@ public class ReassignTask extends AbstractDeferredTask {
                                 final ReassignmentResult reassignmentResult =
                                         reassignVectorReferences(random, estimator, Iterables.getOnlyElement(innerNeighborhood),
                                                 outerNeighborhood, cleanedUpVectorReferences);
-                                final ImmutableListMultimap<UUID, VectorReference> primaryAssignmentMultimap =
-                                        reassignmentResult.getPrimaryAssignmentMultimap();
-                                final ImmutableList<VectorReference> targetClusterPrimaryAssignedVectors =
-                                        primaryAssignmentMultimap.get(targetClusterMetadata.getId());
-                                final ImmutableListMultimap<UUID, VectorReference> replicatedAssignmentMultimap =
-                                        reassignmentResult.getReplicatedAssignmentMultimap();
-                                final ImmutableList<VectorReference> targetClusterReplicatedAssignedVectors =
-                                        replicatedAssignmentMultimap.get(targetClusterMetadata.getId());
+                                final ListMultimap<UUID, VectorReference> assignmentMultimap =
+                                        reassignmentResult.getAssignmentMultimap();
+                                final List<VectorReference> targetClusterAssignedVectors =
+                                        assignmentMultimap.get(targetClusterMetadata.getId());
                                 final ImmutableMap.Builder<Tuple, VectorReference> targetClusterAssignedVectorsAsMapBuilder = ImmutableMap.builder();
-                                for (final VectorReference targetClusterAssignedVector :
-                                        Iterables.concat(targetClusterPrimaryAssignedVectors, targetClusterReplicatedAssignedVectors)) {
+                                for (final VectorReference targetClusterAssignedVector : targetClusterAssignedVectors) {
                                     targetClusterAssignedVectorsAsMapBuilder.put(targetClusterAssignedVector.getId().getPrimaryKey(),
                                             targetClusterAssignedVector);
                                 }
@@ -199,9 +196,10 @@ public class ReassignTask extends AbstractDeferredTask {
 
                                         //
                                         // What can happen is that a reference can toggle between primary and
-                                        // replicated copy.
+                                        // replicated copy or primary and underreplicated primary, etc.
                                         //
-                                        if (assignedVectorReference.isPrimaryCopy() != vectorReference.isPrimaryCopy()) {
+                                        if (assignedVectorReference.isPrimaryCopy() != vectorReference.isPrimaryCopy() ||
+                                                assignedVectorReference.isUnderreplicated() != vectorReference.isUnderreplicated()) {
                                             writeTargetClusterAssignedVectorsBuilder.add(assignedVectorReference);
                                         }
                                     } else {
@@ -244,9 +242,7 @@ public class ReassignTask extends AbstractDeferredTask {
         final ImmutableMap<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap =
                 clusterIdMetadataMapBuilder.build();
 
-        final ImmutableListMultimap.Builder<UUID, VectorReference> primaryAssignmentBuilder =
-                ImmutableListMultimap.builder();
-        final ImmutableListMultimap.Builder<UUID, VectorReference> replicatedAssignmentBuilder =
+        final ImmutableListMultimap.Builder<UUID, VectorReference> assignmentBuilder =
                 ImmutableListMultimap.builder();
         final ReservoirSampler<VectorReference> replicatedAssignmentSampler =
                 new ReservoirSampler<>(config.getReplicatedClusterTarget(), random);
@@ -273,15 +269,37 @@ public class ReassignTask extends AbstractDeferredTask {
             final double distanceToPrimaryCentroid = primaryCluster.getDistance();
             Verify.verify(Double.isFinite(distanceToPrimaryCentroid));
 
-            primaryAssignmentBuilder.put(
-                    primaryCluster.getClusterMetadata().getId(),
+            final UUID primaryClusterId = primaryCluster.getClusterMetadata().getId();
+            if (!targetClusterId.equals(primaryClusterId)) {
+                assignmentBuilder.put(
+                        primaryClusterId,
+                        vectorReference.toPrimaryUnderreplicatedCopy());
+                // skip writing replicas as the new clusters do not "own" this vector anymore
+                continue;
+            }
+
+            assignmentBuilder.put(
+                    primaryClusterId,
                     vectorReference.toPrimaryCopy());
+
+            final Set<UUID> causeClusterIds = getCauseClusterIds();
 
             while (!nearestClusters.isEmpty()) {
                 final ClusterMetadataWithDistance replicatedCluster =
                         Objects.requireNonNull(nearestClusters.poll());
                 final double distance = replicatedCluster.getDistance();
                 Verify.verify(Double.isFinite(distance));
+
+                //
+                // The following test is written in a slightly more wordy but (I think) better to understand form.
+                // We need to create a replicated reference in a cluster if we either encounter an underreplicated
+                // primary vector OR if this REASSIGN-task as caused by a SPLIT task, and we need to repopulate its
+                // new cluster's replicated vectors.
+                //
+                if (!(vectorReference.isUnderreplicated() ||
+                              causeClusterIds.contains(replicatedCluster.getClusterMetadata().getId()))) {
+                    continue;
+                }
 
                 //
                 // Distance should be greater than the distance to the primary cluster's
@@ -295,7 +313,7 @@ public class ReassignTask extends AbstractDeferredTask {
                     if (targetClusterId.equals(replicatedCluster.getClusterMetadata().getId())) {
                         replicatedAssignmentSampler.add(newVectorReference);
                     } else {
-                        replicatedAssignmentBuilder.put(
+                        assignmentBuilder.put(
                                 replicatedCluster.getClusterMetadata().getId(),
                                 newVectorReference);
                     }
@@ -305,11 +323,9 @@ public class ReassignTask extends AbstractDeferredTask {
             }
         }
 
-        replicatedAssignmentBuilder.putAll(targetClusterId,
-                replicatedAssignmentSampler.sample());
+        assignmentBuilder.putAll(targetClusterId, replicatedAssignmentSampler.sample());
 
-        return new ReassignmentResult(clusterIdMetadataMap, primaryAssignmentBuilder.build(),
-                replicatedAssignmentBuilder.build());
+        return new ReassignmentResult(clusterIdMetadataMap, assignmentBuilder.build());
     }
 
     private void updateAssignments(@Nonnull final Transaction transaction,
@@ -321,26 +337,36 @@ public class ReassignTask extends AbstractDeferredTask {
                                    @Nonnull final Quantizer quantizer) {
         final Primitives primitives = getLocator().primitives();
 
-        int numPrimaryPushedOut = 0;
-        // write all vector references
-        final var primaryAssignmentMultiMap =
-                reassignmentResult.getPrimaryAssignmentMultimap();
-        for (final Map.Entry<UUID, VectorReference> entry : primaryAssignmentMultiMap.entries()) {
-            if (!entry.getKey().equals(targetClusterMetadata.getId())) {
-                primitives.writeVectorReference(transaction, quantizer, entry.getKey(),
-                        entry.getValue());
-                numPrimaryPushedOut++;
-            }
-        }
+        final Map<UUID, Integer> clusterIdToNumPrimaryVectorsAdded = Maps.newHashMap();
+        final Map<UUID, Integer> clusterIdToNumPrimaryUnderreplicatedVectorsAdded = Maps.newHashMap();
+        final Map<UUID, Integer> clusterIdToNumReplicatedVectorsAdded = Maps.newHashMap();
 
+        int numPrimaryPushedOut = 0;
         int numReplicatedPushedOut = 0;
-        final var replicatedAssignmentMultiMap =
-                reassignmentResult.getReplicatedAssignmentMultimap();
-        for (final Map.Entry<UUID, VectorReference> entry : replicatedAssignmentMultiMap.entries()) {
-            if (!entry.getKey().equals(targetClusterMetadata.getId())) {
-                primitives.writeVectorReference(transaction, quantizer, entry.getKey(),
-                        entry.getValue());
-                numReplicatedPushedOut++;
+
+        // write all vector references outside the target cluster
+        final var assignmentMultiMap =
+                reassignmentResult.getAssignmentMultimap();
+        for (final Map.Entry<UUID, VectorReference> entry : assignmentMultiMap.entries()) {
+            final UUID clusterId = entry.getKey();
+            final VectorReference vectorReference = entry.getValue();
+            if (!clusterId.equals(targetClusterMetadata.getId())) {
+                primitives.writeVectorReference(transaction, quantizer, clusterId,
+                        vectorReference);
+                if (vectorReference.isPrimaryCopy()) {
+                    Verify.verify(vectorReference.isUnderreplicated());
+                    numPrimaryPushedOut++;
+                } else {
+                    numReplicatedPushedOut++;
+                }
+            }
+            if (vectorReference.isPrimaryCopy()) {
+                incrementCounter(clusterIdToNumPrimaryVectorsAdded, clusterId);
+                if (vectorReference.isUnderreplicated()) {
+                    incrementCounter(clusterIdToNumPrimaryUnderreplicatedVectorsAdded, clusterId);
+                }
+            } else {
+                incrementCounter(clusterIdToNumReplicatedVectorsAdded, clusterId);
             }
         }
 
@@ -369,22 +395,28 @@ public class ReassignTask extends AbstractDeferredTask {
             final ClusterMetadataWithDistance clusterMetadataWithDistance = entry.getValue();
             final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.getClusterMetadata();
 
-            final int numPrimaryVectorsAdded = primaryAssignmentMultiMap.get(toBeWritten).size();
-            final int numReplicatedVectorsAdded = replicatedAssignmentMultiMap.get(toBeWritten).size();
+            final int numPrimaryVectorsAdded = clusterIdToNumPrimaryVectorsAdded.getOrDefault(toBeWritten, 0);
+            final int numPrimaryUnderreplicatedVectorsAdded = clusterIdToNumPrimaryUnderreplicatedVectorsAdded.getOrDefault(toBeWritten, 0);
+            final int numReplicatedVectorsAdded = clusterIdToNumReplicatedVectorsAdded.getOrDefault(toBeWritten, 0);
 
             if (targetClusterMetadata.getId().equals(clusterMetadata.getId())) {
-                newTargetClusterMetadata = clusterMetadata.withNewVectors(numPrimaryVectorsAdded,
+                Verify.verify(numPrimaryUnderreplicatedVectorsAdded == 0);
+                newTargetClusterMetadata =
+                        clusterMetadata.withNewVectors(numPrimaryVectorsAdded, 0,
                         numReplicatedVectorsAdded, EnumSet.noneOf(ClusterMetadata.State.class));
                 primitives.writeClusterMetadata(transaction, newTargetClusterMetadata);
             } else {
                 primitives.writeDeferredTaskMaybe(transaction, random, clusterMetadata,
                                 clusterMetadataWithDistance.getCentroid(), getAccessInfo(), numPrimaryVectorsAdded,
+                                numPrimaryUnderreplicatedVectorsAdded,
                                 numReplicatedVectorsAdded, ImmutableSet.of());
                 if (logger.isInfoEnabled()) {
-                    logger.info("pushing vectors; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
+                    logger.info("pushing vectors during reassign; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
+                                    "numTotalPrimaryUnderreplicatedReplicatedVectors={}, numPrimaryUnderreplicatedVectorsAdded={}, " +
                                     "numTotalReplicatedVectors={}, numReplicatedVectorsAdded={}",
                             clusterMetadata.getId(),
                             clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded, numPrimaryVectorsAdded,
+                            clusterMetadata.getNumPrimaryUnderreplicatedVectors() + numPrimaryUnderreplicatedVectorsAdded, numPrimaryUnderreplicatedVectorsAdded,
                             clusterMetadata.getNumReplicatedVectors() + numReplicatedVectorsAdded, numReplicatedVectorsAdded);
                 }
             }
@@ -429,16 +461,12 @@ public class ReassignTask extends AbstractDeferredTask {
         @Nonnull
         private final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap;
         @Nonnull
-        private final ImmutableListMultimap<UUID, VectorReference> primaryAssignmentMultimap;
-        @Nonnull
-        private final ImmutableListMultimap<UUID, VectorReference> replicatedAssignmentMultimap;
+        private final ListMultimap<UUID, VectorReference> assignmentMultimap;
 
         public ReassignmentResult(@Nonnull final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap,
-                                  @Nonnull final ImmutableListMultimap<UUID, VectorReference> primaryAssignmentMultimap,
-                                  @Nonnull final ImmutableListMultimap<UUID, VectorReference> replicatedAssignmentMultimap) {
+                                  @Nonnull final ListMultimap<UUID, VectorReference> assignmentMultimap) {
             this.clusterIdMetadataMap = clusterIdMetadataMap;
-            this.primaryAssignmentMultimap = primaryAssignmentMultimap;
-            this.replicatedAssignmentMultimap = replicatedAssignmentMultimap;
+            this.assignmentMultimap = assignmentMultimap;
         }
 
         @Nonnull
@@ -447,13 +475,8 @@ public class ReassignTask extends AbstractDeferredTask {
         }
 
         @Nonnull
-        public ImmutableListMultimap<UUID, VectorReference> getPrimaryAssignmentMultimap() {
-            return primaryAssignmentMultimap;
-        }
-
-        @Nonnull
-        public ImmutableListMultimap<UUID, VectorReference> getReplicatedAssignmentMultimap() {
-            return replicatedAssignmentMultimap;
+        public ListMultimap<UUID, VectorReference> getAssignmentMultimap() {
+            return assignmentMultimap;
         }
     }
 }

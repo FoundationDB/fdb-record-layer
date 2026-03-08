@@ -92,7 +92,7 @@ public class SiftTest implements BaseTest {
                         .setRaBitQNumExBits(6)
                         .setMetric(metric)
                         .setPersistSequentialUuids(true)
-                        .setClusterOverlap(0.0d)
+                        .setClusterOverlap(0.1d)
                         .build(128);
 
         guardiann = new Guardiann(subspaceExtension.getSubspace(),

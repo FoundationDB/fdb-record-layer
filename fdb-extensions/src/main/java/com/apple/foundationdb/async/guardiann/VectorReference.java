@@ -23,6 +23,7 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.util.Lens;
+import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -41,6 +42,7 @@ class VectorReference {
 
     public VectorReference(@Nonnull final VectorId id, final boolean isPrimaryCopy, final boolean isUnderreplicated,
                            @Nonnull final Transformed<RealVector> vector) {
+        Preconditions.checkArgument(isPrimaryCopy || !isUnderreplicated);
         this.id = id;
         this.isPrimaryCopy = isPrimaryCopy;
         this.isUnderreplicated = isUnderreplicated;
@@ -69,11 +71,11 @@ class VectorReference {
     }
 
     @Nonnull
-    public VectorReference withPrimaryCopy(final boolean isPrimaryCopy) {
-        if (isPrimaryCopy() == isPrimaryCopy) {
+    public VectorReference withPrimaryCopy(final boolean isPrimaryCopy, final boolean isUnderreplicated) {
+        if (isPrimaryCopy() == isPrimaryCopy && isUnderreplicated() == isUnderreplicated) {
             return this;
         }
-        return new VectorReference(getId(), isPrimaryCopy, isUnderreplicated(), getVector());
+        return new VectorReference(getId(), isPrimaryCopy, isUnderreplicated, getVector());
     }
 
     @Nonnull
@@ -91,12 +93,17 @@ class VectorReference {
 
     @Nonnull
     public VectorReference toPrimaryCopy() {
-        return withPrimaryCopy(true);
+        return withPrimaryCopy(true, false);
     }
 
     @Nonnull
     public VectorReference toReplicatedCopy() {
-        return withPrimaryCopy(false);
+        return withPrimaryCopy(false, false);
+    }
+
+    @Nonnull
+    public VectorReference toPrimaryUnderreplicatedCopy() {
+        return withPrimaryCopy(true, true);
     }
 
     @Override

@@ -113,6 +113,15 @@ public abstract class AbstractDeferredTask {
         return kind.create(locator, accessInfo, keyTuple, valueTuple);
     }
 
+    protected static <T> int incrementCounter(@Nonnull final Map<T, Integer> countersMap, @Nonnull final T key) {
+        return  countersMap.compute(key, (ignoredKey, oldCounter) -> {
+            if (oldCounter == null) {
+                return 1;
+            }
+            return oldCounter + 1;
+        });
+    }
+
     public enum Kind {
         SPLIT_MERGE(0, SplitMergeTask::fromTuples),
         REASSIGN(1, ReassignTask::fromTuples),

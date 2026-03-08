@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.async.guardiann;
 
+import com.google.common.base.Preconditions;
+
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collections;
@@ -47,6 +49,7 @@ class ClusterMetadata {
     public ClusterMetadata(@Nonnull final UUID id, final int numPrimaryVectors,
                            final int numPrimaryUnderreplicatedVectors, final int numReplicatedVectors,
                            @Nonnull final EnumSet<State> states) {
+        Preconditions.checkArgument(numPrimaryVectors >= numPrimaryUnderreplicatedVectors);
         this.id = id;
         this.numPrimaryVectors = numPrimaryVectors;
         this.numPrimaryUnderreplicatedVectors = numPrimaryUnderreplicatedVectors;
