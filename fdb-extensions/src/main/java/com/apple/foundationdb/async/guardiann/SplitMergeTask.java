@@ -387,28 +387,24 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap =
                 assignmentResult.getClusterIdMetadataMap();
         final Set<UUID> newClusterIds = assignmentResult.getNewClusterIds();
+        final ImmutableSet.Builder<UUID> newTaskIdsBuilder = ImmutableSet.builder();
         for (final Map.Entry<UUID, ClusterMetadataWithDistance> entry : clusterIdMetadataMap.entrySet()) {
             final UUID toBeWritten = entry.getKey();
             final ClusterMetadataWithDistance clusterMetadataWithDistance = entry.getValue();
             final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.getClusterMetadata();
-            final boolean isNewCluster = newClusterIds.contains(clusterMetadata.getId());
             final int numPrimaryVectorsAdded = primaryAssignmentMultiMap.get(toBeWritten).size();
             final int numReplicatedVectorsAdded = replicatedAssignmentMultiMap.get(toBeWritten).size();
-            primitives.writeDeferredTasks(transaction, random, clusterMetadata,
+            primitives.writeDeferredTaskMaybe(transaction, random, clusterMetadata,
                             clusterMetadataWithDistance.getCentroid(), getAccessInfo(), numPrimaryVectorsAdded,
-                            numReplicatedVectorsAdded, !isNewCluster)
-                    .ifPresent(newClusterMetadata -> {
-                        if (logger.isInfoEnabled()) {
-                            logger.info("pushing vectors; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
-                                            "numTotalReplicatedVectors={}, numReplicatedVectorsAdded={}",
-                                    clusterMetadata.getId(),
-                                    clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded, numPrimaryVectorsAdded,
-                                    clusterMetadata.getNumReplicatedVectors() + numReplicatedVectorsAdded, numReplicatedVectorsAdded);
-                        }
-
-                        primitives.writeClusterMetadata(transaction, newClusterMetadata);
-                    });
-
+                            numReplicatedVectorsAdded, newClusterIds)
+                    .ifPresent(newTaskIdsBuilder::add);
+            if (logger.isInfoEnabled()) {
+                logger.info("pushing vectors; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
+                                "numTotalReplicatedVectors={}, numReplicatedVectorsAdded={}",
+                        clusterMetadata.getId(),
+                        clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded, numPrimaryVectorsAdded,
+                        clusterMetadata.getNumReplicatedVectors() + numReplicatedVectorsAdded, numReplicatedVectorsAdded);
+            }
         }
     }
 

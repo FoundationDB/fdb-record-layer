@@ -38,6 +38,7 @@ import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -275,18 +276,12 @@ public class Insert {
                                         new VectorReference(newVectorMetadata,
                                                 isPrimaryCluster, transformedNewVector));
 
-                                primitives.writeDeferredTasks(transaction, random.split(),
+                                primitives.writeDeferredTaskMaybe(transaction, random.split(),
                                                 clusterMetadata,
                                                 clusterMetadataWithDistance.getCentroid(), accessInfo,
                                                 isPrimaryCluster ? 1 : 0,
                                                 isPrimaryCluster ? 0 : 1,
-                                                false)
-                                        .ifPresent(newClusterMetadata -> {
-                                            if (clusterId.getLeastSignificantBits() == 0x7b9) {
-                                                logger.info("0x7b9, newNumTotalPrimary={}", newClusterMetadata.getNumPrimaryVectors());
-                                            }
-                                            primitives.writeClusterMetadata(transaction, newClusterMetadata);
-                                        });
+                                                ImmutableSet.of());
                                 return AsyncUtil.DONE;
                             },
                             10);

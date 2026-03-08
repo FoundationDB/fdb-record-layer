@@ -31,9 +31,9 @@ import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.RandomHelpers;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.async.hnsw.HNSW;
-import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.LinearOperator;
 import com.apple.foundationdb.linear.Metric;
@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -507,52 +508,72 @@ class Primitives {
     }
 
     @Nonnull
-    Optional<ClusterMetadata> writeDeferredTasks(@Nonnull final Transaction transaction,
-                                                 @Nonnull final SplittableRandom random,
-                                                 @Nonnull final ClusterMetadata clusterMetadata,
-                                                 @Nonnull final Transformed<RealVector> clusterCentroid,
-                                                 @Nonnull final AccessInfo accessInfo,
-                                                 final int numPrimaryVectorsAdded, final int numReplicatedVectorsAdded,
-                                                 final boolean forceReassign) {
+    Optional<UUID> writeDeferredTaskMaybe(@Nonnull final Transaction transaction,
+                                          @Nonnull final SplittableRandom random,
+                                          @Nonnull final ClusterMetadata clusterMetadata,
+                                          @Nonnull final Transformed<RealVector> clusterCentroid,
+                                          @Nonnull final AccessInfo accessInfo,
+                                          final int numPrimaryVectorsAdded,
+                                          final int numReplicatedVectorsAdded,
+                                          @Nonnull final Set<UUID> causeClusterIds) {
         final Config config = getConfig();
 
         final int numTotalPrimaryVectors = clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded;
         if (!clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE) && // not already splitting
                 ((numPrimaryVectorsAdded > 0 && numTotalPrimaryVectors > config.getPrimaryClusterMax()) ||
                          (numPrimaryVectorsAdded < 0 && numTotalPrimaryVectors < config.getPrimaryClusterMin()))) {
+            Verify.verify(!causeClusterIds.contains(clusterMetadata.getId()),
+                    "shouldn't need to enqueue a SPLIT/MERGE for a new cluster");
+
             if (logger.isInfoEnabled()) {
                 logger.info("enqueuing split/merge; clusterId={}; numTotalPrimaryVectors={}",
                         clusterMetadata.getId(), numTotalPrimaryVectors);
             }
 
             // create a split/merge task
+            final UUID newTaskId = RandomHelpers.randomUUID(random);
             writeDeferredTask(transaction,
-                    SplitMergeTask.of(getLocator(), accessInfo, RandomHelpers.randomUUID(random),
+                    SplitMergeTask.of(getLocator(), accessInfo, newTaskId,
                             clusterMetadata.getId(), clusterCentroid));
 
-            return Optional.of(clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
-                    numReplicatedVectorsAdded, ClusterMetadata.State.SPLIT_MERGE));
+            final ClusterMetadata newClusterMetadata =
+                    clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
+                            numReplicatedVectorsAdded, ClusterMetadata.State.SPLIT_MERGE);
+            writeClusterMetadata(transaction, newClusterMetadata);
+
+            return Optional.of(newTaskId);
         }
 
         int numTotalReplicatedVectors = clusterMetadata.getNumReplicatedVectors() + numReplicatedVectorsAdded;
         if (!clusterMetadata.getStates().contains(ClusterMetadata.State.REASSIGN) && // not already reassigning
-                (forceReassign || numTotalReplicatedVectors > config.getReplicatedClusterMaxWrites())) {
+                (!causeClusterIds.isEmpty() || numTotalReplicatedVectors > config.getReplicatedClusterMaxWrites())) {
+            Verify.verify(!causeClusterIds.contains(clusterMetadata.getId()),
+                    "shouldn't need to enqueue a REASSIGN for a new cluster");
+
             if (logger.isInfoEnabled()) {
                 logger.info("enqueuing reassign; clusterId={}; numTotalPrimaryVectors={}, numTotalReplicatedVectors={}",
                         clusterMetadata.getId(), numTotalPrimaryVectors, numTotalReplicatedVectors);
             }
 
             // create a reassign task
+            final UUID newTaskId = RandomHelpers.randomUUID(random);
             writeDeferredTask(transaction,
-                    ReassignTask.of(getLocator(), accessInfo, RandomHelpers.randomUUID(random),
-                            clusterMetadata.getId(), clusterCentroid));
+                    ReassignTask.of(getLocator(), accessInfo, newTaskId,
+                            clusterMetadata.getId(), clusterCentroid, causeClusterIds));
 
-            return Optional.of(clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
-                    numReplicatedVectorsAdded, ClusterMetadata.State.REASSIGN));
+            final ClusterMetadata newClusterMetadata =
+                    clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
+                            numReplicatedVectorsAdded, ClusterMetadata.State.REASSIGN);
+            writeClusterMetadata(transaction, newClusterMetadata);
+
+            return Optional.of(newTaskId);
         }
 
         if (numPrimaryVectorsAdded != 0 || numReplicatedVectorsAdded != 0) {
-            return Optional.of(clusterMetadata.withAdditionalVectors(numPrimaryVectorsAdded, numReplicatedVectorsAdded));
+            // write new metadata but do not create a task
+            final ClusterMetadata newClusterMetadata =
+                    clusterMetadata.withAdditionalVectors(numPrimaryVectorsAdded, numReplicatedVectorsAdded);
+            writeClusterMetadata(transaction, newClusterMetadata);
         }
         return Optional.empty();
     }

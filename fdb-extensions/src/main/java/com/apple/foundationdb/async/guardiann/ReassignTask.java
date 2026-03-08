@@ -35,6 +35,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.PriorityQueue;
+import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -57,11 +59,16 @@ public class ReassignTask extends AbstractDeferredTask {
     @Nonnull
     private final Transformed<RealVector> centroid;
 
+    @Nonnull
+    private final Set<UUID> causeClusterIds;
+
     private ReassignTask(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                          @Nonnull final UUID taskId, @Nonnull final UUID targetClusterId,
-                         @Nonnull final Transformed<RealVector> centroid) {
+                         @Nonnull final Transformed<RealVector> centroid,
+                         @Nonnull final Set<UUID> causeClusterIds) {
         super(locator, accessInfo, taskId, targetClusterId);
         this.centroid = centroid;
+        this.causeClusterIds = ImmutableSet.copyOf(causeClusterIds);
     }
 
     @Nonnull
@@ -70,11 +77,18 @@ public class ReassignTask extends AbstractDeferredTask {
     }
 
     @Nonnull
+    public Set<UUID> getCauseClusterIds() {
+        return causeClusterIds;
+    }
+
+    @Nonnull
     @Override
     public Tuple valueTuple() {
         final Quantizer quantizer = getLocator().primitives().quantizer(getAccessInfo());
         final Transformed<RealVector> encodedVector = quantizer.encode(getCentroid());
-        return Tuple.from(getKind().getCode(), getTargetClusterId(), encodedVector.getUnderlyingVector().getRawData());
+        return Tuple.from(getKind().getCode(), getTargetClusterId(),
+                encodedVector.getUnderlyingVector().getRawData(),
+                StorageAdapter.tupleFromClusterIds(getCauseClusterIds()));
     }
 
     @Nonnull
@@ -358,20 +372,16 @@ public class ReassignTask extends AbstractDeferredTask {
                         numReplicatedVectorsAdded, EnumSet.noneOf(ClusterMetadata.State.class));
                 primitives.writeClusterMetadata(transaction, newTargetClusterMetadata);
             } else {
-                primitives.writeDeferredTasks(transaction, random, clusterMetadata,
+                primitives.writeDeferredTaskMaybe(transaction, random, clusterMetadata,
                                 clusterMetadataWithDistance.getCentroid(), getAccessInfo(), numPrimaryVectorsAdded,
-                                numReplicatedVectorsAdded, false)
-                        .ifPresent(newClusterMetadata -> {
-                            if (logger.isInfoEnabled()) {
-                                logger.info("pushing vectors; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
-                                                "numTotalReplicatedVectors={}, numReplicatedVectorsAdded={}",
-                                        clusterMetadata.getId(),
-                                        clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded, numPrimaryVectorsAdded,
-                                        clusterMetadata.getNumReplicatedVectors() + numReplicatedVectorsAdded, numReplicatedVectorsAdded);
-                            }
-
-                            primitives.writeClusterMetadata(transaction, newClusterMetadata);
-                        });
+                                numReplicatedVectorsAdded, ImmutableSet.of());
+                if (logger.isInfoEnabled()) {
+                    logger.info("pushing vectors; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
+                                    "numTotalReplicatedVectors={}, numReplicatedVectorsAdded={}",
+                            clusterMetadata.getId(),
+                            clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded, numPrimaryVectorsAdded,
+                            clusterMetadata.getNumReplicatedVectors() + numReplicatedVectorsAdded, numReplicatedVectorsAdded);
+                }
             }
         }
 
@@ -392,18 +402,22 @@ public class ReassignTask extends AbstractDeferredTask {
                                    @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
         Verify.verify(Kind.fromValueTuple(valueTuple) == Kind.REASSIGN);
         final StorageTransform storageTransform = locator.primitives().storageTransform(accessInfo);
+
+        final UUID taskUuid = valueTuple.getUUID(1);
         final Transformed<RealVector> centroid = storageTransform.transform(
                 StorageHelpers.vectorFromBytes(locator.getConfig(), valueTuple.getBytes(2)));
 
+        final Set<UUID> causeClusterIds = StorageAdapter.clusterIdsFromTuple(valueTuple.getNestedTuple(3));
         return new ReassignTask(locator, accessInfo, keyTuple.getUUID(0),
-                valueTuple.getUUID(1), centroid);
+                taskUuid, centroid, causeClusterIds);
     }
 
     @Nonnull
     static ReassignTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                            @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
-                           @Nonnull final Transformed<RealVector> centroid) {
-        return new ReassignTask(locator, accessInfo, taskId, clusterId, centroid);
+                           @Nonnull final Transformed<RealVector> centroid,
+                           @Nonnull final Set<UUID> causeClusterIds) {
+        return new ReassignTask(locator, accessInfo, taskId, clusterId, centroid, causeClusterIds);
     }
 
     private static class ReassignmentResult {

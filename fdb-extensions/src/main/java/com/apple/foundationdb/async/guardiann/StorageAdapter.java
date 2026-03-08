@@ -29,11 +29,13 @@ import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -254,6 +256,20 @@ class StorageAdapter {
     @Nonnull
     static Tuple tupleFromClusterId(@Nonnull final UUID clusterId) {
         return Tuple.from(clusterId);
+    }
+
+    @Nonnull
+    public static Tuple tupleFromClusterIds(@Nonnull final Set<UUID> clusterIds) {
+        return Tuple.fromItems(clusterIds);
+    }
+
+    @Nonnull
+    public static Set<UUID> clusterIdsFromTuple(@Nonnull final Tuple clusterIdsAsTuple) {
+        final ImmutableSet.Builder<UUID> resultBuilder = ImmutableSet.builder();
+        for (int i = 0; i < clusterIdsAsTuple.size(); i ++) {
+            resultBuilder.add(clusterIdsAsTuple.getUUID(i));
+        }
+        return resultBuilder.build();
     }
 
     @Nonnull
