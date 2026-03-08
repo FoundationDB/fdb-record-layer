@@ -61,4 +61,9 @@ class VectorId {
     public int hashCode() {
         return Objects.hash(getPrimaryKey(), getUuid());
     }
+
+    @Override
+    public String toString() {
+        return "VId[" + primaryKey + ";" + uuid + "]";
+    }
 }

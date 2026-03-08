@@ -352,6 +352,16 @@ public class HNSW {
                 minimumRadius, minimumPrimaryKey, shouldQuickStart);
     }
 
+    @VisibleForTesting
+    public static void scanLayer(@Nonnull final Config config,
+                                 @Nonnull final Subspace subspace,
+                                 @Nonnull final Database db,
+                                 final int layer,
+                                 final int batchSize,
+                                 @Nonnull final Consumer<ResultEntry> consumer) {
+        Primitives.scanLayer(config, subspace, db, layer, batchSize, consumer);
+    }
+
     /**
      * Scans all nodes within a given layer of the database.
      * <p>
@@ -366,13 +376,13 @@ public class HNSW {
      * found in the layer.
      */
     @VisibleForTesting
-    static void scanLayer(@Nonnull final Config config,
-                          @Nonnull final Subspace subspace,
-                          @Nonnull final Database db,
-                          final int layer,
-                          final int batchSize,
-                          @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
-        Primitives.scanLayer(config, subspace, db, layer, batchSize, nodeConsumer);
+    static void scanLayerInternal(@Nonnull final Config config,
+                                  @Nonnull final Subspace subspace,
+                                  @Nonnull final Database db,
+                                  final int layer,
+                                  final int batchSize,
+                                  @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
+        Primitives.scanLayerInternal(config, subspace, db, layer, batchSize, nodeConsumer);
     }
 
     /**

@@ -1082,6 +1082,21 @@ public class Primitives {
         return (int) Math.floor(-Math.log(u) * lambda);
     }
 
+    @VisibleForTesting
+    static void scanLayer(@Nonnull final Config config,
+                          @Nonnull final Subspace subspace,
+                          @Nonnull final Database db,
+                          final int layer,
+                          final int batchSize,
+                          @Nonnull final Consumer<ResultEntry> nodeConsumer) {
+        scanLayerInternal(config, subspace, db, layer, batchSize,
+                node ->
+                        nodeConsumer.accept(new ResultEntry(node.getPrimaryKey(),
+                                node.isCompactNode() ? node.asCompactNode().getVector().getUnderlyingVector() : null,
+                                node.isCompactNode() ? node.asCompactNode().getAdditionalValues(): null,
+                                0.0d, -1)));
+    }
+
     /**
      * Scans all nodes within a given layer of the database.
      * <p>
@@ -1096,12 +1111,12 @@ public class Primitives {
      * found in the layer.
      */
     @VisibleForTesting
-    static void scanLayer(@Nonnull final Config config,
-                          @Nonnull final Subspace subspace,
-                          @Nonnull final Database db,
-                          final int layer,
-                          final int batchSize,
-                          @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
+    static void scanLayerInternal(@Nonnull final Config config,
+                                  @Nonnull final Subspace subspace,
+                                  @Nonnull final Database db,
+                                  final int layer,
+                                  final int batchSize,
+                                  @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
         final StorageAdapter<? extends NodeReference> storageAdapter =
                 storageAdapterForLayer(config, subspace, OnWriteListener.NOOP, OnReadListener.NOOP, layer);
         final AtomicReference<Tuple> lastPrimaryKeyAtomic = new AtomicReference<>();

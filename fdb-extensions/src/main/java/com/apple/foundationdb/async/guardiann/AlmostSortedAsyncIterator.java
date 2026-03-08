@@ -69,8 +69,8 @@ class AlmostSortedAsyncIterator<T> implements CloseableAsyncIterator<T> {
     @Nonnull
     private CompletableFuture<T> computeNextRecord() {
         return AsyncUtil.whileTrue(() -> {
-            if (!inDone || out.size() >= maxQueueSize) {
-                return AsyncUtil.READY_FALSE;
+            if (inDone || out.size() >= maxQueueSize) {
+                return AsyncUtil.READY_FALSE; // break out of the loop
             }
             final var inOnHasNextFuture = in.onHasNext();
             if (MoreAsyncUtil.isCompletedNormally(inOnHasNextFuture)) {

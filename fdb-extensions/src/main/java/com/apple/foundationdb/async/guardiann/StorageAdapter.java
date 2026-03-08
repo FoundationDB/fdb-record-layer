@@ -313,8 +313,13 @@ class StorageAdapter {
                                                      @Nonnull final Tuple primaryKey,
                                                      @Nonnull final Tuple valueTuple) {
         final VectorId vectorId = new VectorId(primaryKey, valueTuple.getUUID(0));
-        return new VectorReference(vectorId, valueTuple.getBoolean(1), valueTuple.getBoolean(2),
-                storageTransform.transform(StorageHelpers.vectorFromBytes(config, valueTuple.getBytes(3))));
+
+        final boolean isPrimaryCopy = valueTuple.getBoolean(1);
+        final boolean isUnderreplicated = valueTuple.getBoolean(2);
+        final Transformed<RealVector> vector =
+                storageTransform.transform(StorageHelpers.vectorFromBytes(config, valueTuple.getBytes(3)));
+        final double replicationScore = isPrimaryCopy ? -1 : valueTuple.getDouble(4);
+        return new VectorReference(vectorId, isPrimaryCopy, isUnderreplicated, vector, replicationScore);
     }
 
     @Nonnull
@@ -323,7 +328,12 @@ class StorageAdapter {
         final VectorId vectorId = vectorReference.getId();
         final Transformed<RealVector> encodedVector = quantizer.encode(vectorReference.getVector());
         return Tuple.from(vectorId.getUuid(), vectorReference.isPrimaryCopy(),
-                vectorReference.isUnderreplicated(), encodedVector.getUnderlyingVector().getRawData());
+                vectorReference.isUnderreplicated(), encodedVector.getUnderlyingVector().getRawData(),
+                vectorReference.isPrimaryCopy() ? null : vectorReference.getReplicationScore());
+    }
+
+    static double replicationScore(final double distance, final double distanceToPrimaryCentroid) {
+        return Math.max(0.0d, distance / distanceToPrimaryCentroid - 1.0d);
     }
 
     @Nonnull

@@ -249,7 +249,7 @@ class TestHelpers {
                           final int layer,
                           final int batchSize,
                           @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
-        HNSW.scanLayer(config, subspace, db, layer, batchSize, nodeConsumer);
+        HNSW.scanLayerInternal(config, subspace, db, layer, batchSize, nodeConsumer);
     }
 
     static int getEntryLayer(@Nonnull final Database db,

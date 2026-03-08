@@ -72,4 +72,9 @@ class Cluster {
     public int hashCode() {
         return Objects.hash(getClusterMetadata(), getCentroid(), getVectorReferences());
     }
+
+    @Override
+    public String toString() {
+        return "C[" + clusterMetadata + "]";
+    }
 }

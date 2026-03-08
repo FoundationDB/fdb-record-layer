@@ -257,7 +257,7 @@ public class Insert {
                                         // into other clusters if it happens to be at the border between two (or more)
                                         // clusters.
                                         //
-                                        return distance / distanceToPrimaryCentroid <= 1.0d + config.getClusterOverlap();
+                                        return StorageAdapter.replicationScore(distance, distanceToPrimaryCentroid) <= config.getClusterOverlap();
                                     }, getExecutor());
 
                     final VectorMetadata newVectorMetadata =
@@ -272,9 +272,24 @@ public class Insert {
                                 final UUID clusterId = clusterMetadata.getId();
                                 final boolean isPrimaryCluster = clusterId.equals(primaryClusterIdAtomic.get());
 
-                                primitives.writeVectorReference(transaction, quantizer, clusterId,
-                                        new VectorReference(newVectorMetadata,
-                                                isPrimaryCluster, false, transformedNewVector));
+                                if (isPrimaryCluster) {
+                                    primitives.writeVectorReference(transaction, quantizer, clusterId,
+                                            new VectorReference(newVectorMetadata,
+                                                    true, false, transformedNewVector,
+                                                    -1.0d));
+                                } else {
+                                    final double distanceToPrimaryCentroid = primaryDistanceAtomic.get();
+                                    Verify.verify(Double.isFinite(distanceToPrimaryCentroid));
+
+                                    final double distance = clusterMetadataWithDistance.getDistance();
+                                    final double replicationScore =
+                                            StorageAdapter.replicationScore(distance, distanceToPrimaryCentroid);
+
+                                    primitives.writeVectorReference(transaction, quantizer, clusterId,
+                                            new VectorReference(newVectorMetadata,
+                                                    false, false, transformedNewVector,
+                                                    replicationScore));
+                                }
 
                                 primitives.writeDeferredTaskMaybe(transaction, random.split(),
                                                 clusterMetadata,

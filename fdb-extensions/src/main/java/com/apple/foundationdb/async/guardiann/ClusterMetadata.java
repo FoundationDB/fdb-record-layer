@@ -153,6 +153,16 @@ class ClusterMetadata {
                 getNumPrimaryUnderreplicatedVectors(), getStatesCode());
     }
 
+    @Override
+    public String toString() {
+        return "CM[id=" + getId() +
+                ", numPrimaryVectors=" + getNumPrimaryVectors() +
+                ", numPrimaryUnderreplicatedVectors=" + getNumPrimaryUnderreplicatedVectors() +
+                ", numReplicatedVectors=" + getNumReplicatedVectors() +
+                ", states=" + getStates() +
+                ']';
+    }
+
     public enum State {
         SPLIT_MERGE(1),
         REASSIGN(2);

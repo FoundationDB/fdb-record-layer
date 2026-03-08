@@ -34,7 +34,6 @@ import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.util.ReservoirSampler;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -265,7 +264,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
         final ImmutableListMultimap.Builder<UUID, VectorReference> assignmentMultimapBuilder =
                 ImmutableListMultimap.builder();
-        final Map<UUID, ReservoirSampler<VectorReference>> replicatedAssignmentSamplerMap = Maps.newHashMap();
+        final Map<UUID, TopK<VectorReference>> replicatedAssignmentSamplerMap = Maps.newHashMap();
 
         // only considering primary copies here -- this will prune the replicated vectors
         for (final VectorReference vectorReference : primaryVectorReferences) {
@@ -310,12 +309,15 @@ public class SplitMergeTask extends AbstractDeferredTask {
                 // into other clusters if it happens to be at the border between two (or more)
                 // clusters.
                 //
-                if (distance / distanceToPrimaryCentroid <= 1.0d + config.getClusterOverlap()) {
-                    final VectorReference newVectorReference = vectorReference.toReplicatedCopy();
+                final double replicationScore = StorageAdapter.replicationScore(distance, distanceToPrimaryCentroid);
+                if (replicationScore <= config.getClusterOverlap()) {
+                    final VectorReference newVectorReference =
+                            vectorReference.toReplicatedCopy(replicationScore);
                     if (newClusterIds.contains(replicatedCluster.getClusterMetadata().getId())) {
                         final var reservoirSampler =
                                 replicatedAssignmentSamplerMap.computeIfAbsent(replicatedCluster.getClusterMetadata().getId(),
-                                        ignored -> new ReservoirSampler<>(config.getReplicatedClusterTarget(), random));
+                                        ignored -> new TopK<>(Comparator.comparing(VectorReference::getReplicationScore),
+                                                config.getReplicatedClusterTarget()));
                         reservoirSampler.add(newVectorReference);
                     } else {
                         assignmentMultimapBuilder.put(replicatedCluster.getClusterMetadata().getId(),
@@ -327,8 +329,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
             }
         }
 
-        for (final Map.Entry<UUID, ReservoirSampler<VectorReference>> entry : replicatedAssignmentSamplerMap.entrySet()) {
-            assignmentMultimapBuilder.putAll(entry.getKey(), entry.getValue().sample());
+        for (final Map.Entry<UUID, TopK<VectorReference>> entry : replicatedAssignmentSamplerMap.entrySet()) {
+            assignmentMultimapBuilder.putAll(entry.getKey(), entry.getValue().toUnsortedList());
         }
 
         return new AssignmentResult(newClusterIds, clusterIdMetadataMap, assignmentMultimapBuilder.build());

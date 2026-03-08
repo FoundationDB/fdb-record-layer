@@ -30,7 +30,6 @@ import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.util.ReservoirSampler;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -244,12 +243,13 @@ public class ReassignTask extends AbstractDeferredTask {
 
         final ImmutableListMultimap.Builder<UUID, VectorReference> assignmentBuilder =
                 ImmutableListMultimap.builder();
-        final ReservoirSampler<VectorReference> replicatedAssignmentSampler =
-                new ReservoirSampler<>(config.getReplicatedClusterTarget(), random);
+        final TopK<VectorReference> replicatedTopK =
+                new TopK<>(Comparator.comparing(VectorReference::getReplicationScore),
+                        config.getReplicatedClusterTarget());
 
         for (final VectorReference vectorReference : vectorReferences) {
             if (!vectorReference.isPrimaryCopy()) {
-                replicatedAssignmentSampler.add(vectorReference);
+                replicatedTopK.add(vectorReference);
                 continue;
             }
 
@@ -308,10 +308,12 @@ public class ReassignTask extends AbstractDeferredTask {
                 // into other clusters if it happens to be at the border between two (or more)
                 // clusters.
                 //
-                if (distance / distanceToPrimaryCentroid <= 1.0d + config.getClusterOverlap()) {
-                    final VectorReference newVectorReference = vectorReference.toReplicatedCopy();
+                final double replicationScore = StorageAdapter.replicationScore(distance, distanceToPrimaryCentroid);
+                if (replicationScore <= config.getClusterOverlap()) {
+                    final VectorReference newVectorReference =
+                            vectorReference.toReplicatedCopy(replicationScore);
                     if (targetClusterId.equals(replicatedCluster.getClusterMetadata().getId())) {
-                        replicatedAssignmentSampler.add(newVectorReference);
+                        replicatedTopK.add(newVectorReference);
                     } else {
                         assignmentBuilder.put(
                                 replicatedCluster.getClusterMetadata().getId(),
@@ -323,7 +325,7 @@ public class ReassignTask extends AbstractDeferredTask {
             }
         }
 
-        assignmentBuilder.putAll(targetClusterId, replicatedAssignmentSampler.sample());
+        assignmentBuilder.putAll(targetClusterId, replicatedTopK.toUnsortedList());
 
         return new ReassignmentResult(clusterIdMetadataMap, assignmentBuilder.build());
     }
