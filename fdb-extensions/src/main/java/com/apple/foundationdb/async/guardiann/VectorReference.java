@@ -35,13 +35,15 @@ class VectorReference {
     @Nonnull
     private final VectorId id;
     private final boolean isPrimaryCopy;
+    private final boolean isUnderreplicated;
     @Nonnull
     private final Transformed<RealVector> vector;
 
-    public VectorReference(@Nonnull final VectorId id, boolean isPrimaryCopy,
+    public VectorReference(@Nonnull final VectorId id, final boolean isPrimaryCopy, final boolean isUnderreplicated,
                            @Nonnull final Transformed<RealVector> vector) {
         this.id = id;
         this.isPrimaryCopy = isPrimaryCopy;
+        this.isUnderreplicated = isUnderreplicated;
         this.vector = vector;
     }
 
@@ -55,11 +57,15 @@ class VectorReference {
         if (getId() == newVectorId) {
             return this;
         }
-        return new VectorReference(newVectorId, isPrimaryCopy(), getVector());
+        return new VectorReference(newVectorId, isPrimaryCopy(), isUnderreplicated(), getVector());
     }
 
     public boolean isPrimaryCopy() {
         return isPrimaryCopy;
+    }
+
+    public boolean isUnderreplicated() {
+        return isUnderreplicated;
     }
 
     @Nonnull
@@ -67,7 +73,7 @@ class VectorReference {
         if (isPrimaryCopy() == isPrimaryCopy) {
             return this;
         }
-        return new VectorReference(getId(), isPrimaryCopy, getVector());
+        return new VectorReference(getId(), isPrimaryCopy, isUnderreplicated(), getVector());
     }
 
     @Nonnull
@@ -80,7 +86,7 @@ class VectorReference {
         if (getVector() == newVector) {
             return this;
         }
-        return new VectorReference(getId(), isPrimaryCopy(), newVector);
+        return new VectorReference(getId(), isPrimaryCopy(), isUnderreplicated(), newVector);
     }
 
     @Nonnull
@@ -99,12 +105,15 @@ class VectorReference {
             return false;
         }
         final VectorReference that = (VectorReference)o;
-        return Objects.equals(getId(), that.getId()) && Objects.equals(getVector(), that.getVector());
+        return Objects.equals(getId(), that.getId()) &&
+                isPrimaryCopy() == that.isPrimaryCopy() &&
+                isUnderreplicated() == that.isUnderreplicated() &&
+                Objects.equals(getVector(), that.getVector());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getId(), getVector());
+        return Objects.hash(getId(), isPrimaryCopy(), isUnderreplicated(), getVector());
     }
 
     @Nonnull

@@ -296,13 +296,15 @@ class StorageAdapter {
     static ClusterMetadata clusterMetadataFromTuple(@Nonnull final Tuple valueTuple) {
         return new ClusterMetadata(valueTuple.getUUID(0), Math.toIntExact(valueTuple.getLong(1)),
                 Math.toIntExact(valueTuple.getLong(2)),
-                Math.toIntExact(valueTuple.getLong(3)));
+                Math.toIntExact(valueTuple.getLong(3)),
+                Math.toIntExact(valueTuple.getLong(4)));
     }
 
     @Nonnull
     static Tuple valueTupleFromClusterMetadata(@Nonnull final ClusterMetadata clusterMetadata) {
         return Tuple.from(clusterMetadata.getId(), clusterMetadata.getNumPrimaryVectors(),
-                clusterMetadata.getNumReplicatedVectors(), clusterMetadata.getStatesCode());
+                clusterMetadata.getNumPrimaryUnderreplicatedVectors(), clusterMetadata.getNumReplicatedVectors(),
+                clusterMetadata.getStatesCode());
     }
 
     @Nonnull
@@ -311,8 +313,8 @@ class StorageAdapter {
                                                      @Nonnull final Tuple primaryKey,
                                                      @Nonnull final Tuple valueTuple) {
         final VectorId vectorId = new VectorId(primaryKey, valueTuple.getUUID(0));
-        return new VectorReference(vectorId, valueTuple.getBoolean(1),
-                storageTransform.transform(StorageHelpers.vectorFromBytes(config, valueTuple.getBytes(2))));
+        return new VectorReference(vectorId, valueTuple.getBoolean(1), valueTuple.getBoolean(2),
+                storageTransform.transform(StorageHelpers.vectorFromBytes(config, valueTuple.getBytes(3))));
     }
 
     @Nonnull
@@ -321,7 +323,7 @@ class StorageAdapter {
         final VectorId vectorId = vectorReference.getId();
         final Transformed<RealVector> encodedVector = quantizer.encode(vectorReference.getVector());
         return Tuple.from(vectorId.getUuid(), vectorReference.isPrimaryCopy(),
-                encodedVector.getUnderlyingVector().getRawData());
+                vectorReference.isUnderreplicated(), encodedVector.getUnderlyingVector().getRawData());
     }
 
     @Nonnull

@@ -37,6 +37,7 @@ public final class Config implements BaseConfig {
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final int DEFAULT_PRIMARY_CLUSTER_MIN = 100;
     public static final int DEFAULT_PRIMARY_CLUSTER_MAX = 1000;
+    public static final int DEFAULT_UNDERREPLICATED_PRIMARY_CLUSTER_MAX = 50;
     public static final int DEFAULT_REPLICATED_CLUSTER_MAX_WRITES = 3 * DEFAULT_PRIMARY_CLUSTER_MAX / 10; // 30% of primary max
     public static final int DEFAULT_REPLICATED_CLUSTER_TARGET = DEFAULT_PRIMARY_CLUSTER_MAX / 10; // 10% of primary max
     public static final double DEFAULT_CLUSTER_OVERLAP = 0.1d; // 10% overlap
@@ -60,6 +61,7 @@ public final class Config implements BaseConfig {
     private final int numDimensions;
     private final int primaryClusterMin;
     private final int primaryClusterMax;
+    private final int underreplicatedPrimaryClusterMax;
     private final int replicatedClusterMaxWrites;
     private final int replicatedClusterTarget;
     private final double clusterOverlap;
@@ -74,7 +76,8 @@ public final class Config implements BaseConfig {
     private final int maxNumConcurrentDeleteFromLayer;
 
     private Config(@Nonnull final Metric metric, final int numDimensions, final int primaryClusterMin,
-                   final int primaryClusterMax, final int replicatedClusterMaxWrites, final int replicatedClusterTarget,
+                   final int primaryClusterMax, final int underreplicatedPrimaryClusterMax,
+                   final int replicatedClusterMaxWrites, final int replicatedClusterTarget,
                    final double clusterOverlap, final double sampleVectorStatsProbability,
                    final double maintainStatsProbability, final int statsThreshold, final boolean useRaBitQ,
                    final int raBitQNumExBits, final boolean persistSequentialUuids,
@@ -86,6 +89,7 @@ public final class Config implements BaseConfig {
         this.numDimensions = numDimensions;
         this.primaryClusterMin = primaryClusterMin;
         this.primaryClusterMax = primaryClusterMax;
+        this.underreplicatedPrimaryClusterMax = underreplicatedPrimaryClusterMax;
         this.replicatedClusterMaxWrites = replicatedClusterMaxWrites;
         this.replicatedClusterTarget = replicatedClusterTarget;
         this.clusterOverlap = clusterOverlap;
@@ -123,6 +127,10 @@ public final class Config implements BaseConfig {
 
     public int getPrimaryClusterMax() {
         return primaryClusterMax;
+    }
+
+    public int getUnderreplicatedPrimaryClusterMax() {
+        return underreplicatedPrimaryClusterMax;
     }
 
     public int getReplicatedClusterMaxWrites() {
@@ -200,10 +208,11 @@ public final class Config implements BaseConfig {
     @Nonnull
     public ConfigBuilder toBuilder() {
         return new ConfigBuilder(getMetric(), getPrimaryClusterMin(), getPrimaryClusterMax(),
-                getReplicatedClusterMaxWrites(), getReplicatedClusterTarget(), getClusterOverlap(),
-                getSampleVectorStatsProbability(), getMaintainStatsProbability(), getStatsThreshold(),
-                isUseRaBitQ(), getRaBitQNumExBits(), isPersistSequentialUuids(), getMaxNumConcurrentNodeFetches(),
-                getMaxNumConcurrentNeighborhoodFetches(), getMaxNumConcurrentDeleteFromLayer());
+                getUnderreplicatedPrimaryClusterMax(), getReplicatedClusterMaxWrites(), getReplicatedClusterTarget(),
+                getClusterOverlap(), getSampleVectorStatsProbability(), getMaintainStatsProbability(),
+                getStatsThreshold(), isUseRaBitQ(), getRaBitQNumExBits(), isPersistSequentialUuids(),
+                getMaxNumConcurrentNodeFetches(), getMaxNumConcurrentNeighborhoodFetches(),
+                getMaxNumConcurrentDeleteFromLayer());
     }
 
     @Override
@@ -216,7 +225,9 @@ public final class Config implements BaseConfig {
         }
         final Config config = (Config)o;
         return numDimensions == config.numDimensions && primaryClusterMin == config.primaryClusterMin &&
-                primaryClusterMax == config.primaryClusterMax && replicatedClusterMaxWrites == config.replicatedClusterMaxWrites &&
+                primaryClusterMax == config.primaryClusterMax &&
+                underreplicatedPrimaryClusterMax == config.underreplicatedPrimaryClusterMax &&
+                replicatedClusterMaxWrites == config.replicatedClusterMaxWrites &&
                 replicatedClusterTarget == config.replicatedClusterTarget &&
                 Double.compare(clusterOverlap, config.clusterOverlap) == 0 &&
                 Double.compare(sampleVectorStatsProbability, config.sampleVectorStatsProbability) == 0 &&
@@ -231,10 +242,11 @@ public final class Config implements BaseConfig {
 
     @Override
     public int hashCode() {
-        return Objects.hash(metric, numDimensions, primaryClusterMin, primaryClusterMax, replicatedClusterMaxWrites,
-                replicatedClusterTarget, clusterOverlap, sampleVectorStatsProbability, maintainStatsProbability,
-                statsThreshold, useRaBitQ, raBitQNumExBits, persistSequentialUuids, maxNumConcurrentNodeFetches,
-                maxNumConcurrentNeighborhoodFetches, maxNumConcurrentDeleteFromLayer);
+        return Objects.hash(metric, numDimensions, primaryClusterMin, primaryClusterMax,
+                underreplicatedPrimaryClusterMax, replicatedClusterMaxWrites, replicatedClusterTarget, clusterOverlap,
+                sampleVectorStatsProbability, maintainStatsProbability, statsThreshold, useRaBitQ, raBitQNumExBits,
+                persistSequentialUuids, maxNumConcurrentNodeFetches, maxNumConcurrentNeighborhoodFetches,
+                maxNumConcurrentDeleteFromLayer);
     }
 
     @Override
@@ -242,7 +254,9 @@ public final class Config implements BaseConfig {
     public String toString() {
         return "Config[metric=" + getMetric() + ", numDimensions=" + getNumDimensions() +
                 ", primaryClusterMin=" + getPrimaryClusterMin() + ", clusterClusterMax=" + getPrimaryClusterMax() +
-                ", replicatedClusterMax=" + getReplicatedClusterMaxWrites() + ", replicatedClusterTarget=" + getReplicatedClusterTarget() +
+                ", underreplicatedPrimaryClusterMax=" + getUnderreplicatedPrimaryClusterMax() +
+                ", replicatedClusterMax=" + getReplicatedClusterMaxWrites() +
+                ", replicatedClusterTarget=" + getReplicatedClusterTarget() +
                 ", clusterOverlap=" + getClusterOverlap() +
                 ", sampleVectorStatsProbability=" + getSampleVectorStatsProbability() +
                 ", mainStatsProbability=" + getMaintainStatsProbability() + ", statsThreshold=" + getStatsThreshold() +
@@ -266,6 +280,7 @@ public final class Config implements BaseConfig {
         private Metric metric = DEFAULT_METRIC;
         private int primaryClusterMin = DEFAULT_PRIMARY_CLUSTER_MIN;
         private int primaryClusterMax = DEFAULT_PRIMARY_CLUSTER_MAX;
+        private int underreplicatedPrimaryClusterMax = DEFAULT_UNDERREPLICATED_PRIMARY_CLUSTER_MAX;
         private int replicatedClusterMaxWrites = DEFAULT_REPLICATED_CLUSTER_MAX_WRITES;
         private int replicatedClusterTarget = DEFAULT_REPLICATED_CLUSTER_TARGET;
         private double clusterOverlap = DEFAULT_CLUSTER_OVERLAP;
@@ -286,14 +301,15 @@ public final class Config implements BaseConfig {
         }
 
         public ConfigBuilder(@Nonnull final Metric metric, final int primaryClusterMin, final int primaryClusterMax,
-                             final int replicatedClusterMaxWrites, final int replicatedClusterTarget,
-                             final double clusterOverlap, final double sampleVectorStatsProbability,
-                             final double maintainStatsProbability, final int statsThreshold, final boolean useRaBitQ,
-                             final int raBitQNumExBits, final boolean persistSequentialUuids,
-                             final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches,
-                             final int maxNumConcurrentDeleteFromLayer) {
+                             final int underreplicatedPrimaryClusterMax, final int replicatedClusterMaxWrites,
+                             final int replicatedClusterTarget, final double clusterOverlap,
+                             final double sampleVectorStatsProbability, final double maintainStatsProbability,
+                             final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
+                             final boolean persistSequentialUuids, final int maxNumConcurrentNodeFetches,
+                             final int maxNumConcurrentNeighborhoodFetches, final int maxNumConcurrentDeleteFromLayer) {
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
+            this.underreplicatedPrimaryClusterMax = underreplicatedPrimaryClusterMax;
             this.primaryClusterMax = primaryClusterMax;
             this.replicatedClusterMaxWrites = replicatedClusterMaxWrites;
             this.replicatedClusterTarget = replicatedClusterTarget;
@@ -337,6 +353,16 @@ public final class Config implements BaseConfig {
         @Nonnull
         public ConfigBuilder setPrimaryClusterMax(final int primaryClusterMax) {
             this.primaryClusterMax = primaryClusterMax;
+            return this;
+        }
+
+        public int getUnderreplicatedPrimaryClusterMax() {
+            return underreplicatedPrimaryClusterMax;
+        }
+
+        @Nonnull
+        public ConfigBuilder setUnderreplicatedPrimaryClusterMax(final int underreplicatedPrimaryClusterMax) {
+            this.underreplicatedPrimaryClusterMax = underreplicatedPrimaryClusterMax;
             return this;
         }
 
@@ -459,9 +485,10 @@ public final class Config implements BaseConfig {
 
         public Config build(final int numDimensions) {
             return new Config(getMetric(), numDimensions, getPrimaryClusterMin(), getPrimaryClusterMax(),
-                    getReplicatedClusterMaxWrites(), getReplicatedClusterTarget(), getClusterOverlap(),
-                    getSampleVectorStatsProbability(), getMaintainStatsProbability(), getStatsThreshold(),
-                    isUseRaBitQ(), getRaBitQNumExBits(), isPersistSequentialUuids(), getMaxNumConcurrentNodeFetches(),
+                    getUnderreplicatedPrimaryClusterMax(), getReplicatedClusterMaxWrites(),
+                    getReplicatedClusterTarget(), getClusterOverlap(), getSampleVectorStatsProbability(),
+                    getMaintainStatsProbability(), getStatsThreshold(), isUseRaBitQ(), getRaBitQNumExBits(),
+                    isPersistSequentialUuids(), getMaxNumConcurrentNodeFetches(),
                     getMaxNumConcurrentNeighborhoodFetches(), getMaxNumConcurrentDeleteFromLayer());
         }
     }

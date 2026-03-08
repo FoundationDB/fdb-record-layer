@@ -111,6 +111,10 @@ public class BounceReassignTask extends AbstractDeferredTask {
 
                     final AbstractDeferredTask bounceTask = shuffledTasks.get(0);
 
+                    if (logger.isInfoEnabled()) {
+                        logger.info("bouncing task; taskKind={}, taskId={}", bounceTask.getKind().name(), bounceTask.getTaskId());
+                    }
+
                     return bounceTask.runTask(transaction)
                             .thenCompose(ignored -> {
                                 if (shuffledTasks.size() > 1) {
@@ -151,6 +155,12 @@ public class BounceReassignTask extends AbstractDeferredTask {
                                                                             transformedCentroid,
                                                                             ImmutableSet.of());
                                                             primitives.writeDeferredTask(transaction, reassignTask);
+                                                            if (logger.isInfoEnabled()) {
+                                                                logger.info("enqueuing final REASSIGN; taskId={}; targetClusterIds={}",
+                                                                        reassignTask.getTaskId(),
+                                                                        reassignTask.getTargetClusterIds());
+                                                            }
+
                                                         }), 10, executor)
                                         .thenCompose(ignored2 -> AsyncUtil.DONE);
                             });

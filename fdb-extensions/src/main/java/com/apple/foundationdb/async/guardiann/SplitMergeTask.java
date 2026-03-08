@@ -118,8 +118,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
                         final EnumSet<ClusterMetadata.State> newStates = EnumSet.copyOf(clusterMetadata.getStates());
                         newStates.remove(ClusterMetadata.State.SPLIT_MERGE);
                         primitives.writeClusterMetadata(transaction, new ClusterMetadata(clusterMetadata.getId(),
-                                clusterMetadata.getNumPrimaryVectors(), clusterMetadata.getNumReplicatedVectors(),
-                                newStates));
+                                clusterMetadata.getNumPrimaryVectors(), clusterMetadata.getNumPrimaryUnderreplicatedVectors(),
+                                clusterMetadata.getNumReplicatedVectors(), newStates));
                         return AsyncUtil.DONE;
                     }
 
@@ -245,7 +245,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
             clusterIdMetadataMapBuilder.put(newClusterId,
                     new ClusterMetadataWithDistance(
                             new ClusterMetadata(newClusterId,
-                                    0, 0,
+                                    0, 0, 0,
                                     EnumSet.noneOf(ClusterMetadata.State.class)),
                             clusterCentroids.get(i), 0.0d));
         }

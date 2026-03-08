@@ -274,7 +274,7 @@ public class Insert {
 
                                 primitives.writeVectorReference(transaction, quantizer, clusterId,
                                         new VectorReference(newVectorMetadata,
-                                                isPrimaryCluster, transformedNewVector));
+                                                isPrimaryCluster, false, transformedNewVector));
 
                                 primitives.writeDeferredTaskMaybe(transaction, random.split(),
                                                 clusterMetadata,
@@ -325,7 +325,7 @@ public class Insert {
 
         final UUID clusterId = RandomHelpers.nextUuid(random, config.isPersistSequentialUuids());
         primitives.writeClusterMetadata(transaction,
-                new ClusterMetadata(clusterId, 0, 0,
+                new ClusterMetadata(clusterId, 0, 0, 0,
                         EnumSet.noneOf(ClusterMetadata.State.class)));
 
         return primitives.getClusterCentroidsHnsw()
