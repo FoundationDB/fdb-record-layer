@@ -33,6 +33,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
@@ -104,8 +105,9 @@ public class SplitHelper {
      */
     public static void saveWithSplit(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
                                      @Nonnull final Tuple key, @Nonnull final byte[] serialized, @Nullable final FDBRecordVersion version) {
-        saveWithSplit(context, subspace, key, serialized, version, true, false, DefaultSplitKeyValueHelper.INSTANCE, false, null, null);
+        saveWithSplit(context, subspace, key, serialized, version, true, false, false, null, null);
     }
+
 
     /**
      * Save serialized representation using multiple keys if necessary, clearing only as much as needed.
@@ -124,31 +126,6 @@ public class SplitHelper {
     public static void saveWithSplit(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
                                      @Nonnull final Tuple key, @Nonnull final byte[] serialized, @Nullable final FDBRecordVersion version,
                                      final boolean splitLongRecords, final boolean omitUnsplitSuffix,
-                                     final boolean clearBasedOnPreviousSizeInfo, @Nullable final FDBStoredSizes previousSizeInfo,
-                                     @Nullable SizeInfo sizeInfo) {
-
-        saveWithSplit(context, subspace, key, serialized, version, splitLongRecords, omitUnsplitSuffix, DefaultSplitKeyValueHelper.INSTANCE, clearBasedOnPreviousSizeInfo, previousSizeInfo, sizeInfo);
-    }
-
-    /**
-     * Save serialized representation using multiple keys if necessary, clearing only as much as needed.
-     * @param context write transaction
-     * @param subspace subspace to save in
-     * @param key key within subspace
-     * @param serialized serialized representation
-     * @param version the version to store inline with this record
-     * @param splitLongRecords <code>true</code> if multiple keys should be used; if <code>false</code>, <code>serialized</code> must fit in a single key
-     * @param omitUnsplitSuffix if <code>splitLongRecords</code> is <code>false</code>, then this will omit a suffix added to the end of the key if <code>true</code> for backwards-compatibility reasons
-     * @param splitKeyHelper an instance of {@link SplitKeyValueHelper} to use for the operation
-     * @param clearBasedOnPreviousSizeInfo if <code>splitLongRecords</code>, whether to use <code>previousSizeInfo</code> to determine how much to clear
-     * @param previousSizeInfo if <code>clearBasedOnPreviousSizeInfo</code>, the {@link FDBStoredSizes} for any old record, or <code>null</code> if there was no old record
-     * @param sizeInfo optional size information to populate
-     */
-    @SuppressWarnings("PMD.CloseResource")
-    public static void saveWithSplit(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
-                                     @Nonnull final Tuple key, @Nonnull final byte[] serialized, @Nullable final FDBRecordVersion version,
-                                     final boolean splitLongRecords, final boolean omitUnsplitSuffix,
-                                     final SplitKeyValueHelper splitKeyHelper,
                                      final boolean clearBasedOnPreviousSizeInfo, @Nullable final FDBStoredSizes previousSizeInfo,
                                      @Nullable SizeInfo sizeInfo) {
         if (omitUnsplitSuffix && version != null) {
@@ -157,9 +134,10 @@ public class SplitHelper {
                     .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
                     .addLogInfo(LogMessageKeys.VERSION, version);
         }
-        if ((version != null) && !splitKeyHelper.supportsVersionInValue()) {
-            // Cannot write version in the k/v value since it is not supported by this helper (e.g. version is needed in the key)
-            throw new RecordCoreArgumentException("Split version is not supported for this helper");
+        boolean hasVersionInKey = key.hasIncompleteVersionstamp();
+        if ((version != null) && hasVersionInKey) {
+            // Cannot have versionStamps in BOTH key and value
+            throw new RecordCoreArgumentException("Cannot save versionStamp in both key and value");
         }
         if (serialized.length > SplitHelper.SPLIT_RECORD_SIZE) {
             if (!splitLongRecords) {
@@ -168,9 +146,11 @@ public class SplitHelper {
                         .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
                         .addLogInfo(LogMessageKeys.VALUE_SIZE, serialized.length);
             }
-            writeSplitRecord(context, subspace, key, serialized, splitKeyHelper, clearBasedOnPreviousSizeInfo, previousSizeInfo, sizeInfo);
+            writeSplitRecord(context, subspace, key, serialized, hasVersionInKey, clearBasedOnPreviousSizeInfo, previousSizeInfo, sizeInfo);
         } else {
-            if (splitKeyHelper.shouldClearBeforeWrite() && (splitLongRecords || previousSizeInfo == null || previousSizeInfo.isVersionedInline())) {
+            // an incomplete version in the key means we shouldn't delete previous values for the record (since they all have
+            // completed versions by now)
+            if (!hasVersionInKey && (splitLongRecords || previousSizeInfo == null || previousSizeInfo.isVersionedInline())) {
                 // Note that the clearPreviousSplitRecords also removes version splits from the context cache
                 // This is not currently supported for the case where we have versions in the keys since we can't trace the old values down
                 clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
@@ -181,23 +161,43 @@ public class SplitHelper {
             } else {
                 recordKey = key;
             }
-            final byte[] keyBytes = splitKeyHelper.packSplitKey(subspace, recordKey);
-            splitKeyHelper.writeSplit(context, keyBytes, serialized);
+            byte[] keyBytes = writeSplitValue(context, subspace, recordKey, serialized, sizeInfo);
             if (sizeInfo != null) {
                 sizeInfo.set(keyBytes, serialized);
                 sizeInfo.setSplit(false);
             }
         }
-        writeVersion(context, subspace, key, version, sizeInfo, splitKeyHelper);
+        writeVersion(context, subspace, key, version, sizeInfo);
+    }
+
+    private static byte[] writeSplitValue(FDBRecordContext context, Subspace subspace, Tuple recordKey, byte[] serialized, @Nullable SizeInfo sizeInfo) {
+        byte[] keyBytes;
+        if (recordKey.hasIncompleteVersionstamp()) {
+            keyBytes = subspace.packWithVersionstamp(recordKey);
+            byte[] current = context.addVersionMutation(
+                    MutationType.SET_VERSIONSTAMPED_KEY,
+                    keyBytes,
+                    serialized);
+            if (current != null) {
+                // This should never happen. It means that the same key (and suffix) and local version were used for subsequent
+                // write. It is most likely not an intended flow and this check will protect against that.
+                // It is an incomplete check since the same record can have different suffixes to the primary key that would not collide.
+                throw new RecordCoreInternalException("Key with version overwritten");
+            }
+        } else {
+            keyBytes = subspace.pack(recordKey);
+            context.ensureActive().set(keyBytes, serialized);
+        }
+        return keyBytes;
     }
 
     @SuppressWarnings("PMD.CloseResource")
     private static void writeSplitRecord(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
                                          @Nonnull final Tuple key, @Nonnull final byte[] serialized,
-                                         final SplitKeyValueHelper splitKeyHelper,
+                                         boolean hasVersionInKey,
                                          final boolean clearBasedOnPreviousSizeInfo, @Nullable final FDBStoredSizes previousSizeInfo,
                                          @Nullable SizeInfo sizeInfo) {
-        if (splitKeyHelper.shouldClearBeforeWrite()) {
+        if (!hasVersionInKey) {
             // Note that the clearPreviousSplitRecords also removes version splits from the context cache
             // This is not currently supported for the case where we have versions in the keys since we can't trace the old values down
             clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
@@ -209,9 +209,8 @@ public class SplitHelper {
             if (nextOffset > serialized.length) {
                 nextOffset = serialized.length;
             }
-            final byte[] keyBytes = splitKeyHelper.packSplitKey(subspace, key.add(index));
             final byte[] valueBytes = Arrays.copyOfRange(serialized, offset, nextOffset);
-            splitKeyHelper.writeSplit(context, keyBytes, valueBytes);
+            byte[] keyBytes = writeSplitValue(context, subspace, key.add(index), valueBytes, sizeInfo);
             if (sizeInfo != null) {
                 if (offset == 0) {
                     sizeInfo.set(keyBytes, valueBytes);
@@ -227,17 +226,19 @@ public class SplitHelper {
 
     @SuppressWarnings("PMD.CloseResource")
     private static void writeVersion(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace, @Nonnull final Tuple key,
-                                     @Nullable final FDBRecordVersion version, @Nullable final SizeInfo sizeInfo, final SplitKeyValueHelper splitKeyHelper) {
+                                     @Nullable final FDBRecordVersion version, @Nullable final SizeInfo sizeInfo) {
         if (version == null) {
             if (sizeInfo != null) {
                 sizeInfo.setVersionedInline(false);
             }
             return;
         }
-        final byte[] keyBytes = splitKeyHelper.packSplitKey(subspace, key.add(RECORD_VERSION));
+        // At this point we know the key does not have a version
+        // TODO: Create a flavor of writeSplit for this case
+        final byte[] keyBytes = subspace.pack(key.add(RECORD_VERSION));
         final byte[] valueBytes = packVersion(version);
         if (version.isComplete()) {
-            splitKeyHelper.writeSplit(context, keyBytes, valueBytes);
+            context.ensureActive().set(keyBytes, valueBytes);
         } else {
             context.addVersionMutation(MutationType.SET_VERSIONSTAMPED_VALUE, keyBytes, valueBytes);
             context.addToLocalVersionCache(keyBytes, version.getLocalVersion());

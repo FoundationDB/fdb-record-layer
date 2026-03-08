@@ -347,7 +347,7 @@ public class PendingWriteQueue {
         SplitKeyValueHelper keyHelper = new VersioningSplitKeyValueHelper(recordVersion.toVersionstamp());
         byte[] value = serializer.encode(builder.build().toByteArray());
         // save with splits
-        SplitHelper.saveWithSplit(context, queueSubspace, TupleHelpers.EMPTY, value, null, true, false, keyHelper, false, null, null);
+        SplitHelper.saveWithSplit(context, queueSubspace, TupleHelpers.EMPTY, value, null, true, false, false, null, null);
 
         // Atomically increment the queue size counter
         mutateQueueSizeCounter(context, 1);
