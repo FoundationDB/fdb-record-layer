@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,7 +67,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
     private SplitMergeTask(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                            @Nonnull final UUID taskId, @Nonnull final UUID targetClusterId,
                            @Nonnull final Transformed<RealVector> centroid) {
-        super(locator, accessInfo, taskId, targetClusterId);
+        super(locator, accessInfo, taskId, ImmutableSet.of(targetClusterId));
         this.centroid = centroid;
     }
 
@@ -77,16 +78,22 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
     @Nonnull
     @Override
-    public Tuple valueTuple() {
-        final Quantizer quantizer = primitives().quantizer(getAccessInfo());
-        final Transformed<RealVector> encodedVector = quantizer.encode(getCentroid());
-        return Tuple.from(getKind().getCode(), getTargetClusterId(), encodedVector.getUnderlyingVector().getRawData());
+    public Kind getKind() {
+        return Kind.SPLIT_MERGE;
+    }
+
+    @Nonnull
+    private UUID getTargetClusterId() {
+        return Iterables.getOnlyElement(getTargetClusterIds());
     }
 
     @Nonnull
     @Override
-    public Kind getKind() {
-        return Kind.SPLIT_MERGE;
+    public Tuple valueTuple() {
+        final Quantizer quantizer = primitives().quantizer(getAccessInfo());
+        final Transformed<RealVector> encodedVector = quantizer.encode(getCentroid());
+        return Tuple.from(getKind().getCode(), getTargetClusterId(),
+                encodedVector.getUnderlyingVector().getRawData());
     }
 
     @Nonnull
@@ -387,7 +394,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap =
                 assignmentResult.getClusterIdMetadataMap();
         final Set<UUID> newClusterIds = assignmentResult.getNewClusterIds();
-        final ImmutableSet.Builder<UUID> newTaskIdsBuilder = ImmutableSet.builder();
+        final ImmutableSet.Builder<UUID> newDependentTaskIdsBuilder = ImmutableSet.builder();
         for (final Map.Entry<UUID, ClusterMetadataWithDistance> entry : clusterIdMetadataMap.entrySet()) {
             final UUID toBeWritten = entry.getKey();
             final ClusterMetadataWithDistance clusterMetadataWithDistance = entry.getValue();
@@ -397,13 +404,29 @@ public class SplitMergeTask extends AbstractDeferredTask {
             primitives.writeDeferredTaskMaybe(transaction, random, clusterMetadata,
                             clusterMetadataWithDistance.getCentroid(), getAccessInfo(), numPrimaryVectorsAdded,
                             numReplicatedVectorsAdded, newClusterIds)
-                    .ifPresent(newTaskIdsBuilder::add);
+                    .ifPresent(newDependentTaskIdsBuilder::add);
             if (logger.isInfoEnabled()) {
                 logger.info("pushing vectors; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
                                 "numTotalReplicatedVectors={}, numReplicatedVectorsAdded={}",
                         clusterMetadata.getId(),
                         clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded, numPrimaryVectorsAdded,
                         clusterMetadata.getNumReplicatedVectors() + numReplicatedVectorsAdded, numReplicatedVectorsAdded);
+            }
+        }
+
+        final Set<UUID> newDependentTaskIds = newDependentTaskIdsBuilder.build();
+        if (!newDependentTaskIds.isEmpty()) {
+            final BounceReassignTask newBounceReassignTask =
+                    BounceReassignTask.of(getLocator(), getAccessInfo(),
+                            RandomHelpers.randomUUID(random), newClusterIds,
+                            newDependentTaskIds);
+            primitives.writeDeferredTask(transaction, newBounceReassignTask);
+
+            if (logger.isInfoEnabled()) {
+                logger.info("enqueuing BOUNCE_REASSIGN; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
+                        newBounceReassignTask.getTaskId(),
+                        newBounceReassignTask.getTargetClusterIds(),
+                        newBounceReassignTask.getDependentTaskIds());
             }
         }
     }
@@ -416,8 +439,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final Transformed<RealVector> centroid = storageTransform.transform(
                 StorageHelpers.vectorFromBytes(locator.getConfig(), valueTuple.getBytes(2)));
 
-        return new SplitMergeTask(locator, accessInfo, keyTuple.getUUID(0),
-                valueTuple.getUUID(1), centroid);
+        return new SplitMergeTask(locator, accessInfo,
+                keyTuple.getUUID(0), valueTuple.getUUID(1), centroid);
     }
 
     @Nonnull

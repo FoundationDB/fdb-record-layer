@@ -260,14 +260,34 @@ class StorageAdapter {
 
     @Nonnull
     public static Tuple tupleFromClusterIds(@Nonnull final Set<UUID> clusterIds) {
-        return Tuple.fromItems(clusterIds);
+        return tupleFromUuids(clusterIds);
     }
 
     @Nonnull
     public static Set<UUID> clusterIdsFromTuple(@Nonnull final Tuple clusterIdsAsTuple) {
+        return uuidsFromTuple(clusterIdsAsTuple);
+    }
+
+    @Nonnull
+    public static Tuple tupleFromTaskIds(@Nonnull final Set<UUID> taskIds) {
+        return tupleFromUuids(taskIds);
+    }
+
+    @Nonnull
+    public static Set<UUID> taskIdsFromTuple(@Nonnull final Tuple taskIdsAsTuple) {
+        return uuidsFromTuple(taskIdsAsTuple);
+    }
+
+    @Nonnull
+    private static Tuple tupleFromUuids(@Nonnull final Set<UUID> uuids) {
+        return Tuple.fromItems(uuids);
+    }
+
+    @Nonnull
+    private static Set<UUID> uuidsFromTuple(@Nonnull final Tuple uuidsAsTuple) {
         final ImmutableSet.Builder<UUID> resultBuilder = ImmutableSet.builder();
-        for (int i = 0; i < clusterIdsAsTuple.size(); i ++) {
-            resultBuilder.add(clusterIdsAsTuple.getUUID(i));
+        for (int i = 0; i < uuidsAsTuple.size(); i ++) {
+            resultBuilder.add(uuidsAsTuple.getUUID(i));
         }
         return resultBuilder.build();
     }

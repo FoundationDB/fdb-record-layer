@@ -66,7 +66,7 @@ public class ReassignTask extends AbstractDeferredTask {
                          @Nonnull final UUID taskId, @Nonnull final UUID targetClusterId,
                          @Nonnull final Transformed<RealVector> centroid,
                          @Nonnull final Set<UUID> causeClusterIds) {
-        super(locator, accessInfo, taskId, targetClusterId);
+        super(locator, accessInfo, taskId, ImmutableSet.of(targetClusterId));
         this.centroid = centroid;
         this.causeClusterIds = ImmutableSet.copyOf(causeClusterIds);
     }
@@ -79,6 +79,11 @@ public class ReassignTask extends AbstractDeferredTask {
     @Nonnull
     public Set<UUID> getCauseClusterIds() {
         return causeClusterIds;
+    }
+
+    @Nonnull
+    public UUID getTargetClusterId() {
+        return Iterables.getOnlyElement(getTargetClusterIds());
     }
 
     @Nonnull
@@ -403,13 +408,13 @@ public class ReassignTask extends AbstractDeferredTask {
         Verify.verify(Kind.fromValueTuple(valueTuple) == Kind.REASSIGN);
         final StorageTransform storageTransform = locator.primitives().storageTransform(accessInfo);
 
-        final UUID taskUuid = valueTuple.getUUID(1);
+        final UUID targetClusterId = valueTuple.getUUID(1);
         final Transformed<RealVector> centroid = storageTransform.transform(
                 StorageHelpers.vectorFromBytes(locator.getConfig(), valueTuple.getBytes(2)));
 
         final Set<UUID> causeClusterIds = StorageAdapter.clusterIdsFromTuple(valueTuple.getNestedTuple(3));
-        return new ReassignTask(locator, accessInfo, keyTuple.getUUID(0),
-                taskUuid, centroid, causeClusterIds);
+        return new ReassignTask(locator, accessInfo, keyTuple.getUUID(0), targetClusterId,
+                centroid, causeClusterIds);
     }
 
     @Nonnull

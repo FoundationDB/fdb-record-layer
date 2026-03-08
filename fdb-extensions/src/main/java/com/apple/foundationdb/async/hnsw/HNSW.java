@@ -182,8 +182,8 @@ public class HNSW {
      *         {@link ResultEntry#getRankOrRowNumber()} returns {@code -1}
      */
     @Nonnull
-    CompletableFuture<ResultEntry> fetch(@Nonnull final ReadTransaction readTransaction,
-                                         @Nonnull final Tuple primaryKey) {
+    public CompletableFuture<ResultEntry> fetch(@Nonnull final ReadTransaction readTransaction,
+                                                @Nonnull final Tuple primaryKey) {
         return primitives().fetch(readTransaction, primaryKey);
     }
 

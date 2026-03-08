@@ -462,7 +462,7 @@ class Primitives {
     @Nonnull
     CompletableFuture<Void> doSomeDeferredTasks(@Nonnull final Transaction transaction,
                                                 @Nonnull final AccessInfo accessInfo) {
-        return fetchSomeDeferredTasks(transaction, accessInfo, 2)
+        return fetchSomeDeferredTasks(transaction, accessInfo, 1)
                 .thenCompose(deferredTasks ->
                         forLoop(0, null,
                                 i -> i < deferredTasks.size(), i -> i + 1,
@@ -497,6 +497,28 @@ class Primitives {
                 });
     }
 
+    @Nonnull
+    CompletableFuture<AbstractDeferredTask> fetchDeferredTask(@Nonnull final ReadTransaction readTransaction,
+                                                              @Nonnull final AccessInfo accessInfo,
+                                                              @Nonnull final UUID taskId) {
+        final Subspace tasksSubspace = getTasksSubspace();
+        final Tuple keyTuple = Tuple.from(taskId);
+        final byte[] keyBytes = tasksSubspace.pack(keyTuple);
+
+        return readTransaction.get(keyBytes)
+                .thenApply(valueBytes -> {
+                    if (valueBytes == null) {
+                        return null;
+                    }
+
+                    final Tuple valueTuple = Tuple.fromBytes(valueBytes);
+                    final AbstractDeferredTask task =
+                            AbstractDeferredTask.newFromTuples(getLocator(), accessInfo, keyTuple, valueTuple);
+                    getOnReadListener().onKeyValueRead(-1, keyBytes, valueBytes);
+                    return task;
+                });
+    }
+
     void writeDeferredTask(@Nonnull final Transaction transaction,
                            @Nonnull final AbstractDeferredTask deferredTask) {
         final Subspace tasksSubspace = getTasksSubspace();
@@ -526,7 +548,7 @@ class Primitives {
                     "shouldn't need to enqueue a SPLIT/MERGE for a new cluster");
 
             if (logger.isInfoEnabled()) {
-                logger.info("enqueuing split/merge; clusterId={}; numTotalPrimaryVectors={}",
+                logger.info("enqueuing SPLIT_MERGE; clusterId={}; numTotalPrimaryVectors={}",
                         clusterMetadata.getId(), numTotalPrimaryVectors);
             }
 
@@ -551,7 +573,7 @@ class Primitives {
                     "shouldn't need to enqueue a REASSIGN for a new cluster");
 
             if (logger.isInfoEnabled()) {
-                logger.info("enqueuing reassign; clusterId={}; numTotalPrimaryVectors={}, numTotalReplicatedVectors={}",
+                logger.info("enqueuing REASSIGN; clusterId={}; numTotalPrimaryVectors={}, numTotalReplicatedVectors={}",
                         clusterMetadata.getId(), numTotalPrimaryVectors, numTotalReplicatedVectors);
             }
 

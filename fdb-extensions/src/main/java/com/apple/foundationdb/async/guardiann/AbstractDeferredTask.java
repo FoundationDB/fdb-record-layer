@@ -22,12 +22,14 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -40,16 +42,16 @@ public abstract class AbstractDeferredTask {
     @Nonnull
     private final UUID taskId;
     @Nonnull
-    private final UUID targetClusterId;
+    private final Set<UUID> targetClusterIds;
 
     AbstractDeferredTask(@Nonnull final Locator locator,
                          @Nonnull final AccessInfo accessInfo,
                          @Nonnull final UUID taskId,
-                         @Nonnull final UUID targetClusterId) {
+                         @Nonnull final Set<UUID> targetClusterId) {
         this.locator = locator;
         this.accessInfo = accessInfo;
         this.taskId = taskId;
-        this.targetClusterId = targetClusterId;
+        this.targetClusterIds = ImmutableSet.copyOf(targetClusterId);
     }
 
     @Nonnull
@@ -73,8 +75,8 @@ public abstract class AbstractDeferredTask {
     }
 
     @Nonnull
-    public UUID getTargetClusterId() {
-        return targetClusterId;
+    public Set<UUID> getTargetClusterIds() {
+        return targetClusterIds;
     }
 
     @Nonnull
@@ -91,7 +93,7 @@ public abstract class AbstractDeferredTask {
     protected void logStart(@Nonnull final Logger logger) {
         if (logger.isInfoEnabled()) {
             logger.info("executing task kind={}, taskId={}, targetClusterId={}", getKind(), getTaskId(),
-                    getTargetClusterId());
+                    getTargetClusterIds());
         }
     }
 
@@ -113,7 +115,8 @@ public abstract class AbstractDeferredTask {
 
     public enum Kind {
         SPLIT_MERGE(0, SplitMergeTask::fromTuples),
-        REASSIGN(1, ReassignTask::fromTuples);
+        REASSIGN(1, ReassignTask::fromTuples),
+        BOUNCE_REASSIGN(2, BounceReassignTask::fromTuples);
 
         private static final Map<Integer, Kind> BY_CODE =
                 Arrays.stream(values())
