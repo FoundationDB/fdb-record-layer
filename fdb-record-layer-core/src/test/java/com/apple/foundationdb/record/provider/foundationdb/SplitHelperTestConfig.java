@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
-import com.apple.foundationdb.tuple.Versionstamp;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;

@@ -57,6 +57,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -70,6 +71,7 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -818,6 +820,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
 
         if (expectedSizes == null || expectedContents == null) {
             assertNull(rawRecord);
+            assertEmpty(sizeInfo);
         } else {
             assertNotNull(rawRecord);
             assertArrayEquals(expectedContents, rawRecord.getRawRecord());
@@ -832,7 +835,8 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
             if (testConfig.omitUnsplitSuffix) {
                 assertThat(rawRecord.isVersionedInline(), is(false));
             }
-            boolean isSplit = rawRecord.getKeyCount() - (expectedVersion != null ? 1 : 0) != 1;
+            final int versionKeyCount = expectedVersion != null ? 1 : 0;
+            boolean isSplit = rawRecord.getKeyCount() - versionKeyCount != 1;
             assertEquals(isSplit, rawRecord.isSplit());
             assertEquals(key, rawRecord.getPrimaryKey());
             if (expectedVersion != null) {
@@ -860,6 +864,14 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         }
 
         return rawRecord;
+    }
+
+    private void assertEmpty(final SplitHelper.SizeInfo sizeInfo) {
+        assertEquals(0, sizeInfo.getKeyCount());
+        assertEquals(0, sizeInfo.getKeySize());
+        assertEquals(0, sizeInfo.getValueSize());
+        assertFalse(sizeInfo.isSplit());
+        assertFalse(sizeInfo.isVersionedInline());
     }
 
     @MethodSource("testConfigsNoDryRun")
@@ -1112,8 +1124,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
     /**
      * When two saveWithSplit calls use the same incomplete versionstamp (same localVersion, same key) within
      * one transaction, we may get a failure or data corruption. The localVersionCache (map by key) may contain
-     * previous
-     * values from an identical key (same versionstamp/localversion/PK) but different splits and may not collide
+     * previous values from an identical key (same versionstamp/localversion/PK) but different splits and may not collide
      * directly
      * with the previous values. This test shows the case where there is a collision since the split numbers are the
      * same.
@@ -1134,6 +1145,42 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
                     true, false,
                     false, null, null));
             assertTrue(ex.getMessage().contains("Key with version overwritten"));
+        }
+    }
+
+    /**
+     * When two saveWithSplit calls use the same incomplete versionstamp (same localVersion, same key) within
+     * one transaction, we may get a failure or data corruption. The localVersionCache (map by key) may contain
+     * previous values from an identical key (same versionstamp/localversion/PK) but different splits and may not
+     * collide
+     * directly with the previous values. This test shows the data corruption when two record overlap.
+     */
+    @Test
+    void saveWithSplitVersionInKeyOverlapSplits() {
+        final byte[] globalVersion;
+        final int localVersion;
+        final Tuple key = Tuple.from(1066);
+        try (FDBRecordContext context = openContext()) {
+            localVersion = context.claimLocalVersion();
+            // First write: VERY_LONG_STRING requires multiple splits
+            final Tuple incompleteKey = Tuple.from(Versionstamp.incomplete(localVersion)).add(1066);
+            SplitHelper.saveWithSplit(context, subspace, incompleteKey, VERY_LONG_STRING, null,
+                    true, false,
+                    false, null, null);
+
+            // Second write: SHORT_STRING — same localVersion, same key, shorter value (one split)
+            SplitHelper.saveWithSplit(context, subspace, incompleteKey, SHORT_STRING, null,
+                    true, false,
+                    false, null, null);
+            commit(context);
+            globalVersion = context.getVersionStamp();
+        }
+        // Record is corrupt, as the '0' and '1..n' suffixes did not conflict, and none was in the RYW cache upon writing.
+        try (FDBRecordContext context = openContext()) {
+            final Tuple completeKey = toCompleteKey(key, globalVersion, localVersion, true);
+            Exception ex = assertThrows(CompletionException.class, () ->
+                    SplitHelper.loadWithSplit(context.ensureActive(), context, subspace, completeKey, true, false, null).join());
+            assertTrue(ex.getMessage().contains("Unsplit value followed by split"));
         }
     }
 }
