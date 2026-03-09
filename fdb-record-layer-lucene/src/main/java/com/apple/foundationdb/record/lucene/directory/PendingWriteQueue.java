@@ -43,11 +43,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
-import com.apple.foundationdb.record.provider.foundationdb.SplitKeyValueHelper;
-import com.apple.foundationdb.record.provider.foundationdb.VersioningSplitKeyValueHelper;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.protobuf.ByteString;
 import org.apache.lucene.index.IndexWriter;
@@ -343,11 +340,11 @@ public class PendingWriteQueue {
 
         // Build key with incomplete versionStamp with a new local version
         FDBRecordVersion recordVersion = FDBRecordVersion.incomplete(context.claimLocalVersion());
-        // Use the version in the key helper for all splits of the same entry
-        SplitKeyValueHelper keyHelper = new VersioningSplitKeyValueHelper(recordVersion.toVersionstamp());
+        // key contains only an incomplete version
+        Tuple keyTuple = Tuple.from(recordVersion.toVersionstamp());
         byte[] value = serializer.encode(builder.build().toByteArray());
         // save with splits
-        SplitHelper.saveWithSplit(context, queueSubspace, TupleHelpers.EMPTY, value, null, true, false, false, null, null);
+        SplitHelper.saveWithSplit(context, queueSubspace, keyTuple, value, null, true, false, false, null, null);
 
         // Atomically increment the queue size counter
         mutateQueueSizeCounter(context, 1);

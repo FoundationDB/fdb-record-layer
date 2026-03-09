@@ -46,14 +46,6 @@ public class SplitHelperTestConfig {
         this.useVersionInKey = useVersionInKey;
     }
 
-    public SplitKeyValueHelper keyHelper(int localVersion) {
-        if (useVersionInKey) {
-            return new VersioningSplitKeyValueHelper(Versionstamp.incomplete(localVersion));
-        } else {
-            return DefaultSplitKeyValueHelper.INSTANCE;
-        }
-    }
-
     @Nonnull
     public RecordLayerPropertyStorage.Builder setProps(@Nonnull RecordLayerPropertyStorage.Builder props) {
         return props

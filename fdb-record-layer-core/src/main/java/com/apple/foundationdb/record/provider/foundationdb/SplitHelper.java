@@ -108,7 +108,6 @@ public class SplitHelper {
         saveWithSplit(context, subspace, key, serialized, version, true, false, false, null, null);
     }
 
-
     /**
      * Save serialized representation using multiple keys if necessary, clearing only as much as needed.
      * @param context write transaction
@@ -161,34 +160,13 @@ public class SplitHelper {
             } else {
                 recordKey = key;
             }
-            byte[] keyBytes = writeSplitValue(context, subspace, recordKey, serialized, sizeInfo);
+            final byte[] keyBytes = writeSplitValue(context, subspace, recordKey, serialized);
             if (sizeInfo != null) {
                 sizeInfo.set(keyBytes, serialized);
                 sizeInfo.setSplit(false);
             }
         }
         writeVersion(context, subspace, key, version, sizeInfo);
-    }
-
-    private static byte[] writeSplitValue(FDBRecordContext context, Subspace subspace, Tuple recordKey, byte[] serialized, @Nullable SizeInfo sizeInfo) {
-        byte[] keyBytes;
-        if (recordKey.hasIncompleteVersionstamp()) {
-            keyBytes = subspace.packWithVersionstamp(recordKey);
-            byte[] current = context.addVersionMutation(
-                    MutationType.SET_VERSIONSTAMPED_KEY,
-                    keyBytes,
-                    serialized);
-            if (current != null) {
-                // This should never happen. It means that the same key (and suffix) and local version were used for subsequent
-                // write. It is most likely not an intended flow and this check will protect against that.
-                // It is an incomplete check since the same record can have different suffixes to the primary key that would not collide.
-                throw new RecordCoreInternalException("Key with version overwritten");
-            }
-        } else {
-            keyBytes = subspace.pack(recordKey);
-            context.ensureActive().set(keyBytes, serialized);
-        }
-        return keyBytes;
     }
 
     @SuppressWarnings("PMD.CloseResource")
@@ -210,7 +188,7 @@ public class SplitHelper {
                 nextOffset = serialized.length;
             }
             final byte[] valueBytes = Arrays.copyOfRange(serialized, offset, nextOffset);
-            byte[] keyBytes = writeSplitValue(context, subspace, key.add(index), valueBytes, sizeInfo);
+            final byte[] keyBytes = writeSplitValue(context, subspace, key.add(index), valueBytes);
             if (sizeInfo != null) {
                 if (offset == 0) {
                     sizeInfo.set(keyBytes, valueBytes);
@@ -224,6 +202,27 @@ public class SplitHelper {
         }
     }
 
+    private static byte[] writeSplitValue(FDBRecordContext context, Subspace subspace, Tuple recordKey, byte[] serialized) {
+        byte[] keyBytes;
+        if (recordKey.hasIncompleteVersionstamp()) {
+            keyBytes = subspace.packWithVersionstamp(recordKey);
+            byte[] current = context.addVersionMutation(
+                    MutationType.SET_VERSIONSTAMPED_KEY,
+                    keyBytes,
+                    serialized);
+            if (current != null) {
+                // This should never happen. It means that the same key (and suffix) and local version were used for subsequent
+                // write. It is most likely not an intended flow and this check will protect against that.
+                // It is an incomplete check since the same record can have different suffixes to the primary key that would not collide.
+                throw new RecordCoreInternalException("Key with version overwritten");
+            }
+        } else {
+            keyBytes = subspace.pack(recordKey);
+            context.ensureActive().set(keyBytes, serialized);
+        }
+        return keyBytes;
+    }
+
     @SuppressWarnings("PMD.CloseResource")
     private static void writeVersion(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace, @Nonnull final Tuple key,
                                      @Nullable final FDBRecordVersion version, @Nullable final SizeInfo sizeInfo) {
@@ -234,7 +233,6 @@ public class SplitHelper {
             return;
         }
         // At this point we know the key does not have a version
-        // TODO: Create a flavor of writeSplit for this case
         final byte[] keyBytes = subspace.pack(key.add(RECORD_VERSION));
         final byte[] valueBytes = packVersion(version);
         if (version.isComplete()) {

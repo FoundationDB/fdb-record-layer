@@ -806,7 +806,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
 
     @Nullable
     private FDBRawRecord loadWithSplit(@Nonnull FDBRecordContext context, @Nonnull Tuple key, @Nonnull SplitHelperTestConfig testConfig,
-                                       @Nullable FDBStoredSizes expectedSizes, @Nullable byte[] expectedContents, @Nullable FDBRecordVersion expectedVersion) {
+                                       @Nullable FDBStoredSizes expectedSizes, @Nullable byte[] expectedContents, @Nullable FDBRecordVersion expectedVersion, boolean useVersionInKey) {
         final ReadTransaction tr = context.ensureActive();
         SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
         FDBRawRecord rawRecord;
@@ -854,12 +854,9 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
             assertEquals(rawRecord.getValueSize(), sizeInfo.getValueSize());
             assertEquals(rawRecord.isSplit(), sizeInfo.isSplit());
             assertEquals(rawRecord.isVersionedInline(), sizeInfo.isVersionedInline());
-
-            // Do not attempt to compare key sizes if the keys contain incomplete version stamps
-            if (!testConfig.useVersionInKey) {
-                assertEquals(expectedSizes.getKeySize(), rawRecord.getKeySize());
-                assertEquals(rawRecord.getKeySize(), sizeInfo.getKeySize());
-            }
+            int keySizeAdjustment = useVersionInKey ? -4 * expectedSizes.getKeyCount() : 0; // 4 bytes diff between complete and incomplete versionStamp
+            assertEquals(expectedSizes.getKeySize() + keySizeAdjustment, rawRecord.getKeySize());
+            assertEquals(rawRecord.getKeySize(), sizeInfo.getKeySize());
         }
 
         return rawRecord;
@@ -871,7 +868,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         this.testConfig = testConfig;
         loadSingleRecords(testConfig,
                 (context, key, expectedSizes, expectedContents, version) ->
-                        loadWithSplit(context, key, testConfig, expectedSizes, expectedContents, version));
+                        loadWithSplit(context, key, testConfig, expectedSizes, expectedContents, version, testConfig.useVersionInKey));
 
         if (testConfig.splitLongRecords) {
             final Tuple key = Tuple.from(1307L);
@@ -890,7 +887,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
             Tuple completeKey = toCompleteKey(key, globalVersion, localVersion, testConfig.useVersionInKey);
             try (FDBRecordContext context = openContext()) {
                 RecordCoreException err = assertThrows(RecordCoreException.class,
-                        () -> loadWithSplit(context, completeKey, testConfig, null, null, null));
+                        () -> loadWithSplit(context, completeKey, testConfig, null, null, null, testConfig.useVersionInKey));
                 assertThat(err.getMessage(), containsString("Unsplit value followed by split"));
             }
         }
@@ -928,9 +925,8 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
             boolean isSplit = rawRecord.getKeyCount() - (rawRecord.isVersionedInline() ? 1 : 0) != 1;
             assertEquals(rawRecord.getKeyCount() - (rawRecord.isVersionedInline() ? 1 : 0) != 1, expectedSizes.isSplit());
             assertEquals(version != null, expectedSizes.isVersionedInline());
-            if (!useVersionInKey) {
-                assertEquals(expectedSizes.getKeySize(), rawRecord.getKeySize());
-            }
+            int keySizeAdjustment = useVersionInKey ? -4 * expectedSizes.getKeyCount() : 0; // 4 bytes diff between complete and incomplete versionStamp
+            assertEquals(expectedSizes.getKeySize() + keySizeAdjustment, rawRecord.getKeySize());
             return rawRecord;
         }
     }
