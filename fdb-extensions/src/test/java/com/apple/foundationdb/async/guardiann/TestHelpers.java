@@ -111,16 +111,32 @@ class TestHelpers {
 
     static List<PrimaryKeyAndVector> insertSIFTSmall(@Nonnull final Database db,
                                                      @Nonnull final Guardiann guardiann) throws Exception {
-        final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
+        return insertSIFT(db, guardiann, ".out/extracted/siftsmall/siftsmall_base.fvecs",
+                10000, 20);
+    }
+
+    static List<PrimaryKeyAndVector> insertSIFT1m(@Nonnull final Database db,
+                                                  @Nonnull final Guardiann guardiann,
+                                                  final int numVectors,
+                                                  final int batchSize) throws Exception {
+        return insertSIFT(db, guardiann, ".out/downloads/sift_base.fvecs",
+                numVectors, batchSize);
+    }
+
+    static List<PrimaryKeyAndVector> insertSIFT(@Nonnull final Database db,
+                                                @Nonnull final Guardiann guardiann,
+                                                @Nonnull final String baseFile,
+                                                final int numVectors,
+                                                final int batchSize) throws Exception {
+        final Path siftPath = Paths.get(baseFile);
 
         final ImmutableList.Builder<PrimaryKeyAndVector> insertedDataBuilder = ImmutableList.builder();
 
-        try (final var fileChannel = FileChannel.open(siftSmallPath, StandardOpenOption.READ)) {
+        try (final var fileChannel = FileChannel.open(siftPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
-            final int batchSize = 20;
             int i = 0;
-            while (vectorIterator.hasNext()) {
+            while (vectorIterator.hasNext() && i < numVectors) {
                 final List<DoubleRealVector> batch =
                         Lists.newArrayList(Iterators.limit(vectorIterator, batchSize));
                 final long currentBatchStart = i;
@@ -138,7 +154,7 @@ class TestHelpers {
                 insertedDataBuilder.addAll(insertedInBatch);
                 i += insertedInBatch.size();
             }
-            assertThat(i).isEqualTo(10000);
+            assertThat(i).isEqualTo(numVectors);
         }
         return insertedDataBuilder.build();
     }

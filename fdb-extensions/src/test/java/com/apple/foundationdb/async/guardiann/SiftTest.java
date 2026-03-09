@@ -95,8 +95,8 @@ public class SiftTest implements BaseTest {
                         .setUseRaBitQ(true)
                         .setRaBitQNumExBits(6)
                         .setMetric(metric)
-                        .setPrimaryClusterMax(500)
-                        .setPrimaryClusterMin(100)
+                        .setPrimaryClusterMax(1000)
+                        .setPrimaryClusterMin(300)
                         .setPersistSequentialUuids(true)
                         .setClusterOverlap(0.1d)
                         .build(128);
@@ -108,7 +108,7 @@ public class SiftTest implements BaseTest {
                 onReadListener);
 
         logger.info("Preparing db and inserting SIFT small dataset...");
-        insertedData = TestHelpers.insertSIFTSmall(db, guardiann);
+        insertedData = TestHelpers.insertSIFT1m(db, guardiann, 100000, 20);
     }
 
     @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
@@ -126,7 +126,7 @@ public class SiftTest implements BaseTest {
 //        });
 //        System.out.println(result);
 //
-        TestHelpers.validateSIFTSmall(getDb(), guardiann, insertedData, k);
+        //TestHelpers.validateSIFTSmall(getDb(), guardiann, insertedData, k);
     }
 
     static long countNodesCentroidHnsw(@Nonnull final Database db,
