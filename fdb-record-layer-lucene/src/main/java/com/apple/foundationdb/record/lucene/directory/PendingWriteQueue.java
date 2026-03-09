@@ -403,7 +403,15 @@ public class PendingWriteQueue {
     @Nonnull
     public CompletableFuture<Long> getQueueSize(@Nonnull FDBRecordContext context) {
         return context.readTransaction(true).get(queueSizeSubspace.pack())
-                .thenApply(size -> (size == null) ? null : decodeQueueSize(size));
+                .thenApply(size -> {
+                    if (size == null) {
+                        return null;
+                    } else {
+                        final Long actualSize = decodeQueueSize(size);
+                        context.recordSize(LuceneEvents.SizeEvents.LUCENE_QUEUE_SIZE, actualSize);
+                        return actualSize;
+                    }
+                });
     }
 
     private byte[] encodeQueueSize(long count) {

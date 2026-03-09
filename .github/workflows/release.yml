@@ -36,38 +36,74 @@ jobs:
         run: echo "${{steps.update-type.outputs.result}}"
 
   # 2. In parallel, we run:
-  #   a) all the tests
-  #   b) the mixed-mode tests
-  test:
-    needs: [get-update-type]
+  #   a) all static checks
+  #   b) all the single-version tests
+  #   c) the mixed-mode tests, each version in parallel
+
+  style:
+    needs: get-update-type
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    timeout-minutes: 30
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
       - name: Setup Base Environment
-        id: setup-base
+        uses: ./actions/setup-base-env
+      # Increment the version here so that the version used in the checks matches the eventually published version.
+      - name: Increment version
+        shell: bash
+        run: python build/versionutils.py gradle.properties --increment -u ${{ needs.get-update-type.outputs.update-type }}
+      - name: Run Gradle Build
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: build -x test -x destructiveTest -PreleaseBuild=true -PpublishBuild=false -PspotbugsEnableHtmlReport
+
+  tests:
+    needs: get-update-type
+    strategy:
+      matrix:
+        subproject: [fdb-extensions, fdb-record-layer-core, fdb-record-layer-lucene, yaml-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 40
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
         uses: ./actions/setup-fdb
-      # Increment the version here so that the version used in tests matches the eventually published version.
-      # This is actually important in order to correctly choose appropriate external server versions during
-      # mixed mode tests (see: https://github.com/FoundationDB/fdb-record-layer/issues/3449)
+      # Increment the version here so that the version used in the tests matches the eventually published version.
+      # This is important here to avoid clashing versions when the mixed mode version equals the most recent
+      # release, as it would otherwise conflict with the locally generated jar
       - name: Increment version
         shell: bash
         run: python build/versionutils.py gradle.properties --increment -u ${{ needs.get-update-type.outputs.update-type }}
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_args: -PreleaseBuild=true -PpublishBuild=true
+          gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest
+          gradle_args: -PreleaseBuild=true -PpublishBuild=false
+          report_name: ${{ matrix.subproject }}-test-reports
+      - name: Publish Coverage Data
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: ${{ matrix.subproject }}-coverage-data
+          path: |
+            **/.out/jacoco/*.exec
+            **/.out/libs/*.jar
+          include-hidden-files: true
+          retention-days: 1
 
-  # 2. b) We run the mixed mode tests
-  mixed-mode-test:
-    needs: [get-update-type]
+  other-tests:
+    needs: get-update-type
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    timeout-minutes: 60
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4.2.2
@@ -75,28 +111,109 @@ jobs:
         uses: ./actions/setup-base-env
       - name: Setup FDB
         uses: ./actions/setup-fdb
+      # Increment the version here so that the version used in the tests matches the eventually published version.
+      - name: Increment version
+        shell: bash
+        run: python build/versionutils.py gradle.properties --increment -u ${{ needs.get-update-type.outputs.update-type }}
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_command: >-
+            jar
+            test
+            -x :fdb-extensions:test
+            -x :fdb-record-layer-core:test
+            -x :fdb-record-layer-lucene:test
+            -x :yaml-tests:test
+            destructiveTest
+            -x :fdb-extensions:destructiveTest
+            -x :fdb-record-layer-core:destructiveTest
+            -x :fdb-record-layer-lucene:destructiveTest
+            -x :yaml-tests:destructiveTest
+          gradle_args: -PreleaseBuild=true -PpublishBuild=false
+          report_name: other-test-reports
+      - name: Publish Coverage Data
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: other-coverage-data
+          path: |
+            **/.out/jacoco/*.exec
+            **/.out/libs/*.jar
+          include-hidden-files: true
+          retention-days: 1
+
+  # 2. b) We run the mixed mode tests, each version in parallel
+
+  get-mixed-mode-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.versions.outputs.versions }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Calculate versions
+        id: versions
+        uses: ./actions/list-recent-versions
+
+  mixed-mode:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    needs: [get-update-type, get-mixed-mode-versions]
+    strategy:
+      matrix:
+        version: ${{ fromJSON(needs.get-mixed-mode-versions.outputs.versions) }}
+    permissions:
+      contents: read
+    timeout-minutes: 40
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+      # Increment the version here so that the version used in the tests matches the eventually published version.
+      # This is important here to avoid clashing versions when the mixed mode version equals the most recent
+      # release, as it would otherwise conflict with the locally generated jar
+      - name: Increment version
+        shell: bash
+        run: python build/versionutils.py gradle.properties --increment -u ${{ needs.get-update-type.outputs.update-type }}
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
           gradle_command: mixedModeTest
-          gradle_args: -PreleaseBuild=false -PpublishBuild=false
-          report_name: mixed-mode-test-reports
-      # We don't commit the incremented version, but we use this to know the version when generating
-      # the resulting markdown
-      - name: Increment version
-        shell: bash
-        run: python build/versionutils.py gradle.properties --increment -u ${{ needs.get-update-type.outputs.update-type }}
-      - name: Get new version
-        id: get_new_version
-        shell: bash
-        run: |
-          echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
-      - name: Create markdown
-        shell: bash
-        run: python build/publish-mixed-mode-results.py ${{ steps.get_new_version.outputs.version }} --run-link ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} --output mixed-mode-results.md
-      - name: Preview results
-        shell: bash
-        run: cat mixed-mode-results.md >> $GITHUB_STEP_SUMMARY
+          gradle_args: -PreleaseBuild=true -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }}
+          report_name: mixed-mode-${{ matrix.version }}-test-reports
+      - name: Publish Coverage Data
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: mixed-mode-${{ matrix.version }}-coverage-data
+          path: |
+            **/.out/jacoco/*.exec
+            **/.out/libs/*.jar
+          include-hidden-files: true
+          retention-days: 1
+
+  mixed-mode-results:
+    needs: mixed-mode
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout HEAD sources
+        uses: actions/checkout@v4.2.2
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: 'Download results'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: 'mixed-mode-*-test-reports'
+      - name: Generate mixed mode results
+        uses: ./actions/publish-mixed-mode-results
       # I think this _needs_ to be done at this level, rather than in the action
       # so that "mixed-mode-results" gets passed around correctly
       - name: Upload mixed mode results
@@ -109,7 +226,7 @@ jobs:
   # 3. Update the version in the repo, update the release notes, tag the commit
   #    and publish the artifacts, and if this is a BUILD release generate the documentation
   publish:
-    needs: [test, mixed-mode-test, get-update-type]
+    needs: [style, tests, other-tests, mixed-mode-results, get-update-type]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -132,6 +249,7 @@ jobs:
           git config --global user.email 'foundationdb_ci@apple.com'
   
       - name: Setup Base Environment
+        id: setup-base
         uses: ./actions/setup-base-env
       # Push a version bump back to main. There are failure scenarios that can result
       # in published artifacts but an erroneous build, so it's safer to bump the version
@@ -256,7 +374,7 @@ jobs:
   # everything else, but it depends on publish so, it will always run last
   deploy_docs:
     runs-on: ubuntu-latest
-    needs: [publish]
+    needs: [publish, get-update-type]
     if: needs.get-update-type.outputs.update-type == 'BUILD'
     permissions:
       pages: write

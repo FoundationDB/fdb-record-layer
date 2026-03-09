@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
@@ -87,9 +87,9 @@ public interface CommonCascadesRuleCall {
      * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner.Task} directly. However, it is useful
      * to define additional locations for specific bookkeeping. The event being emitted is only counted, that is
      * no timing information is derived and made available. Note that the caller should never emit events using
-     * {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Location#BEGIN} and
-     * {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Location#END}.
+     * {@link com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location#BEGIN} and
+     * {@link com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location#END}.
      * @param location the location to be used for the event to be emitted.
      */
-    void emitEvent(@Nonnull Debugger.Location location);
+    void emitEvent(@Nonnull Location location);
 }

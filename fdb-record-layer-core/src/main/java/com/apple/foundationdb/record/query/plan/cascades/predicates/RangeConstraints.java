@@ -297,7 +297,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         }
 
         if (!deferredRanges.isEmpty()) {
-            resultExplainTokens.addSequence(() -> new ExplainTokens().addWhitespace()
+            resultExplainTokens.addWhitespace().addKeyword("AND").addWhitespace().addSequence(() -> new ExplainTokens().addWhitespace()
                             .addKeyword("AND").addWhitespace(),
                     () -> deferredRanges.stream().map(Comparisons.Comparison::explain)
                             .map(Precedence.AND::parenthesizeChild).iterator());

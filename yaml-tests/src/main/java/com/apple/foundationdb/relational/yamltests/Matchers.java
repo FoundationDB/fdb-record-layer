@@ -27,6 +27,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.util.pair.ImmutablePair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.tags.PosTag;
 import com.apple.foundationdb.relational.yamltests.tags.IgnoreTag;
 import com.apple.foundationdb.relational.yamltests.tags.Matchable;
 import com.apple.foundationdb.relational.yamltests.tags.IsNullTag;
@@ -382,7 +383,7 @@ public class Matchers {
             } else if (cell instanceof byte[]) {
                 cellString = ByteArrayUtil2.loggable((byte[]) cell);
             } else {
-                cellString = cell.toString();
+                cellString = limitString(cell.toString());
             }
             resultSet.get(resultSet.size() - 1).add(cellString);
         }
@@ -419,6 +420,17 @@ public class Matchers {
                 return at.render();
             }
         }
+    }
+
+    public static String limitString(String input) {
+        if (input == null) {
+            return "<NULL>";
+        }
+        final int maxLength = 400;
+        if (input.length() > maxLength) {
+            return input.substring(0, maxLength) + "...(" + (input.length() - maxLength) + " more chars)";
+        }
+        return input;
     }
 
     public static Pair<ResultSetMatchResult, ResultSetPrettyPrinter> matchResultSet(final Object expected, final RelationalResultSet actual, final boolean isExpectedOrdered) throws SQLException {
@@ -559,8 +571,11 @@ public class Matchers {
         }
         for (final var entry : expected.entrySet()) {
             final var expectedField = valueElseKey(entry);
-            final var actualField = entry.getValue() == null ? entryByNumberAccessor.apply(counter) : entryByNameAccessor.apply(string(entry.getKey()));
-            final var currentCellRef = entry.getValue() == null ? "pos<" + counter + ">" : string(entry.getKey());
+            final var isUserDefinedColPos = entry.getKey() instanceof PosTag.ColumnPosition;
+            final var effectiveColumnPos = isUserDefinedColPos ? ((PosTag.ColumnPosition)entry.getKey()).getValue() : counter;
+            final var actualField = entry.getValue() == null || isUserDefinedColPos ?
+                                    entryByNumberAccessor.apply(effectiveColumnPos) : entryByNameAccessor.apply(string(entry.getKey()));
+            final var currentCellRef = entry.getValue() == null ? "pos<" + effectiveColumnPos + ">" : entry.getKey().toString();
             final var matchResult = matchField(expectedField, actualField, rowNumber, cellRef + (cellRef.isEmpty() ? "" : ".") + currentCellRef);
             if (!matchResult.equals(ResultSetMatchResult.success())) {
                 return matchResult; // propagate failure.
@@ -724,5 +739,10 @@ public class Matchers {
             default:
                 throw new IllegalArgumentException("Unsupported vector precision: " + precision + ". Expected 16, 32, or 64.");
         }
+    }
+
+    @Nonnull
+    public static String constructRandomString(@Nonnull final ScalarNode yamlElementsNode) {
+        return RandomStringParser.parse(yamlElementsNode.getValue());
     }
 }

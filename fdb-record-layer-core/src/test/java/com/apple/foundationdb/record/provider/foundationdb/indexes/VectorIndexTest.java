@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
@@ -49,13 +48,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
-import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord;
 import com.apple.foundationdb.tuple.Tuple;
@@ -80,7 +73,6 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.IntStream;
@@ -574,33 +566,5 @@ class VectorIndexTest extends VectorIndexTestBase {
                     .allSatisfy(recallCounter ->
                             assertThat((double)recallCounter / k).isGreaterThan(0.9));
         }
-    }
-
-    @Nonnull
-    private static RecordQueryIndexPlan createIndexPlan(@Nonnull final HalfRealVector queryVector, final int k,
-                                                        @Nonnull final String indexName) {
-        final VectorIndexScanComparisons vectorIndexScanComparisons =
-                createVectorIndexScanComparisons(queryVector, k, VectorIndexScanOptions.empty());
-
-        final Type.Record baseRecordType =
-                Type.Record.fromFieldDescriptorsMap(
-                        Type.Record.toFieldDescriptorMap(VectorRecord.getDescriptor().getFields()));
-
-        return new RecordQueryIndexPlan(indexName, field("recNo"),
-                vectorIndexScanComparisons, IndexFetchMethod.SCAN_AND_FETCH,
-                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY, false, false,
-                Optional.empty(), baseRecordType, QueryPlanConstraint.noConstraint());
-    }
-
-    @Nonnull
-    private static VectorIndexScanComparisons createVectorIndexScanComparisons(@Nonnull final HalfRealVector queryVector, final int k,
-                                                                               @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
-        final Comparisons.DistanceRankValueComparison distanceRankComparison =
-                new Comparisons.DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
-                        new LiteralValue<>(Type.Vector.of(false, 16, 128), queryVector),
-                        new LiteralValue<>(k), null, null);
-
-        return VectorIndexScanComparisons.byDistance(ScanComparisons.EMPTY,
-                distanceRankComparison, vectorIndexScanOptions);
     }
 }
