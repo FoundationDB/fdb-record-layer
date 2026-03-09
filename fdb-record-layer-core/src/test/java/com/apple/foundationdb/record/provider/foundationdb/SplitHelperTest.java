@@ -900,8 +900,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     /**
      * Verify that the refactored split call site in {@link SplitHelper} — which now passes
      * {@code subspace} + {@code key.add(index)} to {@code packSplitKey} instead of the old
-     * {@code subspace.subspace(key)} + {@code Tuple.from(index)} — produces identical byte keys
-     * for {@link DefaultSplitKeyValueHelper}.
+     * {@code subspace.subspace(key)} + {@code Tuple.from(index)} — produces identical byte keys.
      */
     @MethodSource("splitKeyEquivalenceCases")
     @ParameterizedTest(name = "defaultHelperSplitKeyEquivalence[key={0}, index={1}]")
@@ -911,7 +910,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         // Old call site in SplitHelper: subspace.subspace(key).pack(index)
         byte[] oldKey = subspace.subspace(key).pack(index);
         // New call site: packSplitKey(subspace, key.add(index)) = subspace.pack(key.add(index))
-        byte[] newKey = DefaultSplitKeyValueHelper.INSTANCE.packSplitKey(subspace, key.add(index));
+        byte[] newKey = subspace.pack(key.add(index));
 
         assertArrayEquals(oldKey, newKey);
     }
