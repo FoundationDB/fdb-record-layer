@@ -3542,34 +3542,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         beginRecordStoreStateWrite();
         boolean haveFuture = false;
         try {
-            // A read is done before the write in order to avoid having unnecessary
-            // updates cause spurious not_committed errors.
-            byte[] indexKey = indexStateSubspace().pack(indexName);
-            Transaction tr = context.ensureActive();
-            CompletableFuture<Boolean> future = tr.get(indexKey).thenCompose(previous -> {
-                if (previous == null) {
-                    IndexingRangeSet indexRangeSet = IndexingRangeSet.forIndexBuild(this, getRecordMetaData().getIndex(indexName));
-                    return indexRangeSet.isEmptyAsync().thenCompose(empty -> {
-                        if (empty) {
-                            // For readable indexes, we have an optimization where the range set is cleared out
-                            // after the index is build to avoid carrying extra meta-data about the index range
-                            // set. However, when we mark an index as write-only, we want to preserve the record
-                            // that the index was completely built (if the range set was empty, i.e., cleared)
-                            return indexRangeSet.insertRangeAsync(null, null);
-                        } else {
-                            return AsyncUtil.READY_FALSE;
-                        }
-                    }).thenApply(ignore -> {
-                        updateIndexState(indexName, indexKey, indexState);
-                        return true;
-                    });
-                } else if (!Tuple.fromBytes(previous).get(0).equals(indexState.code())) {
-                    updateIndexState(indexName, indexKey, indexState);
-                    return AsyncUtil.READY_TRUE;
-                } else {
-                    return AsyncUtil.READY_FALSE;
-                }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite());
+            CompletableFuture<Boolean> future = markIndexNotReadableUnderLock(indexName, indexState)
+                    .whenComplete((b, t) -> endRecordStoreStateWrite());
             haveFuture = true;
             return future;
         } finally {
@@ -3577,6 +3551,38 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 endRecordStoreStateWrite();
             }
         }
+    }
+
+    @Nonnull
+    private CompletableFuture<Boolean> markIndexNotReadableUnderLock(final @Nonnull String indexName, final @Nonnull IndexState indexState) {
+        // A read is done before the write in order to avoid having unnecessary
+        // updates cause spurious not_committed errors.
+        byte[] indexKey = indexStateSubspace().pack(indexName);
+        Transaction tr = context.ensureActive();
+        return tr.get(indexKey).thenCompose(previous -> {
+            if (previous == null) {
+                IndexingRangeSet indexRangeSet = IndexingRangeSet.forIndexBuild(this, getRecordMetaData().getIndex(indexName));
+                return indexRangeSet.isEmptyAsync().thenCompose(empty -> {
+                    if (empty) {
+                        // For readable indexes, we have an optimization where the range set is cleared out
+                        // after the index is build to avoid carrying extra meta-data about the index range
+                        // set. However, when we mark an index as write-only, we want to preserve the record
+                        // that the index was completely built (if the range set was empty, i.e., cleared)
+                        return indexRangeSet.insertRangeAsync(null, null);
+                    } else {
+                        return AsyncUtil.READY_FALSE;
+                    }
+                }).thenApply(ignore -> {
+                    updateIndexState(indexName, indexKey, indexState);
+                    return true;
+                });
+            } else if (!Tuple.fromBytes(previous).get(0).equals(indexState.code())) {
+                updateIndexState(indexName, indexKey, indexState);
+                return AsyncUtil.READY_TRUE;
+            } else {
+                return AsyncUtil.READY_FALSE;
+            }
+        });
     }
 
     /**
@@ -3739,16 +3745,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         beginRecordStoreStateWrite();
         boolean haveFuture = false;
         try {
-            @SuppressWarnings("PMD.CloseResource")
-            Transaction tr = ensureContextActive();
-            byte[] indexKey = indexStateSubspace().pack(index.getName());
-            CompletableFuture<Boolean> future = tr.get(indexKey).thenCompose(previous -> {
-                if (previous != null) {
-                    return checkAndUpdateBuiltIndexState(index, indexKey, allowUniquePending);
-                } else {
-                    return AsyncUtil.READY_FALSE;
-                }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite()).thenApply(this::addRemoveReplacedIndexesCommitCheckIfChanged);
+            CompletableFuture<Boolean> future = markIndexReadableUnderLock(index, allowUniquePending)
+                    .whenComplete((b, t) -> endRecordStoreStateWrite())
+                    .thenApply(this::addRemoveReplacedIndexesCommitCheckIfChanged);
             haveFuture = true;
             return future;
         } finally {
@@ -3756,6 +3755,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 endRecordStoreStateWrite();
             }
         }
+    }
+
+    @Nonnull
+    private CompletableFuture<Boolean> markIndexReadableUnderLock(final @Nonnull Index index, final boolean allowUniquePending) {
+        @SuppressWarnings("PMD.CloseResource")
+        Transaction tr = ensureContextActive();
+        byte[] indexKey = indexStateSubspace().pack(index.getName());
+        return tr.get(indexKey).thenCompose(previous -> {
+            if (previous != null) {
+                return checkAndUpdateBuiltIndexState(index, indexKey, allowUniquePending);
+            } else {
+                return AsyncUtil.READY_FALSE;
+            }
+        });
     }
 
     /**
@@ -4388,43 +4401,85 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                      @Nonnull List<CompletableFuture<Void>> work,
                                                      @Nonnull RebuildIndexReason reason,
                                                      @Nullable Integer oldMetaDataVersion) {
+        // TODO: the index rebuild/state-change mechanism had become very complicated. Simplifying and moving it to an external class might be a good idea
+        // First rebuild (i.e. build inline) all the indexes that are targeted to become readable. Then:
+        // - raise index state write semaphore
+        // - locklessly change the states of all indexes and clear data (if needed)
+        //   -- if rebuild had failed (very rare) convert all the desired READABLE to DISABLED.
+        // - release the index state write semaphore
+        if (recordStoreStateRef.get() == null) {
+            return preloadRecordStoreStateAsync().thenCompose(vignore -> rebuildIndexes(indexes, newStates, work, reason, oldMetaDataVersion));
+        }
+
         Iterator<Map.Entry<Index, List<RecordType>>> indexIter = indexes.entrySet().iterator();
-        return AsyncUtil.whileTrue(() -> {
-            Iterator<CompletableFuture<Void>> workIter = work.iterator();
-            while (workIter.hasNext()) {
-                CompletableFuture<Void> workItem = workIter.next();
-                if (workItem.isDone()) {
-                    context.asyncToSync(FDBStoreTimer.Waits.WAIT_ERROR_CHECK, workItem); // Just for error handling.
-                    workIter.remove();
-                }
+        List<Index> indexesToBeBuilt = new ArrayList<>();
+        for (Index index: indexes.keySet()) {
+            addIndexStateReadConflict(index.getName());
+            if (newStates.getOrDefault(index, READY_READABLE) == READY_READABLE) {
+                indexesToBeBuilt.add(index);
             }
-            while (work.size() < MAX_PARALLEL_INDEX_REBUILD) {
-                if (indexIter.hasNext()) {
-                    Map.Entry<Index, List<RecordType>> indexItem = indexIter.next();
-                    Index index = indexItem.getKey();
-                    List<RecordType> recordTypes = indexItem.getValue();
-                    final StringBuilder errMessageBuilder = new StringBuilder("unable to ");
-                    final CompletableFuture<Void> rebuildOrMarkIndexSafely = MoreAsyncUtil.handleOnException(
-                            () -> newStates.getOrDefault(index, READY_READABLE).thenCompose(
-                                    indexState -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder)
-                            ),
-                            exception -> {
-                                // If there is any issue, simply mark the index as disabled without blocking checkVersion
-                                logExceptionAsWarn(KeyValueLogMessage.build(errMessageBuilder.toString(),
-                                        LogMessageKeys.INDEX_NAME, index.getName()
-                                ), exception);
-                                return markIndexDisabled(index).thenApply(b -> null);
-                            });
-                    work.add(rebuildOrMarkIndexSafely);
-                } else {
-                    break;
-                }
-            }
-            if (work.isEmpty()) {
-                return AsyncUtil.READY_FALSE;
-            }
-            return AsyncUtil.whenAny(work).thenApply(v -> true);
-        }, getExecutor());
+        }
+
+        return rebuildIndexesNoStateChange(indexesToBeBuilt, reason)
+                .thenCompose(successfullyRebuilt -> {
+                    // Drain the existing work items before beginning store state write
+                    drainWorkItems(work);
+
+                    // Here: set all index states
+                    List<CompletableFuture<Void>> stateWork = new ArrayList<>();
+                    beginRecordStoreStateWrite();
+
+                    return AsyncUtil.whileTrue(() -> {
+                        Iterator<CompletableFuture<Void>> worker = stateWork.iterator();
+                        while (worker.hasNext()) {
+                            CompletableFuture<Void> workItem = worker.next();
+                            if (workItem.isDone()) {
+                                context.asyncToSync(FDBStoreTimer.Waits.WAIT_ERROR_CHECK, workItem); // Just for error handling.
+                                worker.remove();
+                            }
+                        }
+                        while (stateWork.size() < MAX_PARALLEL_INDEX_REBUILD) {
+                            if (indexIter.hasNext()) {
+                                Map.Entry<Index, List<RecordType>> indexItem = indexIter.next();
+                                Index index = indexItem.getKey();
+                                List<RecordType> recordTypes = indexItem.getValue();
+                                final StringBuilder errMessageBuilder = new StringBuilder("unable to ");
+                                final CompletableFuture<Void> rebuildOrMarkIndexSafely = MoreAsyncUtil.handleOnException(
+                                        () -> newStates.getOrDefault(index, READY_READABLE).thenCompose(
+                                                indexState -> markIndexUnderLock(index,
+                                                        (!successfullyRebuilt && indexState == IndexState.READABLE ? IndexState.DISABLED : indexState),
+                                                        recordTypes, reason, oldMetaDataVersion, errMessageBuilder)
+                                        ),
+                                        exception -> {
+                                            // If there is any issue, simply mark the index as disabled without blocking checkVersion
+                                            logExceptionAsWarn(KeyValueLogMessage.build(errMessageBuilder.toString(),
+                                                    LogMessageKeys.INDEX_NAME, index.getName()
+                                            ), exception);
+                                            return markIndexDisabled(index).thenApply(b -> null);
+                                        });
+                                work.add(rebuildOrMarkIndexSafely);
+                            } else {
+                                break;
+                            }
+                        }
+                        if (stateWork.isEmpty()) {
+                            return AsyncUtil.READY_FALSE;
+                        }
+                        return AsyncUtil.whenAny(stateWork).thenApply(v -> true);
+                    }, getExecutor()
+                    ).whenComplete((b, t) -> endRecordStoreStateWrite());
+                });
+    }
+
+    private void drainWorkItems(final @Nonnull List<CompletableFuture<Void>> work) {
+        if (work.isEmpty()) {
+            return;
+        }
+        Iterator<CompletableFuture<Void>> workIter = work.iterator();
+        while (workIter.hasNext()) {
+            CompletableFuture<Void> workItem = workIter.next();
+            context.asyncToSync(FDBStoreTimer.Waits.WAIT_ERROR_CHECK, workItem); // Just for error handling.
+        }
     }
 
     /**
@@ -4452,10 +4507,43 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         })));
     }
 
+    private CompletableFuture<Void> markIndexUnderLock(@Nonnull Index index, @Nonnull IndexState indexState,
+                                                       @Nullable List<RecordType> recordTypes, @Nonnull RebuildIndexReason reason,
+                                                       @Nullable Integer oldMetaDataVersion,
+                                                       @Nonnull StringBuilder errMessageBuilder) {
+        if (indexState != IndexState.DISABLED && areAllRecordTypesSince(recordTypes, oldMetaDataVersion)) {
+            // As a backward compatibility - append this message and continue to mark the index as readable
+            // Note that if the caller's rebuild had failed, the indexState would have been set to DISABLED
+            errMessageBuilder.append("rebuild index with no records");
+            indexState = IndexState.READABLE;
+        }
+
+        switch (indexState) {
+            case WRITE_ONLY:
+                errMessageBuilder.append("clear and mark index write only");
+                return markIndexNotReadableUnderLock(index.getName(), IndexState.WRITE_ONLY)
+                        .thenRun(() -> clearIndexData(index));
+            case DISABLED:
+                errMessageBuilder.append("mark index disabled");
+                return markIndexNotReadableUnderLock(index.getName(), IndexState.DISABLED)
+                        .thenApply(changed -> {
+                            if (changed) {
+                                clearIndexData(index);
+                            }
+                            return null;
+                        });
+            case READABLE:
+            default:
+                errMessageBuilder.append("rebuild index");
+                return markIndexReadableUnderLock(index, false).thenApply(ignore -> null);
+        }
+    }
+
     protected CompletableFuture<Void> rebuildOrMarkIndex(@Nonnull Index index, @Nonnull IndexState indexState,
                                                          @Nullable List<RecordType> recordTypes, @Nonnull RebuildIndexReason reason,
                                                          @Nullable Integer oldMetaDataVersion,
                                                          @Nonnull StringBuilder errMessageBuilder) {
+        // TODO: Is this protected unused function being used by inheritors in other projects?
         // Skip index rebuild if the index is on new record types. This may fail because of reusing an index name whose
         // state hasn't been cleared.
         if (indexState != IndexState.DISABLED && areAllRecordTypesSince(recordTypes, oldMetaDataVersion)) {
@@ -4570,6 +4658,67 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 context.instrument(reason.event, future, startTime),
                 startTime);
     }
+
+    /**
+     * Rebuild multiple indexes using multi-target indexing for efficiency.
+     *
+     * <p>
+     * This method builds all provided indexes in a single multi-target operation,
+     * which is more efficient than building them sequentially or individually.
+     * </p>
+     *
+     * @param indexes the indexes to rebuild
+     * @param reason the reason for rebuilding
+     * @return a future that will complete when all indexes have been built
+     * @see OnlineIndexer
+     */
+    @Nonnull
+    public CompletableFuture<Boolean> rebuildIndexesNoStateChange(@Nonnull List<Index> indexes, @Nonnull RebuildIndexReason reason) {
+        if (indexes.isEmpty()) {
+            return AsyncUtil.READY_TRUE;
+        }
+
+        final boolean newStore = reason == RebuildIndexReason.NEW_STORE;
+        if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
+            final String indexNames = indexes.stream().map(Index::getName).collect(Collectors.joining(", "));
+            final KeyValueLogMessage msg = KeyValueLogMessage.build("rebuilding indexes",
+                    LogMessageKeys.INDEX_NAME, indexNames,
+                    LogMessageKeys.REASON, reason.name(),
+                    subspaceProvider.logKey(), subspaceProvider.toString(context));
+            if (newStore) {
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug(msg.toString());
+                }
+            } else {
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info(msg.toString());
+                }
+            }
+        }
+
+        long startTime = System.nanoTime();
+
+        // Build multi-target indexer
+        OnlineIndexer indexer = OnlineIndexer.newBuilder().setRecordStore(this)
+                .setTargetIndexes(indexes).build();
+
+        CompletableFuture<Boolean> future = indexer.rebuildIndexAsync(this)
+                .handle((b, t) -> {
+                    if (t != null) {
+                        final String indexNames = indexes.stream().map(Index::getName).collect(Collectors.joining(", "));
+                        logExceptionAsWarn(KeyValueLogMessage.build("rebuilding indexes failed",
+                                LogMessageKeys.INDEX_NAME, indexNames,
+                                LogMessageKeys.REASON, reason.name()), t);
+                    }
+                    indexer.close();
+                    return t == null;
+                });
+
+        return context.instrument(FDBStoreTimer.Events.REBUILD_INDEX,
+                context.instrument(reason.event, future, startTime),
+                startTime);
+    }
+
 
     @SuppressWarnings("PMD.GuardLogStatement") // Already is, but around several call.
     private CompletableFuture<Void> checkPossiblyRebuild(@Nullable UserVersionChecker userVersionChecker,
