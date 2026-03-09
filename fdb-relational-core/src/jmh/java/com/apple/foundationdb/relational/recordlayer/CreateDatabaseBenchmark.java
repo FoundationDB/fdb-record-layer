@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
 
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -42,6 +41,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+import java.net.URI;
 import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 
@@ -80,10 +80,9 @@ public class CreateDatabaseBenchmark extends EmbeddedRelationalBenchmark {
     @Benchmark
     public void createDatabase(ThreadScopedDatabases databases, DbNameGenerator dbNameGenerator) throws RelationalException, SQLException {
         databases.createDatabase(
-                DatabaseTemplate.newBuilder()
-                        .withSchema(schema, schemaTemplateName)
-                        .build(),
-                dbNameGenerator.getNextDbName());
+                URI.create(dbNameGenerator.getNextDbName()),
+                schemaTemplateName,
+                schema);
     }
 
     public static void main(String[] args) throws RunnerException {

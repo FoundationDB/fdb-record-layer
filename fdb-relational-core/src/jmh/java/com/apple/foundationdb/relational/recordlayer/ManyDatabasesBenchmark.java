@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -84,12 +83,11 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
         System.out.printf("Creating %s databases...%n", dbCount);
         long startTime = System.nanoTime();
         databases.createMultipleDatabases(
-                DatabaseTemplate.newBuilder()
-                        .withSchema(schema, schemaTemplateName)
-                        .build(),
+                schemaTemplateName,
                 dbCount,
                 this::dbName,
-                this::populateDatabase);
+                this::populateDatabase,
+                schema);
         long endTime = System.nanoTime();
         System.out.printf("Done in %s %n.", Duration.ofNanos(endTime - startTime));
     }
