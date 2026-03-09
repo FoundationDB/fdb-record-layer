@@ -581,7 +581,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         while (begin < query.length() && Character.isWhitespace(query.charAt(begin))) {
             begin++;
         }
-        final List<String> tags = List.of("EXPLAIN", "DESCRIBE", "DESC");
+//        final List<String> tags = List.of("EXPLAIN", "DESCRIBE", "DESC");
+        final List<String> tags = List.of("EXPLAIN");
         for (final var tag : tags) {
             if (query.regionMatches(true, begin, tag, 0, tag.length())) {
                 return query.substring(begin + tag.length());
