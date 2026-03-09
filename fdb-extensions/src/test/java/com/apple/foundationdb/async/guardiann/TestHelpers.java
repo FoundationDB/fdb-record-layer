@@ -118,7 +118,7 @@ class TestHelpers {
         try (final var fileChannel = FileChannel.open(siftSmallPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
-            final int batchSize = 50;
+            final int batchSize = 20;
             int i = 0;
             while (vectorIterator.hasNext()) {
                 final List<DoubleRealVector> batch =

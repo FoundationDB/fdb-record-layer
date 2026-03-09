@@ -160,6 +160,13 @@ public class BounceReassignTask extends AbstractDeferredTask {
         return MoreAsyncUtil.forEach(getTargetClusterIds(),
                         targetClusterId -> centroidsHnsw.fetch(transaction, StorageAdapter.tupleFromClusterId(targetClusterId))
                                 .thenAccept(resultEntry -> {
+                                    if (resultEntry == null) {
+                                        if (logger.isInfoEnabled()) {
+                                            logger.info("unable to enqueue final REASSIGN; targetClusterIds={}",
+                                                    targetClusterId);
+                                        }
+                                        return;
+                                    }
                                     final Transformed<RealVector> transformedCentroid =
                                             storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
                                     final ReassignTask reassignTask =

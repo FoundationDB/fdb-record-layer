@@ -39,7 +39,6 @@ import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomSeedSource;
-import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -81,7 +80,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Execution(ExecutionMode.SAME_THREAD)
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 @Tag(Tags.RequiresFDB)
-@SuperSlow
+//@SuperSlow
 class SiftTest implements BaseTest {
     private static final Logger logger = LoggerFactory.getLogger(SiftTest.class);
 

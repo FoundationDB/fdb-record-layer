@@ -94,7 +94,9 @@ public class RaBitEstimator implements Estimator {
         final RealVector xuc = totalCode.subtract(cb);
         final double dot = query.dot(xuc);
 
-        final double euclideanSquare = encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot;
+        final double euclideanSquareRaw =
+                encodedVector.getAddEx() + gAdd + encodedVector.getRescaleEx() * dot;
+        final double euclideanSquare = Math.max(0.0, euclideanSquareRaw);
         final double euclideanSquareError = encodedVector.getErrorEx() * gError;
 
         switch (metric) {
@@ -109,7 +111,7 @@ public class RaBitEstimator implements Estimator {
                 // ==> v * q = (2 - ||v - q||^2) / 2 = 1 - 1/2 * ||v - q||^2
                 // ==> 1 - v * q = 1/2 * ||v - q||^2
                 //
-                return new Result(0.5 * euclideanSquare, 0.5 * euclideanSquareError);
+                return new Result(0.5 * euclideanSquareRaw, 0.5 * euclideanSquareError);
             case DOT_PRODUCT_METRIC:
                 //
                 // We derive the result from the Euclidean square metric:
@@ -121,7 +123,7 @@ public class RaBitEstimator implements Estimator {
                 // ==> v * q = (2 - ||v - q||^2) / 2 = 1 - 1/2 * ||v - q||^2
                 // ==> - v * q = 1/2 * ||v - q||^2 - 1
                 //
-                return new Result(0.5 * euclideanSquare - 1, 0.5 * euclideanSquareError);
+                return new Result(0.5 * euclideanSquareRaw - 1, 0.5 * euclideanSquareError);
             case EUCLIDEAN_SQUARE_METRIC:
                 return new Result(euclideanSquare, euclideanSquareError);
             case EUCLIDEAN_METRIC:

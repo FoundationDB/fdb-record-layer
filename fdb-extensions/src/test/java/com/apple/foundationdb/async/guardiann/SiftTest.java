@@ -92,9 +92,11 @@ public class SiftTest implements BaseTest {
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final Config config =
                 Guardiann.newConfigBuilder()
-                        .setUseRaBitQ(false)
+                        .setUseRaBitQ(true)
                         .setRaBitQNumExBits(6)
                         .setMetric(metric)
+                        .setPrimaryClusterMax(500)
+                        .setPrimaryClusterMin(100)
                         .setPersistSequentialUuids(true)
                         .setClusterOverlap(0.1d)
                         .build(128);

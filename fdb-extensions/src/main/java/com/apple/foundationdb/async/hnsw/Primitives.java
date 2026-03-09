@@ -529,9 +529,13 @@ public class Primitives {
                     }
                     final StorageTransform storageTransform = storageTransform(accessInfo);
                     return fetchBaseNode(readTransaction, storageTransform, primaryKey)
-                            .thenApply(node ->
-                                    new ResultEntry(primaryKey, storageTransform.untransform(node.getVector()),
-                                            node.getAdditionalValues(), 0, -1));
+                            .thenApply(node -> {
+                                if (node == null) {
+                                    return null;
+                                }
+                                return new ResultEntry(primaryKey, storageTransform.untransform(node.getVector()),
+                                        node.getAdditionalValues(), 0, -1);
+                            });
                 });
     }
 
