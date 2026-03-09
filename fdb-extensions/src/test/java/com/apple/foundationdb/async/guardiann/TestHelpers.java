@@ -166,7 +166,7 @@ class TestHelpers {
                 onReadListener.reset();
                 final long beginTs = System.nanoTime();
                 final List<? extends ResultEntry> results =
-                        db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, 100,
+                        db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, 10000,
                                 true, queryVector).join());
                 final long endTs = System.nanoTime();
                 logger.info("retrieved result in elapsedTimeMs={}, reading readBytes={}",

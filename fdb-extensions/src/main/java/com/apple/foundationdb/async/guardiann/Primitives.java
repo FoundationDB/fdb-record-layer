@@ -719,14 +719,36 @@ class Primitives {
 
     @Nonnull
     CompletableFuture<List<VectorReference>> cleanUpVectorReferences(@Nonnull final Transaction transaction,
-                                                                     @Nonnull final List<Cluster> clusters) {
+                                                                     @Nonnull final List<Cluster> clusters,
+                                                                     final boolean discardReplicatedVectorReferences) {
         final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();
 
         final Map<UUID, VectorReference> vectorsByUuidMap = Maps.newHashMap();
         for (final Cluster cluster : clusters) {
             for (final VectorReference vectorReference : cluster.getVectorReferences()) {
-                vectorsByUuidMap.put(vectorReference.getId().getUuid(), vectorReference);
+                if (!discardReplicatedVectorReferences || vectorReference.isPrimaryCopy()) {
+                    vectorsByUuidMap.compute(vectorReference.getId().getUuid(),
+                            (vectorUuid, oldVectorReference) -> {
+                                if (oldVectorReference == null) {
+                                    return vectorReference;
+                                }
+                                if (vectorReference.isPrimaryCopy()) {
+                                    if (oldVectorReference.isPrimaryCopy()) {
+                                        if (logger.isWarnEnabled()) {
+                                            logger.warn("duplicate primary vector references of the same vector reference, vectorReference={}", oldVectorReference);
+                                        }
+                                        return oldVectorReference;
+                                    }
+                                    return vectorReference;
+                                }
+                                // both of them are replicated vector references -- take the one with the lower
+                                // replication score
+                                return oldVectorReference.getReplicationScore() < vectorReference.getReplicationScore()
+                                       ? oldVectorReference
+                                       : vectorReference;
+                            });
+                }
             }
         }
 

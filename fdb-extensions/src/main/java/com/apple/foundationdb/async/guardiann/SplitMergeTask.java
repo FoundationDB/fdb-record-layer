@@ -160,7 +160,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
             // may assign some vectors from innerNeighborhood to.
             //
             return primitives.fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
-                    .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction, innerClusters))
+                    .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction, innerClusters, true))
                     .thenApply(cleanedUpVectorReferences ->
                             assignVectorReferences(random, estimator, outerNeighborhood, cleanedUpVectorReferences,
                                     innerNeighborhood.size() + 1))
@@ -199,7 +199,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
             // may assign some vectors from innerNeighborhood to.
             //
             return primitives.fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
-                    .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction, innerClusters))
+                    .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction, innerClusters, true))
                     .thenApply(cleanedUpVectorReferences ->
                             assignVectorReferences(random, estimator, outerNeighborhood, cleanedUpVectorReferences,
                                     innerNeighborhood.size() - 1))
@@ -399,6 +399,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         for (final Map.Entry<UUID, VectorReference> entry : assignmentMultiMap.entries()) {
             final UUID clusterId = entry.getKey();
             final VectorReference vectorReference = entry.getValue();
+
             primitives.writeVectorReference(transaction, quantizer, clusterId, vectorReference);
             if (vectorReference.isPrimaryCopy()) {
                 incrementCounter(clusterIdToNumPrimaryVectorsAdded, clusterId);

@@ -36,7 +36,7 @@ import java.util.concurrent.Executor;
 class AlmostSortedAsyncIterator<T> implements CloseableAsyncIterator<T> {
     @Nonnull
     private final AsyncIterator<T> in;
-    private final int maxQueueSize;
+    private final int efSearch;
     @Nonnull
     private final PriorityQueue<T> out;
 
@@ -48,10 +48,10 @@ class AlmostSortedAsyncIterator<T> implements CloseableAsyncIterator<T> {
 
     public AlmostSortedAsyncIterator(@Nonnull final AsyncIterator<T> in,
                                      @Nonnull Comparator<T> comparator,
-                                     final int maxQueueSize,
+                                     final int efSearch,
                                      @Nonnull final Executor executor) {
         this.in = in;
-        this.maxQueueSize = maxQueueSize;
+        this.efSearch = efSearch;
         this.out = new PriorityQueue<>(comparator);
         this.executor = executor;
         this.nextFuture = null;
@@ -69,7 +69,7 @@ class AlmostSortedAsyncIterator<T> implements CloseableAsyncIterator<T> {
     @Nonnull
     private CompletableFuture<T> computeNextRecord() {
         return AsyncUtil.whileTrue(() -> {
-            if (inDone || out.size() >= maxQueueSize) {
+            if (inDone || out.size() >= efSearch) {
                 return AsyncUtil.READY_FALSE; // break out of the loop
             }
             final var inOnHasNextFuture = in.onHasNext();

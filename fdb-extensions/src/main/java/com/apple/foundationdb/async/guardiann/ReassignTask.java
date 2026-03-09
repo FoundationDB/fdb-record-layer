@@ -156,7 +156,8 @@ public class ReassignTask extends AbstractDeferredTask {
             // may assign some vectors from innerNeighborhood to.
             //
             return primitives.fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
-                    .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction, innerClusters)
+                    .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction,
+                                    innerClusters, false)
                             .thenAccept(cleanedUpVectorReferences -> {
                                 final ReassignmentResult reassignmentResult =
                                         reassignVectorReferences(random, estimator, Iterables.getOnlyElement(innerNeighborhood),

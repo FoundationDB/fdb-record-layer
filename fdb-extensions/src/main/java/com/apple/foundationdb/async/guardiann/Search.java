@@ -49,7 +49,6 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.async.MoreAsyncUtil.mapConcatIterable;
 import static com.apple.foundationdb.async.MoreAsyncUtil.mapIterablePipelined;
@@ -137,11 +136,6 @@ public class Search {
         return getLocator().getStorageAdapter();
     }
 
-    @Nonnull
-    private Subspace getSamplesSubspace() {
-        return getStorageAdapter().getSamplesSubspace();
-    }
-
     @SuppressWarnings("checkstyle:MethodName")
     public CompletableFuture<List<? extends ResultEntry>>
             kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
@@ -172,9 +166,9 @@ public class Search {
                     final Estimator estimator = primitives.quantizer(accessInfo).estimator();
 
                     final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
-                            MoreAsyncUtil.iterableOf(() ->
+                            MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
                                     primitives.centroidsOrderedByDistance(readTransaction, queryVector,
-                                            0.0d, null), getExecutor());
+                                            0.0d, null), getExecutor()), 7, getExecutor());
 
                     final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
                             mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
@@ -204,13 +198,6 @@ public class Search {
                                         return new VectorReferenceAndDistance(vectorReference, distance);
                                     });
 
-                    final var l = AsyncUtil.collect(vectorReferenceAndDistancesIterable, getExecutor()).join();
-                    System.out.println((long)l.size());
-                    final var s = l.stream()
-                            .map(item -> item.getVectorReference().getId().getPrimaryKey())
-                            .collect(Collectors.toSet());
-                    System.out.println((long)s.size());
-
                     final AsyncIterable<VectorReferenceAndDistance> almostSortedVectorReferencesIterable =
                             almostSortedVectorReferencesIterable(vectorReferenceAndDistancesIterable,
                                     efSearch, getExecutor());
@@ -237,13 +224,6 @@ public class Search {
                                     vectorReferenceAndDistance ->
                                             seenPrimaryKeys.add(vectorReferenceAndDistance.getVectorReference()
                                                     .getId().getPrimaryKey()));
-//                    final var l =
-//                            Lists.newArrayList(AsyncUtil.collect(dedupedVectorReferenceAndDistancesIterable, getExecutor()).join());
-//                    l.sort(Comparator.comparing(VectorReferenceAndDistance::getDistance));
-//                    return CompletableFuture.completedFuture(new SearchResult(accessInfo, storageTransform, l.subList(0, k)));
-
-                    //System.out.println(l.size());
-                    //l.forEach(x -> System.out.println(x.getDistance()));
 
                     final CompletableFuture<List<VectorReferenceAndDistance>> nearestKReferencesFuture =
                             AsyncUtil.collect(
@@ -251,12 +231,12 @@ public class Search {
                                             MoreAsyncUtil.limitIterable(dedupedVectorReferenceAndDistancesIterable,
                                                     k, getExecutor()),
                                             vectorReferenceAndDistance ->
-                                                    new VectorReferenceAndDistance(enrichVectorReference(primaryKeyToVectorMetadataUuidFutureMap,
-                                                            vectorReferenceAndDistance.getVectorReference()),
+                                                    new VectorReferenceAndDistance(
+                                                            enrichVectorReference(primaryKeyToVectorMetadataUuidFutureMap,
+                                                                    vectorReferenceAndDistance.getVectorReference()),
                                                             vectorReferenceAndDistance.getDistance())), getExecutor());
                     return nearestKReferencesFuture.thenApply(nearestKReferences ->
                             new SearchResult(accessInfo, storageTransform, nearestKReferences));
-
                 });
     }
 
