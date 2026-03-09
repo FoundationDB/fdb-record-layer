@@ -88,6 +88,7 @@ publishing {
 
 jmh {
     environment = rootProject.ext.fdbEnvironment
+    includes = ['(DirectAccessVsQueryBenchmark|IndexScanVsQueryBenchmark)']
     resultFormat = 'text'
 }
 
