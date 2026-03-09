@@ -183,7 +183,8 @@ public final class PlanGenerator {
                                     throw vE.toUncheckedWrappedException();
                                 }
                                 RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.MISS, stepTimeMicros(), cache.get().getStats().numEntries());
-                                return NonnullPair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan.withExecutionContext(astHashResult.getQueryExecutionContext()));
+//                                return NonnullPair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan.withExecutionContext(astHashResult.getQueryExecutionContext()));
+                                return NonnullPair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
                             },
                             value -> value.withExecutionContext(astHashResult.getQueryExecutionContext()),
                             plans -> plans.reduce(null, (acc, candidate) -> {
@@ -242,6 +243,7 @@ public final class PlanGenerator {
 
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
                 currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash);
+        planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
         final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
         try {
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
