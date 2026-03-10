@@ -99,10 +99,10 @@ public class CopyCommandTest {
         final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(URI.create(schemaInfo.schemaPath), keySpace);
 
         // Write some test data using the connection's FDB context
-        writeTestData(testPath, Map.of("key1", "value1", "key2", "value2"));
+        writeTestData(connectionUtils, testPath, Map.of("key1", "value1", "key2", "value2"));
 
         // sanity check that the data was written and committed
-        verifyTestData(testPath, Map.of("key1", "value1", "key2", "value2"));
+        verifyTestData(connectionUtils, testPath, Map.of("key1", "value1", "key2", "value2"));
         assertEquals(2, exportData(schemaInfo, quoted).size());
     }
 
@@ -117,15 +117,15 @@ public class CopyCommandTest {
         final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(source.schemaPath), keySpace);
         final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(dest.schemaPath), keySpace);
 
-        writeTestData(sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
+        writeTestData(connectionUtils, sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
         List<byte[]> exportedData = exportData(source, namedAndQuoted);
         // Clear the source data to ensure import is working correctly
-        clearTestData(sourceTestPath);
+        clearTestData(connectionUtils, sourceTestPath);
 
         // Import to destination (using quoted path)
         importDatabase(namedAndQuoted, autoCommit, dest, exportedData);
 
-        verifyTestData(destTestPath, Map.of("key1", "value1", "key2", "value2"));
+        verifyTestData(connectionUtils, destTestPath, Map.of("key1", "value1", "key2", "value2"));
     }
 
     @ParameterizedTest
@@ -137,12 +137,12 @@ public class CopyCommandTest {
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
         final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(source.schemaPath), keySpace);
 
-        writeTestData(sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
+        writeTestData(connectionUtils, sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
         List<byte[]> exportedData1 = exportData(source, false);
-        writeTestData(sourceTestPath, Map.of("key1", "newValueX", "key3", "value3"));
+        writeTestData(connectionUtils, sourceTestPath, Map.of("key1", "newValueX", "key3", "value3"));
         List<byte[]> exportedData2 = exportData(source, false);
         // Clear the source data to ensure import is working correctly
-        clearTestData(sourceTestPath);
+        clearTestData(connectionUtils, sourceTestPath);
 
         // Import to destination (using quoted path)
         int importedCount = connectionUtils.getFromCatalog(conn -> {
@@ -176,10 +176,10 @@ public class CopyCommandTest {
 
         final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(dest.schemaPath), keySpace);
         if (withExecutionContext) {
-            verifyTestData(destTestPath, Map.of("key1", "newValueX", "key2", "value2",
+            verifyTestData(connectionUtils, destTestPath, Map.of("key1", "newValueX", "key2", "value2",
                     "key3", "value3"));
         } else {
-            verifyTestData(destTestPath, Map.of("key1", "value1", "key2", "value2"));
+            verifyTestData(connectionUtils, destTestPath, Map.of("key1", "value1", "key2", "value2"));
         }
     }
 
@@ -257,10 +257,10 @@ public class CopyCommandTest {
         final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(String.join("/", source)), keySpace);
         final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(String.join("/", dest.subList(0, 2))), keySpace);
 
-        writeTestData(sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
+        writeTestData(connectionUtils, sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
         List<byte[]> exportedData = exportData(false, String.join("/", source.subList(0, sourceLength)), connectionUtils);
         // Clear the source data to ensure import is working correctly
-        clearTestData(sourceTestPath);
+        clearTestData(connectionUtils, sourceTestPath);
 
         // Import to destination (using quoted path)
         connectionUtils.runAgainstCatalog(conn -> {
@@ -272,7 +272,7 @@ public class CopyCommandTest {
             }
         });
 
-        verifyTestData(destTestPath, Map.of());
+        verifyTestData(connectionUtils, destTestPath, Map.of());
     }
 
     @ParameterizedTest
@@ -289,7 +289,7 @@ public class CopyCommandTest {
         for (int i = 0; i < 10; i++) {
             data.put("key" + i, "value" + i);
         }
-        writeTestData(testPath, data);
+        writeTestData(connectionUtils, testPath, data);
         connectionUtils.runAgainstCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement()) {
                 stmt.setMaxRows(limit);
@@ -323,7 +323,7 @@ public class CopyCommandTest {
         for (int i = 0; i < 10; i++) {
             data.put("key" + i, "value" + i);
         }
-        writeTestData(testPath, data);
+        writeTestData(connectionUtils, testPath, data);
         connectionUtils.runAgainstCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement()) {
                 final int limit = 3;
@@ -702,7 +702,8 @@ public class CopyCommandTest {
         }
     }
 
-    private void writeTestData(@Nonnull KeySpacePath path, @Nonnull Map<String, String> data) throws SQLException, RelationalException {
+    private static void writeTestData(final ConnectionUtils connectionUtils, @Nonnull KeySpacePath path,
+                                      @Nonnull Map<String, String> data) throws SQLException, RelationalException {
         connectionUtils.runAgainstCatalog(conn -> {
             conn.setAutoCommit(false);
             final FDBRecordContext context = getRecordContext(conn);
@@ -715,7 +716,7 @@ public class CopyCommandTest {
         });
     }
 
-    private void clearTestData(@Nonnull KeySpacePath path) throws SQLException, RelationalException {
+    private static void clearTestData(final ConnectionUtils connectionUtils, @Nonnull KeySpacePath path) throws SQLException, RelationalException {
         connectionUtils.runAgainstCatalog(conn -> {
             conn.setAutoCommit(false);
             final FDBRecordContext context = getRecordContext(conn);
@@ -724,7 +725,8 @@ public class CopyCommandTest {
         });
     }
 
-    private void verifyTestData(@Nonnull KeySpacePath path, @Nonnull Map<String, String> expectedData) throws SQLException, RelationalException {
+    private static void verifyTestData(final ConnectionUtils connectionUtils, @Nonnull KeySpacePath path,
+                                       @Nonnull Map<String, String> expectedData) throws SQLException, RelationalException {
         connectionUtils.runAgainstCatalog(conn -> {
             conn.setAutoCommit(false);
             final FDBRecordContext context = getRecordContext(conn);
@@ -813,16 +815,6 @@ public class CopyCommandTest {
             source = new SchemaInfo("/TEST/SOURCE_DB_" + uuidName, "1", connectionUtils);
             dest = new SchemaInfo("/TEST/DEST_DB_" + uuidName, "1", connectionUtils);
             templateName = "TEMPLATE_" + uuidName;
-        }
-
-        public CatalogTestSetup(final boolean quoted,
-                                final ConnectionUtils sourceConnectionUtils,
-                                final ConnectionUtils destConnectionUtils, String sourceName, String destName) {
-            uuidName = uuidForPath(quoted);
-            source = new SchemaInfo("/TEST/" + sourceName + "_" + uuidName, "1", sourceConnectionUtils);
-            dest = new SchemaInfo("/TEST/" + destName + "_" + uuidName, "1", destConnectionUtils);
-            templateName = "TEMPLATE_" + uuidName;
-
         }
     }
 }
