@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
-import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -43,6 +42,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -93,36 +93,37 @@ public class CopyCommandTest {
     @BooleanSource("quoted")
     void basicExportWithinCluster(boolean quoted) throws Exception {
         // Test basic COPY export functionality
-        final String pathId = "/TEST/" + uuidForPath(quoted);
+        final SchemaInfo schemaInfo = new SchemaInfo("/TEST/" + uuidForPath(quoted), "1", connectionUtils);
         // Use the shared KeySpace from RelationalKeyspaceProvider
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
-        final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(URI.create(pathId + "/1"), keySpace);
+        final KeySpacePath testPath = KeySpaceUtils.toKeySpacePath(URI.create(schemaInfo.schemaPath), keySpace);
 
         // Write some test data using the connection's FDB context
         writeTestData(testPath, Map.of("key1", "value1", "key2", "value2"));
 
         // sanity check that the data was written and committed
         verifyTestData(testPath, Map.of("key1", "value1", "key2", "value2"));
-        assertEquals(2, exportData(pathId, quoted).size());
+        assertEquals(2, exportData(schemaInfo, quoted).size());
     }
 
     @ParameterizedTest
     @BooleanSource({"namedAndQuoted", "autoCommit"})
     void basicImportWithinCluster(boolean namedAndQuoted, boolean autoCommit) throws Exception {
         // Test basic COPY import functionality with quoted paths (allows hyphens)
-        final String sourcePath = "/TEST/" + uuidForPath(namedAndQuoted);
+        final SchemaInfo source = new SchemaInfo("/TEST/" + uuidForPath(namedAndQuoted), "1", connectionUtils);
         final String destPath = "/TEST/" + uuidForPath(namedAndQuoted);
+        final SchemaInfo dest = new SchemaInfo(destPath, "1", connectionUtils);
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
-        final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(sourcePath + "/1"), keySpace);
-        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(destPath + "/1"), keySpace);
+        final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(source.schemaPath), keySpace);
+        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(dest.schemaPath), keySpace);
 
         writeTestData(sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
-        List<byte[]> exportedData = exportData(sourcePath, namedAndQuoted);
+        List<byte[]> exportedData = exportData(source, namedAndQuoted);
         // Clear the source data to ensure import is working correctly
         clearTestData(sourceTestPath);
 
         // Import to destination (using quoted path)
-        importData(namedAndQuoted, autoCommit, destPath, exportedData);
+        importDatabase(namedAndQuoted, autoCommit, dest, exportedData);
 
         verifyTestData(destTestPath, Map.of("key1", "value1", "key2", "value2"));
     }
@@ -131,15 +132,15 @@ public class CopyCommandTest {
     @BooleanSource("withExecutionContext")
     void withExecutionContext(boolean withExecutionContext) throws RelationalException, SQLException {
         // Test basic COPY import functionality with quoted paths (allows hyphens)
-        final String sourcePath = "/TEST/" + uuidForPath(false);
-        final String destPath = "/TEST/" + uuidForPath(false);
+        final SchemaInfo source = new SchemaInfo("/TEST/" + uuidForPath(false), "1", connectionUtils);
+        final SchemaInfo dest = new SchemaInfo("/TEST/" + uuidForPath(false), "1", connectionUtils);
         final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
-        final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(sourcePath + "/1"), keySpace);
+        final KeySpacePath sourceTestPath = KeySpaceUtils.toKeySpacePath(URI.create(source.schemaPath), keySpace);
 
         writeTestData(sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
-        List<byte[]> exportedData1 = exportData(sourcePath, false);
+        List<byte[]> exportedData1 = exportData(source, false);
         writeTestData(sourceTestPath, Map.of("key1", "newValueX", "key3", "value3"));
-        List<byte[]> exportedData2 = exportData(sourcePath, false);
+        List<byte[]> exportedData2 = exportData(source, false);
         // Clear the source data to ensure import is working correctly
         clearTestData(sourceTestPath);
 
@@ -149,10 +150,10 @@ public class CopyCommandTest {
             embeddedConnection.createNewTransaction();
             int count;
 
-            final String sql = "COPY " + maybeQuote(destPath, false) + " FROM ?";
+            final String sql = "COPY " + maybeQuote(dest.databasePath, false) + " FROM ?";
             MutablePlanGenerationContext context = getMutablePlanGenerationContext(sql, exportedData1);
             context.processUnnamedPreparedParam(1);
-            CopyPlan copyImportAction = CopyPlan.getCopyImportAction(destPath, context);
+            CopyPlan copyImportAction = CopyPlan.getCopyImportAction(dest.databasePath, context);
 
             if (withExecutionContext) {
                 context = getMutablePlanGenerationContext(sql, exportedData2);
@@ -173,7 +174,7 @@ public class CopyCommandTest {
         });
         assertEquals(withExecutionContext ? 3 : 2, importedCount);
 
-        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(destPath + "/1"), keySpace);
+        final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(dest.schemaPath), keySpace);
         if (withExecutionContext) {
             verifyTestData(destTestPath, Map.of("key1", "newValueX", "key2", "value2",
                     "key3", "value3"));
@@ -194,13 +195,13 @@ public class CopyCommandTest {
     @BooleanSource("namedParameter")
     void validateWhetherIndexOrNamedParameter(boolean namedParameter) throws Exception {
         // Test if the wrong parameter is set
-        final String sourcePath = "/TEST/" + UUID.randomUUID();
-        final String destPath = "/TEST/" + UUID.randomUUID();
-        List<byte[]> exportedData = exportData(sourcePath, true);
+        final SchemaInfo source = new SchemaInfo("/TEST/" + UUID.randomUUID(), "1", connectionUtils);
+        final SchemaInfo dest = new SchemaInfo("/TEST/" + UUID.randomUUID(), "1", connectionUtils);
+        List<byte[]> exportedData = exportData(source, true);
 
         // Import to destination (using quoted path)
-        connectionUtils.runAgainstCatalog(conn -> {
-            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY \"" + destPath + "\" FROM " + (namedParameter ? "?data" : "?"))) {
+        dest.connectionUtils.runAgainstCatalog(conn -> {
+            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY \"" + dest.databasePath + "\" FROM " + (namedParameter ? "?data" : "?"))) {
                 // set the wrong one
                 if (namedParameter) {
                     stmt.setObject(1, exportedData);
@@ -257,7 +258,7 @@ public class CopyCommandTest {
         final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(String.join("/", dest.subList(0, 2))), keySpace);
 
         writeTestData(sourceTestPath, Map.of("key1", "value1", "key2", "value2"));
-        List<byte[]> exportedData = exportData(String.join("/", source.subList(0, sourceLength)), false);
+        List<byte[]> exportedData = exportData(false, String.join("/", source.subList(0, sourceLength)), connectionUtils);
         // Clear the source data to ensure import is working correctly
         clearTestData(sourceTestPath);
 
@@ -377,7 +378,7 @@ public class CopyCommandTest {
     void useCopyToRestoreDatabase() throws Exception {
         // Test restoring relational data using COPY
         final String uuidName = uuidForPath(false);
-        final SchemaInfo schema = new SchemaInfo("/TEST/DB_" + uuidName, "1");
+        final SchemaInfo schema = new SchemaInfo("/TEST/DB_" + uuidName, "1", connectionUtils);
         String templateName = "TEMPLATE_" + uuidName;
 
         try {
@@ -386,23 +387,23 @@ public class CopyCommandTest {
             connectionUtils.runCatalogStatement(stmt -> {
                 stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + templateName +
                         " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
-                stmt.executeUpdate("CREATE DATABASE " + schema.databaseName);
+                stmt.executeUpdate("CREATE DATABASE " + schema.databasePath);
                 stmt.executeUpdate("CREATE SCHEMA " + schema.schemaPath + " WITH TEMPLATE " + templateName);
             });
 
-            connectionUtils.runStatementUpdate(schema.databaseName, schema.schemaName, "INSERT INTO my_table VALUES (1, 'a'), (2, 'b')");
+            connectionUtils.runStatementUpdate(schema.databasePath, schema.schemaName, "INSERT INTO my_table VALUES (1, 'a'), (2, 'b')");
 
-            List<byte[]> exportedData = exportData(schema.schemaPath, false);
+            List<byte[]> exportedData = exportData(schema, false);
 
-            connectionUtils.runStatement(schema.databaseName, schema.schemaName, stmt -> {
+            connectionUtils.runStatement(schema.databasePath, schema.schemaName, stmt -> {
                 stmt.executeUpdate("DELETE FROM my_table");
                 assertFalse(stmt.executeQuery("SELECT * FROM my_table").next(), "There should be no data in the table");
             });
 
-            final int importCount = importData(false, true, schema.schemaPath, exportedData);
+            final int importCount = importDatabase(false, true, schema, exportedData);
             assertThat(importCount).isGreaterThan(2); // we will import at least the rows saved, but also other internal data
 
-            connectionUtils.runStatement(schema.databaseName, schema.schemaName, stmt ->
+            connectionUtils.runStatement(schema.databasePath, schema.schemaName, stmt ->
                     ResultSetAssert.assertThat(stmt.executeQuery("SELECT * FROM my_table"))
                             .containsRowsExactly(List.of(
                                     List.of(1, "a"),
@@ -411,7 +412,7 @@ public class CopyCommandTest {
         } finally {
             connectionUtils.runCatalogStatement(stmt -> {
                 stmt.executeUpdate("DROP SCHEMA TEMPLATE " + templateName);
-                stmt.executeUpdate("DROP DATABASE " + schema.databaseName);
+                stmt.executeUpdate("DROP DATABASE " + schema.databasePath);
             });
         }
     }
@@ -421,7 +422,7 @@ public class CopyCommandTest {
     void copyCatalog(boolean quoted) throws RelationalException, SQLException {
         // TODO test with multiple clusters
         // TODO test with more than one schema in the DB
-        final CatalogTestSetup setup = new CatalogTestSetup(quoted);
+        final CatalogTestSetup setup = new CatalogTestSetup(quoted, connectionUtils);
         final List<Pair<Integer, String>> data = List.of(
                 Pair.of(1, "a"),
                 Pair.of(2, "b"),
@@ -431,34 +432,34 @@ public class CopyCommandTest {
             // Create a schema template and source database
             connectionUtils.runCatalogStatement(stmt -> {
                 createSchemaTemplate(quoted, stmt, setup.templateName);
-                createDatabase(quoted, stmt, setup.source.databaseName);
-                createSchema(quoted, stmt, setup.source.databaseName, setup.source.schemaName, setup.templateName);
+                createDatabase(quoted, stmt, setup.source.databasePath);
+                createSchema(quoted, stmt, setup.source.databasePath, setup.source.schemaName, setup.templateName);
             });
 
             // Insert some records in the source database using SQL
-            insertData(setup.source.databaseName, setup.source.schemaName, data);
+            insertData(setup.source, setup.source.schemaName, data);
 
             // Export data from source database
-            List<byte[]> exportedData = exportData(setup.source.schemaPath, quoted);
+            List<byte[]> exportedData = exportData(setup.source, quoted);
 
             assertSchemaTemplateCount(exportedData, 1);
 
             // Import to destination database path
-            final int importCount = importData(quoted, true, setup.dest.schemaPath, exportedData);
+            final int importCount = importDatabase(quoted, true, setup.dest, exportedData);
             assertThat(importCount).isGreaterThan(3); // we will import at least the rows saved, but also other internal data
 
             // Try to verify that the records exist in the destination
             // This is expected to fail because COPY does not copy catalog information
-            assertDataExists(setup.dest.databaseName, setup.dest.schemaName, data);
+            assertDataExists(setup.dest, data);
         } finally {
-            dropTemplateAndDatabase(quoted, setup.templateName, setup.source.databaseName);
+            dropTemplateAndDatabase(quoted, List.of(setup.templateName), setup.source);
         }
     }
 
     @ParameterizedTest
     @BooleanSource("quoted")
     void copyCatalogWithIndexes(boolean quoted) throws RelationalException, SQLException {
-        final CatalogTestSetup setup = new CatalogTestSetup(quoted);
+        final CatalogTestSetup setup = new CatalogTestSetup(quoted, connectionUtils);
         final List<Pair<Integer, String>> data = List.of(
                 Pair.of(3, "charlie"),
                 Pair.of(1, "alice"),
@@ -470,25 +471,25 @@ public class CopyCommandTest {
                 stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + maybeQuote(setup.templateName, quoted) +
                         " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))" +
                         " CREATE INDEX idx_col1 AS SELECT col1 FROM my_table");
-                createDatabase(quoted, stmt, setup.source.databaseName);
-                createSchema(quoted, stmt, setup.source.databaseName, setup.source.schemaName, setup.templateName);
+                createDatabase(quoted, stmt, setup.source.databasePath);
+                createSchema(quoted, stmt, setup.source.databasePath, setup.source.schemaName, setup.templateName);
             });
 
             // Insert some records in the source database using SQL
-            insertData(setup.source.databaseName, setup.source.schemaName, data);
+            insertData(setup.source, setup.source.schemaName, data);
 
             // Export data from source database
-            List<byte[]> exportedData = exportData(setup.source.schemaPath, quoted);
+            List<byte[]> exportedData = exportData(setup.source, quoted);
 
             assertSchemaTemplateCount(exportedData, 1);
 
             // Import to destination database path
-            final int importCount = importData(quoted, true, setup.dest.schemaPath, exportedData);
+            final int importCount = importDatabase(quoted, true, setup.dest, exportedData);
             assertThat(importCount).isGreaterThan(6); // we will import at least the rows saved & index entries, but also other internal data
 
             // Verify that the records exist in the destination and that the index works
             // by querying with ORDER BY on the indexed column
-            connectionUtils.runStatement(setup.dest.databaseName, setup.dest.schemaName, stmt ->
+            setup.dest.connectionUtils.runStatement(setup.dest.databasePath, setup.dest.schemaName, stmt ->
                     ResultSetAssert.assertThat(stmt.executeQuery("SELECT id, col1 FROM my_table ORDER BY col1"))
                             .containsRowsExactly(List.of(
                                     List.of(1, "alice"),
@@ -496,20 +497,34 @@ public class CopyCommandTest {
                                     List.of(3, "charlie")
                             )));
         } finally {
-            dropTemplateAndDatabase(quoted, setup.templateName, setup.source.databaseName);
+            dropTemplateAndDatabase(quoted, List.of(setup.templateName), setup.source);
         }
     }
 
     @ParameterizedTest
-    @BooleanSource("quoted")
-    void copyCatalogWithMultipleSchemas(boolean quoted) throws RelationalException, SQLException {
-        // TODO test with multiple clusters
-        final CatalogTestSetup setup = new CatalogTestSetup(quoted);
+    @BooleanSource({"quoted", "multiCluster"})
+    void copyCatalogWithMultipleSchemas(boolean quoted, boolean multiCluster) throws RelationalException, SQLException {
+        if (multiCluster) {
+            FDBTestEnvironment.assumeClusterCount(2);
+        }
+        final String uuidName = uuidForPath(quoted);
+        final ConnectionUtils sourceConnectionUtils = connectionUtils;
+        final String sourceDatabasePath = "/TEST/SOURCE_DB_" + uuidName;
+        final SchemaInfo source1 = new SchemaInfo(sourceDatabasePath, "1", sourceConnectionUtils);
+        final SchemaInfo source2 = new SchemaInfo(sourceDatabasePath, "2", sourceConnectionUtils);
+        final SchemaInfo source3 = new SchemaInfo(sourceDatabasePath, "3", sourceConnectionUtils);
+        final String destDatabasePath = multiCluster ? sourceDatabasePath : "/TEST/DEST_DB_" + uuidName;
+        final ConnectionUtils destConnectionUtils = multiCluster ?
+                                                    new ConnectionUtils(relationalExtension.extensionForOtherCluster().getDriver()) :
+                                                    connectionUtils;
+        final SchemaInfo dest1 = new SchemaInfo(destDatabasePath, "1", destConnectionUtils);
+        final SchemaInfo dest2 = new SchemaInfo(destDatabasePath, "2", destConnectionUtils);
+        final SchemaInfo dest3 = new SchemaInfo(destDatabasePath, "3", destConnectionUtils);
         final String schema1 = "1";
         final String schema2 = "2";
         final String schema3 = "3";
-        String templateName1 = "TEMPLATE1_" + setup.uuidName;
-        String templateName2 = "TEMPLATE2_" + setup.uuidName;
+        String templateName1 = "TEMPLATE1_" + uuidName;
+        String templateName2 = "TEMPLATE2_" + uuidName;
         final List<Pair<Integer, String>> data1 = List.of(
                 Pair.of(1, "a")
         );
@@ -523,50 +538,47 @@ public class CopyCommandTest {
         );
         try {
             // Create two schema templates and source database with 3 schemas
-            connectionUtils.runCatalogStatement(stmt -> {
+            source1.connectionUtils.runCatalogStatement(stmt -> {
                 // Template 1 with my_table
                 stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + maybeQuote(templateName1, quoted) +
                         " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
                 // Template 2 with other_table
                 stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + maybeQuote(templateName2, quoted) +
                         " CREATE TABLE other_table (id bigint, col2 string, PRIMARY KEY(id))");
-                createDatabase(quoted, stmt, setup.source.databaseName);
-                createSchema(quoted, stmt, setup.source.databaseName, schema1, templateName1);
-                createSchema(quoted, stmt, setup.source.databaseName, schema2, templateName1);
-                createSchema(quoted, stmt, setup.source.databaseName, schema3, templateName2);
+                createDatabase(quoted, stmt, sourceDatabasePath);
+                createSchema(quoted, stmt, sourceDatabasePath, schema1, templateName1);
+                createSchema(quoted, stmt, sourceDatabasePath, schema2, templateName1);
+                createSchema(quoted, stmt, sourceDatabasePath, schema3, templateName2);
             });
 
             // Insert some records in the source database using SQL
-            insertData(setup.source.databaseName, schema1, data1);
-            insertData(setup.source.databaseName, schema2, data2);
-            insertData(setup.source.databaseName, schema3, "other_table", data3);
+            insertData(source1, schema1, data1);
+            insertData(source2, schema2, data2);
+            insertData(source3, schema3, "other_table", data3);
 
             // Export data from source database
-            List<byte[]> exportedData = exportData(setup.source.databaseName, quoted);
+            List<byte[]> exportedData = exportData(quoted, sourceDatabasePath, sourceConnectionUtils);
 
             assertSchemaTemplateCount(exportedData, 3);
 
             // Import to destination database path
-            final int importCount = importData(quoted, true, setup.dest.databaseName, exportedData);
+            final int importCount = importDatabase(quoted, true, dest1, exportedData);
             assertThat(importCount).isGreaterThan(3); // we will import at least the rows saved, but also other internal data
 
             // Verify that the records exist in all three schemas
-            assertDataExists(setup.dest.databaseName, schema1, data1);
-            assertDataExists(setup.dest.databaseName, schema2, data2);
-            assertDataExists(setup.dest.databaseName, schema3, "other_table", data3);
+            assertDataExists(dest1, data1);
+            assertDataExists(dest2, data2);
+            assertDataExists(dest3, "other_table", data3);
         } finally {
-            connectionUtils.runCatalogStatement(stmt -> {
-                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + maybeQuote(templateName1, quoted));
-                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + maybeQuote(templateName2, quoted));
-                stmt.executeUpdate("DROP DATABASE " + maybeQuote(setup.source.databaseName, quoted));
-            });
+            dropTemplateAndDatabase(quoted, List.of(templateName1, templateName2), source1);
+            dropTemplateAndDatabase(quoted, List.of(templateName1, templateName2), dest1);
         }
     }
 
     @ParameterizedTest
     @BooleanSource("quoted")
     void copyCatalogFailsOnTemplateMismatch(boolean quoted) throws RelationalException, SQLException {
-        final CatalogTestSetup setup = new CatalogTestSetup(false);
+        final CatalogTestSetup setup = new CatalogTestSetup(false, connectionUtils);
         String sourceTemplateName = "SOURCE_TEMPLATE_" + setup.uuidName;
         String destTemplateName = "DEST_TEMPLATE_" + setup.uuidName;
 
@@ -579,7 +591,7 @@ public class CopyCommandTest {
             connectionUtils.runCatalogStatement(stmt -> {
                 stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + sourceTemplateName +
                         " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
-                stmt.executeUpdate("CREATE DATABASE " + setup.source.databaseName);
+                stmt.executeUpdate("CREATE DATABASE " + setup.source.databasePath);
                 stmt.executeUpdate("CREATE SCHEMA " + setup.source.schemaPath + " WITH TEMPLATE " + sourceTemplateName);
             });
 
@@ -587,47 +599,50 @@ public class CopyCommandTest {
             connectionUtils.runCatalogStatement(stmt -> {
                 stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + destTemplateName +
                         " CREATE TABLE other_table (id bigint, col2 string, PRIMARY KEY(id))");
-                stmt.executeUpdate("CREATE DATABASE " + setup.dest.databaseName);
+                stmt.executeUpdate("CREATE DATABASE " + setup.dest.databasePath);
                 stmt.executeUpdate("CREATE SCHEMA " + setup.dest.schemaPath + " WITH TEMPLATE " + destTemplateName);
             });
 
             // Insert some records in the source database using SQL
-            insertData(setup.source.databaseName, setup.source.schemaName, data);
+            insertData(setup.source, setup.source.schemaName, data);
 
             // Export data from source database
-            List<byte[]> exportedData = exportData(setup.source.schemaPath, quoted);
+            List<byte[]> exportedData = exportData(setup.source, quoted);
 
             // Try to import to destination database - should fail because schema exists with different template
-            RelationalAssertions.assertThrowsSqlException(() -> importData(quoted, true, setup.dest.schemaPath, exportedData))
+            RelationalAssertions.assertThrowsSqlException(() -> importDatabase(quoted, true, setup.dest, exportedData))
                     .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE);
         } finally {
             connectionUtils.runCatalogStatement(stmt -> {
                 stmt.executeUpdate("DROP SCHEMA TEMPLATE " + sourceTemplateName);
                 stmt.executeUpdate("DROP SCHEMA TEMPLATE " + destTemplateName);
-                stmt.executeUpdate("DROP DATABASE " + setup.source.databaseName);
-                stmt.executeUpdate("DROP DATABASE " + setup.dest.databaseName);
+                stmt.executeUpdate("DROP DATABASE " + setup.source.databasePath);
+                stmt.executeUpdate("DROP DATABASE " + setup.dest.databasePath);
             });
         }
     }
 
-    private void assertDataExists(final String destDatabaseName, final String schemaName,
+    private static void assertDataExists(final SchemaInfo schemaInfo,
                                   final List<Pair<Integer, String>> data) throws SQLException, RelationalException {
-        assertDataExists(destDatabaseName, schemaName, "my_table", data);
+        assertDataExists(schemaInfo, "my_table", data);
     }
 
-    private void assertDataExists(final String destDatabaseName, final String schemaName,
-                                         final String tableName, final List<Pair<Integer, String>> data) throws SQLException, RelationalException {
-        connectionUtils.runStatement(destDatabaseName, schemaName, stmt ->
+    private static void assertDataExists(final SchemaInfo schemaInfo,
+                                  final String tableName, final List<Pair<Integer, String>> data) throws SQLException, RelationalException {
+        schemaInfo.connectionUtils.runStatement(schemaInfo.databasePath, schemaInfo.schemaName, stmt ->
                 ResultSetAssert.assertThat(stmt.executeQuery("SELECT * FROM " + tableName))
                         .containsRowsExactly(data.stream()
                                 .map(pair -> List.<Object>of(pair.getLeft(), pair.getRight()))
                                 .collect(Collectors.toList())));
     }
 
-    private void dropTemplateAndDatabase(final boolean quoted, final String templateName, final String sourceDatabaseName) throws SQLException, RelationalException {
-        connectionUtils.runCatalogStatement(stmt -> {
-            stmt.executeUpdate("DROP SCHEMA TEMPLATE " + maybeQuote(templateName, quoted));
-            stmt.executeUpdate("DROP DATABASE " + maybeQuote(sourceDatabaseName, quoted));
+    private static void dropTemplateAndDatabase(final boolean quoted, final List<String> templateNames, final SchemaInfo schemaInfo)
+            throws SQLException, RelationalException {
+        schemaInfo.connectionUtils.runCatalogStatement(stmt -> {
+            for (final String templateName : templateNames) {
+                stmt.executeUpdate("DROP SCHEMA TEMPLATE IF EXISTS " + maybeQuote(templateName, quoted));
+            }
+            stmt.executeUpdate("DROP DATABASE IF EXISTS " + maybeQuote(schemaInfo.databasePath, quoted));
         });
     }
 
@@ -643,14 +658,14 @@ public class CopyCommandTest {
         assertThat(parsedData).filteredOn(CopyData::hasCatalogInfo).hasSize(expectedCount);
     }
 
-    private void insertData(final String sourceDatabaseName, final String schemaName,
+    private static void insertData(final SchemaInfo schemaInfo, final String schemaName,
                                    final List<Pair<Integer, String>> data) throws SQLException, RelationalException {
-        insertData(sourceDatabaseName, schemaName, "my_table", data);
+        insertData(schemaInfo, schemaName, "my_table", data);
     }
 
-    private void insertData(final String sourceDatabaseName, final String schemaName,
+    private static void insertData(final SchemaInfo schemaInfo, final String schemaName,
                                    final String tableName, final List<Pair<Integer, String>> data) throws SQLException, RelationalException {
-        connectionUtils.runStatementUpdate(sourceDatabaseName, schemaName,
+        schemaInfo.connectionUtils.runStatementUpdate(schemaInfo.databasePath, schemaName,
                 "INSERT INTO " + tableName + " VALUES "
                 + (data.stream().map(pair -> pair.getLeft() + ", '" + pair.getRight() + "'")
                            .collect(Collectors.joining("), (", "(", ")"))));
@@ -679,7 +694,7 @@ public class CopyCommandTest {
         }
     }
 
-    private String maybeQuote(final String path, final boolean quoted) {
+    private static String maybeQuote(final String path, final boolean quoted) {
         if (quoted) {
             return "\"" + path + "\"";
         } else {
@@ -729,11 +744,11 @@ public class CopyCommandTest {
         return embeddedConn.getTransaction().unwrap(RecordContextTransaction.class).getContext();
     }
 
-    private List<byte[]> exportData(String path, boolean quoted) throws SQLException, RelationalException {
-        return exportData(path, quoted, relationalExtension.getDriver());
+    private static List<byte[]> exportData(SchemaInfo schemaInfo, boolean quoted) throws SQLException, RelationalException {
+        return exportData(quoted, schemaInfo.databasePath, schemaInfo.connectionUtils);
     }
 
-    private List<byte[]> exportData(String path, boolean quoted, RelationalDriver driver) throws SQLException, RelationalException {
+    private static List<byte[]> exportData(boolean quoted, String path, ConnectionUtils connectionUtils) throws SQLException, RelationalException {
         return connectionUtils.getFromCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement();
                      RelationalResultSet rs = stmt.executeQuery("COPY " + maybeQuote(path, quoted))) {
@@ -746,12 +761,12 @@ public class CopyCommandTest {
         });
     }
 
-    private int importData(final boolean namedAndQuoted, final boolean autoCommit, final String destPath,
-                           final List<byte[]> exportedData) throws SQLException, RelationalException {
-        return connectionUtils.getFromCatalog(conn -> {
+    private static int importDatabase(final boolean namedAndQuoted, final boolean autoCommit, final SchemaInfo dest,
+                                      final List<byte[]> exportedData) throws SQLException, RelationalException {
+        return dest.connectionUtils.getFromCatalog(conn -> {
             conn.setAutoCommit(autoCommit);
             int resultingCount;
-            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY " + maybeQuote(destPath, namedAndQuoted) + " FROM " + (namedAndQuoted ? "?data" : "?"))) {
+            try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY " + maybeQuote(dest.databasePath, namedAndQuoted) + " FROM " + (namedAndQuoted ? "?data" : "?"))) {
                 if (namedAndQuoted) {
                     stmt.setObject("data", exportedData);
                 } else {
@@ -774,14 +789,16 @@ public class CopyCommandTest {
     }
 
     private static class SchemaInfo {
-        final String databaseName;
+        final String databasePath;
         final String schemaName;
+        private final ConnectionUtils connectionUtils;
         final String schemaPath;
 
-        SchemaInfo(String databaseName, String schemaName) {
-            this.databaseName = databaseName;
+        SchemaInfo(String databasePath, String schemaName, final ConnectionUtils connectionUtils) {
+            this.databasePath = databasePath;
             this.schemaName = schemaName;
-            this.schemaPath = databaseName + "/" + schemaName;
+            this.connectionUtils = connectionUtils;
+            this.schemaPath = databasePath + "/" + schemaName;
         }
     }
 
@@ -791,11 +808,21 @@ public class CopyCommandTest {
         final SchemaInfo dest;
         final String templateName;
 
-        CatalogTestSetup(boolean quoted) {
+        CatalogTestSetup(boolean quoted, final ConnectionUtils connectionUtils) {
             uuidName = uuidForPath(quoted);
-            source = new SchemaInfo("/TEST/SOURCE_DB_" + uuidName, "1");
-            dest = new SchemaInfo("/TEST/DEST_DB_" + uuidName, "1");
+            source = new SchemaInfo("/TEST/SOURCE_DB_" + uuidName, "1", connectionUtils);
+            dest = new SchemaInfo("/TEST/DEST_DB_" + uuidName, "1", connectionUtils);
             templateName = "TEMPLATE_" + uuidName;
+        }
+
+        public CatalogTestSetup(final boolean quoted,
+                                final ConnectionUtils sourceConnectionUtils,
+                                final ConnectionUtils destConnectionUtils, String sourceName, String destName) {
+            uuidName = uuidForPath(quoted);
+            source = new SchemaInfo("/TEST/" + sourceName + "_" + uuidName, "1", sourceConnectionUtils);
+            dest = new SchemaInfo("/TEST/" + destName + "_" + uuidName, "1", destConnectionUtils);
+            templateName = "TEMPLATE_" + uuidName;
+
         }
     }
 }
