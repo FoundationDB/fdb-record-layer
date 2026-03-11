@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -44,8 +43,4 @@ public interface CascadesCostModel<T extends RelationalExpression> {
     @Nonnull
     Optional<T> getBestExpression(@Nonnull Set<? extends RelationalExpression> expressions,
                                   @Nonnull Consumer<T> onRemoveConsumer);
-
-    @Nullable
-    Integer compare(@Nonnull RelationalExpression a, @Nonnull RelationalExpression b);
-
 }

@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.costing.RewritingCostModel;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
@@ -29,7 +31,10 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredic
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.column;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.exists;
@@ -42,6 +47,28 @@ import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.b
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 class RewritingCostModelTest {
+
+    private static void assertPreferred(@Nonnull Set<? extends RelationalExpression> allExpressions, @Nonnull RelationalExpression expectedBest) {
+        final RewritingCostModel costModel = new RewritingCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration());
+        final Optional<RelationalExpression> bestExpression = costModel.getBestExpression(allExpressions, removed -> { });
+        assertThat(bestExpression)
+                .as("expected best expression of %s to be %s", allExpressions, expectedBest)
+                .containsSame(expectedBest);
+    }
+
+    private static void assertBetterThan(@Nonnull RelationalExpression better, @Nonnull RelationalExpression worse) {
+        final LinkedIdentitySet<RelationalExpression> expressions = new LinkedIdentitySet<>();
+        expressions.add(better);
+        expressions.add(worse);
+        assertPreferred(expressions, better);
+
+        // Validate order in the set can be flipped without the result changing
+        expressions.clear();
+        expressions.add(worse);
+        expressions.add(better);
+        assertPreferred(expressions, better);
+    }
+
     /**
      * Test that the push-down of a single query predicate with other predicates left at the same level is preferred.
      * The following query:
@@ -79,9 +106,7 @@ class RewritingCostModelTest {
         graphBBuilder.addAllPredicates(List.of(new ExistsPredicate(existentialQun.getAlias())));
         final SelectExpression expressionB = graphBBuilder.build().buildSelect();
 
-        assertThat(PlannerPhase.REWRITING
-                .createCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration())
-                .compare(expressionB, expressionA)).isNegative();
+        assertBetterThan(expressionB, expressionA);
     }
 
     /**
@@ -113,9 +138,7 @@ class RewritingCostModelTest {
         graphBBuilder.addAllPredicates(List.of(fieldPredicate(baseQuantifier, "a", EQUALS_42)));
         final SelectExpression expressionB = graphBBuilder.build().buildSelect();
 
-        assertThat(PlannerPhase.REWRITING
-                .createCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration())
-                .compare(expressionB, expressionA)).isNegative();
+        assertBetterThan(expressionB, expressionA);
     }
 
     /**
@@ -146,9 +169,7 @@ class RewritingCostModelTest {
         graphBBuilder.addAllPredicates(List.of(ConstantPredicate.FALSE));
         final SelectExpression expressionB = graphBBuilder.build().buildSelect();
 
-        assertThat(PlannerPhase.REWRITING
-                .createCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration())
-                .compare(expressionB, expressionA)).isNegative();
+        assertBetterThan(expressionB, expressionA);
     }
 
     /**
@@ -208,8 +229,6 @@ class RewritingCostModelTest {
         graphBBuilder.addAllPredicates(List.of(new ExistsPredicate(existentialQun.getAlias())));
         final SelectExpression expressionB = graphBBuilder.build().buildSelect();
 
-        assertThat(PlannerPhase.REWRITING
-                .createCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration())
-                .compare(expressionB, expressionA)).isNegative();
+        assertBetterThan(expressionB, expressionA);
     }
 }

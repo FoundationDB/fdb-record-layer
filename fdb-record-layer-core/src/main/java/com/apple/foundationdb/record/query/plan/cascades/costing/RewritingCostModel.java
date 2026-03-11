@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -92,13 +91,6 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
 
         return Tiebreaker.ofContext(getConfiguration(), opsCache, expressions, RelationalExpression.class, onRemoveConsumer)
                 .thenApply(tiebreaker);
-    }
-
-    @Nullable
-    @Override
-    public Integer compare(@Nonnull final RelationalExpression a,
-                           @Nonnull final RelationalExpression b) {
-        return tiebreaker.compare(getConfiguration(), FindExpressionVisitor.evaluate(interestingExpressionClasses, a), FindExpressionVisitor.evaluate(interestingExpressionClasses, b), a, b);
     }
 
     @Nonnull

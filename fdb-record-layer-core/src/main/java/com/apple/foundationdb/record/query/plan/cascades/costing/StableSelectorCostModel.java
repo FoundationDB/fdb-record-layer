@@ -31,11 +31,10 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -47,7 +46,7 @@ import java.util.function.Consumer;
  */
 @API(API.Status.EXPERIMENTAL)
 @SpotBugsSuppressWarnings("SE_COMPARATOR_SHOULD_BE_SERIALIZABLE")
-public class StableSelectorCostModel implements CascadesCostModel<RecordQueryPlan> {
+public class StableSelectorCostModel implements CascadesCostModel<RecordQueryPlan>, Comparator<RecordQueryPlan> {
     @Nonnull
     private static final Set<Class<? extends RelationalExpression>> interestingExpressionClasses =
             ImmutableSet.of();
@@ -80,20 +79,12 @@ public class StableSelectorCostModel implements CascadesCostModel<RecordQueryPla
                 .thenApply(tiebreaker);
     }
 
-    @Nullable
     @Override
-    public Integer compare(@Nonnull final RelationalExpression a,
-                           @Nonnull final RelationalExpression b) {
-        if (!(a instanceof RecordQueryPlan) && !(b instanceof RecordQueryPlan)) {
-            return null;
-        }
-        if (a instanceof RecordQueryPlan && !(b instanceof RecordQueryPlan)) {
-            return -1;
-        }
-        if (!(a instanceof RecordQueryPlan) /* && b instanceof RecordQueryPlan*/ ) {
-            return 1;
-        }
-        return tiebreaker.compare(getConfiguration(), ImmutableMap.of(), ImmutableMap.of(), (RecordQueryPlan) a, (RecordQueryPlan) b);
+    public int compare(@Nonnull final RecordQueryPlan a,
+                       @Nonnull final RecordQueryPlan b) {
+        return tiebreaker.compare(getConfiguration(),
+                FindExpressionVisitor.evaluate(interestingExpressionClasses, a), FindExpressionVisitor.evaluate(interestingExpressionClasses, b),
+                a, b);
     }
 
     @Nonnull

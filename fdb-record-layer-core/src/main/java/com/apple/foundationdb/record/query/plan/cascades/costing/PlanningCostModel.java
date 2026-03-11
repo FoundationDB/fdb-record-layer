@@ -55,7 +55,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -138,30 +137,6 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
 
         return Tiebreaker.ofContext(getConfiguration(), opsCache, expressions, RecordQueryPlan.class, onRemoveConsumer)
                 .thenApply(tiebreaker);
-    }
-
-    @Nullable
-    @Override
-    public Integer compare(@Nonnull final RelationalExpression a,
-                           @Nonnull final RelationalExpression b) {
-        if (!(a instanceof RecordQueryPlan) && !(b instanceof RecordQueryPlan)) {
-            return null;
-        }
-
-        if (a instanceof RecordQueryPlan && !(b instanceof RecordQueryPlan)) {
-            return -1;
-        }
-
-        if (!(a instanceof RecordQueryPlan) /*&& b instanceof RecordQueryPlan*/) {
-            return 1;
-        }
-
-        final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA =
-                FindExpressionVisitor.evaluate(interestingPlanClasses, a);
-        final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB =
-                FindExpressionVisitor.evaluate(interestingPlanClasses, b);
-
-        return tiebreaker.compare(getConfiguration(), opsMapA, opsMapB, (RecordQueryPlan)a, (RecordQueryPlan)b);
     }
 
     @Nonnull

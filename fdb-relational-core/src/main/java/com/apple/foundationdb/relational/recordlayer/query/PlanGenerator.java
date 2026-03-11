@@ -194,7 +194,11 @@ public final class PlanGenerator {
                                     final var candidateQueryPlan = candidatePhysicalPlan.getRecordQueryPlan();
                                     final var bestQueryPlanSoFar = acc == null ? null : Assert.castUnchecked(acc, QueryPlan.PhysicalQueryPlan.class).getRecordQueryPlan();
                                     if (bestQueryPlanSoFar == null ||
-                                            Objects.requireNonNull(stableSelectorCostModel.compare(candidateQueryPlan, bestQueryPlanSoFar)) < 0) {
+                                            // It would be nice to replace this with a call to `stableSelectorCostModel.getBestExpression`
+                                            // This currently can't be done without pulling the RecordQueryPlans out of the QueryPlan objects,
+                                            // running the cost model, and then stitching them back together, which is a bit costly. So,
+                                            // for now, just use the cost model as a comparator
+                                            stableSelectorCostModel.compare(candidateQueryPlan, bestQueryPlanSoFar) < 0) {
                                         return candidate;
                                     } else {
                                         return acc;

@@ -160,7 +160,7 @@ interface Tiebreaker<T extends RelationalExpression> {
      * @param <T> the type of elements to be collected
      * @see #toBestExpressions(RecordQueryPlannerConfiguration, Tiebreaker, LoadingCache, Consumer)
      */
-    class BestExpressionsCollector<T extends RelationalExpression> implements Collector<T, LinkedIdentitySet<T>, Set<T>> {
+    final class BestExpressionsCollector<T extends RelationalExpression> implements Collector<T, LinkedIdentitySet<T>, Set<T>> {
         @Nonnull
         private static final Set<Characteristics> characteristics = Collections.unmodifiableSet(
                 EnumSet.of(Characteristics.IDENTITY_FINISH));
@@ -234,10 +234,10 @@ interface Tiebreaker<T extends RelationalExpression> {
                 // Each set contains an equivalency class of expressions, so take the first
                 // one from each as representatives that will be used during the comparison
                 final var aLeftBestExpression = Iterables.getFirst(left, null);
-                final var aRightBestExpression = Iterables.getFirst(left, null);
                 if (aLeftBestExpression == null) {
                     return right;
                 }
+                final var aRightBestExpression = Iterables.getFirst(left, null);
                 if (aRightBestExpression == null) {
                     return left;
                 }
