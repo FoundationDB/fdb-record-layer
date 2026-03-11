@@ -495,14 +495,14 @@ public class CopyCommandTest {
         final String uuidName = uuidForPath(quoted);
         final ConnectionUtils sourceConnectionUtils = connectionUtils;
         final String sourceDatabasePath = "/TEST/SOURCE_DB_" + uuidName;
-        final SchemaInfo source1 = new SchemaInfo(sourceDatabasePath, "1", sourceConnectionUtils);
+        final SchemaInfo source1 = new SchemaInfo(sourceDatabasePath, "", sourceConnectionUtils);
         final SchemaInfo source2 = new SchemaInfo(sourceDatabasePath, "2", sourceConnectionUtils);
         final SchemaInfo source3 = new SchemaInfo(sourceDatabasePath, "3", sourceConnectionUtils);
         final String destDatabasePath = multiCluster ? sourceDatabasePath : "/TEST/DEST_DB_" + uuidName;
         final ConnectionUtils destConnectionUtils = multiCluster ?
                                                     new ConnectionUtils(relationalExtension.extensionForOtherCluster().getDriver()) :
                                                     connectionUtils;
-        final SchemaInfo dest1 = new SchemaInfo(destDatabasePath, "1", destConnectionUtils);
+        final SchemaInfo dest1 = new SchemaInfo(destDatabasePath, "", destConnectionUtils);
         final SchemaInfo dest2 = new SchemaInfo(destDatabasePath, "2", destConnectionUtils);
         final SchemaInfo dest3 = new SchemaInfo(destDatabasePath, "3", destConnectionUtils);
         String templateName1 = "TEMPLATE1_" + uuidName;

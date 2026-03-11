@@ -837,7 +837,8 @@ public class SemanticAnalyzer {
 
     public static void validateDatabaseUri(String pathName) {
         // TODO does this need to be more permissive. Does it need to support `.`
-        Assert.thatUnchecked(Objects.requireNonNull(pathName).matches("/\\w[-a-zA-Z0-9_/]*\\w"),
+        // It can end with `/` if the schema is the default (null) schema
+        Assert.thatUnchecked(Objects.requireNonNull(pathName).matches("/\\w[-a-zA-Z0-9_/]*"),
                 ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", pathName));
     }
 
@@ -854,7 +855,7 @@ public class SemanticAnalyzer {
         if (id.startsWith("/")) {
             validateDatabaseUri(schemaIdentifier.getName());
             int separatorIdx = id.lastIndexOf("/");
-            Assert.thatUnchecked(separatorIdx < id.length() - 1);
+            // Note: the identifier may end with `/` if the schema is the null/default schema
             return NonnullPair.of(Optional.of(URI.create(id.substring(0, separatorIdx))), id.substring(separatorIdx + 1));
         } else {
             return NonnullPair.of(Optional.empty(), id);
@@ -867,7 +868,7 @@ public class SemanticAnalyzer {
         if (id.startsWith("/")) {
             validateDatabaseUri(id);
             int separatorIdx = id.lastIndexOf("/");
-            Assert.thatUnchecked(separatorIdx < id.length() - 1);
+            // Note: the identifier may end with `/` if the schema is the null/default schema
             return NonnullPair.of(Optional.of(URI.create(id.substring(0, separatorIdx))), id.substring(separatorIdx + 1));
         } else {
             return NonnullPair.of(Optional.empty(), id);
