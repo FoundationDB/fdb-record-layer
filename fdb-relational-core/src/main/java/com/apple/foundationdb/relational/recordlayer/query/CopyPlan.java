@@ -62,6 +62,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCatalog;
 import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 import com.google.common.base.Suppliers;
 
@@ -343,6 +344,10 @@ public final class CopyPlan extends QueryPlan {
                                                  @Nonnull Map<KeySpacePath, CatalogInfo> pathSchemaCache,
                                                  @Nonnull StoreCatalog storeCatalog,
                                                  @Nonnull Transaction transaction) throws RelationalException {
+        // HollowStoreCatalog doesn't actually implement
+        if (storeCatalog instanceof HollowStoreCatalog) {
+            return null;
+        }
         // Check if we've already processed this path
         if (pathSchemaCache.containsKey(dataPath)) {
             return null;
