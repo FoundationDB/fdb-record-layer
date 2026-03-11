@@ -125,7 +125,7 @@ interface Tiebreaker<T extends RelationalExpression> {
             }
         }
 
-        if (expressions.size() <= 1) {
+        if (filteredExpressions.size() <= 1) {
             return new TerminalTiebreakerResult<>(filteredExpressions);
         }
 

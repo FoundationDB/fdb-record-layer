@@ -196,8 +196,8 @@ public final class PlanGenerator {
                                     if (bestQueryPlanSoFar == null ||
                                             // It would be nice to replace this with a call to `stableSelectorCostModel.getBestExpression`
                                             // This currently can't be done without pulling the RecordQueryPlans out of the QueryPlan objects,
-                                            // running the cost model, and then stitching them back together, which is a bit costly. So,
-                                            // for now, just use the cost model as a comparator
+                                            // running the cost model, and then re-associate it with the original Plan<?>, which is a bit
+                                            // costly. So, for now, just use the cost model as a comparator
                                             stableSelectorCostModel.compare(candidateQueryPlan, bestQueryPlanSoFar) < 0) {
                                         return candidate;
                                     } else {

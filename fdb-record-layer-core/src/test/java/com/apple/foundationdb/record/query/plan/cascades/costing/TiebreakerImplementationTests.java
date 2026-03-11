@@ -146,7 +146,7 @@ class TiebreakerImplementationTests {
         // Create an in plan where the in value is _not_ sarged into the index scan
         final RecordQueryPredicatesFilterPlan filterIndexForSingleValue = new RecordQueryPredicatesFilterPlan(scanAllQun, ImmutableList.of(scanAllQun.getFlowedObjectValue().withComparison(singleValueComparison)));
         final RecordQueryInComparandJoinPlan inJoinNonSargedPlan = new RecordQueryInComparandJoinPlan(physicalOf(filterIndexForSingleValue), bindingName, Bindings.Internal.CORRELATION, arrayComparison, false, false);
-        // Cannot asser that the tiebreaker is reflexive here, as that currently fails
+        // Cannot assert that the tiebreaker is reflexive here, as that currently fails
 
         // Compare each plan pairwise
         assertCompares(inOperatorTiebreaker, filterScanWithInPlan, inJoinNonSargedPlan, -1);

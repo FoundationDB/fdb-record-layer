@@ -63,7 +63,11 @@ class TiebreakerResultWithNext<T extends RelationalExpression> implements Tiebre
                         .collect(Tiebreaker.toBestExpressions(plannerConfiguration,
                                 nextTiebreaker, opsCache, onRemoveConsumer));
 
-        return new TiebreakerResultWithNext<>(plannerConfiguration, opsCache, bestExpressions, onRemoveConsumer);
+        if (bestExpressions.size() > 1) {
+            return new TiebreakerResultWithNext<>(plannerConfiguration, opsCache, bestExpressions, onRemoveConsumer);
+        } else {
+            return new TerminalTiebreakerResult<>(bestExpressions);
+        }
     }
 
     @Nonnull
