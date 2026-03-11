@@ -133,7 +133,11 @@ public interface RealVector {
     }
 
     default double l2Norm() {
-        return Math.sqrt(dot(this));
+        return Math.sqrt(l2SquaredNorm());
+    }
+
+    default double l2SquaredNorm() {
+        return dot(this);
     }
 
     @Nonnull

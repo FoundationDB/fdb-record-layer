@@ -39,8 +39,14 @@ public class RaBitEstimator implements Estimator {
     }
 
     @Nonnull
+    @Override
     public Metric getMetric() {
         return metric;
+    }
+
+    @Override
+    public boolean isOptimized(@Nonnull final RealVector vector1, @Nonnull final RealVector vector2) {
+        return vector1 instanceof EncodedRealVector || vector2 instanceof EncodedRealVector;
     }
 
     public int getNumExBits() {
@@ -48,17 +54,17 @@ public class RaBitEstimator implements Estimator {
     }
 
     @Override
-    public double distance(@Nonnull final RealVector query, @Nonnull final RealVector storedVector) {
+    public double distance(@Nonnull final RealVector vector1, @Nonnull final RealVector vector2) {
         final double distance;
-        if (!(query instanceof EncodedRealVector) && storedVector instanceof EncodedRealVector) {
+        if (!(vector1 instanceof EncodedRealVector) && vector2 instanceof EncodedRealVector) {
             // use the estimator if the first vector is not encoded, but the second is
-            distance = distance(query, (EncodedRealVector)storedVector);
-        } else if (query instanceof EncodedRealVector && !(storedVector instanceof EncodedRealVector)) {
+            distance = distance(vector1, (EncodedRealVector)vector2);
+        } else if (vector1 instanceof EncodedRealVector && !(vector2 instanceof EncodedRealVector)) {
             // use the estimator if the second vector is not encoded, but the first is
-            distance = distance(storedVector, (EncodedRealVector)query);
+            distance = distance(vector2, (EncodedRealVector)vector1);
         } else {
             // use the regular metric for all other cases
-            distance = metric.distance(query, storedVector);
+            distance = metric.distance(vector1, vector2);
         }
 
         // if the distance is not finite, raise an exception

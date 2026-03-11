@@ -30,34 +30,59 @@ import javax.annotation.Nonnull;
  * vector (the query) is compared against many stored vectors.
  */
 public interface Estimator {
-    default double distance(@Nonnull final Transformed<? extends RealVector> query,
-                            @Nonnull final Transformed<? extends RealVector> storedVector) {
-        return distance(query.getUnderlyingVector(), storedVector.getUnderlyingVector());
+    @Nonnull
+    Metric getMetric();
+
+    default boolean isOptimized(@Nonnull final Transformed<? extends RealVector> vector1,
+                                @Nonnull final Transformed<? extends RealVector> vector2) {
+        return isOptimized(vector1.getUnderlyingVector(), vector2.getUnderlyingVector());
+    }
+
+    default double distance(@Nonnull final Transformed<? extends RealVector> vector1,
+                            @Nonnull final Transformed<? extends RealVector> vector2) {
+        return distance(vector1.getUnderlyingVector(), vector2.getUnderlyingVector());
     }
 
     /**
      * Calculates the distance between a pre-rotated and translated query vector and a stored vector.
      * <p>
      * This method is designed to compute the distance metric between two vectors in a high-dimensional space. It is
-     * crucial that the {@code query} vector has already been appropriately transformed (e.g., rotated and translated)
-     * to align with the coordinate system of the {@code storedVector} before calling this method.
+     * crucial that both vectors have already been appropriately transformed (e.g., rotated and translated)
+     * to align with the appropriate coordinate system of the {@code storedVector} before calling this method.
      * Note, that the particular metric in use may reject any distance that is not finite.
      *
-     * @param query the pre-rotated and translated query vector, cannot be null.
-     * @param storedVector the stored vector to which the distance is calculated, cannot be null.
+     * @param vector1 the pre-rotated and translated vector, cannot be null.
+     * @param vector2 the pre-rotated and translated vector to which the distance is calculated, cannot be null.
      * @return a non-negative {@code double} representing the distance between the two vectors.
      */
-    double distance(@Nonnull RealVector query,
-                    @Nonnull RealVector storedVector);
+    double distance(@Nonnull RealVector vector1,
+                    @Nonnull RealVector vector2);
+
+    boolean isOptimized(@Nonnull final RealVector vector1,
+                        @Nonnull final RealVector vector2);
 
     @Nonnull
     static Estimator ofMetric(@Nonnull final Metric metric) {
-        return (vector1, vector2) -> {
-            final double distance = metric.distance(vector1, vector2);
-            if (!Double.isFinite(distance)) {
-                throw new IllegalArgumentException("vector has an L2 norm of infinite, not a number, or 0");
+        return new Estimator() {
+            @Nonnull
+            @Override
+            public Metric getMetric() {
+                return metric;
             }
-            return distance;
+
+            @Override
+            public boolean isOptimized(@Nonnull final RealVector vector1, @Nonnull final RealVector vector2) {
+                return false;
+            }
+
+            @Override
+            public double distance(@Nonnull final RealVector vector1, @Nonnull final RealVector vector2) {
+                final double distance = metric.distance(vector1, vector2);
+                if (!Double.isFinite(distance)) {
+                    throw new IllegalArgumentException("vector has an L2 norm of infinite, not a number, or 0");
+                }
+                return distance;
+            }
         };
     }
 }
