@@ -63,6 +63,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -264,9 +265,10 @@ public class AstNormalizerTests {
         QueryCacheKey queryCacheKey = null;
         for (int i = 0; i < queries.size(); i++) {
             final var query = queries.get(i);
+            final var truncQuery = AstNormalizer.ExplainParser.truncateExplainStatement(query);
             final var expectedParameters = expectedParametersList.get(i);
-            final var hashResults = AstNormalizer.normalizeAst(schemaTemplates.get(i), QueryParser.parse(query).getRootContext(),
-                    PreparedParams.copyOf(preparedParameters), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query, false);
+            final var hashResults = AstNormalizer.normalizeAst(schemaTemplates.get(i), QueryParser.parse(truncQuery).getRootContext(),
+                    PreparedParams.copyOf(preparedParameters), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query, !Objects.equals(query, truncQuery));
             Assertions.assertThat(hashResults.getQueryCacheKey().getCanonicalQueryString()).isEqualTo(expectedCanonicalRepresentation);
             Assertions.assertThat(hashResults.getQueryCacheKey().getAuxiliaryMetadata()).isEqualTo(auxiliaryMetadata);
             final var execParams = hashResults.getQueryExecutionContext();
@@ -650,10 +652,10 @@ public class AstNormalizerTests {
         validate(List.of("explain select * from t1 where col1 > 42", "  explain select  \t * from    t1 \n\n where col1 > 42   \n\n"),
                 PreparedParams.empty(),
                 "select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
-                List.of(Map.of(constantId(8), 42), Map.of(constantId(8), 42)),
+                List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UTILITY_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT));
     }
 
     @Test
@@ -1050,11 +1052,11 @@ public class AstNormalizerTests {
         validate(List.of("explain select * from t1 where col1 > ?namedParam1 and col2   > ?", "  explain select  \t * from    t1 \n\n where col1 > ?namedParam1 and   col2 > ?   \n\n"),
                 PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
                 "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
-                List.of(Map.of(constantId(8), 43, constantId(12), 42),
-                        Map.of(constantId(8), 43, constantId(12), 42)),
+                List.of(Map.of(constantId(7), 43, constantId(11), 42),
+                        Map.of(constantId(7), 43, constantId(11), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UTILITY_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT));
     }
 
     @Test
@@ -1410,7 +1412,7 @@ public class AstNormalizerTests {
                                                             final ExtensionContext context) {
             return Stream.of(
                     Arguments.of("SELECT * FROM t",                                "SELECT * FROM t"),
-                    Arguments.of("INSERT INTO t VALUES (1)",                       "INSERT INTO t VALUES (1)"),
+                    Arguments.of(" INSERT INTO t VALUES (1)",                      " INSERT INTO t VALUES (1)"),
                     Arguments.of("",                                               ""),
                     Arguments.of("   ",                                            "   "),
 

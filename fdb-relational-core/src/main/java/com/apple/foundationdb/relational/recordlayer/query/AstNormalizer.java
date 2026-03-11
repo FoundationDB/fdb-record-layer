@@ -676,7 +676,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         isCaseSensitive,
                         currentPlanHashMode,
                         query,
-                        query != truncQuery
+                        !Objects.equals(query, truncQuery)
                 ));
     }
 
