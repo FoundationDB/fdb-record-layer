@@ -572,19 +572,81 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         }
     }
 
-    private static String truncateExplainStatement(@Nonnull final String query) {
-        int begin = 0;
-        while (begin < query.length() && Character.isWhitespace(query.charAt(begin))) {
-            begin++;
+    @VisibleForTesting
+    public static class ExplainParser {
+        private ExplainParser() {
         }
-//        final List<String> tags = List.of("EXPLAIN", "DESCRIBE", "DESC");
-        final List<String> tags = List.of("EXPLAIN");
-        for (final var tag : tags) {
-            if (query.regionMatches(true, begin, tag, 0, tag.length())) {
-                return query.substring(begin + tag.length());
+
+        private static class Word {
+            public int begin;
+            public int end;
+
+            public Word(int b, int e) {
+                begin = b;
+                end = e;
             }
         }
-        return query;
+
+        private static int getNotWhitespace(@Nonnull final String query, int pos) {
+            while (pos < query.length() && Character.isWhitespace(query.charAt(pos))) {
+                pos++;
+            }
+            return pos;
+        }
+
+        private static int getWhitespaceEqual(@Nonnull final String query, int pos) {
+            while (pos < query.length() && !Character.isWhitespace(query.charAt(pos)) && query.charAt(pos) != '=') {
+                pos++;
+            }
+            return pos;
+        }
+
+        private static Word getWordFromString(@Nonnull final String query, int start) {
+            int pos = getNotWhitespace(query, start);
+            return new Word(pos, getWhitespaceEqual(query, pos));
+        }
+
+        private static boolean matchWord(@Nonnull final String query, @Nonnull final Word w, @Nonnull final String word) {
+            return w.end - w.begin == word.length() && query.regionMatches(true, w.begin, word, 0, word.length());
+        }
+
+        private static boolean matchWordFromList(@Nonnull final String query, @Nonnull final Word w, @Nonnull final List<String> list) {
+            for (final var word : list) {
+                if (matchWord(query, w, word)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public static String truncateExplainStatement(@Nonnull final String query) {
+            final List<String> explainList = List.of("EXPLAIN", "DESCRIBE", "DESC");
+            final String shemaString = "SCHEMA";
+            final List<String> extendedList = List.of("EXTENDED", "PARTITIONS", "FORMAT");
+            final List<String> traditionalList = List.of("TRADITIONAL", "JSON");
+
+
+            final var w0 = getWordFromString(query, 0);
+            if (!matchWordFromList(query, w0, explainList)) {       // EXPLAIN
+                return query;
+            }
+
+            final var w1 = getWordFromString(query, w0.end);
+            if (matchWord(query, w1, shemaString)) {                // EXPLAIN SCHEMA
+                return query;
+            }
+            if (!matchWordFromList(query, w1, extendedList)) {      // EXPLAIN EXTENDED
+                return query.substring(w1.begin);
+            }
+
+            int pos = getNotWhitespace(query, w1.end);              // EXPLAIN EXTENDED=
+            Assert.thatUnchecked(query.charAt(pos) == '=', "equal (=) not found after EXTENDED/PARTITIONS/FORMAT");
+
+            final var w2 = getWordFromString(query, pos + 1);   // EXPLAIN EXTENDED=TRADITIONAL
+            Assert.thatUnchecked(matchWordFromList(query, w2, traditionalList), "value of EXTENDED/PARTITIONS/FORMAT is not TRADITIONAL/JSON");
+
+            return query.substring(w2.end);
+        }
     }
 
     /**
@@ -601,7 +663,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                      boolean isCaseSensitive,
                                                      @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
         // lexing, parsing, and normalization are profiled through the metric collector.
-        final var truncQuery = truncateExplainStatement(query);
+        final var truncQuery = ExplainParser.truncateExplainStatement(query);
         final var metricCollector = context.getMetricsCollector();
         final var rootContext = metricCollector.clock(RelationalMetric.RelationalEvent.LEX_PARSE,
                 () -> QueryParser.parse(truncQuery).getRootContext());

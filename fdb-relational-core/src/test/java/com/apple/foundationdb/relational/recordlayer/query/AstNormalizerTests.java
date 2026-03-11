@@ -48,6 +48,12 @@ import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.NotImplementedException;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.ArgumentsProvider;
+import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -59,6 +65,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral.constantId;
 
@@ -1395,5 +1402,62 @@ public class AstNormalizerTests {
     void indexHintIsPartOfTheCanonicalQueryString() throws RelationalException {
         validate("select * from t1 use index (i1)",
                 "select * from \"T1\" use index ( \"I1\" ) ");
+    }
+
+    static class ExplainParserValidCasesProvider implements ArgumentsProvider {
+        @Override
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
+            return Stream.of(
+                    Arguments.of("SELECT * FROM t",                                "SELECT * FROM t"),
+                    Arguments.of("INSERT INTO t VALUES (1)",                       "INSERT INTO t VALUES (1)"),
+                    Arguments.of("",                                               ""),
+                    Arguments.of("   ",                                            "   "),
+
+                    Arguments.of("EXPLAIN SELECT * FROM t",                        "SELECT * FROM t"),
+                    Arguments.of("explain select * from t",                        "select * from t"),
+                    Arguments.of("Explain Select * From t",                        "Select * From t"),
+                    Arguments.of("  EXPLAIN SELECT * FROM t",                      "SELECT * FROM t"),
+                    Arguments.of("EXPLAIN   SELECT * FROM t",                      "SELECT * FROM t"),
+                    Arguments.of("  EXPLAIN   SELECT * FROM t",                    "SELECT * FROM t"),
+
+                    Arguments.of("DESCRIBE SELECT * FROM t",                       "SELECT * FROM t"),
+                    Arguments.of("desc select * from t",                           "select * from t"),
+
+                    Arguments.of("EXPLAIN SCHEMA SELECT * FROM t",                 "EXPLAIN SCHEMA SELECT * FROM t"),
+                    Arguments.of("explain  schema  select * from t",               "explain  schema  select * from t"),
+                    Arguments.of("DESCRIBE SCHEMA SELECT * FROM t",                "DESCRIBE SCHEMA SELECT * FROM t"),
+
+                    Arguments.of("EXPLAIN EXTENDED=TRADITIONAL SELECT * FROM t",   " SELECT * FROM t"),
+                    Arguments.of("EXPLAIN  Partitions  =JSON SELECT * FROM t",     " SELECT * FROM t"),
+                    Arguments.of("explain  FORMAt=  Traditional  select * from t", "  select * from t"),
+                    Arguments.of("desc format = JSoN select * from t",             " select * from t")
+            );
+        }
+    }
+
+    @ParameterizedTest(name = "[{index}] \"{0}\" -> \"{1}\"")
+    @ArgumentsSource(ExplainParserValidCasesProvider.class)
+    void truncateExplainStatement(@Nonnull final String query, @Nonnull final String expected) {
+        Assertions.assertThat(AstNormalizer.ExplainParser.truncateExplainStatement(query)).isEqualTo(expected);
+    }
+
+    static class ExplainParserErrorCasesProvider implements ArgumentsProvider {
+        @Override
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
+            return Stream.of(
+                    Arguments.of("EXPLAIN FORMAT SELECT * FROM t",           "equal (=) not found after EXTENDED/PARTITIONS/FORMAT"),
+                    Arguments.of("EXPLAIN EXTENDED=INVALID SELECT * FROM t", "value of EXTENDED/PARTITIONS/FORMAT is not TRADITIONAL/JSON")
+            );
+        }
+    }
+
+    @ParameterizedTest(name = "[{index}] \"{0}\" throws containing \"{1}\"")
+    @ArgumentsSource(ExplainParserErrorCasesProvider.class)
+    void truncateExplainStatementThrows(@Nonnull final String query, @Nonnull final String expectedMessage) {
+        Assertions.assertThatThrownBy(() -> AstNormalizer.ExplainParser.truncateExplainStatement(query))
+                .isInstanceOf(UncheckedRelationalException.class)
+                .hasMessageContaining(expectedMessage);
     }
 }
