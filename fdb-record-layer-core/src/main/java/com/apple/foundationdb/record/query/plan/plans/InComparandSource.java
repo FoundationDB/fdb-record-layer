@@ -30,11 +30,11 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PInComparandSource;
 import com.apple.foundationdb.record.planprotos.PInSource;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
@@ -42,6 +42,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Source of values for an "IN" query where the values are derived from the comparand of a
@@ -174,6 +175,12 @@ public class InComparandSource extends InSource {
     @Override
     public Type getResultType() {
         return Objects.requireNonNull(comparison.getValue()).getResultType();
+    }
+
+    @Nonnull
+    @Override
+    public Set<Type> getDynamicTypes() {
+        return Objects.requireNonNull(comparison.getValue()).getDynamicTypes();
     }
 
     /**
