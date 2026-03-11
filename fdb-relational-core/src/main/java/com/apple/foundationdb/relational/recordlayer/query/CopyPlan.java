@@ -61,9 +61,8 @@ import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
-import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
-import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
