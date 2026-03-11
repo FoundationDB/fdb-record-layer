@@ -7,6 +7,40 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.10.7.0
+
+<h4> Breaking Changes </h4>
+
+* Lucene: Split large Lucene  pending writes queue entries - [PR #3970](https://github.com/FoundationDB/fdb-record-layer/pull/3970)
+* Support COPY command with a TransactionBoundDatabase - [PR #3826](https://github.com/FoundationDB/fdb-record-layer/pull/3826)
+<h4> Bug Fixes </h4>
+
+* Lucene: Merge: skip pending queue drain when merge fails to obtain a … - [PR #3992](https://github.com/FoundationDB/fdb-record-layer/pull/3992)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Document hierarchical navigable small worlds (hnsw)-based vector index technology - [PR #3997](https://github.com/FoundationDB/fdb-record-layer/pull/3997)
+
+</details>
+
+
+**[Full Changelog (4.10.6.0...4.10.7.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.6.0...4.10.7.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.9.6.0`, ✅`4.9.7.0`, ✅`4.9.8.0`, ✅`4.9.9.0`, ✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`, ✅`4.10.6.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/22967018846)
+
+
+
 ### 4.10.6.0
 
 <h4> New Features </h4>
