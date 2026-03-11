@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
@@ -865,30 +866,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitRecordConstructorForInsert(@Nonnull RelationalParser.RecordConstructorForInsertContext ctx) {
-        final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
-        final var columns = expressions.underlyingAsColumns();
-        final var maybeTargetRecordType = getStateMaybe()
-                .flatMap(LogicalPlanFragment.State::getTargetType)
-                .filter(t -> t instanceof Type.Record)
-                .map(t -> (Type.Record) t);
-        if (maybeTargetRecordType.isPresent()) {
-            return Expression.ofUnnamed(RecordConstructorValue.ofColumns(columns, maybeTargetRecordType.get()));
-        }
+        final var columns = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
         return Expression.ofUnnamed(RecordConstructorValue.ofColumns(columns));
     }
 
     @Nonnull
     @Override
     public Expression visitRecordConstructorForInlineTable(@Nonnull RelationalParser.RecordConstructorForInlineTableContext ctx) {
-        final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
-        final var columns = expressions.underlyingAsColumns();
-        final var maybeTargetRecordType = getStateMaybe()
-                .flatMap(LogicalPlanFragment.State::getTargetType)
-                .filter(t -> t instanceof Type.Record)
-                .map(t -> (Type.Record) t);
-        if (maybeTargetRecordType.isPresent()) {
-            return Expression.ofUnnamed(RecordConstructorValue.ofColumns(columns, maybeTargetRecordType.get()));
-        }
+        final var columns = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
         return Expression.ofUnnamed(RecordConstructorValue.ofColumns(columns));
     }
 
@@ -912,23 +897,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             final var resultValue = star.getUnderlying();
             return Expression.ofUnnamed(resultValue);
         }
-        final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
-        final var columns = expressions.underlyingAsColumns();
-        final var maybeTargetRecordType = getStateMaybe()
-                .flatMap(LogicalPlanFragment.State::getTargetType)
-                .filter(t -> t instanceof Type.Record)
-                .map(t -> (Type.Record) t);
+        final var columns = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
         if (ctx.ofTypeClause() != null) {
             final var recordId = visitUid(ctx.ofTypeClause().uid());
-            final var resultValue = maybeTargetRecordType.isPresent()
-                    ? RecordConstructorValue.ofColumnsAndName(columns, recordId.getName(), maybeTargetRecordType.get())
-                    : RecordConstructorValue.ofColumnsAndName(columns, recordId.getName());
-            return Expression.ofUnnamed(resultValue);
+            return Expression.ofUnnamed(RecordConstructorValue.ofColumnsAndName(columns, recordId.getName()));
         }
-        final var resultValue = maybeTargetRecordType.isPresent()
-                ? RecordConstructorValue.ofColumns(columns, maybeTargetRecordType.get())
-                : RecordConstructorValue.ofColumns(columns);
-        return Expression.ofUnnamed(resultValue);
+        return Expression.ofUnnamed(RecordConstructorValue.ofColumns(columns));
     }
 
     @Nonnull
@@ -1039,10 +1013,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    private Expressions parseRecordFieldsUnderReorderings(@Nonnull final List<? extends ParserRuleContext> providedColumnContexts) {
+    private ImmutableList<Column<? extends Value>> parseRecordFieldsUnderReorderings(@Nonnull final List<? extends ParserRuleContext> providedColumnContexts) {
         final var maybeState = getStateMaybe();
         if (maybeState.isEmpty() || maybeState.get().getTargetType().isEmpty()) {
-            return parseRecordFields(providedColumnContexts, null);
+            return parseRecordFields(providedColumnContexts, null).underlyingAsColumns()
+                    .stream().collect(ImmutableList.toImmutableList());
         }
 
         final var state = maybeState.get();
@@ -1052,14 +1027,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         if (state.getTargetTypeReorderings().isPresent()) {
             final var targetTypeReorderings = ImmutableList.copyOf(Assert.notNullUnchecked(
                     state.getTargetTypeReorderings().get().getChildrenMap()).keySet());
-            final var resultColumnsBuilder = ImmutableList.<Expression>builder();
+            final var resultColumnsBuilder = ImmutableList.<Column<? extends Value>>builder();
             Assert.thatUnchecked(targetTypeReorderings.size() >= providedColumnContexts.size(), ErrorCode.SYNTAX_ERROR, "Too many parameters");
             for (final var elementField : elementFields) {
                 final int index = targetTypeReorderings.indexOf(elementField.getFieldName());
                 final var fieldType = elementField.getFieldType();
-                Expression currentFieldColumns = null;
+                Expression currentFieldExpression = null;
                 if (index >= 0 && index < providedColumnContexts.size()) {
-                    currentFieldColumns = parseRecordField(providedColumnContexts.get(index), elementField);
+                    currentFieldExpression = parseRecordField(providedColumnContexts.get(index), elementField);
                 } else if (index >= providedColumnContexts.size()) {
                     // column is declared but the value is not provided
                     Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "Value of column \"" + elementField.getFieldName() + "\" is not provided");
@@ -1067,17 +1042,23 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                     // We do not yet support default values for any types, hence it makes sense to simply fail if the field type
                     // expects non-null but no value is provided.
                     Assert.thatUnchecked(fieldType.isNullable(), ErrorCode.NOT_NULL_VIOLATION, "null value in column \"" + elementField.getFieldName() + "\" violates not-null constraint");
-                    currentFieldColumns = Expression.fromUnderlying(new NullValue(fieldType));
+                    currentFieldExpression = Expression.fromUnderlying(new NullValue(fieldType));
                 }
-                resultColumnsBuilder.add(currentFieldColumns);
+                resultColumnsBuilder.add(Column.of(elementField, currentFieldExpression.getUnderlying()));
             }
-            return Expressions.of(resultColumnsBuilder.build());
+            return resultColumnsBuilder.build();
         }
 
         Assert.thatUnchecked(elementFields.size() == providedColumnContexts.size(),
                 ErrorCode.CANNOT_CONVERT_TYPE, "provided record cannot be assigned as its type is incompatible with the target type"
         );
-        return parseRecordFields(providedColumnContexts, elementFields);
+        final var resultColumnsBuilder = ImmutableList.<Column<? extends Value>>builder();
+        for (int i = 0; i < providedColumnContexts.size(); i++) {
+            final var elementField = elementFields.get(i);
+            final var expression = parseRecordField(providedColumnContexts.get(i), elementField);
+            resultColumnsBuilder.add(Column.of(elementField, expression.getUnderlying()));
+        }
+        return resultColumnsBuilder.build();
     }
 
     @Nonnull
