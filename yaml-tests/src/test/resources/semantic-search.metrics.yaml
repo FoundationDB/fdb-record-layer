@@ -192,12 +192,12 @@ semantic-search-queries:
         ∪ ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c55: @c37}:[] BY_DISTANCE)
         COMPARE BY (recordType([_]), _.DOCID) | MAP (_.TITLE AS TITLE)'
-    task_count: 485
-    task_total_time_ms: 122
+    task_count: 486
+    task_total_time_ms: 26
     transform_count: 143
-    transform_time_ms: 80
+    transform_time_ms: 17
     transform_yield_count: 49
-    insert_time_ms: 3
+    insert_time_ms: 0
     insert_new_count: 47
     insert_reused_count: 6
 -   query: EXPLAIN select r.reviewId, r.rating, d2.docId, d2.title from reviews r
