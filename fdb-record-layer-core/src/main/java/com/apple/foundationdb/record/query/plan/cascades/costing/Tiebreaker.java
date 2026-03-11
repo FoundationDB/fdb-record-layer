@@ -22,8 +22,11 @@ package com.apple.foundationdb.record.query.plan.cascades.costing;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.FindExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Iterables;
 
@@ -110,7 +113,7 @@ interface Tiebreaker<T extends RelationalExpression> {
     @Nonnull
     static <T extends RelationalExpression> TiebreakerResult<T>
             ofContext(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
-                      @Nonnull final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache,
+                      @Nonnull final Set<Class<? extends RelationalExpression>> interestingExpressionClasses,
                       @Nonnull final Set<? extends RelationalExpression> expressions,
                       @Nonnull final Class<T> specificClazz,
                       @Nonnull final Consumer<T> onRemoveConsumer) {
@@ -125,6 +128,7 @@ interface Tiebreaker<T extends RelationalExpression> {
             return new TerminalTiebreakerResult<>(filteredExpressions);
         }
 
+        final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache = createOpsCache(interestingExpressionClasses);
         return new TiebreakerResultWithNext<>(plannerConfiguration, opsCache, filteredExpressions, onRemoveConsumer);
     }
 
@@ -148,10 +152,23 @@ interface Tiebreaker<T extends RelationalExpression> {
     @Nonnull
     static <T extends RelationalExpression> Collector<T, LinkedIdentitySet<T>, Set<T>>
              toBestExpressions(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
-                               @Nonnull final Tiebreaker<T> tiebreaker,
+                               @Nonnull final Tiebreaker<? super T> tiebreaker,
                                @Nonnull final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache,
                                @Nonnull final Consumer<T> onRemoveConsumer) {
         return new BestExpressionsCollector<>(plannerConfiguration, tiebreaker, opsCache, onRemoveConsumer);
+    }
+
+    @Nonnull
+    private static LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> createOpsCache(Set<Class<? extends RelationalExpression>> interestingExpressionClasses) {
+        return CacheBuilder.newBuilder()
+                .build(new CacheLoader<>() {
+                    @Override
+                    @Nonnull
+                    public Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>
+                            load(@Nonnull final RelationalExpression key) {
+                        return FindExpressionVisitor.evaluate(interestingExpressionClasses, key);
+                    }
+                });
     }
 
     /**
@@ -167,18 +184,18 @@ interface Tiebreaker<T extends RelationalExpression> {
         @Nonnull
         private final RecordQueryPlannerConfiguration plannerConfiguration;
         @Nonnull
-        private final Tiebreaker<T> tieBreaker;
+        private final Tiebreaker<? super T> tiebreaker;
         @Nonnull
         private final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache;
         @Nonnull
         private final Consumer<T> onRemoveConsumer;
 
         private BestExpressionsCollector(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
-                                         @Nonnull final Tiebreaker<T> tieBreaker,
+                                         @Nonnull final Tiebreaker<? super T> tiebreaker,
                                          @Nonnull final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache,
                                          @Nonnull final Consumer<T> onRemoveConsumer) {
             this.plannerConfiguration = plannerConfiguration;
-            this.tieBreaker = tieBreaker;
+            this.tiebreaker = tiebreaker;
             this.opsCache = opsCache;
             this.onRemoveConsumer = onRemoveConsumer;
         }
@@ -204,7 +221,7 @@ interface Tiebreaker<T extends RelationalExpression> {
                     }
 
                     compare =
-                            tieBreaker.compare(plannerConfiguration, opsMapA, opsMapB,
+                            tiebreaker.compare(plannerConfiguration, opsMapA, opsMapB,
                                     newExpression, aBestExpression);
                 }
 
@@ -251,7 +268,7 @@ interface Tiebreaker<T extends RelationalExpression> {
                     throw new RecordCoreException(eE);
                 }
                 final int compare =
-                        tieBreaker.compare(plannerConfiguration, leftMap, rightMap,
+                        tiebreaker.compare(plannerConfiguration, leftMap, rightMap,
                                 aLeftBestExpression, aRightBestExpression);
                 // Check if one set is more optimal than the other. Choose the preferred one, and
                 // mark all the discarded elements as removed

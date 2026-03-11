@@ -39,7 +39,7 @@ class TerminalTiebreakerResult<T extends RelationalExpression> implements Tiebre
 
     @Nonnull
     @Override
-    public final TiebreakerResult<T> thenApply(@Nonnull final Tiebreaker<T> nextTiebreakers) {
+    public final TiebreakerResult<T> thenApply(@Nonnull final Tiebreaker<? super T> nextTiebreakers) {
         return this;
     }
 

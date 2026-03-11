@@ -54,7 +54,7 @@ class TiebreakerResultWithNext<T extends RelationalExpression> implements Tiebre
 
     @Nonnull
     @Override
-    public final TiebreakerResult<T> thenApply(@Nonnull final Tiebreaker<T> nextTiebreaker) {
+    public final TiebreakerResult<T> thenApply(@Nonnull final Tiebreaker<? super T> nextTiebreaker) {
         if (expressions.size() <= 1) {
             return new TerminalTiebreakerResult<>(expressions);
         }

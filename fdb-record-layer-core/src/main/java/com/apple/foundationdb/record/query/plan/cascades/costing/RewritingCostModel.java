@@ -23,13 +23,9 @@ package com.apple.foundationdb.record.query.plan.cascades.costing;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.FindExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountByLevelProperty;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -86,25 +82,8 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
     @Nonnull
     private TiebreakerResult<RelationalExpression> costExpressions(@Nonnull final Set<? extends RelationalExpression> expressions,
                                                                    @Nonnull final Consumer<RelationalExpression> onRemoveConsumer) {
-        final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache =
-                createOpsCache();
-
-        return Tiebreaker.ofContext(getConfiguration(), opsCache, expressions, RelationalExpression.class, onRemoveConsumer)
+        return Tiebreaker.ofContext(getConfiguration(), interestingExpressionClasses, expressions, RelationalExpression.class, onRemoveConsumer)
                 .thenApply(tiebreaker);
-    }
-
-    @Nonnull
-    private static LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>>
-                createOpsCache() {
-        return CacheBuilder.newBuilder()
-                .build(new CacheLoader<>() {
-                    @Override
-                    @Nonnull
-                    public Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>
-                            load(@Nonnull final RelationalExpression key) {
-                        return FindExpressionVisitor.evaluate(interestingExpressionClasses, key);
-                    }
-                });
     }
 
     @Nonnull

@@ -27,15 +27,11 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.FindExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Comparator;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -72,10 +68,7 @@ public class StableSelectorCostModel implements CascadesCostModel<RecordQueryPla
     @Nonnull
     private TiebreakerResult<RecordQueryPlan> costExpressions(@Nonnull final Set<? extends RelationalExpression> expressions,
                                                               @Nonnull final Consumer<RecordQueryPlan> onRemoveConsumer) {
-        final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache =
-                createOpsCache();
-
-        return Tiebreaker.ofContext(getConfiguration(), opsCache, expressions, RecordQueryPlan.class, onRemoveConsumer)
+        return Tiebreaker.ofContext(getConfiguration(), interestingExpressionClasses, expressions, RecordQueryPlan.class, onRemoveConsumer)
                 .thenApply(tiebreaker);
     }
 
@@ -85,19 +78,5 @@ public class StableSelectorCostModel implements CascadesCostModel<RecordQueryPla
         return tiebreaker.compare(getConfiguration(),
                 FindExpressionVisitor.evaluate(interestingExpressionClasses, a), FindExpressionVisitor.evaluate(interestingExpressionClasses, b),
                 a, b);
-    }
-
-    @Nonnull
-    private static LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>>
-            createOpsCache() {
-        return CacheBuilder.newBuilder()
-                .build(new CacheLoader<>() {
-                    @Override
-                    @Nonnull
-                    public Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>
-                            load(@Nonnull final RelationalExpression key) {
-                        return FindExpressionVisitor.evaluate(interestingExpressionClasses, key);
-                    }
-                });
     }
 }

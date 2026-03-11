@@ -1,9 +1,9 @@
 /*
- * TiebreakerResult.java
+ * CostModelTests.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,20 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.costing;
 
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-
-import javax.annotation.Nonnull;
-import java.util.Optional;
-import java.util.Set;
-
-interface TiebreakerResult<T extends RelationalExpression> {
-
-    @Nonnull
-    TiebreakerResult<T> thenApply(@Nonnull Tiebreaker<? super T> nextTiebreaker);
-
-    @Nonnull
-    Set<T> getBestExpressions();
-
-    @Nonnull
-    Optional<T> getOnlyExpressionMaybe();
+/**
+ * Tests of the {@link CascadesCostModel} implementations.
+ */
+public class CostModelTests {
 }

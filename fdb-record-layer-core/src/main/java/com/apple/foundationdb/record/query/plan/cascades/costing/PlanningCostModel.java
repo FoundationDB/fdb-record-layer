@@ -47,9 +47,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilte
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.google.common.base.Verify;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -132,25 +129,8 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
     @Nonnull
     private TiebreakerResult<RecordQueryPlan> costPlans(@Nonnull final Set<? extends RelationalExpression> expressions,
                                                         @Nonnull final Consumer<RecordQueryPlan> onRemoveConsumer) {
-        final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache =
-                createOpsCache();
-
-        return Tiebreaker.ofContext(getConfiguration(), opsCache, expressions, RecordQueryPlan.class, onRemoveConsumer)
+        return Tiebreaker.ofContext(getConfiguration(), interestingPlanClasses, expressions, RecordQueryPlan.class, onRemoveConsumer)
                 .thenApply(tiebreaker);
-    }
-
-    @Nonnull
-    private static LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>>
-            createOpsCache() {
-        return CacheBuilder.newBuilder()
-                .build(new CacheLoader<>() {
-                    @Override
-                    @Nonnull
-                    public Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>
-                             load(@Nonnull final RelationalExpression key) {
-                        return FindExpressionVisitor.evaluate(interestingPlanClasses, key);
-                    }
-                });
     }
 
     @Nonnull
