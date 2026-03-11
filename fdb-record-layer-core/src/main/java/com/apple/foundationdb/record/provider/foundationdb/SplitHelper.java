@@ -147,11 +147,12 @@ public class SplitHelper {
             }
             writeSplitRecord(context, subspace, key, serialized, hasVersionInKey, clearBasedOnPreviousSizeInfo, previousSizeInfo, sizeInfo);
         } else {
-            // an incomplete version in the key means we shouldn't delete previous values for the record (since they all have
-            // completed versions by now)
+            // An incomplete version in the key means that we shouldn't delete previous k/v pairs using these keys since,
+            // in the DB, from previous transactions, they would have been completed the versions already (and so wouldn't match)
             if (!hasVersionInKey && (splitLongRecords || previousSizeInfo == null || previousSizeInfo.isVersionedInline())) {
                 // Note that the clearPreviousSplitRecords also removes version splits from the context cache
                 // This is not currently supported for the case where we have versions in the keys since we can't trace the old values down
+                // Will be improved on in a separate PR
                 clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
             }
             final Tuple recordKey;
@@ -214,6 +215,7 @@ public class SplitHelper {
                 // This should never happen. It means that the same key (and suffix) and local version were used for subsequent
                 // write. It is most likely not an intended flow and this check will protect against that.
                 // It is an incomplete check since the same record can have different suffixes to the primary key that would not collide.
+                // Namely, if one is split, and one is not split they will not overlap. Anything else and the would.
                 throw new RecordCoreInternalException("Key with version overwritten");
             }
         } else {

@@ -37,7 +37,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBas
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
-import com.apple.test.BooleanSource;
+import com.apple.test.ParameterizedTestUtils;
+import com.apple.test.RandomSeedSource;
+import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.Streams;
 import org.assertj.core.api.Assertions;
@@ -46,7 +48,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -56,7 +60,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -360,11 +363,17 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         }
     }
 
+    static Stream<Arguments> seedAndUseCompression() {
+        return ParameterizedTestUtils.cartesianProduct(
+                RandomizedTestUtils.randomSeeds(476373L, 7768884L),
+                ParameterizedTestUtils.booleans("useCompression"));
+    }
+
     @ParameterizedTest
-    @BooleanSource("useCompression")
-    void testLargeQueueItem(boolean useCompression) throws Exception {
+    @MethodSource("seedAndUseCompression")
+    void testLargeQueueItem(long seed, boolean useCompression) throws Exception {
         // Test that we can store large queue items with and without compression
-        TestDocument docWithHugeString = createHugeDocument();
+        TestDocument docWithHugeString = createHugeDocument(new Random(seed));
 
         LuceneSerializer serializerToUse;
         if (useCompression) {
@@ -389,10 +398,11 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void testLargeQueueItemDelete() {
+    @ParameterizedTest
+    @RandomSeedSource({663377L, 7758893L})
+    void testLargeQueueItemDelete(long seed) {
         // A split entry (>100KB) must be fully removed when clearEntry is called
-        TestDocument docWithHugeString = createHugeDocument();
+        TestDocument docWithHugeString = createHugeDocument(new Random(seed));
         TestDocument normalDoc = new TestDocument(primaryKey("Normal"),
                 List.of(createField("f", "small", LuceneIndexExpressions.DocumentFieldType.STRING, false, false)));
 
@@ -440,8 +450,7 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private TestDocument createHugeDocument() {
-        Random random = ThreadLocalRandom.current();
+    private TestDocument createHugeDocument(Random random) {
         StringBuilder builder = new StringBuilder();
         for (int i = 0 ; i < 500_000 ; i++) {
             builder.append(CHARACTERS.charAt(random.nextInt(CHARACTERS.length())));
@@ -567,7 +576,8 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
                         createField("long field", 6L, LuceneIndexExpressions.DocumentFieldType.LONG, true, false),
                         createField("double field", 3.14D, LuceneIndexExpressions.DocumentFieldType.DOUBLE, true, true)));
 
-        TestDocument hugeDoc = createHugeDocument();
+        Random random = new Random();
+        TestDocument hugeDoc = createHugeDocument(random);
 
         return List.of(docWithNoFields, docWithOneFields, docWithMultipleFields, hugeDoc, docWithAllFieldTypes);
     }

@@ -884,7 +884,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         }
     }
 
-    public static Stream<Arguments> splitKeyEquivalenceCases() {
+    public static Stream<Arguments> previousKeyEquivalence() {
         return Stream.of(
                 Arguments.of(Tuple.from(1066L), SplitHelper.START_SPLIT_RECORD),
                 Arguments.of(Tuple.from(1066L), SplitHelper.START_SPLIT_RECORD + 1),
@@ -902,14 +902,14 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
      * {@code subspace} + {@code key.add(index)} to {@code packSplitKey} instead of the old
      * {@code subspace.subspace(key)} + {@code Tuple.from(index)} — produces identical byte keys.
      */
-    @MethodSource("splitKeyEquivalenceCases")
-    @ParameterizedTest(name = "defaultHelperSplitKeyEquivalence[key={0}, index={1}]")
-    void defaultHelperSplitKeyEquivalence(Tuple key, long index) {
+    @MethodSource("previousKeyEquivalence")
+    @ParameterizedTest(name = "previousKeyEquivalence[key={0}, index={1}]")
+    void previousKeyEquivalence(Tuple key, long index) {
         Subspace subspace = new Subspace(Tuple.from("test"));
 
-        // Old call site in SplitHelper: subspace.subspace(key).pack(index)
+        // Old call: subspace.subspace(key).pack(index)
         byte[] oldKey = subspace.subspace(key).pack(index);
-        // New call site: packSplitKey(subspace, key.add(index)) = subspace.pack(key.add(index))
+        // New call subspace.pack(key.add(index))
         byte[] newKey = subspace.pack(key.add(index));
 
         assertArrayEquals(oldKey, newKey);
