@@ -200,7 +200,7 @@ public final class PlanGenerator {
                                         return acc;
                                     }
                                 } else {
-                                    return candidate;
+                                    return acc;
                                 }
                             }),
                             e -> planContext.getMetricsCollector().increment(e)

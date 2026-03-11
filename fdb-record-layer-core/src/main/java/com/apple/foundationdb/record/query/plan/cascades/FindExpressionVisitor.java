@@ -138,6 +138,9 @@ public class FindExpressionVisitor implements SimpleExpressionVisitor<Map<Class<
 
     @Nonnull
     public static Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> evaluate(@Nonnull Set<Class<? extends RelationalExpression>> expressionClasses, @Nonnull RelationalExpression expression) {
+        if (expressionClasses.isEmpty()) {
+            return ImmutableMap.of();
+        }
         @Nullable final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> nullableResult =
                 expression.acceptVisitor(new FindExpressionVisitor(expressionClasses));
         return nullableResult == null ? ImmutableMap.of() : nullableResult;

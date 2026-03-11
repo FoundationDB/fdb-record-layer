@@ -28,10 +28,21 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * {@link Tiebreaker} implementation that always picks the right most one. This is intended to be the
+ * {@link Tiebreaker} implementation that always picks the left most one. This is intended to be the
  * tiebreaker of last resort. That is, if all other tiebreakers are unable to distinguish between two
  * elements, including the hash of the objects (see {@link RewritingCostModel#semanticHashTiebreaker()} and
  * {@link PlanningCostModel#planHashTiebreaker()}), then this tiebreaker should be invoked.
+ *
+ * <p>
+ * In cases where there are otherwise multiple "best" plans, the idea with this tiebreaker is that it
+ * should select the first element from an ordered collection that is in the best equivalency
+ * class. To make this work, whenever accumulating values from a list, we should always pass in new
+ * expressions as the left hand side ({@code a}), while the accumulator's value should be passed
+ * in on the right hand side ({@code a}). It would probably be more natural to swap the comparand
+ * order and have this elect to return the left hand element ({@code a}), but there are some {@link Tiebreaker}
+ * implementations that are not antisymmetric. As such, swapping the order would currently result
+ * in plan changes. See: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/3998">Issue #3998</a>.
+ * </p>
  */
 final class PickRightTiebreaker implements Tiebreaker<RelationalExpression> {
     private static final PickRightTiebreaker INSTANCE = new PickRightTiebreaker();

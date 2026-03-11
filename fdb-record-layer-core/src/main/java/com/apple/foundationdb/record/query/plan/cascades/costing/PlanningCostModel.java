@@ -131,13 +131,6 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
     }
 
     @Nonnull
-    @Override
-    public Set<RecordQueryPlan> getBestExpressions(@Nonnull final Set<? extends RelationalExpression> expressions,
-                                                   @Nonnull final Consumer<RecordQueryPlan> onRemoveConsumer) {
-        return costPlans(expressions, onRemoveConsumer).getBestExpressions();
-    }
-
-    @Nonnull
     private TiebreakerResult<RecordQueryPlan> costPlans(@Nonnull final Set<? extends RelationalExpression> expressions,
                                                         @Nonnull final Consumer<RecordQueryPlan> onRemoveConsumer) {
         final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache =

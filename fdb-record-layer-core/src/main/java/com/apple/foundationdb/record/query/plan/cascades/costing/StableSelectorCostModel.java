@@ -71,12 +71,6 @@ public class StableSelectorCostModel implements CascadesCostModel<RecordQueryPla
     }
 
     @Nonnull
-    @Override
-    public Set<RecordQueryPlan> getBestExpressions(@Nonnull final Set<? extends RelationalExpression> expressions, @Nonnull final Consumer<RecordQueryPlan> onRemoveConsumer) {
-        return costExpressions(expressions, onRemoveConsumer).getBestExpressions();
-    }
-
-    @Nonnull
     private TiebreakerResult<RecordQueryPlan> costExpressions(@Nonnull final Set<? extends RelationalExpression> expressions,
                                                               @Nonnull final Consumer<RecordQueryPlan> onRemoveConsumer) {
         final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache =
@@ -90,14 +84,14 @@ public class StableSelectorCostModel implements CascadesCostModel<RecordQueryPla
     @Override
     public Integer compare(@Nonnull final RelationalExpression a,
                            @Nonnull final RelationalExpression b) {
+        if (!(a instanceof RecordQueryPlan) && !(b instanceof RecordQueryPlan)) {
+            return null;
+        }
         if (a instanceof RecordQueryPlan && !(b instanceof RecordQueryPlan)) {
             return -1;
         }
-        if (!(a instanceof RecordQueryPlan) && b instanceof RecordQueryPlan) {
+        if (!(a instanceof RecordQueryPlan) /* && b instanceof RecordQueryPlan*/ ) {
             return 1;
-        }
-        if (!(a instanceof RecordQueryPlan) /* && !(b instanceof RecordQueryPlan)*/) {
-            return 0;
         }
         return tiebreaker.compare(getConfiguration(), ImmutableMap.of(), ImmutableMap.of(), (RecordQueryPlan) a, (RecordQueryPlan) b);
     }

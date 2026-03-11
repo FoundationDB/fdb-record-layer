@@ -25,10 +25,10 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -41,19 +41,63 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
 
+/**
+ * An interface encapsulating comparisons between two expressions. This is used by the {@link CascadesCostModel}
+ * to evaluate which plans are more desirable during planner pruning. This is akin to a {@link java.util.Comparator}
+ * with two major differences:
+ *
+ * <ul>
+ *     <li>
+ *         The {@link #compare(RecordQueryPlannerConfiguration, Map, Map, RelationalExpression, RelationalExpression) compare()}
+ *         method is enriched with additional context collected by the cost model and cached to avoid duplicated effort.
+ *     </li>
+ *     <li>
+ *         Objects of this class are intended to be composed together, hence "tiebreaker". Each {@link CascadesCostModel}
+ *         implementation strings together a series of these tiebreakers and will favor plans that compare better
+ *         given earlier tiebreakers before continuing down the list. See {@link #combineTiebreakers(List)}.
+ *     </li>
+ * </ul>
+ *
+ * @param <T> the type of expressions being compared
+ */
 interface Tiebreaker<T extends RelationalExpression> {
+
+    /**
+     * Compare two expressions. Like a {@link java.util.Comparator}, this should return a
+     * negative value if the expression {@code a} is more optimal, a positive value if
+     * the expression {@code b} is more optimal, or zero if the two expressions cannot
+     * be distinguished. To avoid needing to re-calculate the number of sub-expressions
+     * of each type, each implementation also has access to a cached {@code opsMap}, which
+     * contains all sub-expressions of {@code a} or {@code b} grouped by their class.
+     *
+     * @param configuration general planner configuration options that may affect some implementations' parameters
+     * @param opsMapA a cached set of sub-expressions of {@code a} grouped by each expression's class
+     * @param opsMapB a similar map computed for {@code b}
+     * @param a the left expression to compare
+     * @param b the right expression to compare
+     * @return a negative value if {@code a} is preferred, a positive value if {@code b} is preferred, and
+     *        zero if they are not distinguished by this implementation
+     */
     int compare(@Nonnull RecordQueryPlannerConfiguration configuration,
                 @Nonnull Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
                 @Nonnull Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
                 @Nonnull T a, @Nonnull T b);
 
+    /**
+     * Construct a single {@link Tiebreaker} combining the logic of multiple other tiebreakers.
+     * The resulting tiebreaker will return a comparison that is identical to the first non-zero
+     * result that would have been returned by the input tiebreakers, and it returns zero if
+     * all the input tiebreakers return zero.
+     *
+     * @param tiebreakers a collection of {@link Tiebreaker}s to combine
+     * @param <T> type of expressions being compared by the resulting {@link Tiebreaker}
+     * @return a {@link Tiebreaker} based on the given {@code tiebreakers}
+     */
     @Nonnull
     static <T extends RelationalExpression> Tiebreaker<T> combineTiebreakers(@Nonnull final List<Tiebreaker<? super T>> tiebreakers) {
-        return (configuration,
-                opsMapA, opsMapB,
-                a, b) -> {
+        return (configuration, opsMapA, opsMapB, a, b) -> {
             int compareResult = 0;
-            for (final var tiebreaker : tiebreakers) {
+            for (final Tiebreaker<? super T> tiebreaker : tiebreakers) {
                 compareResult = tiebreaker.compare(configuration, opsMapA, opsMapB, a, b);
                 if (compareResult != 0) {
                     return compareResult;
@@ -84,26 +128,42 @@ interface Tiebreaker<T extends RelationalExpression> {
         return new TiebreakerResultWithNext<>(plannerConfiguration, opsCache, filteredExpressions, onRemoveConsumer);
     }
 
+    /**
+     * Collect a set of the best elements from a stream of expressions according to a given {@link Tiebreaker}.
+     * This uses the {@link Tiebreaker} to compare plans as they are collected. It will return a set which
+     * should have the following two properties:
+     *
+     * <ul>
+     *     <li>Using the tiebreaker to compare any pair of expressions in the set should return zero.</li>
+     *     <li>Any expression in the returned set should compare as more optimal than any expression discarded by the collector.</li>
+     * </ul>
+     *
+     * @param plannerConfiguration general planner configuration options that may affect some implementations' parameters
+     * @param tiebreaker tiebreaker to use to select the best equivalency class of plans
+     * @param opsCache a cache to be used to produce the operations maps passed to {@link #compare(RecordQueryPlannerConfiguration, Map, Map, RelationalExpression, RelationalExpression)}
+     * @param onRemoveConsumer a callback to be invoked whenever an expression is discarded from the stream
+     * @param <T> the type of expressions in the stream
+     * @return a collector that returns the most set of expressions considered the most optimal
+     */
     @Nonnull
     static <T extends RelationalExpression> Collector<T, LinkedIdentitySet<T>, Set<T>>
              toBestExpressions(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
-                               @Nonnull final Tiebreaker<T> tieBreaker,
+                               @Nonnull final Tiebreaker<T> tiebreaker,
                                @Nonnull final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache,
                                @Nonnull final Consumer<T> onRemoveConsumer) {
-        return new BestExpressionsCollector<>(
-                ImmutableSet.copyOf(EnumSet.of(Collector.Characteristics.UNORDERED,
-                        Collector.Characteristics.IDENTITY_FINISH)),
-                plannerConfiguration, tieBreaker, opsCache, onRemoveConsumer);
+        return new BestExpressionsCollector<>(plannerConfiguration, tiebreaker, opsCache, onRemoveConsumer);
     }
 
     /**
-     * Simple implementation class for {@code Collector}.
+     * {@code Collector} implementation for {@link #toBestExpressions(RecordQueryPlannerConfiguration, Tiebreaker, LoadingCache, Consumer)}.
      *
      * @param <T> the type of elements to be collected
+     * @see #toBestExpressions(RecordQueryPlannerConfiguration, Tiebreaker, LoadingCache, Consumer)
      */
     class BestExpressionsCollector<T extends RelationalExpression> implements Collector<T, LinkedIdentitySet<T>, Set<T>> {
         @Nonnull
-        private final Set<Characteristics> characteristics;
+        private static final Set<Characteristics> characteristics = Collections.unmodifiableSet(
+                EnumSet.of(Characteristics.IDENTITY_FINISH));
         @Nonnull
         private final RecordQueryPlannerConfiguration plannerConfiguration;
         @Nonnull
@@ -113,12 +173,10 @@ interface Tiebreaker<T extends RelationalExpression> {
         @Nonnull
         private final Consumer<T> onRemoveConsumer;
 
-        private BestExpressionsCollector(@Nonnull final Set<Characteristics> characteristics,
-                                         @Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
+        private BestExpressionsCollector(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
                                          @Nonnull final Tiebreaker<T> tieBreaker,
                                          @Nonnull final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache,
                                          @Nonnull final Consumer<T> onRemoveConsumer) {
-            this.characteristics = characteristics;
             this.plannerConfiguration = plannerConfiguration;
             this.tieBreaker = tieBreaker;
             this.opsCache = opsCache;
@@ -128,7 +186,9 @@ interface Tiebreaker<T extends RelationalExpression> {
         @Override
         public BiConsumer<LinkedIdentitySet<T>, T> accumulator() {
             return (bestExpressions, newExpression) -> {
-                // pick a representative from the best expressions set and cost that against the new expression
+                // Pick a representative from the best expressions set and cost that against the new expression.
+                // All the expressions in the current set of bestExpressions must be equivalent, so just take
+                // the first one arbitrarily
                 final var aBestExpression = Iterables.getFirst(bestExpressions, null);
                 final int compare;
                 if (aBestExpression == null) {
@@ -149,16 +209,16 @@ interface Tiebreaker<T extends RelationalExpression> {
                 }
 
                 if (compare < 0) {
+                    // New expression is preferred to all the existing ones. Drop them
                     bestExpressions.forEach(onRemoveConsumer);
                     bestExpressions.clear();
                     bestExpressions.add(newExpression);
-                } else if (compare == 0) {
-                    bestExpressions.add(newExpression);
-                } else {
-                    //
-                    // Note, that if expression is more costly than bestExpressions, it will be dropped.
-                    //
+                } else if (compare > 0) {
+                    // Existing expressions are preferred. Drop the new one
                     onRemoveConsumer.accept(newExpression);
+                } else {
+                    // New expression is equivalent to the existing ones. Add it to the set
+                    bestExpressions.add(newExpression);
                 }
             };
         }
@@ -171,6 +231,8 @@ interface Tiebreaker<T extends RelationalExpression> {
         @Override
         public BinaryOperator<LinkedIdentitySet<T>> combiner() {
             return (left, right) -> {
+                // Each set contains an equivalency class of expressions, so take the first
+                // one from each as representatives that will be used during the comparison
                 final var aLeftBestExpression = Iterables.getFirst(left, null);
                 final var aRightBestExpression = Iterables.getFirst(left, null);
                 if (aLeftBestExpression == null) {
@@ -191,6 +253,8 @@ interface Tiebreaker<T extends RelationalExpression> {
                 final int compare =
                         tieBreaker.compare(plannerConfiguration, leftMap, rightMap,
                                 aLeftBestExpression, aRightBestExpression);
+                // Check if one set is more optimal than the other. Choose the preferred one, and
+                // mark all the discarded elements as removed
                 if (compare < 0) {
                     right.forEach(onRemoveConsumer);
                     return left;
@@ -198,6 +262,7 @@ interface Tiebreaker<T extends RelationalExpression> {
                     left.forEach(onRemoveConsumer);
                     return right;
                 }
+                // Two sets form a larger equivalency class. Combine them
                 return new LinkedIdentitySet<>(Iterables.concat(left, right));
             };
         }

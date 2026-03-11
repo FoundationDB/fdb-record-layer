@@ -31,7 +31,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -86,13 +85,6 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
     }
 
     @Nonnull
-    @Override
-    public Set<RelationalExpression> getBestExpressions(@Nonnull final Set<? extends RelationalExpression> expressions,
-                                                        @Nonnull final Consumer<RelationalExpression> onRemoveConsumer) {
-        return costExpressions(expressions, onRemoveConsumer).getBestExpressions();
-    }
-
-    @Nonnull
     private TiebreakerResult<RelationalExpression> costExpressions(@Nonnull final Set<? extends RelationalExpression> expressions,
                                                                    @Nonnull final Consumer<RelationalExpression> onRemoveConsumer) {
         final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache =
@@ -106,7 +98,7 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
     @Override
     public Integer compare(@Nonnull final RelationalExpression a,
                            @Nonnull final RelationalExpression b) {
-        return tiebreaker.compare(getConfiguration(), ImmutableMap.of(), ImmutableMap.of(), a, b);
+        return tiebreaker.compare(getConfiguration(), FindExpressionVisitor.evaluate(interestingExpressionClasses, a), FindExpressionVisitor.evaluate(interestingExpressionClasses, b), a, b);
     }
 
     @Nonnull

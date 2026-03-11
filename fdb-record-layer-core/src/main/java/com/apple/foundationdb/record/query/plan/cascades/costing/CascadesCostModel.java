@@ -45,10 +45,6 @@ public interface CascadesCostModel<T extends RelationalExpression> {
     Optional<T> getBestExpression(@Nonnull Set<? extends RelationalExpression> expressions,
                                   @Nonnull Consumer<T> onRemoveConsumer);
 
-    @Nonnull
-    Set<T> getBestExpressions(@Nonnull Set<? extends RelationalExpression> expressions,
-                              @Nonnull Consumer<T> onRemoveConsumer);
-
     @Nullable
     Integer compare(@Nonnull RelationalExpression a, @Nonnull RelationalExpression b);
 
