@@ -313,6 +313,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void skippedFieldNumberProto(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("skipped-field-number-proto.yamsql");
+    }
+
+    @TestTemplate
     public void sparseIndex(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("sparse-index-tests.yamsql");
     }

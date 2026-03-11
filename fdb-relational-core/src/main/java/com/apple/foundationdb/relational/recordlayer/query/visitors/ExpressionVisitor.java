@@ -866,14 +866,30 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitRecordConstructorForInsert(@Nonnull RelationalParser.RecordConstructorForInsertContext ctx) {
         final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
-        return Expression.ofUnnamed(RecordConstructorValue.ofColumns(expressions.underlyingAsColumns()));
+        final var columns = expressions.underlyingAsColumns();
+        final var maybeTargetRecordType = getStateMaybe()
+                .flatMap(LogicalPlanFragment.State::getTargetType)
+                .filter(t -> t instanceof Type.Record)
+                .map(t -> (Type.Record) t);
+        if (maybeTargetRecordType.isPresent()) {
+            return Expression.ofUnnamed(RecordConstructorValue.ofColumns(columns, maybeTargetRecordType.get()));
+        }
+        return Expression.ofUnnamed(RecordConstructorValue.ofColumns(columns));
     }
 
     @Nonnull
     @Override
     public Expression visitRecordConstructorForInlineTable(@Nonnull RelationalParser.RecordConstructorForInlineTableContext ctx) {
         final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
-        return Expression.ofUnnamed(RecordConstructorValue.ofColumns(expressions.underlyingAsColumns()));
+        final var columns = expressions.underlyingAsColumns();
+        final var maybeTargetRecordType = getStateMaybe()
+                .flatMap(LogicalPlanFragment.State::getTargetType)
+                .filter(t -> t instanceof Type.Record)
+                .map(t -> (Type.Record) t);
+        if (maybeTargetRecordType.isPresent()) {
+            return Expression.ofUnnamed(RecordConstructorValue.ofColumns(columns, maybeTargetRecordType.get()));
+        }
+        return Expression.ofUnnamed(RecordConstructorValue.ofColumns(columns));
     }
 
     @Nonnull
@@ -897,12 +913,21 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             return Expression.ofUnnamed(resultValue);
         }
         final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
+        final var columns = expressions.underlyingAsColumns();
+        final var maybeTargetRecordType = getStateMaybe()
+                .flatMap(LogicalPlanFragment.State::getTargetType)
+                .filter(t -> t instanceof Type.Record)
+                .map(t -> (Type.Record) t);
         if (ctx.ofTypeClause() != null) {
             final var recordId = visitUid(ctx.ofTypeClause().uid());
-            final var resultValue = RecordConstructorValue.ofColumnsAndName(expressions.underlyingAsColumns(), recordId.getName());
+            final var resultValue = maybeTargetRecordType.isPresent()
+                    ? RecordConstructorValue.ofColumnsAndName(columns, recordId.getName(), maybeTargetRecordType.get())
+                    : RecordConstructorValue.ofColumnsAndName(columns, recordId.getName());
             return Expression.ofUnnamed(resultValue);
         }
-        final var resultValue = RecordConstructorValue.ofColumns(expressions.underlyingAsColumns());
+        final var resultValue = maybeTargetRecordType.isPresent()
+                ? RecordConstructorValue.ofColumns(columns, maybeTargetRecordType.get())
+                : RecordConstructorValue.ofColumns(columns);
         return Expression.ofUnnamed(resultValue);
     }
 

@@ -2508,6 +2508,36 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return new Record(isNullable, normalizeFields(fields));
         }
 
+        /**
+         * Creates a new {@link Record} type instance, resolving missing field indices from
+         * {@code referenceFields} before falling back to sequential assignment.
+         *
+         * <p>This overload is the correct entry point when constructing a {@link Record} type
+         * from a construction code path (e.g. parsing INSERT VALUES) where the {@link Field}
+         * objects may have lost their proto field numbers but the authoritative target type
+         * (backed by a proto descriptor) is available. For each field that lacks a
+         * {@code fieldIndex}, the reference is consulted by storage name to recover the
+         * original proto field number. This keeps the resulting dynamic descriptor
+         * wire-compatible with the target proto even when the proto skips field numbers.
+         *
+         * @param isNullable      whether the resulting record type is nullable
+         * @param fields          the fields as produced by the construction path (may lack indices)
+         * @param referenceFields the authoritative fields from the target descriptor-backed type,
+         *                        used solely to supply the correct proto field numbers by name
+         * @return a new {@link Record} type instance with correct proto field numbers
+         */
+        @Nonnull
+        public static Record fromFields(final boolean isNullable, @Nonnull final List<Field> fields,
+                                        @Nonnull final List<Field> referenceFields) {
+            final var referenceIndexByStorageName = referenceFields.stream()
+                    .filter(f -> f.getFieldStorageNameOptional().isPresent() && f.getFieldIndexOptional().isPresent())
+                    .collect(ImmutableMap.toImmutableMap(
+                            f -> f.getFieldStorageNameOptional().get(),
+                            Field::getFieldIndex,
+                            (a, b) -> a));   // keep first on duplicate storage names
+            return new Record(isNullable, normalizeFields(fields, referenceIndexByStorageName));
+        }
+
         @Nonnull
         public static Record fromFieldsWithName(@Nonnull String name, final boolean isNullable, @Nonnull final List<Field> fields) {
             return new Record(name, ProtoUtils.toProtoBufCompliantName(name), isNullable, normalizeFields(fields));
@@ -2580,6 +2610,59 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return fieldDescriptors
                     .stream()
                     .collect(ImmutableMap.toImmutableMap(Descriptors.FieldDescriptor::getName, fieldDescriptor -> fieldDescriptor));
+        }
+
+        /**
+         * Normalizes a list of {@link Field}s such that their names and indices are consistent.
+         *
+         * <p>When the reference map is non-empty, any field that lacks a {@code fieldIndex} but
+         * whose storage name appears in {@code referenceIndexByStorageName} is pre-assigned the
+         * proto field number from the reference <em>before</em> the standard sequential-fill pass
+         * runs. This preserves the wire field numbers from the original proto descriptor even when
+         * fields are created through construction paths (e.g. INSERT VALUES) that do not carry the
+         * proto field number forward.</p>
+         *
+         * @param fields                     the list of {@link Field}s to normalize
+         * @param referenceIndexByStorageName a map from proto storage name to the correct field
+         *                                   index, built from the authoritative descriptor-backed
+         *                                   target type; may be empty but must not be {@code null}
+         * @return a list of normalized {@link Field}s
+         */
+        @Nullable
+        private static List<Field> normalizeFields(@Nullable final List<Field> fields,
+                                                   @Nonnull final Map<String, Integer> referenceIndexByStorageName) {
+            if (fields == null) {
+                return null;
+            }
+            if (referenceIndexByStorageName.isEmpty()) {
+                return normalizeFields(fields);
+            }
+            // Pre-resolve missing field indices using the reference map so that the standard
+            // normalization pass below only falls back to sequential assignment for fields that
+            // genuinely have no proto-backed reference (e.g. anonymous/synthetic columns).
+            final var resolvedFields = fields.stream()
+                    .map(field -> {
+                        if (field.getFieldIndexOptional().isPresent()) {
+                            return field;
+                        }
+                        final String storageName = field.getFieldStorageNameOptional()
+                                .orElseGet(() -> field.getFieldNameOptional()
+                                        .map(ProtoUtils::toProtoBufCompliantName)
+                                        .orElse(null));
+                        if (storageName == null) {
+                            return field;
+                        }
+                        final Integer resolvedIndex = referenceIndexByStorageName.get(storageName);
+                        if (resolvedIndex == null) {
+                            return field;
+                        }
+                        return new Field(field.getFieldType(),
+                                field.getFieldNameOptional(),
+                                Optional.of(resolvedIndex),
+                                field.getFieldStorageNameOptional());
+                    })
+                    .collect(ImmutableList.toImmutableList());
+            return normalizeFields(resolvedFields);
         }
 
         /**

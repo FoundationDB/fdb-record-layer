@@ -456,6 +456,23 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         return Type.Record.fromFields(isNullable, fields);
     }
 
+    /**
+     * Computes the result type for the given columns, resolving missing proto field numbers from
+     * {@code referenceFields}. This overload must be used whenever the columns originate from a
+     * construction code path (e.g. INSERT VALUES) and the authoritative target type is known, so
+     * that the dynamic descriptor produced from the result type remains wire-compatible with the
+     * target proto descriptor even when that proto skips field numbers.
+     */
+    @Nonnull
+    private static Type.Record computeResultType(@Nonnull final Collection<Column<? extends Value>> columns,
+                                                 final boolean isNullable,
+                                                 @Nonnull final List<Type.Record.Field> referenceFields) {
+        final var fields = columns.stream()
+                .map(Column::getField)
+                .collect(ImmutableList.toImmutableList());
+        return Type.Record.fromFields(isNullable, fields, referenceFields);
+    }
+
     @Nonnull
     private static List<Column<? extends Value>> resolveColumns(@Nonnull final Type.Record recordType,
                                                                 @Nonnull final Collection<Column<? extends Value>> columns) {
@@ -483,10 +500,34 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         return ofColumnsAndResolvedType(columns, computeResultType(columns, isNullable));
     }
 
+    /**
+     * Creates a {@link RecordConstructorValue} whose result type is derived by resolving any
+     * missing proto field numbers from {@code targetType}'s fields.  Use this overload instead of
+     * {@link #ofColumns(Collection)} whenever the target record type is known (e.g. during INSERT
+     * parsing), so that the resulting dynamic descriptor is wire-compatible with the target proto
+     * even when the proto skips field numbers.
+     */
+    @Nonnull
+    public static RecordConstructorValue ofColumns(@Nonnull final Collection<Column<? extends Value>> columns,
+                                                   @Nonnull final Type.Record targetType) {
+        return ofColumnsAndResolvedType(columns, computeResultType(columns, false, targetType.getFields()));
+    }
+
     @Nonnull
     public static RecordConstructorValue ofColumnsAndName(@Nonnull final Collection<Column<? extends Value>> columns,
                                                           @Nonnull final String name) {
         return ofColumnsAndResolvedType(columns, computeResultType(columns, false).withName(name));
+    }
+
+    /**
+     * Like {@link #ofColumnsAndName(Collection, String)} but also resolves missing proto field
+     * numbers from {@code targetType}.
+     */
+    @Nonnull
+    public static RecordConstructorValue ofColumnsAndName(@Nonnull final Collection<Column<? extends Value>> columns,
+                                                          @Nonnull final String name,
+                                                          @Nonnull final Type.Record targetType) {
+        return ofColumnsAndResolvedType(columns, computeResultType(columns, false, targetType.getFields()).withName(name));
     }
 
     @Nonnull
