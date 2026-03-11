@@ -4415,6 +4415,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         List<Index> indexesToBeBuilt = new ArrayList<>();
         for (Index index: indexes.keySet()) {
             addIndexStateReadConflict(index.getName());
+            // TODO je: This is a bug as the newStates may return READABLE from another function
             if (newStates.getOrDefault(index, READY_READABLE) == READY_READABLE) {
                 indexesToBeBuilt.add(index);
             }
