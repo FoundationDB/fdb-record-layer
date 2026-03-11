@@ -40,12 +40,12 @@ import java.util.Set;
  * hash code, so it can be used with the {@link PlanningCostModel#planHashTiebreaker()}, but
  * all of its other characteristics are not set to anything interesting.
  */
-class TestExpressionWithStableHashCode extends AbstractRelationalExpression {
+class TestExpressionWithFixedSemanticHash extends AbstractRelationalExpression {
     @Nonnull
     private final String name;
     private final int hashCode;
 
-    public TestExpressionWithStableHashCode(@Nonnull String name, int hashCode) {
+    public TestExpressionWithFixedSemanticHash(@Nonnull String name, int hashCode) {
         this.name = name;
         this.hashCode = hashCode;
     }
@@ -80,8 +80,8 @@ class TestExpressionWithStableHashCode extends AbstractRelationalExpression {
 
     @Override
     public boolean equalsWithoutChildren(@NonNull final RelationalExpression other, @NonNull final AliasMap equivalences) {
-        if (other instanceof TestExpressionWithStableHashCode) {
-            return hashCode == other.semanticHashCode() && Objects.equals(name, ((TestExpressionWithStableHashCode)other).getName());
+        if (other instanceof TestExpressionWithFixedSemanticHash) {
+            return hashCode == other.semanticHashCode() && Objects.equals(name, ((TestExpressionWithFixedSemanticHash)other).getName());
         }
         return false;
     }

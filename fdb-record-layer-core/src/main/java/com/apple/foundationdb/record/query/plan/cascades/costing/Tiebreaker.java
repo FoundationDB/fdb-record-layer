@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.FindExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -128,7 +129,7 @@ interface Tiebreaker<T extends RelationalExpression> {
             return new TerminalTiebreakerResult<>(filteredExpressions);
         }
 
-        final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache = createOpsCache(interestingExpressionClasses);
+        final var opsCache = createOpsCache(interestingExpressionClasses);
         return new TiebreakerResultWithNext<>(plannerConfiguration, opsCache, filteredExpressions, onRemoveConsumer);
     }
 
@@ -158,8 +159,9 @@ interface Tiebreaker<T extends RelationalExpression> {
         return new BestExpressionsCollector<>(plannerConfiguration, tiebreaker, opsCache, onRemoveConsumer);
     }
 
+    @VisibleForTesting
     @Nonnull
-    private static LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> createOpsCache(Set<Class<? extends RelationalExpression>> interestingExpressionClasses) {
+    static LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> createOpsCache(Set<Class<? extends RelationalExpression>> interestingExpressionClasses) {
         return CacheBuilder.newBuilder()
                 .build(new CacheLoader<>() {
                     @Override
@@ -254,7 +256,7 @@ interface Tiebreaker<T extends RelationalExpression> {
                 if (aLeftBestExpression == null) {
                     return right;
                 }
-                final var aRightBestExpression = Iterables.getFirst(left, null);
+                final var aRightBestExpression = Iterables.getFirst(right, null);
                 if (aRightBestExpression == null) {
                     return left;
                 }
@@ -267,15 +269,21 @@ interface Tiebreaker<T extends RelationalExpression> {
                 } catch (ExecutionException eE) {
                     throw new RecordCoreException(eE);
                 }
+                // Counter-intuitively, we need to put the right expressions on the left and the
+                // left expressions on the right. The reason is that the accumulator puts each
+                // new expression into the left as it iterates. If every tiebreaker were
+                // antisymmetric, then we wouldn't need to care about this, but that's not quite
+                // the case.
+                // See: https://github.com/FoundationDB/fdb-record-layer/issues/3998
                 final int compare =
-                        tiebreaker.compare(plannerConfiguration, leftMap, rightMap,
-                                aLeftBestExpression, aRightBestExpression);
+                        tiebreaker.compare(plannerConfiguration, rightMap, leftMap,
+                                aRightBestExpression, aLeftBestExpression);
                 // Check if one set is more optimal than the other. Choose the preferred one, and
                 // mark all the discarded elements as removed
-                if (compare < 0) {
+                if (compare > 0) {
                     right.forEach(onRemoveConsumer);
                     return left;
-                } else if (compare > 0) {
+                } else if (compare < 0) {
                     left.forEach(onRemoveConsumer);
                     return right;
                 }
