@@ -60,7 +60,7 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
         SemanticException.check(arguments.size() == parameterTypes.size(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument length doesn't match with function definition");
         final RegularTranslationMap.Builder translationMapBuilder = TranslationMap.regularBuilder();
         for (int i = 0; i < arguments.size(); i++) {
-            // check that arguments[i] type matches with parameterTypes[i]
+            // check that arguments[i] type matches with parameterTypes[i] ignoring nullability -- Nullability is not specified when a user defined function is defined.
             final int finalI = i;
             SemanticException.check(typeEqualsIgnoreNullability(arguments.get(finalI).getResultType(), parameterTypes.get(i)), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument type doesn't match with function definition");
             translationMapBuilder.when(parameterIdentifiers.get(finalI)).then((sourceAlias, leafValue) -> (Value)arguments.get(finalI));
@@ -108,8 +108,6 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
         if (type2.getTypeCode() == Type.TypeCode.NULL) {
             return type1.getTypeCode() == Type.TypeCode.NULL;
         }
-        final Type notNullableType1 = type1.notNullable();
-        final Type notNullableType2 = type2.notNullable();
-        return notNullableType1.equals(notNullableType2);
+        return type1.notNullable().equals(type2.notNullable());
     }
 }

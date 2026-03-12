@@ -291,11 +291,9 @@ public class LogicalOperator {
             outputAttributes = Expressions.of(convertToExpressions(resultingQuantifier));
         }
         final var operator = LogicalOperator.newOperator(alias, outputAttributes, resultingQuantifier);
+        // An example query: select T.a, item.name from T, T.item_array as item where get_price(item) = blah.
         // For struct array elements, prepend a whole-struct EphemeralExpression named by the alias.
-        // This allows UDFs to receive the entire struct element as an argument, e.g. func(item),
-        // while keeping it invisible to SELECT * expansion (EphemeralExpression is excluded by
-        // nonEphemeralVisible()). The expression must be added after newOperator() has applied
-        // withQualifier() to the field attributes, to avoid double-qualifying the alias name.
+        // This allows UDFs to receive the entire struct element as an argument.
         if (alias.isPresent() && !resultingQuantifier.getFlowedObjectType().isPrimitive()) {
             final var elementType = DataTypeUtils.toRelationalType(resultingQuantifier.getFlowedObjectType());
             final var wholeStructExpr = new EphemeralExpression(alias, elementType,
