@@ -217,31 +217,8 @@ public final class CopyPlan extends QueryPlan {
             final StoreCatalog storeCatalog = getEmbeddedRelationalConnection(context).getBackingCatalog();
 
             // Transform DataInKeySpacePath to Row with serialized bytes
-            RecordLayerIterator<DataInKeySpacePath> iterator = RecordLayerIterator.create(cursor, data -> {
-                if (data == null) {
-                    return null;
-                }
-
-                CopyData.Builder copyDataBuilder = CopyData.newBuilder()
-                        .setData(serializer.serialize(data));
-
-                // Try to extract schema information from the path
-                try {
-                    final CatalogInfo schemaTemplateInfo =
-                            exportCatalogInfo(data.getPath(), pathSchemaCache, storeCatalog, context.transaction);
-                    if (schemaTemplateInfo != null) {
-                        copyDataBuilder.setCatalogInfo(schemaTemplateInfo);
-                    }
-                } catch (Exception e) {
-                    throw new UncheckedRelationalException(new RelationalException(
-                            "Error extracting schema metadata information from catalog for data being exported",
-                            ErrorCode.COPY_SERIALIZATION_ERROR, e)
-                            .addContext("path", data.getPath()));
-                }
-
-                byte[] bytes = copyDataBuilder.build().toByteArray();
-                return new ArrayRow(new Object[] { bytes });
-            });
+            RecordLayerIterator<DataInKeySpacePath> iterator = RecordLayerIterator.create(cursor,
+                    data -> convertDataToRow(context, data, serializer, pathSchemaCache, storeCatalog));
 
             // Build metadata for single BYTES column
             DataType.StructType structType = DataType.StructType.from("COPY_EXPORT", List.of(
@@ -270,6 +247,36 @@ public final class CopyPlan extends QueryPlan {
             throw new RelationalException("Failed to execute COPY export",
                     ErrorCode.INTERNAL_ERROR, e);
         }
+    }
+
+    @Nullable
+    private static ArrayRow convertDataToRow(@Nonnull final ExecutionContext context,
+                                             @Nullable final DataInKeySpacePath data,
+                                             @Nonnull final KeySpacePathSerializer serializer,
+                                             @Nonnull final Map<KeySpacePath, CatalogInfo> pathSchemaCache,
+                                             @Nonnull final StoreCatalog storeCatalog) {
+        if (data == null) {
+            return null;
+        }
+
+        CopyData.Builder copyDataBuilder = CopyData.newBuilder()
+                .setData(serializer.serialize(data));
+
+        // Try to extract schema information from the path
+        try {
+            final CatalogInfo schemaTemplateInfo =
+                    exportCatalogInfo(data.getPath(), pathSchemaCache, storeCatalog, context.transaction);
+            if (schemaTemplateInfo != null) {
+                copyDataBuilder.setCatalogInfo(schemaTemplateInfo);
+            }
+        } catch (Exception e) {
+            throw new UncheckedRelationalException(new RelationalException(
+                    "Error extracting schema metadata information from catalog for data being exported",
+                    ErrorCode.COPY_SERIALIZATION_ERROR, e)
+                    .addContext("path", data.getPath()));
+        }
+
+        return new ArrayRow(new Object[] {copyDataBuilder.build().toByteArray()});
     }
 
     private static EmbeddedRelationalConnection getEmbeddedRelationalConnection(final @Nonnull ExecutionContext context) throws SQLException {
@@ -326,7 +333,6 @@ public final class CopyPlan extends QueryPlan {
                     ErrorCode.INTERNAL_ERROR, e);
         }
     }
-
 
 
     /**
@@ -401,16 +407,10 @@ public final class CopyPlan extends QueryPlan {
         final String schemaName = databaseAndSchema.getRight();
 
         try {
-            // Check if database exists
             if (!storeCatalog.doesDatabaseExist(transaction, databaseUri)) {
-                // Create the database
                 storeCatalog.createDatabase(transaction, databaseUri);
             }
 
-            // Get schema template catalog
-            final SchemaTemplateCatalog templateCatalog = storeCatalog.getSchemaTemplateCatalog();
-
-            // Check if schema exists
             if (storeCatalog.doesSchemaExist(transaction, databaseUri, schemaName)) {
                 // Schema exists, verify the template matches
                 final Schema existingSchema = storeCatalog.loadSchema(transaction, databaseUri, schemaName);
@@ -433,8 +433,8 @@ public final class CopyPlan extends QueryPlan {
                 }
             } else {
                 // Schema doesn't exist, create it from the template
+                final SchemaTemplateCatalog templateCatalog = storeCatalog.getSchemaTemplateCatalog();
                 if (!templateCatalog.doesSchemaTemplateExist(transaction, templateName, templateVersion)) {
-                    // Deserialize and create the template
                     final RecordMetaData recordMetaData = RecordMetaData.newBuilder()
                             .setRecords(MetaData.parseFrom(catalogInfo.getTemplateMetadata()))
                             .getRecordMetaData();
