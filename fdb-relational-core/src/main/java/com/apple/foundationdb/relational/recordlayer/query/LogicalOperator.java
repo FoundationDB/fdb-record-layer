@@ -290,7 +290,22 @@ public class LogicalOperator {
         } else {
             outputAttributes = Expressions.of(convertToExpressions(resultingQuantifier));
         }
-        return LogicalOperator.newOperator(alias, outputAttributes, resultingQuantifier);
+        final var operator = LogicalOperator.newOperator(alias, outputAttributes, resultingQuantifier);
+        // For struct array elements, prepend a whole-struct EphemeralExpression named by the alias.
+        // This allows UDFs to receive the entire struct element as an argument, e.g. func(item),
+        // while keeping it invisible to SELECT * expansion (EphemeralExpression is excluded by
+        // nonEphemeralVisible()). The expression must be added after newOperator() has applied
+        // withQualifier() to the field attributes, to avoid double-qualifying the alias name.
+        if (alias.isPresent() && !resultingQuantifier.getFlowedObjectType().isPrimitive()) {
+            final var elementType = DataTypeUtils.toRelationalType(resultingQuantifier.getFlowedObjectType());
+            final var wholeStructExpr = new EphemeralExpression(alias, elementType,
+                    resultingQuantifier.getFlowedObjectValue(), Expression.Visibility.VISIBLE);
+            return operator.withOutput(Expressions.of(ImmutableList.<Expression>builder()
+                    .add(wholeStructExpr)
+                    .addAll(operator.getOutput().asList())
+                    .build()));
+        }
+        return operator;
     }
 
     @Nonnull
