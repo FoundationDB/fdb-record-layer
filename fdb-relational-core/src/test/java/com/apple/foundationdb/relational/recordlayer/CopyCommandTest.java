@@ -502,7 +502,7 @@ public class CopyCommandTest {
                                                     connectionUtils;
         final List<Moveable> moveables = IntStream.of(0, 1, 2)
                 .mapToObj(index -> {
-                    String name = index == 0 ? "" : "SCHEMA" + index; // all caps so I don't have to worry about quoting
+                    String name = "SCHEMA" + index; // all caps so I don't have to worry about quoting
                     return new Moveable(
                             new SchemaInfo(sourceDatabasePath, name, sourceConnectionUtils),
                             new SchemaInfo(destDatabasePath, name, destConnectionUtils),

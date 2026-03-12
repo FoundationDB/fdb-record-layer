@@ -34,7 +34,7 @@ public final class CatalogValidator {
     // this seems superfluous, it can be replaced with proper checks in {@link Schema} constructor.
     public static void validateSchema(@Nonnull Schema schema) throws RelationalException {
         // fields schema_name, schema_version, schema_template_name, database_id are required
-        if (schema.getName() == null) {
+        if (schema.getName() == null || schema.getName().isEmpty()) {
             throw new RelationalException("Field schema_name in Schema must be set!", ErrorCode.INVALID_PARAMETER);
         }
         if (schema.getDatabaseName() == null || schema.getDatabaseName().isEmpty()) {
