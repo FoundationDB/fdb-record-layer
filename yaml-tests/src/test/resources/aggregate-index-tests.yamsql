@@ -150,7 +150,7 @@ test_block:
        - result: [{!l 20, !l 13}, {!l 10, !l 5}]
     -
        - query: select col1, max(col2) from T1 where col1 = 10 group by col1;
-      - explain: "AISCAN(MV8 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)"
+       - explain: "AISCAN(MV8 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)"
        - result: [{!l 10, !l 5}]
     -
        # At some point, should be able to roll up values from the aggregate index. However, even
@@ -163,11 +163,11 @@ test_block:
        # the min/max). That index should be usable for normal queries just like a value index. Note that the scan is
        # NOT by group
        - query: select col2 from T1 where col1 = 10;
-      - explain: "COVERING(MV8 [EQUALS promote(@c7 AS LONG)] -> [COL1: KEY:[0], COL2: KEY:[1], ID: KEY:[3]]) | MAP (_.COL2 AS COL2)"
+       - explain: "COVERING(MV8 [EQUALS promote(@c7 AS LONG)] -> [COL1: KEY:[0], COL2: KEY:[1], ID: KEY:[3]]) | MAP (_.COL2 AS COL2)"
        - result: [{!l 1}, {!l 2}, {!l 3}, {!l 4}, {!l 5}]
     -
        - query: select col2 from T1 where col1 = 10 order by col2 desc;
-      - explain: "COVERING(MV8 [EQUALS promote(@c7 AS LONG)] REVERSE -> [COL1: KEY:[0], COL2: KEY:[1], ID: KEY:[3]]) | MAP (_.COL2 AS COL2)"
+       - explain: "COVERING(MV8 [EQUALS promote(@c7 AS LONG)] REVERSE -> [COL1: KEY:[0], COL2: KEY:[1], ID: KEY:[3]]) | MAP (_.COL2 AS COL2)"
        - result: [{!l 5}, {!l 4}, {!l 3}, {!l 2}, {!l 1}]
     -
       - query: select min(col3) from T2 group by col1, col2;

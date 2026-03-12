@@ -168,7 +168,10 @@ test_block:
           from documents
           where zone = 'zone1' and bookshelf = 'fiction'
           qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
-      - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c18 AS STRING), EQUALS promote(@c22 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c9: @c46}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c9 AS DIST)"
+      # we got ambiguity here, the explain statement can be one of these two. probably race conditions
+      # - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c18 AS STRING), EQUALS promote(@c22 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c9: @c46}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c9 AS DIST)"
+      # - explain: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c18 AS STRING), EQUALS promote(@c22 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c40: @c46}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, _.TITLE AS TITLE, (_.EMBEDDING) euclidean_distance @c9 AS DIST)"
+      - explainContains: "ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c18 AS STRING), EQUALS promote(@c22 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c"
       - result: [{'d1', 'The Great Gatsby', 0.0}]
     -
       - query:

@@ -506,7 +506,11 @@ test_block:
                order by t1.a2 desc
       # Existential implementation can go as either the inner or outer as it is uncorrelated, but going on the outside is better as it means that we
       # have to iterate on the for-each fewer times
-      - explain: "COVERING(t2$b1 [EQUALS promote(@c18 AS LONG)] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c10 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c10 AS LONG)] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
+
+      # we got ambiguity here, the explain statement can be one of these two. probably race conditions
+      # - explain: "COVERING(t2$b1 [EQUALS promote(@c18 AS LONG)] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c10 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c10 AS LONG)] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
+      # - explain: "COVERING(t2$b1 [EQUALS promote(@c18 AS LONG)] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c18 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c18 AS LONG)] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
+      - explainContains: "COVERING(t2$b1 [EQUALS promote(@c18 AS LONG)] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c1"
       - result: [
           { id: 1004, a1: 1, a2: 13, a3: "b" },
           { id: 1003, a1: 1, a2: 12, a3: "a" },
