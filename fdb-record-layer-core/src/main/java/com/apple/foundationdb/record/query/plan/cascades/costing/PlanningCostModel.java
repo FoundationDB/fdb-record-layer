@@ -223,30 +223,26 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
     }
 
     /**
-     * This comparator compares the left expression which must be of type {@link RecordQueryInUnionPlan} or
-     * {@link RecordQueryInJoinPlan} and only returns an indication that the other plan is considered preferable
-     * or that this plan and the other plan are comparable. It never returns that the in-plan should be preferable.
-     * The reasoning behind this is to avoid plans that were generated out of an IN-transformation that wasn't able
-     * to translate the rewritten equality into an index search argument (SARG).
-     * @param leftExpression this expression
-     * @param rightExpression other expression
-     * @return {@code OptionalInt.empty()} if the comparator is unable to compare the two expressions handed in. That
-     *         happens if the left expression is not an in-plan (see {@link #isInPlan(RelationalExpression)}). If the
-     *         left expression is an in-plan it returns {@code OptionalInt.of(1)} (pick other) if none of the
-     *         in-arguments are sargs underneath the in-plan and {@code OptionalInt.of(1)} if at least one of the
-     *         in-arguments have turned into sargables. That in turn causes the remainder of the tie-breaking code
-     *         to be used.
+     * This determines if an expression is a useless in. That is, it determines if an expression of type
+     * {@link RecordQueryInUnionPlan} or type {@link RecordQueryInJoinPlan} does not actually use the IN transformation
+     * to transform a predicate into an index search argument (SARG). Such a plan is generally not desirable as
+     * the inner plan of the IN-join will end up being executed multiple times, each time filtering out results to
+     * match one criterion of the IN. If there is an alternative plan, that one should be preferred.
+     *
+     * @param expression expression to consider
+     * @return {@code false} if the expression is not an IN-plan or if the expression is an IN plan with a sargable comparison
+     *      comparator is unable to compare the two expressions handed in, and {@code true} otherwise
+     * @see #isInPlan(RelationalExpression)
      */
     @SuppressWarnings("java:S1172")
-    private static OptionalInt compareInOperator(@Nonnull final RelationalExpression leftExpression,
-                                                 @SuppressWarnings("unused") @Nonnull final RelationalExpression rightExpression) {
-        if (!isInPlan(leftExpression)) {
-            return OptionalInt.empty();
+    private static boolean isUselessIn(@Nonnull final RelationalExpression expression) {
+        if (!isInPlan(expression)) {
+            return false;
         }
 
         // If no scan comparison on the in union side uses a comparison to the in-values, then the in union
         // plan is not useful.
-        final Set<Comparisons.Comparison> scanComparisonsSet = comparisons().evaluate(leftExpression);
+        final Set<Comparisons.Comparison> scanComparisonsSet = comparisons().evaluate(expression);
 
         final ImmutableSet<CorrelationIdentifier> scanComparisonsCorrelatedTo =
                 scanComparisonsSet
@@ -257,22 +253,18 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
                         .flatMap(comparison -> comparison.getCorrelatedTo().stream())
                         .collect(ImmutableSet.toImmutableSet());
 
-        if (leftExpression instanceof RecordQueryInJoinPlan) {
-            final var inJoinPlan = (RecordQueryInJoinPlan)leftExpression;
+        if (expression instanceof RecordQueryInJoinPlan) {
+            final var inJoinPlan = (RecordQueryInJoinPlan) expression;
             final var inSource = inJoinPlan.getInSource();
-            if (!scanComparisonsCorrelatedTo.contains(CorrelationIdentifier.of(CORRELATION.identifier(inSource.getBindingName())))) {
-                return OptionalInt.of(1);
-            }
-        } else if (leftExpression instanceof RecordQueryInUnionPlan) {
-            final var inUnionPlan = (RecordQueryInUnionPlan)leftExpression;
-            if (inUnionPlan.getInSources()
+            return !scanComparisonsCorrelatedTo.contains(CorrelationIdentifier.of(CORRELATION.identifier(inSource.getBindingName())));
+        } else if (expression instanceof RecordQueryInUnionPlan) {
+            final var inUnionPlan = (RecordQueryInUnionPlan) expression;
+            return inUnionPlan.getInSources()
                     .stream()
-                    .noneMatch(inValuesSource -> scanComparisonsCorrelatedTo.contains(CorrelationIdentifier.of(CORRELATION.identifier(inValuesSource.getBindingName()))))) {
-                return OptionalInt.of(1);
-            }
+                    .noneMatch(inValuesSource -> scanComparisonsCorrelatedTo.contains(CorrelationIdentifier.of(CORRELATION.identifier(inValuesSource.getBindingName()))));
+        } else {
+            return false;
         }
-
-        return OptionalInt.of(0);
     }
 
     private static boolean isInPlan(@Nonnull final RelationalExpression expression) {
@@ -457,15 +449,10 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
                            @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
                            @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
                            @Nonnull final RecordQueryPlan a, @Nonnull final RecordQueryPlan b) {
-            // special case
-            // if one plan is a inUnion plan
-            final OptionalInt inPlanVsOtherOptional =
-                    flipFlop(() -> compareInOperator(a, b), () -> compareInOperator(b, a));
-            if (inPlanVsOtherOptional.isPresent() && inPlanVsOtherOptional.getAsInt() != 0) {
-                return inPlanVsOtherOptional.getAsInt();
-            }
-
-            return 0;
+            // Prefer plans that are not useless INs to those that are
+            final boolean aIsUselessIn = isUselessIn(a);
+            final boolean bIsUselessIn = isUselessIn(b);
+            return Boolean.compare(aIsUselessIn, bIsUselessIn);
         }
     }
 

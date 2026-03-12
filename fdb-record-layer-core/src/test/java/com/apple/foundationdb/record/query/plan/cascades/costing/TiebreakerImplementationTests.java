@@ -87,10 +87,14 @@ class TiebreakerImplementationTests {
      * @param <T> the type of expression consumed by the {@link Tiebreaker}
      */
     private static <T extends RelationalExpression> void assertCompares(@Nonnull Tiebreaker<? super T> tiebreaker, @Nonnull T a, @Nonnull T b, int comparison) {
-        int compareAB = compare(tiebreaker, a, b);
-        assertThat(signum(compareAB))
+        assertThat(signum(compare(tiebreaker, a, b)))
                 .as("comparison of %s and %s should have same sign as %s", a, b, comparison)
                 .isEqualTo(signum(comparison));
+
+        // Reversing the comparison should always return the opposite of the original expected comparison
+        assertThat(signum(compare(tiebreaker, b, a)))
+                .as("comparison of %s and %s should have same sign as %s", b, a, -1 * comparison)
+                .isEqualTo(-1 * signum(comparison));
     }
 
     /**
@@ -109,10 +113,6 @@ class TiebreakerImplementationTests {
 
     /**
      * Validate that the {@link PlanningCostModel#inOperatorTiebreaker()} compares values in the expected way.
-     * Note that there are currently anti-symmetry and reflexivity violations associated with this class, so
-     * this assert will need to be cleaned up in the future if those are addressed.
-     *
-     * @see <a href="https://github.com/FoundationDB/fdb-record-layer/issues/3998">Issue #3998</a>
      */
     @Test
     void inOperatorTest() {
@@ -146,16 +146,11 @@ class TiebreakerImplementationTests {
         // Create an in plan where the in value is _not_ sarged into the index scan
         final RecordQueryPredicatesFilterPlan filterIndexForSingleValue = new RecordQueryPredicatesFilterPlan(scanAllQun, ImmutableList.of(scanAllQun.getFlowedObjectValue().withComparison(singleValueComparison)));
         final RecordQueryInComparandJoinPlan inJoinNonSargedPlan = new RecordQueryInComparandJoinPlan(physicalOf(filterIndexForSingleValue), bindingName, Bindings.Internal.CORRELATION, arrayComparison, false, false);
-        // Cannot assert that the tiebreaker is reflexive here, as that currently fails
+        assertReflexive(inOperatorTiebreaker, inJoinNonSargedPlan);
 
         // Compare each plan pairwise
         assertCompares(inOperatorTiebreaker, filterScanWithInPlan, inJoinNonSargedPlan, -1);
         assertCompares(inOperatorTiebreaker, filterScanWithInPlan, inJoinSargedComparisonPlan, 0);
         assertCompares(inOperatorTiebreaker, inJoinNonSargedPlan, inJoinSargedComparisonPlan, 1);
-
-        // Reverse the comparisons to test anti-symmetry (e.g., that if a < b, then b > a)
-        assertCompares(inOperatorTiebreaker, inJoinNonSargedPlan, filterScanWithInPlan, 1);
-        assertCompares(inOperatorTiebreaker, inJoinSargedComparisonPlan, filterScanWithInPlan, 0);
-        assertCompares(inOperatorTiebreaker, inJoinSargedComparisonPlan, inJoinNonSargedPlan, 0); // anti-symmetry violation!
     }
 }
