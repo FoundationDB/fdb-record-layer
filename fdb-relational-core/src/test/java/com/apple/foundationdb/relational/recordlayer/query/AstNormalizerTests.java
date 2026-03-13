@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -48,6 +49,12 @@ import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.NotImplementedException;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.ArgumentsProvider;
+import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -57,8 +64,10 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral.constantId;
 
@@ -257,9 +266,10 @@ public class AstNormalizerTests {
         QueryCacheKey queryCacheKey = null;
         for (int i = 0; i < queries.size(); i++) {
             final var query = queries.get(i);
+            final var truncQuery = AstNormalizer.ExplainParser.truncateExplainStatement(query);
             final var expectedParameters = expectedParametersList.get(i);
-            final var hashResults = AstNormalizer.normalizeAst(schemaTemplates.get(i), QueryParser.parse(query).getRootContext(),
-                    PreparedParams.copyOf(preparedParameters), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query);
+            final var hashResults = AstNormalizer.normalizeAst(schemaTemplates.get(i), QueryParser.parse(truncQuery).getRootContext(),
+                    PreparedParams.copyOf(preparedParameters), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query, !Objects.equals(query, truncQuery));
             Assertions.assertThat(hashResults.getQueryCacheKey().getCanonicalQueryString()).isEqualTo(expectedCanonicalRepresentation);
             Assertions.assertThat(hashResults.getQueryCacheKey().getAuxiliaryMetadata()).isEqualTo(auxiliaryMetadata);
             final var execParams = hashResults.getQueryExecutionContext();
@@ -309,7 +319,7 @@ public class AstNormalizerTests {
     private static void shouldFail(@Nonnull final String query, @Nonnull final String errorMessage) {
         try {
             AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query).getRootContext(),
-                    PreparedParams.empty(), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query);
+                    PreparedParams.empty(), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query, false);
             Assertions.fail(String.format(Locale.ROOT, "expected %s to fail with %s, but it succeeded!", query, errorMessage));
         } catch (RelationalException | UncheckedRelationalException e) {
             Assertions.assertThat(e.getMessage()).contains(errorMessage);
@@ -333,9 +343,9 @@ public class AstNormalizerTests {
                                             @Nonnull PreparedParams preparedParams2) throws RelationalException {
 
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1).getRootContext(),
-                PreparedParams.copyOf(preparedParams1), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
+                PreparedParams.copyOf(preparedParams1), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1, false);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2).getRootContext(),
-                PreparedParams.copyOf(preparedParams2), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2);
+                PreparedParams.copyOf(preparedParams2), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2, false);
         Assertions.assertThat(result1.getQueryCacheKey().getHash()).isNotEqualTo(result2.getQueryCacheKey().getHash());
     }
 
@@ -348,9 +358,9 @@ public class AstNormalizerTests {
                                          @Nonnull final String query2,
                                          @Nonnull PreparedParams preparedParams) throws RelationalException {
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1).getRootContext(),
-                PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
+                PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1, false);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2).getRootContext(),
-                PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2);
+                PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2, false);
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 
@@ -360,9 +370,9 @@ public class AstNormalizerTests {
                                          @Nonnull final RecordLayerSchemaTemplate schemaTemplate2,
                                          @Nonnull PreparedParams preparedParams) throws RelationalException {
         final var result1 = AstNormalizer.normalizeAst(schemaTemplate1, QueryParser.parse(query1).getRootContext(),
-                PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
+                PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1, false);
         final var result2 = AstNormalizer.normalizeAst(schemaTemplate2, QueryParser.parse(query2).getRootContext(),
-                PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2);
+                PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2, false);
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 
@@ -394,7 +404,7 @@ public class AstNormalizerTests {
         final String canonicalFunctionDdl;
         if (isTemporary) {
             final var normalizer = AstNormalizer.normalizeAst(schemaTemplate, QueryParser.parse(functionDdl).getRootContext(), PreparedParams.empty(),
-                    0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, functionDdl);
+                    0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, functionDdl, false);
             canonicalFunctionDdl = normalizer.getQueryCacheKey().getCanonicalQueryString();
         } else {
             canonicalFunctionDdl = functionDdl;
@@ -642,11 +652,11 @@ public class AstNormalizerTests {
     void parseUtilityStatementCorrectCachingFlags() throws Exception {
         validate(List.of("explain select * from t1 where col1 > 42", "  explain select  \t * from    t1 \n\n where col1 > 42   \n\n"),
                 PreparedParams.empty(),
-                "explain select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
-                List.of(Map.of(constantId(8), 42), Map.of(constantId(8), 42)),
+                "select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UTILITY_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT));
     }
 
     @Test
@@ -1042,12 +1052,12 @@ public class AstNormalizerTests {
     void parseUtilityStatementCorrectCachingFlagsWithPreparedParameters() throws Exception {
         validate(List.of("explain select * from t1 where col1 > ?namedParam1 and col2   > ?", "  explain select  \t * from    t1 \n\n where col1 > ?namedParam1 and   col2 > ?   \n\n"),
                 PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "explain select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
-                List.of(Map.of(constantId(8), 43, constantId(12), 42),
-                        Map.of(constantId(8), 43, constantId(12), 42)),
+                "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                List.of(Map.of(constantId(7), 43, constantId(11), 42),
+                        Map.of(constantId(7), 43, constantId(11), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UTILITY_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT));
     }
 
     @Test
@@ -1387,7 +1397,7 @@ public class AstNormalizerTests {
     private String normalizeQuery(@Nonnull final String functionDdl) throws RelationalException {
         final var normalizer = AstNormalizer.normalizeAst(fakeSchemaTemplate,
                 QueryParser.parse(functionDdl).getRootContext(), PreparedParams.empty(),
-                0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, functionDdl);
+                0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, functionDdl, false);
         return normalizer.getQueryCacheKey().getCanonicalQueryString();
     }
 
@@ -1395,5 +1405,85 @@ public class AstNormalizerTests {
     void indexHintIsPartOfTheCanonicalQueryString() throws RelationalException {
         validate("select * from t1 use index (i1)",
                 "select * from \"T1\" use index ( \"I1\" ) ");
+    }
+
+    static class ExplainParserValidCasesProvider implements ArgumentsProvider {
+        @Override
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
+            return Stream.of(
+                    Arguments.of("SELECT * FROM t",                                "SELECT * FROM t"),
+                    Arguments.of(" INSERT INTO t VALUES (1)",                      " INSERT INTO t VALUES (1)"),
+                    Arguments.of("",                                               ""),
+                    Arguments.of("   ",                                            "   "),
+
+                    Arguments.of("EXPLAIN SELECT * FROM t",                        "SELECT * FROM t"),
+                    Arguments.of("explain select * from t",                        "select * from t"),
+                    Arguments.of("Explain Select * From t",                        "Select * From t"),
+                    Arguments.of("  EXPLAIN SELECT * FROM t",                      "SELECT * FROM t"),
+                    Arguments.of("EXPLAIN   SELECT * FROM t",                      "SELECT * FROM t"),
+                    Arguments.of("  EXPLAIN   SELECT * FROM t",                    "SELECT * FROM t"),
+
+                    Arguments.of("DESCRIBE SELECT * FROM t",                       "SELECT * FROM t"),
+                    Arguments.of("desc select * from t",                           "select * from t"),
+
+                    Arguments.of("EXPLAIN SCHEMA SELECT * FROM t",                 "EXPLAIN SCHEMA SELECT * FROM t"),
+                    Arguments.of("explain  schema  select * from t",               "explain  schema  select * from t"),
+                    Arguments.of("DESCRIBE SCHEMA SELECT * FROM t",                "DESCRIBE SCHEMA SELECT * FROM t"),
+
+                    Arguments.of("EXPLAIN EXTENDED=TRADITIONAL SELECT * FROM t",   " SELECT * FROM t"),
+                    Arguments.of("EXPLAIN  Partitions  =JSON SELECT * FROM t",     " SELECT * FROM t"),
+                    Arguments.of("explain  FORMAt=  Traditional  select * from t", "  select * from t"),
+                    Arguments.of("desc format = JSoN select * from t",             " select * from t")
+            );
+        }
+    }
+
+    @ParameterizedTest(name = "[{index}] \"{0}\" -> \"{1}\"")
+    @ArgumentsSource(ExplainParserValidCasesProvider.class)
+    void truncateExplainStatement(@Nonnull final String query, @Nonnull final String expected) {
+        Assertions.assertThat(AstNormalizer.ExplainParser.truncateExplainStatement(query)).isEqualTo(expected);
+    }
+
+    static class ExplainParserErrorCasesProvider implements ArgumentsProvider {
+        @Override
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
+            return Stream.of(
+                    Arguments.of("EXPLAIN",                                  "no statement to explain"),
+                    Arguments.of("EXPLAIN ",                                 "no statement to explain"),
+                    Arguments.of("EXPLAIN FORMAT SELECT * FROM t",           "equal (=) not found after EXTENDED/PARTITIONS/FORMAT"),
+                    Arguments.of("EXPLAIN EXTENDED=INVALID SELECT * FROM t", "value of EXTENDED/PARTITIONS/FORMAT is not TRADITIONAL/JSON"),
+                    Arguments.of("EXPLAIN EXTENDED=JSON",                    "no statement to explain"),
+                    Arguments.of("EXPLAIN EXTENDED=JSON ",                   "no statement to explain")
+            );
+        }
+    }
+
+    @ParameterizedTest(name = "[{index}] \"{0}\" throws containing \"{1}\"")
+    @ArgumentsSource(ExplainParserErrorCasesProvider.class)
+    void truncateExplainStatementThrows(@Nonnull final String query, @Nonnull final String expectedMessage) {
+        Assertions.assertThatThrownBy(() -> AstNormalizer.ExplainParser.truncateExplainStatement(query))
+                .isInstanceOf(UncheckedRelationalException.class)
+                .hasMessageContaining(expectedMessage)
+                .extracting(e -> ((UncheckedRelationalException) e).unwrap().getErrorCode())
+                .isEqualTo(ErrorCode.SYNTAX_ERROR);
+    }
+
+    @Test
+    void visitFullDescribeStatementThrowsWhenExplainReachesParser() throws RelationalException {
+        // This test covers test gap
+        // EXPLAIN queries must be truncated before parsing. If an EXPLAIN statement somehow bypasses
+        // truncation and reaches visitFullDescribeStatement, it should throw an assertion error.
+        final var explainQuery = "EXPLAIN SELECT * FROM testTable";
+        final var parsedContext = QueryParser.parse(explainQuery).getRootContext();
+        Assertions.assertThatThrownBy(() ->
+                        AstNormalizer.normalizeAst(fakeSchemaTemplate, parsedContext,
+                                PreparedParams.empty(), 0, plannerConfiguration, false,
+                                PlanHashable.PlanHashMode.VC0, explainQuery, false))
+                .isInstanceOf(UncheckedRelationalException.class)
+                .hasMessageContaining("Explain/Describe statement should not appear at the parser")
+                .extracting(e -> ((UncheckedRelationalException) e).unwrap().getErrorCode())
+                .isEqualTo(ErrorCode.INTERNAL_ERROR);
     }
 }
