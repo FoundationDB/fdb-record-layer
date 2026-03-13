@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.planprotos.PUserDefinedMacroFunction;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -59,9 +60,9 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
         SemanticException.check(arguments.size() == parameterTypes.size(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument length doesn't match with function definition");
         final RegularTranslationMap.Builder translationMapBuilder = TranslationMap.regularBuilder();
         for (int i = 0; i < arguments.size(); i++) {
-            // check that arguments[i] type matches with parameterTypes[i]
+            // check that arguments[i] type matches with parameterTypes[i] ignoring nullability -- Nullability is not specified when a user defined function is defined.
             final int finalI = i;
-            SemanticException.check(arguments.get(finalI).getResultType().equals(parameterTypes.get(i)), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument type doesn't match with function definition");
+            SemanticException.check(typeEqualsIgnoreNullability(arguments.get(finalI).getResultType(), parameterTypes.get(i)), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument type doesn't match with function definition");
             translationMapBuilder.when(parameterIdentifiers.get(finalI)).then((sourceAlias, leafValue) -> (Value)arguments.get(finalI));
         }
         return bodyValue.translateCorrelations(translationMapBuilder.build());
@@ -98,5 +99,15 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
                 function.getFunctionName(),
                 function.getArgumentsList().stream().map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue))).collect(Collectors.toList()),
                 Value.fromValueProto(serializationContext, function.getBody()));
+    }
+
+    private boolean typeEqualsIgnoreNullability(@Nonnull Type type1, @Nonnull Type type2) {
+        if (type1.getTypeCode() == Type.TypeCode.NULL) {
+            return type2.getTypeCode() == Type.TypeCode.NULL;
+        }
+        if (type2.getTypeCode() == Type.TypeCode.NULL) {
+            return type1.getTypeCode() == Type.TypeCode.NULL;
+        }
+        return type1.notNullable().equals(type2.notNullable());
     }
 }

@@ -34,6 +34,10 @@ schema_template:
     CREATE FUNCTION table_func1(IN limit_val bigint) AS SELECT id, self(id) as id_copy, z(r) as z_val FROM nested WHERE id <= limit_val
     CREATE FUNCTION table_func2(IN threshold bigint) AS SELECT self(id) as processed_id, z(r) as z_val FROM nested WHERE z(r) >= threshold
     CREATE FUNCTION table_func3(IN x bigint, IN y bigint) AS SELECT self(a) as a_val, self(a) as a_copy FROM simple_table WHERE a BETWEEN x AND y
+    create type as struct line_item(price bigint, description string)
+    create table order_t(id bigint, items line_item array, primary key(id))
+    create table price_list(id bigint, list_price bigint, primary key(id))
+    CREATE FUNCTION get_price(IN item TYPE line_item) RETURNS bigint AS item.price
 ---
 setup:
   steps:
@@ -50,6 +54,11 @@ setup:
                (30, 'cherry', 3),
                (40, 'date', 4),
                (50, 'elderberry', 5)
+    - query: INSERT INTO order_t
+        VALUES (1, [(10, 'ten'), (20, 'twenty')]),
+               (2, [(30, 'thirty'), (40, 'forty')])
+    - query: INSERT INTO price_list
+        VALUES (1, 20), (2, 30), (3, 99)
 ---
 test_block:
   name: user-defined-scalar-function-tests
@@ -116,6 +125,14 @@ test_block:
       - query: select * from table_func1(6) where self(id_copy) > 3
       - explain: "ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG) AND _.ID GREATER_THAN promote(@c14 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)"
       - unorderedResult: [{id: 4, id_copy: 4, z_val: 100}, {id: 5, id_copy: 5, z_val: 140}, {id: 6, id_copy: 6, z_val: 140}]
+    -
+      # Test UDF applied to unnested array-of-struct elements joined with another table.
+      # order_t.items is an array of line_item structs; get_price(item) returns item.price.
+      # The query unnests order_t.items as item and joins with price_list where
+      # get_price(item) matches price_list.list_price.
+      - query: select order_t.id as order_id, price_list.id as price_id, price_list.list_price, item.price, item.description from order_t, order_t.items as item, price_list where get_price(item) = price_list.list_price
+      - supported_version: !current_version
+      - unorderedResult: [{order_id: 1, price_id: 1, list_price: 20, price: 20, description: 'twenty'}, {order_id: 2, price_id: 2, list_price: 30, price: 30, description: 'thirty'}]
     -
       # wrong function name
       - query: select zz(r) from nested group by z(r)
