@@ -28,18 +28,21 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class VectorDirectAccessTest {
@@ -49,7 +52,11 @@ public class VectorDirectAccessTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(VectorDirectAccessTest.class, "CREATE TABLE V(PK INTEGER, V1 VECTOR(4, FLOAT), V2 VECTOR(3, HALF), V3 VECTOR(2, DOUBLE), PRIMARY KEY(PK))");
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(VectorDirectAccessTest.class,
+            "CREATE TABLE V(PK INTEGER, V1 VECTOR(4, FLOAT), V2 VECTOR(3, HALF), V3 VECTOR(2, DOUBLE), PRIMARY KEY(PK))\n" +
+            "CREATE TABLE VHNSW(PK INTEGER, ZONE STRING, VEC VECTOR(3, FLOAT), PRIMARY KEY(PK))\n" +
+            "CREATE VIEW VHNSW_VIEW AS SELECT VEC, ZONE, PK FROM VHNSW\n" +
+            "CREATE VECTOR INDEX VHNSW_IDX USING HNSW ON VHNSW_VIEW(VEC) PARTITION BY(ZONE) OPTIONS (METRIC = EUCLIDEAN_METRIC)");
 
     @Test
     void insertNulls() throws SQLException {
@@ -270,6 +277,75 @@ public class VectorDirectAccessTest {
                     ResultSetAssert.assertThat(rs).hasNoNextRow();
                 }
             }
+        }
+    }
+
+    @Test
+    void deleteVectorMaintainsHnswIndex() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+            conn.setSchema("TEST_SCHEMA");
+            try (RelationalStatement s = conn.createStatement()) {
+                // Insert 3 vectors into VHNSW, all in zone "z1"
+                // vec1 at [1.0, 0.0, 0.0] - closest to query point [1.0, 0.0, 0.0]
+                // vec2 at [0.9, 0.1, 0.0] - second closest
+                // vec3 at [0.0, 1.0, 0.0] - farthest
+                RelationalStruct rec1 = EmbeddedRelationalStruct.newBuilder().addInt("PK", 1)
+                        .addString("ZONE", "z1")
+                        .addObject("VEC", new FloatRealVector(new float[]{1.0f, 0.0f, 0.0f}))
+                        .build();
+                RelationalStruct rec2 = EmbeddedRelationalStruct.newBuilder().addInt("PK", 2)
+                        .addString("ZONE", "z1")
+                        .addObject("VEC", new FloatRealVector(new float[]{0.9f, 0.1f, 0.0f}))
+                        .build();
+                RelationalStruct rec3 = EmbeddedRelationalStruct.newBuilder().addInt("PK", 3)
+                        .addString("ZONE", "z1")
+                        .addObject("VEC", new FloatRealVector(new float[]{0.0f, 1.0f, 0.0f}))
+                        .build();
+                s.executeInsert("VHNSW", List.of(rec1, rec2, rec3));
+            }
+
+            // ANN query before deletion: top 3 nearest to [1.0, 0.0, 0.0] should return all 3 records
+            String annQuery = "SELECT PK FROM VHNSW WHERE ZONE = ? " +
+                    "QUALIFY ROW_NUMBER() OVER (PARTITION BY ZONE ORDER BY euclidean_distance(VEC, ?) ASC) <= 3";
+            FloatRealVector queryVector = new FloatRealVector(new float[]{1.0f, 0.0f, 0.0f});
+
+            List<Integer> pksBeforeDelete = new ArrayList<>();
+            try (RelationalPreparedStatement ps = conn.prepareStatement(annQuery).unwrap(RelationalPreparedStatement.class)) {
+                ps.setString(1, "z1");
+                ps.setObject(2, queryVector);
+                try (RelationalResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        pksBeforeDelete.add(rs.getInt("PK"));
+                    }
+                }
+            }
+            // All 3 records should be in the result
+            Assertions.assertEquals(3, pksBeforeDelete.size(), "Expected 3 results before delete");
+            Assertions.assertTrue(pksBeforeDelete.contains(1), "PK=1 should be in results before delete");
+            Assertions.assertTrue(pksBeforeDelete.contains(2), "PK=2 should be in results before delete");
+            Assertions.assertTrue(pksBeforeDelete.contains(3), "PK=3 should be in results before delete");
+
+            // Delete the closest vector (PK=1)
+            try (RelationalStatement s = conn.createStatement()) {
+                int deleted = s.executeDelete("VHNSW", List.of(new KeySet().setKeyColumn("PK", 1)));
+                Assertions.assertEquals(1, deleted, "Expected 1 deleted record");
+            }
+
+            // ANN query after deletion: top 3 nearest should only return PK=2 and PK=3
+            List<Integer> pksAfterDelete = new ArrayList<>();
+            try (RelationalPreparedStatement ps = conn.prepareStatement(annQuery).unwrap(RelationalPreparedStatement.class)) {
+                ps.setString(1, "z1");
+                ps.setObject(2, queryVector);
+                try (RelationalResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        pksAfterDelete.add(rs.getInt("PK"));
+                    }
+                }
+            }
+            Assertions.assertEquals(2, pksAfterDelete.size(), "Expected 2 results after delete");
+            Assertions.assertFalse(pksAfterDelete.contains(1), "PK=1 should NOT be in results after delete");
+            Assertions.assertTrue(pksAfterDelete.contains(2), "PK=2 should be in results after delete");
+            Assertions.assertTrue(pksAfterDelete.contains(3), "PK=3 should be in results after delete");
         }
     }
 }

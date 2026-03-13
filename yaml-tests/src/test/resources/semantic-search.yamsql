@@ -342,3 +342,44 @@ test_block:
           where zoneId = !! 2 !! and bookshelf = 'fiction'
           qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) nulls last) <= !! 2 !!
       - error: "0AF01"
+---
+test_block:
+  preset: single_repetition_ordered
+  options:
+    statement_type: prepared
+  name: semantic-search-delete-maintains-hnsw-index
+  tests:
+    # ANN query before deletion: top 3 fiction in zone1 nearest to [1.0, 0.0, 0.0]
+    # Should return d1, d2, d3 (closest vectors)
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
+      - result: [{'d1'}, {'d2'}, {'d3'}]
+    # Delete d1 (The Great Gatsby) which is closest to [1.0, 0.0, 0.0]
+    -
+      - query: delete from documents where zone = 'zone1' and docId = 'd1'
+      - count: 1
+    # ANN query after deletion: top 3 fiction in zone1 nearest to [1.0, 0.0, 0.0]
+    # d1 is deleted, so results should be d2, d3, d4
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
+      - result: [{'d2'}, {'d3'}, {'d4'}]
+    # Verify d1 is no longer returned even when requesting all results
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 5
+      - result: [{'d2'}, {'d3'}, {'d4'}, {'d5'}]
+    # Also verify cosine index is maintained after deletion
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 2
+      - result: [{'d2'}, {'d3'}]
