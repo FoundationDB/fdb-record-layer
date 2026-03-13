@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -1449,8 +1450,12 @@ public class AstNormalizerTests {
         public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
                                                             final ExtensionContext context) {
             return Stream.of(
+                    Arguments.of("EXPLAIN",                                  "no statement to explain"),
+                    Arguments.of("EXPLAIN ",                                 "no statement to explain"),
                     Arguments.of("EXPLAIN FORMAT SELECT * FROM t",           "equal (=) not found after EXTENDED/PARTITIONS/FORMAT"),
-                    Arguments.of("EXPLAIN EXTENDED=INVALID SELECT * FROM t", "value of EXTENDED/PARTITIONS/FORMAT is not TRADITIONAL/JSON")
+                    Arguments.of("EXPLAIN EXTENDED=INVALID SELECT * FROM t", "value of EXTENDED/PARTITIONS/FORMAT is not TRADITIONAL/JSON"),
+                    Arguments.of("EXPLAIN EXTENDED=JSON",                    "no statement to explain"),
+                    Arguments.of("EXPLAIN EXTENDED=JSON ",                   "no statement to explain")
             );
         }
     }
@@ -1460,6 +1465,8 @@ public class AstNormalizerTests {
     void truncateExplainStatementThrows(@Nonnull final String query, @Nonnull final String expectedMessage) {
         Assertions.assertThatThrownBy(() -> AstNormalizer.ExplainParser.truncateExplainStatement(query))
                 .isInstanceOf(UncheckedRelationalException.class)
-                .hasMessageContaining(expectedMessage);
+                .hasMessageContaining(expectedMessage)
+                .extracting(e -> ((UncheckedRelationalException) e).unwrap().getErrorCode())
+                .isEqualTo(ErrorCode.SYNTAX_ERROR);
     }
 }

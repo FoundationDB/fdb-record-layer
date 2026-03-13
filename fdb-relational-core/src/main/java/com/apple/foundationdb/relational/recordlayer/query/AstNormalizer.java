@@ -636,15 +636,19 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 return query;
             }
             if (!matchWordFromList(query, w1, extendedList)) {      // EXPLAIN EXTENDED
-                return query.substring(w1.begin);
+                int pos = getNotWhitespace(query, w1.begin);
+                Assert.thatUnchecked(pos != query.length(), ErrorCode.SYNTAX_ERROR, "no statement to explain");
+                return query.substring(pos);
             }
 
             int pos = getNotWhitespace(query, w1.end);              // EXPLAIN EXTENDED=
-            Assert.thatUnchecked(query.charAt(pos) == '=', "equal (=) not found after EXTENDED/PARTITIONS/FORMAT");
+            Assert.thatUnchecked(query.charAt(pos) == '=', ErrorCode.SYNTAX_ERROR, "equal (=) not found after EXTENDED/PARTITIONS/FORMAT");
 
             final var w2 = getWordFromString(query, pos + 1);   // EXPLAIN EXTENDED=TRADITIONAL
-            Assert.thatUnchecked(matchWordFromList(query, w2, traditionalList), "value of EXTENDED/PARTITIONS/FORMAT is not TRADITIONAL/JSON");
+            Assert.thatUnchecked(matchWordFromList(query, w2, traditionalList), ErrorCode.SYNTAX_ERROR, "value of EXTENDED/PARTITIONS/FORMAT is not TRADITIONAL/JSON");
 
+            pos = getNotWhitespace(query, w2.end);
+            Assert.thatUnchecked(pos != query.length(), ErrorCode.SYNTAX_ERROR, "no statement to explain");
             return query.substring(w2.end);
         }
     }
