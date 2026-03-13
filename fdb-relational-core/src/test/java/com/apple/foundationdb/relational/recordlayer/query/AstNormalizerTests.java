@@ -1469,4 +1469,21 @@ public class AstNormalizerTests {
                 .extracting(e -> ((UncheckedRelationalException) e).unwrap().getErrorCode())
                 .isEqualTo(ErrorCode.SYNTAX_ERROR);
     }
+
+    @Test
+    void visitFullDescribeStatementThrowsWhenExplainReachesParser() throws RelationalException {
+        // This test covers test gap
+        // EXPLAIN queries must be truncated before parsing. If an EXPLAIN statement somehow bypasses
+        // truncation and reaches visitFullDescribeStatement, it should throw an assertion error.
+        final var explainQuery = "EXPLAIN SELECT * FROM testTable";
+        final var parsedContext = QueryParser.parse(explainQuery).getRootContext();
+        Assertions.assertThatThrownBy(() ->
+                        AstNormalizer.normalizeAst(fakeSchemaTemplate, parsedContext,
+                                PreparedParams.empty(), 0, plannerConfiguration, false,
+                                PlanHashable.PlanHashMode.VC0, explainQuery, false))
+                .isInstanceOf(UncheckedRelationalException.class)
+                .hasMessageContaining("Explain/Describe statement should not appear at the parser")
+                .extracting(e -> ((UncheckedRelationalException) e).unwrap().getErrorCode())
+                .isEqualTo(ErrorCode.INTERNAL_ERROR);
+    }
 }

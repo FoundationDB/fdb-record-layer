@@ -20,17 +20,26 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
+import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -46,6 +55,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * A series of tests that target the following.
@@ -214,6 +224,48 @@ public class PlanGenerationStackTest {
                 embeddedConnection.rollback();
                 embeddedConnection.setAutoCommit(true);
             }
+        }
+    }
+
+    @Test
+    void queryVisitorThrowsWhenExplainReachesParser() throws Exception {
+        // This test covers test gap
+        // QueryVisitor.visitFullDescribeStatement must never be reached because EXPLAIN is stripped
+        // before parsing. This test verifies the defensive assertion fires if that invariant is broken.
+        final var explainQuery = "EXPLAIN SELECT * FROM restaurant";
+        final String schemaName = connection.getSchema();
+        final EmbeddedRelationalConnection embeddedConnection = (EmbeddedRelationalConnection) connection.connection;
+        embeddedConnection.setAutoCommit(false);
+        embeddedConnection.createNewTransaction();
+        try {
+            final AbstractDatabase db = embeddedConnection.getRecordLayerDatabase();
+            final FDBRecordStoreBase<?> store = db.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
+            final PlanContext planContext = PlanContext.Builder
+                    .create()
+                    .fromDatabase(db)
+                    .fromRecordStore(store, connection.getOptions())
+                    .withSchemaTemplate(embeddedConnection.getSchemaTemplate())
+                    .withMetricsCollector(embeddedConnection.getMetricCollector())
+                    .build();
+            final var parseTree = QueryParser.parse(explainQuery).getRootContext();
+            final var planGenContext = new MutablePlanGenerationContext(
+                    planContext.getPreparedStatementParameters(),
+                    PlanHashable.PlanHashMode.VC0,
+                    explainQuery,
+                    explainQuery,
+                    0);
+            final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
+            final var baseVisitor = new BaseVisitor(planGenContext, metadata,
+                    planContext.getDdlQueryFactory(), planContext.getConstantActionFactory(),
+                    planContext.getDbUri(), false);
+            assertThatThrownBy(() -> baseVisitor.generateLogicalPlan(parseTree))
+                    .isInstanceOf(UncheckedRelationalException.class)
+                    .hasMessageContaining("Explain/Describe statement should not appear at the parser")
+                    .extracting(e -> ((UncheckedRelationalException) e).unwrap().getErrorCode())
+                    .isEqualTo(ErrorCode.INTERNAL_ERROR);
+        } finally {
+            embeddedConnection.rollback();
+            embeddedConnection.setAutoCommit(true);
         }
     }
 }
