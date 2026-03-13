@@ -836,8 +836,14 @@ public class SemanticAnalyzer {
     }
 
     public static void validateDatabaseUri(@Nonnull Identifier path) {
-        Assert.thatUnchecked(Objects.requireNonNull(path.getName()).matches("/\\w[a-zA-Z0-9_/]*\\w"),
-                ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", path));
+        validateDatabaseUri(path.getName());
+    }
+
+    public static void validateDatabaseUri(String pathName) {
+        // TODO does this need to be more permissive. Does it need to support `.`
+        // It can end with `/` if the schema is the default (null) schema
+        Assert.thatUnchecked(Objects.requireNonNull(pathName).matches("/\\w[-a-zA-Z0-9_/]*\\w"),
+                ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", pathName));
     }
 
     public static void validateCteColumnAliases(@Nonnull LogicalOperator logicalOperator, @Nonnull List<Identifier> columnAliases) {
@@ -848,10 +854,14 @@ public class SemanticAnalyzer {
 
     @Nonnull
     public static NonnullPair<Optional<URI>, String> parseSchemaIdentifier(@Nonnull final Identifier schemaIdentifier) {
-        final var id = schemaIdentifier.getName();
+        return parseSchemaURI(schemaIdentifier.getName());
+    }
+
+    @Nonnull
+    public static NonnullPair<Optional<URI>, String> parseSchemaURI(@Nonnull final String id) {
         Assert.notNullUnchecked(id);
         if (id.startsWith("/")) {
-            validateDatabaseUri(schemaIdentifier);
+            validateDatabaseUri(id);
             int separatorIdx = id.lastIndexOf("/");
             Assert.thatUnchecked(separatorIdx < id.length() - 1);
             return NonnullPair.of(Optional.of(URI.create(id.substring(0, separatorIdx))), id.substring(separatorIdx + 1));
