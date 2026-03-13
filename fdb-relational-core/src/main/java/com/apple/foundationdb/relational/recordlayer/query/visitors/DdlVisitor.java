@@ -454,7 +454,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public ProceduralPlan visitCreateDatabaseStatement(@Nonnull RelationalParser.CreateDatabaseStatementContext ctx) {
         final var databaseId = visitUid(ctx.path().uid());
-        SemanticAnalyzer.validateDatabaseUri(databaseId.getName());
+        SemanticAnalyzer.validateDatabaseUri(databaseId);
         return ProceduralPlan.of(metadataOperationsFactory.getCreateDatabaseConstantAction(URI.create(databaseId.getName()), Options.NONE));
     }
 
@@ -462,7 +462,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public ProceduralPlan visitDropDatabaseStatement(@Nonnull RelationalParser.DropDatabaseStatementContext ctx) {
         final var databaseId = visitUid(ctx.path().uid());
-        SemanticAnalyzer.validateDatabaseUri(databaseId.getName());
+        SemanticAnalyzer.validateDatabaseUri(databaseId);
         boolean throwIfDoesNotExist = ctx.ifExists() == null;
         return  ProceduralPlan.of(metadataOperationsFactory.getDropDatabaseConstantAction(URI.create(databaseId.getName()), throwIfDoesNotExist, Options.NONE));
     }

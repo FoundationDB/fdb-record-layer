@@ -835,10 +835,14 @@ public class SemanticAnalyzer {
         Assert.failUnchecked("unexpected limit type " + value.getClass());
     }
 
+    public static void validateDatabaseUri(@Nonnull Identifier path) {
+        validateDatabaseUri(path.getName());
+    }
+
     public static void validateDatabaseUri(String pathName) {
         // TODO does this need to be more permissive. Does it need to support `.`
         // It can end with `/` if the schema is the default (null) schema
-        Assert.thatUnchecked(Objects.requireNonNull(pathName).matches("/\\w[-a-zA-Z0-9_/]*\\w+"),
+        Assert.thatUnchecked(Objects.requireNonNull(pathName).matches("/\\w[-a-zA-Z0-9_/]*\\w"),
                 ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", pathName));
     }
 
