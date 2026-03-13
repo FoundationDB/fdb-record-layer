@@ -88,6 +88,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -168,6 +169,7 @@ import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
@@ -1180,6 +1182,104 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
             // Make sure that the duplicates in the in-list didn't result in duplicate inputs to the Union plan.
             TestHelpers.assertDiscardedNone(context);
+            commit(context);
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    @ParameterizedTest
+    @BooleanSource
+    void testColumnsNeededForUnionNotInProjection(boolean reverse) {
+        Assumptions.assumeTrue(useCascadesPlanner);
+        final Index index = new Index("indexForInUnion", concatenateFields("str_value_indexed", "num_value_3_indexed", "num_value_2", "num_value_unique"));
+        final RecordMetaDataHook hook = complexQuerySetupHook()
+                .andThen(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
+        final Map<String, Set<Long>> primaryKeysByStrValue = new HashMap<>();
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            // For each str_value and numValue3, save different values for numValue2. That way, the union
+            // plan will need to contain something other than the sort key to avoid marking records as dupes
+            long recNo = 0;
+            for (String strValue : List.of("a", "b", "c")) {
+                for (int numValue3 = 0; numValue3 < 10; numValue3++) {
+                    for (int numValue2 = 0; numValue2 < 5; numValue2++) {
+                        long thisRecNo = recNo++;
+                        final TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                                .setNumValue3Indexed(numValue3)
+                                .setNumValue2(((int)thisRecNo * 7 + numValue2) % 5)
+                                .setStrValueIndexed(strValue)
+                                .setRecNo(thisRecNo)
+                                .setNumValueUnique(1000 + (int)thisRecNo)
+                                .build();
+                        primaryKeysByStrValue.computeIfAbsent(strValue, ignore -> new HashSet<>())
+                                        .add(thisRecNo);
+                        recordStore.saveRecord(rec);
+                    }
+                }
+            }
+
+
+            commit(context);
+        }
+
+        final CorrelationIdentifier constantAlias = CorrelationIdentifier.uniqueID();
+        final ConstantObjectValue strValueListConstant = ConstantObjectValue.of(constantAlias, "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, false)));
+        planner.setConfiguration(planner.getConfiguration().asBuilder().setAttemptFailedInJoinAsUnionMaxSize(10).build());
+
+        // Equivalent to query like:
+        //   SELECT num_value_3_indexed, num_value_unique, rec_no FROM MySimpleRecord WHERE str_value_indexed IN ?strValueList ORDER BY num_value_3_indexed
+        // Note that it does *not* project num_value_2. However, num_value_2 is a part of the order of the underlying index, so it is necessary to make sure the merge happens correctly
+        final RecordQueryPlan plan = planGraph(() -> {
+            final Quantifier base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+            final Quantifier select = Quantifier.forEach(Reference.of(GraphExpansion.builder()
+                    .addQuantifier(base)
+                    .addPredicate(FieldValue.ofFieldName(base.getFlowedObjectValue(), "str_value_indexed")
+                            .withComparison(new Comparisons.ValueComparison(Comparisons.Type.IN, strValueListConstant)))
+                    .addResultColumn(FDBSimpleQueryGraphTest.projectColumn(base, "num_value_3_indexed"))
+                    .addResultColumn(FDBSimpleQueryGraphTest.projectColumn(base, "num_value_unique"))
+                    .addResultColumn(FDBSimpleQueryGraphTest.projectColumn(base, "rec_no"))
+                    .build()
+                    .buildSelect()));
+
+            final AliasMap aliasMap = AliasMap.ofAliases(select.getAlias(), Quantifier.current());
+            return Reference.of(new LogicalSortExpression(ImmutableList.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "num_value_3_indexed").rebase(aliasMap)), reverse, select));
+        });
+
+        // This doesn't quite plan correctly, due to: https://github.com/FoundationDB/fdb-record-layer/issues/2728
+        assertMatchesExactly(plan,
+                inUnionOnValuesPlan(
+                        mapPlan(
+                                coveringIndexPlan().where(indexPlanOf(indexPlan()
+                                        .where(indexName(index.getName()))
+                                        .and(reverse ? isReverse() : isNotReverse())
+                                        .and(scanComparisons(equalities(exactly(anyValueComparison()))))
+                                ))
+                        )
+                ).where(inUnionComparisonValues(exactly(fieldValueWithFieldNames("num_value_3_indexed")))) // This comparison key is insufficient!
+        );
+
+        assertEquals(reverse ? 398379949 : 398350158,  plan.planHash(CURRENT_LEGACY));
+        assertEquals(reverse ? 1341745787 : 1347286913, plan.planHash(CURRENT_FOR_CONTINUATION));
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            List<Map<String, Object>> results = queryAsMaps(plan, constantBindings(strValueListConstant, List.of("a", "c")));
+            final Set<Long> foundPrimaryKeys = new HashSet<>();
+            int lastNumValue3 = reverse ? Integer.MAX_VALUE : Integer.MIN_VALUE;
+            for (Map<String, Object> res : results) {
+                int numValue3 = (Integer) res.get("num_value_3_indexed");
+                assertThat(numValue3, reverse ? lessThanOrEqualTo(lastNumValue3) : greaterThanOrEqualTo(lastNumValue3));
+                lastNumValue3 = numValue3;
+                foundPrimaryKeys.add((Long) res.get("rec_no"));
+            }
+
+            // Once planner is fixed, should be able to replace everyItem(in( ... )) with containsInAnyOrder(...),
+            // and assertDiscardedAtMost(50, ... ) should be replaced with assertDiscardedNone()
+            assertThat(foundPrimaryKeys, everyItem(in(Stream.concat(primaryKeysByStrValue.get("a").stream(), primaryKeysByStrValue.get("c").stream()).toArray())));
+            TestHelpers.assertDiscardedAtMost(50, context);
+
             commit(context);
         }
     }
