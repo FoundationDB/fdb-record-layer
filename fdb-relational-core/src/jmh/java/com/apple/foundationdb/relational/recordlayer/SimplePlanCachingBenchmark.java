@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
@@ -79,7 +78,7 @@ public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
 
     static final String cacheSchema = "cacheSchema";
 
-    final int dbSize = 5;
+    static final int dbSize = 5;
 
     @Param({"NONE", "MULTI-STAGED"})
     String cacheType;
@@ -97,12 +96,11 @@ public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
         driver.up();
 
         databases.createMultipleDatabases(
-                DatabaseTemplate.newBuilder()
-                        .withSchema(cacheSchema, schemaTemplateName)
-                        .build(),
+                schemaTemplateName,
                 dbCount,
                 this::dbName,
-                this::populateDatabase);
+                this::populateDatabase,
+                cacheSchema);
     }
 
     @TearDown(Level.Trial)
@@ -141,7 +139,8 @@ public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     private void populateDatabase(URI uri) {
-        try (RelationalConnection dbConn = DriverManager.getConnection(uri.toString()).unwrap(RelationalConnection.class)) {
+        try (java.sql.Connection rawConn = DriverManager.getConnection(uri.toString());
+                RelationalConnection dbConn = rawConn.unwrap(RelationalConnection.class)) {
             dbConn.setSchema(cacheSchema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 stmt.executeInsert(

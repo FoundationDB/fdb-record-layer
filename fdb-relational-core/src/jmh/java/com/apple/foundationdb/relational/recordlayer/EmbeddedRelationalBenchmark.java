@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalDriver;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
@@ -49,7 +48,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -87,7 +85,7 @@ public abstract class EmbeddedRelationalBenchmark {
         }
 
         public Driver(RelationalPlanCache planCache) {
-            this(schemaTemplateName,templateDefinition,planCache);
+            this(schemaTemplateName, templateDefinition, planCache);
         }
 
         public Driver(String templateName, String templateDef) {
@@ -141,6 +139,11 @@ public abstract class EmbeddedRelationalBenchmark {
             try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
                 conn.setSchema("CATALOG");
                 try (final var statement = conn.createStatement()) {
+                    try {
+                        statement.executeUpdate("DROP SCHEMA TEMPLATE \"" + templateName + "\"");
+                    } catch (SQLException ignored) {
+                        // Template didn't exist yet — that's fine
+                    }
                     statement.executeUpdate("CREATE SCHEMA TEMPLATE \"" + templateName + "\" " + templateDef);
                 }
             }
@@ -156,11 +159,6 @@ public abstract class EmbeddedRelationalBenchmark {
             deleteDatabases(databases);
         }
 
-        public void createDatabase(DatabaseTemplate dbTemplate, String dbName) throws RelationalException, SQLException {
-            EmbeddedRelationalBenchmark.createDatabase(dbTemplate, getUri(dbName, false));
-            databases.add(dbName);
-        }
-
         public void createDatabase(URI path, String templateName, String... schemas) throws RelationalException, SQLException {
             EmbeddedRelationalBenchmark.createDatabase(path, templateName, schemas);
             databases.add(path.getPath());
@@ -171,15 +169,16 @@ public abstract class EmbeddedRelationalBenchmark {
         List<String> databases = new ArrayList<>();
 
         public void createMultipleDatabases(
-                DatabaseTemplate dbTemplate,
+                String templateName,
                 int dbCount,
                 Function<Integer, String> dbName,
-                Consumer<URI> populateDatabase) throws RelationalException {
+                Consumer<URI> populateDatabase,
+                String... schemas) throws RelationalException {
             try {
                 IntStream.range(0, dbCount).parallel().forEach(i ->
                 {
                     try {
-                        EmbeddedRelationalBenchmark.createDatabase(dbTemplate, getUri(dbName.apply(i), false));
+                        EmbeddedRelationalBenchmark.createDatabase(getUri(dbName.apply(i), false), templateName, schemas);
                         populateDatabase.accept(getUri(dbName.apply(i), true));
                     } catch (RelationalException e) {
                         throw e.toUncheckedWrappedException();
@@ -205,18 +204,6 @@ public abstract class EmbeddedRelationalBenchmark {
             return URI.create("jdbc:embed:" + dbName);
         } else {
             return URI.create(dbName);
-        }
-    }
-
-    private static void createDatabase(DatabaseTemplate dbTemplate, URI dbUri) throws RelationalException, SQLException {
-        try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
-            conn.setSchema("CATALOG");
-            try (final var statement = conn.createStatement()) {
-                statement.executeUpdate("CREATE DATABASE \"" + dbUri + "\"");
-                for (Map.Entry<String, String> schemaTemplateEntry : dbTemplate.getSchemaToTemplateNameMap().entrySet()) {
-                    statement.executeUpdate("CREATE SCHEMA \"" + dbUri + "/" + schemaTemplateEntry.getKey() + "\" WITH TEMPLATE \"" + schemaTemplateEntry.getValue() + "\"");
-                }
-            }
         }
     }
 

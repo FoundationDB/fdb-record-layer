@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -82,13 +81,13 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
     @Setup(Level.Iteration)
     public void setUp(ThreadScopedDatabases databases) throws RelationalException, SQLException {
         databases.createDatabase(
-                DatabaseTemplate.newBuilder()
-                        .withSchema(singleReadSchema, schemaTemplateName)
-                        .withSchema(singleWriteSchema, schemaTemplateName)
-                        .build(),
-                dbName);
+                getUri(dbName, false),
+                schemaTemplateName,
+                singleReadSchema,
+                singleWriteSchema);
 
-        try (RelationalConnection dbConn = DriverManager.getConnection(getUri(dbName, true).toString()).unwrap(RelationalConnection.class)) {
+        try (java.sql.Connection rawConn = DriverManager.getConnection(getUri(dbName, true).toString());
+                RelationalConnection dbConn = rawConn.unwrap(RelationalConnection.class)) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 stmt.executeInsert(restaurantRecordTable, newRestaurantRecord(42));
@@ -98,7 +97,8 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void singleWrite(Blackhole bh) throws SQLException {
-        try (RelationalConnection dbConn = DriverManager.getConnection(getUri(dbName, true).toString()).unwrap(RelationalConnection.class)) {
+        try (java.sql.Connection rawConn = DriverManager.getConnection(getUri(dbName, true).toString());
+                RelationalConnection dbConn = rawConn.unwrap(RelationalConnection.class)) {
             dbConn.setSchema(singleWriteSchema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 bh.consume(stmt.executeInsert(restaurantRecordTable, newRestaurantRecord()));
@@ -108,7 +108,8 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void singlePkRead(Blackhole bh) throws SQLException {
-        try (RelationalConnection dbConn = DriverManager.getConnection(getUri(dbName, true).toString()).unwrap(RelationalConnection.class)) {
+        try (java.sql.Connection rawConn = DriverManager.getConnection(getUri(dbName, true).toString());
+                RelationalConnection dbConn = rawConn.unwrap(RelationalConnection.class)) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement();
                     ResultSet resultSet = stmt.executeQuery("SELECT * FROM \"RestaurantRecord\" WHERE \"rest_no\" = 42")) {
@@ -121,7 +122,8 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void singleNonPkRead(Blackhole bh) throws SQLException {
-        try (RelationalConnection dbConn = DriverManager.getConnection(getUri(dbName, true).toString()).unwrap(RelationalConnection.class)) {
+        try (java.sql.Connection rawConn = DriverManager.getConnection(getUri(dbName, true).toString());
+                RelationalConnection dbConn = rawConn.unwrap(RelationalConnection.class)) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement();
                     ResultSet resultSet = stmt.executeQuery("SELECT * from \"RestaurantRecord\" WHERE \"name\" = 'testName'")) {
