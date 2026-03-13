@@ -437,6 +437,7 @@ public class CopyCommandTest {
             assertDataExists(setup.dest, data);
         } finally {
             dropTemplateAndDatabase(quoted, List.of(setup.templateName), setup.source);
+            dropTemplateAndDatabase(quoted, List.of(setup.templateName), setup.dest);
         }
     }
 
@@ -482,6 +483,7 @@ public class CopyCommandTest {
                             )));
         } finally {
             dropTemplateAndDatabase(quoted, List.of(setup.templateName), setup.source);
+            dropTemplateAndDatabase(quoted, List.of(setup.templateName), setup.dest);
         }
     }
 
@@ -589,12 +591,8 @@ public class CopyCommandTest {
             RelationalAssertions.assertThrowsSqlException(() -> importDatabase(quoted, true, setup.dest, exportedData))
                     .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE);
         } finally {
-            connectionUtils.runCatalogStatement(stmt -> {
-                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + sourceTemplateName);
-                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + destTemplateName);
-                stmt.executeUpdate("DROP DATABASE " + setup.source.databasePath);
-                stmt.executeUpdate("DROP DATABASE " + setup.dest.databasePath);
-            });
+            dropTemplateAndDatabase(quoted, List.of(sourceTemplateName), setup.source);
+            dropTemplateAndDatabase(quoted, List.of(destTemplateName), setup.dest);
         }
     }
 
