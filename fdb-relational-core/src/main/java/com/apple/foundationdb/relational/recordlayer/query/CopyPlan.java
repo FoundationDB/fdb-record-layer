@@ -350,7 +350,7 @@ public final class CopyPlan extends QueryPlan {
                                                  @Nonnull Map<KeySpacePath, CatalogInfo> pathSchemaCache,
                                                  @Nonnull StoreCatalog storeCatalog,
                                                  @Nonnull Transaction transaction) throws RelationalException {
-        // HollowStoreCatalog doesn't actually implement
+        // HollowStoreCatalog doesn't actually store any schema information to be copied
         if (storeCatalog instanceof HollowStoreCatalog) {
             return null;
         }
@@ -374,15 +374,15 @@ public final class CopyPlan extends QueryPlan {
                 schemaTemplate.unwrap(RecordLayerSchemaTemplate.class);
         final RecordMetaData recordMetaData = recordLayerSchemaTemplate.toRecordMetadata();
 
-        final CatalogInfo schemaTemplateInfo = CatalogInfo.newBuilder()
+        final CatalogInfo catalogInfo = CatalogInfo.newBuilder()
                 .setTemplateName(schemaTemplate.getName())
                 .setTemplateVersion(schemaTemplate.getVersion())
                 .setTemplateMetadata(recordMetaData.toProto().toByteString())
                 .build();
 
         // Cache the result and return
-        pathSchemaCache.put(dataPath, schemaTemplateInfo);
-        return schemaTemplateInfo;
+        pathSchemaCache.put(dataPath, catalogInfo);
+        return catalogInfo;
     }
 
     /**
