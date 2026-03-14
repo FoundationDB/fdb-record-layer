@@ -190,7 +190,6 @@ public class QueryPredicateSimplificationRuleTest {
     }
 
     public static class RandomPredicateGenerator {
-
         public static class PredicateTest {
             @Nonnull
             private final QueryPredicate expectedPredicate;
@@ -206,6 +205,11 @@ public class QueryPredicateSimplificationRuleTest {
                 this.expectedPredicate = expectedPredicate;
                 this.predicateUnderTest = predicateUnderTest;
                 this.evaluationContext = evaluationContext;
+            }
+
+            @Nonnull
+            public QueryPredicate getPredicateUnderTest() {
+                return predicateUnderTest;
             }
         }
 

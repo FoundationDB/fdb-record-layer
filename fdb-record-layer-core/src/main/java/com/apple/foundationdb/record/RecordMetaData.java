@@ -29,9 +29,9 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
+import com.apple.foundationdb.record.metadata.View;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
-import com.apple.foundationdb.record.metadata.View;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
@@ -45,7 +45,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,7 +52,6 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Meta-data for Record Layer record stores.
@@ -721,11 +719,6 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    public Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMapFromNames(@Nonnull final Collection<String> recordTypeNames) {
-        return getFieldDescriptorMap(recordTypeNames.stream().map(this::getRecordType));
-    }
-
-    @Nonnull
     public Map<String, UserDefinedFunction> getUserDefinedFunctionMap() {
         return userDefinedFunctionMap;
     }
@@ -736,39 +729,48 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    public static Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMapFromTypes(@Nonnull final Collection<RecordType> recordTypes) {
-        if (recordTypes.size() == 1) {
-            final var recordType = Iterables.getOnlyElement(recordTypes);
-            return Type.Record.toFieldDescriptorMap(recordType.getDescriptor().getFields());
+    public Type.Record getPlannerType(@Nonnull String recordTypeName) {
+        final RecordType recordType = getRecordType(recordTypeName);
+        Type.Record plannerType = Type.Record.fromDescriptor(recordType.getDescriptor());
+        if (storeRecordVersions) {
+            plannerType = plannerType.addPseudoFields();
         }
-        return getFieldDescriptorMap(recordTypes.stream());
+        return plannerType;
     }
 
     @Nonnull
-    private static Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMap(@Nonnull final Stream<RecordType> recordTypeStream) {
+    public Type.Record getPlannerType(@Nonnull Collection<String> recordTypeNames) {
+        if (recordTypeNames.size() == 1) {
+            final String recordTypeName = Iterables.getOnlyElement(recordTypeNames);
+            return getPlannerType(recordTypeName);
+        }
         // todo: should be removed https://github.com/FoundationDB/fdb-record-layer/issues/1884
-        return recordTypeStream
-                .sorted(Comparator.comparing(RecordType::getName))
-                .flatMap(recordType -> recordType.getDescriptor().getFields().stream())
-                .collect(Collectors.groupingBy(Descriptors.FieldDescriptor::getName,
+        LinkedHashMap<String, Type.Record.Field> fieldsByName = recordTypeNames.stream()
+                .map(this::getPlannerType)
+                .flatMap(type -> type.getFields().stream())
+                .collect(Collectors.groupingBy(Type.Record.Field::getFieldName,
                         LinkedHashMap::new,
-                        Collectors.reducing(null,
-                                (fieldDescriptor, fieldDescriptor2) -> {
-                                    Verify.verify(fieldDescriptor != null || fieldDescriptor2 != null);
-                                    if (fieldDescriptor == null) {
-                                        return fieldDescriptor2;
-                                    }
-                                    if (fieldDescriptor2 == null) {
-                                        return fieldDescriptor;
-                                    }
-                                    // TODO improve
-                                    if (fieldDescriptor.getType().getJavaType() ==
-                                            fieldDescriptor2.getType().getJavaType()) {
-                                        return fieldDescriptor;
-                                    }
+                        Collectors.reducing(null, (Type.Record.Field f1, Type.Record.Field f2) -> {
+                            Verify.verify(f1 != null || f2 != null);
+                            if (f1 == null) {
+                                return Type.Record.Field.of(f2.getFieldType(), f2.getFieldNameOptional());
+                            }
+                            if (f2 == null) {
+                                return Type.Record.Field.of(f1.getFieldType(), f1.getFieldNameOptional());
+                            }
+                            // TODO improve
+                            final Type f1Type = f1.getFieldType();
+                            final Type f2Type = f2.getFieldType();
+                            if (f1Type.equals(f2Type) || f1Type.isNullable() && f2Type.nullable().equals(f1Type)) {
+                                return Type.Record.Field.of(f1Type, f1.getFieldNameOptional());
+                            } else if (f2Type.isNullable() && f1Type.nullable().equals(f2Type)) {
+                                return Type.Record.Field.of(f2Type, f2.getFieldNameOptional());
+                            }
 
-                                    throw new IllegalArgumentException("cannot form union type of complex fields");
-                                })));
+                            throw new IllegalArgumentException("cannot form union type of complex fields");
+                        })
+                ));
+        return Type.Record.fromFields(false, List.copyOf(fieldsByName.values()));
     }
 
     @Nonnull

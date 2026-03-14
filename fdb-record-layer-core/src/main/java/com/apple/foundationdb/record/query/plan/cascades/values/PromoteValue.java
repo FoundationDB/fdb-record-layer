@@ -79,19 +79,23 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         LONG_TO_FLOAT(Type.TypeCode.LONG, Type.TypeCode.FLOAT, (descriptor, in) -> Float.valueOf((Long)in)),
         LONG_TO_DOUBLE(Type.TypeCode.LONG, Type.TypeCode.DOUBLE, (descriptor, in) -> Double.valueOf((Long)in)),
         FLOAT_TO_DOUBLE(Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE, (descriptor, in) -> Double.valueOf((Float)in)),
-        NULL_TO_INT(Type.TypeCode.NULL, Type.TypeCode.INT, (descriptor, in) -> (Integer) null),
-        NULL_TO_LONG(Type.TypeCode.NULL, Type.TypeCode.LONG, (descriptor, in) -> (Long) null),
-        NULL_TO_FLOAT(Type.TypeCode.NULL, Type.TypeCode.FLOAT, (descriptor, in) -> (Float) null),
-        NULL_TO_DOUBLE(Type.TypeCode.NULL, Type.TypeCode.DOUBLE, (descriptor, in) -> (Double) null),
-        NULL_TO_BOOLEAN(Type.TypeCode.NULL, Type.TypeCode.BOOLEAN, (descriptor, in) -> (Boolean) null),
-        NULL_TO_STRING(Type.TypeCode.NULL, Type.TypeCode.STRING, (descriptor, in) -> (String) null),
+        NULL_TO_INT(Type.TypeCode.NULL, Type.TypeCode.INT, (descriptor, in) -> null),
+        NULL_TO_LONG(Type.TypeCode.NULL, Type.TypeCode.LONG, (descriptor, in) -> null),
+        NULL_TO_FLOAT(Type.TypeCode.NULL, Type.TypeCode.FLOAT, (descriptor, in) -> null),
+        NULL_TO_DOUBLE(Type.TypeCode.NULL, Type.TypeCode.DOUBLE, (descriptor, in) -> null),
+        NULL_TO_BOOLEAN(Type.TypeCode.NULL, Type.TypeCode.BOOLEAN, (descriptor, in) -> null),
+        NULL_TO_STRING(Type.TypeCode.NULL, Type.TypeCode.STRING, (descriptor, in) -> null),
         NULL_TO_ARRAY(Type.TypeCode.NULL, Type.TypeCode.ARRAY, (descriptor, in) -> null),
         NULL_TO_RECORD(Type.TypeCode.NULL, Type.TypeCode.RECORD, (descriptor, in) -> null),
         NONE_TO_ARRAY(Type.TypeCode.NONE, Type.TypeCode.ARRAY, (descriptor, in) -> in),
         NULL_TO_ENUM(Type.TypeCode.NULL, Type.TypeCode.ENUM, (descriptor, in) -> null),
         // TODO: remove, an explicit CAST should be used instead.
         STRING_TO_ENUM(Type.TypeCode.STRING, Type.TypeCode.ENUM, ((descriptor, in) -> stringToEnumValue((Descriptors.EnumDescriptor)descriptor, (String)in))),
-        STRING_TO_UUID(Type.TypeCode.STRING, Type.TypeCode.UUID, ((descriptor, in) -> stringToUuidValue((String) in)));
+        STRING_TO_UUID(Type.TypeCode.STRING, Type.TypeCode.UUID, ((descriptor, in) -> stringToUuidValue((String) in))),
+        NULL_TO_BYTES(Type.TypeCode.NULL, Type.TypeCode.BYTES, (descriptor, in) -> null),
+        NULL_TO_VECTOR(Type.TypeCode.NULL, Type.TypeCode.VECTOR, (descriptor, in) -> null),
+        NULL_TO_VERSION(Type.TypeCode.NULL, Type.TypeCode.VERSION, (descriptor, in) -> null),
+        ;
 
         @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =

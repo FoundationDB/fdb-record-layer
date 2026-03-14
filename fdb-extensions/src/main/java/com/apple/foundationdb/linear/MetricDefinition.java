@@ -25,9 +25,9 @@ import javax.annotation.Nonnull;
 /**
  * Defines a metric for measuring the distance or similarity between n-dimensional vectors.
  * <p>
- * This interface provides a contract for various distance calculation algorithms, such as Euclidean, Manhattan,
- * and Cosine distance. Implementations of this interface can be used in algorithms that require a metric for
- * comparing data vectors, like clustering or nearest neighbor searches.
+ * This interface provides a contract for various distance calculation algorithms, such as Euclidean, and Cosine
+ * distance. Implementations of this interface can be used in algorithms that require a metric for comparing data
+ * vectors, like clustering or nearest neighbor searches.
  */
 interface MetricDefinition {
     /**
@@ -61,6 +61,15 @@ interface MetricDefinition {
      *         {@code distance(x, y) + distance(y, z) >= distance(x, z)}
      */
     default boolean satisfiesTriangleInequality() {
+        return true;
+    }
+
+    /**
+     * Method to be implemented by the specific metric.
+     * @return {@code true} iff for all {@link RealVector}s {@code x, y} and all translations T holds that
+     *         {@code distance(x, y) == distance(T(x), T(y))}
+     */
+    default boolean satisfiesPreservedUnderTranslation() {
         return true;
     }
 
@@ -113,31 +122,6 @@ interface MetricDefinition {
         }
         if (vector1.length == 0) {
             throw new IllegalArgumentException("Vectors cannot be empty.");
-        }
-    }
-
-    /**
-     * Represents the Manhattan distance metric.
-     * <p>
-     * This metric calculates a distance overlaying the multidimensional space with a grid-like structure only allowing
-     * orthogonal lines. In 2D this resembles the street structure in Manhattan where one would have to go {@code x}
-     * blocks north/south and {@code y} blocks east/west leading to a total distance of {@code x + y}.
-     */
-    final class ManhattanMetric implements MetricDefinition {
-        @Override
-        public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
-            MetricDefinition.validate(vector1, vector2);
-            double sumOfAbsDiffs = 0.0;
-            for (int i = 0; i < vector1.length; i++) {
-                sumOfAbsDiffs += Math.abs(vector1[i] - vector2[i]);
-            }
-            return sumOfAbsDiffs;
-        }
-
-        @Override
-        @Nonnull
-        public String toString() {
-            return MetricDefinition.toString(this);
         }
     }
 
@@ -209,12 +193,18 @@ interface MetricDefinition {
      * <p>
      * This metric calculates a "distance" between two vectors {@code v1} and {@code v2} that ranges between
      * {@code 0.0d} and {@code 2.0d} that corresponds to {@code 1 - cos(v1, v2)}, meaning that if {@code v1 == v2},
-     * the distance is {@code 0} while if {@code v1} is orthogonal to {@code v2} it is {@code 1}.
+     * the distance is {@code 0} while if {@code v1} is orthogonal to {@code v2} it is {@code 1}. Note that the zero
+     * vector cannot be compared to any vector. We define the distance here to be {@link Double#NaN}.
      * @see MetricDefinition.CosineMetric
      */
     final class CosineMetric implements MetricDefinition {
         @Override
         public boolean satisfiesTriangleInequality() {
+            return false;
+        }
+
+        @Override
+        public boolean satisfiesPreservedUnderTranslation() {
             return false;
         }
 
@@ -274,6 +264,11 @@ interface MetricDefinition {
 
         @Override
         public boolean satisfiesTriangleInequality() {
+            return false;
+        }
+
+        @Override
+        public boolean satisfiesPreservedUnderTranslation() {
             return false;
         }
 

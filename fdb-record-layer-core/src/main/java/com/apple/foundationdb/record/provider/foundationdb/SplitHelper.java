@@ -33,6 +33,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
@@ -132,7 +133,11 @@ public class SplitHelper {
                     .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
                     .addLogInfo(LogMessageKeys.VERSION, version);
         }
-        final Transaction tr = context.ensureActive();
+        boolean hasVersionInKey = key.hasIncompleteVersionstamp();
+        if ((version != null) && hasVersionInKey) {
+            // Cannot have versionStamps in BOTH key and value
+            throw new RecordCoreArgumentException("Cannot save versionStamp in both key and value");
+        }
         if (serialized.length > SplitHelper.SPLIT_RECORD_SIZE) {
             if (!splitLongRecords) {
                 throw new RecordCoreException("Record is too long to be stored in a single value; consider split_long_records")
@@ -140,9 +145,14 @@ public class SplitHelper {
                         .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
                         .addLogInfo(LogMessageKeys.VALUE_SIZE, serialized.length);
             }
-            writeSplitRecord(context, subspace, key, serialized, clearBasedOnPreviousSizeInfo, previousSizeInfo, sizeInfo);
+            writeSplitRecord(context, subspace, key, serialized, hasVersionInKey, clearBasedOnPreviousSizeInfo, previousSizeInfo, sizeInfo);
         } else {
-            if (splitLongRecords || previousSizeInfo == null || previousSizeInfo.isVersionedInline()) {
+            // An incomplete version in the key means that we shouldn't delete previous k/v pairs using these keys since,
+            // in the DB, from previous transactions, they would have been completed the versions already (and so wouldn't match)
+            if (!hasVersionInKey && (splitLongRecords || previousSizeInfo == null || previousSizeInfo.isVersionedInline())) {
+                // Note that the clearPreviousSplitRecords also removes version splits from the context cache
+                // This is not currently supported for the case where we have versions in the keys since we can't trace the old values down
+                // Will be improved on in a separate PR
                 clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
             }
             final Tuple recordKey;
@@ -151,8 +161,7 @@ public class SplitHelper {
             } else {
                 recordKey = key;
             }
-            final byte[] keyBytes = subspace.pack(recordKey);
-            tr.set(keyBytes, serialized);
+            final byte[] keyBytes = writeSplitValue(context, subspace, recordKey, serialized);
             if (sizeInfo != null) {
                 sizeInfo.set(keyBytes, serialized);
                 sizeInfo.setSplit(false);
@@ -164,11 +173,14 @@ public class SplitHelper {
     @SuppressWarnings("PMD.CloseResource")
     private static void writeSplitRecord(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace,
                                          @Nonnull final Tuple key, @Nonnull final byte[] serialized,
+                                         boolean hasVersionInKey,
                                          final boolean clearBasedOnPreviousSizeInfo, @Nullable final FDBStoredSizes previousSizeInfo,
                                          @Nullable SizeInfo sizeInfo) {
-        final Transaction tr = context.ensureActive();
-        final Subspace keySplitSubspace = subspace.subspace(key);
-        clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
+        if (!hasVersionInKey) {
+            // Note that the clearPreviousSplitRecords also removes version splits from the context cache
+            // This is not currently supported for the case where we have versions in the keys since we can't trace the old values down
+            clearPreviousSplitRecord(context, subspace, key, clearBasedOnPreviousSizeInfo, previousSizeInfo);
+        }
         long index = SplitHelper.START_SPLIT_RECORD;
         int offset = 0;
         while (offset < serialized.length) {
@@ -176,9 +188,8 @@ public class SplitHelper {
             if (nextOffset > serialized.length) {
                 nextOffset = serialized.length;
             }
-            final byte[] keyBytes = keySplitSubspace.pack(index);
             final byte[] valueBytes = Arrays.copyOfRange(serialized, offset, nextOffset);
-            tr.set(keyBytes, valueBytes);
+            final byte[] keyBytes = writeSplitValue(context, subspace, key.add(index), valueBytes);
             if (sizeInfo != null) {
                 if (offset == 0) {
                     sizeInfo.set(keyBytes, valueBytes);
@@ -192,6 +203,28 @@ public class SplitHelper {
         }
     }
 
+    private static byte[] writeSplitValue(FDBRecordContext context, Subspace subspace, Tuple recordKey, byte[] serialized) {
+        byte[] keyBytes;
+        if (recordKey.hasIncompleteVersionstamp()) {
+            keyBytes = subspace.packWithVersionstamp(recordKey);
+            byte[] current = context.addVersionMutation(
+                    MutationType.SET_VERSIONSTAMPED_KEY,
+                    keyBytes,
+                    serialized);
+            if (current != null) {
+                // This should never happen. It means that the same key (and suffix) and local version were used for subsequent
+                // write. It is most likely not an intended flow and this check will protect against that.
+                // It is an incomplete check since the same record can have different suffixes to the primary key that would not collide.
+                // Namely, if one is split, and one is not split they will not overlap. Anything else and the would.
+                throw new RecordCoreInternalException("Key with version overwritten");
+            }
+        } else {
+            keyBytes = subspace.pack(recordKey);
+            context.ensureActive().set(keyBytes, serialized);
+        }
+        return keyBytes;
+    }
+
     @SuppressWarnings("PMD.CloseResource")
     private static void writeVersion(@Nonnull final FDBRecordContext context, @Nonnull final Subspace subspace, @Nonnull final Tuple key,
                                      @Nullable final FDBRecordVersion version, @Nullable final SizeInfo sizeInfo) {
@@ -201,11 +234,11 @@ public class SplitHelper {
             }
             return;
         }
-        final Transaction tr = context.ensureActive();
+        // At this point we know the key does not have a version
         final byte[] keyBytes = subspace.pack(key.add(RECORD_VERSION));
         final byte[] valueBytes = packVersion(version);
         if (version.isComplete()) {
-            tr.set(keyBytes, valueBytes);
+            context.ensureActive().set(keyBytes, valueBytes);
         } else {
             context.addVersionMutation(MutationType.SET_VERSIONSTAMPED_VALUE, keyBytes, valueBytes);
             context.addToLocalVersionCache(keyBytes, version.getLocalVersion());
@@ -1177,7 +1210,7 @@ public class SplitHelper {
      * Exception thrown when only part of a split record is found.
      */
     @SuppressWarnings("serial")
-    public static class FoundSplitWithoutStartException extends RecordCoreException {
+    public static final class FoundSplitWithoutStartException extends RecordCoreException {
         public FoundSplitWithoutStartException(long nextIndex, boolean reverse) {
             super("Found split record without start");
             addLogInfo(LogMessageKeys.SPLIT_NEXT_INDEX, nextIndex);
@@ -1189,7 +1222,7 @@ public class SplitHelper {
      * Exception thrown when splits are out of order.
      */
     @SuppressWarnings("serial")
-    public static class FoundSplitOutOfOrderException extends RecordCoreStorageException {
+    public static final class FoundSplitOutOfOrderException extends RecordCoreStorageException {
         public FoundSplitOutOfOrderException(long expected, long found) {
             super("Split record segments out of order");
             addLogInfo(LogMessageKeys.SPLIT_EXPECTED, expected);

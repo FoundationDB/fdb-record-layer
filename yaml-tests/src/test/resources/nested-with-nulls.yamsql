@@ -52,7 +52,7 @@ test_block:
       - unorderedResult: [{ ID: 104 }, { ID: 105 }, { ID: 106 }, { ID: 107 }]
     -
       - query: select id from t1 where a.b.a IS NULL
-      - explain: "COVERING(I1 [[null],[null]] -> [ID: KEY[2], A: [B: [A: KEY[0]]]]) | MAP (_.ID AS ID)"
+      - explain: "COVERING(I1 [[null],[null]] -> [ID: KEY:[2], A: [B: [A: KEY:[0]]]]) | MAP (_.ID AS ID)"
       - unorderedResult: [{ ID: 103 }, { ID: 107 }]
     -
       - query: select id from t1 where a.b.b IS NULL
@@ -80,11 +80,11 @@ test_block:
       - unorderedResult: [{ ID: 100 }, { ID: 101 }, { ID: 102 }, { ID: 103 }, { ID: 104 }, { ID: 105 }, { ID: 106 }, { ID: 107 } ]
     -
       - query: select id from t1 where a.a.b IS NOT NULL
-      - explain: "COVERING(I2 ([null],> -> [ID: KEY[2], A: [A: [B: KEY[0]]]]) | MAP (_.ID AS ID)"
+      - explain: "COVERING(I2 ([null],> -> [ID: KEY:[2], A: [A: [B: KEY:[0]]]]) | MAP (_.ID AS ID)"
       - unorderedResult: [{ ID: 100 }, { ID: 101 }, { ID: 102 }, { ID: 103 }]
     -
       - query: select id from t1 where a.b.a IS NOT NULL
-      - explain: "COVERING(I1 ([null],> -> [ID: KEY[2], A: [B: [A: KEY[0]]]]) | MAP (_.ID AS ID)"
+      - explain: "COVERING(I1 ([null],> -> [ID: KEY:[2], A: [B: [A: KEY:[0]]]]) | MAP (_.ID AS ID)"
       - unorderedResult: [{ ID: 100 }, { ID: 101 }, { ID: 102 }, { ID: 104 }, { ID: 105 }, { ID: 106 }]
     -
       - query: select id from t1 where a.b.b IS NOT NULL

@@ -266,9 +266,9 @@ cast-operator-tests:
     explain: SCAN(<,>) | TFILTER TEST_CAST | FILTER CAST(_.NUM_COL AS STRING) EQUALS
         CAST(@c15 AS STRING) | MAP (_.ID AS ID)
     task_count: 230
-    task_total_time_ms: 7
+    task_total_time_ms: 6
     transform_count: 61
-    transform_time_ms: 4
+    transform_time_ms: 3
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 21
@@ -296,3 +296,127 @@ cast-operator-tests:
     insert_time_ms: 0
     insert_new_count: 24
     insert_reused_count: 2
+-   query: EXPLAIN select cast(null as integer) as a, cast(null as bigint) as b, cast(null
+        as string) as c, cast(null as double) as d, cast(null as boolean) as e, cast(null
+        as string) as f from values (1), (2) as X(X)
+    explain: EXPLODE array((@c58 AS X), (@c62 AS X)) | MAP (CAST(NULL AS INT) AS A,
+        CAST(NULL AS LONG) AS B, CAST(NULL AS STRING) AS C, CAST(NULL AS DOUBLE) AS
+        D, CAST(NULL AS BOOLEAN) AS E, CAST(NULL AS STRING) AS F)
+    task_count: 116
+    task_total_time_ms: 3
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select cast(null as uuid) from values (1), (2) as X(X)
+    explain: EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (CAST(NULL AS UUID) AS
+        _0)
+    task_count: 116
+    task_total_time_ms: 1
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select cast(null as float) from values (1), (2) as X(X)
+    explain: EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (CAST(NULL AS FLOAT) AS
+        _0)
+    task_count: 116
+    task_total_time_ms: 1
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select cast(null as bytes) from values (1), (2) as X(X)
+    explain: EXPLODE array((@c11 AS X), (@c15 AS X)) | MAP (CAST(NULL AS BYTES) AS
+        _0)
+    task_count: 116
+    task_total_time_ms: 1
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select cast(null as vector(10, half)) as a, cast(null as vector(15,
+        float)) as b, cast(null as vector(30, double)) as c from values (1), (2) as
+        X(X)
+    explain: EXPLODE array((@c46 AS X), (@c50 AS X)) | MAP (CAST(NULL AS VECTOR(16,
+        10)) AS A, CAST(NULL AS VECTOR(32, 15)) AS B, CAST(NULL AS VECTOR(64, 30))
+        AS C)
+    task_count: 116
+    task_total_time_ms: 1
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select cast(null as integer array) as a, cast(null as bigint array)
+        as b, cast(null as string array) as c, cast(null as double array) as d, cast(null
+        as boolean array) as e, cast(null as string array) as f from values (1), (2)
+        as X(X)
+    explain: EXPLODE array((@c64 AS X), (@c68 AS X)) | MAP (CAST(NULL AS ARRAY(INT))
+        AS A, CAST(NULL AS ARRAY(LONG)) AS B, CAST(NULL AS ARRAY(STRING)) AS C, CAST(NULL
+        AS ARRAY(DOUBLE)) AS D, CAST(NULL AS ARRAY(BOOLEAN)) AS E, CAST(NULL AS ARRAY(STRING))
+        AS F)
+    task_count: 116
+    task_total_time_ms: 1
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select cast(null as uuid array) from values (1), (2) as X(X)
+    explain: EXPLODE array((@c12 AS X), (@c16 AS X)) | MAP (CAST(NULL AS ARRAY(UUID))
+        AS _0)
+    task_count: 116
+    task_total_time_ms: 1
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select cast(null as float array) from values (1), (2) as X(X)
+    explain: EXPLODE array((@c12 AS X), (@c16 AS X)) | MAP (CAST(NULL AS ARRAY(FLOAT))
+        AS _0)
+    task_count: 116
+    task_total_time_ms: 1
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select cast(null as bytes array) from values (1), (2) as X(X)
+    explain: EXPLODE array((@c12 AS X), (@c16 AS X)) | MAP (CAST(NULL AS ARRAY(BYTES))
+        AS _0)
+    task_count: 116
+    task_total_time_ms: 1
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select cast(null as vector(10, half) array) as a, cast(null as
+        vector(15, float) array) as b, cast(null as vector(30, double) array) as c
+        from values (1), (2) as X(X)
+    explain: EXPLODE array((@c49 AS X), (@c53 AS X)) | MAP (CAST(NULL AS ARRAY(VECTOR(16,
+        10))) AS A, CAST(NULL AS ARRAY(VECTOR(32, 15))) AS B, CAST(NULL AS ARRAY(VECTOR(64,
+        30))) AS C)
+    task_count: 116
+    task_total_time_ms: 1
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0

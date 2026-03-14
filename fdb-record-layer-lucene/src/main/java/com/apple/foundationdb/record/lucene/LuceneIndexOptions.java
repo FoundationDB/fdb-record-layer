@@ -112,6 +112,14 @@ public class LuceneIndexOptions {
      * </p>
      */
     public static final String PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED = "primaryKeySegmentIndexV2Enabled";
+    /**
+     * Enable pending write queue during an ongoing merge.
+     * During an ongoing merge the index is locked, which causes record updates attempts to fail. When this option is set to true,
+     * record updates during merge will be written to a queue and applied when the merge is done.
+     * When such queue exists, queries on the index will first apply the items in the pending queue (without commiting),
+     * which will keep consistency.
+     */
+    public static final String ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE = "enablePendingWriteQueueDuringMerge";
 
     private LuceneIndexOptions() {
     }

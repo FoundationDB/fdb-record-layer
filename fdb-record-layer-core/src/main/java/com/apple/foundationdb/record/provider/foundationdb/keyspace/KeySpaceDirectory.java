@@ -108,7 +108,7 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if the provided value constant value is not valid for the
      * type of directory being created
      */
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @SuppressWarnings({"PMD.CompareObjectsWithEquals", "this-escape"})
     public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType, @Nullable Object value,
                              @Nullable Function<KeySpacePath, KeySpacePath> wrapper) {
 
@@ -118,6 +118,8 @@ public class KeySpaceDirectory {
         this.wrapper = wrapper;
 
         if (value != keyType.getAnyValue()) {
+            // NOTE: this method actually _is_ overridden by DirectoryLayerDirectory, but not in a way that depends
+            // on its constructor having been called.
             validateConstant(value);
         }
     }
@@ -174,6 +176,55 @@ public class KeySpaceDirectory {
                     LogMessageKeys.DIR_NAME, getName(),
                     LogMessageKeys.DIR_VALUE, value);
         }
+    }
+
+    /**
+     * Validate that the given value can be used with this directory.
+     * <p>
+     *     Ideally this would be called as part of {@link KeySpacePath#add(String, Object)} to ensure the provided value
+     *     is valid, but that code has existed for a long time, so it's possible clients are adding without respecting
+     *     the type. You should call this before calling add to make sure you don't have the same mistakes. At some point
+     *     this will be embedded in {@code add} once there's some confidence that it won't break anyone's environments.
+     * </p>
+     * @param value a potential value
+     * @throws RecordCoreArgumentException if the value is not valid
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public void validateValue(@Nullable Object value) {
+        // Validate that the value is valid for this directory
+        if (!isValueValid(value)) {
+            throw new RecordCoreArgumentException("Value does not match directory requirements")
+                .addLogInfo(LogMessageKeys.DIR_NAME, name,
+                    LogMessageKeys.EXPECTED_TYPE, getKeyType(),
+                    LogMessageKeys.ACTUAL, value,
+                    "actual_type", value == null ? "null" : value.getClass().getName(),
+                    "expected_value", getValue());
+        }
+    }
+
+    /**
+     * Checks if the provided value is valid for this directory. This method can be overridden by subclasses
+     * to provide custom validation logic. For example, {@link DirectoryLayerDirectory} accepts String
+     * values (logical names) even though its key type is LONG.
+     *
+     * @param value the value to validate
+     * @return {@code true} if the value is valid for this directory
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public boolean isValueValid(@Nullable Object value) {
+        // Check if value matches the key type
+        if (!keyType.isMatch(value)) {
+            return false;
+        }
+        // If this directory has a constant value, check that the provided value matches it
+        if (this.value != ANY_VALUE) {
+            if (this.value instanceof byte[] && value instanceof byte[]) {
+                return Arrays.equals((byte[]) this.value, (byte[]) value);
+            } else {
+                return Objects.equals(this.value, value);
+            }
+        }
+        return true;
     }
 
     /**
@@ -304,7 +355,7 @@ public class KeySpaceDirectory {
             }
 
             if (existingSubdir.getKeyType() == subdirectory.getKeyType()) {
-                if (existingSubdir.getValue() == ANY_VALUE || subdirectory.getValue() == ANY_VALUE) {
+                if (!existingSubdir.isConstant() || !subdirectory.isConstant()) {
                     throw new RecordCoreArgumentException("Cannot add directory due to overlapping type",
                             LogMessageKeys.PARENT_DIR, getName(),
                             LogMessageKeys.DIR_NAME, existingSubdir.getName(),
@@ -486,7 +537,7 @@ public class KeySpaceDirectory {
         final EndpointType startType;
         final EndpointType stopType;
 
-        if (getValue() == KeySpaceDirectory.ANY_VALUE) {
+        if (!isConstant()) {
             if (valueRange != null && valueRange.getLowEndpoint() != EndpointType.TREE_START) {
                 if (KeyType.typeOf(valueRange.getLow()) != getKeyType()) {
                     throw invalidValueTypeException(KeyType.typeOf(valueRange.getLow()), getKeyType(), getName(), valueRange);
@@ -632,7 +683,7 @@ public class KeySpaceDirectory {
      */
     @Nonnull
     protected CompletableFuture<PathValue> toTupleValueAsyncImpl(@Nonnull FDBRecordContext context, @Nullable Object value) {
-        if (this.value != ANY_VALUE && !areEqual(this.value, value)) {
+        if (this.isConstant() && !areEqual(this.value, value)) {
             throw new RecordCoreArgumentException("Illegal value provided",
                     "provided_value", value,
                     "expected_value", this.value);
@@ -701,11 +752,20 @@ public class KeySpaceDirectory {
      * Returns the constant value that this directory stores.
      * A return value of {@link #ANY_VALUE} indicates
      * that this directory may contain any value of the type indicated by {@link #getKeyType()}
+     * (see also {@link #isConstant()}.
      * @return the constant value that this directory stores
      */
     @Nullable
     public Object getValue() {
         return value;
+    }
+
+    /**
+     * Whether this directory has a constant value, or can be any value.
+     * @return {@code true} if this directory has a constant value, or {@code false} if it can accept any value.
+     */
+    public boolean isConstant() {
+        return value != ANY_VALUE;
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // we use ref
@@ -928,9 +988,17 @@ public class KeySpaceDirectory {
         }
     }
 
+    /**
+     * A singleton class representing that this directory can contain any value of the associated type.
+     */
     private static class AnyValue {
+        /**
+         * Do not call this constuctor, reference the constant {@link #ANY_VALUE}.
+         */
         private AnyValue() {
         }
+
+        // explicitly not implementing equals, so that it falls back to `Object.equals` which is reference equality.
 
         @Override
         public String toString() {

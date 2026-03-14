@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -40,7 +41,6 @@ import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperati
 import com.apple.foundationdb.relational.recordlayer.ddl.CreateTemporaryFunctionConstantAction;
 import com.apple.foundationdb.relational.recordlayer.ddl.DropTemporaryFunctionConstantAction;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
-import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingRecordStore;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
@@ -63,6 +63,8 @@ import java.net.URI;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TransactionBoundDatabase extends AbstractDatabase {
+    @Nullable
+    private final KeySpace keySpace;
     BackingStore store;
     URI uri;
 
@@ -70,9 +72,8 @@ public class TransactionBoundDatabase extends AbstractDatabase {
         @Nonnull
         @Override
         public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, final boolean throwIfExists,
-                                                                       @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
-                                                                       @Nonnull final PreparedParams preparedParams) {
-            return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams);
+                                                                       @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+            return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine);
         }
 
         @Nonnull
@@ -82,9 +83,11 @@ public class TransactionBoundDatabase extends AbstractDatabase {
         }
     };
 
-    public TransactionBoundDatabase(URI uri, @Nonnull Options options, @Nullable RelationalPlanCache planCache) {
+    public TransactionBoundDatabase(@Nonnull URI uri, @Nonnull Options options, @Nullable RelationalPlanCache planCache,
+                                    @Nullable KeySpace keySpace) {
         super(onlyTemporaryFunctionOperationsFactory, NoOpQueryFactory.INSTANCE, planCache, options);
         this.uri = uri;
+        this.keySpace = keySpace;
     }
 
     @Override
@@ -95,7 +98,8 @@ public class TransactionBoundDatabase extends AbstractDatabase {
         final var recordStoreAndRecordContextTx = transaction.unwrap(RecordStoreAndRecordContextTransaction.class);
         store = BackingRecordStore.fromTransactionWithStore(recordStoreAndRecordContextTx);
         final var boundSchemaTemplate = recordStoreAndRecordContextTx.getBoundSchemaTemplate();
-        EmbeddedRelationalConnection connection = new EmbeddedRelationalConnection(this, new HollowStoreCatalog(boundSchemaTemplate), ((RecordStoreAndRecordContextTransaction) transaction).getRecordContextTransaction(), options);
+        EmbeddedRelationalConnection connection = new EmbeddedRelationalConnection(this, new HollowStoreCatalog(boundSchemaTemplate, keySpace),
+                ((RecordStoreAndRecordContextTransaction) transaction).getRecordContextTransaction(), options);
         setConnection(connection);
         return connection;
     }

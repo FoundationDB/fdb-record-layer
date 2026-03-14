@@ -113,7 +113,7 @@ public class RecordQuerySortPlan extends AbstractRelationalExpressionWithChildre
         } else {
             sorted = FileSortCursor.create(adapter, innerCursor, timer, continuation, skip, limit);
         }
-        return sorted.map(QueryResult::fromQueriedRecord);
+        return sorted.map(queriedRecord -> QueryResult.fromQueriedRecord(getResultValue().getResultType(), context, queriedRecord));
     }
 
     @Override

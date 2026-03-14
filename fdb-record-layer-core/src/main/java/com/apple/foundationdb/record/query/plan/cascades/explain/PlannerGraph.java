@@ -161,7 +161,19 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         return plannerGraphBuilder.build();
     }
 
-    private static List<? extends Quantifier> tryGetQuantifiers(@Nonnull final Node node) {
+    @Nonnull
+    static Optional<? extends RelationalExpression> tryGetExpression(@Nonnull final Node node) {
+        if (node instanceof WithExpression) {
+            @Nullable final RelationalExpression expression = ((WithExpression)node).getExpression();
+            if (expression != null) {
+                return Optional.of(expression);
+            }
+        }
+        return Optional.empty();
+    }
+
+    @Nonnull
+    static List<? extends Quantifier> tryGetQuantifiers(@Nonnull final Node node) {
         if (node instanceof WithExpression) {
             @Nullable final RelationalExpression expression = ((WithExpression)node).getExpression();
             if (expression != null) {

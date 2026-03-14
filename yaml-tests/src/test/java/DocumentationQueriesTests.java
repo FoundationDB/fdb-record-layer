@@ -35,6 +35,11 @@ class DocumentationQueriesTests {
     }
 
     @TestTemplate
+    void caseDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/case-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     void castDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/cast-documentation-queries.yamsql");
     }
@@ -45,8 +50,18 @@ class DocumentationQueriesTests {
     }
 
     @TestTemplate
+    void indexDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/index-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     void isDistinctFromOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/is-distinct-from-operator-queries.yamsql");
+    }
+
+    @TestTemplate
+    void joinsDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/joins-documentation-queries.yamsql");
     }
 
     @TestTemplate
@@ -65,6 +80,11 @@ class DocumentationQueriesTests {
     }
 
     @TestTemplate
+    void udfDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/udf-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     void vectorDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/vector-documentation-queries.yamsql");
     }
@@ -72,5 +92,10 @@ class DocumentationQueriesTests {
     @TestTemplate
     void withDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/with-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
+    void windowFunctionDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/window-function-documentation-queries.yamsql");
     }
 }

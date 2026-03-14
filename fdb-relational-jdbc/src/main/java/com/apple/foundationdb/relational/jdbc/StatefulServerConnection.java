@@ -41,7 +41,7 @@ import java.util.function.Function;
  * when the client connection enters autoCommit=off state and is closed when the client exits that mode
  * or when the connection is closed.
  */
-public class StatefulServerConnection implements StreamObserver<TransactionalResponse>, AutoCloseable {
+public final class StatefulServerConnection implements StreamObserver<TransactionalResponse>, AutoCloseable {
     public static final long TIMEOUT_IN_SECONDS = 30;
 
     private static final Logger logger = LoggerFactory.getLogger(StatefulServerConnection.class);

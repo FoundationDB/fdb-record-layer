@@ -52,6 +52,12 @@ interface NeighborsChangeSet<N extends NodeReference> {
     NeighborsChangeSet<N> getParent();
 
     /**
+     * Method to indicate iff changes have been made that need to be persisted.
+     * @return {@code true} iff changes have been made in this or parent change sets.
+     */
+    boolean hasChanges();
+
+    /**
      * Merges multiple internal sequences into a single, consolidated iterable sequence.
      * <p>
      * This method combines distinct internal changesets into one continuous stream of neighbors. The specific order

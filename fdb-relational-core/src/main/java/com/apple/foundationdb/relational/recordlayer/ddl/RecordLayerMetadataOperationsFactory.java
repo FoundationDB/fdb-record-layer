@@ -25,12 +25,11 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
-import com.apple.foundationdb.relational.api.ddl.SaveSchemaTemplateConstantAction;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
+import com.apple.foundationdb.relational.api.ddl.SaveSchemaTemplateConstantAction;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
-import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -94,9 +93,8 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
     @Override
     public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull SchemaTemplate template,
                                                                    boolean throwIfExists,
-                                                                   @Nonnull RecordLayerInvokedRoutine invokedRoutine,
-                                                                   @Nonnull PreparedParams preparedParams) {
-        return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams);
+                                                                   @Nonnull RecordLayerInvokedRoutine invokedRoutine) {
+        return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine);
     }
 
     @Nonnull

@@ -32,13 +32,13 @@ class ConfigTest {
         Assertions.assertThat(HNSW.newConfigBuilder().build(768)).isEqualTo(defaultConfig);
         Assertions.assertThat(defaultConfig.toBuilder().build(768)).isEqualTo(defaultConfig);
 
-        final boolean deterministicSeeding = true;
         final Metric metric = Metric.COSINE_METRIC;
         final boolean useInlining = true;
         final int m = Config.DEFAULT_M + 1;
         final int mMax = Config.DEFAULT_M_MAX + 1;
         final int mMax0 = Config.DEFAULT_M_MAX_0 + 1;
         final int efConstruction = Config.DEFAULT_EF_CONSTRUCTION + 1;
+        final int efRepair = Config.DEFAULT_EF_REPAIR + 1;
         final boolean extendCandidates = true;
         final boolean keepPrunedConnections = true;
         final int statsThreshold = 5000;
@@ -50,14 +50,15 @@ class ConfigTest {
 
         final int maxNumConcurrentNodeFetches = 1;
         final int maxNumConcurrentNeighborhoodFetches = 2;
+        final int maxNumConcurrentDeleteFromLayer = Config.DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER + 1;
 
-        Assertions.assertThat(defaultConfig.isDeterministicSeeding()).isNotEqualTo(deterministicSeeding);
         Assertions.assertThat(defaultConfig.getMetric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.isUseInlining()).isNotEqualTo(useInlining);
         Assertions.assertThat(defaultConfig.getM()).isNotEqualTo(m);
         Assertions.assertThat(defaultConfig.getMMax()).isNotEqualTo(mMax);
         Assertions.assertThat(defaultConfig.getMMax0()).isNotEqualTo(mMax0);
         Assertions.assertThat(defaultConfig.getEfConstruction()).isNotEqualTo(efConstruction);
+        Assertions.assertThat(defaultConfig.getEfRepair()).isNotEqualTo(efRepair);
         Assertions.assertThat(defaultConfig.isExtendCandidates()).isNotEqualTo(extendCandidates);
         Assertions.assertThat(defaultConfig.isKeepPrunedConnections()).isNotEqualTo(keepPrunedConnections);
 
@@ -70,16 +71,17 @@ class ConfigTest {
 
         Assertions.assertThat(defaultConfig.getMaxNumConcurrentNodeFetches()).isNotEqualTo(maxNumConcurrentNodeFetches);
         Assertions.assertThat(defaultConfig.getMaxNumConcurrentNeighborhoodFetches()).isNotEqualTo(maxNumConcurrentNeighborhoodFetches);
+        Assertions.assertThat(defaultConfig.getMaxNumConcurrentDeleteFromLayer()).isNotEqualTo(maxNumConcurrentDeleteFromLayer);
 
         final Config newConfig =
                 defaultConfig.toBuilder()
-                        .setDeterministicSeeding(deterministicSeeding)
                         .setMetric(metric)
                         .setUseInlining(useInlining)
                         .setM(m)
                         .setMMax(mMax)
                         .setMMax0(mMax0)
                         .setEfConstruction(efConstruction)
+                        .setEfRepair(efRepair)
                         .setExtendCandidates(extendCandidates)
                         .setKeepPrunedConnections(keepPrunedConnections)
                         .setSampleVectorStatsProbability(sampleVectorStatsProbability)
@@ -89,15 +91,16 @@ class ConfigTest {
                         .setRaBitQNumExBits(raBitQNumExBits)
                         .setMaxNumConcurrentNodeFetches(maxNumConcurrentNodeFetches)
                         .setMaxNumConcurrentNeighborhoodFetches(maxNumConcurrentNeighborhoodFetches)
+                        .setMaxNumConcurrentDeleteFromLayer(maxNumConcurrentDeleteFromLayer)
                         .build(768);
 
-        Assertions.assertThat(newConfig.isDeterministicSeeding()).isEqualTo(deterministicSeeding);
         Assertions.assertThat(newConfig.getMetric()).isSameAs(metric);
         Assertions.assertThat(newConfig.isUseInlining()).isEqualTo(useInlining);
         Assertions.assertThat(newConfig.getM()).isEqualTo(m);
         Assertions.assertThat(newConfig.getMMax()).isEqualTo(mMax);
         Assertions.assertThat(newConfig.getMMax0()).isEqualTo(mMax0);
         Assertions.assertThat(newConfig.getEfConstruction()).isEqualTo(efConstruction);
+        Assertions.assertThat(newConfig.getEfRepair()).isEqualTo(efRepair);
         Assertions.assertThat(newConfig.isExtendCandidates()).isEqualTo(extendCandidates);
         Assertions.assertThat(newConfig.isKeepPrunedConnections()).isEqualTo(keepPrunedConnections);
 
@@ -110,6 +113,7 @@ class ConfigTest {
 
         Assertions.assertThat(newConfig.getMaxNumConcurrentNodeFetches()).isEqualTo(maxNumConcurrentNodeFetches);
         Assertions.assertThat(newConfig.getMaxNumConcurrentNeighborhoodFetches()).isEqualTo(maxNumConcurrentNeighborhoodFetches);
+        Assertions.assertThat(newConfig.getMaxNumConcurrentDeleteFromLayer()).isEqualTo(maxNumConcurrentDeleteFromLayer);
     }
 
     @Test

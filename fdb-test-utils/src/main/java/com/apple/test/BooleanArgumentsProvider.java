@@ -24,6 +24,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.support.AnnotationConsumer;
+import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import java.util.Arrays;
 import java.util.stream.Stream;
@@ -42,7 +43,8 @@ class BooleanArgumentsProvider implements ArgumentsProvider, AnnotationConsumer<
     }
 
     @Override
-    public Stream<? extends Arguments> provideArguments(ExtensionContext extensionContext) throws Exception {
+    public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                        final ExtensionContext extensionContext) throws Exception {
         if (names.length == 0) {
             throw new IllegalStateException("@BooleanSource has an empty list of names");
         }

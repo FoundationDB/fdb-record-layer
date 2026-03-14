@@ -43,7 +43,7 @@ import java.util.function.Function;
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.UNSTABLE)
-public class OrElseCursor<T> implements RecordCursor<T> {
+public final class OrElseCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final RecordCursor<T> inner;
     @Nonnull

@@ -195,6 +195,50 @@ class RecursiveQueriesTest extends TempTableTestBase {
                 .build();
     }
 
+    /**
+     * Sample forest with two simple chains, visually looking like the following.
+     * <pre>
+     * {@code
+     *     1 -> 2 -> 3 -> 4
+     *     5 -> 6
+     * }
+     * </pre>
+     * @return a sample forest represented by a list of {@code child -> parent} edges.
+     */
+    @Nonnull
+    private static Map<Long, Long> sampleForest2() {
+        return ImmutableMap.<Long, Long>builder()
+                .put(1L, -1L)
+                .put(2L, 1L)
+                .put(3L, 2L)
+                .put(4L, 3L)
+                .put(5L, -1L)
+                .put(6L, 5L)
+                .build();
+    }
+
+    /**
+     * Sample forest with two chains using random unsorted node values, visually looking like the following.
+     * <pre>
+     * {@code
+     *     73 -> 42 -> 89 -> 15
+     *     56 -> 28
+     * }
+     * </pre>
+     * @return a sample forest represented by a list of {@code child -> parent} edges.
+     */
+    @Nonnull
+    private static Map<Long, Long> sampleForest3() {
+        return ImmutableMap.<Long, Long>builder()
+                .put(73L, -1L)
+                .put(42L, 73L)
+                .put(89L, 42L)
+                .put(15L, 89L)
+                .put(56L, -1L)
+                .put(28L, 56L)
+                .build();
+    }
+
     static Stream<Arguments> ancestorsOfNodeParameters() {
         return Stream.of(
             Arguments.of(ImmutableMap.of(250L, 50L), LEVEL, List.of(250L, 50L, 10L, 1L)),
@@ -288,6 +332,131 @@ class RecursiveQueriesTest extends TempTableTestBase {
                                               RecursiveUnionExpression.TraversalStrategy traversalStrategy, List<List<Long>> expectedResult) {
         Assumptions.assumeTrue(isUseCascadesPlanner());
         var result = descendantsOfAcrossContinuations(hierarchy, initial, successiveRowLimits, false, traversalStrategy);
+        assertEquals(expectedResult, result);
+    }
+
+    @Nonnull
+    static Stream<Arguments> descendantsOfNodeAfterReparentingAcrossContinuationParameters() {
+        return Stream.of(
+                /*
+                 * Scenario 1: Reparent node 10 under node 20
+                 * Initial hierarchy:                    ---- (reparent 10 under 20) ---->                    After reparenting:
+                 *         1                                                                                         1
+                 *      ┌─────┐                                                                                      │
+                 *     ┌┘     └┐                                                                                     20
+                 *    10        20                                                                              ┌─────┼─────┐
+                 * ┌──┼────┐   ┌────┐                                                                          10    100   210
+                 * 40  50  70 100  210                                                                      ┌──┼──┐
+                 *     │                                                                                    40 50 70
+                 *    250                                                                                      │
+                 *                                                                                            250
+                 */
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(3, -1), List.of(Pair.of(10L, 20L)), PREORDER, List.of(List.of(1L, 10L, 40L), List.of(20L, 10L, 40L, 50L, 250L, 70L, 100L, 210L))),
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(3, -1), List.of(Pair.of(10L, 20L)), POSTORDER, List.of(List.of(40L, 250L, 50L), List.of(40L, 250L, 50L, 70L, 10L, 100L, 210L, 20L, 1L))),
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(3, -1), List.of(Pair.of(10L, 20L)), LEVEL, List.of(List.of(1L, 10L, 20L), List.of(40L, 50L, 70L, 10L, 100L, 210L, 250L, 40L, 50L, 70L, 250L))),
+
+                /*
+                 * Scenario 2: Reparent node 50 under node 20
+                 * Initial hierarchy:                    ---- (reparent 50 under 20) ---->                    After reparenting:
+                 *         1                                                                                         1
+                 *      ┌─────┐                                                                                   ┌─────┐
+                 *     ┌┘     └┐                                                                                 ┌┘     └┐
+                 *    10        20                                                                              10       20
+                 * ┌──┼────┐   ┌────┐                                                                       ┌─────┐   ┌──┼──┬──┐
+                 * 40  50  70 100  210                                                                      40   70  100 210 50
+                 *     │                                                                                                     │
+                 *    250                                                                                                  250
+                 */
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(2, -1), List.of(Pair.of(50L, 20L)), PREORDER, List.of(List.of(1L, 10L), List.of(40L, 70L, 20L, 50L, 250L, 100L, 210L))),
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(2, -1), List.of(Pair.of(50L, 20L)), POSTORDER, List.of(List.of(40L, 250L), List.of(70L, 10L, 250L, 50L, 100L, 210L, 20L, 1L))),
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(2, -1), List.of(Pair.of(50L, 20L)), LEVEL, List.of(List.of(1L, 10L), List.of(20L, 40L, 70L, 50L, 100L, 210L, 250L))),
+
+                /*
+                 * Scenario 3: Two reparentings - first reparent 10 under 20, then reparent 50 under 210
+                 *
+                 * Initial hierarchy:          After 1st reparenting:       After 2nd reparenting:
+                 *         1                           1                           1
+                 *      ┌─────┐                        │                           │
+                 *     ┌┘     └┐                       20                          20
+                 *    10        20               ┌─────┼─────┐               ┌─────┼─────┐
+                 * ┌──┼────┐   ┌────┐           10    100   210             10    100   210
+                 * 40  50  70 100  210       ┌──┼──┐                     ┌────┐        │
+                 *     │                     40 50 70                    40  70        50
+                 *    250                       │                                      │
+                 *                            250                                    250
+                 */
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(3, 5, -1), List.of(Pair.of(10L, 20L), Pair.of(50L, 210L)), PREORDER, List.of(List.of(1L, 10L, 40L), List.of(20L, 10L, 40L, 50L, 250L), List.of(70L, 100L, 210L, 50L, 250L))),
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(3, 5, -1), List.of(Pair.of(10L, 20L), Pair.of(50L, 210L)), POSTORDER, List.of(List.of(40L, 250L, 50L), List.of(40L, 250L, 50L, 70L, 10L), List.of(100L, 250L, 50L, 210L, 20L, 1L))),
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), List.of(3, 5, -1), List.of(Pair.of(10L, 20L), Pair.of(50L, 210L)), LEVEL, List.of(List.of(1L, 10L, 20L), List.of(40L, 50L, 70L, 10L, 100L), List.of(210L, 250L, 40L, 70L, 50L, 250L))),
+
+                /*
+                 * Scenario 4: Reparent node 5 under node 4 in a forest with two chains
+                 *
+                 * Initial hierarchy:          After reparenting:
+                 *         1       5                   1
+                 *         │       │                   │
+                 *         2       6                   2
+                 *         │                           │
+                 *         3                           3
+                 *         │                           │
+                 *         4                           4
+                 *                                     │
+                 *                                     5
+                 *                                     │
+                 *                                     6
+                 */
+                Arguments.of(sampleForest2(), ImmutableMap.of(1L, -1L, 5L, -1L), List.of(4, -1), List.of(Pair.of(5L, 4L)), PREORDER, List.of(List.of(1L, 2L, 3L, 4L), List.of(5L, 6L))),
+                Arguments.of(sampleForest2(), ImmutableMap.of(1L, -1L, 5L, -1L), List.of(4, -1), List.of(Pair.of(5L, 4L)), POSTORDER, List.of(List.of(4L, 3L, 2L, 1L), List.of(6L, 5L))),
+                Arguments.of(sampleForest2(), ImmutableMap.of(1L, -1L, 5L, -1L), List.of(4, -1), List.of(Pair.of(5L, 4L)), LEVEL, List.of(List.of(1L, 5L, 2L, 6L), List.of(3L, 4L, 5L, 6L))),
+
+                /*
+                 * Scenario 5: Reparent node 56 under node 15 in a forest with two chains using unsorted random values
+                 *
+                 * Initial hierarchy:          After reparenting:
+                 *        73      56                  73
+                 *        │       │                   │
+                 *        42      28                  42
+                 *        │                           │
+                 *        89                          89
+                 *        │                           │
+                 *        15                          15
+                 *                                    │
+                 *                                    56
+                 *                                    │
+                 *                                    28
+                 */
+                Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 15L)), PREORDER, List.of(List.of(73L, 42L, 89L, 15L), List.of(56L, 28L))),
+                Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 15L)), POSTORDER, List.of(List.of(15L, 89L, 42L, 73L), List.of(28L, 56L))),
+                Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 15L)), LEVEL, List.of(List.of(73L, 56L, 42L, 28L), List.of(89L, 15L, 56L, 28L))),
+
+                /*
+                 * Scenario 6: Reparent node 56 under node 89 in a forest with two chains using unsorted random values
+                 *
+                 * Initial hierarchy:          After reparenting:
+                 *        73      56                  73
+                 *        │       │                   │
+                 *        42      28                  42
+                 *        │                           │
+                 *        89                          89
+                 *        │                          ┌─┴─┐
+                 *        15                        15  56
+                 *                                      │
+                 *                                      28
+                 */
+                Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 89L)), PREORDER, List.of(List.of(73L, 42L, 89L, 15L), List.of(56L, 28L, 56L, 28L))),
+                Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 89L)), POSTORDER, List.of(List.of(15L, 89L, 42L, 73L), List.of(28L, 56L))),
+                Arguments.of(sampleForest3(), ImmutableMap.of(73L, -1L, 56L, -1L), List.of(4, -1), List.of(Pair.of(56L, 89L)), LEVEL, List.of(List.of(73L, 56L, 42L, 28L), List.of(89L, 15L, 56L, 28L)))
+        );
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    @ParameterizedTest(name = "descendants of nodes {1} with row limits {2} and reparenting {3} using {4} traversal are {5}")
+    @MethodSource("descendantsOfNodeAfterReparentingAcrossContinuationParameters")
+    void descendantsOfHierarchyWithReparenting(Map<Long, Long> hierarchy, Map<Long, Long> initial, List<Integer> successiveRowLimits,
+                                               List<Pair<Long, Long>> successiveReparenting,
+                                               RecursiveUnionExpression.TraversalStrategy traversalStrategy, List<List<Long>> expectedResult) {
+        Assumptions.assumeTrue(isUseCascadesPlanner());
+        var result = descendantsOfAcrossContinuationsWithReparenting(hierarchy, initial, successiveRowLimits, successiveReparenting, false, traversalStrategy);
         assertEquals(expectedResult, result);
     }
 
@@ -546,7 +715,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
             final var parentField = getParentField(ttSelectQun);
             return new ValuePredicate(idField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, parentField));
         };
-        return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits, reportExecutionTime, traversalStrategy);
+        return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits, ImmutableList.of(), reportExecutionTime, traversalStrategy);
     }
 
     /**
@@ -573,7 +742,38 @@ class RecursiveQueriesTest extends TempTableTestBase {
             final var parentField = getParentField(hierarchyScanQun);
             return new ValuePredicate(parentField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, idField));
         };
-        return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits, reportExecutionTime, traversalStrategy);
+        return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits, ImmutableList.of(), reportExecutionTime, traversalStrategy);
+    }
+
+    /**
+     * Creates a recursive union plan that calculates the descendants of a node (or multiple nodes) in a given hierarchy
+     * modelled with an adjacency list given a list of execution resumptions by means of result offsets.
+     *
+     * @param hierarchy The hierarchy, represented a list of {@code child -> parent} edges.
+     * @param initial List of edges whose {@code child}'s descendants are to be calculated.
+     * @param successiveRowLimits execution resumption points by means of result offsets.
+     * @param successiveReparenting A list of reparenting operations {@code (child, newParent)} to be applied
+     *                             between continuation points. Each reparenting moves a node to a new parent,
+     *                             effectively restructuring the hierarchy during query execution.
+     * @param reportExecutionTime if {@code true}, outputs the execution time to standard out.
+     * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
+     *
+     * @return A chunked list of nodes representing the path from the given parent(s) to the children across
+     * the given list of execution resumptions.
+     */
+    @Nonnull
+    private List<List<Long>> descendantsOfAcrossContinuationsWithReparenting(@Nonnull final Map<Long, Long> hierarchy,
+                                                                             @Nonnull final Map<Long, Long> initial,
+                                                                             @Nonnull final List<Integer> successiveRowLimits,
+                                                                             @Nonnull final List<Pair<Long, Long>> successiveReparenting,
+                                                                             final boolean reportExecutionTime,
+                                                                             @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
+        final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate = (hierarchyScanQun, ttSelectQun) -> {
+            final var idField = getIdField(ttSelectQun);
+            final var parentField = getParentField(hierarchyScanQun);
+            return new ValuePredicate(parentField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, idField));
+        };
+        return hierarchyQueryAcrossContinuations(hierarchy, initial, predicate, successiveRowLimits, successiveReparenting, reportExecutionTime, traversalStrategy);
     }
 
     /**
@@ -584,6 +784,9 @@ class RecursiveQueriesTest extends TempTableTestBase {
      * @param initial the initial state passed to the recursive union.
      * @param predicate a predicate that is put on the recursive state determining the fix point.
      * @param successiveRowLimits execution resumption points by means of result offsets.
+     * @param successiveReparenting A list of reparenting operations {@code (child, newParent)} to be applied
+     *                             between continuation points. Each reparenting moves a node to a new parent,
+     *                             effectively restructuring the hierarchy during query execution.
      * @param reportExecutionTime if {@code True}, outputs the execution time to standard out.
      * @param traversalStrategy The traversal order to use (LEVEL, PREORDER, or ANY).
      * @return A chunked list of nodes representing the execution results of the recursive query.
@@ -593,9 +796,12 @@ class RecursiveQueriesTest extends TempTableTestBase {
                                                                @Nonnull final Map<Long, Long> initial,
                                                                @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate,
                                                                @Nonnull final List<Integer> successiveRowLimits,
+                                                               @Nonnull final List<Pair<Long, Long>> successiveReparenting,
                                                                final boolean reportExecutionTime,
                                                                @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         final ImmutableList.Builder<List<Long>> resultBuilder = ImmutableList.builder();
+
+        int reparentedEdgeIdx = 0;
         try (FDBRecordContext context = openContext()) {
             var executionTimesMs =  ImmutableList.<Long>builder();
             var continuations = ImmutableList.<byte[]>builder();
@@ -608,6 +814,12 @@ class RecursiveQueriesTest extends TempTableTestBase {
             resultBuilder.add(executionResult.getExecutionResult());
             final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
 
+            if (successiveReparenting.size() > reparentedEdgeIdx) {
+                final var edge = successiveReparenting.get(reparentedEdgeIdx);
+                saveHierarchyEdge(edge.getKey(), edge.getValue());
+                reparentedEdgeIdx++;
+            }
+
             for (final var rowLimit : successiveRowLimits.stream().skip(1).collect(ImmutableList.toImmutableList())) {
                 final var seedingTempTable = tempTableInstance();
                 initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
@@ -618,6 +830,12 @@ class RecursiveQueriesTest extends TempTableTestBase {
                 continuations.add(continuation == null ? new byte[]{} : continuation);
                 continuation = executionResult.getContinuation();
                 resultBuilder.add(Objects.requireNonNull(executionResult.getExecutionResult()));
+
+                if (successiveReparenting.size() > reparentedEdgeIdx) {
+                    final var edge = successiveReparenting.get(reparentedEdgeIdx);
+                    saveHierarchyEdge(edge.getKey(), edge.getValue());
+                    reparentedEdgeIdx++;
+                }
             }
 
             if (reportExecutionTime) {
@@ -668,8 +886,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
                                                        @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         setupRecordStoreMetadata(context);
         for (final var entry : hierarchy.entrySet()) {
-            final var message = item(entry.getKey(), entry.getValue());
-            recordStore.saveRecord(message);
+            saveHierarchyEdge(entry.getKey(), entry.getValue());
         }
         final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
         final var insertTempTableAlias = CorrelationIdentifier.of("Insert");
@@ -691,6 +908,11 @@ class RecursiveQueriesTest extends TempTableTestBase {
         builder.addIndex("SimpleHierarchicalRecord", "idParentIdx", concat(field("id"), field("parent")));
         RecordMetaData metaData = builder.getRecordMetaData();
         createOrOpenRecordStore(context, metaData);
+    }
+
+    private void saveHierarchyEdge(@Nonnull Long key, @Nonnull Long value) {
+        final var message = item(key, value);
+        recordStore.saveRecord(message);
     }
 
     /**

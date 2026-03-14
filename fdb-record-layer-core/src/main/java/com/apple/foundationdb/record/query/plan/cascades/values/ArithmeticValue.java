@@ -517,7 +517,7 @@ public class ArithmeticValue extends AbstractValue {
         BITMAP_BUCKET_NUMBER_II(LogicalOperator.BITMAP_BUCKET_NUMBER, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.floorDiv((int)l, (int)r)),
 
         BITMAP_BIT_POSITION_LI(LogicalOperator.BITMAP_BIT_POSITION, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.subtractExact((long)l, Math.multiplyExact(Math.floorDiv((long)l, (int)r), (int)r))),
-        BITMAP_BIT_POSITION_II(LogicalOperator.BITMAP_BIT_POSITION, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.subtractExact((int)l, Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r))),
+        BITMAP_BIT_POSITION_II(LogicalOperator.BITMAP_BIT_POSITION, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.subtractExact((int)l, Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r)))
         ;
 
         @Nonnull

@@ -36,7 +36,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -482,7 +481,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
             return comparisonRange;
         }
 
-        @NonNull
+        @Nonnull
         public List<Comparisons.Comparison> getResidualComparisons() {
             return residualComparisons;
         }
@@ -497,7 +496,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         }
 
         public static MergeResult of(@Nonnull final ComparisonRange comparisonRange,
-                                     @NonNull final List<Comparisons.Comparison> residualComparisons) {
+                                     @Nonnull final List<Comparisons.Comparison> residualComparisons) {
             return new MergeResult(comparisonRange, residualComparisons);
         }
     }

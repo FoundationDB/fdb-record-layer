@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Charsets;
 import com.google.common.base.Verify;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnel;
@@ -34,6 +33,7 @@ import com.google.protobuf.ByteString;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -136,7 +136,7 @@ class ProbableIntersectionCursorState<T> extends KeyedMergeCursorState<T> {
                 } else if (o instanceof ByteBuffer) {
                     primitiveSink.putBytes((ByteBuffer) o);
                 } else if (o instanceof String) {
-                    primitiveSink.putString((String)o, Charsets.UTF_8);
+                    primitiveSink.putString((String)o, StandardCharsets.UTF_8);
                 } else if (o instanceof Float) {
                     primitiveSink.putFloat((float)o);
                 } else if (o instanceof Double) {

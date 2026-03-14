@@ -27,6 +27,7 @@ jacoco {
     toolVersion = libs.versions.jacoco.get()
 }
 
+// if you add to or modify these testing configurations, make sure to update the CONTRIBUTING.md to include any updates
 test {
     useJUnitPlatform {
         excludeTags 'WipesFDB'
@@ -73,6 +74,8 @@ task singleVersionTest(type: Test) {
         excludeTags 'WipesFDB'
     }
 }
+
+// if you add to or modify these testing configurations, make sure to update the CONTRIBUTING.md to include any updates
 
 def getMixedModeVersion(descriptor) {
     while (descriptor != null) {
@@ -265,10 +268,12 @@ tasks.withType(Test) { theTask ->
         }
     }
     afterSuite { descriptor, result ->
-        // Very few subprojects acutally have destructive tests, so strip those out of the summary.
+        // Very few subprojects acutally have destructive or mixed-mode tests, so strip those out of the summary.
         // We leave the ones that have nothing under test, because that would be suspicious if a subproject had
         // no tests
-        if (descriptor.parent == null && !(descriptor.toString().endsWith(":destructiveTest") && result.getTestCount() == 0)) {
+        if (descriptor.parent == null
+            && !(descriptor.toString().endsWith(":destructiveTest") && result.getTestCount() == 0)
+            && !(descriptor.toString().endsWith(":mixedModeTest") && result.getTestCount() == 0)) {
             def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
             def description = descriptor.toString().replaceFirst("Gradle Test Run ", "")
             summary.append(
@@ -302,6 +307,12 @@ tasks.withType(Test).configureEach { task ->
             systemProperties['tests.nightly'] = 'true'
         } else {
             task.testFramework.options.excludeTags.add('SuperSlow')
+        }
+        if (project.hasProperty('tests.ci')) {
+            systemProperties['tests.ci'] = 'true'
+        }
+        if (project.hasProperty('tests.nightly')) {
+            task.ignoreFailures = true
         }
         if (!project.hasProperty('tests.includeRandom')) {
             task.testFramework.options.excludeTags.add('Random')

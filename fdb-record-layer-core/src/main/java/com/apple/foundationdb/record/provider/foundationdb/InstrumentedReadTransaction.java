@@ -35,7 +35,6 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -337,7 +336,7 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         }
 
         @Override
-        @NonNull
+        @Nonnull
         public AsyncIterator<K> iterator() {
             increment(FDBStoreTimer.Counts.READS);
             increment(FDBStoreTimer.Counts.RANGE_READS);

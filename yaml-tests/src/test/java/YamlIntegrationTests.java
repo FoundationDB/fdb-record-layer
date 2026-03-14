@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,6 +58,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void aggregateIndexTestsCountEmpty(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("aggregate-index-tests-count-empty.yamsql");
+    }
+
+    @TestTemplate
+    public void aliasTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("alias-tests.yamsql");
     }
 
     @TestTemplate
@@ -188,6 +193,16 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void joinRowVersionTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("join-tests-row-version.yamsql");
+    }
+
+    @TestTemplate
+    public void joinWithOrderByTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("join-with-order-by-tests.yamsql");
+    }
+
+    @TestTemplate
     void like(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("like.yamsql");
     }
@@ -205,6 +220,21 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void maxRows(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("maxRows.yamsql");
+    }
+
+    @TestTemplate
+    public void indexDdl(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl.yamsql");
+    }
+
+    @TestTemplate
+    public void indexDdlValuesOnly(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl-values-only.yamsql");
+    }
+
+    @TestTemplate
+    public void indexDdlAggregatesOnly(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("index-ddl-aggregates-only.yamsql");
     }
 
     @TestTemplate
@@ -243,6 +273,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void pseudoFieldClash(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("pseudo-field-clash.yamsql");
+    }
+
+    @TestTemplate
     public void recursiveCte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("recursive-cte.yamsql");
     }
@@ -260,6 +295,16 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void serializationOptions(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("serialization-options.yamsql");
+    }
+
+    @TestTemplate
+    public void semanticSearchTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("semantic-search.yamsql");
+    }
+
+    @TestTemplate
+    public void semanticSearchTestAdvancedMetrics(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("semantic-search-advanced-metrics.yamsql");
     }
 
     @TestTemplate
@@ -290,6 +335,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void standardTestsWithProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests-proto.yamsql");
+    }
+
+    @TestTemplate
+    public void structTypeNullabilityVariants(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("struct-type-nullability-variants.yamsql");
     }
 
     @TestTemplate
@@ -355,7 +405,27 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void versionsWithSingleTypeTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("versions-with-single-type-tests.yamsql");
+    }
+
+    @TestTemplate
     public void viewsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("views.yamsql");
+    }
+
+    @TestTemplate
+    public void simpleQueryWithDifferentDebuggersTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("simple-query-with-different-debuggers.yamsql");
+    }
+
+    @TestTemplate
+    public void largeRecord(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("large-record.yamsql");
+    }
+
+    @TestTemplate
+    public void largeRecordFails(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("large-record-fails.yamsql");
     }
 }

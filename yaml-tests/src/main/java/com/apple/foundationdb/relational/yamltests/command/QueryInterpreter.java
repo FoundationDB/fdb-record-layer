@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.InListParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.ListParameter;
@@ -49,6 +50,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static com.apple.foundationdb.relational.yamltests.Matchers.constructRandomString;
 import static com.apple.foundationdb.relational.yamltests.Matchers.constructVectorFromString;
 
 /**
@@ -80,7 +82,8 @@ import static com.apple.foundationdb.relational.yamltests.Matchers.constructVect
 public final class QueryInterpreter {
     @Nonnull
     private final String query;
-    private final int lineNumber;
+    @Nonnull
+    private final YamlReference reference;
     @Nonnull
     private final YamlExecutionContext executionContext;
     /**
@@ -101,6 +104,7 @@ public final class QueryInterpreter {
         private static final Tag VECTOR16_TAG = new Tag("!v16");
         private static final Tag VECTOR32_TAG = new Tag("!v32");
         private static final Tag VECTOR64_TAG = new Tag("!v64");
+        private static final Tag RANDOM_STRING_TAG = new Tag("!randomStr");
 
         private QueryParameterYamlConstructor(LoaderOptions loaderOptions) {
             super(loaderOptions);
@@ -113,6 +117,7 @@ public final class QueryInterpreter {
             this.yamlConstructors.put(VECTOR16_TAG, new ConstructVector16());
             this.yamlConstructors.put(VECTOR32_TAG, new ConstructVector32());
             this.yamlConstructors.put(VECTOR64_TAG, new ConstructVector64());
+            this.yamlConstructors.put(RANDOM_STRING_TAG, new ConstructRandomString());
 
             final var longTag = new LongTag();
             this.yamlConstructors.put(longTag.getTag(), longTag.getConstruct());
@@ -122,7 +127,7 @@ public final class QueryInterpreter {
         public Parameter constructObject(Node node) {
             if (node.getTag().equals(RANDOM_TAG) || node.getTag().equals(ARRAY_GENERATOR_TAG) || node.getTag().equals(IN_LIST_TAG)
                     || node.getTag().equals(NULL_TAG) || node.getTag().equals(UUID_TAG) || node.getTag().equals(VECTOR16_TAG)
-                    || node.getTag().equals(VECTOR32_TAG) || node.getTag().equals(VECTOR64_TAG)) {
+                    || node.getTag().equals(VECTOR32_TAG) || node.getTag().equals(VECTOR64_TAG) || node.getTag().equals(RANDOM_STRING_TAG)) {
                 return (Parameter) super.constructObject(node);
             } else if (node instanceof SequenceNode) {
                 // simple list
@@ -156,6 +161,14 @@ public final class QueryInterpreter {
                     return new UnboundParameter.RandomSetParameter(values.stream().map(v -> constructObject(v.getKeyNode())).collect(Collectors.toList()));
                 }
                 return null;
+            }
+        }
+
+        private static class ConstructRandomString extends AbstractConstruct {
+
+            @Override
+            public Object construct(Node node) {
+                return new PrimitiveParameter(constructRandomString(Assert.castUnchecked(node, ScalarNode.class)));
             }
         }
 
@@ -253,9 +266,9 @@ public final class QueryInterpreter {
         }
     }
 
-    private QueryInterpreter(int lineNumber, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
+    private QueryInterpreter(@Nonnull final YamlReference reference, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
         this.query = query;
-        this.lineNumber = lineNumber;
+        this.reference = reference;
         this.injections = getInjections(query);
         this.executionContext = executionContext;
     }
@@ -285,8 +298,8 @@ public final class QueryInterpreter {
         return lst;
     }
 
-    public static QueryInterpreter withQueryString(int lineNumber, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
-        return new QueryInterpreter(lineNumber, query, executionContext);
+    public static QueryInterpreter withQueryString(@Nonnull final YamlReference reference, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
+        return new QueryInterpreter(reference, query, executionContext);
     }
 
     /**
@@ -303,21 +316,21 @@ public final class QueryInterpreter {
     @Nonnull
     public QueryExecutor getExecutor(@Nullable Random random, boolean runAsPreparedStatement) {
         try {
-            final boolean forceContinuations = (boolean)executionContext.getOption(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, false);
+            final boolean forceContinuations = executionContext.getOption(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, false);
             if (random == null) {
                 // we do not allow prepared statements if the Random generator is not there
                 Assert.thatUnchecked(injections.isEmpty(), "Parameter injection is not allowed in query without a Random(generator)");
-                return new QueryExecutor(query, lineNumber, null, forceContinuations);
+                return new QueryExecutor(query, reference, null, forceContinuations);
             } else {
                 var boundInjections = injections.stream().map(i -> (Pair.of(i.getLeft(), i.getRight().bind(random)))).collect(Collectors.toList());
                 if (runAsPreparedStatement) {
-                    return new QueryExecutor(adaptToPreparedStatement(query, boundInjections), lineNumber, boundInjections.stream().map(Pair::getRight).collect(Collectors.toList()), forceContinuations);
+                    return new QueryExecutor(adaptToPreparedStatement(query, boundInjections), reference, boundInjections.stream().map(Pair::getRight).collect(Collectors.toList()), forceContinuations);
                 } else {
-                    return new QueryExecutor(adaptToSimpleStatement(query, boundInjections), lineNumber, null, forceContinuations);
+                    return new QueryExecutor(adaptToSimpleStatement(query, boundInjections), reference, null, forceContinuations);
                 }
             }
         } catch (Exception e) {
-            throw executionContext.wrapContext(e, () -> String.format(Locale.ROOT, "‼️ Error initializing query executor for query %s at line %d", query, lineNumber), "query", lineNumber);
+            throw executionContext.wrapContext(e, () -> String.format(Locale.ROOT, "‼️ Error initializing query executor for query %s at %s", query, reference), "query", reference);
         }
     }
 

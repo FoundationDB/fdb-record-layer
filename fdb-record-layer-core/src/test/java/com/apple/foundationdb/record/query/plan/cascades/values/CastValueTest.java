@@ -28,7 +28,9 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -36,7 +38,11 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 import java.util.stream.Stream;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests different aspects of functionality provided by {@link CastValue}.
@@ -82,7 +88,7 @@ class CastValueTest {
     private static final LiteralValue<Boolean> BOOL_TRUE = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true);
     private static final LiteralValue<Boolean> BOOL_FALSE = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
 
-    private static final LiteralValue<Void> NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.NULL), null);
+    private static final LiteralValue<Void> NULL = new LiteralValue<>(Type.NULL, null);
 
     // Array test data
     private static final Type.Array INT_ARRAY_TYPE = new Type.Array(Type.primitiveType(Type.TypeCode.INT));
@@ -217,20 +223,69 @@ class CastValueTest {
         Assertions.assertEquals(0, result);
     }
 
-    @Test
-    void testNullCasts() {
+    @Nonnull
+    static Stream<Type> testNullCasts() {
+        return Stream.of(Type.TypeCode.values())
+                .flatMap(t -> {
+                    if (t == Type.TypeCode.UNKNOWN || t == Type.TypeCode.ANY || t == Type.TypeCode.RELATION || t == Type.TypeCode.NONE || t == Type.TypeCode.FUNCTION) {
+                        // Types for which no conversion is defined. See testNullCastNegativeTest
+                        return Stream.of();
+                    } else if (t == Type.TypeCode.NULL) {
+                        return Stream.of(Type.NULL);
+                    } else if (t == Type.TypeCode.UUID) {
+                        return Stream.of(Type.UUID_NULL_INSTANCE);
+                    } else if (t == Type.TypeCode.VECTOR) {
+                        return Stream.of(
+                                Type.Vector.of(true, 16, 10),
+                                Type.Vector.of(true, 32, 32),
+                                Type.Vector.of(true, 64, 100));
+                    } else if (t == Type.TypeCode.RECORD) {
+                        return Stream.of(
+                                Type.Record.fromFields(true, ImmutableList.of()),
+                                Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("a"), Optional.empty()))));
+                    } else if (t == Type.TypeCode.ENUM) {
+                        return Stream.of(
+                                Type.Enum.fromValues(true, ImmutableList.of()),
+                                Type.Enum.fromValues(true, ImmutableList.of(Type.Enum.EnumValue.from("FOO", 1), Type.Enum.EnumValue.from("BAR", 2))));
+                    } else if (t == Type.TypeCode.ARRAY) {
+                        return Stream.of(
+                                INT_ARRAY_TYPE, LONG_ARRAY_TYPE, STRING_ARRAY_TYPE, BOOLEAN_ARRAY_TYPE, DOUBLE_ARRAY_TYPE);
+                    } else if (t.isPrimitive()) {
+                        return Stream.of(Type.primitiveType(t, true));
+                    }
+                    return fail("Unknown type code: " + t);
+                });
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testNullCasts(@Nonnull Type targetType) {
         final var evalContext = EvaluationContext.forTypeRepository(typeRepositoryBuilder.build());
 
-        // NULL to INT
-        Value castNullToInt = CastValue.inject(NULL, Type.primitiveType(Type.TypeCode.INT));
-        Assertions.assertEquals(Type.primitiveType(Type.TypeCode.INT), castNullToInt.getResultType());
-        Object result = castNullToInt.evalWithoutStore(evalContext);
+        // Convert a null (of NULL type) to the given target type. It should still return null when evaluated
+        Value castNullToTarget = CastValue.inject(NULL, targetType);
+        Assertions.assertEquals(targetType, castNullToTarget.getResultType());
+        Object result = castNullToTarget.evalWithoutStore(evalContext);
         Assertions.assertNull(result);
+    }
 
-        // Nullable value cast
-        Value castIntNullToString = CastValue.inject(INT_NULL, Type.primitiveType(Type.TypeCode.STRING));
-        result = castIntNullToString.evalWithoutStore(evalContext);
-        Assertions.assertNull(result);
+    @Nonnull
+    static Stream<Type> testNullCastNegativeTest() {
+        return Stream.of(
+                Type.primitiveType(Type.TypeCode.UNKNOWN, true),
+                Type.NONE,
+                Type.any(),
+                Type.FUNCTION,
+                new Type.Relation(Type.primitiveType(Type.TypeCode.INT, true))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testNullCastNegativeTest(Type targetType) {
+        // Assert that these types cannot be converted from null. All types should be covered by either this test or the previous one
+        final SemanticException err = Assertions.assertThrows(SemanticException.class, () -> CastValue.inject(NULL, targetType));
+        assertThat(err.getMessage(), Matchers.containsString("Invalid cast operation No cast defined"));
     }
 
     @Test

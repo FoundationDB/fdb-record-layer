@@ -25,6 +25,7 @@ import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
+import java.util.Comparator;
 import java.util.Objects;
 
 /**
@@ -34,6 +35,11 @@ import java.util.Objects;
  * of a distance calculation in a nearest neighbor search. Objects of this class are immutable.
  */
 public class NodeReferenceWithDistance extends NodeReferenceWithVector {
+    private static final Comparator<NodeReferenceWithDistance> COMPARATOR =
+            Comparator.comparing(NodeReferenceWithDistance::getDistance)
+                    .thenComparing(NodeReference::getPrimaryKey);
+    private static final Comparator<NodeReferenceWithDistance> REVERSED_COMPARATOR = COMPARATOR.reversed();
+
     private final double distance;
 
     /**
@@ -87,5 +93,15 @@ public class NodeReferenceWithDistance extends NodeReferenceWithVector {
     @Override
     public int hashCode() {
         return Objects.hash(super.hashCode(), distance);
+    }
+
+    @Nonnull
+    public static Comparator<NodeReferenceWithDistance> comparator() {
+        return COMPARATOR;
+    }
+
+    @Nonnull
+    public static Comparator<NodeReferenceWithDistance> reversedComparator() {
+        return REVERSED_COMPARATOR;
     }
 }

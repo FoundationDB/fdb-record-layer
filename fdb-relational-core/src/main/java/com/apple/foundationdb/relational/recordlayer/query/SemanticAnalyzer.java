@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -31,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -51,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -88,6 +91,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+
+import static com.apple.foundationdb.record.query.plan.cascades.SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES;
 
 /**
  * This class is responsible for performing a number of tasks revolving around semantic checks and resolution. For example,
@@ -226,6 +231,11 @@ public class SemanticAnalyzer {
     }
 
     @Nonnull
+    public SchemaTemplate getMetadataCatalog() {
+        return metadataCatalog;
+    }
+
+    @Nonnull
     public Table getTable(@Nonnull Identifier tableIdentifier) {
         Assert.thatUnchecked(tableIdentifier.getQualifier().size() <= 1, ErrorCode.INTERNAL_ERROR, () -> String.format(Locale.ROOT, "Unknown table %s", tableIdentifier));
         if (tableIdentifier.isQualified()) {
@@ -299,7 +309,7 @@ public class SemanticAnalyzer {
         final var forEachOperators = operators.forEachOnly();
         // Case 1: no qualifier, e.g. SELECT * FROM T, R;
         if (optionalQualifier.isEmpty()) {
-            final var expansion = forEachOperators.getExpressions().nonEphemeral();
+            final var expansion = forEachOperators.getExpressions().nonEphemeralVisible();
             return Star.overQuantifiers(Optional.empty(), Streams.stream(forEachOperators).map(LogicalOperator::getQuantifier)
                     .map(Quantifier::getFlowedObjectValue).collect(ImmutableList.toImmutableList()), "unknown", expansion);
         }
@@ -310,7 +320,7 @@ public class SemanticAnalyzer {
                 .findFirst();
         if (logicalTableMaybe.isPresent()) {
             return Star.overQuantifier(optionalQualifier, logicalTableMaybe.get().getQuantifier().getFlowedObjectValue(),
-                    qualifier.getName(), logicalTableMaybe.get().getOutput().nonEphemeral());
+                    qualifier.getName(), logicalTableMaybe.get().getOutput().nonEphemeralVisible());
         }
         // Case 2.1: represents a rare case where a logical operator contains a mix of columns that are qualified
         // differently.
@@ -328,7 +338,7 @@ public class SemanticAnalyzer {
         final var expression = resolveIdentifier(qualifier, forEachOperators);
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.STRUCT, ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "attempt to expand non-struct column %s", qualifier));
-        final var expressions = expandStructExpression(expression).nonEphemeral();
+        final var expressions = expandStructExpression(expression).nonEphemeralVisible();
         return Star.overQuantifier(optionalQualifier, expression.getUnderlying(), qualifier.getName(), expressions);
     }
 
@@ -382,27 +392,6 @@ public class SemanticAnalyzer {
         return Optional.of(attributes.get(0));
     }
 
-    private static Optional<Expression> lookupPseudoField(@Nonnull LogicalOperator logicalOperator,
-                                                          @Nonnull Identifier identifier,
-                                                          boolean matchQualifiedOnly) {
-        if (matchQualifiedOnly && (!identifier.isQualified() || logicalOperator.getName().isEmpty())) {
-            return Optional.empty();
-        }
-        if (matchQualifiedOnly && identifier.isQualified() && identifier.fullyQualifiedName().size() != 2) {
-            return Optional.empty();
-        }
-        if (!identifier.isQualified()) {
-            return PseudoColumn.mapToExpressionMaybe(logicalOperator, identifier.getName());
-        }
-        if (logicalOperator.getName().isEmpty()) {
-            return Optional.empty();
-        }
-        if (!identifier.prefixedWith(logicalOperator.getName().get())) {
-            return Optional.empty();
-        }
-        return PseudoColumn.mapToExpressionMaybe(logicalOperator, identifier.getName());
-    }
-
     @Nonnull
     private List<Expression> lookup(@Nonnull Identifier referenceIdentifier,
                                     @Nonnull LogicalOperators operators,
@@ -416,7 +405,6 @@ public class SemanticAnalyzer {
                 continue;
             }
             final var operatorNameMaybe = operator.getName();
-            boolean checkForPseudoColumns = true;
             for (final var attribute : operator.getOutput()) {
                 if (attribute.getName().isEmpty()) {
                     continue;
@@ -424,29 +412,25 @@ public class SemanticAnalyzer {
                 final var attributeIdentifier = attribute.getName().get();
                 if (attributeIdentifier.equals(referenceIdentifier)) {
                     matchedAttributes.add(attribute);
-                    checkForPseudoColumns = false;
                     continue;
-                } else if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
+                }
+                if (!referenceIdentifier.isQualified() && !attribute.isVisible()) {
+                    continue;
+                }
+                if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
                     matchedAttributes.add(attribute);
-                    checkForPseudoColumns = false;
                     continue;
                 }
                 if (matchQualifiedOnly && operatorNameMaybe.isPresent()) {
                     if (attributeIdentifier.withQualifier(operatorNameMaybe.get().getName()).equals(referenceIdentifier)) {
                         matchedAttributes.add(attribute);
-                        checkForPseudoColumns = false;
                         continue;
                     }
                 }
                 final var nestedFieldMaybe = lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
                 if (nestedFieldMaybe.isPresent()) {
                     matchedAttributes.add(nestedFieldMaybe.get());
-                    checkForPseudoColumns = false;
                 }
-            }
-            if (checkForPseudoColumns) {
-                lookupPseudoField(operator, referenceIdentifier, matchQualifiedOnly)
-                        .ifPresent(matchedAttributes::add);
             }
         }
         return matchedAttributes.build();
@@ -926,6 +910,135 @@ public class SemanticAnalyzer {
         return Expression.ofUnnamed(DataTypeUtils.toRelationalType(resultingValue.getResultType()), resultingValue);
     }
 
+    /**
+     * Resolves a higher-order scalar function using a progressive resolution strategy similar to C++ SFINAE
+     * (Substitution Failure Is Not An Error). This method attempts to resolve function calls where the function
+     * itself may return another function, enabling support for second-order functions in SQL.
+     *
+     * <p>The resolution logic employs a fallback mechanism that tries multiple interpretations when function
+     * resolution fails, allowing flexible function call syntax without ambiguity. This is particularly useful
+     * for functions that can be invoked with varying argument structures (e.g., {@code row_number()} vs
+     * {@code row_number(ef_search: 100)}).
+     *
+     * <p><b>Resolution Strategy:</b>
+     * <ul>
+     *   <li><b>No arguments ({@code arguments.isEmpty()}):</b> Resolves the function with no arguments. If the
+     *       result is a function type (second-order), it encapsulates a parameterless invocation to produce
+     *       the final first-order value.</li>
+     *
+     *   <li><b>Single argument list ({@code arguments.size() == 1}):</b> Attempts to resolve the function with
+     *       the provided argument list. If this fails with {@code UNDEFINED_FUNCTION} or
+     *       {@code FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES}, it re-attempts resolution with an empty
+     *       argument list (treating the function as second-order) and then applies the original arguments
+     *       to the resulting first-order function.</li>
+     *
+     *   <li><b>Two argument lists ({@code arguments.size() == 2}):</b> Resolves the second-order function
+     *       using the first argument list, then applies the second argument list to the resulting first-order
+     *       function. This enables explicit two-stage resolution (e.g., {@code func(config_args)(data_args)}).</li>
+     * </ul>
+     *
+     * <p><b>Limitation to Second-Order Functions:</b>
+     * The implementation currently supports up to second-order functions (functions that return functions that
+     * return values) due to:
+     * <ul>
+     *   <li>The complexity of implementing and reasoning about higher-order function resolution in SQL</li>
+     *   <li>The lack of practical use cases requiring third-order or higher functions in relational query contexts</li>
+     *   <li>The potential for confusing syntax and error messages when dealing with deeper function nesting</li>
+     * </ul>
+     *
+     * <p><b>Example Usage:</b>
+     * <pre>{@code
+     * // Zero-order invocation: row_number() -> resolves second-order function, then encapsulates with no args
+     * resolveHighOrderScalarFunction("row_number", false, List.of())
+     *
+     * // First-order invocation: row_number(ef_search: 100) -> tries direct resolution first
+     * resolveHighOrderScalarFunction("row_number", false, List.of(Expressions.of(...)))
+     *
+     * // Explicit second-order: row_number()(some_args) -> resolves outer, then applies args to inner
+     * resolveHighOrderScalarFunction("row_number", false, List.of(Expressions.empty(), Expressions.of(...)))
+     * }</pre>
+     *
+     * @param functionName the name of the function to resolve
+     * @param flattenSingleItemRecords whether to flatten single-field records in argument processing
+     * @param arguments a list of argument lists, where each element represents a level of function application
+     *                  (empty for no args, single element for one arg list, two elements for explicit second-order)
+     * @return the resolved {@link Expression} representing the fully evaluated function call
+     * @throws UncheckedRelationalException if function resolution fails after all fallback attempts
+     * @throws SemanticException if the function signature doesn't match any known interpretation
+     */
+    @Nonnull
+    public Expression resolveHighOrderScalarFunction(@Nonnull final String functionName, boolean flattenSingleItemRecords,
+                                                     @Nonnull final List<Expressions> arguments) {
+        Assert.thatUnchecked(arguments.size() <= 2, ErrorCode.UNSUPPORTED_OPERATION, "unsupported higher-order function");
+        if (arguments.isEmpty()) {
+            var functionExpression = resolveScalarFunction(functionName, Expressions.empty(), flattenSingleItemRecords);
+            if (functionExpression.getUnderlying().getResultType().isFunction()) {
+                // this is a second-order function, try to encapsulate a parameterless invocation of it.
+                functionExpression = encapsulateValueFunction(functionExpression.getUnderlying(), Expressions.empty(), flattenSingleItemRecords);
+            }
+            return functionExpression;
+        }
+
+        if (arguments.size() == 1) {
+            Expression functionExpression;
+            boolean passArgsToFirstOrderFunction = false;
+            try {
+                // attempt to resolve the function with that list of arguments first.
+                functionExpression = resolveScalarFunction(functionName, arguments.get(0), flattenSingleItemRecords);
+            } catch (UncheckedRelationalException exp) {
+                if (exp.unwrap().getErrorCode().equals(ErrorCode.UNDEFINED_FUNCTION)) {
+                    // re-attempt to resolve the high-order function with an empty list of arguments.
+                    functionExpression = resolveScalarFunction(functionName, Expressions.empty(), flattenSingleItemRecords);
+                    passArgsToFirstOrderFunction = true;
+                } else {
+                    throw exp;
+                }
+            } catch (SemanticException exp) {
+                if (exp.getErrorCode().equals(FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES)) {
+                    // re-attempt to resolve the high-order function with an empty list of arguments.
+                    functionExpression = resolveScalarFunction(functionName, Expressions.empty(), flattenSingleItemRecords);
+                    passArgsToFirstOrderFunction = true;
+                } else {
+                    throw exp;
+                }
+            }
+
+            if (functionExpression.getUnderlying().getResultType().isFunction()) {
+                // the function is second-order, now resolve the first-order function, make sure to not reuse the
+                // provided argument list if it was already used to resolve the second-order function.
+                final var firstOrderArgs = passArgsToFirstOrderFunction ? arguments.get(0) : Expressions.empty();
+                functionExpression = encapsulateValueFunction(functionExpression.getUnderlying(), firstOrderArgs, flattenSingleItemRecords);
+            } else {
+                Assert.thatUnchecked(!passArgsToFirstOrderFunction, ErrorCode.UNDEFINED_FUNCTION, () ->
+                        "could not resolve " + functionName + " with the given list of arguments");
+            }
+            return functionExpression;
+        }
+
+        final var functionExpr = resolveScalarFunction(functionName, arguments.get(0), flattenSingleItemRecords);
+        var functionValue = functionExpr.getUnderlying();
+        Assert.thatUnchecked(functionValue.getResultType().isFunction());
+        final Value.HighOrderValue highOrderValue = Assert.castUnchecked(functionValue, Value.HighOrderValue.class);
+        final List<? extends Typed> valueArgs = StreamSupport.stream(arguments.get(1).underlying().spliterator(), false)
+                    .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
+                    .collect(ImmutableList.toImmutableList());
+        final var highOrderFunctionBuilder = Assert.notNullUnchecked(highOrderValue.evalWithoutStore(EvaluationContext.EMPTY));
+        functionValue = Assert.castUnchecked(highOrderFunctionBuilder.encapsulate(valueArgs), Value.class);
+        Assert.thatUnchecked(!functionValue.getResultType().isFunction());
+        return Expression.ofUnnamed(DataTypeUtils.toRelationalType(functionValue.getResultType()), functionValue);
+    }
+
+    @Nonnull
+    private Expression encapsulateValueFunction(@Nonnull final Value value, @Nonnull final Expressions arguments, boolean flattenSingleItemRecords) {
+        final Value.HighOrderValue highOrderValue = Assert.castUnchecked(value, Value.HighOrderValue.class);
+        final List<? extends Typed> valueArgs = arguments.stream().map(Expression::getUnderlying)
+                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
+                .collect(ImmutableList.toImmutableList());
+        final var firstOrderValue = Assert.castUnchecked(Assert.notNullUnchecked(highOrderValue.evalWithoutStore(EvaluationContext.EMPTY))
+                .encapsulate(valueArgs), Value.class);
+        return Expression.ofUnnamed(DataTypeUtils.toRelationalType(firstOrderValue.getResultType()), firstOrderValue);
+    }
+
     private void processFunctionSideEffects(@Nonnull final CatalogedFunction builtInFunction) {
         if (!(builtInFunction instanceof WithPlanGenerationSideEffects)) {
             return;
@@ -1024,7 +1137,7 @@ public class SemanticAnalyzer {
     public Optional<Type> getRecursiveCteType(@Nonnull final RelationalParser.QueryContext namedQueryBody,
                                               @Nonnull final Identifier queryName,
                                               @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser,
-                                              @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                              @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
                                               @Nonnull final QueryVisitor queryVisitor) {
         final AtomicReference<Optional<Type>> result = new AtomicReference<>(Optional.empty());
         recursiveQueryTraversal(namedQueryBody, queryName, idParser,
@@ -1054,7 +1167,7 @@ public class SemanticAnalyzer {
     public NonnullPair<List<LogicalOperator>, List<LogicalOperator>> partitionRecursiveQuery(@Nonnull final RelationalParser.QueryContext namedQueryBody,
                                                                                              @Nonnull final Identifier queryName,
                                                                                              @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser,
-                                                                                             @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                                                                             @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
                                                                                              @Nonnull final QueryVisitor queryVisitor) {
         final var nonRecursiveBranchesBuilder = ImmutableList.<LogicalOperator>builder();
         final var recursiveBranchesBuilder = ImmutableList.<LogicalOperator>builder();
@@ -1155,17 +1268,17 @@ public class SemanticAnalyzer {
     @Nonnull
     private static LogicalOperator handleQueryFragment(@Nonnull final ParserRuleContext queryFragment,
                                                        @Nonnull final RelationalParser.QueryContext namedQueryBody,
-                                                       @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                                       @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
                                                        @Nonnull final QueryVisitor queryVisitor) {
         LogicalOperator logicalOperator;
         if (namedQueryBody.ctes() != null) {
             final var ctes = namedQueryBody.ctes();
-            final var currentPlanFragment = queryVisitor.getDelegate().pushPlanFragment();
-            memoizer.apply(ctes).forEach(currentPlanFragment::addOperator);
-            logicalOperator = memoizer.apply(queryFragment).first();
+            queryVisitor.getDelegate().pushPlanFragment();
+            memoizer.apply(ctes);
+            logicalOperator = Assert.optionalUnchecked(memoizer.apply(queryFragment));
             queryVisitor.getDelegate().popPlanFragment();
         } else {
-            logicalOperator = memoizer.apply(queryFragment).first();
+            logicalOperator = Assert.optionalUnchecked(memoizer.apply(queryFragment));
         }
         return logicalOperator;
     }

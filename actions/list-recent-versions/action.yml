@@ -1,0 +1,22 @@
+name: List Recent Server Versions
+
+outputs:
+  versions:
+    description: "The versions as json"
+    value: ${{ steps.versions.outputs.versions }}
+
+runs:
+  using: "composite"
+  steps:
+  - name: Calculate versions
+    uses: ./actions/run-gradle
+    with:
+      gradle_command: listRecentVersions
+  - name: create output
+    id: versions
+    shell: bash
+    # This is, somewhat unfortunately tied to yaml-tests, but we don't currently have anything else that supports
+    # mixed-mode in reality. We'll have to assess how to deal with that in order to have mixed-mode tests elsewhere
+    run: |
+     cat yaml-tests/.out/recentVersions.txt >> "$GITHUB_OUTPUT"
+

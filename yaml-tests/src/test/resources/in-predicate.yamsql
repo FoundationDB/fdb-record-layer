@@ -194,7 +194,7 @@ test_block:
       # Test alternate IN-like predicate with primitive array column - string in string array
       - query: select id from array_table where exists (select 1 from array_table.fruits f where f = 'apple')
       - supported_version: 4.8.1.0
-      - explain: "COVERING(FRUITS [EQUALS @c18] -> [ID: KEY[2]]) | MAP (_.ID AS ID)"
+      - explain: "COVERING(FRUITS [EQUALS @c18] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
       - unorderedResult: [{1}, {3}]
     -
       # Test IN predicate with primitive array column - string in string array

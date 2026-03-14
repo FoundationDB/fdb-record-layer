@@ -83,6 +83,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.IntFunction;
 import java.util.function.Supplier;
 
 /**
@@ -197,6 +198,32 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @Nonnull
     IndexMaintainer getIndexMaintainer(@Nonnull Index index);
+
+    /**
+     * Get the current incarnation of the store.
+     * <p>
+     * The incarnation is intended to be incremented when moving data from one cluster to another.
+     * By combining the incarnation with version information in indexes, you can maintain proper ordering
+     * of modifications even when data is moved between clusters with different versions.
+     * </p>
+     * @return the current incarnation value, or 0 if not set
+     */
+    @API(API.Status.EXPERIMENTAL)
+    int getIncarnation();
+
+    /**
+     * Update the incarnation of the store.
+     * <p>
+     * The incarnation is intended to be incremented when moving data from one cluster to another.
+     * This should typically be called before moving data to ensure proper version ordering across clusters.
+     * </p>
+     * @param updater a function that takes the current incarnation value and returns the new value
+     * (must not be less than the current value)
+     * @return a future that updates this incarnation
+     * @throws RecordCoreException if the updated incarnation is less than the current one
+     */
+    @API(API.Status.EXPERIMENTAL)
+    CompletableFuture<Void> updateIncarnation(@Nonnull IntFunction<Integer> updater);
 
     /**
      * Hook for checking if store state for client changes.
@@ -2408,6 +2435,35 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         @API(API.Status.EXPERIMENTAL)
         @Nonnull
         BaseBuilder<M, R> setStoreStateCache(@Nonnull FDBRecordStoreStateCache storeStateCache);
+
+        /**
+         * Get the reason to use when bypassing a {@link RecordMetaDataProto.DataStoreInfo.StoreLockState.State#FULL_STORE}
+         * lock. If {@code null}, the store will not bypass the lock.
+         *
+         * @return the reason to use when bypassing the FULL_STORE lock, or {@code null} if not bypassing
+         */
+        @API(API.Status.EXPERIMENTAL)
+        @Nullable
+        String getBypassFullStoreLockReason();
+
+        /**
+         * Set the reason to use when bypassing a {@link RecordMetaDataProto.DataStoreInfo.StoreLockState.State#FULL_STORE}
+         * lock. This allows opening a store that has been locked with FULL_STORE state, provided the reason matches
+         * the reason that was used when setting the lock. This is intended for administrative operations that need to
+         * clear or modify the lock state.
+         * <p>
+         * <b>Important:</b> The store will remain in the FULL_STORE locked state after opening unless explicitly
+         * cleared using {@link FDBRecordStore#clearStoreLockStateAsync()}. Simply opening with bypass does not
+         * remove the lock.
+         * </p>
+         *
+         * @param reason the reason to use when bypassing the FULL_STORE lock, which must match the reason used when
+         *               the store was locked, or {@code null} to disable bypass
+         * @return this builder
+         */
+        @API(API.Status.EXPERIMENTAL)
+        @Nonnull
+        BaseBuilder<M, R> setBypassFullStoreLockReason(@Nullable String reason);
 
         /**
          * Get how the store state cacheability should be modified during store opening.

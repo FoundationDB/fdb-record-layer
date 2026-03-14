@@ -18,7 +18,7 @@ Parameters
     The value or expression to be converted.
 
 * :sql:`target_type`
-    The target data type. Can be a primitive type (:sql:`INTEGER`, :sql:`BIGINT`, :sql:`FLOAT`, :sql:`DOUBLE`, :sql:`STRING`, :sql:`BOOLEAN`) or an array type (e.g., :sql:`INTEGER ARRAY`, :sql:`STRING ARRAY`).
+    The target data type. Can be a primitive type (:sql:`INTEGER`, :sql:`BIGINT`, :sql:`FLOAT`, :sql:`DOUBLE`, :sql:`STRING`, :sql:`BYTES`, :sql:`BOOLEAN`, :sql:`VECTOR`) or an array type (e.g., :sql:`INTEGER ARRAY`, :sql:`STRING ARRAY`).
 
 Supported Conversions
 #####################
@@ -189,6 +189,43 @@ Result:
 
     * - :sql:`empty_int_array`
     * - :json:`[]`
+
+Null Type Casting
+-----------------
+
+Null values must specify their target type if it cannot be inferred:
+
+.. code-block:: sql
+
+    CREATE TABLE data(id BIGINT, str_value STRING, PRIMARY KEY(id))
+    INSERT INTO data VALUES (1, '123')
+
+    SELECT CAST(null AS string) AS null_string FROM data WHERE id = 1
+
+Result:
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`null_string`
+    * - :json:`null`
+
+An explicit null cast is not required if type of a null value can be determined by normal promotion rules:
+
+.. code-block:: sql
+
+    CREATE TABLE data(id BIGINT, str_value STRING, PRIMARY KEY(id))
+    INSERT INTO data VALUES (1, '123')
+
+    SELECT str_value FROM data WHERE str_value IS DISTINCT FROM null
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`str_value`
+    * - :json:`"123"`
+
+Adding an explicit cast to the :sql:`null` value in that query would be permissible, but it is not required.
 
 Nested Conversions
 ------------------

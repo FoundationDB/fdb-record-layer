@@ -63,6 +63,12 @@ public class QueryPredicateMatchers {
         return ofType(QueryPredicate.class);
     }
 
+    public static TypedMatcher<QueryPredicate> anyCompensatablePredicate() {
+        return typedWithDownstream(QueryPredicate.class,
+                Extractor.of(p -> !p.isIndexOnly(), p -> "compensatablePredicate(" + p + ")"),
+                PrimitiveMatchers.equalsObject(true));
+    }
+
     public static TypedMatcher<PredicateWithValue> predicateWithValue() {
         return ofType(PredicateWithValue.class);
     }

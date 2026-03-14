@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -32,7 +33,7 @@ public interface OnWriteListener {
     };
 
     /**
-     * Callback method invoked after a node has been successfully written to a specific layer.
+     * Callback method that is invoked after a node has been successfully written to a specific layer.
      * <p>
      * This is a default method with an empty implementation, allowing implementing classes to override it only if they
      * need to react to this event.
@@ -64,6 +65,34 @@ public interface OnWriteListener {
     }
 
     /**
+     * Callback method that is invoked for each key/value pair that is written to the database.
+     * <p>
+     * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
+     * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
+     * state.
+     * @param layer the layer the data was written to
+     * @param key the key
+     * @param value the value.
+     */
+    @SuppressWarnings("unused")
+    default void onKeyValueWritten(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+        // nothing
+    }
+
+    /**
+     * Callback method invoked after a node has been successfully deleted from a specific layer.
+     * <p>
+     * This is a default method with an empty implementation, allowing implementing classes to override it only if they
+     * need to react to this event.
+     * @param layer the index of the layer where the node was deleted.
+     * @param primaryKey the {@link Tuple} used as key to identify the node that was deleted; guaranteed to be non-null.
+     */
+    @SuppressWarnings("unused")
+    default void onNodeDeleted(final int layer, @Nonnull final Tuple primaryKey) {
+        // nothing
+    }
+
+    /**
      * Callback method invoked when a neighbor of a specific node is deleted.
      * <p>
      * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
@@ -79,8 +108,31 @@ public interface OnWriteListener {
         // nothing
     }
 
+    /**
+     * Callback method invoked when a key is deleted.
+     * <p>
+     * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
+     * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
+     * state.
+     * @param layer the layer index where the deletion occurred
+     * @param key the key that was deleted
+     */
     @SuppressWarnings("unused")
-    default void onKeyValueWritten(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+    default void onKeyDeleted(final int layer, @Nonnull final byte[] key) {
+        // nothing
+    }
+
+    /**
+     * Callback method invoked when an entire range is deleted.
+     * <p>
+     * This is a default method and its base implementation is a no-op. Implementors of the interface can override this
+     * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
+     * state.
+     * @param layer the layer index where the deletion occurred
+     * @param range the {@link Range} that was deleted
+     */
+    @SuppressWarnings("unused")
+    default void onRangeDeleted(final int layer, @Nonnull final Range range) {
         // nothing
     }
 }

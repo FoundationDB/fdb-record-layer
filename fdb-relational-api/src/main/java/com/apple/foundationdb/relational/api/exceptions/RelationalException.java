@@ -40,7 +40,7 @@ public class RelationalException extends Exception {
      * of logging and tooling is built around these assumptions. Therefore, we maintain this same
      * mapping structure.
      */
-    private Map<String, Object> errorContext;
+    private transient Map<String, Object> errorContext;
 
     public RelationalException(String message, ErrorCode errorCode) {
         super(message);

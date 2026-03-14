@@ -12,6 +12,7 @@ reference/sql_types
 reference/sql_commands
 reference/Functions
 reference/Subqueries
+reference/Joins
 ```
 
 ```{toctree}
@@ -27,6 +28,5 @@ reference/Indexes
 :caption: Miscellaneous
 :maxdepth: 2
 
-reference/Direct_Access_Api
 reference/understanding_bitmap
 ```

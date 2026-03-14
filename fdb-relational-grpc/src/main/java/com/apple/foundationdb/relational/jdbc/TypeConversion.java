@@ -480,6 +480,10 @@ public class TypeConversion {
                 column = toColumn(wasNull ? null : (byte[]) value,
                         (a, b) -> a == null ? b.clearBinary() : b.setBinary(ByteString.copyFrom(a)));
                 break;
+            case FLOAT:
+                column = toColumn(wasNull ? null : (Float) value,
+                        (a, b) -> a == null ? b.clearFloat() : b.setFloat(a));
+                break;
             case DOUBLE:
                 column = toColumn(wasNull ? null : (Double) value,
                         (a, b) -> a == null ? b.clearDouble() : b.setDouble(a));

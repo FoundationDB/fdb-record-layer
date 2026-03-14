@@ -40,7 +40,7 @@ import java.util.function.Supplier;
  * @param <K> key type
  * @param <V> value type
  */
-public class LinkedIdentityMap<K, V> extends AbstractMap<K, V> {
+public final class LinkedIdentityMap<K, V> extends AbstractMap<K, V> {
     @Nonnull
     private static final Equivalence<Object> identity = Equivalence.identity();
 

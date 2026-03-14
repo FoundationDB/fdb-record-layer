@@ -1,10 +1,10 @@
-ü-
+Å/
 e
-select-star-testsPEXPLAIN select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);µ,
-É÷í˚ë ±à≤(*0íá81@âSCAN(<,>) | TFILTER B | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A1 AS _0, _._0.A2 AS _1, _._0.A3 AS _2) | MAP (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.B1 AS B1) }ä*digraph G {
+select-star-testsPEXPLAIN select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);ó.
+ÉîÍ«ë öãÇ(*0‰¿81@âSCAN(<,>) | TFILTER B | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A1 AS _0, _._0.A2 AS _1, _._0.A3 AS _2) | MAP (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.B1 AS B1) }Ï+digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.B1 AS B1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B1)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [B]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B1, LONG AS B2, LONG AS S1, LONG AS S2 AS B3)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
@@ -27,17 +27,23 @@ e
   11 -> 10 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 1 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    7 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
     rank=same;
     rankDir=LR;
     2 -> 5 [ color="red" style="invis" ];
   }
-}Á.
+}…0
 g
-select-star-testsREXPLAIN select B.* from B where exists (select A.*, B.* from A group by A1,A2,A3);˚-
-ÉÚÛóë Á•ù(*0≈ %81@òSCAN(<,>) | TFILTER B | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A1 AS _0, _._0.A2 AS _1, _._0.A3 AS _2) | MAP (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1, q0.B2 AS B2, q0.B3 AS B3) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN q0 }¡+digraph G {
+select-star-testsREXPLAIN select B.* from B where exists (select A.*, B.* from A group by A1,A2,A3);›/
+É ª„ë °Õß(*0µí81@òSCAN(<,>) | TFILTER B | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A1 AS _0, _._0.A2 AS _1, _._0.A3 AS _2) | MAP (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1, q0.B2 AS B2, q0.B3 AS B3) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN q0 }£-digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q2</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B1, LONG AS B2, LONG AS S1, LONG AS S2 AS B3)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [B]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B1, LONG AS B2, LONG AS S1, LONG AS S2 AS B3)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
@@ -59,6 +65,12 @@ g
   10 -> 9 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   11 -> 10 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 1 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    7 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
   {
     rank=same;
     rankDir=LR;

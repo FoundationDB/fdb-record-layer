@@ -37,6 +37,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -80,7 +81,8 @@ public class PlanGenerationStackTest {
     static class RandomQueryProvider implements ArgumentsProvider {
 
         @Override
-        public Stream<? extends Arguments> provideArguments(final ExtensionContext context) throws Exception {
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
             return Stream.of(
                     Arguments.of(0, "select count(*) from restaurant", null),
                     Arguments.of(1, "select * from restaurant", null),
@@ -163,7 +165,8 @@ public class PlanGenerationStackTest {
                     Arguments.of(76, "with recursive c1 as (select * from restaurant union all select * from c1) select * From c1", null),
                     Arguments.of(77, "with recursive c as (with recursive c1 as (select * from restaurant union all select * from c1) select * From c1 union all select * from restaurant, c) select * from c", null),
                     Arguments.of(78, "with recursive c as (with c as (select * from restaurant) select * from c union all select * from restaurant) select * from c union all select * from restaurant", "ambiguous nested recursive CTE name"),
-                    Arguments.of(79, "with recursive c1(name) as (select * from restaurant union all select * from c1) select * From c", "cte query has 7 column(s), however 1 aliases defined")
+                    Arguments.of(79, "with recursive c1(name) as (select * from restaurant union all select * from c1) select * From c", "cte query has 7 column(s), however 1 aliases defined"),
+                    Arguments.of(80, "select * from restaurant where row_number() over(order by rest_no) < 10", "window functions are not allowed in WHERE")
             );
         }
     }

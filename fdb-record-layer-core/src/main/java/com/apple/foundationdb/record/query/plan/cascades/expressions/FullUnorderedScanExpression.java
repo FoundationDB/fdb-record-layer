@@ -31,15 +31,16 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -64,7 +65,7 @@ import java.util.Set;
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
-public class FullUnorderedScanExpression extends AbstractRelationalExpressionWithoutChildren implements PlannerGraphRewritable {
+public class FullUnorderedScanExpression extends AbstractRelationalExpressionWithoutChildren implements InternalPlannerGraphRewritable {
     @Nonnull
     private final Set<String> recordTypes;
     @Nonnull
@@ -187,14 +188,24 @@ public class FullUnorderedScanExpression extends AbstractRelationalExpressionWit
 
     @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
         Verify.verify(childGraphs.isEmpty());
 
-        final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
-        dataNodeWithInfo = new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
-                getResultType(),
-                ImmutableList.of("record types: {{types}}"),
-                ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList()))));
+        final var explainFormatter =
+                WithIndentationsExplainFormatter.forDot(15);
+
+        final var sourceString =
+                "record types: " +
+                        new ExplainTokens().addSequence(() -> new ExplainTokens().addComma().addLinebreakOrWhitespace(),
+                                getRecordTypes().stream()
+                                        .map(recordType -> new ExplainTokens().addIdentifier(recordType))
+                                        .collect(ImmutableList.toImmutableList())).render(explainFormatter);
+
+        final PlannerGraph.DataNodeWithInfo dataNodeWithInfo =
+                new PlannerGraph.DataNodeWithInfo(
+                        NodeInfo.BASE_DATA,
+                        getResultType(),
+                        ImmutableList.of(sourceString));
 
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,

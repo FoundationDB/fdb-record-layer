@@ -21,16 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -50,12 +51,25 @@ public final class LogicalPlanFragment {
     @Nonnull
     private Optional<State> state;
 
+    @Nonnull
+    private final List<Expression> innerJoinExpressions;
+
     private LogicalPlanFragment(@Nonnull Optional<LogicalPlanFragment> parent,
                                 @Nonnull LogicalOperators operators,
                                 @Nonnull Optional<State> state) {
         this.parent = parent;
         this.operators = operators;
         this.state = state;
+        this.innerJoinExpressions = new ArrayList<>();
+    }
+
+    public void addInnerJoinExpression(@Nonnull Expression joinExpression) {
+        this.innerJoinExpressions.add(joinExpression);
+    }
+
+    @Nonnull
+    public List<Expression> getInnerJoinExpressions() {
+        return Collections.unmodifiableList(innerJoinExpressions);
     }
 
     @Nonnull
