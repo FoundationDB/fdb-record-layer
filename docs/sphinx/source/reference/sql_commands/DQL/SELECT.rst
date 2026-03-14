@@ -2,6 +2,8 @@
 SELECT
 ======
 
+.. _select:
+
 Syntax
 ######
 
