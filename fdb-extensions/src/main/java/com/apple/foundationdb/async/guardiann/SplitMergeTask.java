@@ -27,6 +27,7 @@ import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.StorageHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.async.guardiann.Primitives.NeighborhoodsResult;
+import com.apple.foundationdb.async.guardiann.SplitMergeEvaluator.UpgradeResult;
 import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.kmeans.BoundedKMeans;
 import com.apple.foundationdb.linear.Estimator;
@@ -41,11 +42,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
@@ -56,6 +59,7 @@ import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 public class SplitMergeTask extends AbstractDeferredTask {
     @Nonnull
@@ -138,36 +142,85 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                           @Nonnull final RealVector targetClusterCentroid) {
         final SplittableRandom random = RandomHelpers.random(targetClusterMetadata.getId());
         final Primitives primitives = primitives();
+        final Executor executor = getLocator().getExecutor();
         final AccessInfo accessInfo = getAccessInfo();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
         final Quantizer quantizer = primitives.quantizer(accessInfo);
         final Estimator estimator = quantizer.estimator();
 
-        final int numInnerNeighborhood = 2;
-        final int numOuterNeighborhood = 12;
+        final int numNeighborhood = 13;
 
-        final CompletableFuture<NeighborhoodsResult> neighborhoodsFuture =
-                primitives.neighborhoods(transaction, storageTransform, targetClusterMetadata, targetClusterCentroid,
-                        numInnerNeighborhood, numOuterNeighborhood);
+        final var neighborhoodsFuture =
+                primitives.fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata, targetClusterCentroid,
+                        storageTransform, numNeighborhood);
 
-        return neighborhoodsFuture.thenCompose(neighborhoods -> {
-            final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.getInnerNeighborhood();
-            final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.getOuterNeighborhood();
+        return neighborhoodsFuture.thenCompose(clusterMetadataWithDistances -> {
+            final NeighborhoodsResult neighborhoods1To2 =
+                    primitives.neighborhoods(storageTransform, clusterMetadataWithDistances, targetClusterMetadata,
+                            targetClusterCentroid, 1, numNeighborhood - 1);
+            final NeighborhoodsResult neighborhoods2To3 =
+                    clusterMetadataWithDistances.size() < 2
+                    ? null
+                    : primitives.neighborhoods(storageTransform, clusterMetadataWithDistances, targetClusterMetadata,
+                            targetClusterCentroid, 2, numNeighborhood - 2);
 
-            //
-            // At this point innerNeighborhood contains the clusters we want to split into
-            // innerNeighborhood.size() + 1 number of clusters and outerNeighborhood contains all clusters we
-            // may assign some vectors from innerNeighborhood to.
-            //
-            return primitives.fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
-                    .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction, innerClusters, true))
-                    .thenApply(cleanedUpVectorReferences ->
-                            assignVectorReferences(random, estimator, outerNeighborhood, cleanedUpVectorReferences,
-                                    innerNeighborhood.size() + 1))
-                    .thenCompose(assignmentResult ->
-                            updateHnsw(transaction, storageTransform, innerNeighborhood, assignmentResult))
-                    .thenAccept(assignmentResult ->
-                            updateAssignments(transaction, random, innerNeighborhood, assignmentResult, quantizer));
+            final List<NeighborhoodsResult> allNeighborhoods =
+                    Lists.newArrayList(neighborhoods1To2, neighborhoods2To3);
+
+            return primitives.fetchInnerClusters(transaction,
+                            maxInner(neighborhoods1To2, neighborhoods2To3), storageTransform)
+                    .thenCompose(innerClusters -> MoreAsyncUtil.forEach(allNeighborhoods,
+                            neighborhoods -> {
+                                if (neighborhoods == null) {
+                                    return CompletableFuture.completedFuture(null);
+                                }
+                                final var innerNeighborhood = neighborhoods.getInnerNeighborhood();
+                                final var clampedInnerClusters =
+                                        innerNeighborhood.size() == innerClusters.size()
+                                        ? innerClusters
+                                        : innerClusters.subList(0, innerNeighborhood.size());
+
+                                return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true)
+                                        .thenApply(vectorReferences ->
+                                                kMeans(neighborhoods, vectorReferences, random, estimator));
+                            }, 10, executor)
+                            .thenApply(assignmentCandidates -> {
+                                final AssignmentCandidate split1to2Candidate =
+                                        Objects.requireNonNull(assignmentCandidates.get(0));
+                                final UpgradeResult upgradeResult1to2 =
+                                        evaluateNewPartition(estimator, ImmutableList.of(innerClusters.get(0)),
+                                                split1to2Candidate);
+                                upgradeResult1to2.log(logger);
+                                final AssignmentCandidate split2to3Candidate = assignmentCandidates.get(1);
+                                if (split2to3Candidate != null) {
+                                    Verify.verify(innerClusters.size() > 1);
+                                    final UpgradeResult upgradeResult2to3 =
+                                            evaluateNewPartition(estimator, innerClusters,
+                                                    split2to3Candidate);
+                                    upgradeResult2to3.log(logger);
+                                }
+                                if (split2to3Candidate != null) {
+                                    return split2to3Candidate;
+                                }
+                                return split1to2Candidate;
+                            }))
+                    .thenCompose(assignmentCandidate -> {
+                        if (assignmentCandidate == null) {
+                            return null;
+                        }
+
+                        final NeighborhoodsResult neighborhoods = assignmentCandidate.getNeighborhoods();
+                        final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.getInnerNeighborhood();
+                        final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.getOuterNeighborhood();
+
+                        final AssignmentResult assignmentResult =
+                                assignPrimaryVectorReferences(random, estimator, outerNeighborhood,
+                                        assignmentCandidate.getPrimaryVectorReferences(), assignmentCandidate.getkMeansResult(),
+                                        innerNeighborhood.size() + 1);
+                        return updateHnsw(transaction, storageTransform, innerNeighborhood, assignmentResult)
+                                .thenAccept(ignored ->
+                                        updateAssignments(transaction, random, innerNeighborhood, assignmentResult, quantizer));
+                    });
         });
     }
 
@@ -231,6 +284,20 @@ public class SplitMergeTask extends AbstractDeferredTask {
                         Transformed.underlyingLens(), primaryVectorReferences, targetNumPartitions, 3,
                         1, 0.05, BoundedKMeans.overflowQuadraticPenalty(),
                         true);
+
+        return assignPrimaryVectorReferences(random, estimator, outerNeighborhood, primaryVectorReferences,
+                kMeansResult, targetNumPartitions);
+    }
+
+    @Nonnull
+    private AssignmentResult assignPrimaryVectorReferences(@Nonnull final SplittableRandom random,
+                                                           @Nonnull final Estimator estimator,
+                                                           @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood,
+                                                           @Nonnull final List<VectorReference> primaryVectorReferences,
+                                                           @Nonnull final BoundedKMeans.Result<Transformed<RealVector>> kMeansResult,
+                                                           final int targetNumPartitions) {
+        final Config config = getConfig();
+
         final List<Transformed<RealVector>> clusterCentroids =
                 kMeansResult.getClusterCentroids();
         Verify.verify(clusterCentroids.size() == targetNumPartitions);
@@ -474,6 +541,129 @@ public class SplitMergeTask extends AbstractDeferredTask {
                              @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
                              @Nonnull final Transformed<RealVector> centroid) {
         return new SplitMergeTask(locator, accessInfo, taskId, clusterId, centroid);
+    }
+
+    @Nonnull
+    private static List<ClusterMetadataWithDistance> maxInner(@Nullable final NeighborhoodsResult neighborhoods1,
+                                                              @Nullable final NeighborhoodsResult neighborhoods2) {
+        if (neighborhoods1 == null) {
+            return Objects.requireNonNull(neighborhoods2).getInnerNeighborhood();
+        }
+        if (neighborhoods2 == null) {
+            return Objects.requireNonNull(neighborhoods1).getInnerNeighborhood();
+        }
+        final List<ClusterMetadataWithDistance> inner1 = neighborhoods1.getInnerNeighborhood();
+        final List<ClusterMetadataWithDistance> inner2 = neighborhoods2.getInnerNeighborhood();
+
+        if (inner1.equals(inner2)) {
+            return inner1;
+        }
+        if (inner1.size() > inner2.size()) {
+            Verify.verify(inner1.subList(0, inner2.size()).equals(inner2));
+            return inner1;
+        }
+
+        Verify.verify(inner2.subList(0, inner1.size()).equals(inner1));
+        return inner2;
+    }
+
+    @Nonnull
+    @SuppressWarnings("checkstyle:MethodName")
+    private static AssignmentCandidate kMeans(@Nonnull final NeighborhoodsResult neighborhoods,
+                                              @Nonnull final List<VectorReference> vectorReferences,
+                                              @Nonnull final SplittableRandom random,
+                                              @Nonnull final Estimator estimator) {
+        final ImmutableList.Builder<VectorReference> primaryVectorReferencesBuilder = ImmutableList.builder();
+        for (final VectorReference vectorReference : vectorReferences) {
+            if (vectorReference.isPrimaryCopy()) {
+                primaryVectorReferencesBuilder.add(vectorReference);
+            }
+        }
+        final ImmutableList<VectorReference> primaryVectorReferences =
+                primaryVectorReferencesBuilder.build();
+
+        // re-fit only the primary vectors
+        return new AssignmentCandidate(neighborhoods, primaryVectorReferences,
+                BoundedKMeans.fit(random, estimator, VectorReference.vectorLens(),
+                        Transformed.underlyingLens(), primaryVectorReferences,
+                        neighborhoods.getInnerNeighborhood().size() + 1, 3,
+                        1, 0.05, BoundedKMeans.overflowQuadraticPenalty(),
+                        true));
+    }
+
+    @Nonnull
+    private static UpgradeResult
+            evaluateNewPartition(@Nonnull final Estimator estimator,
+                                 @Nonnull final List<Cluster> currentClusters,
+                                 @Nonnull final AssignmentCandidate assignmentCandidate) {
+        int vectorCount = 0;
+        final ImmutableList.Builder<Transformed<RealVector>> clusterCentroidsBuilder =
+                ImmutableList.builder();
+        for (final Cluster innerCluster : currentClusters) {
+            for (final VectorReference vectorReference : innerCluster.getVectorReferences()) {
+                if (vectorReference.isPrimaryCopy()) {
+                    vectorCount++;
+                }
+            }
+            clusterCentroidsBuilder.add(innerCluster.getCentroid());
+        }
+        final int[] assignment = new int[vectorCount];
+        final ImmutableList.Builder<VectorReference> primaryVectorReferencesBuilder =
+                ImmutableList.builder();
+        for (int c = 0, currentIndex = 0; c < currentClusters.size(); c++) {
+            final Cluster innerCluster = currentClusters.get(c);
+            for (final VectorReference vectorReference : innerCluster.getVectorReferences()) {
+                if (vectorReference.isPrimaryCopy()) {
+                    primaryVectorReferencesBuilder.add(vectorReference);
+                    assignment[currentIndex++] = c;
+                }
+            }
+        }
+
+        final SplitMergeEvaluator.Partition<Transformed<RealVector>> currentPartition =
+                new SplitMergeEvaluator.Partition<>(clusterCentroidsBuilder.build(),
+                        Transformed.underlyingLens(), assignment);
+        final var kMeansResult = assignmentCandidate.getkMeansResult();
+        return SplitMergeEvaluator.evaluateUpgrade(primaryVectorReferencesBuilder.build(),
+                currentPartition,
+                assignmentCandidate.getPrimaryVectorReferences(),
+                new SplitMergeEvaluator.Partition<>(kMeansResult.getClusterCentroids(),
+                        Transformed.underlyingLens(), kMeansResult.getAssignment()),
+                VectorReference.vectorLens(),
+                new SplitMergeEvaluator.Parameters(estimator));
+    }
+
+    private static class AssignmentCandidate {
+        @Nonnull
+        private final NeighborhoodsResult neighborhoodsResult;
+        @Nonnull
+        private final List<VectorReference> primaryVectorReferences;
+        @Nonnull
+        @SuppressWarnings("checkstyle:MemberName")
+        private final BoundedKMeans.Result<Transformed<RealVector>> kMeansResult;
+
+        public AssignmentCandidate(@Nonnull final NeighborhoodsResult neighborhoodsResult,
+                                   @Nonnull final List<VectorReference> primaryVectorReferences,
+                                   @Nonnull final BoundedKMeans.Result<Transformed<RealVector>> kMeansResult) {
+            this.neighborhoodsResult = neighborhoodsResult;
+            this.primaryVectorReferences = primaryVectorReferences;
+            this.kMeansResult = kMeansResult;
+        }
+
+        @Nonnull
+        public NeighborhoodsResult getNeighborhoods() {
+            return neighborhoodsResult;
+        }
+
+        @Nonnull
+        public List<VectorReference> getPrimaryVectorReferences() {
+            return primaryVectorReferences;
+        }
+
+        @Nonnull
+        public BoundedKMeans.Result<Transformed<RealVector>> getkMeansResult() {
+            return kMeansResult;
+        }
     }
 
     private static class AssignmentResult {

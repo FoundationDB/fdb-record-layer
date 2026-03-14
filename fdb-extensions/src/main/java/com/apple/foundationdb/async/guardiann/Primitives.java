@@ -469,7 +469,12 @@ class Primitives {
                                 (i, ignored) -> {
                                     final AbstractDeferredTask deferredTask = deferredTasks.get(i);
                                     deleteDeferredTask(transaction, deferredTask);
-                                    return deferredTask.runTask(transaction);
+                                    try {
+                                        return deferredTask.runTask(transaction);
+                                    } finally {
+                                        getOnWriteListener().onTaskExecuted(deferredTask.getKind(),
+                                                deferredTask.getTaskId(), deferredTask.getTargetClusterIds());
+                                    }
                                 }, getExecutor()));
     }
 
@@ -624,54 +629,65 @@ class Primitives {
                 fetchNeighborhoodClusterMetadata(readTransaction, targetClusterMetadata, targetClusterCentroid,
                         storageTransform, numInnerNeighborhood + numOuterNeighborhood);
 
-        return neighborhoodClusterMetadataFuture.thenApply(clusterMetadatas -> {
-            //
-            // Not having the primary cluster in the neighborhood should be next to impossible. It can happen, however,
-            // and we need to build for that rare corner case. Here we look for the primary cluster in the cluster
-            // neighborhood and adjust the inner and outer neighborhood accordingly. Also log, if we cannot find the
-            // primary cluster as that should be almost indicative of another problem.
-            //
-            boolean foundPrimaryCluster = false;
-            for (final ClusterMetadataWithDistance clusterMetadata : clusterMetadatas) {
-                if (clusterMetadata.getClusterMetadata().getId().equals(targetClusterMetadata.getId())) {
-                    foundPrimaryCluster = true;
-                    break;
-                }
-            }
-
-            //
-            // If we are here, we have at least one cluster. However, there may not be enough clusters to properly
-            // populate both neighborhoods.
-            //
-
-            final List<ClusterMetadataWithDistance> innerNeighborhood;
-            final List<ClusterMetadataWithDistance> outerNeighborhood;
-            if (foundPrimaryCluster) {
-                final int cappedNumInnerNeighborhood = Math.min(numInnerNeighborhood, clusterMetadatas.size());
-                return new NeighborhoodsResult(clusterMetadatas.subList(0, cappedNumInnerNeighborhood),
-                        clusterMetadatas.subList(cappedNumInnerNeighborhood, clusterMetadatas.size()));
-            }
-
-            final ImmutableList.Builder<ClusterMetadataWithDistance> innerNeighborhoodBuilder = ImmutableList.builder();
-            // add the target cluster (which we should have found but did not because of reasons)
-            innerNeighborhoodBuilder.add(
-                    new ClusterMetadataWithDistance(targetClusterMetadata,
-                            storageTransform.transform(targetClusterCentroid), 0.0d));
-            // now everything shifts
-            final int cappedNumInnerNeighborhood = Math.min(numInnerNeighborhood - 1, clusterMetadatas.size());
-
-            innerNeighborhoodBuilder.addAll(clusterMetadatas.subList(0, cappedNumInnerNeighborhood));
-            innerNeighborhood = innerNeighborhoodBuilder.build();
-
-            final int cappedNumOuterNeighborhood = Math.min(numOuterNeighborhood,
-                    clusterMetadatas.size() - cappedNumInnerNeighborhood);
-            outerNeighborhood = clusterMetadatas.subList(cappedNumInnerNeighborhood,
-                    cappedNumInnerNeighborhood + cappedNumOuterNeighborhood);
-            return new NeighborhoodsResult(innerNeighborhood, outerNeighborhood);
-        });
+        return neighborhoodClusterMetadataFuture.thenApply(clusterMetadataWithDistances ->
+                neighborhoods(storageTransform, clusterMetadataWithDistances, targetClusterMetadata,
+                        targetClusterCentroid, numInnerNeighborhood, numOuterNeighborhood));
     }
 
-    private CompletableFuture<List<ClusterMetadataWithDistance>>
+    @Nonnull
+    NeighborhoodsResult neighborhoods(@Nonnull final StorageTransform storageTransform,
+                                      @Nonnull final List<ClusterMetadataWithDistance> clusterMetadataWithDistances,
+                                      @Nonnull final ClusterMetadata targetClusterMetadata,
+                                      @Nonnull final RealVector targetClusterCentroid,
+                                      final int numInnerNeighborhood,
+                                      final int numOuterNeighborhood) {
+        //
+        // Not having the primary cluster in the neighborhood should be next to impossible. It can happen, however,
+        // and we need to build for that rare corner case. Here we look for the primary cluster in the cluster
+        // neighborhood and adjust the inner and outer neighborhood accordingly. Also log, if we cannot find the
+        // primary cluster as that should be almost indicative of another problem.
+        //
+        boolean foundPrimaryCluster = false;
+        for (final ClusterMetadataWithDistance clusterMetadata : clusterMetadataWithDistances) {
+            if (clusterMetadata.getClusterMetadata().getId().equals(targetClusterMetadata.getId())) {
+                foundPrimaryCluster = true;
+                break;
+            }
+        }
+
+        //
+        // If we are here, we have at least one cluster. However, there may not be enough clusters to properly
+        // populate both neighborhoods.
+        //
+
+        final List<ClusterMetadataWithDistance> innerNeighborhood;
+        final List<ClusterMetadataWithDistance> outerNeighborhood;
+        if (foundPrimaryCluster) {
+            final int cappedNumInnerNeighborhood = Math.min(numInnerNeighborhood, clusterMetadataWithDistances.size());
+            return new NeighborhoodsResult(clusterMetadataWithDistances.subList(0, cappedNumInnerNeighborhood),
+                    clusterMetadataWithDistances.subList(cappedNumInnerNeighborhood, clusterMetadataWithDistances.size()));
+        }
+
+        final ImmutableList.Builder<ClusterMetadataWithDistance> innerNeighborhoodBuilder = ImmutableList.builder();
+        // add the target cluster (which we should have found but did not because of reasons)
+        innerNeighborhoodBuilder.add(
+                new ClusterMetadataWithDistance(targetClusterMetadata,
+                        storageTransform.transform(targetClusterCentroid), 0.0d));
+        // now everything shifts
+        final int cappedNumInnerNeighborhood = Math.min(numInnerNeighborhood - 1, clusterMetadataWithDistances.size());
+
+        innerNeighborhoodBuilder.addAll(clusterMetadataWithDistances.subList(0, cappedNumInnerNeighborhood));
+        innerNeighborhood = innerNeighborhoodBuilder.build();
+
+        final int cappedNumOuterNeighborhood = Math.min(numOuterNeighborhood,
+                clusterMetadataWithDistances.size() - cappedNumInnerNeighborhood);
+        outerNeighborhood = clusterMetadataWithDistances.subList(cappedNumInnerNeighborhood,
+                cappedNumInnerNeighborhood + cappedNumOuterNeighborhood);
+        return new NeighborhoodsResult(innerNeighborhood, outerNeighborhood);
+    }
+
+    @Nonnull
+    CompletableFuture<List<ClusterMetadataWithDistance>>
             fetchNeighborhoodClusterMetadata(@Nonnull final ReadTransaction transaction,
                                              @Nonnull final ClusterMetadata targetClusterMetadata,
                                              @Nonnull final RealVector targetClusterCentroid,
@@ -793,9 +809,9 @@ class Primitives {
 
     static class NeighborhoodsResult {
         @Nonnull
-        public final List<ClusterMetadataWithDistance> innerNeighborhood;
+        private final List<ClusterMetadataWithDistance> innerNeighborhood;
         @Nonnull
-        public final List<ClusterMetadataWithDistance> outerNeighborhood;
+        private final List<ClusterMetadataWithDistance> outerNeighborhood;
 
         public NeighborhoodsResult(@Nonnull final List<ClusterMetadataWithDistance> innerNeighborhood,
                                    @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood) {

@@ -48,6 +48,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.IntPredicate;
 import java.util.function.IntUnaryOperator;
@@ -1171,11 +1172,39 @@ public class MoreAsyncUtil {
                                                    @Nonnull final IntUnaryOperator stepFunction,
                                                    @Nonnull final BiFunction<Integer, U, CompletableFuture<U>> body,
                                                    @Nonnull final Executor executor) {
+        return forLoop(startI, startU,
+                (i, ignored) -> conditionPredicate.test(i),
+                stepFunction, body, executor);
+    }
+
+    /**
+     * Method that provides the functionality of a for loop, however, in an asynchronous way. The result of this method
+     * is a {@link CompletableFuture} that represents the result of the last iteration of the loop body.
+     * @param startI an integer analogous to the starting value of a loop variable in a for loop
+     * @param startU an object of some type {@code U} that represents some initial state that is passed to the loop's
+     *        initial state
+     * @param conditionPredicate a predicate on the loop variable that must be true before the next iteration is
+     *        entered; analogous to the condition in a for loop
+     * @param stepFunction a unary operator used for modifying the loop variable after each iteration
+     * @param body a bi-function to be called for each iteration; this function is initially invoked using
+     *        {@code startI} and {@code startU}; the result of the body is then passed into the next iterator's body
+     *        together with a new value for the loop variable. In this way callers can access state inside an iteration
+     *        that was computed in a previous iteration.
+     * @param executor the executor
+     * @param <U> the type of the result of the body {@link BiFunction}
+     * @return a {@link CompletableFuture} containing the result of the last iteration's body invocation.
+     */
+    @Nonnull
+    public static <U> CompletableFuture<U> forLoop(final int startI, @Nullable final U startU,
+                                                   @Nonnull final BiPredicate<Integer, U> conditionPredicate,
+                                                   @Nonnull final IntUnaryOperator stepFunction,
+                                                   @Nonnull final BiFunction<Integer, U, CompletableFuture<U>> body,
+                                                   @Nonnull final Executor executor) {
         final AtomicInteger loopVariableAtomic = new AtomicInteger(startI);
         final AtomicReference<U> lastResultAtomic = new AtomicReference<>(startU);
         return whileTrue(() -> {
             final int loopVariable = loopVariableAtomic.get();
-            if (!conditionPredicate.test(loopVariable)) {
+            if (!conditionPredicate.test(loopVariable, lastResultAtomic.get())) {
                 return AsyncUtil.READY_FALSE;
             }
             return body.apply(loopVariable, lastResultAtomic.get())
@@ -1204,10 +1233,12 @@ public class MoreAsyncUtil {
                                                             @Nonnull final Function<T, CompletableFuture<U>> body,
                                                             final int parallelism,
                                                             @Nonnull final Executor executor) {
+        final Object nullStandIn = new Object();
+
         // this deque is only modified by once upon creation
-        final ArrayDeque<T> toBeProcessed = new ArrayDeque<>();
+        final ArrayDeque<Object> toBeProcessed = new ArrayDeque<>();
         for (final T item : items) {
-            toBeProcessed.addLast(item);
+            toBeProcessed.addLast(item == null ? nullStandIn : item);
         }
 
         final List<CompletableFuture<Void>> working = Lists.newArrayList();
@@ -1218,10 +1249,13 @@ public class MoreAsyncUtil {
             working.removeIf(CompletableFuture::isDone);
 
             while (working.size() < parallelism) {
-                final T currentItem = toBeProcessed.pollFirst();
-                if (currentItem == null) {
+                final Object currentObject = toBeProcessed.pollFirst();
+                if (currentObject == null) {
                     break;
                 }
+
+                final T currentItem =
+                        currentObject == nullStandIn ? null : (T)currentObject;
 
                 final int index = indexAtomic.getAndIncrement();
                 working.add(body.apply(currentItem)

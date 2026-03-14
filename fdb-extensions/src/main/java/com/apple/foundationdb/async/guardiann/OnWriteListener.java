@@ -26,6 +26,8 @@ import com.apple.foundationdb.async.hnsw.NodeReference;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Interface for call backs whenever we write data to the database.
@@ -35,15 +37,17 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
     };
 
     /**
-     * Callback method that is invoked after a node has been successfully written to a specific layer.
+     * Callback method that is invoked after a {@link AbstractDeferredTask} has been successfully executed.
      * <p>
      * This is a default method with an empty implementation, allowing implementing classes to override it only if they
      * need to react to this event.
-     * @param layer the index of the layer where the node was written.
-     * @param node the {@link Node} that was written; guaranteed to be non-null.
+     * @param taskKind kind of task
+     * @param taskId task identifier
+     * @param targetClusterIds target cluster ids of the task
      */
     @SuppressWarnings("unused")
-    default void onNodeWritten(final int layer, @Nonnull final Node<? extends NodeReference> node) {
+    default void onTaskExecuted(@Nonnull final AbstractDeferredTask.Kind taskKind, @Nonnull final UUID taskId,
+                                @Nonnull final Set<UUID> targetClusterIds) {
         // nothing
     }
 

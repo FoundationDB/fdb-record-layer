@@ -32,6 +32,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -168,7 +169,7 @@ public class Search {
                     final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
                             MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
                                     primitives.centroidsOrderedByDistance(readTransaction, queryVector,
-                                            0.0d, null), getExecutor()), 7, getExecutor());
+                                            0.0d, null), getExecutor()), 8, getExecutor());
 
                     final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
                             mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
@@ -293,10 +294,13 @@ public class Search {
                                 final Map<UUID, Integer> wrongAssignmentsMap = Maps.newHashMap();
                                 for (final Cluster currentCluster : clusters) {
                                     final UUID currentClusterId = currentCluster.getClusterMetadata().getId();
-                                    int allPrimaryAssignments = 0;
-                                    int wrongAssignments = 0;
+                                    int numAllPrimaryAssignments = 0;
+                                    int numWrongAssignments = 0;
+                                    int numReplicatedVectors = 0;
+                                    final Map<Integer, Integer> wrongAssignmentsByRankMap = Maps.newHashMap();
                                     for (final VectorReference vectorReference : currentCluster.getVectorReferences()) {
                                         if (vectorReference.isPrimaryCopy()) {
+                                            numAllPrimaryAssignments++;
                                             final TreeSet<ClusterMetadataWithDistance> trueClusterDistances =
                                                     new TreeSet<>(Comparator.comparing(ClusterMetadataWithDistance::getDistance));
                                             for (final Cluster cluster : clusters) {
@@ -304,18 +308,31 @@ public class Search {
                                                         estimator.distance(cluster.getCentroid(), vectorReference.getVector());
                                                 trueClusterDistances.add(new ClusterMetadataWithDistance(cluster.getClusterMetadata(), cluster.getCentroid(), distance));
                                             }
-                                            if (!trueClusterDistances.isEmpty()) {
-                                                final UUID trueBestClusterId = Objects.requireNonNull(trueClusterDistances.pollFirst()).getClusterMetadata().getId();
-                                                allPrimaryAssignments++;
-                                                if (!trueBestClusterId.equals(currentClusterId)) {
-                                                    wrongAssignments++;
+                                            boolean found = false;
+                                            int rank = 0;
+                                            while (!trueClusterDistances.isEmpty()) {
+                                                final UUID nextClusterId =
+                                                        Objects.requireNonNull(trueClusterDistances.pollFirst()).getClusterMetadata().getId();
+                                                if (nextClusterId.equals(currentClusterId)) {
+                                                    wrongAssignmentsByRankMap.compute(rank, (r, oldCount) ->
+                                                            Objects.requireNonNullElse(oldCount, 0) + 1);
+                                                    if (rank != 0) {
+                                                        numWrongAssignments++;
+                                                    }
+                                                    found = true;
+                                                    break;
                                                 }
+                                                rank ++;
                                             }
+                                            Verify.verify(found);
+                                        } else {
+                                            numReplicatedVectors ++;
                                         }
                                     }
-                                    wrongAssignmentsMap.put(currentClusterId, wrongAssignments);
+                                    wrongAssignmentsMap.put(currentClusterId, numWrongAssignments);
                                     if (logger.isInfoEnabled()) {
-                                        logger.info("bad assignment; clusterId={}, allPrimaryAssignments={}, wrongAssignments={}", currentClusterId, allPrimaryAssignments, wrongAssignments);
+                                        logger.info("assignment stats; clusterId={}, numAllPrimaryAssignments={}, numWrongAssignments={}, numReplicated={}, wrongAssignmentsByRankMap={}",
+                                                currentClusterId, numAllPrimaryAssignments, numWrongAssignments, numReplicatedVectors, wrongAssignmentsByRankMap);
                                     }
                                 }
                                 return wrongAssignmentsMap;

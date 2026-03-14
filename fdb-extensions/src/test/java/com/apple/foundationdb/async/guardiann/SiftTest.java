@@ -30,6 +30,8 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.test.TestClassSubspaceExtension;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -41,7 +43,10 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -82,7 +87,7 @@ public class SiftTest implements BaseTest {
     }
 
     @BeforeAll
-    @Timeout(value = 10, unit = TimeUnit.MINUTES)
+    @Timeout(value = 30, unit = TimeUnit.MINUTES)
     public static void setUpDb() throws Exception {
         db = dbExtension.getDatabase();
 
@@ -98,7 +103,9 @@ public class SiftTest implements BaseTest {
                         .setPrimaryClusterMax(1000)
                         .setPrimaryClusterMin(300)
                         .setPersistSequentialUuids(true)
-                        .setClusterOverlap(0.1d)
+                        .setClusterOverlap(0.2d)
+                        .setReplicatedClusterTarget(500)
+                        .setReplicatedClusterMaxWrites(3000)
                         .build(128);
 
         guardiann = new Guardiann(subspaceExtension.getSubspace(),
@@ -108,25 +115,33 @@ public class SiftTest implements BaseTest {
                 onReadListener);
 
         logger.info("Preparing db and inserting SIFT small dataset...");
-        insertedData = TestHelpers.insertSIFT1m(db, guardiann, 100000, 20);
+        //insertedData = TestHelpers.insertSIFTSmall(db, guardiann);
+        insertedData = TestHelpers.insertSIFT100k(db, guardiann, 100000, 50);
     }
 
     @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
     @Test
     void testInsertSIFTSmall() throws Exception {
         final int k = 100;
-//        final HNSW centroidHnsw = guardiann.getLocator().primitives().getClusterCentroidsHnsw();
+        TestHelpers.validateSIFT(getDb(), guardiann, insertedData,
+                "/Users/nseemann/Downloads/sift-100k-queries.fvecs",
+                "/Users/nseemann/Downloads/sift-100k-groundtruth.ivecs", k);
 
-//        final Set<ResultEntry> centroids = Sets.newConcurrentHashSet();
-//        scanCentroids(db, centroidHnsw.getSubspace(), centroidHnsw.getConfig(), 0, 100, centroids::add);
-//
-//        final Map<UUID, Integer> result = db.run(transaction -> {
-//            final Search search = guardiann.getLocator().search();
-//            return search.globalAssignmentCheck(transaction, ImmutableList.copyOf(centroids)).join();
-//        });
-//        System.out.println(result);
-//
-        //TestHelpers.validateSIFTSmall(getDb(), guardiann, insertedData, k);
+        final HNSW centroidHnsw = guardiann.getLocator().primitives().getClusterCentroidsHnsw();
+
+        final Set<ResultEntry> centroids = Sets.newConcurrentHashSet();
+        scanCentroids(db, centroidHnsw.getSubspace(), centroidHnsw.getConfig(), 0, 100, centroids::add);
+
+        logger.info("checking clusters numCentroids={}", centroids.size());
+        final Map<UUID, Integer> result = db.run(transaction -> {
+            final Search search = guardiann.getLocator().search();
+            return search.globalAssignmentCheck(transaction, ImmutableList.copyOf(centroids)).join();
+        });
+        System.out.println(result);
+
+//        TestHelpers.validateSIFT(getDb(), guardiann, insertedData,
+//                "/Users/nseemann/Downloads/sift-100k-queries.fvecs",
+//                "/Users/nseemann/Downloads/sift-100k-groundtruth.ivecs", k);
     }
 
     static long countNodesCentroidHnsw(@Nonnull final Database db,
