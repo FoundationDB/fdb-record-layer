@@ -41,10 +41,10 @@ import java.util.function.Supplier;
 public abstract class AbstractRelationalExpressionWithChildren extends AbstractRelationalExpression implements RelationalExpressionWithChildren {
 
     @Nonnull
-    private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
 
     protected AbstractRelationalExpressionWithChildren() {
-        this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
     }
 
     @Nonnull

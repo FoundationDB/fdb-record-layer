@@ -1,0 +1,33 @@
+#
+# include-with-a-test-block.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This test should fail in itself due to the lack of available database to connect to.
+# However, since this file does not have a connect value, it will try to connect to the only available database in the
+# global scope, if any, and can succeed when rightly included in a file.
+---
+test_block:
+  name: transactions-tests
+  tests:
+    -
+      - query: select * from t1 where id < 50
+      - explain: "SCAN(<,>) | FILTER _.ID LESS_THAN promote(@c8 AS LONG)"
+      - result: [
+        {id: 10, col1: 20},
+        {id: 30, col1: 40}]
+...

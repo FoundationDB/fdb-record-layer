@@ -92,6 +92,16 @@ public class HalfRealVector extends AbstractRealVector {
         return vectorBytes;
     }
 
+    /**
+     * Returns a vector whose components are all zero.
+     * @param numDimensions number of dimensions
+     * @return a vector whose components are all zero
+     */
+    @Nonnull
+    public static HalfRealVector zeroVector(final int numDimensions) {
+        return new HalfRealVector(new double[numDimensions]);
+    }
+
     @Nonnull
     private static double[] computeDoubleData(@Nonnull Half[] halfData) {
         double[] result = new double[halfData.length];

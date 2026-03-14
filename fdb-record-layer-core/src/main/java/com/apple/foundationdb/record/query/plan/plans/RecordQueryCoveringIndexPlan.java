@@ -113,7 +113,7 @@ public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWi
         return indexPlan
                 .executeEntries(store, context, continuation, executeProperties)
                 .map(indexEntryToQueriedRecord(store))
-                .map(QueryResult::fromQueriedRecord);
+                .map(queriedRecord -> QueryResult.fromQueriedRecord(getResultValue().getResultType(), context, queriedRecord));
     }
 
     @Nonnull

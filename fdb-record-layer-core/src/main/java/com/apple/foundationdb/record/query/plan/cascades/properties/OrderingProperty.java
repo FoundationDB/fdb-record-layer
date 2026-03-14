@@ -534,29 +534,29 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan flatMapPlan) {
+            final var orderingsFromChildren = orderingsFromChildren(flatMapPlan);
+            final var correlatedTo = flatMapPlan.getCorrelatedTo();
+            final var resultValue = flatMapPlan.getResultValue();
+
+            final var outerOrdering = orderingsFromChildren.get(0)
+                    .pullUp(resultValue, EvaluationContext.empty(), AliasMap.ofAliases(flatMapPlan.getOuterQuantifier().getAlias(), Quantifier.current()), correlatedTo);
+            final var innerOrdering = orderingsFromChildren.get(1)
+                    .pullUp(resultValue, EvaluationContext.empty(), AliasMap.ofAliases(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.current()), correlatedTo);
+
             //
             // For now, we special-case where we can find exactly one _regular_ quantifier and only
             // another quantifier with a max cardinality of 1.
             //
-            final var orderingsFromChildren = orderingsFromChildren(flatMapPlan);
-            final var outerOrdering = orderingsFromChildren.get(0);
-            final var innerOrdering = orderingsFromChildren.get(1);
-
-            final var correlatedTo = flatMapPlan.getCorrelatedTo();
-            final var resultValue = flatMapPlan.getResultValue();
-
             final var outerCardinalities = cardinalities().evaluate(flatMapPlan.getOuterQuantifier().getRangesOver());
             final var outerMaxCardinality = outerCardinalities.getMaxCardinality();
             if (!outerMaxCardinality.isUnknown() && outerMaxCardinality.getCardinality() == 1L) {
                 // outer max cardinality is proven to be 1 row
-                return innerOrdering.pullUp(resultValue, EvaluationContext.empty(),
-                        AliasMap.ofAliases(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.current()), correlatedTo);
+                return innerOrdering;
             }
 
             if (!outerOrdering.isDistinct()) {
                 // outer ordering is not distinct
-                return outerOrdering.pullUp(resultValue, EvaluationContext.empty(),
-                        AliasMap.ofAliases(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.current()), correlatedTo);
+                return outerOrdering;
             }
 
             //

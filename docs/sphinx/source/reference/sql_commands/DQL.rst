@@ -3,7 +3,7 @@ DQL
 ===
 
 The Relational Layer supports a full query engine, complete with query planning and index selection. We generally recommend
-using the query planner whenever possible over using the :doc:`../Direct_Access_Api` as it is more powerful and more capable, and
+using the query planner whenever possible over using the :doc:`../../jdbc/direct_access` as it is more powerful and more capable, and
 it is designed to make intelligent choices regarding query planning decisions like appropriate index selection.
 
 The language is heavily inspired by SQL. However, the Relational Layer *does* make some important changes to SQL to accommodate
@@ -20,9 +20,12 @@ Syntax
 
     DQL/SELECT
     DQL/WITH
+    DQL/INNER_JOIN
     DQL/WHERE
     DQL/GROUP_BY
+    DQL/CASE
     DQL/ORDER_BY
+    DQL/WINDOW_FUNCTIONS
     DQL/EXPLAIN
 
 .. toctree::

@@ -45,10 +45,6 @@ public interface RoutineParser {
     UserDefinedFunction parseFunction(@Nonnull String routineString, boolean isCaseSensitive);
 
     @Nonnull
-    UserDefinedFunction parseTemporaryFunction(@Nonnull String functionName, @Nonnull String routineString,
-                                               @Nonnull PreparedParams preparedParams, boolean isCaseSensitive);
-
-    @Nonnull
     LogicalOperator parseView(@Nonnull String viewName, @Nonnull String viewDefinition, boolean isCaseSensitive);
 
     class DefaultSqlFunctionParser implements RoutineParser {
@@ -65,16 +61,6 @@ public interface RoutineParser {
         public CompiledSqlFunction parseFunction(@Nonnull final String routineString, boolean isCaseSensitive) {
             return (CompiledSqlFunction)parse(routineString, null, PreparedParams.empty(), QueryParser::parseFunction,
                     BaseVisitor::visitSqlInvokedFunction, isCaseSensitive);
-        }
-
-        @Nonnull
-        @Override
-        public CompiledSqlFunction parseTemporaryFunction(@Nonnull final String functionName,
-                                                          @Nonnull final String routineString,
-                                                          @Nonnull final PreparedParams preparedParams,
-                                                          boolean isCaseSensitive) {
-            return parse(routineString, functionName, preparedParams, QueryParser::parseTemporaryFunction,
-                    BaseVisitor::visitTempSqlInvokedFunction, isCaseSensitive);
         }
 
         @Nonnull

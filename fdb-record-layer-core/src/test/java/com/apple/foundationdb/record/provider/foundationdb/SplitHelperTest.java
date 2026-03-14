@@ -39,7 +39,6 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
-import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,12 +50,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -86,7 +85,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
             ("Humpty Dumpty sat on a wall,\n"
              + "Humpty Dumpty had a great fall\n"
              + "All the king's horses and all the king's men\n"
-             + "Couldn't put Humpty Dumpty together again.\n").getBytes(Charsets.UTF_8);
+             + "Couldn't put Humpty Dumpty together again.\n").getBytes(StandardCharsets.UTF_8);
 
     private static final int MEDIUM_COPIES = 5;
     private static final int MEDIUM_LEGNTH = HUMPTY_DUMPTY.length * MEDIUM_COPIES;
@@ -125,79 +124,8 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         }
     }
 
-    static class SplitHelperTestConfig {
-        private final boolean splitLongRecords;
-        private final boolean omitUnsplitSuffix;
-        private final boolean unrollRecordDeletes;
-        private final boolean loadViaGets;
-        private final boolean isDryRun;
-
-        public SplitHelperTestConfig(boolean splitLongRecords, boolean omitUnsplitSuffix, boolean unrollRecordDeletes, boolean loadViaGets, boolean isDryRun) {
-            this.splitLongRecords = splitLongRecords;
-            this.omitUnsplitSuffix = omitUnsplitSuffix;
-            this.unrollRecordDeletes = unrollRecordDeletes;
-            this.loadViaGets = loadViaGets;
-            this.isDryRun = isDryRun;
-        }
-
-        @Nonnull
-        public RecordLayerPropertyStorage.Builder setProps(@Nonnull RecordLayerPropertyStorage.Builder props) {
-            return props
-                    .addProp(FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES, unrollRecordDeletes)
-                    .addProp(FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS, loadViaGets);
-        }
-
-        public boolean hasSplitPoints() {
-            return splitLongRecords || !omitUnsplitSuffix;
-        }
-
-        @Override
-        public String toString() {
-            return "SplitHelperTestConfig{" +
-                   "splitLongRecords=" + splitLongRecords +
-                   ", omitUnsplitSuffix=" + omitUnsplitSuffix +
-                   ", unrollRecordDeletes=" + unrollRecordDeletes +
-                   ", loadViaGets=" + loadViaGets +
-                   ", isDryRun=" + isDryRun +
-                   '}';
-        }
-
-        @Override
-        public boolean equals(final Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            final SplitHelperTestConfig that = (SplitHelperTestConfig)o;
-            return splitLongRecords == that.splitLongRecords && omitUnsplitSuffix == that.omitUnsplitSuffix && unrollRecordDeletes == that.unrollRecordDeletes && loadViaGets == that.loadViaGets && isDryRun == that.isDryRun;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(splitLongRecords, omitUnsplitSuffix, unrollRecordDeletes, loadViaGets);
-        }
-
-        public static Stream<SplitHelperTestConfig> allValidConfigs() {
-            // Note that splitLongRecords="true" && omitUnsplitSuffix="true" is not valid
-            return Stream.of(false, true).flatMap(splitLongRecords ->
-                    (splitLongRecords ? Stream.of(false) : Stream.of(false, true)).flatMap(omitUnsplitSuffix ->
-                            Stream.of(false, true).flatMap(unrollRecordDeletes ->
-                                    Stream.of(false, true).flatMap(loadViaGets ->
-                                            Stream.of(false, true).map(isDryRun ->
-                                                    new SplitHelperTestConfig(splitLongRecords, omitUnsplitSuffix, unrollRecordDeletes, loadViaGets, isDryRun))))));
-        }
-
-        public static SplitHelperTestConfig getDefault() {
-            return new SplitHelperTestConfig(true, false,
-                    FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(),
-                    FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS.getDefaultValue(), false);
-        }
-    }
-
-    public static Stream<Arguments> testConfigs() {
-        return SplitHelperTestConfig.allValidConfigs().map(Arguments::of);
+    public static Stream<Arguments> testConfigsNoVersionInKey() {
+        return SplitHelperTestConfig.getConfigsNoVersionInKey().map(Arguments::of);
     }
 
     @Nonnull
@@ -407,7 +335,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         return saveWithSplit(context, key, serialized, null, testConfig);
     }
 
-    @MethodSource("testConfigs")
+    @MethodSource("testConfigsNoVersionInKey")
     @ParameterizedTest(name = "saveWithSplit[{0}]")
     public void saveWithSplit(@Nonnull SplitHelperTestConfig testConfig) {
         this.testConfig = testConfig;
@@ -428,7 +356,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @MethodSource("testConfigs")
+    @MethodSource("testConfigsNoVersionInKey")
     @ParameterizedTest(name = "saveWithSplitAndIncompleteVersions[{0}]")
     public void saveWithSplitAndIncompleteVersions(SplitHelperTestConfig testConfig) {
         this.testConfig = testConfig;
@@ -471,13 +399,13 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @MethodSource("testConfigs")
+    @MethodSource("testConfigsNoVersionInKey")
     @ParameterizedTest(name = "saveWithSplitAndCompleteVersion[{0}]")
     public void saveWithSplitAndCompleteVersions(SplitHelperTestConfig testConfig) {
         this.testConfig = testConfig;
         try (FDBRecordContext context = openContext()) {
             // With complete version
-            byte[] globalVersion = "karlgrosse".getBytes(Charsets.US_ASCII);
+            byte[] globalVersion = "karlgrosse".getBytes(StandardCharsets.US_ASCII);
             saveWithSplit(context, Tuple.from(800L), SHORT_STRING, FDBRecordVersion.complete(globalVersion, context.claimLocalVersion()), testConfig);
             saveWithSplit(context, Tuple.from(813L), LONG_STRING, FDBRecordVersion.complete(globalVersion, context.claimLocalVersion()), testConfig);
             saveWithSplit(context, Tuple.from(823L), VERY_LONG_STRING, FDBRecordVersion.complete(globalVersion, context.claimLocalVersion()), testConfig);
@@ -557,7 +485,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         assertEquals(0, count);
     }
 
-    @MethodSource("testConfigs")
+    @MethodSource("testConfigsNoVersionInKey")
     @ParameterizedTest(name = "deleteWithSplit[{0}]")
     public void deleteWithSplit(SplitHelperTestConfig testConfig) {
         this.testConfig = testConfig;
@@ -591,11 +519,11 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     }
 
     @ParameterizedTest(name = "deleteWithSplitAndVersion[{0}]")
-    @MethodSource("testConfigs")
+    @MethodSource("testConfigsNoVersionInKey")
     public void deleteWithSplitAndVersion(SplitHelperTestConfig testConfig) {
         this.testConfig = testConfig;
         Assumptions.assumeFalse(testConfig.omitUnsplitSuffix);
-        final byte[] globalVersion = "chrysan_th".getBytes(Charsets.US_ASCII);
+        final byte[] globalVersion = "chrysan_th".getBytes(StandardCharsets.US_ASCII);
         try (FDBRecordContext context = openContext()) {
             // Delete unsplit with size info
             FDBStoredSizes sizes1 = writeDummyRecord(context, Tuple.from(-475L), FDBRecordVersion.complete(globalVersion, context.claimLocalVersion()), 1);
@@ -625,7 +553,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     }
 
     private void loadSingleRecords(SplitHelperTestConfig testConfig, @Nonnull LoadRecordFunction loadRecordFunction) {
-        final byte[] globalVersion = "-hastings-".getBytes(Charsets.US_ASCII);
+        final byte[] globalVersion = "-hastings-".getBytes(StandardCharsets.US_ASCII);
         try (FDBRecordContext context = openContext()) {
             // No record
             loadRecordFunction.load(context, Tuple.from(1042L), null, null);
@@ -763,7 +691,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         return loadWithSplit(context, key, testConfig, expectedSizes, expectedContents, null);
     }
 
-    @MethodSource("testConfigs")
+    @MethodSource("testConfigsNoVersionInKey")
     @ParameterizedTest(name = "loadWithSplit[{0}]")
     public void loadWithSplit(SplitHelperTestConfig testConfig) {
         this.testConfig = testConfig;
@@ -823,12 +751,12 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     @ParameterizedTest(name = "scan[reverse = {0}]")
     @BooleanSource
     public void scanSingleRecords(boolean reverse) {
-        loadSingleRecords(new SplitHelperTestConfig(true, false, FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(), false, false),
+        loadSingleRecords(new SplitHelperTestConfig(true, false, FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(), false, false, false),
                 (context, key, expectedSizes, expectedContents, version) -> scanSingleRecord(context, reverse, key, expectedSizes, expectedContents, version));
     }
 
     private List<FDBRawRecord> writeDummyRecords() {
-        final byte[] globalVersion = "_cushions_".getBytes(Charsets.US_ASCII);
+        final byte[] globalVersion = "_cushions_".getBytes(StandardCharsets.US_ASCII);
         final List<FDBRawRecord> rawRecords = new ArrayList<>();
         // Generate primary keys using a generalization of the Fibonacci formula: https://oeis.org/A247698
         long currKey = 2308L;
@@ -954,5 +882,36 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
             commit(context);
         }
+    }
+
+    public static Stream<Arguments> previousKeyEquivalence() {
+        return Stream.of(
+                Arguments.of(Tuple.from(1066L), SplitHelper.START_SPLIT_RECORD),
+                Arguments.of(Tuple.from(1066L), SplitHelper.START_SPLIT_RECORD + 1),
+                Arguments.of(Tuple.from(1066L), SplitHelper.START_SPLIT_RECORD + 2),
+                Arguments.of(Tuple.from(1066L), SplitHelper.UNSPLIT_RECORD),
+                Arguments.of(Tuple.from(1066L), SplitHelper.RECORD_VERSION),
+                Arguments.of(Tuple.from(1066L, "extra"), SplitHelper.START_SPLIT_RECORD),
+                Arguments.of(Tuple.from(), SplitHelper.START_SPLIT_RECORD),
+                Arguments.of(Tuple.from(), SplitHelper.UNSPLIT_RECORD)
+        );
+    }
+
+    /**
+     * Verify that the refactored split call site in {@link SplitHelper} — which now passes
+     * {@code subspace} + {@code key.add(index)} to {@code packSplitKey} instead of the old
+     * {@code subspace.subspace(key)} + {@code Tuple.from(index)} — produces identical byte keys.
+     */
+    @MethodSource("previousKeyEquivalence")
+    @ParameterizedTest(name = "previousKeyEquivalence[key={0}, index={1}]")
+    void previousKeyEquivalence(Tuple key, long index) {
+        Subspace subspace = new Subspace(Tuple.from("test"));
+
+        // Old call: subspace.subspace(key).pack(index)
+        byte[] oldKey = subspace.subspace(key).pack(index);
+        // New call subspace.pack(key.add(index))
+        byte[] newKey = subspace.pack(key.add(index));
+
+        assertArrayEquals(oldKey, newKey);
     }
 }

@@ -242,7 +242,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      *        nodes of clusters. Clusters are used by the dot exporter to
      *        <ul>
      *            <li>assign common attributes to all nodes and edges, e.g. like a common gray background</li>
-     *            <li>assign a name that is displayed displayed</li>
+     *            <li>assign a name that is displayed</li>
      *            <li>cause the layout algorithm to pack the nodes in a cluster if they were one big node</li>
      *        </ul>
      * @return the graph as string in dot format.
@@ -256,7 +256,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
                 Edge::getAttributes,
                 ImmutableMap.of("fontname", Attribute.dot("courier"),
                         "rankdir", Attribute.dot("BT"),
-                        "splines", Attribute.dot("polyline")),
+                        "splines", Attribute.dot("line")),
                 (network, nodes) -> {
                     final ImmutableList.Builder<Cluster<Node, Edge>> clusterBuilder = ImmutableList.builder();
                     clusterBuilder.addAll(clustersForGroups(plannerGraph.getNetwork(), queryPlannerNodes));
@@ -331,6 +331,18 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
     }
 
     /**
+     * Generate the internal graphical explain of the planner expression that is passed in, in dot format.
+     * @param relationalExpression the planner expression to be explained.
+     * @return the internal explain of the planner expression handing in as a string in DOT format.
+     */
+    @Nonnull
+    public static String internalGraphicalExplain(@Nonnull final RelationalExpression relationalExpression) {
+        final PlannerGraph plannerGraph =
+                Objects.requireNonNull(relationalExpression.acceptVisitor(forInternalShow(false)));
+        return exportToDot(plannerGraph);
+    }
+
+    /**
      * Generate the explain of the planner expression that is passed in.
      * @param relationalExpression the planner expression to be explained.
      * @return the explain of the planner expression handing in as a string in GML format.
@@ -339,7 +351,6 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
     public static String explain(@Nonnull final RelationalExpression relationalExpression) {
         return explain(relationalExpression, ImmutableMap.of());
     }
-
 
     /**
      * Generate the explain of the planner expression that is passed in.
@@ -446,12 +457,14 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
     @Nonnull
     @Override
     public PlannerGraph evaluateAtExpression(@Nonnull final RelationalExpression expression, @Nonnull final List<PlannerGraph> childGraphs) {
+        if (isForExplain() && expression instanceof ExplainPlannerGraphRewritable) {
+            return ((ExplainPlannerGraphRewritable)expression).rewriteExplainPlannerGraph(childGraphs);
+        }
+        if (!isForExplain() && expression instanceof InternalPlannerGraphRewritable) {
+            return ((InternalPlannerGraphRewritable)expression).rewriteInternalPlannerGraph(childGraphs);
+        }
         if (expression instanceof PlannerGraphRewritable) {
             return ((PlannerGraphRewritable)expression).rewritePlannerGraph(childGraphs);
-        } else if (isForExplain() && expression instanceof ExplainPlannerGraphRewritable) {
-            return ((ExplainPlannerGraphRewritable)expression).rewriteExplainPlannerGraph(childGraphs);
-        } else if (!isForExplain() && expression instanceof InternalPlannerGraphRewritable) {
-            return ((InternalPlannerGraphRewritable)expression).rewriteInternalPlannerGraph(childGraphs);
         } else {
             return PlannerGraph.fromNodeAndChildGraphs(
                     new PlannerGraph.LogicalOperatorNode(expression,

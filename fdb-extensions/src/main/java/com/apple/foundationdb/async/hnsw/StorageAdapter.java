@@ -94,6 +94,40 @@ interface StorageAdapter<N extends NodeReference> {
     NodeFactory<N> getNodeFactory();
 
     /**
+     * Method that returns {@code true} iff this {@link StorageAdapter} is inlining neighboring vectors (i.e. it is
+     * an {@link InliningStorageAdapter}).
+     * @return {@code true} iff this {@link StorageAdapter} is inlining neighboring vectors.
+     */
+    boolean isInliningStorageAdapter();
+
+    /**
+     * Method that returns {@code this} object as an {@link InliningStorageAdapter} if this {@link StorageAdapter} is
+     * inlining neighboring vectors and is an {@link InliningStorageAdapter}. This method throws an exception if this
+     * storage adapter is any other kind of storage adapter. Callers of this method should ensure prior to calling this
+     * method that the storage adapter actually is of the right kind (by calling{@link #isInliningStorageAdapter()}.
+     * @return {@code this} as an {@link InliningStorageAdapter}
+     */
+    @Nonnull
+    InliningStorageAdapter asInliningStorageAdapter();
+
+    /**
+     * Method that returns {@code true} iff this {@link StorageAdapter} is a compact storage adapter which means it is
+     * not inlining neighboring vectors (i.e. {@code this} is a {@link CompactStorageAdapter}).
+     * @return {@code true} iff this {@link StorageAdapter} is a {@link CompactStorageAdapter}.
+     */
+    boolean isCompactStorageAdapter();
+
+    /**
+     * Method that returns {@code this} object a {@link CompactStorageAdapter} if this {@link StorageAdapter} is
+     * a {@link CompactStorageAdapter}. This method throws an exception if this storage adapter is any other kind of
+     * storage adapter. Callers of this method should ensure prior to calling this method that the storage adapter
+     * actually is of the right kind (by calling{@link #isCompactStorageAdapter()}.
+     * @return {@code this} as a {@link CompactStorageAdapter}
+     */
+    @Nonnull
+    CompactStorageAdapter asCompactStorageAdapter();
+
+    /**
      * Get the subspace used to store this HNSW structure.
      * @return the subspace
      */
@@ -125,6 +159,19 @@ interface StorageAdapter<N extends NodeReference> {
     OnReadListener getOnReadListener();
 
     /**
+     * Method that returns the vector associated with node information passed in. Note that depending on the storage
+     * layout and therefore the used {@link StorageAdapter}, the vector is either part of the reference
+     * (when using {@link InliningStorageAdapter}) or is s part of the {@link AbstractNode} itself (when using
+     * {@link CompactStorageAdapter}). This method hides that detail from the caller and correctly resolves the vector
+     * for both use cases.
+     * @param nodeReference a node reference
+     * @param node the accompanying node to {@code nodeReference}
+     * @return the associated vector as {@link Transformed} of {@link RealVector}
+     */
+    @Nonnull
+    Transformed<RealVector> getVector(@Nonnull N nodeReference, @Nonnull AbstractNode<N> node);
+
+    /**
      * Asynchronously fetches a node from a specific layer, identified by its primary key.
      * <p>
      * The fetch operation is performed within the scope of the provided {@link ReadTransaction}, ensuring a consistent
@@ -139,25 +186,35 @@ interface StorageAdapter<N extends NodeReference> {
      */
     @Nonnull
     CompletableFuture<AbstractNode<N>> fetchNode(@Nonnull ReadTransaction readTransaction,
-                                                 @Nonnull AffineOperator storageTransform,
+                                                 @Nonnull StorageTransform storageTransform,
                                                  int layer,
                                                  @Nonnull Tuple primaryKey);
 
     /**
      * Writes a node and its neighbor changes to the data store within a given transaction.
      * <p>
-     * This method is responsible for persisting the state of a {@link AbstractNode} and applying any modifications to its
+     * This method is responsible for persisting the state of a {@link AbstractNode} and applying any modifications to
+     * its
      * neighboring nodes as defined in the {@code NeighborsChangeSet}. The entire operation is performed atomically as
      * part of the provided {@link Transaction}.
+     *
      * @param transaction the non-null transaction context for this write operation.
      * @param quantizer the quantizer to use
-     * @param node the non-null node to be written to the data store.
      * @param layer the layer index where the node resides.
+     * @param node the non-null node to be written to the data store.
      * @param changeSet the non-null set of changes describing additions or removals of
      *        neighbors for the given {@link AbstractNode}.
      */
-    void writeNode(@Nonnull Transaction transaction, @Nonnull Quantizer quantizer, @Nonnull AbstractNode<N> node,
-                   int layer, @Nonnull NeighborsChangeSet<N> changeSet);
+    void writeNode(@Nonnull Transaction transaction, @Nonnull Quantizer quantizer, int layer,
+                   @Nonnull AbstractNode<N> node, @Nonnull NeighborsChangeSet<N> changeSet);
+
+    /**
+     * Deletes a node from a particular layer in the database.
+     * @param transaction the transaction to use
+     * @param layer the layer the node should be deleted from
+     * @param primaryKey the primary key of the node
+     */
+    void deleteNode(@Nonnull Transaction transaction, int layer, @Nonnull Tuple primaryKey);
 
     /**
      * Scans a specified layer of the structure, returning an iterable sequence of nodes.
@@ -306,6 +363,21 @@ interface StorageAdapter<N extends NodeReference> {
         onWriteListener.onKeyValueWritten(entryNodeReference.getLayer(), key, value);
     }
 
+    /**
+     * Deletes the {@link AccessInfo} from the database within a given transaction and subspace.
+     * @param transaction the database transaction to use for the write operation
+     * @param subspace the subspace where the entry node reference will be stored
+     * @param onWriteListener the listener to be notified after the key-value pair is written
+     */
+    static void deleteAccessInfo(@Nonnull final Transaction transaction,
+                                 @Nonnull final Subspace subspace,
+                                 @Nonnull final OnWriteListener onWriteListener) {
+        final Subspace entryNodeSubspace = accessInfoSubspace(subspace);
+        final byte[] key = entryNodeSubspace.pack();
+        transaction.clear(key);
+        onWriteListener.onKeyDeleted(-1, key);
+    }
+
     @Nonnull
     static CompletableFuture<List<AggregatedVector>> consumeSampledVectors(@Nonnull final Transaction transaction,
                                                                            @Nonnull final Subspace subspace,
@@ -324,6 +396,7 @@ interface StorageAdapter<N extends NodeReference> {
                         final byte[] key = keyValue.getKey();
                         final byte[] value = keyValue.getValue();
                         resultBuilder.add(aggregatedVectorFromRaw(prefixSubspace, key, value));
+                        // this is done to not lock the entire range we just read but jst the keys we did read
                         transaction.addReadConflictKey(key);
                         transaction.clear(key);
                         onReadListener.onKeyValueRead(-1, key, value);
@@ -346,12 +419,14 @@ interface StorageAdapter<N extends NodeReference> {
         onWriteListener.onKeyValueWritten(-1, prefixKey, value);
     }
 
-    static void removeAllSampledVectors(@Nonnull final Transaction transaction, @Nonnull final Subspace subspace) {
+    static void deleteAllSampledVectors(@Nonnull final Transaction transaction, @Nonnull final Subspace subspace,
+                                        @Nonnull final OnWriteListener onWriteListener) {
         final Subspace prefixSubspace = samplesSubspace(subspace);
 
         final byte[] prefixKey = prefixSubspace.pack();
         final Range range = Range.startsWith(prefixKey);
         transaction.clear(range);
+        onWriteListener.onRangeDeleted(-1, range);
     }
 
     @Nonnull

@@ -215,6 +215,12 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
             if (Iterables.isEmpty(newChildren)) {
                 return this;
             }
+            if (getElementType().isAny()) {
+                if (elementsArePairwiseReferenceEqual(newChildren, getChildren())) {
+                    return this;
+                }
+                return LightArrayConstructorValue.of(ImmutableList.copyOf(newChildren), getElementType());
+            }
             Verify.verify(resolveElementType(newChildren).equals(getElementType()));
             final var newChildrenPromoted = injectPromotions(newChildren, getElementType());
             if (elementsArePairwiseReferenceEqual(newChildrenPromoted, getChildren())) {
@@ -275,6 +281,14 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         public static LightArrayConstructorValue of(@Nonnull final List<? extends Value> children) {
             Verify.verify(!children.isEmpty());
             return new LightArrayConstructorValue(children);
+        }
+
+        @Nonnull
+        public static LightArrayConstructorValue of(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
+            if (children.isEmpty()) {
+                return emptyArray(elementType);
+            }
+            return new LightArrayConstructorValue(children, elementType);
         }
 
         @Nonnull

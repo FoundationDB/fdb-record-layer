@@ -59,11 +59,13 @@ import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.References;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.events.ExecutingTaskPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -107,6 +109,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -669,8 +672,25 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         final var statsMaps = planInfo.get(QueryPlanInfoKeys.STATS_MAPS);
         assertNotNull(statsMaps);
         final var eventClassStatsMap = statsMaps.getEventClassStatsMap();
-        assertTrue(eventClassStatsMap.containsKey(Debugger.ExecutingTaskEvent.class));
-        assertTrue(eventClassStatsMap.get(Debugger.ExecutingTaskEvent.class).getCount(Debugger.Location.BEGIN) > 0);
+        assertTrue(eventClassStatsMap.containsKey(ExecutingTaskPlannerEvent.class));
+
+        final var eventClassStatsMapForRewriting = statsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.REWRITING);
+        assertTrue(eventClassStatsMapForRewriting.isPresent());
+        assertTrue(eventClassStatsMapForRewriting.get().containsKey(ExecutingTaskPlannerEvent.class));
+        assertTrue(eventClassStatsMapForRewriting.get().get(ExecutingTaskPlannerEvent.class).getCount(Location.BEGIN) > 0);
+
+        final var eventClassStatsMapForPlanning = statsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.PLANNING);
+        assertTrue(eventClassStatsMapForPlanning.isPresent());
+        assertTrue(eventClassStatsMapForPlanning.get().containsKey(ExecutingTaskPlannerEvent.class));
+
+        final var totalTasks = eventClassStatsMap.get(ExecutingTaskPlannerEvent.class).getCount(Location.BEGIN);
+        final var rewritingTasks = eventClassStatsMapForRewriting.get().get(ExecutingTaskPlannerEvent.class).getCount(Location.BEGIN);
+        final var planningTasks = eventClassStatsMapForPlanning.get().get(ExecutingTaskPlannerEvent.class).getCount(Location.BEGIN);
+
+        assertTrue(totalTasks > 0);
+        assertTrue(rewritingTasks > 0);
+        assertTrue(planningTasks > 0);
+        assertEquals(rewritingTasks + planningTasks, totalTasks);
 
         final var plan = planResult.getPlan();
         System.out.println("\n" + ExplainPlanVisitor.prettyExplain(plan) + "\n");
@@ -699,7 +719,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         final PlanSerializationContext deserializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(), PlanHashable.CURRENT_FOR_CONTINUATION);
         final RecordQueryPlan deserializedPlan =
                 RecordQueryPlan.fromRecordQueryPlanProto(deserializationContext, parsedPlanProto);
-        Assertions.assertEquals(plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), deserializedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        assertEquals(plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), deserializedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         Assertions.assertTrue(plan.structuralEquals(deserializedPlan));
         return deserializedPlan;
     }

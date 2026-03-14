@@ -26,6 +26,7 @@ reliability, and performance in a distributed setting.
 :maxdepth: 1
 Overview and Examples <Overview>
 GettingStarted
+JDBC Guide <jdbc/index>
 Building <Building>
 SchemaEvolution
 Extending
@@ -35,6 +36,7 @@ ReleaseNotes
 Frequently Asked Questions <FAQ>
 SQL Reference <SQL_Reference>
 API <api/index>
+Architecture <architecture/index>
 Contributing <https://github.com/FoundationDB/fdb-record-layer/blob/main/CONTRIBUTING.md>
 Code of Conduct <https://github.com/FoundationDB/fdb-record-layer/blob/main/CODE_OF_CONDUCT.md>
 License <https://github.com/FoundationDB/fdb-record-layer/blob/main/LICENSE>

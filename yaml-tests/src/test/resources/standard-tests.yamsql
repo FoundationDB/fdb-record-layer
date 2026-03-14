@@ -94,7 +94,7 @@ test_block:
         ]
     -
       - query: select * from T1 where COL1 >= 10 OR COL1 <= 20
-      - explain: "COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]] -> [COL1: KEY[0], ID: KEY[2]]) ⊎ COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]] -> [COL1: KEY[0], ID: KEY[2]]) | DISTINCT BY PK | FETCH"
+      - explain: "COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) ⊎ COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) | DISTINCT BY PK | FETCH"
       - maxRows: 0 # Force continuations mode fails here. This is because we get duplicate results when we resume from a continuation
       - unorderedResult: [
                {ID:  1, COL1: 10, COL2:  1},
@@ -113,7 +113,7 @@ test_block:
         ]
     -
       - query: select * from T1 where COL1 >= 10 OR COL1 <= 20 ORDER BY COL1
-      - explain: "ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]]) ∪ ISCAN(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]]) COMPARE BY (_.COL1, recordType(_), _.ID)"
+      - explain: "ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]]) ∪ ISCAN(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]]) COMPARE BY (_.COL1, recordType([_]), _.ID)"
       - result: [
                {ID:  1, COL1: 10, COL2:  1},
                {ID:  2, COL1: 10, COL2:  2},
@@ -206,7 +206,7 @@ test_block:
         ]
     -
       - query: select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20 OR COL1 = 10)
-      - explain: "COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY[0], ID: KEY[2]]) ⊎ COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY[0], ID: KEY[2]]) | DISTINCT BY PK | FETCH"
+      - explain: "COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) ⊎ COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) | DISTINCT BY PK | FETCH"
       - initialVersionLessThan: 4.3.6.0
       # Prior to 4.3.6.0, there was an error that would result in this query failing due to an illegal argument exception
       # The error is currently not propagated as a SQLException, so we can't even assert on the error code
@@ -228,11 +228,7 @@ test_block:
         ]
     -
       - query: select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20 OR COL1 = 10) ORDER BY COL1
-      - explain: "ISCAN(I1 [EQUALS promote(@c9 AS LONG)]) ∪ ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) COMPARE BY (_.COL1, recordType(_), _.ID)"
-      - initialVersionLessThan: 4.3.6.0
-      # Prior to 4.3.6.0, there was an error that would result in this query failing due to an illegal argument exception
-      # The error is currently not propagated as a SQLException, so we can't even assert on the error code
-      - initialVersionAtLeast: 4.3.6.0
+      - explain: "ISCAN(I1 [EQUALS promote(@c9 AS LONG)]) ∪ ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) COMPARE BY (_.COL1, recordType([_]), _.ID)"
       - result: [
                {ID:  1, COL1: 10, COL2:  1},
                {ID:  2, COL1: 10, COL2:  2},
@@ -286,18 +282,18 @@ test_block:
         ]
     -
       - query: select * from (select * from (select * from T1) as x where ID = 5) as y;
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS promote(@c19 AS LONG) | FETCH"
+      - explain: "COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.ID EQUALS promote(@c19 AS LONG) | FETCH"
       - result: [{ID: !l 5, !l 10, !l 5}]
     -
       - query: select * from (select * from (select * from T1) as x) as y where ID = 5;
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS promote(@c22 AS LONG) | FETCH"
+      - explain: "COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.ID EQUALS promote(@c22 AS LONG) | FETCH"
       - result: [{ID: !l 5, !l 10, !l 5}]
     -
       - query: select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS promote(@c23 AS LONG) | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.ID EQUALS promote(@c23 AS LONG) | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{!l 1}]
     -
       - query: select * from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID GREATER_THAN promote(@c20 AS LONG) | FETCH"
+      - explain: "COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.ID GREATER_THAN promote(@c20 AS LONG) | FETCH"
       - result: [{ID: !l 11, !l 20, !l 11}, {ID: !l 12, !l 20, !l 12}, {ID: !l 13, !l 20, !l 13}]
 ...

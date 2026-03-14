@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InsertIntoMemoEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
+import com.apple.foundationdb.record.query.plan.cascades.events.InsertIntoMemoPlannerEvent;
+import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PReference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
@@ -326,23 +328,23 @@ public class Reference implements Correlated<Reference>, Typed {
     private boolean insert(@Nonnull final RelationalExpression newExpression,
                            final boolean isFinal,
                            @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
-        Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.begin()));
+        PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::begin);
         try {
             final boolean containsInMemo = containsInMemo(newExpression, isFinal);
-            Debugger.withDebugger(debugger -> {
-                if (containsInMemo) {
-                    debugger.onEvent(InsertIntoMemoEvent.reusedExpWithReferences(newExpression, ImmutableList.of(this)));
-                } else {
-                    debugger.onEvent(InsertIntoMemoEvent.newExp(newExpression));
-                }
-            });
+
+            if (containsInMemo) {
+                PlannerEventListeners.dispatchEvent(() -> InsertIntoMemoPlannerEvent.reusedExpWithReferences(newExpression, ImmutableList.of(this)));
+            } else {
+                PlannerEventListeners.dispatchEvent(() -> InsertIntoMemoPlannerEvent.newExp(newExpression));
+            }
+
             if (!containsInMemo) {
                 insertUnchecked(newExpression, isFinal, precomputedPropertiesMap);
                 return true;
             }
             return false;
         } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
+            PlannerEventListeners.dispatchEvent(InsertIntoMemoPlannerEvent::end);
         }
     }
 
@@ -635,6 +637,16 @@ public class Reference implements Correlated<Reference>, Typed {
                                 .map(debugger::nameForObject)
                                 .collect(Collectors.joining(",")) + "]")
                 .orElse("Reference@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")");
+    }
+
+    @Nonnull
+    public PReference toPlannerEventReferenceProto() {
+        final var builder = PReference.newBuilder()
+                .setName(Debugger.mapDebugger(debugger -> debugger.nameForObject(this)).orElseThrow());
+        for (final var member : getAllMemberExpressions()) {
+            builder.addExpressions(member.toPlannerEventExpressionProto());
+        }
+        return builder.build();
     }
 
     @Override

@@ -180,7 +180,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      * consumed upon read to lazily compute the properties of the plan passed in.
      * @param expression new expression to be added
      */
-    public void add(@Nonnull final RelationalExpression expression) {
+    public final void add(@Nonnull final RelationalExpression expression) {
         toBeInsertedExpressions.add(narrow(expression));
     }
 
@@ -285,8 +285,11 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     public static ExpressionPropertiesMap<RelationalExpression> defaultForRewritePhase() {
         return new ExpressionPropertiesMap<>(RelationalExpression.class,
                 ImmutableSet.of(),
-                ImmutableSet.of(ExpressionCountProperty.selectCount(), ExpressionCountProperty.tableFunctionCount(),
-                        PredicateComplexityProperty.predicateComplexity()),
+                ImmutableSet.of(
+                        ExpressionCountProperty.selectCount(),
+                        ExpressionCountProperty.tableFunctionCount(),
+                        PredicateComplexityProperty.predicateComplexity()
+                ),
                 ImmutableList.of());
     }
 }

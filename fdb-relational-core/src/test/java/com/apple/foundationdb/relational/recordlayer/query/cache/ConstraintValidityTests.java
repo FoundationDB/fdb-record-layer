@@ -75,7 +75,7 @@ public class ConstraintValidityTests {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(RelationalPlanCacheTests.class, TestSchemas.score());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(ConstraintValidityTests.class, TestSchemas.score());
 
     @RegisterExtension
     @Order(3)
@@ -93,6 +93,9 @@ public class ConstraintValidityTests {
 
     @Nonnull
     private static final String BitAndScore4 = "BITANDSCORE4";
+
+    @Nonnull
+    private static final String GameIdx = "GAMEIDX";
 
     @Nonnull
     private static final String Scan = "SCAN";
@@ -156,7 +159,9 @@ public class ConstraintValidityTests {
         Assertions.assertInstanceOf(QueryPlan.PhysicalQueryPlan.class, plan);
         final var physicalPlan = (QueryPlan.PhysicalQueryPlan) plan;
         final var desc = physicalPlan.getRecordQueryPlan().toString(); // very ad-hoc :/
-        if (desc.contains(MaxScoreByGame10)) {
+        if (desc.contains(GameIdx)) { // not the best plan interpreter, gameIdx should be used in join queries only
+            return GameIdx;
+        } else if (desc.contains(MaxScoreByGame10)) {
             return MaxScoreByGame10;
         } else if (desc.contains(MaxScoreByGame20)) {
             return MaxScoreByGame20;
@@ -340,5 +345,14 @@ public class ConstraintValidityTests {
                 Map.of(
                         ppe(cons(and(and(c17Equals2, c17Equals2), and(c17Int, c8Int, c10Int, c8Equalsc15, c17IntNotNull, c8IntNotNull, c10IntNotNull)))), BitAndScore2,
                         ppe(cons(and(and(c17Equals4, c17Equals4), and(c17Int, c8Int, c10Int, c8Equalsc15, c17IntNotNull, c8IntNotNull, c10IntNotNull)))), BitAndScore4)));
+    }
+
+    @Test
+    void cachingQueryWithIsNotNullFilterWorksAsExpected() throws Exception {
+        final var ticker = new FakeTicker();
+        final var cache = getCache(ticker);
+        planQuery(cache, "SELECT game.name from score, game use index (gameIdx) where game.score_id is not null and game.score_id = score.id", GameIdx);
+        cacheShouldBe(cache, Map.of("SELECT \"GAME\" . \"NAME\" from \"SCORE\" , \"GAME\" use index ( \"GAMEIDX\" ) " +
+                "where \"GAME\" . \"SCORE_ID\" is not null and \"GAME\" . \"SCORE_ID\" = \"SCORE\" . \"ID\" ", Map.of(ppe(QueryPlanConstraint.noConstraint()), GameIdx)));
     }
 }

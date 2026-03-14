@@ -53,6 +53,7 @@ message PType {
     NONE = 16;
     UUID = 17;
     VECTOR = 18;
+    FUNCTION = 19;
   }
 
   message PPrimitiveType {
@@ -123,6 +124,10 @@ message PType {
     optional PType element_type = 3;
   }
 
+  message PFunctionType {
+    // nothing
+  }
+
   oneof specific_type {
     PPrimitiveType primitive_type = 1;
     PNullType null_type = 2;
@@ -135,6 +140,7 @@ message PType {
     PAnyRecordType any_record_type = 9;
     PUuidType uuid_type = 10;
     PVectorType vector_type = 11;
+    PFunctionType function_type = 12;
   }
 }
 
@@ -180,6 +186,9 @@ message PPrimitiveCoercionBiFunction {
     NULL_TO_ENUM = 16;
     STRING_TO_ENUM = 17;
     STRING_TO_UUID = 18;
+    NULL_TO_BYTES = 19;
+    NULL_TO_VECTOR = 20;
+    NULL_TO_VERSION = 21;
   }
   optional PPhysicalOperator operator = 1;
 }
@@ -269,6 +278,14 @@ message PValue {
     PSubscriptValue subscript_value = 52;
     PParameterObjectValue parameter_object_value = 53;
     PCastValue cast_value = 54;
+    PRowNumberValue row_number_value = 55;
+    PEuclideanDistanceRowNumberValue euclidean_distance_row_number_value = 56;
+    PCosineDistanceRowNumberValue cosine_distance_row_number_value = 57;
+    PRowNumberHighOrderValue row_number_high_order_value = 58;
+    PDistanceValue distance_value = 59;
+    PEuclideanSquareDistanceRowNumberValue euclidean_square_distance_row_number_value = 60;
+    PDotProductDistanceRowNumberValue dot_product_distance_row_number_value = 61;
+    PIncarnationValue incarnation_value = 62;
   }
 }
 
@@ -418,6 +435,20 @@ message PArithmeticValue {
   }
 
   optional PPhysicalOperator operator = 1;
+  optional PValue left_child = 2;
+  optional PValue right_child = 3;
+}
+
+message PDistanceValue {
+  enum PDistanceOperator {
+    EUCLIDEAN_DISTANCE = 1;
+    EUCLIDEAN_SQUARE_DISTANCE = 2;
+    // 3 was reserved for a deprecated and removed operator, do not use this number.
+    COSINE_DISTANCE = 4;
+    DOT_PRODUCT_DISTANCE = 5;
+  }
+
+  optional PDistanceOperator operator = 1;
   optional PValue left_child = 2;
   optional PValue right_child = 3;
 }
@@ -657,6 +688,22 @@ message PRankValue {
   optional PWindowedValue super = 1;
 }
 
+message PEuclideanDistanceRowNumberValue {
+  optional PWindowedValue super = 1;
+}
+
+message PEuclideanSquareDistanceRowNumberValue {
+  optional PWindowedValue super = 1;
+}
+
+message PCosineDistanceRowNumberValue {
+  optional PWindowedValue super = 1;
+}
+
+message PDotProductDistanceRowNumberValue {
+  optional PWindowedValue super = 1;
+}
+
 message PRecordConstructorValue {
   message PColumn {
     optional PType.PRecordType.PField field = 1;
@@ -669,6 +716,17 @@ message PRecordConstructorValue {
 message PRecordTypeValue {
   optional string alias = 1; // deprecated
   optional PValue in = 2;
+}
+
+message PRowNumberHighOrderValue {
+  optional int32 efSearch = 2;
+  optional bool isReturningVectors = 3;
+}
+
+message PRowNumberValue {
+  optional PWindowedValue super = 1;
+  optional int32 efSearch = 2;
+  optional bool isReturningVectors = 3;
 }
 
 message PRelOpValue {
@@ -1244,6 +1302,9 @@ message PUnaryRelOpValue {
 
       IS_NULL_VECTOR = 23;
       IS_NOT_NULL_VECTOR = 24;
+
+      IS_NULL_VERSION = 25;
+      IS_NOT_NULL_VERSION = 26;
   }
   optional PRelOpValue super = 1;
   optional PUnaryPhysicalOperator operator = 2;
@@ -1284,6 +1345,10 @@ message PVariadicFunctionValue {
 message PVersionValue {
   optional string base_alias = 1;  // to-be-deprecated
   optional PValue child = 2;
+}
+
+message PIncarnationValue {
+  // No fields needed - this function takes no arguments
 }
 
 message PWindowedValue {
@@ -1368,6 +1433,10 @@ message PCastValue {
 
     // ARRAY to VECTOR conversion
     ARRAY_TO_VECTOR = 38;
+
+    NULL_TO_BYTES = 39;
+    NULL_TO_VECTOR = 40;
+    NULL_TO_VERSION = 41;
   }
   optional PValue child = 1;
   optional PType cast_to_type = 2;
@@ -1489,6 +1558,8 @@ message PRecordTypeComparison {
 message PDistanceRankValueComparison {
   optional PValueComparison super = 1;
   optional PValue limitValue = 2;
+  optional int32 efSearch = 3;
+  optional bool isReturningVectors = 4;
 }
 
 //

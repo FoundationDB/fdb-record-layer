@@ -79,7 +79,13 @@ public interface Quantizer {
             @Nonnull
             @Override
             public Estimator estimator() {
-                return metric::distance;
+                return (vector1, vector2) -> {
+                    final double distance = metric.distance(vector1, vector2);
+                    if (!Double.isFinite(distance)) {
+                        throw new IllegalArgumentException("vector has an L2 norm of infinite, not a number, or 0");
+                    }
+                    return distance;
+                };
             }
 
             @Nonnull

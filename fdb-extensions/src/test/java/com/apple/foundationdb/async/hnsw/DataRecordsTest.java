@@ -124,6 +124,39 @@ class DataRecordsTest {
         assertHashCodeEqualsToString(randomSeed, DataRecordsTest::resultEntry, DataRecordsTest::resultEntry);
     }
 
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    void testNodeReferenceAndNode(final long randomSeed) {
+        assertToString(randomSeed, DataRecordsTest::nodeReferenceAndNode, DataRecordsTest::nodeReferenceAndNode);
+
+        final Random random = new Random(randomSeed);
+        final NodeReferenceAndNode<NodeReferenceWithDistance, NodeReferenceWithVector> nodeReferenceAndNode1 =
+                nodeReferenceAndNode(random);
+        final NodeReferenceAndNode<NodeReferenceWithDistance, NodeReferenceWithVector> nodeReferenceAndNode2 =
+                nodeReferenceAndNode(random);
+
+        final var nodeReferenceAndNodes =
+                ImmutableList.of(nodeReferenceAndNode1, nodeReferenceAndNode2);
+        Assertions.assertThat(NodeReferenceAndNode.references(nodeReferenceAndNodes))
+                .containsExactly(nodeReferenceAndNode1.getNodeReference(), nodeReferenceAndNode2.getNodeReference());
+        Assertions.assertThat(NodeReferenceAndNode.primaryKeys(nodeReferenceAndNodes))
+                .containsExactly(nodeReferenceAndNode1.getNodeReference().getPrimaryKey(),
+                        nodeReferenceAndNode2.getNodeReference().getPrimaryKey());
+    }
+
+    private static <T> void assertToString(final long randomSeed,
+                                           @Nonnull final Function<Random, T> createFunction,
+                                           @Nonnull final BiFunction<Random, T, T> createDifferentFunction) {
+        final Random random = new Random(randomSeed);
+        final long dependentRandomSeed = random.nextLong();
+        final T t1 = createFunction.apply(new Random(dependentRandomSeed));
+        final T t1Clone = createFunction.apply(new Random(dependentRandomSeed));
+        Assertions.assertThat(t1).hasToString(t1Clone.toString());
+
+        final T t2 = createDifferentFunction.apply(random, t1);
+        Assertions.assertThat(t1).doesNotHaveToString(t2.toString());
+    }
+
     private static <T> void assertHashCodeEqualsToString(final long randomSeed,
                                                          @Nonnull final Function<Random, T> createFunction,
                                                          @Nonnull final BiFunction<Random, T, T> createDifferentFunction) {
@@ -138,6 +171,20 @@ class DataRecordsTest {
         final T t2 = createDifferentFunction.apply(random, t1);
         Assertions.assertThat(t1).isNotEqualTo(t2);
         Assertions.assertThat(t1).doesNotHaveToString(t2.toString());
+    }
+
+    @Nonnull
+    private static NodeReferenceAndNode<NodeReferenceWithDistance, NodeReferenceWithVector>
+                   nodeReferenceAndNode(@Nonnull final Random random) {
+        return new NodeReferenceAndNode<>(nodeReferenceWithDistance(random), inliningNode(random));
+    }
+
+    @Nonnull
+    private static NodeReferenceAndNode<NodeReferenceWithDistance, NodeReferenceWithVector>
+                   nodeReferenceAndNode(@Nonnull final Random random,
+                                        @Nonnull final NodeReferenceAndNode<NodeReferenceWithDistance, NodeReferenceWithVector> original) {
+        return new NodeReferenceAndNode<>(nodeReferenceWithDistance(random, original.getNodeReference()),
+                inliningNode(random, original.getNode().asInliningNode()));
     }
 
     @Nonnull

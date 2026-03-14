@@ -868,28 +868,46 @@ public class LucenePartitioner {
                         .collect(Collectors.joining(", ", "Rebalancing partitions (group=" + groupingKey + "): ", "")));
             }
 
-            for (int i = 0; i < partitionInfos.size(); i++) {
-                LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(i);
+            LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)state.store.getIndexMaintainer(state.index);
 
-                LuceneRepartitionPlanner.RepartitioningContext repartitioningContext = repartitionPlanner.determineRepartitioningAction(groupingKey,
-                        partitionInfos, i, repartitionDocumentCount);
+            // Skip rebalancing if any partition may be using write pending queue
+            return AsyncUtil.getAll(partitionInfos.stream()
+                            .map(pi -> indexMaintainer.shouldUseQueueAsync(groupingKey, pi.getId()))
+                            .collect(Collectors.toList()))
+                    .thenCompose(shouldUseQueueList ->
+                            shouldUseQueueList.stream().anyMatch(Boolean::booleanValue)
+                            ? CompletableFuture.completedFuture(0)
+                            : processRebalancing(partitionInfos, groupingKey, repartitionDocumentCount, logMessages)
+                    );
+        });
+    }
 
-                if (repartitioningContext.action != LuceneRepartitionPlanner.RepartitioningAction.NOT_REQUIRED &&
-                        repartitioningContext.action != LuceneRepartitionPlanner.RepartitioningAction.NO_CAPACITY_FOR_MERGE) {
-                    if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug(repartitionLogMessage("Repartitioning records", groupingKey, repartitioningContext.countToMove, partitionInfo).toString());
-                    }
+    private CompletableFuture<Integer> processRebalancing(
+            List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos,
+            Tuple groupingKey,
+            int repartitionDocumentCount,
+            RepartitioningLogMessages logMessages) {
+        for (int i = 0; i < partitionInfos.size(); i++) {
+            LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(i);
 
-                    if (repartitioningContext.action == LuceneRepartitionPlanner.RepartitioningAction.REMOVE_EMPTY_PARTITION) {
-                        return CompletableFuture.completedFuture(removeEmptyPartition(repartitioningContext));
-                    } else {
-                        return moveDocsFromPartitionThenLog(repartitioningContext, logMessages);
-                    }
+            LuceneRepartitionPlanner.RepartitioningContext repartitioningContext =
+                    repartitionPlanner.determineRepartitioningAction(groupingKey, partitionInfos, i, repartitionDocumentCount);
+
+            if (repartitioningContext.action != LuceneRepartitionPlanner.RepartitioningAction.NOT_REQUIRED &&
+                    repartitioningContext.action != LuceneRepartitionPlanner.RepartitioningAction.NO_CAPACITY_FOR_MERGE) {
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug(repartitionLogMessage("Repartitioning records", groupingKey, repartitioningContext.countToMove, partitionInfo).toString());
+                }
+
+                if (repartitioningContext.action == LuceneRepartitionPlanner.RepartitioningAction.REMOVE_EMPTY_PARTITION) {
+                    return CompletableFuture.completedFuture(removeEmptyPartition(repartitioningContext));
+                } else {
+                    return moveDocsFromPartitionThenLog(repartitioningContext, logMessages);
                 }
             }
-            // here: no partitions need re-balancing
-            return CompletableFuture.completedFuture(0);
-        });
+        }
+        // here: no partitions need re-balancing
+        return CompletableFuture.completedFuture(0);
     }
 
     /**
@@ -1075,7 +1093,7 @@ public class LucenePartitioner {
                 // situation with the partition metadata keys.
                 records.forEach(r -> {
                     try {
-                        indexMaintainer.deleteDocument(groupingKey, partitionInfo.getId(), r.getPrimaryKey());
+                        indexMaintainer.deleteDocumentBypassQueue(groupingKey, partitionInfo.getId(), r.getPrimaryKey());
                     } catch (IOException e) {
                         throw LuceneExceptions.toRecordCoreException(e.getMessage(), e);
                     }
@@ -1113,7 +1131,7 @@ public class LucenePartitioner {
             for (FDBIndexableRecord<Message> rec : records) {
                 LuceneDocumentFromRecord.getRecordFields(state.index.getRootExpression(), rec)
                         .entrySet().forEach(entry -> {
-                            indexMaintainer.writeDocument(rec, entry, destinationPartitionId);
+                            indexMaintainer.writeDocumentBypassQueue(rec, entry, destinationPartitionId);
                             addToAndSavePartitionMetadata(rec, groupingKey, destinationPartitionId);
                         });
             }

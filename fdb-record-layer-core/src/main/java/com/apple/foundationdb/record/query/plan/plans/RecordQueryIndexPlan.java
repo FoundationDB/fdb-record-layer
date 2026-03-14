@@ -163,7 +163,8 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     private final QueryPlanConstraint constraint;
 
     @Nonnull
-    private final Supplier<ComparisonRanges> comparisonRangesSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<ComparisonRanges> comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
     @Nonnull
     private final KeyValueCursorBase.SerializationMode serializationMode;
 
@@ -223,6 +224,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     }
 
     @VisibleForTesting
+    @SuppressWarnings("this-escape")
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
                                 @Nonnull final IndexScanParameters scanParameters,
@@ -250,7 +252,6 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
             }
         }
         this.constraint = constraint;
-        this.comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
         this.serializationMode = serializationMode;
     }
 
@@ -313,7 +314,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
         return store.scanIndexRemoteFetch(index, scanBounds, continuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
                 .map(store::queriedRecord)
-                .map(QueryResult::fromQueriedRecord);
+                .map(queriedRecord -> QueryResult.fromQueriedRecord(resultType, context, queriedRecord));
     }
 
     @Nonnull

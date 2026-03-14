@@ -1,0 +1,535 @@
+Û
+X
+basic_indexIEXPLAIN select name from customers_materialized_view where name = 'Alice'ñ
+—íÂŒß’ ˘ÈÎb(≠0ú—È	8€@ëCOVERING(IDX_MV_INCLUDE [EQUALS promote(@c8 AS STRING)] -> [COUNTRY: VALUE[1], EMAIL: VALUE[0], ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME)ﬂdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q347.NAME AS NAME)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS NAME)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_INCLUDE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q347> label="q347" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ò
+U
+basic_indexFEXPLAIN select name from customers_index_on_table where name = 'Alice'ó
+—éÚÈo’ ≠“ï=(≠0°ç÷8€@íCOVERING(IDX_IOT_INCLUDE [EQUALS promote(@c8 AS STRING)] -> [COUNTRY: VALUE[1], EMAIL: VALUE[0], ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME)‡digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q347.NAME AS NAME)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS NAME)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_INCLUDE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q347> label="q347" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¬
+X
+basic_indexIEXPLAIN select email from customers_materialized_view order by email descÂ
+ﬁ´Ç¯Ui ˘ÈıD(\0∏¢ó8@xCOVERING(IDX_MV_EMAIL <,> -> [EMAIL: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY[2]]) | MAP (_.EMAIL AS EMAIL)Ãdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q126.EMAIL AS EMAIL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS EMAIL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_EMAIL</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q126> label="q126" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¡
+U
+basic_indexFEXPLAIN select email from customers_index_on_table order by email descÁ
+ﬁÏÖæji ˚Ñ V(\0çéì8@yCOVERING(IDX_IOT_EMAIL <,> -> [EMAIL: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY[2]]) | MAP (_.EMAIL AS EMAIL)Õdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q126.EMAIL AS EMAIL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS EMAIL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_EMAIL</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q126> label="q126" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}û
+j
+basic_index[EXPLAIN select age, city from customers_materialized_view where age > 25 order by age, cityØ
+¯‰ùüXç ﬂ∆ºB(e0é˛Õ8&@åCOVERING(IDX_MV_MULTI [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE: KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)Ädigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q141.AGE AS AGE, q141.CITY AS CITY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS AGE, STRING AS CITY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c10 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_MULTI</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q141> label="q141" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ú
+g
+basic_indexXEXPLAIN select age, city from customers_index_on_table where age > 25 order by age, city∞
+¯∏ﬂŒ%ç ¢ïä(e0≥Ác8&@çCOVERING(IDX_IOT_MULTI [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE: KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)Ådigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q141.AGE AS AGE, q141.CITY AS CITY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS AGE, STRING AS CITY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c10 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_MULTI</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q141> label="q141" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Å
+k
+include_clauseYEXPLAIN select name, email, country from customers_materialized_view where name = 'Alice'ë
+ñÒ∆¨g— ª©≈,(©0ÑµÆ8’@∫COVERING(IDX_MV_INCLUDE [EQUALS promote(@c12 AS STRING)] -> [COUNTRY: VALUE[1], EMAIL: VALUE[0], ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME, _.EMAIL AS EMAIL, _.COUNTRY AS COUNTRY)≤digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q346.NAME AS NAME, q346.EMAIL AS EMAIL, q346.COUNTRY AS COUNTRY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS NAME, STRING AS EMAIL, STRING AS COUNTRY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c12 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_INCLUDE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q346> label="q346" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ä
+h
+include_clauseVEXPLAIN select name, email, country from customers_index_on_table where name = 'Alice'ì
+ñÄ¶ån— —ö¥0(©0“È£8’@ªCOVERING(IDX_IOT_INCLUDE [EQUALS promote(@c12 AS STRING)] -> [COUNTRY: VALUE[1], EMAIL: VALUE[0], ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME, _.EMAIL AS EMAIL, _.COUNTRY AS COUNTRY)≥digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q346.NAME AS NAME, q346.EMAIL AS EMAIL, q346.COUNTRY AS COUNTRY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS NAME, STRING AS EMAIL, STRING AS COUNTRY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c12 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_INCLUDE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q346> label="q346" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}’
+v
+mixed_asc_descdEXPLAIN select age, city from customers_materialized_view where age > 30 order by age asc, city desc⁄
+¯¿ÖÇç ò•±(e0ü–58&@µCOVERING(IDX_MV_ASC_DESC [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE: KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)Édigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q141.AGE AS AGE, q141.CITY AS CITY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS AGE, STRING AS CITY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c10 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_ASC_DESC</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q141> label="q141" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‘
+s
+mixed_asc_descaEXPLAIN select age, city from customers_index_on_table where age > 30 order by age asc, city desc‹
+¯¶œ¿ç ’ú˜(e0Ñ·*8&@∂COVERING(IDX_IOT_ASC_DESC [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE: KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)Ñdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q141.AGE AS AGE, q141.CITY AS CITY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS AGE, STRING AS CITY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c10 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_ASC_DESC</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q141> label="q141" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ﬁ
+w
+mixed_asc_desceEXPLAIN select age, city from customers_materialized_view where age < 40 order by age desc, city desc‚
+¯ˆæïç áÄÌ(e0Æª68&@ëCOVERING(IDX_MV_MULTI [[LESS_THAN promote(@c10 AS INT)]] REVERSE -> [AGE: KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)Ødigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q141.AGE AS AGE, q141.CITY AS CITY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS AGE, STRING AS CITY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c10 AS INT)]]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_MULTI</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q141> label="q141" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}›
+t
+mixed_asc_descbEXPLAIN select age, city from customers_index_on_table where age < 40 order by age desc, city desc‰
+¯≠üÛç ÈïÔ(e0°Ì'8&@íCOVERING(IDX_IOT_MULTI [[LESS_THAN promote(@c10 AS INT)]] REVERSE -> [AGE: KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)∞digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q141.AGE AS AGE, q141.CITY AS CITY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS AGE, STRING AS CITY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c10 AS INT)]]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_MULTI</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q141> label="q141" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}â
+v
+mixed_asc_descdEXPLAIN select age, city from customers_materialized_view where age < 50 order by age desc, city ascé
+¯â≤áç æ¶…(e0‚è18&@∫COVERING(IDX_MV_ASC_DESC [[LESS_THAN promote(@c10 AS INT)]] REVERSE -> [AGE: KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)≤digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q141.AGE AS AGE, q141.CITY AS CITY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS AGE, STRING AS CITY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c10 AS INT)]]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_ASC_DESC</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q141> label="q141" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}à
+s
+mixed_asc_descaEXPLAIN select age, city from customers_index_on_table where age < 50 order by age desc, city ascê
+¯Ê≥òç óÃ(e0ŸÍ/8&@ªCOVERING(IDX_IOT_ASC_DESC [[LESS_THAN promote(@c10 AS INT)]] REVERSE -> [AGE: KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)≥digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q141.AGE AS AGE, q141.CITY AS CITY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS AGE, STRING AS CITY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c10 AS INT)]]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_ASC_DESC</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q141> label="q141" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}«
+l
+nulls_first_lastXEXPLAIN SELECT country FROM customers_materialized_view ORDER BY country ASC NULLS FIRST÷
+ﬁ•ºôi Ø°ì
+(\0∆¸8@^COVERING(IDX_MV_NULLS_FIRST <,> -> [COUNTRY: KEY[0], ID: KEY[2]]) | MAP (_.COUNTRY AS COUNTRY)ÿdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q126.COUNTRY AS COUNTRY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_NULLS_FIRST</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q126> label="q126" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}∆
+i
+nulls_first_lastUEXPLAIN SELECT country FROM customers_index_on_table ORDER BY country ASC NULLS FIRSTÿ
+ﬁË™·i ”æÂ(\0ï—8@_COVERING(IDX_IOT_NULLS_FIRST <,> -> [COUNTRY: KEY[0], ID: KEY[2]]) | MAP (_.COUNTRY AS COUNTRY)Ÿdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q126.COUNTRY AS COUNTRY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_NULLS_FIRST</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q126> label="q126" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Í
+k
+nulls_first_lastWEXPLAIN SELECT country FROM customers_materialized_view ORDER BY country ASC NULLS LAST˙
+ﬁÆéÂi ÖèÑ(\0«–8@ÇCOVERING(IDX_MV_NULLS_LAST <,> -> [COUNTRY: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST), ID: KEY[2]]) | MAP (_.COUNTRY AS COUNTRY)◊digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q126.COUNTRY AS COUNTRY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_NULLS_LAST</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q126> label="q126" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}È
+h
+nulls_first_lastTEXPLAIN SELECT country FROM customers_index_on_table ORDER BY country ASC NULLS LAST¸
+ﬁ ˛éi •˚´(\0ﬁ‘8@ÉCOVERING(IDX_IOT_NULLS_LAST <,> -> [COUNTRY: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST), ID: KEY[2]]) | MAP (_.COUNTRY AS COUNTRY)ÿdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q126.COUNTRY AS COUNTRY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_NULLS_LAST</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q126> label="q126" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}÷
+e
+nulls_first_lastQEXPLAIN SELECT age FROM customers_materialized_view ORDER BY age DESC NULLS FIRSTÏ
+ﬁˇÎﬂi ª’Ö
+(\0À¨8@~COVERING(IDX_MV_DESC_NULLS_FIRST <,> -> [AGE: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST), ID: KEY[2]]) | MAP (_.AGE AS AGE)Œdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q126.AGE AS AGE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS AGE)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_DESC_NULLS_FIRST</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q126> label="q126" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}’
+b
+nulls_first_lastNEXPLAIN SELECT age FROM customers_index_on_table ORDER BY age DESC NULLS FIRSTÓ
+ﬁ˙∞Ëi §Ÿ˝(\0ß’ 8@COVERING(IDX_IOT_DESC_NULLS_FIRST <,> -> [AGE: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST), ID: KEY[2]]) | MAP (_.AGE AS AGE)œdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q126.AGE AS AGE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS AGE)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_DESC_NULLS_FIRST</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q126> label="q126" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}”
+d
+nulls_first_lastPEXPLAIN SELECT age FROM customers_materialized_view ORDER BY age DESC NULLS LASTÍ
+Ñ≈Ü⁄Ö »Î‡	(h0◊Ã08.@|COVERING(IDX_MV_DESC_NULLS_LAST <,> -> [AGE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY[2]]) | MAP (_.AGE AS AGE)Õdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q146.AGE AS AGE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS AGE)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_DESC_NULLS_LAST</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q146> label="q146" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}“
+a
+nulls_first_lastMEXPLAIN SELECT age FROM customers_index_on_table ORDER BY age DESC NULLS LASTÏ
+ÑÂÖÖ ﬂÀÓ(h0‡ÂL8.@}COVERING(IDX_IOT_DESC_NULLS_LAST <,> -> [AGE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST), ID: KEY[2]]) | MAP (_.AGE AS AGE)Œdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q146.AGE AS AGE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS AGE)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_DESC_NULLS_LAST</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q146> label="q146" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}õ
+î
+#extremum_ever_without_legacy_optionmEXPLAIN SELECT country, min_ever(age) FROM customers_materialized_view WHERE country = 'USA' GROUP BY countryÅ
+ÛòΩú6Å ’Ç‡(~0®◊x8K@éAISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_AGE_MIN_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ô
+ë
+#extremum_ever_without_legacy_optionjEXPLAIN SELECT country, min_ever(age) FROM customers_index_on_table WHERE country = 'USA' GROUP BY countryÇ
+ÛÛÇπ9Å ±í≥&(~0ó¿Ö8K@éAISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_AGE_MIN_EXTREMUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}û
+ó
+#extremum_ever_without_legacy_optionpEXPLAIN SELECT country, max_ever(age) FROM customers_materialized_view WHERE country = 'Canada' GROUP BY countryÅ
+ÛâÒ¯5Å …Ù‹(~0ìÑz8K@éAISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_AGE_MAX_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ú
+î
+#extremum_ever_without_legacy_optionmEXPLAIN SELECT country, max_ever(age) FROM customers_index_on_table WHERE country = 'Canada' GROUP BY countryÇ
+Û∏˛õ;Å ‰ì“&(~0…ß§8K@éAISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_AGE_MAX_EXTREMUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ò
+£
+#extremum_ever_without_legacy_option|EXPLAIN SELECT country, min_ever(age), max_ever(age) FROM customers_materialized_view WHERE country = 'USA' GROUP BY country»
+â
+ã∆êX€ ©û∏<(í0Ê‹»8y@“AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY () WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._0 AS COUNTRY, _._1 AS _1, _._2 AS _2)“digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1, q6._2 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1, INT AS _2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Intersection</td></tr><tr><td align="left">COMPARE BY ()</td></tr><tr><td align="left">RESULT (q239._0 AS _0, q239._1 AS _1, q241._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1, INT AS _2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c18 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c18 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_AGE_MIN_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_AGE_MAX_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ label=<&nbsp;q239> label="q239" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q241> label="q241" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ú
+†
+#extremum_ever_without_legacy_optionyEXPLAIN SELECT country, min_ever(age), max_ever(age) FROM customers_index_on_table WHERE country = 'USA' GROUP BY countryÃ
+â
+óØöA€ íÏ⁄-(í0ÖΩî8y@‘AISCAN(IDX_IOT_AGE_MIN_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(IDX_IOT_AGE_MAX_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY () WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._0 AS COUNTRY, _._1 AS _1, _._2 AS _2)‘digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1, q6._2 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1, INT AS _2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Intersection</td></tr><tr><td align="left">COMPARE BY ()</td></tr><tr><td align="left">RESULT (q239._0 AS _0, q239._1 AS _1, q241._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1, INT AS _2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c18 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c18 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_AGE_MAX_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_AGE_MIN_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ label=<&nbsp;q241> label="q241" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q239> label="q239" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}û
+ó
+#extremum_ever_without_legacy_optionpEXPLAIN SELECT country, min_ever(age) FROM customers_materialized_view WHERE country = 'France' GROUP BY countryÅ
+ÛòΩú6Å ’Ç‡(~0®◊x8K@éAISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_AGE_MIN_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ú
+î
+#extremum_ever_without_legacy_optionmEXPLAIN SELECT country, min_ever(age) FROM customers_index_on_table WHERE country = 'France' GROUP BY countryÇ
+ÛÛÇπ9Å ±í≥&(~0ó¿Ö8K@éAISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_AGE_MIN_EXTREMUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}û
+ó
+#extremum_ever_without_legacy_optionpEXPLAIN SELECT country, max_ever(age) FROM customers_materialized_view WHERE country = 'France' GROUP BY countryÅ
+ÛâÒ¯5Å …Ù‹(~0ìÑz8K@éAISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_AGE_MAX_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ú
+î
+#extremum_ever_without_legacy_optionmEXPLAIN SELECT country, max_ever(age) FROM customers_index_on_table WHERE country = 'France' GROUP BY countryÇ
+Û∏˛õ;Å ‰ì“&(~0…ß§8K@éAISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_AGE_MAX_EXTREMUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ò
+ë
+ extremum_ever_with_legacy_optionmEXPLAIN SELECT country, min_ever(age) FROM customers_materialized_view WHERE country = 'USA' GROUP BY countryÅ
+ÛòΩú6Å ’Ç‡(~0®◊x8K@éAISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_AGE_MIN_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ñ
+é
+ extremum_ever_with_legacy_optionjEXPLAIN SELECT country, min_ever(age) FROM customers_index_on_table WHERE country = 'USA' GROUP BY countryÇ
+ÛÛÇπ9Å ±í≥&(~0ó¿Ö8K@éAISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_AGE_MIN_EXTREMUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}õ
+î
+ extremum_ever_with_legacy_optionpEXPLAIN SELECT country, max_ever(age) FROM customers_materialized_view WHERE country = 'Canada' GROUP BY countryÅ
+ÛâÒ¯5Å …Ù‹(~0ìÑz8K@éAISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_AGE_MAX_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ô
+ë
+ extremum_ever_with_legacy_optionmEXPLAIN SELECT country, max_ever(age) FROM customers_index_on_table WHERE country = 'Canada' GROUP BY countryÇ
+Û∏˛õ;Å ‰ì“&(~0…ß§8K@éAISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_AGE_MAX_EXTREMUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ó
+†
+ extremum_ever_with_legacy_option|EXPLAIN SELECT country, min_ever(age), max_ever(age) FROM customers_materialized_view WHERE country = 'USA' GROUP BY country»
+â
+ã∆êX€ ©û∏<(í0Ê‹»8y@“AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY () WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._0 AS COUNTRY, _._1 AS _1, _._2 AS _2)“digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1, q6._2 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1, INT AS _2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Intersection</td></tr><tr><td align="left">COMPARE BY ()</td></tr><tr><td align="left">RESULT (q239._0 AS _0, q239._1 AS _1, q241._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1, INT AS _2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c18 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c18 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_AGE_MAX_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_AGE_MIN_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ label=<&nbsp;q241> label="q241" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q239> label="q239" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ô
+ù
+ extremum_ever_with_legacy_optionyEXPLAIN SELECT country, min_ever(age), max_ever(age) FROM customers_index_on_table WHERE country = 'USA' GROUP BY countryÃ
+â
+óØöA€ íÏ⁄-(í0ÖΩî8y@‘AISCAN(IDX_IOT_AGE_MIN_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(IDX_IOT_AGE_MAX_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY () WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._0 AS COUNTRY, _._1 AS _1, _._2 AS _2)‘digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1, q6._2 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1, INT AS _2)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Intersection</td></tr><tr><td align="left">COMPARE BY ()</td></tr><tr><td align="left">RESULT (q239._0 AS _0, q239._1 AS _1, q241._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1, INT AS _2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c18 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c18 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_AGE_MIN_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_AGE_MAX_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ label=<&nbsp;q239> label="q239" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q241> label="q241" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}õ
+î
+ extremum_ever_with_legacy_optionpEXPLAIN SELECT country, min_ever(age) FROM customers_materialized_view WHERE country = 'France' GROUP BY countryÅ
+ÛòΩú6Å ’Ç‡(~0®◊x8K@éAISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_AGE_MIN_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ô
+ë
+ extremum_ever_with_legacy_optionmEXPLAIN SELECT country, min_ever(age) FROM customers_index_on_table WHERE country = 'France' GROUP BY countryÇ
+ÛÛÇπ9Å ±í≥&(~0ó¿Ö8K@éAISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_AGE_MIN_EXTREMUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}õ
+î
+ extremum_ever_with_legacy_optionpEXPLAIN SELECT country, max_ever(age) FROM customers_materialized_view WHERE country = 'France' GROUP BY countryÅ
+ÛâÒ¯5Å …Ù‹(~0ìÑz8K@éAISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_AGE_MAX_NO_LEGACY</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ô
+ë
+ extremum_ever_with_legacy_optionmEXPLAIN SELECT country, max_ever(age) FROM customers_index_on_table WHERE country = 'France' GROUP BY countryÇ
+Û∏˛õ;Å ‰ì“&(~0…ß§8K@éAISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)—digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0 AS COUNTRY, q6._1 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS COUNTRY, INT AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_AGE_MAX_EXTREMUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, STRING AS EMAIL, INT AS AGE, STRING AS CITY, STRING AS COUNTRY, STRING AS PROFESSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

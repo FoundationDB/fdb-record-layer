@@ -48,6 +48,8 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PExpression;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFunction;
@@ -121,9 +123,9 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     static RelationalExpression fromRecordQuery(@Nonnull RecordMetaData recordMetaData,
                                                 @Nonnull RecordQuery query) {
         query.validate(recordMetaData);
-        final var allRecordTypes = recordMetaData.getRecordTypes().keySet();
-        final var recordTypesFromQuery = query.getRecordTypes();
-        final var queriedRecordTypes = recordTypesFromQuery.isEmpty() ? allRecordTypes : recordTypesFromQuery;
+        final Set<String> allRecordTypes = recordMetaData.getRecordTypes().keySet();
+        final Collection<String> recordTypesFromQuery = query.getRecordTypes();
+        final Collection<String> queriedRecordTypes = recordTypesFromQuery.isEmpty() ? allRecordTypes : recordTypesFromQuery;
 
         final Reference baseRef;
         Quantifier.ForEach quantifier;
@@ -140,7 +142,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                     new LogicalTypeFilterExpression(
                             new HashSet<>(queriedRecordTypes),
                             Quantifier.forEach(fuseRef),
-                            Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(queriedRecordTypes))));
+                            recordMetaData.getPlannerType(queriedRecordTypes)));
             quantifier = Quantifier.forEach(baseRef);
         }
 
@@ -861,5 +863,13 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     @Nonnull
     default String showExploratory() {
         return PlannerGraphVisitor.show(PlannerGraphVisitor.REMOVE_FINAL_EXPRESSIONS | PlannerGraphVisitor.RENDER_SINGLE_GROUPS, this);
+    }
+
+    @Nonnull
+    default PExpression toPlannerEventExpressionProto() {
+        return PExpression.newBuilder()
+                .setName(Debugger.mapDebugger(debugger -> debugger.nameForObject(this)).orElseThrow())
+                .setSemanticHashCode(semanticHashCode())
+                .build();
     }
 }

@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
@@ -61,10 +62,13 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -75,6 +79,9 @@ import java.util.function.Supplier;
  * objects should be created through this manager. This allows for cached data (like the block cache or file
  * list cache) for a single directory to persist across different operations (e.g., different queries) conducted
  * in the same transaction.
+ * <p>Note: Since the manager is transaction-scoped, it will be closed once the transaction commits or closes.
+ * (See the commit hook created below achieving this).
+ * When the manager is closed, it will also close all the directory wrappers it has created.</p>
  */
 @API(API.Status.INTERNAL)
 public class FDBDirectoryManager implements AutoCloseable {
@@ -90,6 +97,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     private final LuceneAnalyzerCombinationProvider analyzerSelector;
     @Nullable
     protected final Exception exceptionAtCreation;
+    private boolean closed = false;
 
     protected FDBDirectoryManager(@Nonnull IndexMaintainerState state) {
         this.state = state;
@@ -108,6 +116,21 @@ public class FDBDirectoryManager implements AutoCloseable {
             directory.close();
         }
         createdDirectories.clear();
+    }
+
+    /**
+     * Close the directoryManager when the transaction wasn't committed.
+     * @throws IOException in case some directories failed to close
+     */
+    @SuppressWarnings("PMD.CloseResource")
+    public synchronized void closeWithoutCommit() throws IOException {
+        try {
+            for (FDBDirectoryWrapper directory : createdDirectories.values()) {
+                directory.closeWithoutCommit();
+            }
+        } finally {
+            createdDirectories.clear();
+        }
     }
 
     @Nonnull
@@ -167,34 +190,56 @@ public class FDBDirectoryManager implements AutoCloseable {
         // no longer be valid. It may make sense to have AgilityContext.Agile commit periodically regardless of activity
         if (!partitioner.isPartitioningEnabled()) {
             agileContext.flush();
-            mergeIndexNow(groupingKey, null);
-            return AsyncUtil.DONE;
+            return mergeIndexNow(groupingKey, null);
         } else {
             // Here: iterate the partition ids and merge each
             AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo = new AtomicReference<>();
             return AsyncUtil.whileTrue(() -> getNextOlderPartitionInfo(groupingKey, agileContext, lastPartitionInfo)
-                    .thenApply(partitionId -> {
+                    .thenCompose(partitionId -> {
                         if (partitionId == null) {
                             // partition list end
-                            return false;
+                            return AsyncUtil.READY_FALSE;
                         }
                         agileContext.flush();
-                        mergeIndexNow(groupingKey, partitionId);
-                        return true;
+                        return mergeIndexNow(groupingKey, partitionId)
+                                .thenApply(v -> true);
                     }));
         }
     }
 
-    private void mergeIndexNow(Tuple groupingKey, @Nullable final Integer partitionId) {
+    private CompletableFuture<Void> mergeIndexNow(Tuple groupingKey, @Nullable final Integer partitionId) {
         final AgilityContext agilityContext = getAgilityContext(true, true);
+        RuntimeException mergeException = null;
         try {
             mergeIndexWithContext(groupingKey, partitionId, agilityContext);
-        } finally {
-            // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
-            // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
-            // but that should be rare.
-            agilityContext.flushAndClose();
+        } catch (RuntimeException e) {
+            mergeException = e;
         }
+        // Here: drain this partition's queue and clear the "use queue" indicator
+        // If the merge had failed, we still wish to drain the queue and release the ongoing merge indicator. Merge can be retried by another process.
+        // If the merge failed due to a lock exception, skip draining — there is probably another ongoing merge process
+        final RuntimeException capturedMergeException = mergeException;
+        boolean skipDrain = hasCause(mergeException, FDBDirectoryLockFactory.FDBDirectoryLockException.class);
+        if (skipDrain && LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.of("Skipping drain pending queue due to lock exception",
+                    LuceneLogMessageKeys.GROUP, groupingKey,
+                    LuceneLogMessageKeys.INDEX_PARTITION, partitionId));
+        }
+        CompletableFuture<Void> drainFuture = skipDrain
+                ? AsyncUtil.DONE
+                : drainPendingQueue(groupingKey, partitionId, agilityContext);
+        return drainFuture
+                .whenComplete((v, drainEx) -> {
+                    // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
+                    // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
+                    // but that should be rare.
+                    agilityContext.flushAndClose();
+                })
+                .thenRun(() -> {
+                    if (capturedMergeException != null) {
+                        throw capturedMergeException;
+                    }
+                });
     }
 
     public void mergeIndexWithContext(@Nonnull final Tuple groupingKey,
@@ -202,6 +247,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                                       @Nonnull final AgilityContext agilityContext) {
         try (FDBDirectoryWrapper directoryWrapper = createDirectoryWrapper(groupingKey, partitionId, agilityContext)) {
             try {
+                directoryWrapper.setOngoingMergeIndicator();
                 directoryWrapper.mergeIndex();
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug(KeyValueLogMessage.of("Lucene merge success",
@@ -219,6 +265,38 @@ public class FDBDirectoryManager implements AutoCloseable {
                     LuceneLogMessageKeys.GROUP, groupingKey,
                     LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
         }
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    public CompletableFuture<Void> drainPendingQueue(@Nonnull final Tuple groupingKey,
+                                                     @Nullable final Integer partitionId,
+                                                     @Nonnull final AgilityContext agilityContext) {
+        final FDBDirectoryWrapper directoryWrapper = createDirectoryWrapper(groupingKey, partitionId, agilityContext);
+        return directoryWrapper.drainPendingQueue(groupingKey, partitionId)
+                .whenComplete((v, e) -> {
+                    try {
+                        directoryWrapper.close();
+                    } catch (IOException ex) {
+                        throw LuceneExceptions.toRecordCoreException("Failed to close directory wrapper", ex,
+                                LuceneLogMessageKeys.GROUP, groupingKey,
+                                LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
+                    }
+                });
+    }
+
+
+    private static boolean hasCause(@Nullable Throwable ex, Class<? extends Throwable> causeClass) {
+        // Similar methods are implemented elsewhere. TODO: create a common ExceptionsUtil
+        Set<Throwable> seenSet = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable current = ex;
+                 current != null && !seenSet.contains(current);
+                 current = current.getCause()) {
+            if (causeClass.isInstance(current)) {
+                return true;
+            }
+            seenSet.add(current);
+        }
+        return false;
     }
 
     private static void closeOrAbortAgilityContext(AgilityContext agilityContext, Throwable ex) {
@@ -293,7 +371,12 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
-    private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
+    public PendingWriteQueue getPendingWriteQueue(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
+        return getDirectoryWrapper(groupingKey, partitionId).getPendingWriteQueue();
+    }
+
+    @VisibleForTesting
+    public FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
         return getDirectoryWrapper(groupingKey, partitionId, getAgilityContext(false, false));
     }
 
@@ -367,8 +450,17 @@ public class FDBDirectoryManager implements AutoCloseable {
         return getDirectoryWrapper(groupingKey, partitionId).getWriter();
     }
 
-    public DirectoryReader getWriterReader(@Nullable Tuple groupingKey, @Nullable Integer partititonId) throws IOException {
-        return getDirectoryWrapper(groupingKey, partititonId).getWriterReader();
+    @Nonnull
+    public IndexReader getIndexReaderWithReplayedQueue(@Nullable Tuple groupingKey, @Nullable Integer partitionId) throws IOException {
+        return getDirectoryWrapper(groupingKey, partitionId).getIndexReaderWithReplayedQueue();
+    }
+
+    public DirectoryReader getWriterReader(@Nullable Tuple groupingKey, @Nullable Integer partitionId) throws IOException {
+        return getWriterReader(groupingKey, partitionId, false);
+    }
+
+    public DirectoryReader getWriterReader(@Nullable Tuple groupingKey, @Nullable Integer partititonId, boolean refresh) throws IOException {
+        return getDirectoryWrapper(groupingKey, partititonId).getWriterReader(refresh);
     }
 
     @Nonnull
@@ -386,11 +478,32 @@ public class FDBDirectoryManager implements AutoCloseable {
             }
             FDBDirectoryManager newManager = managerSupplier.get();
             context.putInSessionIfAbsent(state.indexSubspace, newManager);
+            // Since the manager is scoped to the transaction, close it once the transaction closes.
+            // call close() before the transaction commits to ensure Lucene has committed its in-memory structures back to FDB.
             context.addCommitCheck(() -> {
                 try {
                     newManager.close();
                 } catch (IOException e) {
                     throw LuceneExceptions.toRecordCoreException("unable to close directories", e);
+                } finally {
+                    newManager.closed = true;
+                }
+                return AsyncUtil.DONE;
+            });
+            // Call closeWithoutCommit once the transaction closes. If the transaction was committed, then close() was
+            // called (see above) so this would be a noop. If the transaction was not committed, we still need to close
+            // the created directoryWrappers, so call their closeWithoutCommit().
+            // Foe each context, there should be only one manager per index, so the name is qualified by index
+            final String hookName = "DirectoryManager/" + state.index.getName();
+            context.addPostCloseHook(hookName, () -> {
+                try {
+                    if (!newManager.closed) {
+                        newManager.closeWithoutCommit();
+                    }
+                } catch (IOException e) {
+                    throw LuceneExceptions.toRecordCoreException("unable to closeWithoutCommit directories", e);
+                } finally {
+                    newManager.closed = true;
                 }
                 return AsyncUtil.DONE;
             });
@@ -406,4 +519,5 @@ public class FDBDirectoryManager implements AutoCloseable {
                 .filter(i -> LuceneIndexTypes.LUCENE.equals(i.getType()))
                 .count());
     }
+
 }

@@ -72,7 +72,6 @@ test_block:
       - query: select sum(cnt) from (select count(*) as cnt, template_name, template_version from schemas
           group by template_name, template_version having template_name = 'TEST_TEMPLATE_1' and template_version = 1) as t;
       - explain: "AISCAN(TEMPLATES_COUNT_INDEX [EQUALS promote(@c29 AS STRING), EQUALS promote(@c33 AS INT)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP ((_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
-      - maxRows: 0 # Disable force continuations because of empty continuation due to: https://github.com/FoundationDB/fdb-record-layer/issues/3206
       - result: [{4}]
     -
       # how many unique templates in a cluster?

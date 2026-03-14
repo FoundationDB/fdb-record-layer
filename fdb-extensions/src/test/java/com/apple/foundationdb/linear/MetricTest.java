@@ -38,7 +38,6 @@ import static com.apple.foundationdb.linear.Metric.COSINE_METRIC;
 import static com.apple.foundationdb.linear.Metric.DOT_PRODUCT_METRIC;
 import static com.apple.foundationdb.linear.Metric.EUCLIDEAN_METRIC;
 import static com.apple.foundationdb.linear.Metric.EUCLIDEAN_SQUARE_METRIC;
-import static com.apple.foundationdb.linear.Metric.MANHATTAN_METRIC;
 
 class MetricTest {
     static Stream<Arguments> metricAndExpectedDistance() {
@@ -46,7 +45,6 @@ class MetricTest {
         final RealVector v1 = v(1.0, 2.0);
         final RealVector v2 = v(4.0, 6.0);
         return Stream.of(
-                Arguments.of(MANHATTAN_METRIC, v1, v2, 7.0),         // |1 - 4| + |2 - 6| = 7
                 Arguments.of(EUCLIDEAN_METRIC, v1, v2, 5.0),         // sqrt((1-4)^2 + (2-6)^2) = sqrt(9 + 16) = 5
                 Arguments.of(EUCLIDEAN_SQUARE_METRIC, v1, v2, 25.0), // (1-4)^2 + (2-6)^2 = 9 + 16 = 25
                 Arguments.of(COSINE_METRIC, v1, v2, 0.007722),       // ((1 * 4) + (2 * 6)) / (sqrt(1^2 + 2^2) * sqrt(4^2 + 6^2) = 16 / (sqrt(5) * sqrt(52)) ≈ 1 - 0.992277 ≈ 0.007722
@@ -65,8 +63,7 @@ class MetricTest {
         return RandomizedTestUtils.randomSeeds(12345, 987654, 423, 18378195)
                 .flatMap(seed ->
                         Sets.cartesianProduct(
-                                ImmutableSet.of(MANHATTAN_METRIC,
-                                        EUCLIDEAN_METRIC,
+                                ImmutableSet.of(EUCLIDEAN_METRIC,
                                         EUCLIDEAN_SQUARE_METRIC,
                                         COSINE_METRIC,
                                         DOT_PRODUCT_METRIC), ImmutableSet.of(3, 5, 128, 768)).stream()
@@ -76,8 +73,6 @@ class MetricTest {
 
     @Test
     void testMetricDefinitionBasics() {
-        Assertions.assertThat(MANHATTAN_METRIC.toString()).contains(MetricDefinition.ManhattanMetric.class.getSimpleName());
-        Assertions.assertThat(MANHATTAN_METRIC.isTrueMetric()).isTrue();
         Assertions.assertThat(EUCLIDEAN_METRIC.toString()).contains(MetricDefinition.EuclideanMetric.class.getSimpleName());
         Assertions.assertThat(EUCLIDEAN_METRIC.isTrueMetric()).isTrue();
         Assertions.assertThat(EUCLIDEAN_SQUARE_METRIC.toString()).contains(MetricDefinition.EuclideanSquareMetric.class.getSimpleName());
@@ -94,10 +89,10 @@ class MetricTest {
         final Random random = new Random(seed);
 
         for (int i = 0; i < 1000; i ++) {
-            // either use vectors that draw from [0, 1) or use the entire full double range
-            final RealVector x = (i % 2 == 1) ? randomV(random, numDimensions) : randomVFull(random, numDimensions);
-            final RealVector y = (i % 2 == 1) ? randomV(random, numDimensions) : randomVFull(random, numDimensions);
-            final RealVector z = (i % 2 == 1) ? randomV(random, numDimensions) : randomVFull(random, numDimensions);
+            // use vectors that draw from [0, 1)
+            final RealVector x = randomV(random, numDimensions);
+            final RealVector y = randomV(random, numDimensions);
+            final RealVector z = randomV(random, numDimensions);
 
             final double distanceXX = metric.distance(x, x);
             final double distanceXY = metric.distance(x, y);
@@ -129,6 +124,16 @@ class MetricTest {
                     d -> Assertions.assertThat(metric.satisfiesTriangleInequality()).isFalse(),
                     d -> Assertions.assertThat(d + distanceYZ).isGreaterThanOrEqualTo(distanceXZ - 2E-10d),
                     d -> Assertions.assertThat(triangleHolds(distanceXY, distanceYZ, distanceXZ, numDimensions * 3)).isTrue());
+
+            if (i % 2 == 1) {
+                // we can only check this for non-degenerate component values
+                final RealVector xt = x.add(z);
+                final RealVector yt = y.add(z);
+                final double distanceXtYt = metric.distance(xt, yt);
+                Assertions.assertThat(distanceXtYt).satisfiesAnyOf(
+                        d -> Assertions.assertThat(metric.satisfiesPreservedUnderTranslation()).isFalse(),
+                        d -> Assertions.assertThat(d).isCloseTo(distanceXY, Offset.offset(2E-10d)));
+            }
         }
     }
 
@@ -155,23 +160,5 @@ class MetricTest {
             components[i] = random.nextDouble();
         }
         return new DoubleRealVector(components);
-    }
-
-    @Nonnull
-    @SuppressWarnings("checkstyle:MethodName")
-    private static RealVector randomVFull(@Nonnull final Random random, final int numDimensions) {
-        final double[] components = new double[numDimensions];
-        for (int i = 0; i < numDimensions; i++) {
-            components[i] = randomDouble(random);
-        }
-        return new DoubleRealVector(components);
-    }
-
-    private static double randomDouble(@Nonnull final Random random) {
-        double d;
-        do {
-            d = Double.longBitsToDouble(random.nextLong());
-        } while (!Double.isFinite(d));
-        return d;
     }
 }

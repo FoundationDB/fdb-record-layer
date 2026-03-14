@@ -32,28 +32,32 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * Abstract implementation of {@link Value} that provides memoization of correlatedTo sets.
+ * Abstract implementation of {@link Value} that provides memoization of correlatedTo sets, and other computations.
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractValue implements Value {
 
     @Nonnull
-    private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
 
     @Nonnull
-    private final Supplier<Integer> semanticHashCodeSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Integer> semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
 
     @Nonnull
-    private final Supplier<Integer> heightSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Integer> heightSupplier = Suppliers.memoize(Value.super::height);
 
     @Nonnull
-    private final Supplier<Iterable<? extends Value>> childrenSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Iterable<? extends Value>> childrenSupplier = Suppliers.memoize(this::computeChildren);
+
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<Boolean> isIndexOnlySupplier = Suppliers.memoize(this::computeIsIndexOnly);
 
     protected AbstractValue() {
-        this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
-        this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
-        this.heightSupplier = Suppliers.memoize(Value.super::height);
-        this.childrenSupplier = Suppliers.memoize(this::computeChildren);
     }
 
     @Nonnull
@@ -92,6 +96,15 @@ public abstract class AbstractValue implements Value {
     @Override
     public int height() {
         return heightSupplier.get();
+    }
+
+    private boolean computeIsIndexOnly() {
+        return preOrderStream().anyMatch(IndexOnlyValue.class::isInstance);
+    }
+
+    @Override
+    public boolean isIndexOnly() {
+        return isIndexOnlySupplier.get();
     }
 
     @Nonnull

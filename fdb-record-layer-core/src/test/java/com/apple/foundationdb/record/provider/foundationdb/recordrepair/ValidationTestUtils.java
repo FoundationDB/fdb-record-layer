@@ -42,7 +42,7 @@ import java.util.stream.Stream;
 
 public class ValidationTestUtils {
     private static final int LONG_RECORD_SPACING = 17;
-    // A few constants for records that were saved with saveRecords() below
+    // A few constants for records that were saved with saveRandomRecords() below
     public static final int RECORD_INDEX_WITH_NO_SPLITS = 1;
     public static final int RECORD_ID_WITH_NO_SPLITS = RECORD_INDEX_WITH_NO_SPLITS + 1;
     public static final int RECORD_INDEX_WITH_TWO_SPLITS = 16;

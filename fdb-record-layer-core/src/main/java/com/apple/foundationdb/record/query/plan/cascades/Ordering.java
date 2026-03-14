@@ -40,6 +40,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -190,7 +192,8 @@ public class Ordering {
     private final boolean isDistinct;
 
     @Nonnull
-    private final Supplier<SetMultimap<Value, Binding>> fixedBindingMapSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<SetMultimap<Value, Binding>> fixedBindingMapSupplier = Suppliers.memoize(this::computeFixedBindingMap);
 
     /**
      * Primary constructor. Protected from the outside world.
@@ -208,7 +211,6 @@ public class Ordering {
         this.orderingSet = orderingSet;
         this.bindingMap = ImmutableSetMultimap.copyOf(bindingMap);
         this.isDistinct = isDistinct;
-        this.fixedBindingMapSupplier = Suppliers.memoize(this::computeFixedBindingMap);
     }
 
     @Nonnull
@@ -235,7 +237,7 @@ public class Ordering {
     public PartiallyOrderedSet<Value> getOrderingSet() {
         return orderingSet;
     }
-    
+
     public boolean isDistinct() {
         return isDistinct;
     }
@@ -289,15 +291,73 @@ public class Ordering {
                 .collect(ImmutableSet.toImmutableSet());
     }
 
+    /**
+     * Method to verify that a given {@link RequestedOrdering} can be used to construct an ordering sequence that is
+     * supported by the current ordering from the list of {@link Value}s that composes the {@link RequestedOrdering}.
+     * This method is similar to {@link Ordering#satisfiesGroupingValues(Set)} in the sense that they both check for
+     * existence of a sequence given a list of {@link Value}s. They differ on the satisfiability criteria such that
+     * current method requires the candidate sequence's prefix to match the ordering of {@link Value} in the
+     * {@link RequestedOrdering}.
+     * Example 1:
+     * <pre>
+     *     {@code
+     *     requested ordering:  a↑, e↑, c↑
+     *     this ordering:
+     *         partially ordered set:
+     *             members: a, b, x, c, d, e
+     *             dependencies: a ← c, b ← c, c ← d, e ← d, x ← d
+     *             graph: a ←  c ←- d
+     *                    b ←-/    /
+     *                    e ←-----/
+     *                    x ←----/
+     *         bindings a↑, b↑, x↑, c↑, d↑, e↑
+     *
+     *     It should be possible to satisfy the requested ordering from the induced sub-poset of the original partially
+     *     ordered set over elements {a, e, c}:
+     *     induced sub-poset:
+     *         members: a, c, e
+     *         dependencies: a ← c
+     *
+     *     enumerated orderings (exhaustive) of the induced sub-poset:
+     *         a↑, c↑, e↑
+     *         a↑, e↑, c↑
+     *         e↑, a↑, c↑
+     *     }
+     * </pre>
+     * @param requestedOrdering the set of values which needs to match a prefix of a valid sequence
+     * @return the result of satisfiability of set of values in the ordering
+     */
     public boolean satisfies(@Nonnull RequestedOrdering requestedOrdering) {
-        return !Iterables.isEmpty(enumerateCompatibleRequestedOrderings(requestedOrdering));
+        if (requestedOrdering.isDistinct() && !isDistinct()) {
+            return false;
+        }
+
+        for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
+            if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
+                return false;
+            }
+            final var bindings = bindingMap.get(requestedOrderingPart.getValue());
+            final var sortOrder = sortOrder(bindings);
+            if (!sortOrder.isCompatibleWithRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
+                return false;
+            }
+        }
+        final var requestedValuesSet =
+                ImmutableSet.copyOf(requestedOrdering.getOrderingValues());
+
+        return !Iterables.isEmpty(
+                TopologicalSort.satisfyingPermutations(
+                        getOrderingSet().filterElements(requestedValuesSet::contains),
+                        ImmutableList.copyOf(requestedOrdering.getOrderingValues()),
+                        Function.identity(),
+                        permutation -> requestedOrdering.getOrderingParts().size()));
     }
 
     /**
      * Method to, given a constraining {@link RequestedOrdering}, enumerates all ordering sequences supported by this
-     * ordering that are compatible with the given {@link RequestedOrdering}. This functionality is needed when a
-     * provided order is used to again drive requested orderings for another quantifier participating in e.g. a set
-     * operation or similar.
+     * ordering that are compatible with the given {@link RequestedOrdering} having all the elements of the partially
+     * ordered set. This functionality is needed when a provided order is used to again drive requested orderings for
+     * another quantifier participating in e.g. a set operation or similar.
      * Example:
      * <pre>
      *     {@code
@@ -309,14 +369,16 @@ public class Ordering {
      *         bindings a↑, b=, x=, c↑, d↑, e↑
      *
      *     enumerated requested orderings (among others):
-     *         a↑, b↓, c↑
-     *         a↑, x↕, b↓, c↑
      *         a↑, x↕, b↓, c↑, d↕, e↕
      *         a↑, x↕, b↓, c↑, e↕, d↕
+     *
+     *     however, the following won't be in the enumerated sequences:
+     *         a↑, b↓, c↑
+     *         a↑, x↕, b↓, c↑
      *     }
      * </pre>
      * @param requestedOrdering the {@link RequestedOrdering} this ordering needs to be compatible with
-     * @return an iterable of all compatible {@link RequestedOrdering}s
+     * @return boolean result of the compatibility check.
      */
     @Nonnull
     public Iterable<List<RequestedOrderingPart>> enumerateCompatibleRequestedOrderings(@Nonnull final RequestedOrdering requestedOrdering) {
@@ -324,8 +386,6 @@ public class Ordering {
             return ImmutableList.of();
         }
 
-        final var requestedOrderingValuesBuilder = ImmutableList.<Value>builder();
-        final var requestedOrderingValuesMapBuilder = ImmutableMap.<Value, RequestedOrderingPart>builder();
         for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
             if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
                 return ImmutableList.of();
@@ -335,16 +395,12 @@ public class Ordering {
             if (!sortOrder.isCompatibleWithRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
                 return ImmutableList.of();
             }
-
-            requestedOrderingValuesBuilder.add(requestedOrderingPart.getValue());
-            requestedOrderingValuesMapBuilder.put(requestedOrderingPart.getValue(), requestedOrderingPart);
         }
-        final var requestedOrderingValuesMap = requestedOrderingValuesMapBuilder.build();
 
         final var satisfyingValuePermutations =
                 TopologicalSort.satisfyingPermutations(
                         getOrderingSet(),
-                        ImmutableList.copyOf(requestedOrderingValuesMap.keySet()),
+                        ImmutableList.copyOf(requestedOrdering.getOrderingValues()),
                         Function.identity(),
                         permutation -> requestedOrdering.getOrderingParts().size());
         return Iterables.transform(satisfyingValuePermutations,
@@ -359,6 +415,29 @@ public class Ordering {
                         .collect(ImmutableList.toImmutableList()));
     }
 
+    /**
+     * Method to verify that a given set of grouping values forms a valid prefix of an enumerated sequence that is
+     * supported by this ordering.
+     * Example:
+     * <pre>
+     *     {@code
+     *     requested grouping values set:  {a, e, c}
+     *     this ordering:
+     *         partially ordered set:
+     *             members: a, b, x, c, d, e
+     *             dependencies: a ← c, b ← c, c ← d, e ← d, x ← d
+     *             graph: a ←  c ←- d
+     *                    b ←-/    /
+     *                    e ←-----/
+     *                    x ←----/
+     *         bindings a↑, b↑, x↑, c↑, d↑, e↑
+     *
+     *     It should be possible to satisfy {a, c, e} as a and e are independent and c depends on a.
+     *     }
+     * </pre>
+     * @param requestedGroupingValues the set of values which needs to match a prefix of a valid sequence
+     * @return the result of satisfiability of set of values in the ordering
+     */
     public boolean satisfiesGroupingValues(@Nonnull final Set<Value> requestedGroupingValues) {
         // no ordering left worth further considerations
         if (requestedGroupingValues.isEmpty()) {
@@ -380,12 +459,12 @@ public class Ordering {
                 })) {
             return false;
         }
-
-        final var permutations = TopologicalSort.topologicalOrderPermutations(orderingSet);
+        final var permutations =
+                TopologicalSort.topologicalOrderPermutations(getOrderingSet().filterElements(requestedGroupingValues::contains));
         for (final var permutation : permutations) {
-            final var containsAll =
+            final var satisfies = permutation.size() >= requestedGroupingValues.size() &&
                     requestedGroupingValues.containsAll(permutation.subList(0, requestedGroupingValues.size()));
-            if (containsAll) {
+            if (satisfies) {
                 return true;
             }
         }
@@ -401,23 +480,25 @@ public class Ordering {
                     translateBindings(entry.getValue(),
                             toBePulledUpValues -> value.pullUp(toBePulledUpValues, evaluationContext,
                                     aliasMap, constantAliases, Quantifier.current()));
-            pulledUpBindingMapBuilder.putAll(entry.getKey(), pulledUpBindings);
+            pulledUpBindingMapBuilder.putAll(entry.getKey() /* old value*/, pulledUpBindings);
         }
 
         // pull up the values we actually could also pull up some of the bindings for
         final var pulledUpBindingMap = pulledUpBindingMapBuilder.build();
-        final var pulledUpValuesMap =
+        final var pulledUpValuesMultimap =
                 value.pullUp(pulledUpBindingMap.keySet(), evaluationContext, aliasMap, constantAliases,
                         Quantifier.current());
 
-        final var mappedOrderingSet = getOrderingSet().mapAll(pulledUpValuesMap);
+        final var mappedOrderingSet = getOrderingSet().mapAll(pulledUpValuesMultimap);
         final var mappedValues = mappedOrderingSet.getSet();
         final var bindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
 
-        for (final var entry : pulledUpValuesMap.entrySet()) {
-            if (mappedValues.contains(entry.getValue())) {
-                Verify.verify(pulledUpBindingMap.containsKey(entry.getKey()));
-                bindingMapBuilder.putAll(entry.getValue(), pulledUpBindingMap.get(entry.getKey()));
+        for (final var entry : pulledUpValuesMultimap.asMap().entrySet()) {
+            for (final var pulledUpValue: entry.getValue()) {
+                if (mappedValues.contains(pulledUpValue)) {
+                    Verify.verify(pulledUpBindingMap.containsKey(entry.getKey()));
+                    bindingMapBuilder.putAll(pulledUpValue, pulledUpBindingMap.get(entry.getKey()));
+                }
             }
         }
 
@@ -436,7 +517,9 @@ public class Ordering {
                                         value.pushDown(toBePushedValues,
                                                 DefaultValueSimplificationRuleSet.instance(), evaluationContext,
                                                 aliasMap, constantAliases, Quantifier.current());
-                                final var resultMap = new LinkedIdentityMap<Value, Value>();
+                                final var resultMap =
+                                        Multimaps.<Value, Value>newListMultimap(new LinkedIdentityMap<>(),
+                                                Lists::newArrayList);
                                 for (int i = 0; i < toBePushedValues.size(); i++) {
                                     final Value toBePushedValue = toBePushedValues.get(i);
                                     final Value pushedValue = Objects.requireNonNull(pushedDownValues.get(i));
@@ -447,7 +530,7 @@ public class Ordering {
             pushedBindingMapBuilder.putAll(entry.getKey(), pushedBindings);
         }
 
-        // pull up the values we actually could also pull up some of the the bindings for
+        // push down the values for which we actually could push down some of the bindings
         final var pushedBindingMap = pushedBindingMapBuilder.build();
         final var values = pushedBindingMap.keySet();
         final var pushedValues =
@@ -505,7 +588,7 @@ public class Ordering {
 
     @Nonnull
     private static Set<Binding> translateBindings(@Nonnull final Collection<Binding> bindings,
-                                                  @Nonnull final Function<List<Value>, Map<Value, Value>> translateFunction) {
+                                                  @Nonnull final Function<List<Value>, Multimap<Value, Value>> translateFunction) {
         final var translatedBindingsBuilder = ImmutableSet.<Binding>builder();
 
         if (areAllBindingsFixed(bindings)) {
@@ -523,10 +606,9 @@ public class Ordering {
                 if (comparison instanceof Comparisons.ValueComparison) {
                     final var valueComparison = (Comparisons.ValueComparison)comparison;
                     if (translationMap.containsKey(valueComparison.getValue())) {
-                        final var translatedComparison =
-                                new Comparisons.ValueComparison(valueComparison.getType(),
-                                        translationMap.get(valueComparison.getValue()));
-                        translatedBindingsBuilder.add(Binding.fixed(translatedComparison));
+                        translationMap.get(valueComparison.getValue()).stream()
+                                .map(value -> new Comparisons.ValueComparison(valueComparison.getType(), Objects.requireNonNull(value)))
+                                .forEach(translatedValueComparison -> translatedBindingsBuilder.add(Binding.fixed(translatedValueComparison)));
                     }
                 } else {
                     translatedBindingsBuilder.add(binding);

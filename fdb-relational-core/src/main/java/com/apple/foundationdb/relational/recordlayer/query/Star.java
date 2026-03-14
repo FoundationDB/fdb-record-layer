@@ -21,15 +21,15 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -58,6 +58,12 @@ public final class Star extends Expression {
         Assert.thatUnchecked(dataType.getCode() == DataType.Code.STRUCT);
         Assert.thatUnchecked(Iterables.size(expansion) == ((DataType.StructType) dataType).getFields().size());
         this.expansion = ImmutableList.copyOf(expansion);
+    }
+
+    @Nonnull
+    @Override
+    protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, @Nonnull Visibility newVisibility) {
+        throw new RelationalException("attempt to recreate new star expression", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
     }
 
     @Nonnull
@@ -111,8 +117,7 @@ public final class Star extends Expression {
     @Nonnull
     @Override
     public EphemeralExpression asEphemeral() {
-        Assert.failUnchecked("attempt to create an ephermeral expression from a star");
-        return null;
+        throw new RelationalException("attempt to create an ephemeral expression from a star", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
     }
 
     @Override
@@ -129,7 +134,7 @@ public final class Star extends Expression {
                                       @Nonnull String typeName,
                                       @Nonnull Expressions expansion) {
         final var starType = createStarType(typeName, expansion);
-        return new Star(qualifier, starType, quantifier, expansion);
+        return new Star(qualifier, starType, ensureValueConsistentWithExpansion(quantifier, expansion), expansion);
     }
 
     @Nonnull
@@ -139,7 +144,21 @@ public final class Star extends Expression {
                                        @Nonnull Expressions expansion) {
         final var underlyingStarType = quantifiers.size() == 1 ? quantifiers.get(0) : RecordConstructorValue.ofUnnamed(quantifiers);
         final var starType = createStarType(typeName, expansion);
-        return new Star(qualifier, starType, underlyingStarType, expansion);
+        return new Star(qualifier, starType, ensureValueConsistentWithExpansion(underlyingStarType, expansion), expansion);
+    }
+
+    @Nonnull
+    private static Value ensureValueConsistentWithExpansion(@Nonnull Value possibleValue, @Nonnull Expressions expansion) {
+        // Try expanding the expansion and creating a record constructor value. If it has the same type as a proposed
+        // pre-existing value, use that instead. This allows us to avoid inserting unnecessary RCVs if there's already
+        // a value of the correct type, but it also allows us to modify the underlying type coming from a quantifier
+        // (e.g., to remove pseudo-columns)
+        final RecordConstructorValue rcv = RecordConstructorValue.ofColumns(expansion.underlyingAsColumns());
+        if (rcv.getResultType().equals(possibleValue.getResultType())) {
+            return possibleValue;
+        } else {
+            return rcv;
+        }
     }
 
     @Nonnull

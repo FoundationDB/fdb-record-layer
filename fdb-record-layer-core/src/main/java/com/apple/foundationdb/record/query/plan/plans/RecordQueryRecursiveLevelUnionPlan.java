@@ -102,10 +102,12 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
     private final Value resultValue;
 
     @Nonnull
-    private final Supplier<List<RecordQueryPlan>> computeChildren;
+    @SuppressWarnings("this-escape")
+    private final Supplier<List<RecordQueryPlan>> computeChildren = Suppliers.memoize(this::computeChildren);
 
     @Nonnull
-    private final Supplier<Integer> computeComplexitySupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Integer> computeComplexitySupplier = Suppliers.memoize(this::computeComplexity);
 
     public RecordQueryRecursiveLevelUnionPlan(@Nonnull final Quantifier.Physical initialStateQuantifier,
                                               @Nonnull final Quantifier.Physical recursiveStateQuantifier,
@@ -116,8 +118,6 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
         this.tempTableScanAlias = tempTableScanAlias;
         this.tempTableInsertAlias = tempTableInsertAlias;
         this.resultValue = RecordQuerySetPlan.mergeValues(ImmutableList.of(initialStateQuantifier, recursiveStateQuantifier));
-        this.computeChildren = Suppliers.memoize(this::computeChildren);
-        this.computeComplexitySupplier = Suppliers.memoize(this::computeComplexity);
     }
 
     @Override

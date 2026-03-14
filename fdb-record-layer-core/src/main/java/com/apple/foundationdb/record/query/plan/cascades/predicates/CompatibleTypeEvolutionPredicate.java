@@ -132,8 +132,7 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
                 // type was dropped
                 return false;
             }
-            final Type.Record currentType =
-                    Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(ImmutableList.of(entry.getKey())));
+            final Type.Record currentType = recordMetaData.getPlannerType(entry.getKey());
             if (!isAccessCompatibleWithCurrentType(fieldAccessTrieNode, currentType)) {
                 return false;
             }

@@ -955,7 +955,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
     @ParameterizedTest
     @BooleanSource
-    @SuppressWarnings("removal")
     void testSuccessfullyBuildWithDeprecatedApiFunctions(final boolean useSynchronizedSession) {
         Index index = new Index("simple$value_2", field("num_value_2").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
@@ -970,8 +969,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                     assertTrue(old.shouldUseSynchronizedSession());
                     return old.toBuilder().setUseSynchronizedSession(useSynchronizedSession).build(); // ignored value
                 })
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                        .checkIndexingStampFrequencyMilliseconds(useSynchronizedSession ? 5_000 : 0)) // ignored value
                 .build()) {
             indexBuilder.buildIndex();
         }

@@ -1,0 +1,207 @@
+{
+  "records": {
+    "name": "modified_with_dependencies.proto",
+    "package": "com.apple.foundationdb.relational.yamltests.generated.withdependencies",
+    "dependency": ["modified_to_be_imported.proto"],
+    "messageType": [{
+      "name": "U",
+      "field": [{
+        "name": "id",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64",
+        "oneofIndex": 0,
+        "proto3Optional": true
+      }, {
+        "name": "x",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_MESSAGE",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.tobeimported.X",
+        "oneofIndex": 1,
+        "proto3Optional": true
+      }],
+      "oneofDecl": [{
+        "name": "_id"
+      }, {
+        "name": "_x"
+      }]
+    }, {
+      "name": "RecordTypeUnion",
+      "field": [{
+        "name": "_T",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_MESSAGE",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.tobeimported.T"
+      }, {
+        "name": "_U",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_MESSAGE",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.withdependencies.U"
+      }]
+    }],
+    "options": {
+      "javaOuterClassname": "WithDependenciesProto"
+    },
+    "syntax": "proto3"
+  },
+  "indexes": [{
+    "recordType": ["T"],
+    "name": "T$x",
+    "rootExpression": {
+      "nesting": {
+        "parent": {
+          "fieldName": "x",
+          "fanType": "SCALAR",
+          "nullInterpretation": "NOT_UNIQUE"
+        },
+        "child": {
+          "then": {
+            "child": [{
+              "field": {
+                "fieldName": "a",
+                "fanType": "SCALAR",
+                "nullInterpretation": "NOT_UNIQUE"
+              }
+            }, {
+              "field": {
+                "fieldName": "b",
+                "fanType": "SCALAR",
+                "nullInterpretation": "NOT_UNIQUE"
+              }
+            }]
+          }
+        }
+      }
+    },
+    "subspaceKey": "AlQkeAA=",
+    "lastModifiedVersion": 1,
+    "type": "value",
+    "addedVersion": 1
+  }, {
+    "recordType": ["U"],
+    "name": "U$x",
+    "rootExpression": {
+      "nesting": {
+        "parent": {
+          "fieldName": "x",
+          "fanType": "SCALAR",
+          "nullInterpretation": "NOT_UNIQUE"
+        },
+        "child": {
+          "then": {
+            "child": [{
+              "field": {
+                "fieldName": "a",
+                "fanType": "SCALAR",
+                "nullInterpretation": "NOT_UNIQUE"
+              }
+            }, {
+              "field": {
+                "fieldName": "b",
+                "fanType": "SCALAR",
+                "nullInterpretation": "NOT_UNIQUE"
+              }
+            }]
+          }
+        }
+      }
+    },
+    "subspaceKey": "AlUkeAA=",
+    "lastModifiedVersion": 2,
+    "type": "value",
+    "addedVersion": 2
+  }],
+  "recordTypes": [{
+    "name": "T",
+    "primaryKey": {
+      "then": {
+        "child": [{
+          "recordTypeKey": {
+          }
+        }, {
+          "field": {
+            "fieldName": "id",
+            "fanType": "SCALAR",
+            "nullInterpretation": "NOT_UNIQUE"
+          }
+        }]
+      }
+    }
+  }, {
+    "name": "U",
+    "primaryKey": {
+      "then": {
+        "child": [{
+          "recordTypeKey": {
+          }
+        }, {
+          "field": {
+            "fieldName": "id",
+            "fanType": "SCALAR",
+            "nullInterpretation": "NOT_UNIQUE"
+          }
+        }]
+      }
+    }
+  }],
+  "splitLongRecords": false,
+  "version": 2,
+  "storeRecordVersions": false,
+  "dependencies": [{
+    "name": "modified_to_be_imported.proto",
+    "package": "com.apple.foundationdb.relational.yamltests.generated.tobeimported",
+    "messageType": [{
+      "name": "X",
+      "field": [{
+        "name": "a",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64",
+        "oneofIndex": 0,
+        "proto3Optional": true
+      }, {
+        "name": "b",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_STRING",
+        "oneofIndex": 1,
+        "proto3Optional": true
+      }],
+      "oneofDecl": [{
+        "name": "_a"
+      }, {
+        "name": "_b"
+      }]
+    }, {
+      "name": "T",
+      "field": [{
+        "name": "id",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64",
+        "oneofIndex": 0,
+        "proto3Optional": true
+      }, {
+        "name": "x",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_MESSAGE",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.tobeimported.X",
+        "oneofIndex": 1,
+        "proto3Optional": true
+      }],
+      "oneofDecl": [{
+        "name": "_id"
+      }, {
+        "name": "_x"
+      }]
+    }],
+    "options": {
+      "javaOuterClassname": "ToBeImportedProto"
+    },
+    "syntax": "proto3"
+  }]
+}
