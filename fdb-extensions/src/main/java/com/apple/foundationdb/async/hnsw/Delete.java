@@ -257,10 +257,10 @@ class Delete {
                                                                          @Nonnull final Tuple primaryKey,
                                                                          final int topLayer) {
         // delete the node from all layers in parallel (inside layer in [0, topLayer])
-        return forEach(() -> IntStream.rangeClosed(0, topLayer).iterator(),
-                layer ->
+        return RandomHelpers.forEach(random, () -> IntStream.rangeClosed(0, topLayer).iterator(),
+                (layer, nestedRandom) ->
                         deleteFromLayer(primitives().storageAdapterForLayer(layer), transaction, storageTransform,
-                                quantizer, random.split(), layer, primaryKey),
+                                quantizer, nestedRandom, layer, primaryKey),
                 getConfig().getMaxNumConcurrentDeleteFromLayer(),
                 getExecutor());
     }

@@ -157,32 +157,33 @@ public class BounceReassignTask extends AbstractDeferredTask {
         final HNSW centroidsHnsw = primitives.getClusterCentroidsHnsw();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
 
-        return MoreAsyncUtil.forEach(getTargetClusterIds(),
-                        targetClusterId -> centroidsHnsw.fetch(transaction, StorageAdapter.tupleFromClusterId(targetClusterId))
-                                .thenAccept(resultEntry -> {
-                                    if (resultEntry == null) {
-                                        if (logger.isInfoEnabled()) {
-                                            logger.info("unable to enqueue final REASSIGN; targetClusterIds={}",
-                                                    targetClusterId);
-                                        }
-                                        return;
-                                    }
-                                    final Transformed<RealVector> transformedCentroid =
-                                            storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
-                                    final ReassignTask reassignTask =
-                                            ReassignTask.of(getLocator(), accessInfo,
-                                                    RandomHelpers.randomUUID(random.split()),
-                                                    targetClusterId,
-                                                    transformedCentroid,
-                                                    ImmutableSet.of());
-                                    primitives.writeDeferredTask(transaction, reassignTask);
-                                    if (logger.isInfoEnabled()) {
-                                        logger.info("enqueuing final REASSIGN; taskId={}; targetClusterIds={}",
-                                                reassignTask.getTaskId(),
-                                                reassignTask.getTargetClusterIds());
-                                    }
+        return RandomHelpers.forEach(random, getTargetClusterIds(),
+                        (targetClusterId, nestedRandom) ->
+                                centroidsHnsw.fetch(transaction, StorageAdapter.tupleFromClusterId(targetClusterId))
+                                        .thenAccept(resultEntry -> {
+                                            if (resultEntry == null) {
+                                                if (logger.isInfoEnabled()) {
+                                                    logger.info("unable to enqueue final REASSIGN; targetClusterIds={}",
+                                                            targetClusterId);
+                                                }
+                                                return;
+                                            }
+                                            final Transformed<RealVector> transformedCentroid =
+                                                    storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
+                                            final ReassignTask reassignTask =
+                                                    ReassignTask.of(getLocator(), accessInfo,
+                                                            RandomHelpers.randomUUID(nestedRandom),
+                                                            targetClusterId,
+                                                            transformedCentroid,
+                                                            ImmutableSet.of());
+                                            primitives.writeDeferredTask(transaction, reassignTask);
+                                            if (logger.isInfoEnabled()) {
+                                                logger.info("enqueuing final REASSIGN; taskId={}; targetClusterIds={}",
+                                                        reassignTask.getTaskId(),
+                                                        reassignTask.getTargetClusterIds());
+                                            }
 
-                                }), 10, executor)
+                                        }), 10, executor)
                 .thenCompose(ignored2 -> AsyncUtil.DONE);
     }
 

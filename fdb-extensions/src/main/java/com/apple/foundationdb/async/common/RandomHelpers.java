@@ -20,10 +20,17 @@
 
 package com.apple.foundationdb.async.common;
 
+import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.google.common.collect.Iterables;
+
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.SplittableRandom;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiFunction;
 
 public final class RandomHelpers {
     private RandomHelpers() {
@@ -87,8 +94,43 @@ public final class RandomHelpers {
         return new UUID(msb, lsb);
     }
 
-    public static final class GaussianSampler {
+    @Nonnull
+    public static <T, U> CompletableFuture<List<U>> forEach(@Nonnull final SplittableRandom splittableRandom,
+                                                            @Nonnull final Iterable<T> items,
+                                                            @Nonnull final BiFunction<T, SplittableRandom, CompletableFuture<U>> body,
+                                                            final int parallelism,
+                                                            @Nonnull final Executor executor) {
+        final Iterable<ItemRandomPair<T>> itemWithRandoms =
+                Iterables.transform(items, item -> new ItemRandomPair<>(item, splittableRandom.split()));
 
+        return MoreAsyncUtil.forEach(itemWithRandoms,
+                itemWithRandom -> body.apply(itemWithRandom.getItem(), itemWithRandom.getRandom()),
+                parallelism, executor);
+    }
+
+    private static class ItemRandomPair<T> {
+        @Nonnull
+        private final T item;
+        @Nonnull
+        private final SplittableRandom random;
+
+        public ItemRandomPair(@Nonnull final T item, @Nonnull final SplittableRandom random) {
+            this.item = item;
+            this.random = random;
+        }
+
+        @Nonnull
+        public T getItem() {
+            return item;
+        }
+
+        @Nonnull
+        public SplittableRandom getRandom() {
+            return random;
+        }
+    }
+
+    public static final class GaussianSampler {
         private final SplittableRandom random;
         // Cached second sample (because each call produces 2 normals)
         private boolean hasSpare = false;

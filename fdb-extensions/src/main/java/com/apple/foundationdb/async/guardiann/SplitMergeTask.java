@@ -169,21 +169,21 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
             return primitives.fetchInnerClusters(transaction,
                             maxInner(neighborhoods1To2, neighborhoods2To3), storageTransform)
-                    .thenCompose(innerClusters -> MoreAsyncUtil.forEach(allNeighborhoods,
-                            neighborhoods -> {
-                                if (neighborhoods == null) {
-                                    return CompletableFuture.completedFuture(null);
-                                }
-                                final var innerNeighborhood = neighborhoods.getInnerNeighborhood();
-                                final var clampedInnerClusters =
-                                        innerNeighborhood.size() == innerClusters.size()
-                                        ? innerClusters
-                                        : innerClusters.subList(0, innerNeighborhood.size());
+                    .thenCompose(innerClusters -> RandomHelpers.forEach(random, allNeighborhoods,
+                                    (neighborhoods, nestedRandom) -> {
+                                        if (neighborhoods == null) {
+                                            return CompletableFuture.completedFuture(null);
+                                        }
+                                        final var innerNeighborhood = neighborhoods.getInnerNeighborhood();
+                                        final var clampedInnerClusters =
+                                                innerNeighborhood.size() == innerClusters.size()
+                                                ? innerClusters
+                                                : innerClusters.subList(0, innerNeighborhood.size());
 
-                                return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true)
-                                        .thenApply(vectorReferences ->
-                                                kMeans(neighborhoods, vectorReferences, random, estimator));
-                            }, 10, executor)
+                                        return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true)
+                                                .thenApply(vectorReferences ->
+                                                        kMeans(neighborhoods, vectorReferences, nestedRandom, estimator));
+                                    }, 10, executor)
                             .thenApply(assignmentCandidates -> {
                                 final AssignmentCandidate split1to2Candidate =
                                         Objects.requireNonNull(assignmentCandidates.get(0));
