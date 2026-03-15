@@ -36,10 +36,16 @@ import java.util.SplittableRandom;
 
 /**
  * Bounded, restartable Lloyd-style k-means intended for LOCAL cluster restructuring (SPFresh-style).
- * <p>
- * Drop-in replacement for the earlier BoundedKMeansGeneric:
- * - Adds OPTIONAL soft size balancing via lambda + SizePenalty
- *   (pass lambda=0 or sizePenalty=null to disable and get the old behavior)
+ *
+ * This implementation assumes the external metric is ordinary L2, but the k-means
+ * core optimizes the standard squared-L2 objective internally:
+ *
+ *   - assignment uses squared distance
+ *   - centroid update uses arithmetic mean
+ *   - k-means++ uses squared distance weighting
+ *   - restart selection uses SSE
+ *
+ * Soft size balancing is optional.
  */
 public final class BoundedKMeans {
     private BoundedKMeans() {
@@ -53,8 +59,14 @@ public final class BoundedKMeans {
         private final int[] clusterSizes;
         @Nonnull
         private final int[] assignment;
+        /**
+         * Squared distances to assigned centroids (SSE contribution per vector).
+         */
         @Nonnull
         private final double[] distances;
+        /**
+         * Sum of squared distances (SSE).
+         */
         private final double objective;
 
         public Result(@Nonnull final List<C> clusterCentroids,
@@ -84,11 +96,17 @@ public final class BoundedKMeans {
             return assignment;
         }
 
+        /**
+         * Returns squared distances to assigned centroids.
+         */
         @Nonnull
         public double[] getDistances() {
             return distances;
         }
 
+        /**
+         * Returns the sum of squared distances (SSE).
+         */
         public double getObjective() {
             return objective;
         }
@@ -96,8 +114,8 @@ public final class BoundedKMeans {
 
     /**
      * Soft balancing penalty hook.
-     * <p>
-     * Returned value is multiplied by lambda and added to the distance during assignment.
+     *
+     * Returned value is multiplied by lambda and added to the squared-distance score during assignment.
      * Use lambda=0 or sizePenalty=null to disable.
      */
     @FunctionalInterface
@@ -108,24 +126,28 @@ public final class BoundedKMeans {
     /** Reasonable default: penalize only overflow above target size (quadratic). */
     public static SizePenalty overflowQuadraticPenalty() {
         return (proj, target) -> {
-            int overflow = Math.max(0, proj - target);
+            final int overflow = Math.max(0, proj - target);
             return (double) overflow * (double) overflow / Math.max(1, target);
         };
     }
 
     /**
-     * /**
-     * TODO.
+     * Fits k clusters using a bounded, restartable Lloyd-style squared-L2 k-means.
      * Shuffling reduces order-dependence when using projected-size penalties and usually improves balance quality.
      *
      * @param lambda strength of size balancing; 0 disables
      * @param sizePenalty penalty function; null disables
      */
-    public static <V, C> Result<C> fit(@Nonnull final SplittableRandom random, @Nonnull final Estimator estimator,
+    public static <V, C> Result<C> fit(@Nonnull final SplittableRandom random,
+                                       @Nonnull final Estimator estimator,
                                        @Nonnull final Lens<V, RealVector> vectorLens,
                                        @Nonnull final Lens<C, RealVector> centroidLens,
-                                       @Nonnull final List<V> vectors, final int k, final int maxIterations,
-                                       final int maxRestarts, final double lambda, @Nullable final SizePenalty sizePenalty,
+                                       @Nonnull final List<V> vectors,
+                                       final int k,
+                                       final int maxIterations,
+                                       final int maxRestarts,
+                                       final double lambda,
+                                       @Nullable final SizePenalty sizePenalty,
                                        final boolean shuffleEachIteration) {
 
         Preconditions.checkArgument(k >= 2, "k must be >= 2");
@@ -167,7 +189,7 @@ public final class BoundedKMeans {
 
                 // assignment step
                 for (int t = 0; t < n; t++) {
-                    int i = order[t];
+                    final int i = order[t];
                     final RealVector vector = getVector(vectorLens, vectors, i);
 
                     int bestC = 0;
@@ -175,7 +197,8 @@ public final class BoundedKMeans {
                             lambda, sizePenalty);
 
                     for (int c = 1; c < k; c++) {
-                        double s = score(estimator, vector, c, centroids, projected, targetSize, lambda, sizePenalty);
+                        final double s = score(estimator, vector, c, centroids, projected, targetSize,
+                                lambda, sizePenalty);
                         if (s < bestScore) {
                             bestScore = s;
                             bestC = c;
@@ -190,14 +213,14 @@ public final class BoundedKMeans {
                     projected[bestC]++; // commit this vector to the projected size
                 }
 
-                // Use projected sizes as current sizes
+                // Use projected sizes as current sizes.
                 System.arraycopy(projected, 0, clusterSizes, 0, k);
 
                 if (changed == 0) {
                     break;
                 }
 
-                // Update step
+                // Update step: arithmetic mean, correct for squared-L2 k-means.
                 final List<MutableDoubleRealVector> newCentroids = new ArrayList<>(k);
                 for (int c = 0; c < k; c++) {
                     newCentroids.add(MutableDoubleRealVector.zeroVector(numDimensions));
@@ -210,9 +233,9 @@ public final class BoundedKMeans {
                 for (int c = 0; c < k; c++) {
                     if (clusterSizes[c] == 0) {
                         // Reseed empty cluster with the "hardest" point under current centroids.
-                        int farthestVectorIndex = farthestVectorIndex(vectorLens, vectors, centroids, estimator);
+                        final int farthestVectorIndex = farthestVectorIndex(vectorLens, vectors, centroids, estimator);
                         newCentroids.set(c, getVector(vectorLens, vectors, farthestVectorIndex).toMutable());
-                        clusterSizes[c] = 1; // used only to avoid div-by-zero; next iter recomputes sizes
+                        clusterSizes[c] = 1; // local guard only; next iteration recomputes true sizes
                     } else {
                         newCentroids.get(c).multiply(1.0d / clusterSizes[c]);
                     }
@@ -221,12 +244,15 @@ public final class BoundedKMeans {
                 centroids = newCentroids;
             }
 
-            // Objective: sum of distances (NOT including size penalty) to compare maxRestarts fairly.
+            // Objective: sum of squared distances (SSE), excluding any size penalty,
+            // so restarts are compared on the geometric objective alone.
             final double[] distances = new double[n];
-            double objective = 0.0;
+            double objective = 0.0d;
             for (int i = 0; i < n; i++) {
-                distances[i] = estimator.distance(getVector(vectorLens, vectors, i), centroids.get(assignment[i]));
-                objective += distances[i];
+                final double d = estimator.distance(getVector(vectorLens, vectors, i), centroids.get(assignment[i]));
+                final double d2 = d * d;
+                distances[i] = d2;
+                objective += d2;
             }
 
             final ImmutableList.Builder<C> centroidCopies = ImmutableList.builderWithExpectedSize(k);
@@ -246,22 +272,33 @@ public final class BoundedKMeans {
         return best;
     }
 
-    private static double score(@Nonnull final Estimator estimator, @Nonnull final RealVector vector,
-                                final int c, @Nonnull final List<MutableDoubleRealVector> centroids,
-                                final int[] projectedSizes, final int targetSize, final double lambda,
+    /**
+     * Squared-L2 assignment score plus optional size penalty.
+     */
+    private static double score(@Nonnull final Estimator estimator,
+                                @Nonnull final RealVector vector,
+                                final int c,
+                                @Nonnull final List<MutableDoubleRealVector> centroids,
+                                final int[] projectedSizes,
+                                final int targetSize,
+                                final double lambda,
                                 @Nullable final SizePenalty sizePenalty) {
-        double d = estimator.distance(vector, centroids.get(c));
-        if (lambda == 0.0 || sizePenalty == null) {
-            return d;
+        final double d = estimator.distance(vector, centroids.get(c));
+        final double d2 = d * d;
+
+        if (lambda == 0.0d || sizePenalty == null) {
+            return d2;
         }
 
-        int proj = projectedSizes[c] + 1;
-        return d + lambda * sizePenalty.penalty(proj, targetSize);
+        final int proj = projectedSizes[c] + 1;
+        return d2 + lambda * sizePenalty.penalty(proj, targetSize);
     }
 
     /**
      * k-means++ initialization: pick first centroid at random, then sample next centroids
      * with probability proportional to squared distance to nearest chosen centroid.
+     *
+     * Assumes estimator.distance() returns ordinary L2 distance.
      */
     @Nonnull
     private static <V> List<MutableDoubleRealVector> initKMeansPP(@Nonnull final SplittableRandom random,
@@ -269,19 +306,20 @@ public final class BoundedKMeans {
                                                                   @Nonnull final List<V> vectors,
                                                                   final int k,
                                                                   @Nonnull final Estimator estimator) {
-        int n = vectors.size();
+        final int n = vectors.size();
 
-        List<MutableDoubleRealVector> centroids = new ArrayList<>(k);
+        final List<MutableDoubleRealVector> centroids = new ArrayList<>(k);
         centroids.add(getVector(vectorLens, vectors, random.nextInt(n)).toMutable());
 
-        double[] weights = new double[n];
+        final double[] weights = new double[n];
 
         while (centroids.size() < k) {
-            double total = 0.0;
+            double total = 0.0d;
 
             for (int i = 0; i < n; i++) {
                 final RealVector vector = getVector(vectorLens, vectors, i);
                 double minD = Double.MAX_VALUE;
+
                 for (final MutableDoubleRealVector centroid : centroids) {
                     final double d = estimator.distance(vector, centroid);
                     if (d < minD) {
@@ -289,17 +327,17 @@ public final class BoundedKMeans {
                     }
                 }
 
-                double w = minD * minD;
+                final double w = minD * minD;
                 weights[i] = w;
                 total += w;
             }
 
-            if (total == 0.0) {
+            if (total == 0.0d) {
                 centroids.add(getVector(vectorLens, vectors, random.nextInt(n)).toMutable());
                 continue;
             }
 
-            double pick = random.nextDouble() * total;
+            final double pick = random.nextDouble() * total;
             double cum = 0.0d;
             int chosen = n - 1;
 
@@ -313,18 +351,19 @@ public final class BoundedKMeans {
 
             centroids.add(getVector(vectorLens, vectors, chosen).toMutable());
         }
+
         return centroids;
     }
 
     /**
-     * Index of point whose minimum distance to any centroid is maximal.
+     * Index of point whose minimum L2 distance to any centroid is maximal.
      * Used to reseed empty clusters.
      */
     private static <V> int farthestVectorIndex(@Nonnull final Lens<V, RealVector> vectorLens,
                                                @Nonnull final List<V> vectors,
                                                @Nonnull final List<MutableDoubleRealVector> centroids,
                                                @Nonnull final Estimator estimator) {
-        double best = -1.0;
+        double best = -1.0d;
         int bestIdx = 0;
 
         for (int i = 0; i < vectors.size(); i++) {
@@ -332,7 +371,7 @@ public final class BoundedKMeans {
 
             double min = Double.MAX_VALUE;
             for (final MutableDoubleRealVector centroid : centroids) {
-                double d = estimator.distance(vector, centroid);
+                final double d = estimator.distance(vector, centroid);
                 if (d < min) {
                     min = d;
                 }
@@ -354,11 +393,11 @@ public final class BoundedKMeans {
         return vectorLens.getNonnull(vectors.get(index));
     }
 
-    /** Fisher–Yates shuffle of an int[] using ThreadLocalRandom. */
+    /** Fisher–Yates shuffle of an int[] using SplittableRandom. */
     private static void shuffleInPlace(@Nonnull final SplittableRandom random, @Nonnull final int[] a) {
         for (int i = a.length - 1; i > 0; i--) {
-            int j = random.nextInt(i + 1);
-            int tmp = a[i];
+            final int j = random.nextInt(i + 1);
+            final int tmp = a[i];
             a[i] = a[j];
             a[j] = tmp;
         }

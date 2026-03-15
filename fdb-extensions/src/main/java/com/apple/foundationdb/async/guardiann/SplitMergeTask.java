@@ -148,7 +148,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final Quantizer quantizer = primitives.quantizer(accessInfo);
         final Estimator estimator = quantizer.estimator();
 
-        final int numNeighborhood = 13;
+        final int numNeighborhood = 24;
 
         final var neighborhoodsFuture =
                 primitives.fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata, targetClusterCentroid,
@@ -282,7 +282,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final BoundedKMeans.Result<Transformed<RealVector>> kMeansResult =
                 BoundedKMeans.fit(random, estimator, VectorReference.vectorLens(),
                         Transformed.underlyingLens(), primaryVectorReferences, targetNumPartitions, 3,
-                        1, 0.05, BoundedKMeans.overflowQuadraticPenalty(),
+                        1, 0.00, BoundedKMeans.overflowQuadraticPenalty(),
                         true);
 
         return assignPrimaryVectorReferences(random, estimator, outerNeighborhood, primaryVectorReferences,
@@ -587,7 +587,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                 BoundedKMeans.fit(random, estimator, VectorReference.vectorLens(),
                         Transformed.underlyingLens(), primaryVectorReferences,
                         neighborhoods.getInnerNeighborhood().size() + 1, 3,
-                        1, 0.05, BoundedKMeans.overflowQuadraticPenalty(),
+                        1, 0.00, BoundedKMeans.overflowQuadraticPenalty(),
                         true));
     }
 

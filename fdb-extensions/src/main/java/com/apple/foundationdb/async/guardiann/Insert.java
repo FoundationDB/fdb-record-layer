@@ -233,7 +233,7 @@ public class Insert {
                     final AtomicDouble primaryDistanceAtomic = new AtomicDouble(Double.NaN);
 
                     final AsyncIterable<ClusterMetadataWithDistance> affectedNeighborhood =
-                            takeWhileIterable(limitIterable(clusterMetadataIterable, 3,
+                            takeWhileIterable(limitIterable(clusterMetadataIterable, 16,
                                             getExecutor()),
                                     clusterMetadataWithDistance -> {
                                         final int index = indexAtomic.getAndIncrement();

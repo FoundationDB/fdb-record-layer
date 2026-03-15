@@ -140,7 +140,7 @@ public class ReassignTask extends AbstractDeferredTask {
         final Estimator estimator = quantizer.estimator();
 
         final int numInnerNeighborhood = 1;
-        final int numOuterNeighborhood = 6;
+        final int numOuterNeighborhood = 32;
 
         final CompletableFuture<Primitives.NeighborhoodsResult> neighborhoodsFuture =
                 primitives.neighborhoods(transaction, storageTransform, targetClusterMetadata, targetClusterCentroid,

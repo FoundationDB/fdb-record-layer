@@ -103,9 +103,9 @@ public class SiftTest implements BaseTest {
                         .setPrimaryClusterMax(1000)
                         .setPrimaryClusterMin(300)
                         .setPersistSequentialUuids(true)
-                        .setClusterOverlap(0.2d)
-                        .setReplicatedClusterTarget(500)
-                        .setReplicatedClusterMaxWrites(3000)
+                        .setClusterOverlap(0.1d)
+                        .setReplicatedClusterTarget(1000)
+                        .setReplicatedClusterMaxWrites(1500)
                         .build(128);
 
         guardiann = new Guardiann(subspaceExtension.getSubspace(),

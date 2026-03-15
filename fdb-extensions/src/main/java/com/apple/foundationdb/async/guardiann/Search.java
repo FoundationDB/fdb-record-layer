@@ -169,7 +169,7 @@ public class Search {
                     final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
                             MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
                                     primitives.centroidsOrderedByDistance(readTransaction, queryVector,
-                                            0.0d, null), getExecutor()), 8, getExecutor());
+                                            0.0d, null), getExecutor()), 12, getExecutor());
 
                     final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
                             mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,

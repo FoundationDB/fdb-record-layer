@@ -133,7 +133,7 @@ public class BounceReassignTask extends AbstractDeferredTask {
                                     primitives.writeDeferredTask(transaction, newBounceReassignTask);
 
                                     if (logger.isInfoEnabled()) {
-                                        logger.info("enqueuing BOUNCE_REASSIGN; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
+                                        logger.info("re-enqueuing BOUNCE_REASSIGN; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
                                                 newBounceReassignTask.getTaskId(),
                                                 newBounceReassignTask.getTargetClusterIds(),
                                                 newBounceReassignTask.getDependentTaskIds());
