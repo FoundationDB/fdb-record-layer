@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -82,11 +81,10 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
     @Setup(Level.Iteration)
     public void setUp(ThreadScopedDatabases databases) throws RelationalException, SQLException {
         databases.createDatabase(
-                DatabaseTemplate.newBuilder()
-                        .withSchema(singleReadSchema, schemaTemplateName)
-                        .withSchema(singleWriteSchema, schemaTemplateName)
-                        .build(),
-                dbName);
+                getUri(dbName, false),
+                schemaTemplateName,
+                singleReadSchema,
+                singleWriteSchema);
 
         try (RelationalConnection dbConn = DriverManager.getConnection(getUri(dbName, true).toString()).unwrap(RelationalConnection.class)) {
             dbConn.setSchema(singleReadSchema);

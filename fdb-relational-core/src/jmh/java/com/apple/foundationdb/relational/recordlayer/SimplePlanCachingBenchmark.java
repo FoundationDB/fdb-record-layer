@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
@@ -97,12 +96,11 @@ public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
         driver.up();
 
         databases.createMultipleDatabases(
-                DatabaseTemplate.newBuilder()
-                        .withSchema(cacheSchema, schemaTemplateName)
-                        .build(),
+                schemaTemplateName,
                 dbCount,
                 this::dbName,
-                this::populateDatabase);
+                this::populateDatabase,
+                cacheSchema);
     }
 
     @TearDown(Level.Trial)
