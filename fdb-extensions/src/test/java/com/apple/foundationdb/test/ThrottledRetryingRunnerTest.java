@@ -164,6 +164,57 @@ class ThrottledRetryingRunnerTest {
     }
 
     // -------------------------------------------------------------------------
+    // QuotaManager shouldContinue
+    // -------------------------------------------------------------------------
+
+    @Test
+    void shouldContinueTrueWhenUnderLimit() {
+        ThrottledRetryingRunner.QuotaManager qm = quotaManager(10);
+        qm.initTransaction();
+        qm.processedCountAdd(5);
+        assertThat(qm.shouldContinue()).isTrue();
+    }
+
+    @Test
+    void shouldContinueFalseWhenProcessedCountExceedsLimit() {
+        ThrottledRetryingRunner.QuotaManager qm = quotaManager(10);
+        qm.initTransaction();
+        qm.processedCountAdd(11); // 11 > 10
+        assertThat(qm.shouldContinue()).isFalse();
+    }
+
+    @Test
+    void shouldContinueTrueWhenProcessedCountEqualsLimit() {
+        // > not >=: at exactly the limit, shouldContinue still returns true
+        ThrottledRetryingRunner.QuotaManager qm = quotaManager(10);
+        qm.initTransaction();
+        qm.processedCountAdd(10); // 10 > 10 is false
+        assertThat(qm.shouldContinue()).isTrue();
+    }
+
+    @Test
+    void shouldContinueTrueWhenNoLimitRegardlessOfCount() {
+        // limit=0 means no limit; the count is never checked
+        ThrottledRetryingRunner.QuotaManager qm = quotaManager(0);
+        qm.initTransaction();
+        qm.processedCountAdd(Integer.MAX_VALUE);
+        assertThat(qm.shouldContinue()).isTrue();
+    }
+
+    @Test
+    void shouldContinueResetsAfterInitTransaction() {
+        // After a transaction fails (count exceeds limit), initTransaction should reset
+        // the state so shouldContinue returns true again at the start of the retry.
+        ThrottledRetryingRunner.QuotaManager qm = quotaManager(5);
+        qm.initTransaction();
+        qm.processedCountAdd(6); // 6 > 5 → shouldContinue false
+        assertThat(qm.shouldContinue()).isFalse();
+
+        qm.initTransaction(); // reset for the next transaction
+        assertThat(qm.shouldContinue()).isTrue();
+    }
+
+    // -------------------------------------------------------------------------
     // Basic iteration: task runs the expected number of times
     // -------------------------------------------------------------------------
 

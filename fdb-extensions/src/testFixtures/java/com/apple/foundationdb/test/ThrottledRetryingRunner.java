@@ -298,15 +298,21 @@ public class ThrottledRetryingRunner implements AutoCloseable {
      * transactions.
      * </p>
      * <p>
-     * The task should call {@link #getLimit()} at the start of each transaction to know how much
-     * work to attempt, and increment the counts as it goes.
+     * The task should call {@link #shouldContinue()} between processing items to decide whether
+     * to stop early. {@link #shouldContinue()} returns {@code false} once the processed count
+     * exceeds the active limit or the transaction has been running for longer than
+     * {@link #MAX_TRANSACTION_DURATION_MILLIS}.
      * </p>
      */
     public static class QuotaManager {
+        /** Maximum time a single transaction should run before {@link #shouldContinue()} returns {@code false}. */
+        static final long MAX_TRANSACTION_DURATION_MILLIS = TimeUnit.SECONDS.toMillis(4);
+
         private int processedCount;
         private int deletedCount;
         private int limit;
         private final int maxLimit;
+        private long transactionStartTimeMillis;
 
         QuotaManager(int maxLimit) {
             this.maxLimit = maxLimit;
@@ -370,9 +376,30 @@ public class ThrottledRetryingRunner implements AutoCloseable {
             deletedCount++;
         }
 
+        /**
+         * Returns {@code true} if the task should continue processing items in this transaction,
+         * {@code false} if it should stop and return a continuation.
+         * <p>
+         * Returns {@code false} when either:
+         * <ul>
+         *   <li>a limit is active ({@link #getLimit()} {@code > 0}) and the processed count
+         *       exceeds it, or</li>
+         *   <li>the transaction has been running for longer than
+         *       {@link #MAX_TRANSACTION_DURATION_MILLIS}.</li>
+         * </ul>
+         * </p>
+         */
+        public boolean shouldContinue() {
+            if (limit > 0 && processedCount > limit) {
+                return false;
+            }
+            return System.currentTimeMillis() - transactionStartTimeMillis < MAX_TRANSACTION_DURATION_MILLIS;
+        }
+
         void initTransaction() {
             processedCount = 0;
             deletedCount = 0;
+            transactionStartTimeMillis = System.currentTimeMillis();
         }
 
         void increaseLimit() {
