@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
@@ -72,6 +73,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -106,26 +108,31 @@ class TestHelpers {
             final int batchSize,
             final long firstId,
             @Nonnull final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction) {
-        logger.info("Inserting batch [" + firstId + ", " + (firstId + batchSize) + ")");
+        logger.info("Inserting batch starting at " + firstId);
         final TestOnWriteListener onWriteListener = (TestOnWriteListener)hnsw.getOnWriteListener();
         onWriteListener.reset();
         final TestOnReadListener onReadListener = (TestOnReadListener)hnsw.getOnReadListener();
         onReadListener.reset();
 
         final ImmutableList.Builder<PrimaryKeyAndVector> data = ImmutableList.builder();
-
-        // In theory this could put all the futures in a List and run the inserts concurrently, but for a `basicInsertBatch`
-        // it's probably better to not test the concurrent handling of hnsw, even if it makes the tests slower.
-        CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
-        for (int i = 0; i < batchSize; i ++) {
+        // Call insertFunction lazily between async inserts so that shouldContinue() sees the
+        // actual elapsed time after each insert rather than evaluating all checks synchronously
+        // before any async work begins.
+        final AtomicInteger insertCount = new AtomicInteger(0);
+        return AsyncUtil.whileTrue(() -> {
+            final int i = insertCount.get();
+            if (i >= batchSize) {
+                return AsyncUtil.READY_FALSE;
+            }
             final PrimaryKeyAndVector record = insertFunction.apply(tr, firstId + i);
             if (record == null) {
-                break;
+                return AsyncUtil.READY_FALSE;
             }
             data.add(record);
-            future = future.thenCompose((vignore) -> hnsw.insert(tr, record.getPrimaryKey(), record.getVector()));
-        }
-        return future.thenApply(vignore -> data.build());
+            insertCount.incrementAndGet();
+            return hnsw.insert(tr, record.getPrimaryKey(), record.getVector())
+                    .thenApply(ignored -> Boolean.TRUE);
+        }).<List<PrimaryKeyAndVector>>thenApply(ignored -> data.build());
     }
 
     @Nonnull
