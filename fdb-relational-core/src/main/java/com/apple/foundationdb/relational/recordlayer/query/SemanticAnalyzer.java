@@ -306,6 +306,23 @@ public class SemanticAnalyzer {
     @Nonnull
     public Star expandStar(@Nonnull Optional<Identifier> optionalQualifier,
                            @Nonnull LogicalOperators operators) {
+        return expandStar(optionalQualifier, operators, Optional.empty());
+    }
+
+    @Nonnull
+    public Star expandStar(@Nonnull Optional<Identifier> optionalQualifier,
+                           @Nonnull LogicalOperators operators,
+                           @Nonnull Optional<LogicalPlanFragment> planFragmentMaybe) {
+        // In UPDATE RETURNING context, unqualified * should expand to NEW.*
+        if (planFragmentMaybe.isPresent() && optionalQualifier.isEmpty()) {
+            final var stateMaybe = planFragmentMaybe.get().getStateMaybe();
+            final var updateQuantifierMaybe = stateMaybe.flatMap(LogicalPlanFragment.State::getUpdateQuantifier);
+            if (updateQuantifierMaybe.isPresent()) {
+                // Treat unqualified * as NEW.* in UPDATE RETURNING
+                return expandStar(Optional.of(Identifier.of("NEW")), operators, planFragmentMaybe);
+            }
+        }
+
         final var forEachOperators = operators.forEachOnly();
         // Case 1: no qualifier, e.g. SELECT * FROM T, R;
         if (optionalQualifier.isEmpty()) {
@@ -345,6 +362,32 @@ public class SemanticAnalyzer {
     @Nonnull
     public Expression resolveIdentifier(@Nonnull Identifier identifier,
                                         @Nonnull LogicalPlanFragment planFragment) {
+        // Check if we're in UPDATE RETURNING context
+        final var stateMaybe = planFragment.getStateMaybe();
+        final var updateQuantifierMaybe = stateMaybe.flatMap(LogicalPlanFragment.State::getUpdateQuantifier);
+
+        if (updateQuantifierMaybe.isPresent() && !identifier.isQualified()) {
+            // Unqualified identifier in UPDATE RETURNING - automatically access NEW.<field>
+            final var updateQuantifier = updateQuantifierMaybe.get();
+            final var updateValue = updateQuantifier.getFlowedObjectValue();
+            final var fieldValue = com.apple.foundationdb.record.query.plan.cascades.values.FieldValue.ofFieldNames(
+                    updateValue, ImmutableList.of("NEW", identifier.getName()));
+            return Expression.fromUnderlying(fieldValue).withName(identifier);
+        }
+
+        if (updateQuantifierMaybe.isPresent() && identifier.isQualified() && identifier.getQualifier().size() == 1) {
+            // Check if qualified with NEW or OLD
+            final var qualifier = identifier.getQualifier().get(0);
+            if ("NEW".equals(qualifier) || "OLD".equals(qualifier)) {
+                final var updateQuantifier = updateQuantifierMaybe.get();
+                final var updateValue = updateQuantifier.getFlowedObjectValue();
+                final var fieldValue = com.apple.foundationdb.record.query.plan.cascades.values.FieldValue.ofFieldNames(
+                        updateValue, ImmutableList.of(qualifier, identifier.getName()));
+                return Expression.fromUnderlying(fieldValue).withName(Identifier.of(identifier.getName()));
+            }
+        }
+
+        // Normal identifier resolution
         // search throw all visible plan fragments:
         // - in each plan fragment, search operators left to right.
         // - if identifier is not resolve, go to parent plan fragment.
