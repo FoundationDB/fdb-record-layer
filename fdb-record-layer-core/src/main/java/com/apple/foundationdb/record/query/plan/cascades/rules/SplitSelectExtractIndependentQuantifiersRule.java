@@ -175,10 +175,15 @@ public class SplitSelectExtractIndependentQuantifiersRule extends ExplorationCas
             return false;
         }
 
-        return selectExpression
-                .getResultValues()
-                .stream()
-                .flatMap(resultValue -> resultValue.getCorrelatedTo().stream())
-                .noneMatch(explodeAliases::contains);
+        if (selectExpression.getResultValue().getResultType().isRecord()) {
+            return selectExpression
+                    .getResultValues()
+                    .stream()
+                    .flatMap(resultValue -> resultValue.getCorrelatedTo().stream())
+                    .noneMatch(explodeAliases::contains);
+        } else {
+            return selectExpression.getResultValue().getCorrelatedTo().stream()
+                    .noneMatch(explodeAliases::contains);
+        }
     }
 }
