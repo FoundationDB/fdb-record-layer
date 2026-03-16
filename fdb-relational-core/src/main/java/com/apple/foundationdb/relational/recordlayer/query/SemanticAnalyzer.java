@@ -840,7 +840,8 @@ public class SemanticAnalyzer {
     }
 
     public static void validateDatabaseUri(String pathName) {
-        // TODO does this need to be more permissive. Does it need to support `.`
+        // TODO this should probably follow the same rules as other quoted identifiers:
+        //      https://github.com/FoundationDB/fdb-record-layer/issues/4004
         // It can end with `/` if the schema is the default (null) schema
         Assert.thatUnchecked(Objects.requireNonNull(pathName).matches("/\\w[-a-zA-Z0-9_/]*\\w"),
                 ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", pathName));

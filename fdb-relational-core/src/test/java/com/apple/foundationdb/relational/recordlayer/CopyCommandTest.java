@@ -432,8 +432,6 @@ public class CopyCommandTest {
             final int importCount = importDatabase(quoted, true, setup.dest, exportedData);
             assertThat(importCount).isGreaterThan(3); // we will import at least the rows saved, but also other internal data
 
-            // Try to verify that the records exist in the destination
-            // This is expected to fail because COPY does not copy catalog information
             assertDataExists(setup.dest, data);
         } finally {
             dropTemplateAndDatabase(quoted, List.of(setup.templateName), setup.source);

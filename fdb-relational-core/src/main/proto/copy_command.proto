@@ -27,8 +27,6 @@ option java_package = "com.apple.foundationdb.relational.copy";
 option java_outer_classname = "CopyProto";
 
 // Message used when exporting data via `COPY /my/path` and `COPY /my/path FROM ?`.
-// Although this is currently just the raw `DataInKeySpacePath`, it will later need to contain information
-// about the catalog, and potentially other information.
 message CopyData {
   optional com.apple.foundationdb.record.provider.foundationdb.keyspace.DataInKeySpacePath data = 1;
   optional CatalogInfo catalog_info = 2;
