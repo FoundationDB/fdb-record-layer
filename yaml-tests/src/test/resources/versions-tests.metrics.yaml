@@ -564,13 +564,13 @@ versions-queries:
         AS STRING) AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3, q1.__ROW_VERSION
         AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }'
     task_count: 2591
-    task_total_time_ms: 166
+    task_total_time_ms: 306
     transform_count: 841
-    transform_time_ms: 46
+    transform_time_ms: 107
     transform_yield_count: 190
-    insert_time_ms: 6
+    insert_time_ms: 8
     insert_new_count: 394
-    insert_reused_count: 36
+    insert_reused_count: 34
 -   query: EXPLAIN select t3.id AS id3, t4."__ROW_VERSION" AS version4, t4.id AS id4,
         t3.col2, t4.col4 from t3, t4 where t3.col1 = 'b' and t4.col1 = 'b' and t4.col2
         = t3.col2 and exists (select 1 from t4.col4 x where x = 2)
@@ -581,13 +581,13 @@ versions-queries:
         AS STRING) AS q1 RETURN (q0.ID AS ID3, q1.__ROW_VERSION AS VERSION4, q1.ID
         AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4) }'
     task_count: 2591
-    task_total_time_ms: 94
+    task_total_time_ms: 252
     transform_count: 840
-    transform_time_ms: 36
+    transform_time_ms: 97
     transform_yield_count: 190
-    insert_time_ms: 5
+    insert_time_ms: 7
     insert_new_count: 394
-    insert_reused_count: 36
+    insert_reused_count: 34
 -   query: EXPLAIN select a.version AS version3, a.r.id AS id3, b.version AS version4,
         b.r.id AS id4, a.r.col2, b.r.col4 from t3_by_col1('b') a, t4_by_col1('b')
         b where 2 in b.r.col4 and b.r.col2 = a.r.col2
@@ -598,14 +598,14 @@ versions-queries:
         AS LONG) IN _.COL4 AS q1 RETURN (q0.__ROW_VERSION AS VERSION3, q0.ID AS ID3,
         q1.__ROW_VERSION AS VERSION4, q1.ID AS ID4, q0.COL2 AS COL2, q1.COL4 AS COL4)
         }'
-    task_count: 3579
-    task_total_time_ms: 287
-    transform_count: 1111
-    transform_time_ms: 71
-    transform_yield_count: 246
-    insert_time_ms: 17
-    insert_new_count: 619
-    insert_reused_count: 55
+    task_count: 2685
+    task_total_time_ms: 262
+    transform_count: 720
+    transform_time_ms: 102
+    transform_yield_count: 205
+    insert_time_ms: 7
+    insert_new_count: 441
+    insert_reused_count: 32
 -   query: EXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1,
         3, 5)
     ref: versions-tests.yamsql:633
@@ -706,11 +706,11 @@ versions-queries:
         AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS B, (q3._1.__ROW_VERSION
         AS __ROW_VERSION, q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2)
         AS C) }
-    task_count: 4240
-    task_total_time_ms: 230
-    transform_count: 1354
-    transform_time_ms: 52
-    transform_yield_count: 258
-    insert_time_ms: 12
-    insert_new_count: 688
-    insert_reused_count: 74
+    task_count: 3201
+    task_total_time_ms: 335
+    transform_count: 861
+    transform_time_ms: 105
+    transform_yield_count: 211
+    insert_time_ms: 7
+    insert_new_count: 508
+    insert_reused_count: 33
