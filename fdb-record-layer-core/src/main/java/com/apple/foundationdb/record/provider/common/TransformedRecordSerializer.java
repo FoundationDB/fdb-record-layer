@@ -34,6 +34,7 @@ import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.GeneralSecurityException;
+import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
@@ -86,17 +87,20 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     protected final int compressionLevel;
     protected final boolean encryptWhenSerializing;
     protected final double writeValidationRatio;
+    protected final double writeEncryptionValidationRatio;
 
     protected TransformedRecordSerializer(@Nonnull RecordSerializer<M> inner,
                                           boolean compressWhenSerializing,
                                           int compressionLevel,
                                           boolean encryptWhenSerializing,
-                                          double writeValidationRatio) {
+                                          double writeValidationRatio,
+                                          double writeEncryptionValidationRatio) {
         this.inner = inner;
         this.compressWhenSerializing = compressWhenSerializing;
         this.compressionLevel = compressionLevel;
         this.encryptWhenSerializing = encryptWhenSerializing;
         this.writeValidationRatio = writeValidationRatio;
+        this.writeEncryptionValidationRatio = writeEncryptionValidationRatio;
     }
 
     protected void compress(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) {
@@ -160,6 +164,22 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         return writeValidationRatio >= 1.0 || (writeValidationRatio > 0.0 && ThreadLocalRandom.current().nextDouble() < writeValidationRatio);
     }
 
+    private boolean shouldValidateEncryption() {
+        return writeEncryptionValidationRatio >= 1.0 || (writeEncryptionValidationRatio > 0.0 && ThreadLocalRandom.current().nextDouble() < writeEncryptionValidationRatio);
+    }
+
+    private void validateEncrypt(@Nonnull byte[] beforeEncrypt, @Nonnull byte[] afterEncrypt, @Nullable StoreTimer timer) {
+        TransformedRecordSerializerState verifyState = new TransformedRecordSerializerState(afterEncrypt);
+        try {
+            decrypt(verifyState, timer);
+        } catch (GeneralSecurityException ex) {
+            throw new RecordSerializationException("encryption validation error: decryption failed", ex);
+        }
+        if (!Arrays.equals(verifyState.getDataArray(), beforeEncrypt)) {
+            throw new RecordSerializationException("encryption validation error: decrypted bytes do not match original");
+        }
+    }
+
     @Nonnull
     @Override
     public byte[] serialize(@Nonnull RecordMetaData metaData,
@@ -175,12 +195,16 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         }
 
         if (encryptWhenSerializing) {
+            byte[] beforeEncrypt = state.getDataArray();
             try {
                 encrypt(state, timer);
             } catch (GeneralSecurityException ex) {
                 throw new RecordSerializationException("encryption error", ex)
                         .addLogInfo("recordType", recordType.getName())
                         .addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion());
+            }
+            if (shouldValidateEncryption()) {
+                validateEncrypt(beforeEncrypt, state.getDataArray(), timer);
             }
         }
 
@@ -277,7 +301,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     @Nonnull
     @Override
     public RecordSerializer<Message> widen() {
-        return new TransformedRecordSerializer<>(inner.widen(), compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio);
+        return new TransformedRecordSerializer<>(inner.widen(), compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio);
     }
 
     @Nonnull
@@ -328,6 +352,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         protected int compressionLevel = DEFAULT_COMPRESSION_LEVEL;
         protected boolean encryptWhenSerializing;
         protected double writeValidationRatio;
+        protected double writeEncryptionValidationRatio;
 
         protected Builder(@Nonnull RecordSerializer<M> inner) {
             this.inner = inner;
@@ -403,6 +428,21 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         }
 
         /**
+         * Allows the user to specify a portion of encryptions that will be validated. Every validated encryption will
+         * decrypt the result and verify it matches the original plaintext. If the ratio is less than or equal to 0.0,
+         * no encryptions will be validated. If the ratio is greater than or equal to 1.0, all encryptions will be
+         * validated. Otherwise, a random sampling will be selected.
+         *
+         * @param writeEncryptionValidationRatio what ratio of record encryptions should be validated
+         * @return this <code>Builder</code>
+         */
+        @Nonnull
+        public Builder<M> setWriteEncryptionValidationRatio(double writeEncryptionValidationRatio) {
+            this.writeEncryptionValidationRatio = writeEncryptionValidationRatio;
+            return this;
+        }
+
+        /**
          * Construct a {@link TransformedRecordSerializer} from the
          * parameters specified by this builder. If one has enabled
          * encryption at serialization time, then this will fail
@@ -419,7 +459,8 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
                     compressWhenSerializing,
                     compressionLevel,
                     encryptWhenSerializing,
-                    writeValidationRatio
+                    writeValidationRatio,
+                    writeEncryptionValidationRatio
             );
         }
     }
