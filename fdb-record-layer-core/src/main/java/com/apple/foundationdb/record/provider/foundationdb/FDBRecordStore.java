@@ -2872,31 +2872,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // the atomic reference level) will retry the update on the new record store state, so the operation always
         // does what's expected (i.e., update the "in flight reads" value while leaving the record store state otherwise
         // in tact).
-        recordStoreStateRef.updateAndGet(state -> {
-            state.beginRead();
-            return state;
-        });
+        recordStoreStateRef.get().beginRead();
     }
 
     private void endRecordStoreStateRead() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.endRead();
-            return state;
-        });
+        recordStoreStateRef.get().endRead();
     }
 
     private void beginRecordStoreStateWrite() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.beginWrite();
-            return state;
-        });
+        recordStoreStateRef.get().beginWrite();
     }
 
     private void endRecordStoreStateWrite() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.endWrite();
-            return state;
-        });
+        recordStoreStateRef.get().endWrite();
     }
 
     @Nonnull
@@ -4382,12 +4370,34 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
+    private CompletableFuture<Void> finishPreSetWork(@Nonnull List<CompletableFuture<Void>> work) {
+        if (work.isEmpty()) {
+            return AsyncUtil.DONE;
+        }
+        return AsyncUtil.whenAll(work).whenComplete((v, t) ->
+        {
+            for (CompletableFuture<Void> w : work) {
+                context.asyncToSync(FDBStoreTimer.Waits.WAIT_ERROR_CHECK, w); // Just for error handling.
+            }
+        });
+    }
+
     @Nonnull
     protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
                                                      @Nonnull Map<Index, CompletableFuture<IndexState>> newStates,
                                                      @Nonnull List<CompletableFuture<Void>> work,
                                                      @Nonnull RebuildIndexReason reason,
                                                      @Nullable Integer oldMetaDataVersion) {
+        // Finish any pre-existing work items with potential index state reads before the rebuildIndexes's index state writes
+        return finishPreSetWork(work).thenCompose(ignore -> rebuildIndexes(indexes, newStates, reason, oldMetaDataVersion));
+    }
+
+    @Nonnull
+    protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
+                                                     @Nonnull Map<Index, CompletableFuture<IndexState>> newStates,
+                                                     @Nonnull RebuildIndexReason reason,
+                                                     @Nullable Integer oldMetaDataVersion) {
+        List<CompletableFuture<Void>> work = new ArrayList<>();
         Iterator<Map.Entry<Index, List<RecordType>>> indexIter = indexes.entrySet().iterator();
         return AsyncUtil.whileTrue(() -> {
             Iterator<CompletableFuture<Void>> workIter = work.iterator();
