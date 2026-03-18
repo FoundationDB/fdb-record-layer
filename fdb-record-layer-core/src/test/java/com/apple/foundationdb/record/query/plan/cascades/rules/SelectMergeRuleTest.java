@@ -680,8 +680,7 @@ class SelectMergeRuleTest {
     /**
      * Validate a rather complicated join merges up values as referencing correlations are merged up.
      * In particular, we begin with a complicated tree of joins with correlations between the legs.
-     * At each step, running the {@link SelectMergeRule} will work with all the quantifiers and merge
-     * their select expressions in to the top-level select.
+     * At each step, all the immediate children of the current top node are merged together.
      */
     @Test
     void shaveOffConnectedComponents() {

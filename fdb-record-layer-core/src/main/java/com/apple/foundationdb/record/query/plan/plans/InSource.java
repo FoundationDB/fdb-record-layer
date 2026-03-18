@@ -79,7 +79,7 @@ public abstract class InSource implements PlanHashable, PlanSerializable, Typed 
 
     @Nonnull
     public Set<Type> getDynamicTypes() {
-        return Set.of(getResultType());
+        return Set.of();
     }
 
     public abstract boolean isSorted();

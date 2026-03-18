@@ -52,9 +52,7 @@ import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.argmin;
@@ -129,7 +127,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                         .collect(ImmutableMap.toImmutableMap(NonnullPair::getLeft, NonnullPair::getRight));
 
         final Set<CorrelationIdentifier> newQunAliases = new HashSet<>();
-        final var aliasToNewQuantifiersMapBuilder = ImmutableMap.<CorrelationIdentifier, List<? extends Quantifier>>builder();
+        final var newQuantifiers = ImmutableList.<Quantifier>builder();
         final var newPredicates = ImmutableList.<QueryPredicate>builder();
         final var nextExpressionTranslationBuilder = TranslationMap.regularBuilder();
         for (final var alias: correlationPermutation.orElseThrow()) {
@@ -153,12 +151,11 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                 final var nextSelectExpressionTranslationMap = nextExpressionTranslationBuilder.build();
                 TranslationMap resultantTranslationMap;
                 if (childAliasMap.definesOnlyIdentities()) {
-                    resultantTranslationMap = RegularTranslationMap.compose(ImmutableList.of(nextSelectExpressionTranslationMap));
+                    resultantTranslationMap = nextSelectExpressionTranslationMap;
                 } else {
                     resultantTranslationMap = RegularTranslationMap.compose(ImmutableList.of(childAliasMap, nextSelectExpressionTranslationMap));
                 }
-
-                aliasToNewQuantifiersMapBuilder.put(alias, Quantifiers.rebaseGraphs(childSelectExpression.getQuantifiers(), (Memoizer) call, resultantTranslationMap, true));
+                newQuantifiers.addAll(Quantifiers.rebaseGraphs(childSelectExpression.getQuantifiers(), (Memoizer) call, resultantTranslationMap, true));
                 childSelectExpression.getPredicates().stream()
                         .map(predicate -> predicate.translateCorrelations(resultantTranslationMap, true))
                         .forEach(newPredicates::add);
@@ -176,7 +173,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                     // and then rebase it for adjustments - which itself could memoize refs that changed.
                     newChildReference = Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(newChildReference), (Memoizer) call, nextExpressionTranslationBuilder.build(), true));
                 }
-                aliasToNewQuantifiersMapBuilder.put(alias, ImmutableList.of(oldQun.overNewReference(newChildReference)));
+                newQuantifiers.add(oldQun.overNewReference(newChildReference));
             }
         }
 
@@ -186,10 +183,9 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
         final var topLevelSelectTranslationMap = nextExpressionTranslationBuilder.build();
         selectExpression.getPredicates()
                 .forEach(predicate -> newPredicates.add(predicate.translateCorrelations(topLevelSelectTranslationMap, true)));
-        final var aliasToNewQuantifiersMap = aliasToNewQuantifiersMapBuilder.build();
         final SelectExpression newSelectExpression = new SelectExpression(
                 selectExpression.getResultValue().translateCorrelations(topLevelSelectTranslationMap, true),
-                selectExpression.getQuantifiers().stream().flatMap(q -> aliasToNewQuantifiersMap.get(q.getAlias()).stream()).collect(Collectors.toList()),
+                newQuantifiers.build(),
                 newPredicates.build()
         );
         call.yieldFinalExpression(newSelectExpression);

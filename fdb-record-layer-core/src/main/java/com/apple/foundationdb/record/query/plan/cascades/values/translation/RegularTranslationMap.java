@@ -58,8 +58,8 @@ public class RegularTranslationMap implements TranslationMap {
 
     @Override
     public boolean definesOnlyIdentities() {
-        return getAliasMapMaybe().map(a -> a.definesOnlyIdentities() && aliasToFunctionMap.isEmpty())
-                .orElseGet(aliasToFunctionMap::isEmpty);
+        return getAliasMapMaybe().map(AliasMap::definesOnlyIdentities).orElse(true) &&
+                aliasToFunctionMap.isEmpty();
     }
 
     @Override
