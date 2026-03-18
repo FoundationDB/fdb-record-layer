@@ -240,6 +240,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         throw new RecordSerializationException("this serializer cannot decrypt");
     }
 
+    @SuppressWarnings("PMD.PreserveStackTrace")
     private void decompressOrThrow(@Nonnull RecordMetaData metaData,
                                    @Nonnull Tuple primaryKey,
                                    @Nonnull TransformedRecordSerializerState state,
@@ -256,6 +257,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         }
     }
 
+    @SuppressWarnings("PMD.PreserveStackTrace")
     private void decryptOrThrow(@Nonnull RecordMetaData metaData,
                                 @Nonnull Tuple primaryKey,
                                 @Nonnull TransformedRecordSerializerState state,
@@ -274,7 +276,6 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
 
     @Nonnull
     @Override
-    @SuppressWarnings("PMD.PreserveStackTrace")
     public M deserialize(@Nonnull RecordMetaData metaData,
                          @Nonnull Tuple primaryKey,
                          @Nonnull byte[] serialized,
