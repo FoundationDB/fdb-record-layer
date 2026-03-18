@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
@@ -48,15 +49,18 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializationException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -81,11 +85,13 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -1274,4 +1280,166 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                 store -> store.clearHeaderUserField("field_name"));
     }
 
+    /**
+     * Test that rebuildIndexes correctly handles pre-set futures that use record state reads without causing
+     * "record store state is being used for queries" exceptions.
+     */
+    @Test
+    void rebuildIndexesWithFutureRecordCount() {
+        // Format version before SAVE_UNSPLIT_WITH_SUFFIX triggers the unsplit upgrade path.
+        // TestRecords1Proto does not split long records, so upgrading from format 4 to max
+        // will set omitUnsplitRecordSuffix=true, adding lazyRecordCount to the work list.
+        final FormatVersion oldFormat = FormatVersion.FORMAT_CONTROL; // version 4
+
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestRecords1Proto.getDescriptor());
+        final RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
+
+        // Step 1: Create store at old format version and save some records
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setFormatVersion(oldFormat)
+                    .setContext(context)
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(metaData1)
+                    .create();
+            for (int i = 0; i < 5; i++) {
+                store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setStrValueIndexed("value_" + i)
+                        .setNumValue3Indexed(i * 10)
+                        .build());
+            }
+            context.commit();
+        }
+
+        // Step 2: Add a new index (triggers rebuild on reopen)
+        metaDataBuilder.addIndex("MySimpleRecord", "new_index", "num_value_2");
+        final RecordMetaData metaData2 = metaDataBuilder.getRecordMetaData();
+
+        // Step 3: Reopen at max format with slow record count and immediate version checker.
+        // The slow getRecordCountForRebuildIndexes holds a read on the MutableRecordStoreState.
+        // The UserVersionChecker returns READABLE immediately, so newStates is pre-resolved,
+        // causing rebuildOrMarkIndex to attempt a write while the read is still active.
+        // With the fix (finishPreSetWork), the work items complete before rebuilds begin.
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.Builder standardBuilder = FDBRecordStore.newBuilder()
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                    .setContext(context)
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(metaData2)
+                    .setUserVersionChecker(new ImmediateReadableUserVersionChecker());
+
+            SlowCountRecordStoreBuilder customBuilder = new SlowCountRecordStoreBuilder(standardBuilder);
+            FDBRecordStore store = customBuilder.open();
+
+            // If we got here, the fix works: no "record store state is being used for queries"
+            assertTrue(store.getRecordStoreState().allIndexesReadable(),
+                    "all indexes should be readable after successful rebuild");
+            context.commit();
+        }
+    }
+
+    /**
+     * A UserVersionChecker that returns READABLE immediately without consulting the
+     * record count. This causes newStates to be pre-resolved, so rebuildOrMarkIndex
+     * starts before getRecordCountForRebuildIndexes completes.
+     */
+    private static class ImmediateReadableUserVersionChecker implements FDBRecordStoreBase.UserVersionChecker {
+        @Override
+        public CompletableFuture<Integer> checkUserVersion(
+                @Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
+                RecordMetaDataProvider metaData) {
+            return CompletableFuture.completedFuture(storeHeader.getUserVersion());
+        }
+
+        @Deprecated
+        @Override
+        public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion,
+                                                           RecordMetaDataProvider metaData) {
+            return CompletableFuture.completedFuture(oldUserVersion);
+        }
+
+        @Nonnull
+        @Override
+        public CompletableFuture<IndexState> needRebuildIndex(Index index,
+                                                              Supplier<CompletableFuture<Long>> lazyRecordCount,
+                                                              Supplier<CompletableFuture<Long>> lazyEstimatedSize,
+                                                              boolean indexOnNewRecordTypes) {
+            // Do NOT call lazyRecordCount.get() - return READABLE immediately.
+            // The unsplit upgrade path already triggered lazyRecordCount.get() and started
+            // the read. By returning immediately here, newStates won't wait for the read.
+            return CompletableFuture.completedFuture(IndexState.READABLE);
+        }
+    }
+
+    /**
+     * Builder that creates a {@link SlowCountRecordStore} instead of a regular FDBRecordStore.
+     */
+    private static class SlowCountRecordStoreBuilder extends FDBRecordStore.Builder {
+        SlowCountRecordStoreBuilder(FDBRecordStore.Builder other) {
+            super(other);
+        }
+
+        @SuppressWarnings("deprecation")
+        @Override
+        public FDBRecordStore build() {
+            return new SlowCountRecordStore(
+                    getContext(), subspaceProvider,
+                    FormatVersion.getFormatVersion(getFormatVersionForTesting()),
+                    getMetaDataProvider(), getSerializer(),
+                    getIndexMaintainerRegistry(), getIndexMaintenanceFilter(),
+                    getPipelineSizer(), getStoreStateCache(),
+                    getStateCacheabilityOnOpen(), getUserVersionChecker(),
+                    getBypassFullStoreLockReason(), getPlanSerializationRegistry());
+        }
+    }
+
+    /**
+     * An FDBRecordStore subclass that overrides getRecordCountForRebuildIndexes to return
+     * a future that holds a record store state read for a controlled duration, simulating
+     * a slow getSnapshotRecordCount FDB read.
+     */
+    private static class SlowCountRecordStore extends FDBRecordStore {
+        protected SlowCountRecordStore(@Nonnull FDBRecordContext context,
+                                       @Nonnull SubspaceProvider subspaceProvider,
+                                       @Nonnull FormatVersion formatVersion,
+                                       @Nonnull RecordMetaDataProvider metaDataProvider,
+                                       @Nonnull RecordSerializer<Message> serializer,
+                                       @Nonnull IndexMaintainerFactoryRegistry indexMaintainerRegistry,
+                                       @Nonnull IndexMaintenanceFilter indexMaintenanceFilter,
+                                       @Nonnull PipelineSizer pipelineSizer,
+                                       @Nullable FDBRecordStoreStateCache storeStateCache,
+                                       @Nonnull StateCacheabilityOnOpen stateCacheabilityOnOpen,
+                                       @Nullable UserVersionChecker userVersionChecker,
+                                       @Nullable String bypassFullStoreLockReason,
+                                       @Nonnull PlanSerializationRegistry planSerializationRegistry) {
+            super(context, subspaceProvider, formatVersion, metaDataProvider, serializer,
+                    indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer, storeStateCache,
+                    stateCacheabilityOnOpen, userVersionChecker, bypassFullStoreLockReason,
+                    planSerializationRegistry);
+        }
+
+        @Nonnull
+        @Override
+        protected CompletableFuture<Long> getRecordCountForRebuildIndexes(
+                boolean newStore, boolean rebuildRecordCounts,
+                @Nonnull Map<Index, List<RecordType>> indexes,
+                @Nullable RecordType singleRecordTypeWithPrefixKey) {
+            // Simulate what getSnapshotRecordCount does:
+            // 1. beginRead() synchronously (read counter incremented)
+            // 2. Return a future that calls endRead() when the "FDB read" completes
+            // The delay ensures the read is still active when rebuildOrMarkIndex tries to write.
+            recordStoreStateRef.get().beginRead();
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                recordStoreStateRef.get().endRead();
+                return 0L; // Report empty store -> triggers inline rebuild (READABLE state)
+            });
+        }
+    }
 }

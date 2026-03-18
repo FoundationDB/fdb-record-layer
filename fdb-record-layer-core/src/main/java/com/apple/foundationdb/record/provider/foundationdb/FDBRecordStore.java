@@ -5524,6 +5524,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return formatVersion.getValueForSerialization();
         }
 
+        protected int getFormatVersionForTesting() {
+            return formatVersion.getValueForSerialization();
+        }
+
         @Override
         public FormatVersion getFormatVersionEnum() {
             return formatVersion;
