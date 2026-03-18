@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -52,12 +53,13 @@ import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
-import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
+import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -180,7 +182,7 @@ public final class CopyPlan extends QueryPlan {
     @SuppressWarnings("PMD.CloseResource") // Connection/cursor not owned by this method
     private RelationalResultSet executeExport(@Nonnull ExecutionContext context) throws RelationalException {
         try {
-            final KeySpacePath keySpacePath = getPath();
+            final KeySpacePath keySpacePath = getPath(context);
 
             // Unwrap Transaction to FDBRecordContext
             final FDBRecordContext fdbContext = getRecordContext(context);
@@ -246,7 +248,7 @@ public final class CopyPlan extends QueryPlan {
             }
 
             // Get KeySpace from RelationalKeyspaceProvider singleton
-            final KeySpacePath keySpacePath = getPath();
+            final KeySpacePath keySpacePath = getPath(context);
 
             final FDBRecordContext fdbContext = getRecordContext(context);
             final List<Object> dataArray = getDataForImport();
@@ -381,19 +383,19 @@ public final class CopyPlan extends QueryPlan {
     }
 
     @Nonnull
-    private KeySpacePath getPath() throws RelationalException {
-        // Get KeySpace from RelationalKeyspaceProvider singleton
-        KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
-
-        // Convert path string to KeySpacePath
-        KeySpacePath keySpacePath;
-        try {
-            keySpacePath = KeySpaceUtils.toKeySpacePath(URI.create(path), keySpace);
-        } catch (RelationalException e) {
-            throw new RelationalException("Invalid COPY path: " + path,
-                    ErrorCode.INVALID_PATH, e);
+    private KeySpacePath getPath(final ExecutionContext context) throws RelationalException, SQLException {
+        final StoreCatalog catalog = context.connection.unwrap(EmbeddedRelationalConnection.class).getBackingCatalog();
+        if (catalog instanceof KeySpaceProvider) {
+            final KeySpace keySpace = ((KeySpaceProvider) catalog).getKeySpace();
+            if (keySpace != null) {
+                try {
+                    return KeySpaceUtils.toKeySpacePath(URI.create(path), keySpace);
+                } catch (RelationalException e) {
+                    throw new RelationalException("Invalid COPY path: " + path, ErrorCode.INVALID_PATH, e);
+                }
+            }
         }
-        return keySpacePath;
+        throw new RelationalException("COPY not supported for this catalog", ErrorCode.UNSUPPORTED_OPERATION);
     }
 
     private static FDBRecordContext getRecordContext(@Nonnull final ExecutionContext context) throws InternalErrorException {

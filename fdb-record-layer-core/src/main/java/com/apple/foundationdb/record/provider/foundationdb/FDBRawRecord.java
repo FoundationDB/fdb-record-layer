@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -33,7 +34,8 @@ import java.util.Objects;
  * any splits have been removed), and its version. It also includes sizing information describing
  * the record's on-disk footprint.
  */
-class FDBRawRecord implements FDBStoredSizes {
+@API(API.Status.INTERNAL)
+public class FDBRawRecord implements FDBStoredSizes {
     @Nonnull private final Tuple primaryKey;
     @Nonnull private final byte[] rawRecord;
     @Nullable private final FDBRecordVersion version;
