@@ -427,7 +427,8 @@ public class SemanticAnalyzer {
                         continue;
                     }
                 }
-                final var nestedFieldMaybe = lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
+                final var nestedFieldMaybe = attribute instanceof EphemeralExpression ? Optional.<Expression>empty()
+                        : lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
                 if (nestedFieldMaybe.isPresent()) {
                     matchedAttributes.add(nestedFieldMaybe.get());
                 }
