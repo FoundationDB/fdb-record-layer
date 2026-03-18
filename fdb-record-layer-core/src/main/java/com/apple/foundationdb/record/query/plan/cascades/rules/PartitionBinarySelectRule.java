@@ -105,6 +105,9 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
+        if (!selectExpression.getResultValue().getResultType().isRecord()) {
+            return;
+        }
 
         //
         // We are going to try to pull as many predicates as we can towards the left side.

@@ -87,6 +87,9 @@ public class SplitSelectExtractIndependentQuantifiersRule extends ExplorationCas
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
+        if (!selectExpression.getResultValue().getResultType().isRecord()) {
+            return;
+        }
         final Collection<? extends Quantifier.ForEach> explodeQuantifiers = bindings.get(explodeQuantifiersMatcher);
         if (explodeQuantifiers.isEmpty()) {
             return;
@@ -175,15 +178,10 @@ public class SplitSelectExtractIndependentQuantifiersRule extends ExplorationCas
             return false;
         }
 
-        if (selectExpression.getResultValue().getResultType().isRecord()) {
-            return selectExpression
-                    .getResultValues()
-                    .stream()
-                    .flatMap(resultValue -> resultValue.getCorrelatedTo().stream())
-                    .noneMatch(explodeAliases::contains);
-        } else {
-            return selectExpression.getResultValue().getCorrelatedTo().stream()
-                    .noneMatch(explodeAliases::contains);
-        }
+        return selectExpression
+                .getResultValues()
+                .stream()
+                .flatMap(resultValue -> resultValue.getCorrelatedTo().stream())
+                .noneMatch(explodeAliases::contains);
     }
 }
