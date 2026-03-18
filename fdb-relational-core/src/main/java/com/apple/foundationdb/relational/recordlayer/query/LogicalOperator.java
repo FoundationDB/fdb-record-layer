@@ -296,11 +296,11 @@ public class LogicalOperator {
         // An example query: select T.a, item.b from T, T.item_array as item where get_price(item) = blah.
         // For this example, get_price(item) resolving item:
         //  - SemanticAnalyzer.lookup("item", ..., matchQualifiedOnly=false), iterates [EphemeralExpression(item), item.b, item.c, ...]
-        //  - EphemeralExpression(item) match item == item.
+        //  - EphemeralExpression(item) match item.
         // select item.b ... resolving item.b:
         //  - lookup("item.price", ..., matchQualifiedOnly=true) iterates [EphemeralExpression(item), item.b, item.c, ...]
         //  - EphemeralExpression(item): exact match fails; lookupNestedField → skipped
-        //  - item.b: exact match item.b == item.b.
+        //  - item.b: exact match item.b.
         if (alias.isPresent() && !resultingQuantifier.getFlowedObjectType().isPrimitive()) {
             final var elementType = DataTypeUtils.toRelationalType(resultingQuantifier.getFlowedObjectType());
             final var wholeStructExpr = new EphemeralExpression(alias, elementType,

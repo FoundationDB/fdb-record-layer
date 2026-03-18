@@ -62,7 +62,7 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
         for (int i = 0; i < arguments.size(); i++) {
             // check that arguments[i] type matches with parameterTypes[i] ignoring nullability -- Nullability is not specified when a user defined function is defined.
             final int finalI = i;
-            SemanticException.check(typeEqualsIgnoreNullability(arguments.get(finalI).getResultType(), parameterTypes.get(i)), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument type doesn't match with function definition");
+            SemanticException.check(typeEquals(arguments.get(finalI).getResultType(), parameterTypes.get(i)), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument type doesn't match with function definition");
             translationMapBuilder.when(parameterIdentifiers.get(finalI)).then((sourceAlias, leafValue) -> (Value)arguments.get(finalI));
         }
         return bodyValue.translateCorrelations(translationMapBuilder.build());
@@ -101,13 +101,21 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
                 Value.fromValueProto(serializationContext, function.getBody()));
     }
 
-    private boolean typeEqualsIgnoreNullability(@Nonnull Type type1, @Nonnull Type type2) {
-        if (type1.getTypeCode() == Type.TypeCode.NULL) {
-            return type2.getTypeCode() == Type.TypeCode.NULL;
+    private boolean typeEquals(@Nonnull Type argumentType, @Nonnull Type parameterType) {
+        if (argumentType.getTypeCode() == Type.TypeCode.NULL) {
+            return parameterType.getTypeCode() == Type.TypeCode.NULL;
         }
-        if (type2.getTypeCode() == Type.TypeCode.NULL) {
-            return type1.getTypeCode() == Type.TypeCode.NULL;
+        if (parameterType.getTypeCode() == Type.TypeCode.NULL) {
+            return argumentType.getTypeCode() == Type.TypeCode.NULL;
         }
-        return type1.notNullable().equals(type2.notNullable());
+        // same nullability
+        if (argumentType.isNullable() == parameterType.isNullable()) {
+            return argumentType.equals(parameterType);
+        }
+        // if parameterType is not nullable, but argumentType is nullable, return false
+        if (argumentType.isNullable() && !parameterType.isNotNullable()) {
+            return false;
+        }
+        return argumentType.notNullable().equals(parameterType.notNullable());
     }
 }
