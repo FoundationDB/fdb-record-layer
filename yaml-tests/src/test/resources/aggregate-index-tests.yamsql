@@ -603,19 +603,19 @@ test_block:
       - result: [{k: 'q', b: 10, _2:  50},
                  {k: 'q', b: 20, _2: 400}]
     -
-       - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b
+      - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b
       - explain: "AISCAN(MV20 [EQUALS promote(@c28 AS LONG), EQUALS promote(@c21 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
-       - result: [{b: 10, _1:  50},
+      - result: [{b: 10, _1:  50},
                   {b: 20, _1: 400}]
     -
-       - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b order by max(d)
+      - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b order by max(d)
       - explain: "AISCAN(MV20 [EQUALS promote(@c28 AS LONG), EQUALS promote(@c21 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
-       - result: [{b: 10, _1:  50},
+      - result: [{b: 10, _1:  50},
                   {b: 20, _1: 400}]
     -
-       - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b order by max(d) desc
+      - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b order by max(d) desc
       - explain: "AISCAN(MV20 [EQUALS promote(@c28 AS LONG), EQUALS promote(@c21 AS STRING)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
-       - result: [{b: 20, _1: 400},
+      - result: [{b: 20, _1: 400},
                   {b: 10, _1:  50}]
     -
       # HAVING on the aggregate — keep only groups where max(d) > 100
