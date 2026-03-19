@@ -52,10 +52,13 @@ public class SqlInsertTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(
-            BasicMetadataTest.class, "CREATE TABLE simple (rest_no bigint, name string, primary key(rest_no)) " +
-            "CREATE TYPE AS STRUCT location (address string, latitude string, longitude string) " +
-            "CREATE TABLE with_loc (rest_no bigint, name string, loc location, primary key(rest_no))");
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(BasicMetadataTest.class,
+            """
+            CREATE TABLE simple (rest_no bigint, name string, primary key(rest_no))
+            CREATE TYPE AS STRUCT location (address string, latitude string, longitude string)
+            CREATE TABLE with_loc (rest_no bigint, name string, loc location, primary key(rest_no))
+            """
+    );
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})

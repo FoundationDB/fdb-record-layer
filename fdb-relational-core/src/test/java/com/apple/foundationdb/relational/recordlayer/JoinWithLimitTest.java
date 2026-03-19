@@ -40,10 +40,12 @@ public class JoinWithLimitTest {
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     private static final String getTemplate_definition =
-            "CREATE TABLE R(rpk bigint, ra bigint, primary key(rpk))" +
-                    "CREATE TABLE S(spk bigint, sa bigint, primary key(spk))" +
-                    "CREATE TYPE AS STRUCT D ( e bigint )" +
-                    "CREATE TABLE Q(qpk bigint, d D array, PRIMARY KEY(qpk))";
+            """
+            CREATE TABLE R(rpk bigint, ra bigint, primary key(rpk))
+            CREATE TABLE S(spk bigint, sa bigint, primary key(spk))
+            CREATE TYPE AS STRUCT D ( e bigint )
+            CREATE TABLE Q(qpk bigint, d D array, PRIMARY KEY(qpk))
+            """;
 
     @RegisterExtension
     @Order(1)
