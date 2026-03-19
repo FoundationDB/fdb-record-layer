@@ -27,12 +27,12 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PInSource;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 
 import javax.annotation.Nonnull;
@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Helper class to describe an IN-list for physical {@link RecordQueryInJoinPlan}s and {@link RecordQueryInUnionPlan}s.
@@ -74,6 +75,11 @@ public abstract class InSource implements PlanHashable, PlanSerializable, Typed 
     @Override
     public Type getResultType() {
         return Type.any();
+    }
+
+    @Nonnull
+    public Set<Type> getDynamicTypes() {
+        return Set.of();
     }
 
     public abstract boolean isSorted();

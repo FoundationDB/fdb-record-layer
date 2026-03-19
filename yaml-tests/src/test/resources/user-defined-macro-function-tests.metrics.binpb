@@ -82,53 +82,53 @@ t
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ç
+}Ä
 J
-"user-defined-scalar-function-tests$EXPLAIN select * from table_func1(3)≥
-èÊ™ Ä ˘üé	()0Èí√8E@zISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)ódigraph G {
+"user-defined-scalar-function-tests$EXPLAIN select * from table_func1(3)±
+èÖ≠€	Ä Ì‰Ù()0Ÿü;8D@zISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)ñdigraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q65.ID AS ID, q65.ID AS ID_COPY, q65.R.V.Z AS Z_VAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS ID_COPY, LONG AS Z_VAL)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q70.ID AS ID, q70.ID AS ID_COPY, q70.R.V.Z AS Z_VAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS ID_COPY, LONG AS Z_VAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q12.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
-  3 -> 2 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q65> label="q65" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ø
+  2 -> 1 [ label=<&nbsp;q70> label="q70" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}æ
 L
-"user-defined-scalar-function-tests&EXPLAIN select * from table_func2(140)Ó
-¨¨˝îÑ ®Óí
-(+0Ú–®8G@hISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c6 AS LONG)]]) | MAP (_.ID AS PROCESSED_ID, _.R.V.Z AS Z_VAL)‰digraph G {
+"user-defined-scalar-function-tests&EXPLAIN select * from table_func2(140)Ì
+¨µŒ¡	Ñ Ÿ°Ê(+0±¸.8F@hISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c6 AS LONG)]]) | MAP (_.ID AS PROCESSED_ID, _.R.V.Z AS Z_VAL)‰digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q4.ID AS PROCESSED_ID, q4.R.V.Z AS Z_VAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS PROCESSED_ID, LONG AS Z_VAL)" ];
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q12.ID AS PROCESSED_ID, q12.R.V.Z AS Z_VAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS PROCESSED_ID, LONG AS Z_VAL)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN_OR_EQUALS promote(@c6 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }È
 O
 "user-defined-scalar-function-tests)EXPLAIN select * from table_func3(20, 40)ï
-˛úÒ‘Z æ√∆(0Ø˚a83@ÆSCAN(<,>) | TFILTER SIMPLE_TABLE | FILTER _.A GREATER_THAN_OR_EQUALS promote(@c6 AS LONG) AND _.A LESS_THAN_OR_EQUALS promote(@c8 AS LONG) | MAP (_.A AS A_VAL, _.A AS A_COPY)∆digraph G {
+˛µ∆¶
+Z ”ê™(0è˜%82@ÆSCAN(<,>) | TFILTER SIMPLE_TABLE | FILTER _.A GREATER_THAN_OR_EQUALS promote(@c6 AS LONG) AND _.A LESS_THAN_OR_EQUALS promote(@c8 AS LONG) | MAP (_.A AS A_VAL, _.A AS A_COPY)∆digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q48.A AS A_VAL, q48.A AS A_COPY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A_VAL, LONG AS A_COPY)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4.A GREATER_THAN_OR_EQUALS promote(@c6 AS LONG) AND q4.A LESS_THAN_OR_EQUALS promote(@c8 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, STRING AS B, INT AS C)" ];
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q53.A AS A_VAL, q53.A AS A_COPY)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A_VAL, LONG AS A_COPY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q12.A GREATER_THAN_OR_EQUALS promote(@c6 AS LONG) AND q12.A LESS_THAN_OR_EQUALS promote(@c8 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, STRING AS B, INT AS C)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [SIMPLE_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, STRING AS B, INT AS C)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [SIMPLE_TABLE, NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q48> label="q48" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}£
+  2 -> 1 [ label=<&nbsp;q53> label="q53" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}§
 ™
-"user-defined-scalar-function-testsÉEXPLAIN select t1.id_copy as A, t2.processed_id as B from table_func1(2) t1, table_func2(100) t2 where t1.id_copy = t2.processed_idÛ
-Ú	√Ô…µ µÙ¬(`0Ø\8∫@	–ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c22 AS LONG)]]) | FLATMAP q0 -> { ISCAN(I2 <,>) | FILTER _.ID EQUALS q0.ID AND _.ID LESS_THAN_OR_EQUALS promote(@c16 AS LONG) AS q1 RETURN (q1.ID AS A, q0.ID AS B) }Ädigraph G {
+"user-defined-scalar-function-testsÉEXPLAIN select t1.id_copy as A, t2.processed_id as B from table_func1(2) t1, table_func2(100) t2 where t1.id_copy = t2.processed_idÙ
+Ú	öπÆ$µ ÊÖù(`0™ ò8∏@	–ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c22 AS LONG)]]) | FLATMAP q0 -> { ISCAN(I2 <,>) | FILTER _.ID EQUALS q0.ID AND _.ID LESS_THAN_OR_EQUALS promote(@c16 AS LONG) AS q1 RETURN (q1.ID AS A, q0.ID AS B) }Ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -151,48 +151,48 @@ O
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}›
+}€
 g
-"user-defined-scalar-function-testsAEXPLAIN select self(id_copy) as A, z_val as B from table_func1(4)Ò
-è≠£˛`Ä «…ã:()0†–ì8E@eISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | MAP (_.ID AS A, _.R.V.Z AS B)Ídigraph G {
+"user-defined-scalar-function-testsAEXPLAIN select self(id_copy) as A, z_val as B from table_func1(4)Ô
+è”¿»Ä àÌÊ()0˚¥48D@eISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | MAP (_.ID AS A, _.R.V.Z AS B)Èdigraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q65.ID AS A, q65.R.V.Z AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4.ID LESS_THAN_OR_EQUALS promote(@c15 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q70.ID AS A, q70.R.V.Z AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q12.ID LESS_THAN_OR_EQUALS promote(@c15 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
-  3 -> 2 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q65> label="q65" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q70> label="q70" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }˙
 w
 "user-defined-scalar-function-testsQEXPLAIN select self(self(a_val)) as A, self(a_copy) as B from table_func3(10, 30)˛
-˛≥ÚüZ ’†Í(0ºS83@ßSCAN(<,>) | TFILTER SIMPLE_TABLE | FILTER _.A GREATER_THAN_OR_EQUALS promote(@c21 AS LONG) AND _.A LESS_THAN_OR_EQUALS promote(@c23 AS LONG) | MAP (_.A AS A, _.A AS B)∂digraph G {
+˛Å‡ÖZ Ø·˛(0ˆê%82@ßSCAN(<,>) | TFILTER SIMPLE_TABLE | FILTER _.A GREATER_THAN_OR_EQUALS promote(@c21 AS LONG) AND _.A LESS_THAN_OR_EQUALS promote(@c23 AS LONG) | MAP (_.A AS A, _.A AS B)∂digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q48.A AS A, q48.A AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4.A GREATER_THAN_OR_EQUALS promote(@c21 AS LONG) AND q4.A LESS_THAN_OR_EQUALS promote(@c23 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, STRING AS B, INT AS C)" ];
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q53.A AS A, q53.A AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q12.A GREATER_THAN_OR_EQUALS promote(@c21 AS LONG) AND q12.A LESS_THAN_OR_EQUALS promote(@c23 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, STRING AS B, INT AS C)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Type Filter</td></tr><tr><td align="left">WHERE record IS [SIMPLE_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, STRING AS B, INT AS C)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [SIMPLE_TABLE, NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(RECORD)" ];
-  3 -> 2 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q48> label="q48" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ù
+  2 -> 1 [ label=<&nbsp;q53> label="q53" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Û
 b
-"user-defined-scalar-function-tests<EXPLAIN select * from table_func1(6) where self(id_copy) > 3ç
-∫˘ÍÙ`© ¶Â÷2(70›ŒÕ8p@¶ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG) AND _.ID GREATER_THAN promote(@c14 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)ƒdigraph G {
+"user-defined-scalar-function-tests<EXPLAIN select * from table_func1(6) where self(id_copy) > 3å
+∫ßƒÏ© “æ„(70‚…h8m@¶ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG) AND _.ID GREATER_THAN promote(@c14 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)ƒdigraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q84.ID AS ID, q84.ID AS ID_COPY, q84.R.V.Z AS Z_VAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS ID_COPY, LONG AS Z_VAL)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG) AND q4.ID GREATER_THAN promote(@c14 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q87.ID AS ID, q87.ID AS ID_COPY, q87.R.V.Z AS Z_VAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS ID_COPY, LONG AS Z_VAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q12.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG) AND q12.ID GREATER_THAN promote(@c14 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS S, LONG AS T AS Q, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
-  3 -> 2 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q84> label="q84" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q87> label="q87" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }
