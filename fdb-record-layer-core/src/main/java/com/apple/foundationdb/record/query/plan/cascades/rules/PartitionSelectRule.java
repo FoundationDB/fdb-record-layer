@@ -87,7 +87,11 @@ public class PartitionSelectRule extends ExplorationCascadesRule<SelectExpressio
                 .map(Quantifier::getAlias)
                 .collect(ImmutableSet.toImmutableSet());
         if (lowerAliases.isEmpty() || (selectExpression.getQuantifiers().stream().noneMatch(q -> q instanceof Quantifier.Existential) && lowerAliases.size() != selectExpression.getQuantifiers().size() - 1)) {
-            // Only create right deep plans by only creating partitions where there is one (1) element on the right
+            // Only create right deep plans by only creating partitions where there is one (1) element that is not pushed down
+            // This doesn't actually guarantee a right deep plan, but if there's any correlation at all between the upper
+            // and lower aliases, then the lower set will get planned as the inner of a nested loop join.
+            //
+            // We can't quite make this optimization if there are existential quantifiers
             return;
         }
 
