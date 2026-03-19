@@ -59,6 +59,7 @@ import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -152,13 +153,13 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     private AstNormalizer(@Nonnull final PreparedParams preparedStatementParameters, boolean caseSensitive,
-                          @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) {
+                          @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode, boolean forExplain) {
         hashFunction = Hashing.murmur3_32_fixed().newHasher();
         parameterHash = Hashing.murmur3_32_fixed().newHasher().putInt("ParameterHash".hashCode());
         parameterHashSupplier = Suppliers.memoize(() -> parameterHash.hash().asInt())::get;
         sqlCanonicalizer = new StringBuilder();
         // needed to collect information that guide query execution (explain flag, continuation string, offset int, and limit int).
-        queryHasherContextBuilder = NormalizedQueryExecutionContext.newBuilder().setPlanHashMode(currentPlanHashMode);
+        queryHasherContextBuilder = NormalizedQueryExecutionContext.newBuilder().setPlanHashMode(currentPlanHashMode).setForExplain(forExplain);
         this.preparedStatementParameters = preparedStatementParameters;
         allowTokenAddition = true;
         allowLiteralAddition = true;
@@ -238,10 +239,12 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Void visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
-        // (yhatem) this is probably not needed, since a cached physical plan _knows_ it is either forExplain or not.
-        //          we should remove this, but ok for now.
-        queryHasherContextBuilder.setForExplain(ctx.EXPLAIN() != null);
-        return visitChildren(ctx);
+        // we are stripping Explain/Describe prefix from the request before passing it to the parser
+        throw Assert.failUnchecked("Explain/Describe statement should not appear at the parser lavel");
+        // // (yhatem) this is probably not needed, since a cached physical plan _knows_ it is either forExplain or not.
+        // //          we should remove this, but ok for now.
+        // queryHasherContextBuilder.setForExplain(ctx.EXPLAIN() != null);
+        // return visitChildren(ctx);
     }
 
     @Override
@@ -569,6 +572,87 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         }
     }
 
+    @VisibleForTesting
+    public static class ExplainParser {
+        private ExplainParser() {
+        }
+
+        private static class Word {
+            public int begin;
+            public int end;
+
+            public Word(int b, int e) {
+                begin = b;
+                end = e;
+            }
+        }
+
+        private static int getNotWhitespace(@Nonnull final String query, int pos) {
+            while (pos < query.length() && Character.isWhitespace(query.charAt(pos))) {
+                pos++;
+            }
+            return pos;
+        }
+
+        private static int getWhitespaceEqual(@Nonnull final String query, int pos) {
+            while (pos < query.length() && !Character.isWhitespace(query.charAt(pos)) && query.charAt(pos) != '=') {
+                pos++;
+            }
+            return pos;
+        }
+
+        private static Word getWordFromString(@Nonnull final String query, int start) {
+            int pos = getNotWhitespace(query, start);
+            return new Word(pos, getWhitespaceEqual(query, pos));
+        }
+
+        private static boolean matchWord(@Nonnull final String query, @Nonnull final Word w, @Nonnull final String word) {
+            return w.end - w.begin == word.length() && query.regionMatches(true, w.begin, word, 0, word.length());
+        }
+
+        private static boolean matchWordFromList(@Nonnull final String query, @Nonnull final Word w, @Nonnull final List<String> list) {
+            for (final var word : list) {
+                if (matchWord(query, w, word)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public static String truncateExplainStatement(@Nonnull final String query) {
+            final List<String> explainList = List.of("EXPLAIN", "DESCRIBE", "DESC");
+            final String shemaString = "SCHEMA";
+            final List<String> extendedList = List.of("EXTENDED", "PARTITIONS", "FORMAT");
+            final List<String> traditionalList = List.of("TRADITIONAL", "JSON");
+
+
+            final var w0 = getWordFromString(query, 0);
+            if (!matchWordFromList(query, w0, explainList)) {       // EXPLAIN
+                return query;
+            }
+
+            final var w1 = getWordFromString(query, w0.end);
+            if (matchWord(query, w1, shemaString)) {                // EXPLAIN SCHEMA
+                return query;
+            }
+            if (!matchWordFromList(query, w1, extendedList)) {      // EXPLAIN EXTENDED
+                int pos = getNotWhitespace(query, w1.begin);
+                Assert.thatUnchecked(pos != query.length(), ErrorCode.SYNTAX_ERROR, "no statement to explain");
+                return query.substring(pos);
+            }
+
+            int pos = getNotWhitespace(query, w1.end);              // EXPLAIN EXTENDED=
+            Assert.thatUnchecked(query.charAt(pos) == '=', ErrorCode.SYNTAX_ERROR, "equal (=) not found after EXTENDED/PARTITIONS/FORMAT");
+
+            final var w2 = getWordFromString(query, pos + 1);   // EXPLAIN EXTENDED=TRADITIONAL
+            Assert.thatUnchecked(matchWordFromList(query, w2, traditionalList), ErrorCode.SYNTAX_ERROR, "value of EXTENDED/PARTITIONS/FORMAT is not TRADITIONAL/JSON");
+
+            pos = getNotWhitespace(query, w2.end);
+            Assert.thatUnchecked(pos != query.length(), ErrorCode.SYNTAX_ERROR, "no statement to explain");
+            return query.substring(w2.end);
+        }
+    }
+
     /**
      * Normalizes the SQL query using a given planning context.
      * @param context The planning context, captures all the state required to plan and execution query such as prepared parameter values.
@@ -583,9 +667,10 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                      boolean isCaseSensitive,
                                                      @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
         // lexing, parsing, and normalization are profiled through the metric collector.
+        final var truncQuery = ExplainParser.truncateExplainStatement(query);
         final var metricCollector = context.getMetricsCollector();
         final var rootContext = metricCollector.clock(RelationalMetric.RelationalEvent.LEX_PARSE,
-                () -> QueryParser.parse(query).getRootContext());
+                () -> QueryParser.parse(truncQuery).getRootContext());
         return metricCollector.clock(RelationalMetric.RelationalEvent.NORMALIZE_QUERY,
                 () -> normalizeAst(
                         context.getSchemaTemplate(), rootContext,
@@ -594,7 +679,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         context.getPlannerConfiguration(),
                         isCaseSensitive,
                         currentPlanHashMode,
-                        query
+                        query,
+                        !Objects.equals(query, truncQuery)
                 ));
     }
 
@@ -607,8 +693,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                    @Nonnull final PlannerConfiguration plannerConfiguration,
                                                    boolean caseSensitive,
                                                    @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
-                                                   @Nonnull final String query) throws RelationalException {
-        final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode);
+                                                   @Nonnull final String query,
+                                                   boolean forExplain) throws RelationalException {
+        final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode, forExplain);
         astNormalizer.visit(context);
         final var recordLayerSchemaTemplate = Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class);
 
@@ -637,7 +724,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         plannerConfiguration,
                         caseSensitive,
                         currentPlanHashMode,
-                        recordLayerRoutine.getDescription());
+                        recordLayerRoutine.getDescription(), forExplain);
                 astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(functionAstResult.queryExecutionContext.getLiterals());
             }
         }
