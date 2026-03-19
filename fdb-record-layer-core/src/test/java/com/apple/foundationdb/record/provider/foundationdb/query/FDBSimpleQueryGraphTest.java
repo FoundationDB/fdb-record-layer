@@ -82,6 +82,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.column;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.executeCascades;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.exists;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldPredicate;
@@ -104,6 +105,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.containsAll;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.defaultOnEmptyPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.descendantPlans;
@@ -702,11 +704,24 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 flatMapPlan(
+                        typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
+                                .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))),
+                        flatMapPlan(
+                                indexPlan()
+                                        .where(indexName("RestaurantRecord$name"))
+                                        .and(scanComparisons(range("[[name],[name]]"))),
+                                predicatesFilterPlan(anyPlan())
+                        )
+                );
+        /*
+        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                flatMapPlan(
                         indexPlan()
                                 .where(indexName("RestaurantRecord$name"))
                                 .and(scanComparisons(range("[[name],[name]]"))),
                         descendantPlans(typeFilterPlan(scanPlan().where(scanComparisons(equalities(only(anyValueComparison())))))
                                 .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer"))))));
+         */
 
         assertMatchesExactly(plan, planMatcher);
     }
@@ -735,21 +750,27 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         // with index hints (RestaurantRecord$name), plan a different query
         return planGraph(
                 () -> {
+                    //
+                    // Equivalent to the query:
+                    //     SELECT RestaruantReviewer.name AS reviewerName, Review.review.rating AS reviewRating
+                    //       FROM
+                    //         (SELECT r AS review FROM RestaurantRecord, RestaurantRecord.reviews AS r WHERE RestaurantRecord.name = 'name') Review,
+                    //         RestaurantReviewer
+                    //       WHERE
+                    //         Review.review.reviwer = RestaurantReviewer.id
+                    //
                     var outerQun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
-                    final var explodeQun =
-                            Quantifier.forEach(Reference.initialOf(
-                                    new ExplodeExpression(FieldValue.ofFieldName(QuantifiedObjectValue.of(outerQun.getAlias(), outerQun.getFlowedObjectType()), "reviews"))));
+                    final var explodeQun = forEach(
+                                    new ExplodeExpression(fieldValue(outerQun, "reviews")));
 
                     var graphExpansionBuilder = GraphExpansion.builder();
                     graphExpansionBuilder.addQuantifier(outerQun);
                     graphExpansionBuilder.addQuantifier(explodeQun);
-                    graphExpansionBuilder.addPredicate(new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(outerQun.getAlias(), outerQun.getFlowedObjectType()), "name"),
+                    graphExpansionBuilder.addPredicate(fieldPredicate(outerQun, "name",
                             new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "name")));
 
-                    final var explodeResultValue = QuantifiedObjectValue.of(explodeQun.getAlias(), explodeQun.getFlowedObjectType());
-                    graphExpansionBuilder.addResultColumn(resultColumn(explodeResultValue, "review"));
-                    outerQun = Quantifier.forEach(Reference.initialOf(
-                            graphExpansionBuilder.build().buildSelect()));
+                    graphExpansionBuilder.addResultColumn(resultColumn(explodeQun.getFlowedObjectValue(), "review"));
+                    outerQun = forEach(graphExpansionBuilder.build().buildSelect());
 
                     graphExpansionBuilder = GraphExpansion.builder();
                     graphExpansionBuilder.addQuantifier(outerQun);
@@ -758,15 +779,11 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addQuantifier(innerQun);
 
                     final var outerQuantifiedValue = QuantifiedObjectValue.of(outerQun.getAlias(), outerQun.getFlowedObjectType());
-                    final var innerQuantifiedValue = QuantifiedObjectValue.of(innerQun.getAlias(), innerQun.getFlowedObjectType());
-
                     final var outerReviewerIdValue = FieldValue.ofFieldNames(outerQuantifiedValue, ImmutableList.of("review", "reviewer"));
-                    final var innerReviewerIdValue = FieldValue.ofFieldName(innerQuantifiedValue, "id");
 
-                    graphExpansionBuilder.addPredicate(new ValuePredicate(innerReviewerIdValue, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, outerReviewerIdValue)));
+                    graphExpansionBuilder.addPredicate(fieldPredicate(innerQun, "id", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, outerReviewerIdValue)));
 
-                    final var reviewerNameValue = FieldValue.ofFieldName(innerQuantifiedValue, "name");
-                    graphExpansionBuilder.addResultColumn(resultColumn(reviewerNameValue, "reviewerName"));
+                    graphExpansionBuilder.addResultColumn(column(innerQun, "name", "reviewerName"));
                     final var reviewRatingValue = FieldValue.ofFieldNames(outerQuantifiedValue, ImmutableList.of("review", "rating"));
                     graphExpansionBuilder.addResultColumn(resultColumn(reviewRatingValue, "reviewRating"));
 
