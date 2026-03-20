@@ -198,9 +198,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                             evaluateNewPartition(estimator, innerClusters,
                                                     split2to3Candidate);
                                     upgradeResult2to3.log(logger);
-                                }
-                                if (split2to3Candidate != null) {
-                                    return split2to3Candidate;
+                                    return upgradeResult1to2.getScoreGain() > upgradeResult2to3.getScoreGain()
+                                           ? split1to2Candidate : split2to3Candidate;
                                 }
                                 return split1to2Candidate;
                             }))
@@ -269,7 +268,6 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                                     @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood,
                                                     @Nonnull final List<VectorReference> vectorReferences,
                                                     final int targetNumPartitions) {
-        final Config config = getConfig();
         final ImmutableList.Builder<VectorReference> primaryVectorReferencesBuilder = ImmutableList.builder();
         for (final VectorReference vectorReference : vectorReferences) {
             if (vectorReference.isPrimaryCopy()) {

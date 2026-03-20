@@ -169,7 +169,7 @@ public class Search {
                     final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
                             MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
                                     primitives.centroidsOrderedByDistance(readTransaction, queryVector,
-                                            0.0d, null), getExecutor()), 12, getExecutor());
+                                            0.0d, null), getExecutor()), 48, getExecutor());
 
                     final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
                             mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
@@ -186,8 +186,36 @@ public class Search {
                                                     }),
                                     10);
 
+                    final CompletableFuture<List<ClusterMetadataWithDistance>> clusterMetadataWithDistancesFuture =
+                            AsyncUtil.collect(clusterMetadataIterable, getExecutor());
+
+                    final var boundedClusterMetadataIterable =
+                            MoreAsyncUtil.iterableFromCollection(
+                                    clusterMetadataWithDistancesFuture.thenApply(clusterMetadataWithDistances -> {
+                                        if (clusterMetadataWithDistances.size() < 16) {
+                                            if (logger.isInfoEnabled()) {
+                                                logger.info("querying numClusters={}", clusterMetadataWithDistances.size());
+                                            }
+                                            return clusterMetadataWithDistances;
+                                        }
+
+                                        final double nearestCentroidDistance = clusterMetadataWithDistances.get(0).getDistance();
+                                        int i;
+                                        for (i = 16; i < clusterMetadataWithDistances.size(); i ++) {
+                                            final ClusterMetadataWithDistance currentClusterMetadata =
+                                                    clusterMetadataWithDistances.get(i);
+                                            if (currentClusterMetadata.getDistance() / nearestCentroidDistance > 1.50) {
+                                                break;
+                                            }
+                                        }
+                                        if (logger.isInfoEnabled()) {
+                                            logger.info("limiting query to numClusters={}", i);
+                                        }
+                                        return clusterMetadataWithDistances.subList(0, i);
+                                    }), getExecutor());
+
                     final AsyncIterable<VectorReferenceAndDistance> vectorReferenceAndDistancesIterable =
-                            AsyncUtil.mapIterable(mapConcatIterable(getExecutor(), clusterMetadataIterable,
+                            AsyncUtil.mapIterable(mapConcatIterable(getExecutor(), boundedClusterMetadataIterable,
                                     clusterMetadataWithDistance ->
                                             primitives.fetchVectorReferencesIterable(readTransaction,
                                                     storageTransform,

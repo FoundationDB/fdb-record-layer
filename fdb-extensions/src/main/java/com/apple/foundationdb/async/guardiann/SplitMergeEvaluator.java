@@ -49,34 +49,34 @@ public class SplitMergeEvaluator {
         final PartitionStats candidateStats = evaluatePartition(candidateVectors, vectorLens, candidate, parameters);
 
         // Candidate-specific hard rejects
-        if (candidate.k() == 2) {
-            if (candidateStats.getSmallestFrac() < parameters.getMinSmallestFracFor2()) {
-                return reject(currentStats, candidateStats, "candidate 2-way split too imbalanced");
-            }
-        } else if (candidate.k() == 3) {
-            if (candidateStats.getSmallestFrac() < parameters.getMinSmallestFracFor3()) {
-                return reject(currentStats, candidateStats, "candidate 3-way has tiny child");
-            }
-            if (candidateStats.getLargestFrac() > parameters.getMaxLargestFracFor3()) {
-                return reject(currentStats, candidateStats, "candidate 3-way largest child too large");
-            }
-        }
-
-        if (Double.isNaN(candidateStats.getSeparation()) ||
-                candidateStats.getSeparation() < parameters.getMinSeparation()) {
-            return reject(currentStats, candidateStats, "candidate separation too low");
-        }
-
-        if (candidateStats.getLowMarginRate() > parameters.getMaxLowMarginRate()) {
-            return reject(currentStats, candidateStats, "candidate low-margin rate too high");
-        }
+//        if (candidate.k() == 2) {
+//            if (candidateStats.getSmallestFrac() < parameters.getMinSmallestFracFor2()) {
+//                return reject(currentStats, candidateStats, "candidate 2-way split too imbalanced");
+//            }
+//        } else if (candidate.k() == 3) {
+//            if (candidateStats.getSmallestFrac() < parameters.getMinSmallestFracFor3()) {
+//                return reject(currentStats, candidateStats, "candidate 3-way has tiny child");
+//            }
+//            if (candidateStats.getLargestFrac() > parameters.getMaxLargestFracFor3()) {
+//                return reject(currentStats, candidateStats, "candidate 3-way largest child too large");
+//            }
+//        }
+//
+//        if (Double.isNaN(candidateStats.getSeparation()) ||
+//                candidateStats.getSeparation() < parameters.getMinSeparation()) {
+//            return reject(currentStats, candidateStats, "candidate separation too low");
+//        }
+//
+//        if (candidateStats.getLowMarginRate() > parameters.getMaxLowMarginRate()) {
+//            return reject(currentStats, candidateStats, "candidate low-margin rate too high");
+//        }
 
         final double relativeSseGain =
                 (currentStats.getSse() - candidateStats.getSse()) / Math.max(currentStats.getSse(), 1e-12);
 
-        if (relativeSseGain < parameters.getMinRelativeSseGain()) {
-            return reject(currentStats, candidateStats, "relative SSE gain too small");
-        }
+//        if (relativeSseGain < parameters.getMinRelativeSseGain()) {
+//            return reject(currentStats, candidateStats, "relative SSE gain too small");
+//        }
 
         final double scoreGain;
         if (current.k() == 1 && candidate.k() == 2) {
@@ -267,9 +267,8 @@ public class SplitMergeEvaluator {
             double minCentroidDistance = Double.POSITIVE_INFINITY;
             for (int i = 0; i < k; i++) {
                 for (int j = i + 1; j < k; j++) {
-                    double d =
-                            estimator.distance(partition.getCentroid(i),
-                                    partition.getCentroid(j));
+                    double d = estimator.distance(partition.getCentroid(i),
+                            partition.getCentroid(j));
                     minCentroidDistance = Math.min(minCentroidDistance, d);
                 }
             }

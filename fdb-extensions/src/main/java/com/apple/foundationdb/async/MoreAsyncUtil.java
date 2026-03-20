@@ -31,10 +31,12 @@ import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -1267,6 +1269,49 @@ public class MoreAsyncUtil {
             }
             return whenAny(working).thenApply(ignored -> true);
         }, executor).thenApply(ignored -> Arrays.asList((U[])resultArray));
+    }
+
+    @Nonnull
+    public static <T> AsyncIterable<T> iterableFromCollection(@Nonnull final CompletableFuture<Collection<T>> collectionFuture,
+                                                       @Nonnull final Executor executor) {
+        return iterableOf(() -> iteratorFromCollection(collectionFuture), executor);
+    }
+
+    @Nonnull
+    public static <T> AsyncIterator<T> iteratorFromCollection(@Nonnull final CompletableFuture<Collection<T>> collectionFuture) {
+        return new CloseableAsyncIterator<>() {
+            @Nullable
+            Iterator<T> iterator = null;
+
+            @Override
+            public CompletableFuture<Boolean> onHasNext() {
+                if (iterator == null) {
+                    return collectionFuture.thenApply(collection -> {
+                        this.iterator = collection.iterator();
+                        return this.iterator.hasNext();
+                    });
+                }
+                return CompletableFuture.completedFuture(iterator.hasNext());
+            }
+
+            @Override
+            public boolean hasNext() {
+                return onHasNext().join();
+            }
+
+            @Override
+            public T next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+                return Objects.requireNonNull(iterator).next();
+            }
+
+            @Override
+            public void close() {
+                // nothing
+            }
+        };
     }
 
     /**

@@ -100,11 +100,11 @@ public class SiftTest implements BaseTest {
                         .setUseRaBitQ(true)
                         .setRaBitQNumExBits(6)
                         .setMetric(metric)
-                        .setPrimaryClusterMax(1000)
-                        .setPrimaryClusterMin(300)
+                        .setPrimaryClusterMax(500)
+                        .setPrimaryClusterMin(100)
                         .setPersistSequentialUuids(true)
                         .setClusterOverlap(0.1d)
-                        .setReplicatedClusterTarget(1000)
+                        .setReplicatedClusterTarget(500)
                         .setReplicatedClusterMaxWrites(1500)
                         .build(128);
 
