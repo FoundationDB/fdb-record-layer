@@ -35,6 +35,8 @@ import javax.annotation.Nonnull;
  * data type conversions and raw data representation.
  */
 public interface RealVector {
+    double EPS = 1.0e-12;
+
     ImmutableList<VectorType> VECTOR_TYPES = ImmutableList.copyOf(VectorType.values());
 
     /**
@@ -121,6 +123,11 @@ public interface RealVector {
         return new MutableDoubleRealVector(getData().clone());
     }
 
+    default double clampedDot(@Nonnull final RealVector other) {
+        final double dot = dot(other);
+        return Math.max(-1.0d, Math.min(1.0d, dot));
+    }
+
     default double dot(@Nonnull final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
         double sum = 0.0d;
@@ -130,6 +137,10 @@ public interface RealVector {
             sum += thisData[i] * otherData[i];
         }
         return sum;
+    }
+
+    default boolean isNearlyZeroNorm() {
+        return l2SquaredNorm() <= EPS * EPS;
     }
 
     default double l2Norm() {

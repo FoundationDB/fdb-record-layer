@@ -147,7 +147,7 @@ public class SplitMergeEvaluator {
                                                         @Nonnull final Lens<V, RealVector> vectorLens,
                                                         @Nonnull final Partition<?> partition,
                                                         @Nonnull final Parameters parameters) {
-        final Estimator estimator = parameters.estimator;
+        final Estimator estimator = parameters.getEstimator();
         final int n = vectors.size();
         final int k = partition.k();
 
@@ -176,7 +176,7 @@ public class SplitMergeEvaluator {
 
             final RealVector v = vectorLens.getNonnull(vectors.get(i));
             final RealVector c = partition.getCentroid(own);
-            assignedDistances.add(estimator.distance(v, c));
+            assignedDistances.add(geometricDistance(estimator, v, c));
         }
         final double overallP95 = percentile(assignedDistances, 0.95d);
         final double lowMarginThreshold = computeLowMarginThreshold(parameters, overallP95);
@@ -188,9 +188,9 @@ public class SplitMergeEvaluator {
 
             childSizes[own]++;
 
-            sse += pointToCentroidDistanceForSse(estimator, v, ownC);
+            sse += distanceForSse(estimator, v, ownC);
 
-            double radiusD = estimator.distance(v, ownC);
+            double radiusD = geometricDistance(estimator, v, ownC);
             childRadii[own].add(radiusD);
 
             if (k >= 2) {
@@ -210,13 +210,13 @@ public class SplitMergeEvaluator {
                         break;
                     }
                     case COSINE_METRIC: {
-                        double ownS = v.dot(ownC);
+                        double ownS = v.clampedDot(ownC);
                         double secondBest = Double.NEGATIVE_INFINITY;
                         for (int j = 0; j < k; j++) {
                             if (j == own) {
                                 continue;
                             }
-                            secondBest = Math.max(secondBest, v.dot(partition.getCentroid(j)));
+                            secondBest = Math.max(secondBest, v.clampedDot(partition.getCentroid(j)));
                         }
                         margin = ownS - secondBest;
                         break;
@@ -267,8 +267,7 @@ public class SplitMergeEvaluator {
             double minCentroidDistance = Double.POSITIVE_INFINITY;
             for (int i = 0; i < k; i++) {
                 for (int j = i + 1; j < k; j++) {
-                    double d = estimator.distance(partition.getCentroid(i),
-                            partition.getCentroid(j));
+                    double d = geometricDistance(estimator, partition.getCentroid(i), partition.getCentroid(j));
                     minCentroidDistance = Math.min(minCentroidDistance, d);
                 }
             }
@@ -302,14 +301,26 @@ public class SplitMergeEvaluator {
         }
     }
 
-    @SuppressWarnings("SwitchStatementWithTooFewBranches")
-    private static double pointToCentroidDistanceForSse(@Nonnull final Estimator estimator, @Nonnull final RealVector v,
-                                                        @Nonnull final RealVector c) {
+    private static double geometricDistance(@Nonnull final Estimator estimator, @Nonnull final RealVector a,
+                                            @Nonnull final RealVector b) {
         switch (estimator.getMetric()) {
             case COSINE_METRIC:
-                return 2.0 - 2.0 * v.dot(c);
+            case EUCLIDEAN_METRIC:
+                return estimator.distance(a, b);
             default:
+                throw new UnsupportedOperationException("metric is not supported");
+        }
+    }
+
+    private static double distanceForSse(@Nonnull final Estimator estimator, @Nonnull final RealVector v,
+                                         @Nonnull final RealVector c) {
+        switch (estimator.getMetric()) {
+            case COSINE_METRIC:
+                return 2.0d * estimator.distance(v, c);
+            case EUCLIDEAN_METRIC:
                 return v.subtract(c).l2SquaredNorm();
+            default:
+                throw new UnsupportedOperationException("metric is not supported");
         }
     }
 
