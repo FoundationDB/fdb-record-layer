@@ -64,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -119,17 +120,18 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
      *
      * @param baseQuantifierSupplier a quantifier supplier to create base data access
      * @param ignored the primary key of the data object the caller wants to access, this parameter is ignored since
-     *        an aggregate index does not possess primary key information, must be {@code null}.
+     * an aggregate index does not possess primary key information, must be {@code null}.
      * @param isReverse an indicator whether the result set is expected to be returned in reverse order.
+     *
      * @return A match candidate representing the aggregate index.
      */
     @Nonnull
     @Override
-    public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public MatchCandidate expand(@Nonnull final Function<Optional<CorrelationIdentifier>, Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression ignored,
                                  final boolean isReverse) {
         Verify.verify(ignored == null);
-        final var baseQuantifier = baseQuantifierSupplier.get();
+        final var baseQuantifier = baseQuantifierSupplier.apply(Optional.empty()); // todo
 
         // 0. create a base expansion to resolve the key expression to columns with appropriate quantifiers
         final var baseExpansion = constructBaseExpansion(baseQuantifier);
@@ -150,6 +152,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         // 3. construct SELECT-HAVING with SORT on top.
         final var constructSelectHavingResult = constructSelectHaving(groupByQun, placeholders);
         final var selectHaving = constructSelectHavingResult.getSelectExpression();
+
+        // todo, prepend the additional parameters.
         final var placeHolderAliases = constructSelectHavingResult.getPlaceholderAliases();
 
         // 4. add sort on top, if necessary, this will be absorbed later on as an ordering property of the match candidate.

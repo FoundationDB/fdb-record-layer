@@ -22,6 +22,7 @@ import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
 import com.apple.foundationdb.relational.yamltests.YamlTestConfigFilters;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 
 /**
@@ -275,6 +276,12 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void pseudoFieldClash(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("pseudo-field-clash.yamsql");
+    }
+
+    @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
+    public void recordTypeKeyTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("record-type-key-tests.yamsql");
     }
 
     @TestTemplate

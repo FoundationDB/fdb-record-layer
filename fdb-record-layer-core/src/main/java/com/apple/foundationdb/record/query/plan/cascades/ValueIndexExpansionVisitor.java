@@ -43,14 +43,15 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 
 /**
  * Class to expand value index access into a candidate graph. The visitation methods are left unchanged from the super
- * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
+ * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link ExpansionVisitor#expand} method.
  */
 public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     // We may need to rethink this as it limits the set of indexes that can support a grouping key expression
@@ -76,12 +77,12 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public MatchCandidate expand(@Nonnull final Function<Optional<CorrelationIdentifier>, Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
         Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
 
-        final var baseQuantifier = baseQuantifierSupplier.get();
+        final var baseQuantifier = baseQuantifierSupplier.apply(Optional.empty()); // todo
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
         // add the value for the flow of records

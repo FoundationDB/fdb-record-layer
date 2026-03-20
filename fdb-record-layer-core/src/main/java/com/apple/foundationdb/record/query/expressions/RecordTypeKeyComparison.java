@@ -172,7 +172,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         @Nonnull
         private final String recordTypeName;
 
-        RecordTypeComparison(@Nonnull String recordTypeName) {
+        public RecordTypeComparison(@Nonnull String recordTypeName) {
             this.recordTypeName = recordTypeName;
         }
 

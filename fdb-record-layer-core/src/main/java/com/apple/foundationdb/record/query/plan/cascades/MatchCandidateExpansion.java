@@ -99,9 +99,9 @@ public final class MatchCandidateExpansion {
     public static Optional<MatchCandidate> expandIndexMatchCandidate(@Nonnull IndexExpansionInfo info,
                                                                      @Nullable KeyExpression commonPrimaryKey,
                                                                      @Nonnull final ExpansionVisitor<?> expansionVisitor) {
-        final var baseRef = createBaseRef(info, new IndexAccessHint(info.getIndexName()));
         try {
-            return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKey, info.isReverse()));
+            return Optional.of(expansionVisitor.expand(aliasMaybe -> Quantifier.forEach(createBaseRef(info, aliasMaybe,
+                    new IndexAccessHint(info.getIndexName()))), commonPrimaryKey, info.isReverse()));
         } catch (final UnsupportedOperationException uOE) {
             // just log and return empty
             if (LOGGER.isDebugEnabled()) {
@@ -127,24 +127,30 @@ public final class MatchCandidateExpansion {
                             .filter(recordType -> queriedRecordTypeNames.contains(recordType.getName()))
                             .collect(ImmutableList.toImmutableList());
 
-            final var baseRef = createBaseRef(metaData.getRecordTypes().keySet(), queriedRecordTypeNames, metaData.getPlannerType(queriedRecordTypeNames), new PrimaryAccessHint());
             final var expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, queriedRecordTypes);
-            return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), primaryKey, isReverse));
+            // I don't think we need to put the parameters here, but let's see if that's necessary.
+            return Optional.of(expansionVisitor.expand(aliasMaybe ->
+                    Quantifier.forEach(createBaseRef(metaData.getRecordTypes().keySet(),
+                            queriedRecordTypeNames, metaData.getPlannerType(queriedRecordTypeNames), aliasMaybe, new PrimaryAccessHint())), primaryKey, isReverse));
         }
 
         return Optional.empty();
     }
 
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Nonnull
     private static Reference createBaseRef(@Nonnull IndexExpansionInfo info,
-                                          @Nonnull AccessHint accessHint) {
-        return createBaseRef(info.getAvailableRecordTypeNames(), info.getIndexedRecordTypeNames(), info.getBaseType(), accessHint);
+                                           @Nonnull final Optional<CorrelationIdentifier> recordTypeKeyAliasMaybe,
+                                           @Nonnull AccessHint accessHint) {
+        return createBaseRef(info.getAvailableRecordTypeNames(), info.getIndexedRecordTypeNames(), info.getBaseType(), recordTypeKeyAliasMaybe, accessHint);
     }
 
     @Nonnull
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     private static Reference createBaseRef(@Nonnull final Set<String> availableRecordTypeNames,
                                           @Nonnull final Set<String> queriedRecordTypeNames,
                                           @Nonnull final Type.Record baseType,
+                                          @Nonnull final Optional<CorrelationIdentifier> recordTypeKeyAliasMaybe,
                                           @Nonnull AccessHint accessHint) {
         final var quantifier =
                 Quantifier.forEach(
@@ -152,9 +158,10 @@ public final class MatchCandidateExpansion {
                                 new FullUnorderedScanExpression(availableRecordTypeNames,
                                         new Type.AnyRecord(false),
                                         new AccessHints(accessHint))));
-        return Reference.initialOf(
-                new LogicalTypeFilterExpression(queriedRecordTypeNames,
-                        quantifier,
-                        baseType));
+        return Reference.initialOf(LogicalTypeFilterExpression.newInstanceForMatchCandidate(queriedRecordTypeNames,
+                availableRecordTypeNames,
+                quantifier,
+                recordTypeKeyAliasMaybe,
+                baseType));
     }
 }

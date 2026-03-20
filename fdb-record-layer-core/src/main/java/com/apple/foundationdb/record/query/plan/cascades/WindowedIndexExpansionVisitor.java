@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -46,11 +47,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
  * Class to expand a by-rank index access into a candidate graph. The visitation methods are left unchanged from the super
- * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
+ * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link ExpansionVisitor#expand} method.
  */
 public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
@@ -89,11 +92,12 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
      * @param baseQuantifierSupplier a quantifier supplier to create base data access
      * @param primaryKey the primary key of the data object the caller wants to access
      * @param isReverse an indicator whether the result set is expected to be returned in reverse order
+     *
      * @return a match candidate for this rank index
      */
     @Nonnull
     @Override
-    public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public MatchCandidate expand(@Nonnull final Function<Optional<CorrelationIdentifier>, Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
         var rootExpression = index.getRootExpression();
@@ -102,7 +106,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
-        final var baseQuantifier = baseQuantifierSupplier.get();
+        final var baseQuantifier = baseQuantifierSupplier.apply(Optional.empty()); // todo
 
         final var baseExpansion =
                 GraphExpansion.builder()
@@ -119,7 +123,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         // TODO verify if there is only ever going to be a grouped count of 1, for now assert on it
         Verify.verify(groupingKeyExpression.getGroupedCount() == 1);
 
-        final var innerBaseQuantifier = baseQuantifierSupplier.get();
+        final var innerBaseQuantifier = baseQuantifierSupplier.apply(Optional.empty()); // todo (refactor as well)
         final var innerBaseAlias = innerBaseQuantifier.getAlias();
         final var expandGroupingsAndArgumentsResult =
                 expandGroupingsAndArguments(baseQuantifier, innerBaseQuantifier, groupingKeyExpression,

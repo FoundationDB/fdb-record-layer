@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.DotProductDistan
 import com.apple.foundationdb.record.query.plan.cascades.values.EuclideanDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EuclideanSquareDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -50,12 +51,14 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
  * Class to expand vector index access into a candidate graph. The visitation methods are left unchanged from the super
- * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
+ * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link ExpansionVisitor#expand} method.
  */
 public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
@@ -77,12 +80,12 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public MatchCandidate expand(@Nonnull final Function<Optional<CorrelationIdentifier>, Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
         Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
 
-        final var baseQuantifier = baseQuantifierSupplier.get();
+        final var baseQuantifier = baseQuantifierSupplier.apply(Optional.empty()); // todo
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
         allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
