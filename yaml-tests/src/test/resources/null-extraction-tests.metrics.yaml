@@ -14,10 +14,10 @@ agg-index-tests-count:
 -   query: EXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1
         < 20)
     explain: 'COVERING(I1 [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)]
-        -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER @c15 IS_NULL OR _.B1 LESS_THAN
-        promote(@c21 AS INT) | FETCH'
-    task_count: 1426
-    task_total_time_ms: 45
+        -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]]) | FILTER @c15 IS_NULL OR _.B1
+        LESS_THAN promote(@c21 AS INT) | FETCH'
+    task_count: 1432
+    task_total_time_ms: 56
     transform_count: 266
     transform_time_ms: 20
     transform_yield_count: 84
