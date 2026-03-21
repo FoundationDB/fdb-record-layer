@@ -94,19 +94,19 @@ public class SiftTest implements BaseTest {
         final TestHelpers.TestOnWriteListener onWriteListener = new TestHelpers.TestOnWriteListener();
         final TestHelpers.TestOnReadListener onReadListener = new TestHelpers.TestOnReadListener();
 
-        final Metric metric = Metric.EUCLIDEAN_METRIC;
+        final Metric metric = Metric.COSINE_METRIC;
         final Config config =
                 Guardiann.newConfigBuilder()
                         .setUseRaBitQ(true)
                         .setRaBitQNumExBits(6)
                         .setMetric(metric)
-                        .setPrimaryClusterMax(500)
+                        .setPrimaryClusterMax(400)
                         .setPrimaryClusterMin(100)
                         .setPersistSequentialUuids(true)
                         .setClusterOverlap(0.1d)
                         .setReplicatedClusterTarget(500)
                         .setReplicatedClusterMaxWrites(1500)
-                        .build(128);
+                        .build(512);
 
         guardiann = new Guardiann(subspaceExtension.getSubspace(),
                 TestExecutors.defaultThreadPool(),
@@ -124,8 +124,8 @@ public class SiftTest implements BaseTest {
     void testInsertSIFTSmall() throws Exception {
         final int k = 100;
         TestHelpers.validateSIFT(getDb(), guardiann, insertedData,
-                "/Users/nseemann/Downloads/sift-100k-queries.fvecs",
-                "/Users/nseemann/Downloads/sift-100k-groundtruth.ivecs", k);
+                "/Users/nseemann/Downloads/embeddings-100k-queries.fvecs",
+                "/Users/nseemann/Downloads/embeddings-100k-groundtruth.ivecs", k);
 
         final HNSW centroidHnsw = guardiann.getLocator().primitives().getClusterCentroidsHnsw();
 

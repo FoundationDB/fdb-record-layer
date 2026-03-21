@@ -98,6 +98,7 @@ test {
     dependsOn downloadTasks
     dependsOn tasks.named('extractSiftSmall')
     inputs.dir extractDir
+    maxHeapSize = "4g"
 }
 
 publishing {

@@ -192,7 +192,7 @@ public class Search {
                     final var boundedClusterMetadataIterable =
                             MoreAsyncUtil.iterableFromCollection(
                                     clusterMetadataWithDistancesFuture.thenApply(clusterMetadataWithDistances -> {
-                                        if (clusterMetadataWithDistances.size() < 16) {
+                                        if (clusterMetadataWithDistances.size() <= 48) {
                                             if (logger.isInfoEnabled()) {
                                                 logger.info("querying numClusters={}", clusterMetadataWithDistances.size());
                                             }
@@ -201,7 +201,7 @@ public class Search {
 
                                         final double nearestCentroidDistance = clusterMetadataWithDistances.get(0).getDistance();
                                         int i;
-                                        for (i = 16; i < clusterMetadataWithDistances.size(); i ++) {
+                                        for (i = 48; i < clusterMetadataWithDistances.size(); i ++) {
                                             final ClusterMetadataWithDistance currentClusterMetadata =
                                                     clusterMetadataWithDistances.get(i);
                                             if (currentClusterMetadata.getDistance() / nearestCentroidDistance > 1.50) {
