@@ -369,16 +369,16 @@ recursive-cte-tests-with-hints:
     explain: 'RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c24 AS LONG),
         [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT
         AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(CHILDIDX [EQUALS q0.PARENT,
-        [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT
-        AS PARENT, q0.LEVEL + @c81 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT,
-        _.LEVEL AS LEVEL)'
-    task_count: 1203
-    task_total_time_ms: 18
-    transform_count: 297
-    transform_time_ms: 7
-    transform_yield_count: 67
-    insert_time_ms: 0
-    insert_new_count: 149
+        [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | FILTER _.ID NOT_NULL | MAP
+        (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c81 AS LEVEL) } | MAP (_.ID AS
+        ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)'
+    task_count: 1255
+    task_total_time_ms: 90
+    transform_count: 305
+    transform_time_ms: 21
+    transform_yield_count: 69
+    insert_time_ms: 3
+    insert_new_count: 156
     insert_reused_count: 3
 -   query: EXPLAIN with recursive allDescendants as ( select *  from t1 where id =
         50 union all select c.* from allDescendants as p, t1 as c use index (childIdxNoNulls)

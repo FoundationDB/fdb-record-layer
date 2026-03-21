@@ -1,0 +1,79 @@
+join-tests:
+-   query: EXPLAIN select emp.id, fname from emp, dept where emp.dept_id = dept.id
+        and dept.id in (1, 2) and emp.id not in (1, 5)
+    ref: join-tests.yamsql:334
+    explain: 'ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c24
+        AS ARRAY(LONG))) | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID:
+        KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c35 AS ARRAY(LONG)) AND
+        q0.ID EQUALS q1 | FETCH AS q2 RETURN q2 } AS q3 RETURN (q3.ID AS ID, q3.FNAME
+        AS FNAME) }'
+    task_count: 6305
+    task_total_time_ms: 577
+    transform_count: 1881
+    transform_time_ms: 168
+    transform_yield_count: 356
+    insert_time_ms: 36
+    insert_new_count: 1117
+    insert_reused_count: 76
+-   query: EXPLAIN select emp.id, fname from emp, dept where dept.id = emp.dept_id
+        and dept.id in (1, 2) and emp.id not in (1, 5)
+    ref: join-tests.yamsql:343
+    explain: 'COVERING(EMPDEPT <,> -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT
+        _.ID IN promote(@c35 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c24
+        AS ARRAY(LONG))) | FLATMAP q1 -> { COVERING(DEPTNAME <,> -> [ID: KEY:[2],
+        NAME: KEY:[0]]) | FILTER _.ID EQUALS q1 AND _.ID EQUALS q0.DEPT_ID | MAP (1
+        AS _0) AS q2 RETURN (1 AS _0) } AS q3 RETURN (q0.ID AS ID, q0.FNAME AS FNAME)
+        }'
+    task_count: 5420
+    task_total_time_ms: 474
+    transform_count: 1630
+    transform_time_ms: 142
+    transform_yield_count: 312
+    insert_time_ms: 37
+    insert_new_count: 933
+    insert_reused_count: 70
+-   query: EXPLAIN select emp.id from emp, dept where emp.dept_id = dept.id and dept.id
+        = 1 and emp.id in (10, 20, 30)
+    ref: join-tests.yamsql:352
+    explain: 'COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER _.ID
+        EQUALS promote(@c22 AS LONG) | FETCH | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS
+        q0.ID]) | FLATMAP q1 -> { EXPLODE arrayDistinct(promote(@c28 AS ARRAY(LONG)))
+        | FILTER q1.ID EQUALS _ | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN (q1.ID
+        AS ID) }'
+    task_count: 6343
+    task_total_time_ms: 520
+    transform_count: 1848
+    transform_time_ms: 154
+    transform_yield_count: 369
+    insert_time_ms: 39
+    insert_new_count: 1107
+    insert_reused_count: 73
+-   query: EXPLAIN select emp.fname, emp.lname from emp, dept where emp.lname > dept.name
+        and dept.name = 'Sales' and emp.lname < 'W'
+    ref: join-tests.yamsql:428
+    explain: ISCAN(DEPTNAME [EQUALS promote(@c26 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPNAME
+        [[GREATER_THAN q0.NAME && LESS_THAN promote(@c32 AS STRING)]]) AS q1 RETURN
+        (q1.FNAME AS FNAME, q1.LNAME AS LNAME) }
+    task_count: 1145
+    task_total_time_ms: 316
+    transform_count: 288
+    transform_time_ms: 161
+    transform_yield_count: 92
+    insert_time_ms: 14
+    insert_new_count: 161
+    insert_reused_count: 10
+-   query: EXPLAIN select emp.fname, emp.lname from emp, dept where dept.name < emp.lname
+        and dept.name = 'Sales' and emp.lname < 'W'
+    ref: join-tests.yamsql:436
+    explain: 'ISCAN(EMPNAME [[LESS_THAN promote(@c32 AS STRING)]]) | FLATMAP q0 ->
+        { COVERING(DEPTNAME [EQUALS promote(@c26 AS STRING)] -> [ID: KEY:[2], NAME:
+        KEY:[0]]) | FILTER _.NAME LESS_THAN q0.LNAME | FETCH AS q1 RETURN (q0.FNAME
+        AS FNAME, q0.LNAME AS LNAME) }'
+    task_count: 1231
+    task_total_time_ms: 80
+    transform_count: 312
+    transform_time_ms: 25
+    transform_yield_count: 100
+    insert_time_ms: 2
+    insert_new_count: 176
+    insert_reused_count: 8
