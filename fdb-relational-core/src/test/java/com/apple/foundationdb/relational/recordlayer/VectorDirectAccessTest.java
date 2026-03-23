@@ -1,0 +1,351 @@
+/*
+ * InsertTest.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.recordlayer;
+
+import com.apple.foundationdb.linear.DoubleRealVector;
+import com.apple.foundationdb.linear.FloatRealVector;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
+import com.apple.foundationdb.relational.api.KeySet;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
+import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
+import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class VectorDirectAccessTest {
+    @RegisterExtension
+    @Order(0)
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
+
+    @RegisterExtension
+    @Order(1)
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(VectorDirectAccessTest.class,
+            "CREATE TABLE V(PK INTEGER, V1 VECTOR(4, FLOAT), V2 VECTOR(3, HALF), V3 VECTOR(2, DOUBLE), PRIMARY KEY(PK))\n" +
+            "CREATE TABLE VHNSW(PK INTEGER, ZONE STRING, VEC VECTOR(3, FLOAT), PRIMARY KEY(PK))\n" +
+            "CREATE VIEW VHNSW_VIEW AS SELECT VEC, ZONE, PK FROM VHNSW\n" +
+            "CREATE VECTOR INDEX VHNSW_IDX USING HNSW ON VHNSW_VIEW(VEC) PARTITION BY(ZONE) OPTIONS (METRIC = EUCLIDEAN_METRIC)");
+
+    @Test
+    void insertNulls() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+            conn.setSchema("TEST_SCHEMA");
+            try (RelationalStatement s = conn.createStatement()) {
+                RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).build();
+                s.executeInsert("V", rec);
+                try (RelationalResultSet rs = s.executeGet("V", new KeySet().setKeyColumn("PK", 0), Options.NONE)) {
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow()
+                            .hasColumn("PK", 0)
+                            .hasColumn("V1", null)
+                            .hasColumn("V2", null)
+                            .hasColumn("V3", null)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void partialInsert() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+            conn.setSchema("TEST_SCHEMA");
+            try (RelationalStatement s = conn.createStatement()) {
+                RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addObject("V1", new FloatRealVector(new float[]{1f, 2f, 3f, 4f})).build();
+                s.executeInsert("V", rec);
+                try (RelationalResultSet rs = s.executeGet("V", new KeySet().setKeyColumn("PK", 0), Options.NONE)) {
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow()
+                            .hasColumn("PK", 0)
+                            .hasColumn("V1", new FloatRealVector(new float[]{1f, 2f, 3f, 4f}))
+                            .hasColumn("V2", null)
+                            .hasColumn("V3", null)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void fullInsert() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+            conn.setSchema("TEST_SCHEMA");
+            try (RelationalStatement s = conn.createStatement()) {
+                RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0)
+                        .addObject("V1", new FloatRealVector(new float[]{1f, 2f, 3f, 4f}))
+                        .addObject("V2", new HalfRealVector(new int[]{1, 2, 3}))
+                        .addObject("V3", new DoubleRealVector(new double[]{1d, 2d}))
+                        .build();
+                s.executeInsert("V", rec);
+                try (RelationalResultSet rs = s.executeGet("V", new KeySet().setKeyColumn("PK", 0), Options.NONE)) {
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow()
+                            .hasColumn("PK", 0)
+                            .hasColumn("V1", new FloatRealVector(new float[]{1f, 2f, 3f, 4f}))
+                            .hasColumn("V2", new HalfRealVector(new int[]{1, 2, 3}))
+                            .hasColumn("V3", new DoubleRealVector(new double[]{1d, 2d}))
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void insertWrongDimensionFails() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+            conn.setSchema("TEST_SCHEMA");
+            try (RelationalStatement s = conn.createStatement()) {
+                RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addObject("V1", new FloatRealVector(new float[] {1f, 2f, 3f, 4f, 5f})).build();
+                RelationalAssertions.assertThrowsSqlException(
+                                () -> s.executeInsert("V", rec))
+                        .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
+            }
+        }
+    }
+
+    @Test
+    void insertWrongPrecisionFails() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+            conn.setSchema("TEST_SCHEMA");
+            try (RelationalStatement s = conn.createStatement()) {
+                RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addObject("V1", new DoubleRealVector(new double[] {1d, 2d, 3d, 4d})).build();
+                RelationalAssertions.assertThrowsSqlException(
+                                () -> s.executeInsert("V", rec))
+                        .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
+            }
+        }
+    }
+
+    @Test
+    void insertWrongTypeFails() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+            conn.setSchema("TEST_SCHEMA");
+            try (RelationalStatement s = conn.createStatement()) {
+                RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 0).addInt("V1", 42).build();
+                RelationalAssertions.assertThrowsSqlException(
+                                () -> s.executeInsert("V", rec))
+                        .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE);
+            }
+        }
+    }
+
+    @Test
+    void deleteVectorRecord() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+            conn.setSchema("TEST_SCHEMA");
+            try (RelationalStatement s = conn.createStatement()) {
+                RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 10)
+                        .addObject("V1", new FloatRealVector(new float[]{1f, 2f, 3f, 4f}))
+                        .addObject("V2", new HalfRealVector(new int[]{1, 2, 3}))
+                        .addObject("V3", new DoubleRealVector(new double[]{1d, 2d}))
+                        .build();
+                s.executeInsert("V", rec);
+
+                int deleted = s.executeDelete("V", List.of(new KeySet().setKeyColumn("PK", 10)));
+                assert deleted == 1 : "Expected 1 deleted record, got " + deleted;
+
+                try (RelationalResultSet rs = s.executeGet("V", new KeySet().setKeyColumn("PK", 10), Options.NONE)) {
+                    ResultSetAssert.assertThat(rs).hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void deleteNonExistentVectorRecord() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+            conn.setSchema("TEST_SCHEMA");
+            try (RelationalStatement s = conn.createStatement()) {
+                int deleted = s.executeDelete("V", List.of(new KeySet().setKeyColumn("PK", 999)));
+                assert deleted == 0 : "Expected 0 deleted records, got " + deleted;
+            }
+        }
+    }
+
+    @Test
+    void deleteOneOfMultipleVectorRecords() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+            conn.setSchema("TEST_SCHEMA");
+            try (RelationalStatement s = conn.createStatement()) {
+                RelationalStruct rec1 = EmbeddedRelationalStruct.newBuilder().addInt("PK", 20)
+                        .addObject("V1", new FloatRealVector(new float[]{1f, 2f, 3f, 4f}))
+                        .build();
+                RelationalStruct rec2 = EmbeddedRelationalStruct.newBuilder().addInt("PK", 21)
+                        .addObject("V1", new FloatRealVector(new float[]{5f, 6f, 7f, 8f}))
+                        .build();
+                s.executeInsert("V", List.of(rec1, rec2));
+
+                int deleted = s.executeDelete("V", List.of(new KeySet().setKeyColumn("PK", 20)));
+                assert deleted == 1 : "Expected 1 deleted record, got " + deleted;
+
+                try (RelationalResultSet rs = s.executeGet("V", new KeySet().setKeyColumn("PK", 20), Options.NONE)) {
+                    ResultSetAssert.assertThat(rs).hasNoNextRow();
+                }
+                try (RelationalResultSet rs = s.executeGet("V", new KeySet().setKeyColumn("PK", 21), Options.NONE)) {
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow()
+                            .hasColumn("PK", 21)
+                            .hasColumn("V1", new FloatRealVector(new float[]{5f, 6f, 7f, 8f}))
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void deleteMultipleVectorRecords() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+            conn.setSchema("TEST_SCHEMA");
+            try (RelationalStatement s = conn.createStatement()) {
+                RelationalStruct rec1 = EmbeddedRelationalStruct.newBuilder().addInt("PK", 30)
+                        .addObject("V1", new FloatRealVector(new float[]{1f, 2f, 3f, 4f}))
+                        .build();
+                RelationalStruct rec2 = EmbeddedRelationalStruct.newBuilder().addInt("PK", 31)
+                        .addObject("V1", new FloatRealVector(new float[]{5f, 6f, 7f, 8f}))
+                        .build();
+                RelationalStruct rec3 = EmbeddedRelationalStruct.newBuilder().addInt("PK", 32)
+                        .addObject("V1", new FloatRealVector(new float[]{9f, 10f, 11f, 12f}))
+                        .build();
+                s.executeInsert("V", List.of(rec1, rec2, rec3));
+
+                int deleted = s.executeDelete("V", List.of(
+                        new KeySet().setKeyColumn("PK", 30),
+                        new KeySet().setKeyColumn("PK", 32)));
+                assert deleted == 2 : "Expected 2 deleted records, got " + deleted;
+
+                try (RelationalResultSet rs = s.executeGet("V", new KeySet().setKeyColumn("PK", 30), Options.NONE)) {
+                    ResultSetAssert.assertThat(rs).hasNoNextRow();
+                }
+                try (RelationalResultSet rs = s.executeGet("V", new KeySet().setKeyColumn("PK", 31), Options.NONE)) {
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow()
+                            .hasColumn("PK", 31)
+                            .hasColumn("V1", new FloatRealVector(new float[]{5f, 6f, 7f, 8f}))
+                            .hasNoNextRow();
+                }
+                try (RelationalResultSet rs = s.executeGet("V", new KeySet().setKeyColumn("PK", 32), Options.NONE)) {
+                    ResultSetAssert.assertThat(rs).hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void deleteVectorRecordWithNullVectors() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+            conn.setSchema("TEST_SCHEMA");
+            try (RelationalStatement s = conn.createStatement()) {
+                RelationalStruct rec = EmbeddedRelationalStruct.newBuilder().addInt("PK", 40).build();
+                s.executeInsert("V", rec);
+
+                int deleted = s.executeDelete("V", List.of(new KeySet().setKeyColumn("PK", 40)));
+                assert deleted == 1 : "Expected 1 deleted record, got " + deleted;
+
+                try (RelationalResultSet rs = s.executeGet("V", new KeySet().setKeyColumn("PK", 40), Options.NONE)) {
+                    ResultSetAssert.assertThat(rs).hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void deleteVectorMaintainsHnswIndex() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+            conn.setSchema("TEST_SCHEMA");
+            try (RelationalStatement s = conn.createStatement()) {
+                // Insert 3 vectors into VHNSW, all in zone "z1"
+                // vec1 at [1.0, 0.0, 0.0] - closest to query point [1.0, 0.0, 0.0]
+                // vec2 at [0.9, 0.1, 0.0] - second closest
+                // vec3 at [0.0, 1.0, 0.0] - farthest
+                RelationalStruct rec1 = EmbeddedRelationalStruct.newBuilder().addInt("PK", 1)
+                        .addString("ZONE", "z1")
+                        .addObject("VEC", new FloatRealVector(new float[]{1.0f, 0.0f, 0.0f}))
+                        .build();
+                RelationalStruct rec2 = EmbeddedRelationalStruct.newBuilder().addInt("PK", 2)
+                        .addString("ZONE", "z1")
+                        .addObject("VEC", new FloatRealVector(new float[]{0.9f, 0.1f, 0.0f}))
+                        .build();
+                RelationalStruct rec3 = EmbeddedRelationalStruct.newBuilder().addInt("PK", 3)
+                        .addString("ZONE", "z1")
+                        .addObject("VEC", new FloatRealVector(new float[]{0.0f, 1.0f, 0.0f}))
+                        .build();
+                s.executeInsert("VHNSW", List.of(rec1, rec2, rec3));
+            }
+
+            // ANN query before deletion: top 3 nearest to [1.0, 0.0, 0.0] should return all 3 records
+            String annQuery = "SELECT PK FROM VHNSW WHERE ZONE = ? " +
+                    "QUALIFY ROW_NUMBER() OVER (PARTITION BY ZONE ORDER BY euclidean_distance(VEC, ?) ASC) <= 3";
+            FloatRealVector queryVector = new FloatRealVector(new float[]{1.0f, 0.0f, 0.0f});
+
+            List<Integer> pksBeforeDelete = new ArrayList<>();
+            try (RelationalPreparedStatement ps = conn.prepareStatement(annQuery).unwrap(RelationalPreparedStatement.class)) {
+                ps.setString(1, "z1");
+                ps.setObject(2, queryVector);
+                try (RelationalResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        pksBeforeDelete.add(rs.getInt("PK"));
+                    }
+                }
+            }
+            // All 3 records should be in the result
+            Assertions.assertEquals(3, pksBeforeDelete.size(), "Expected 3 results before delete");
+            Assertions.assertTrue(pksBeforeDelete.contains(1), "PK=1 should be in results before delete");
+            Assertions.assertTrue(pksBeforeDelete.contains(2), "PK=2 should be in results before delete");
+            Assertions.assertTrue(pksBeforeDelete.contains(3), "PK=3 should be in results before delete");
+
+            // Delete the closest vector (PK=1)
+            try (RelationalStatement s = conn.createStatement()) {
+                int deleted = s.executeDelete("VHNSW", List.of(new KeySet().setKeyColumn("PK", 1)));
+                Assertions.assertEquals(1, deleted, "Expected 1 deleted record");
+            }
+
+            // ANN query after deletion: top 3 nearest should only return PK=2 and PK=3
+            List<Integer> pksAfterDelete = new ArrayList<>();
+            try (RelationalPreparedStatement ps = conn.prepareStatement(annQuery).unwrap(RelationalPreparedStatement.class)) {
+                ps.setString(1, "z1");
+                ps.setObject(2, queryVector);
+                try (RelationalResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        pksAfterDelete.add(rs.getInt("PK"));
+                    }
+                }
+            }
+            Assertions.assertEquals(2, pksAfterDelete.size(), "Expected 2 results after delete");
+            Assertions.assertFalse(pksAfterDelete.contains(1), "PK=1 should NOT be in results after delete");
+            Assertions.assertTrue(pksAfterDelete.contains(2), "PK=2 should be in results after delete");
+            Assertions.assertTrue(pksAfterDelete.contains(3), "PK=3 should be in results after delete");
+        }
+    }
+}
