@@ -379,6 +379,31 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         return rollUpAggregateMap.get().containsKey(indexType);
     }
 
+    /**
+     * Whether it is possible to roll-up an aggregate index to the provided grouping values.
+     *
+     * @param indexGroupingValues the grouping values of the index
+     * @param rollUpGroupingValues the rollup grouping values
+     * @param valueEquivalence the value equivalence between the roll-up and index grouping values
+     * @return {@code true} if the roll-up grouping values are compatible with the index grouping values.
+     */
+    public static boolean compatibleRollUpGroupingValues(@Nonnull final List<Value> indexGroupingValues,
+                                                         @Nonnull final List<Value> rollUpGroupingValues,
+                                                         @Nonnull final ValueEquivalence valueEquivalence) {
+        //
+        // For a roll-up to be possible, the roll-up groupings must be completely subsumed by a prefix of the
+        // index groupings. Iterate over both grouping values in order to find out.
+        //
+        final var indexGroupingValueIterator = indexGroupingValues.iterator();
+        for (final var rollupGroupingValue : rollUpGroupingValues) {
+            if (!indexGroupingValueIterator.hasNext() ||
+                    rollupGroupingValue.semanticEquals(indexGroupingValueIterator.next(), valueEquivalence).isFalse()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     @Nonnull
     public static Optional<AggregateValue> rollUpAggregateValueMaybe(@Nonnull final String indexType, @Nonnull final Value argument) {
         return Optional.ofNullable(rollUpAggregateMap.get()

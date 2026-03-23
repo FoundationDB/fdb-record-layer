@@ -1,6 +1,7 @@
 sum_aggregate_single_grouping:
 -   query: EXPLAIN select category, sum(amount) as total from sales_mat_view group
         by category order by category
+    ref: index-ddl-aggregates-only.yamsql:142
     explain: 'AISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
         | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)'
     task_count: 1034
@@ -13,6 +14,7 @@ sum_aggregate_single_grouping:
     insert_reused_count: 10
 -   query: EXPLAIN select category, sum(amount) as total from sales_index_on group
         by category order by category
+    ref: index-ddl-aggregates-only.yamsql:146
     explain: 'AISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
         | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)'
     task_count: 1034
@@ -25,31 +27,34 @@ sum_aggregate_single_grouping:
     insert_reused_count: 10
 -   query: EXPLAIN select region, sum(amount) as total from sales_mat_view group by
         region order by region
+    ref: index-ddl-aggregates-only.yamsql:152
     explain: 'AISCAN(IDX_MV_SUM_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
         | MAP (_._0 AS REGION, _._1 AS TOTAL)'
-    task_count: 558
-    task_total_time_ms: 352
-    transform_count: 182
-    transform_time_ms: 297
-    transform_yield_count: 119
-    insert_time_ms: 4
+    task_count: 528
+    task_total_time_ms: 223
+    transform_count: 173
+    transform_time_ms: 172
+    transform_yield_count: 104
+    insert_time_ms: 5
     insert_new_count: 36
     insert_reused_count: 3
 -   query: EXPLAIN select region, sum(amount) as total from sales_index_on group by
         region order by region
+    ref: index-ddl-aggregates-only.yamsql:156
     explain: 'AISCAN(IDX_IOT_SUM_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
         | MAP (_._0 AS REGION, _._1 AS TOTAL)'
-    task_count: 558
-    task_total_time_ms: 148
-    transform_count: 182
-    transform_time_ms: 120
-    transform_yield_count: 119
-    insert_time_ms: 1
+    task_count: 528
+    task_total_time_ms: 223
+    transform_count: 173
+    transform_time_ms: 172
+    transform_yield_count: 104
+    insert_time_ms: 10
     insert_new_count: 36
     insert_reused_count: 3
 sum_aggregate_multi_grouping:
 -   query: EXPLAIN select category, region, sum(amount) as total from sales_mat_view
         group by category, region order by category, region
+    ref: index-ddl-aggregates-only.yamsql:166
     explain: 'AISCAN(IDX_MV_CAT_REGION_SUM <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
         _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)'
     task_count: 815
@@ -62,6 +67,7 @@ sum_aggregate_multi_grouping:
     insert_reused_count: 7
 -   query: EXPLAIN select category, region, sum(amount) as total from sales_index_on
         group by category, region order by category, region
+    ref: index-ddl-aggregates-only.yamsql:170
     explain: 'AISCAN(IDX_IOT_CAT_REGION_SUM <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
         _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)'
     task_count: 815
@@ -74,6 +80,7 @@ sum_aggregate_multi_grouping:
     insert_reused_count: 7
 -   query: EXPLAIN select category, region, sum(amount) as total from sales_mat_view
         where category = 'Electronics' group by category, region order by region
+    ref: index-ddl-aggregates-only.yamsql:176
     explain: 'AISCAN(IDX_MV_CAT_REGION_SUM [EQUALS promote(@c17 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1
         AS REGION, _._2 AS TOTAL)'
@@ -87,6 +94,7 @@ sum_aggregate_multi_grouping:
     insert_reused_count: 3
 -   query: EXPLAIN select category, region, sum(amount) as total from sales_index_on
         where category = 'Electronics' group by category, region order by region
+    ref: index-ddl-aggregates-only.yamsql:180
     explain: 'AISCAN(IDX_IOT_CAT_REGION_SUM [EQUALS promote(@c17 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1
         AS REGION, _._2 AS TOTAL)'
@@ -102,6 +110,7 @@ sum_aggregate_three_grouping:
 -   query: EXPLAIN select category, region, product_id, sum(amount) as total from
         sales_mat_view group by category, region, product_id order by category, region,
         product_id
+    ref: index-ddl-aggregates-only.yamsql:190
     explain: 'AISCAN(IDX_MV_SUM_BY_ALL <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
         _2: KEY:[2], _3: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2
         AS PRODUCT_ID, _._3 AS TOTAL)'
@@ -116,6 +125,7 @@ sum_aggregate_three_grouping:
 -   query: EXPLAIN select category, region, product_id, sum(amount) as total from
         sales_index_on group by category, region, product_id order by category, region,
         product_id
+    ref: index-ddl-aggregates-only.yamsql:194
     explain: 'AISCAN(IDX_IOT_SUM_BY_ALL <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
         _2: KEY:[2], _3: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2
         AS PRODUCT_ID, _._3 AS TOTAL)'
@@ -130,6 +140,7 @@ sum_aggregate_three_grouping:
 count_star_aggregate:
 -   query: EXPLAIN select category, count(*) as cnt from sales_mat_view group by category
         order by category
+    ref: index-ddl-aggregates-only.yamsql:204
     explain: 'AISCAN(IDX_MV_COUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
         | MAP (_._0 AS CATEGORY, _._1 AS CNT)'
     task_count: 623
@@ -142,6 +153,7 @@ count_star_aggregate:
     insert_reused_count: 7
 -   query: EXPLAIN select category, count(*) as cnt from sales_index_on group by category
         order by category
+    ref: index-ddl-aggregates-only.yamsql:208
     explain: 'AISCAN(IDX_IOT_COUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
         | MAP (_._0 AS CATEGORY, _._1 AS CNT)'
     task_count: 623
@@ -155,6 +167,7 @@ count_star_aggregate:
 count_column_aggregate:
 -   query: EXPLAIN select region, count(quantity) as cnt from sales_mat_view group
         by region order by region
+    ref: index-ddl-aggregates-only.yamsql:218
     explain: 'AISCAN(IDX_MV_COUNT_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1:
         VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS CNT)'
     task_count: 528
@@ -167,6 +180,7 @@ count_column_aggregate:
     insert_reused_count: 3
 -   query: EXPLAIN select region, count(quantity) as cnt from sales_index_on group
         by region order by region
+    ref: index-ddl-aggregates-only.yamsql:222
     explain: 'AISCAN(IDX_IOT_COUNT_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1:
         VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS CNT)'
     task_count: 528
@@ -180,6 +194,7 @@ count_column_aggregate:
 aggregate_with_having:
 -   query: EXPLAIN select category, sum(amount) as total from sales_mat_view group
         by category having sum(amount) > 2000 order by category
+    ref: index-ddl-aggregates-only.yamsql:232
     explain: 'AISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
         | FILTER _._1 GREATER_THAN promote(@c21 AS LONG) | MAP (_._0 AS CATEGORY,
         _._1 AS TOTAL)'
@@ -193,6 +208,7 @@ aggregate_with_having:
     insert_reused_count: 10
 -   query: EXPLAIN select category, sum(amount) as total from sales_index_on group
         by category having sum(amount) > 2000 order by category
+    ref: index-ddl-aggregates-only.yamsql:236
     explain: 'AISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
         | FILTER _._1 GREATER_THAN promote(@c21 AS LONG) | MAP (_._0 AS CATEGORY,
         _._1 AS TOTAL)'
@@ -207,6 +223,7 @@ aggregate_with_having:
 min_aggregate:
 -   query: EXPLAIN select category, min(amount) as min_amt from sales_mat_view group
         by category order by category
+    ref: index-ddl-aggregates-only.yamsql:246
     explain: 'AISCAN(IDX_MV_MIN_AMOUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1:
         KEY:[1]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_AMT)'
     task_count: 780
@@ -219,6 +236,7 @@ min_aggregate:
     insert_reused_count: 8
 -   query: EXPLAIN select category, min(amount) as min_amt from sales_index_on group
         by category order by category
+    ref: index-ddl-aggregates-only.yamsql:250
     explain: 'AISCAN(IDX_IOT_MIN_AMOUNT_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_AMT)'
     task_count: 653
@@ -232,31 +250,34 @@ min_aggregate:
 max_aggregate:
 -   query: EXPLAIN select region, max(amount) as max_amt from sales_mat_view group
         by region order by region
+    ref: index-ddl-aggregates-only.yamsql:260
     explain: 'AISCAN(IDX_MV_MAX_AMOUNT_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1:
         KEY:[1]]) | MAP (_._0 AS REGION, _._1 AS MAX_AMT)'
-    task_count: 558
-    task_total_time_ms: 86
-    transform_count: 180
-    transform_time_ms: 64
-    transform_yield_count: 111
+    task_count: 548
+    task_total_time_ms: 57
+    transform_count: 177
+    transform_time_ms: 36
+    transform_yield_count: 106
     insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 3
 -   query: EXPLAIN select region, max(amount) as max_amt from sales_index_on group
         by region order by region
+    ref: index-ddl-aggregates-only.yamsql:264
     explain: 'AISCAN(IDX_IOT_MAX_AMOUNT_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1:
         KEY:[1]]) | MAP (_._0 AS REGION, _._1 AS MAX_AMT)'
-    task_count: 558
-    task_total_time_ms: 89
-    transform_count: 180
-    transform_time_ms: 67
-    transform_yield_count: 111
+    task_count: 548
+    task_total_time_ms: 57
+    transform_count: 177
+    transform_time_ms: 41
+    transform_yield_count: 106
     insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 3
 min_ever_aggregate:
 -   query: EXPLAIN select category, min_ever(quantity) as min_qty from sales_mat_view
         group by category order by category
+    ref: index-ddl-aggregates-only.yamsql:274
     explain: 'AISCAN(IDX_MV_MIN_EVER_QTY_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_QTY)'
     task_count: 593
@@ -269,6 +290,7 @@ min_ever_aggregate:
     insert_reused_count: 7
 -   query: EXPLAIN select category, min_ever(quantity) as min_qty from sales_index_on
         group by category order by category
+    ref: index-ddl-aggregates-only.yamsql:278
     explain: 'AISCAN(IDX_IOT_MIN_EVER_QTY_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS MIN_QTY)'
     task_count: 593
@@ -282,6 +304,7 @@ min_ever_aggregate:
 max_ever_aggregate:
 -   query: EXPLAIN select region, max_ever(quantity) as max_qty from sales_mat_view
         group by region order by region
+    ref: index-ddl-aggregates-only.yamsql:288
     explain: 'AISCAN(IDX_MV_MAX_EVER_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1:
         VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS MAX_QTY)'
     task_count: 513
@@ -294,6 +317,7 @@ max_ever_aggregate:
     insert_reused_count: 3
 -   query: EXPLAIN select region, max_ever(quantity) as max_qty from sales_index_on
         group by region order by region
+    ref: index-ddl-aggregates-only.yamsql:292
     explain: 'AISCAN(IDX_IOT_MAX_EVER_QTY_BY_REGION <,> BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._0 AS REGION, _._1 AS MAX_QTY)'
     task_count: 513
@@ -307,6 +331,7 @@ max_ever_aggregate:
 aggregate_in_middle_of_key:
 -   query: EXPLAIN select category, max(amount) as max_amt, region from sales_mat_view
         group by category, region order by category, region
+    ref: index-ddl-aggregates-only.yamsql:302
     explain: 'AISCAN(IDX_MV_CAT_MAX_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
         _2: KEY:[2]]) | MAP (_._0 AS CATEGORY, _._2 AS MAX_AMT, _._1 AS REGION)'
     task_count: 583
@@ -319,6 +344,7 @@ aggregate_in_middle_of_key:
     insert_reused_count: 5
 -   query: EXPLAIN select category, max(amount) as max_amt, region from sales_index_on
         group by category, region order by category, region
+    ref: index-ddl-aggregates-only.yamsql:306
     explain: ISCAN(IDX_IOT_MIN_CAT_REGION <,>) | MAP (_ AS _0) | AGG (max_l(_._0.AMOUNT)
         AS _0) GROUP BY (_._0.CATEGORY AS _0, _._0.REGION AS _1) | MAP (_._0._0 AS
         CATEGORY, _._1._0 AS MAX_AMT, _._0._1 AS REGION)
@@ -332,6 +358,7 @@ aggregate_in_middle_of_key:
     insert_reused_count: 4
 -   query: EXPLAIN select min(amount) as min_amt, category, region from sales_mat_view
         group by category, region order by category, region
+    ref: index-ddl-aggregates-only.yamsql:312
     explain: 'AISCAN(IDX_MV_MIN_CAT_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
         _2: KEY:[2]]) | MAP (_._2 AS MIN_AMT, _._0 AS CATEGORY, _._1 AS REGION)'
     task_count: 583
@@ -344,6 +371,7 @@ aggregate_in_middle_of_key:
     insert_reused_count: 5
 -   query: EXPLAIN select min(amount) as min_amt, category, region from sales_index_on
         group by category, region order by category, region
+    ref: index-ddl-aggregates-only.yamsql:316
     explain: ISCAN(IDX_IOT_MIN_CAT_REGION <,>) | MAP (_ AS _0) | AGG (min_l(_._0.AMOUNT)
         AS _0) GROUP BY (_._0.CATEGORY AS _0, _._0.REGION AS _1) | MAP (_._1._0 AS
         MIN_AMT, _._0._0 AS CATEGORY, _._0._1 AS REGION)

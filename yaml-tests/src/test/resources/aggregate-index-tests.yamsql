@@ -33,6 +33,7 @@ schema_template:
     create index mv9 as select col1, max(col2), col3 from T2 group by col1, col3 order by col1, max(col2), col3
     create index vi1 as select col1 from t1
     create index mv7 as select min_ever(col3) from t2
+    create index mv20 as select sum(col3) from t2 group by col2, col1  
     create table t3(id bigint, a bigint, b bigint, primary key(id))
     create index mv10 as select a+3, max(b) from t3 group by a+3
     create index mv11 as select a+b, b+10, min(b) from t3 group by a+b, b+10
@@ -564,4 +565,19 @@ test_block:
                    {b: "foo", c: 0, d: 2, e: "e1", _4:  2},
                    {b: "foo", c: 0, d: 2, e: "e2", _4:  3},
                 ]
+    -
+      - query: select sum(col3) from T2 group by col2;
+      - explain: "AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) | MAP (_._2 AS _0)"
+      - result: [{!l 1504}, {!l 202}]
+    -
+      - query: select sum(col3) from T2 group by col1;
+      - explain: "ISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)"
+      - initialVersionLessThan: !current_version
+      - unorderedResult: [{!l 1504}, {!l 202}]
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [{!l 1403}, {!l 303}]
+    -
+      - query: select sum(col3) from T2;
+      - explain: "AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY () | MAP ((_._2 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - result: [{!l 1706}]
 ...

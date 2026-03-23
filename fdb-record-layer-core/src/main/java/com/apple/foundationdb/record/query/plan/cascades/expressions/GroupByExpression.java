@@ -573,16 +573,11 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
         if (!unmatchedCandidateValues.isEmpty()) {
             Verify.verify(candidateGroupingValues.size() > translatedGroupingValuesSet.size());
 
-            //
-            // This is a potential roll-up case, but only if the query side's groupings are completely subsumed
-            // by the prefix of the candidate side. Iterate up to the smaller query side's grouping values to
-            // find out.
-            //
-            for (final var translatedGroupingValue : translatedGroupingValuesSet) {
-                if (unmatchedCandidateValues.contains(translatedGroupingValue)) {
-                    return SubsumedGroupingsResult.noSubsumption();
-                }
+            if (!AggregateIndexExpansionVisitor.compatibleRollUpGroupingValues(
+                    candidateGroupingValues, translatedGroupingValues, valueEquivalence)) {
+                return SubsumedGroupingsResult.noSubsumption();
             }
+
             return SubsumedGroupingsResult.of(booleanWithConstraint, matchedGroupingsMap, translatedGroupingValues);
         }
 

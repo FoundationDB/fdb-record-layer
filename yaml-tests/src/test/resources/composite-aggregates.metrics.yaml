@@ -1,5 +1,6 @@
 agg-empty-table-tests:
 -   query: EXPLAIN select sum(col2) / count(col2) from T2 group by col1;
+    ref: composite-aggregates.yamsql:77
     explain: 'AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4
         <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1
         RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0)'
@@ -12,6 +13,7 @@ agg-empty-table-tests:
     insert_new_count: 30
     insert_reused_count: 1
 -   query: EXPLAIN select sum(col2), count(col2) from T2 where col1 < 2 group by col1;
+    ref: composite-aggregates.yamsql:81
     explain: 'AISCAN(T2_I6 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) ∩ AISCAN(T2_I4 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0
@@ -26,6 +28,7 @@ agg-empty-table-tests:
     insert_reused_count: 1
 -   query: EXPLAIN select sum(col2), count(col2) from T2 group by col1 having sum(col2)
         = 17;
+    ref: composite-aggregates.yamsql:85
     explain: 'AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T2_I4
         <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1
         RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c22
@@ -40,6 +43,7 @@ agg-empty-table-tests:
     insert_reused_count: 1
 -   query: EXPLAIN select sum(col2), count(col2) from T2 where col1 < 2 group by col1
         having sum(col2) = 17;
+    ref: composite-aggregates.yamsql:89
     explain: 'AISCAN(T2_I6 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) ∩ AISCAN(T2_I4 [[LESS_THAN promote(@c16 AS LONG)]] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0
@@ -54,36 +58,39 @@ agg-empty-table-tests:
     insert_new_count: 34
     insert_reused_count: 1
 -   query: EXPLAIN select sum(col1) / count(col1), col2 from T1 group by col2;
+    ref: composite-aggregates.yamsql:93
     explain: 'AISCAN(T1_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(T1_I1
         <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2)
         GROUP BY (_._0 AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1
         AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0, _._0 AS COL2)'
-    task_count: 615
+    task_count: 605
     task_total_time_ms: 39
-    transform_count: 164
+    transform_count: 161
     transform_time_ms: 28
-    transform_yield_count: 60
-    insert_time_ms: 3
-    insert_new_count: 56
+    transform_yield_count: 55
+    insert_time_ms: 2
+    insert_new_count: 53
     insert_reused_count: 2
 -   query: EXPLAIN select col2, sum(col1) / count(col1) from T1 where col2 < 2 group
         by col2 having sum(col1) = 17 order by col2;
+    ref: composite-aggregates.yamsql:97
     explain: 'AISCAN(T1_I2 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) ∩ AISCAN(T1_I1 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP
         -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0
         AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1
         AS _2) | FILTER _._1 EQUALS promote(@c28 AS LONG) | MAP (_._0 AS COL2, _._1
         / _._2 AS _1)'
-    task_count: 666
-    task_total_time_ms: 48
-    transform_count: 175
-    transform_time_ms: 38
-    transform_yield_count: 62
+    task_count: 656
+    task_total_time_ms: 41
+    transform_count: 172
+    transform_time_ms: 30
+    transform_yield_count: 57
     insert_time_ms: 1
     insert_new_count: 60
     insert_reused_count: 2
 -   query: EXPLAIN select col2, sum(col1) / count(col1) from T1 where col2 < 2 group
         by col2, col3 having sum(col1) = 17;
+    ref: composite-aggregates.yamsql:101
     explain: 'AISCAN(T1_I4 [[LESS_THAN promote(@c18 AS LONG)]] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: VALUE:[0]]) ∩ AISCAN(T1_I1 [[LESS_THAN promote(@c18 AS LONG)]]
         BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) COMPARE BY (_._0, _._1)
@@ -99,6 +106,7 @@ agg-empty-table-tests:
     insert_new_count: 34
     insert_reused_count: 1
 -   query: EXPLAIN select col1, min(col2), max(col2) from T3 group by col1, col3;
+    ref: composite-aggregates.yamsql:105
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL2) AS _0, max_l(_._0.COL2)
         AS _1) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._0 AS COL1,
         _._1._0 AS _1, _._1._1 AS _2)
@@ -112,6 +120,7 @@ agg-empty-table-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select col1 as "a", col1 as "b", sum(col2) as "a1", sum(col2) as
         "b1" from T2 group by col1;
+    ref: composite-aggregates.yamsql:109
     explain: 'AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0
         AS a, _._0 AS b, _._1 AS a1, _._1 AS b1)'
     task_count: 372
