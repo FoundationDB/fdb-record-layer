@@ -7,6 +7,95 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.10.7.0
+
+<h4> Breaking Changes </h4>
+
+* Lucene: Split large Lucene  pending writes queue entries - [PR #3970](https://github.com/FoundationDB/fdb-record-layer/pull/3970)
+* Support COPY command with a TransactionBoundDatabase - [PR #3826](https://github.com/FoundationDB/fdb-record-layer/pull/3826)
+<h4> Bug Fixes </h4>
+
+* Lucene: Merge: skip pending queue drain when merge fails to obtain a … - [PR #3992](https://github.com/FoundationDB/fdb-record-layer/pull/3992)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Document hierarchical navigable small worlds (hnsw)-based vector index technology - [PR #3997](https://github.com/FoundationDB/fdb-record-layer/pull/3997)
+
+</details>
+
+
+**[Full Changelog (4.10.6.0...4.10.7.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.6.0...4.10.7.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.9.6.0`, ✅`4.9.7.0`, ✅`4.9.8.0`, ✅`4.9.9.0`, ✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`, ✅`4.10.6.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/22967018846)
+
+
+
+### 4.10.6.0
+
+<h4> New Features </h4>
+
+* Add lucene queue size timer event - [PR #3988](https://github.com/FoundationDB/fdb-record-layer/pull/3988)
+
+
+**[Full Changelog (4.10.5.0...4.10.6.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.5.0...4.10.6.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.9.4.0`, ✅`4.9.6.0`, ✅`4.9.7.0`, ❌`4.9.8.0`, ✅`4.9.9.0`, ✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/22728009119)
+
+
+
+### 4.10.5.0
+
+<h4> New Features </h4>
+
+* Allow leaving corrupted indexes as readable after header repair - [PR #3801](https://github.com/FoundationDB/fdb-record-layer/pull/3801)
+<h4> Bug Fixes </h4>
+
+* Lucene: Convert  merge & drain pending queue to a future - [PR #3982](https://github.com/FoundationDB/fdb-record-layer/pull/3982)
+* Fix verify exception that could be forwarded if the `ORDER BY` expression was on a join constituent not in the final projection - [PR #3989](https://github.com/FoundationDB/fdb-record-layer/pull/3989)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Yaml tests with large records (split across multiple k/v) - [PR #3986](https://github.com/FoundationDB/fdb-record-layer/pull/3986)
+* Add `!randomStr` custom YAML tag for large string testing - [PR #3984](https://github.com/FoundationDB/fdb-record-layer/pull/3984)
+* Add an online indexing test for vector indexes - [PR #3972](https://github.com/FoundationDB/fdb-record-layer/pull/3972)
+
+</details>
+
+
+**[Full Changelog (4.10.4.0...4.10.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.4.0...4.10.5.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.9.3.0`, ✅`4.9.4.0`, ✅`4.9.6.0`, ✅`4.9.7.0`, ✅`4.9.8.0`, ✅`4.9.9.0`, ✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`, ✅`4.10.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/22710891170)
+
+
+
 ### 4.10.4.0
 
 <h4> New Features </h4>

@@ -62,10 +62,13 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -187,40 +190,56 @@ public class FDBDirectoryManager implements AutoCloseable {
         // no longer be valid. It may make sense to have AgilityContext.Agile commit periodically regardless of activity
         if (!partitioner.isPartitioningEnabled()) {
             agileContext.flush();
-            mergeIndexNow(groupingKey, null);
-            return AsyncUtil.DONE;
+            return mergeIndexNow(groupingKey, null);
         } else {
             // Here: iterate the partition ids and merge each
             AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo = new AtomicReference<>();
             return AsyncUtil.whileTrue(() -> getNextOlderPartitionInfo(groupingKey, agileContext, lastPartitionInfo)
-                    .thenApply(partitionId -> {
+                    .thenCompose(partitionId -> {
                         if (partitionId == null) {
                             // partition list end
-                            return false;
+                            return AsyncUtil.READY_FALSE;
                         }
                         agileContext.flush();
-                        mergeIndexNow(groupingKey, partitionId);
-                        return true;
+                        return mergeIndexNow(groupingKey, partitionId)
+                                .thenApply(v -> true);
                     }));
         }
     }
 
-    private void mergeIndexNow(Tuple groupingKey, @Nullable final Integer partitionId) {
+    private CompletableFuture<Void> mergeIndexNow(Tuple groupingKey, @Nullable final Integer partitionId) {
         final AgilityContext agilityContext = getAgilityContext(true, true);
+        RuntimeException mergeException = null;
         try {
             mergeIndexWithContext(groupingKey, partitionId, agilityContext);
-        } finally {
-            try {
-                // Here: drain this partition's queue and clear the "use queue" indicator
-                // If the merge had failed, we still wish to drain the queue and release the ongoing merge indicator. Merge can be retried by another process.
-                drainPendingQueue(groupingKey, partitionId, agilityContext);
-            } finally {
-                // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
-                // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
-                // but that should be rare.
-                agilityContext.flushAndClose();
-            }
+        } catch (RuntimeException e) {
+            mergeException = e;
         }
+        // Here: drain this partition's queue and clear the "use queue" indicator
+        // If the merge had failed, we still wish to drain the queue and release the ongoing merge indicator. Merge can be retried by another process.
+        // If the merge failed due to a lock exception, skip draining — there is probably another ongoing merge process
+        final RuntimeException capturedMergeException = mergeException;
+        boolean skipDrain = hasCause(mergeException, FDBDirectoryLockFactory.FDBDirectoryLockException.class);
+        if (skipDrain && LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.of("Skipping drain pending queue due to lock exception",
+                    LuceneLogMessageKeys.GROUP, groupingKey,
+                    LuceneLogMessageKeys.INDEX_PARTITION, partitionId));
+        }
+        CompletableFuture<Void> drainFuture = skipDrain
+                ? AsyncUtil.DONE
+                : drainPendingQueue(groupingKey, partitionId, agilityContext);
+        return drainFuture
+                .whenComplete((v, drainEx) -> {
+                    // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
+                    // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
+                    // but that should be rare.
+                    agilityContext.flushAndClose();
+                })
+                .thenRun(() -> {
+                    if (capturedMergeException != null) {
+                        throw capturedMergeException;
+                    }
+                });
     }
 
     public void mergeIndexWithContext(@Nonnull final Tuple groupingKey,
@@ -248,18 +267,37 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
-    public void drainPendingQueue(@Nonnull final Tuple groupingKey,
-                                   @Nullable final Integer partitionId,
-                                   @Nonnull final AgilityContext agilityContext) {
-        try (FDBDirectoryWrapper directoryWrapper = createDirectoryWrapper(groupingKey, partitionId, agilityContext)) {
-            directoryWrapper.drainPendingQueue(groupingKey, partitionId);
-        } catch (IOException e) {
-            throw LuceneExceptions.toRecordCoreException("Drain pending queue failed", e,
-                    LuceneLogMessageKeys.GROUP, groupingKey,
-                    LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
-        }
+    @SuppressWarnings("PMD.CloseResource")
+    public CompletableFuture<Void> drainPendingQueue(@Nonnull final Tuple groupingKey,
+                                                     @Nullable final Integer partitionId,
+                                                     @Nonnull final AgilityContext agilityContext) {
+        final FDBDirectoryWrapper directoryWrapper = createDirectoryWrapper(groupingKey, partitionId, agilityContext);
+        return directoryWrapper.drainPendingQueue(groupingKey, partitionId)
+                .whenComplete((v, e) -> {
+                    try {
+                        directoryWrapper.close();
+                    } catch (IOException ex) {
+                        throw LuceneExceptions.toRecordCoreException("Failed to close directory wrapper", ex,
+                                LuceneLogMessageKeys.GROUP, groupingKey,
+                                LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
+                    }
+                });
     }
 
+
+    private static boolean hasCause(@Nullable Throwable ex, Class<? extends Throwable> causeClass) {
+        // Similar methods are implemented elsewhere. TODO: create a common ExceptionsUtil
+        Set<Throwable> seenSet = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable current = ex;
+                 current != null && !seenSet.contains(current);
+                 current = current.getCause()) {
+            if (causeClass.isInstance(current)) {
+                return true;
+            }
+            seenSet.add(current);
+        }
+        return false;
+    }
 
     private static void closeOrAbortAgilityContext(AgilityContext agilityContext, Throwable ex) {
         if (ex == null) {
