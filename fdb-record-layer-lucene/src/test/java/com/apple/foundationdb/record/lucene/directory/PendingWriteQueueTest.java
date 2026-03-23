@@ -435,12 +435,73 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void testIncarnationCapturedFromStore() throws Exception {
+        PendingWriteQueue queue;
+        List<LuceneDocumentFromRecord.DocumentField> fields =
+                List.of(createField("f", "value", LuceneIndexExpressions.DocumentFieldType.STRING, false, false));
+        Tuple pk1 = primaryKey("doc1");
+        Tuple pk2 = primaryKey("doc2");
+        Tuple pk3 = primaryKey("del1");
+        Tuple pk4 = primaryKey("del2");
+        Tuple pk5 = primaryKey("del3");
+        Tuple pk6 = primaryKey("doc3");
+
+        // Enqueue via store at default incarnation (0)
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            // Use a separate subspace outside the record store's path to avoid conflicts
+            Subspace queueRoot = new Subspace(Tuple.from("test_pending_queue"));
+            Subspace queueSpace = queueRoot.subspace(Tuple.from("queue"));
+            Subspace counterSpace = queueRoot.subspace(Tuple.from("counter"));
+            queue = new PendingWriteQueue(queueSpace, counterSpace, serializer);
+            context.ensureActive().clear(queueSpace.range()); // clear prev tests leftovers
+            context.ensureActive().clear(counterSpace.range());
+            queue.enqueueInsert(recordStore, pk1, fields);
+            queue.enqueueDelete(recordStore, pk3);
+            commit(context);
+        }
+
+        // Update incarnation to 42, enqueue more
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            recordStore.updateIncarnation(current -> 42).join();
+            queue.enqueueInsert(recordStore, pk2, fields);
+            queue.enqueueDelete(recordStore, pk4);
+            commit(context);
+        }
+
+        // Enqueue more
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            queue.enqueueDelete(recordStore, pk5);
+            queue.enqueueInsert(recordStore, pk6, fields);
+            commit(context);
+        }
+
+        // Verify incarnations
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            List<PendingWriteQueue.QueueEntry> entries =
+                    queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
+            assertEquals(6, entries.size());
+            for (int i = 0; i < 2; i++) {
+                assertEquals(0, entries.get(i).getIncarnation());
+            }
+            for (int i = 2; i < 6; i++) {
+                assertEquals(42, entries.get(i).getIncarnation());
+            }
+            commit(context);
+        }
+    }
+
+    @Test
     void testClearEntryWithIncompleteVersionstamp() {
         try (FDBRecordContext context = openContext()) {
             PendingWriteQueue queue = getQueue(context);
             // Manufacture an entry with an incomplete versionstamp
             Versionstamp incomplete = Versionstamp.incomplete(0);
             PendingWriteQueue.QueueEntry entryWithIncompleteStamp = new PendingWriteQueue.QueueEntry(
+                    0,
                     incomplete,
                     LucenePendingWriteQueueProto.PendingWriteItem.getDefaultInstance());
             Assertions.assertThatThrownBy(() -> queue.clearEntry(context, entryWithIncompleteStamp))

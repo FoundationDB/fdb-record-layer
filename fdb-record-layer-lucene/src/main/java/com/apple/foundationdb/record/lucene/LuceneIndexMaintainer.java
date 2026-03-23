@@ -177,7 +177,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private <M extends Message> void writeDocument(final FDBIndexableRecord<M> newRecord, final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry, final Integer partitionId) {
         if (shouldUseQueue(entry.getKey(), partitionId)) {
             PendingWriteQueue queue = directoryManager.getPendingWriteQueue(entry.getKey(), partitionId);
-            queue.enqueueInsert(state.context, newRecord.getPrimaryKey(), entry.getValue());
+            queue.enqueueInsert(state.store, newRecord.getPrimaryKey(), entry.getValue());
             // Require deferred merge (+ drain) in case there is a merge indicator without an active merge
             this.state.store.getIndexDeferredMaintenanceControl().setMergeRequiredIndexes(this.state.index);
         } else {
@@ -209,7 +209,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private int deleteDocument(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey) throws IOException {
         if (shouldUseQueue(groupingKey, partitionId)) {
             PendingWriteQueue queue = directoryManager.getPendingWriteQueue(groupingKey, partitionId);
-            queue.enqueueDelete(state.context, primaryKey);
+            queue.enqueueDelete(state.store, primaryKey);
             // Require deferred merge (+ drain) in case there is a merge indicator without an active merge
             this.state.store.getIndexDeferredMaintenanceControl().setMergeRequiredIndexes(this.state.index);
             return 0; // partition count will be adjusted during drain
