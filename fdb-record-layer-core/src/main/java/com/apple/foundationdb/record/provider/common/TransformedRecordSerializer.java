@@ -92,6 +92,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     protected final double writeValidationRatio;
     protected final double writeEncryptionValidationRatio;
     protected final boolean failOnDeserializeReAttempt;
+    protected final int deserializeReAttemptCount;
 
     protected TransformedRecordSerializer(@Nonnull RecordSerializer<M> inner,
                                           boolean compressWhenSerializing,
@@ -99,7 +100,8 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
                                           boolean encryptWhenSerializing,
                                           double writeValidationRatio,
                                           double writeEncryptionValidationRatio,
-                                          boolean failOnDeserializeReAttempt) {
+                                          boolean failOnDeserializeReAttempt,
+                                          int deserializeReAttemptCount) {
         this.inner = inner;
         this.compressWhenSerializing = compressWhenSerializing;
         this.compressionLevel = compressionLevel;
@@ -107,6 +109,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         this.writeValidationRatio = writeValidationRatio;
         this.writeEncryptionValidationRatio = writeEncryptionValidationRatio;
         this.failOnDeserializeReAttempt = failOnDeserializeReAttempt;
+        this.deserializeReAttemptCount = deserializeReAttemptCount;
     }
 
     protected void compress(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) {
@@ -322,7 +325,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         if (!TransformedRecordSerializerPrefix.decodePrefix(state, primaryKey)) {
             return inner.deserialize(metaData, primaryKey, serialized, timer);
         }
-        decryptAndDecompress(metaData, primaryKey, serialized, state, timer, false);
+        decryptAndDecompress(metaData, primaryKey, serialized, state, timer, 0);
         return inner.deserialize(metaData, primaryKey, state.getDataArray(), timer);
     }
 
@@ -331,7 +334,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
                                       @Nonnull byte[] serialized,
                                       @Nonnull TransformedRecordSerializerState state,
                                       @Nullable StoreTimer timer,
-                                      boolean isRetry) {
+                                      int retryAttempt) {
         if (state.isEncrypted()) {
             decryptOrThrow(metaData, primaryKey, state, timer);
         }
@@ -345,20 +348,23 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
             decompressException = ex;
         }
         if (decompressException != null) {
-            if (isRetry) {
-                throw decompressException.addLogInfo(LogMessageKeys.RETRY_COUNT, 1)
+            if (deserializeReAttemptCount == 0) {
+                throw decompressException;
+            }
+            if (retryAttempt >= deserializeReAttemptCount) {
+                throw decompressException.addLogInfo(LogMessageKeys.RETRY_COUNT, retryAttempt)
                         .addLogInfo(LogMessageKeys.RESULT, "failure");
             }
             TransformedRecordSerializerState retryState = new TransformedRecordSerializerState(serialized);
             Verify.verify(TransformedRecordSerializerPrefix.decodePrefix(retryState, primaryKey));
-            decryptAndDecompress(metaData, primaryKey, serialized, retryState, timer, true);
+            decryptAndDecompress(metaData, primaryKey, serialized, retryState, timer, retryAttempt + 1);
             state.setDataArray(retryState.getDataArray());
-        } else if (isRetry && failOnDeserializeReAttempt) {
+        } else if (retryAttempt > 0 && failOnDeserializeReAttempt) {
             // decompression succeeded on retry; however since failOnDeserializeReAttempt is set, we throw an error
             throw new RecordSerializationException("decompress error")
                     .addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion())
                     .addLogInfo(LogMessageKeys.PRIMARY_KEY, primaryKey)
-                    .addLogInfo(LogMessageKeys.RETRY_COUNT, 1)
+                    .addLogInfo(LogMessageKeys.RETRY_COUNT, retryAttempt)
                     .addLogInfo(LogMessageKeys.RESULT, "success");
         }
     }
@@ -366,7 +372,8 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     @Nonnull
     @Override
     public RecordSerializer<Message> widen() {
-        return new TransformedRecordSerializer<>(inner.widen(), compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio, failOnDeserializeReAttempt);
+        return new TransformedRecordSerializer<>(inner.widen(), compressWhenSerializing, compressionLevel,
+                encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio, failOnDeserializeReAttempt, deserializeReAttemptCount);
     }
 
     @Nonnull
@@ -419,6 +426,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         protected double writeValidationRatio;
         protected double writeEncryptionValidationRatio;
         protected boolean failOnDeserializeReAttempt;
+        protected int deserializeReAttemptCount = 0;
 
         protected Builder(@Nonnull RecordSerializer<M> inner) {
             this.inner = inner;
@@ -522,6 +530,18 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         }
 
         /**
+         * The number of times to re-attempt deserialization when decompression fails.
+         * Defaults to {@code 0} (no retries). Setting this to a positive value enables retries.
+         * @param deserializeReAttemptCount the maximum number of retry attempts
+         * @return this <code>Builder</code>
+         */
+        @Nonnull
+        public Builder<M> setDeserializeReAttemptCount(int deserializeReAttemptCount) {
+            this.deserializeReAttemptCount = deserializeReAttemptCount;
+            return this;
+        }
+
+        /**
          * Construct a {@link TransformedRecordSerializer} from the
          * parameters specified by this builder. If one has enabled
          * encryption at serialization time, then this will fail
@@ -540,8 +560,8 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
                     encryptWhenSerializing,
                     writeValidationRatio,
                     writeEncryptionValidationRatio,
-                    failOnDeserializeReAttempt
-            );
+                    failOnDeserializeReAttempt,
+                    deserializeReAttemptCount);
         }
     }
 }

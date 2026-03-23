@@ -48,8 +48,9 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
                                              double writeValidationRatio,
                                              double writeEncryptionValidationRatio,
                                              boolean failOnDeserializeReAttempt,
+                                             int deserializeReAttemptCount,
                                              @Nullable SerializationKeyManager keyManager) {
-        super(inner, compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio, failOnDeserializeReAttempt);
+        super(inner, compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio, failOnDeserializeReAttempt, deserializeReAttemptCount);
         this.keyManager = keyManager;
     }
 
@@ -117,7 +118,9 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
     @Nonnull
     @Override
     public RecordSerializer<Message> widen() {
-        return new TransformedRecordSerializerJCE<>(inner.widen(), compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio, failOnDeserializeReAttempt, keyManager);
+        return new TransformedRecordSerializerJCE<>(inner.widen(), compressWhenSerializing, compressionLevel,
+                encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio, failOnDeserializeReAttempt,
+                deserializeReAttemptCount, keyManager);
     }
 
     /**
@@ -314,6 +317,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
                     writeValidationRatio,
                     writeEncryptionValidationRatio,
                     failOnDeserializeReAttempt,
+                    deserializeReAttemptCount,
                     resolveKeyManager()
             );
         }
