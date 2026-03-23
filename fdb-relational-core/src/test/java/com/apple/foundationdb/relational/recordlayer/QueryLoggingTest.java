@@ -344,7 +344,7 @@ public class QueryLoggingTest {
                     .withMetricsCollector(conn.getMetricCollector())
                     .withSchemaTemplate(conn.getSchemaTemplate())
                     .build();
-            queryHash = AstNormalizer.normalizeQuery(planContext, query1, false, PlanHashable.PlanHashMode.VC0).getQueryCacheKey().getHash();
+            queryHash = AstNormalizer.normalizeQuery(planContext, query1, false, PlanHashable.PlanHashMode.VC0).getQueryCacheKey().hashCode();
         }
         conn.commit();
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT where rest_no = 0 OPTIONS (LOG QUERY)")) {

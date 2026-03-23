@@ -598,18 +598,16 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public QueryPlan.LogicalQueryPlan visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
-        getDelegate().getPlanGenerationContext().setForExplain(ctx.EXPLAIN() != null);
-        final var logicalOperator = Assert.castUnchecked(ctx.describeObjectClause().accept(this), LogicalOperator.class);
-        // Capture semantic type structure as StructType with field names
-        final var semanticStructType = logicalOperator.getOutput().getStructType();
-        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(),
-                getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticStructType);
+        throw Assert.failUnchecked("Explain/Describe statement should not appear at the parser lavel");
     }
 
     @Nonnull
     @Override
-    public LogicalOperator visitDescribeStatements(@Nonnull RelationalParser.DescribeStatementsContext ctx) {
-        return parseChild(ctx);
+    public QueryPlan.LogicalQueryPlan visitDescribeStatements(@Nonnull RelationalParser.DescribeStatementsContext ctx) {
+        final var logicalOperator =  parseChild(ctx);
+        final var semanticStructType = logicalOperator.getOutput().getStructType();
+        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(),
+                getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticStructType);
     }
 
     @Nonnull
