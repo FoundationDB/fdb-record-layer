@@ -86,11 +86,6 @@ public class RegularTranslationMap implements TranslationMap {
     }
 
     @Nonnull
-    public Builder toBuilder() {
-        return new Builder(aliasToFunctionMap);
-    }
-
-    @Nonnull
     public static RegularTranslationMap empty() {
         return EMPTY;
     }
@@ -154,10 +149,6 @@ public class RegularTranslationMap implements TranslationMap {
 
         private Builder() {
             this(Maps.newLinkedHashMap(), AliasMap.emptyMap());
-        }
-
-        private Builder(@Nonnull final Map<CorrelationIdentifier, TranslationFunction> aliasToFunctionMap) {
-            this(aliasToFunctionMap, AliasMap.emptyMap());
         }
 
         private Builder(@Nonnull final Map<CorrelationIdentifier, TranslationFunction> aliasToFunctionMap,
