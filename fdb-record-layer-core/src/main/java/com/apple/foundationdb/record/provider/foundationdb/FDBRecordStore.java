@@ -4374,8 +4374,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (work.isEmpty()) {
             return AsyncUtil.DONE;
         }
-        return AsyncUtil.whenAll(work).whenComplete((v, t) ->
-        {
+        return AsyncUtil.whenAll(work).whenComplete((v, t) -> {
             for (CompletableFuture<Void> w : work) {
                 context.asyncToSync(FDBStoreTimer.Waits.WAIT_ERROR_CHECK, w); // Just for error handling.
             }
