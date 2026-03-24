@@ -32,9 +32,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests of the {@link MetaDataEvolutionValidator.Builder} class. These tests are mainly present to make sure
- * that the various methods we have to tweak the behavior of the {@link MetaDataEvolutionValidator}. These
- * only ensure that the process of setting the value works, and that it survives being turned back into a
- * builder, etc. The tests within {@link MetaDataEvolutionValidatorTest} should be consulted for validating
+ * that the various methods we have to tweak the behavior of the {@link MetaDataEvolutionValidator} actually
+ * set the values. These tests make sure that if the value is set on the builder, it is also set on the
+ * {@link MetaDataEvolutionValidator}, and that if the validator is turned back into a builder, the value
+ * is preserved. The tests within {@link MetaDataEvolutionValidatorTest} should be consulted for validating
  * actual behavior.
  */
 class MetaDataEvolutionValidatorBuilderTest {
