@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
@@ -37,10 +36,12 @@ import com.apple.foundationdb.record.evolution.TestSelfReferenceProto;
 import com.apple.foundationdb.record.evolution.TestSelfReferenceUnspooledProto;
 import com.apple.foundationdb.record.evolution.TestSplitNestedTypesProto;
 import com.apple.foundationdb.record.evolution.TestUnmergedNestedTypesProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.PrefixTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
@@ -58,6 +59,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -71,6 +73,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -1632,5 +1635,35 @@ class MetaDataEvolutionValidatorTest {
         RecordMetaData metaData10 = replaceIndex(metaData9, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_OMIT_POSITIONS_OPTION, "false"));
         validator.validate(metaData9, metaData10);
+    }
+
+    @Test
+    void optionChangeAllowedWithCustomIndexValidatorRegistry() {
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
+        assertSame(IndexMaintainerFactoryRegistryImpl.instance(), validator.getIndexValidatorRegistry());
+        assertInvalid("index adds uniqueness constraint", metaData1, metaData2);
+
+        final IndexValidatorRegistry noOptionsCheckRegistry = validatorRegistryWithNoOptionsCheck();
+        MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setIndexValidatorRegistry(noOptionsCheckRegistry)
+                .build();
+        assertSame(noOptionsCheckRegistry, laxerValidator.getIndexValidatorRegistry());
+        laxerValidator.validate(metaData1, metaData2);
+    }
+
+    private static class IndexValidatorWithNoOptionsCheck extends IndexValidator {
+        public IndexValidatorWithNoOptionsCheck(@Nonnull final Index index) {
+            super(index);
+        }
+
+        @Override
+        protected void validateChangedOptions(@Nonnull final Index oldIndex, @Nonnull final Set<String> changedOptions) {
+            // Always say it's good to go
+        }
+    }
+
+    private static IndexValidatorRegistry validatorRegistryWithNoOptionsCheck() {
+        return IndexValidatorWithNoOptionsCheck::new;
     }
 }
