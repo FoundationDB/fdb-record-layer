@@ -228,10 +228,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Void visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
-        // (yhatem) this is probably not needed, since a cached physical plan _knows_ it is either forExplain or not.
-        //          we should remove this, but ok for now.
-        queryHasherContextBuilder.setForExplain(ctx.EXPLAIN() != null);
-        return visitChildren(ctx);
+        throw Assert.failUnchecked("Explain/Describe statement should not appear at the parser level");
     }
 
     @Override

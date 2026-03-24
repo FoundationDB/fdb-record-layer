@@ -598,7 +598,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public QueryPlan.LogicalQueryPlan visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
-        throw Assert.failUnchecked("Explain/Describe statement should not appear at the parser lavel");
+        throw Assert.failUnchecked("Explain/Describe statement should not appear at the parser level");
     }
 
     @Nonnull
