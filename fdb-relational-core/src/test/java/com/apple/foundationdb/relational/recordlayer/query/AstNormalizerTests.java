@@ -1420,4 +1420,10 @@ public class AstNormalizerTests {
                 .isEqualTo(selRes.getQueryCachingFlags());
     }
 
+    @Test
+    void queryCacheKeyToString() {
+        final var key = QueryCacheKey.of("select ? from testTable", plannerConfiguration, "someAuxiliaryMetadata", 3, 7);
+        final var expected = "(3 || someAuxiliaryMetadata)||select ? from testTable||-1792041415";
+        Assertions.assertThat(key).hasToString(expected);
+    }
 }
