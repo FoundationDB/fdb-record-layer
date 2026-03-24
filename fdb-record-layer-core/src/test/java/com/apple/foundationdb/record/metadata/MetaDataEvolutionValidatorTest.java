@@ -67,17 +67,19 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests of the {@link MetaDataEvolutionValidator} class. This mostly consists of trying to perform illegal updates
  * to the meta-data and then verifying that the update fails. Some of the tests may try doing things that
  * <i>seem</i> like they should be illegal but are actually fine.
  */
-public class MetaDataEvolutionValidatorTest {
+class MetaDataEvolutionValidatorTest {
     @Nonnull
     private final MetaDataEvolutionValidator validator = MetaDataEvolutionValidator.getDefaultInstance();
 
@@ -106,12 +108,13 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void doNotChangeVersion() {
+    void doNotChangeVersion() {
         // Check if a naive removal of the index without updating the version is checked
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         assertInvalid("new meta-data does not have newer version", metaData1, metaData1);
         RecordMetaDataBuilder metaData2Builder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaData2Builder.removeIndex("MySimpleRecord$str_value_indexed");
+        assertFalse(validator.allowsNoVersionChange());
         validator.validate(metaData1, metaData2Builder.getRecordMetaData());
         metaData2Builder.setVersion(metaData1.getVersion());
         assertInvalid("new meta-data does not have newer version", metaData1, metaData2Builder.build(false));
@@ -120,6 +123,7 @@ public class MetaDataEvolutionValidatorTest {
         MetaDataEvolutionValidator validatorAcceptingSameVersion = MetaDataEvolutionValidator.newBuilder()
                 .setAllowNoVersionChange(true)
                 .build();
+        assertTrue(validatorAcceptingSameVersion.allowsNoVersionChange());
         validatorAcceptingSameVersion.validate(metaData1, metaData1);
 
         // Confirm with the laxer validator that the removed index is noticed
@@ -189,7 +193,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void changeSplitLongRecords() {
+    void changeSplitLongRecords() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         assertThat(metaData1.isSplitLongRecords(), is(false));
         RecordMetaData metaData2 = RecordMetaData.build(metaData1.toProto().toBuilder()
@@ -197,11 +201,13 @@ public class MetaDataEvolutionValidatorTest {
                 .setSplitLongRecords(true)
                 .build()
         );
+        assertFalse(validator.allowsUnsplitToSplit());
         assertInvalid("new meta-data splits long records", metaData1, metaData2);
 
         MetaDataEvolutionValidator laxerValidator = MetaDataEvolutionValidator.newBuilder()
                 .setAllowUnsplitToSplit(true)
                 .build();
+        assertTrue(laxerValidator.allowsUnsplitToSplit());
         laxerValidator.validate(metaData1, metaData2);
 
         RecordMetaData metaData3 = RecordMetaData.build(metaData2.toProto().toBuilder()
@@ -214,7 +220,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void changeStoreRecordVersions() {
+    void changeStoreRecordVersions() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = RecordMetaData.build(metaData1.toProto().toBuilder()
                 .setVersion(metaData1.getVersion() + 1)
@@ -236,7 +242,7 @@ public class MetaDataEvolutionValidatorTest {
     // Protobuf evolution tests
 
     @Test
-    public void swapUnionFields() {
+    void swapUnionFields() {
         FileDescriptor updatedDescriptor = mutateFile(fileBuilder ->
                 fileBuilder.getMessageTypeBuilderList().forEach(message -> {
                     if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
@@ -265,7 +271,7 @@ public class MetaDataEvolutionValidatorTest {
      * defined on the combined record. It also requires that any indexes on record type be dropped.
      */
     @Test
-    public void mergeTypes() {
+    void mergeTypes() {
         // Build a descriptor with two copies of MyOtherRecord (essentially).
         FileDescriptor updatedDescriptor = mutateFile(fileBuilder -> {
             DescriptorProtos.DescriptorProto newMessageType = fileBuilder.getMessageTypeList().stream()
@@ -332,7 +338,7 @@ public class MetaDataEvolutionValidatorTest {
      * are now defined on both types. It also requires that any indexes on record type be dropped.
      */
     @Test
-    public void splitTypes() {
+    void splitTypes() {
         // Add a second "MyOtherRecord" to the union descriptor
         FileDescriptor updatedDescriptor = mutateFile(fileBuilder ->
                 fileBuilder.getMessageTypeBuilderList().forEach(message -> {
@@ -379,10 +385,12 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void changeRecordTypeName() {
+    void changeRecordTypeName() {
+        assertFalse(validator.disallowsTypeRenames());
         final MetaDataEvolutionValidator renameDisallowingValidator = MetaDataEvolutionValidator.newBuilder()
                 .setDisallowTypeRenames(true)
                 .build();
+        assertTrue(renameDisallowingValidator.disallowsTypeRenames());
 
         // Update the record type name, but don't update any references in indexes
         FileDescriptor updatedFile = mutateFile(fileBuilder ->
@@ -447,7 +455,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void swapRecordTypes() {
+    void swapRecordTypes() {
         FileDescriptor updatedFile = mutateFile(fileBuilder -> {
             // Update the field of the union descriptor.
             fileBuilder.getMessageTypeBuilderList().forEach(messageType -> {
@@ -473,7 +481,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void swapIsomorphicRecordTypesWithIndexes() {
+    void swapIsomorphicRecordTypesWithIndexes() {
         FileDescriptor updatedFile = mutateFile(fileBuilder -> {
             DescriptorProtos.DescriptorProto newMessageType = fileBuilder.getMessageTypeList().stream()
                     .filter(messageType -> messageType.getName().equals("MyOtherRecord"))
@@ -563,7 +571,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void swapIsomorphicRecordTypesWithExplicitKeys() {
+    void swapIsomorphicRecordTypesWithExplicitKeys() {
         FileDescriptor updatedFile = mutateFile(fileBuilder -> {
             DescriptorProtos.DescriptorProto newMessageType = fileBuilder.getMessageTypeList().stream()
                     .filter(messageType -> messageType.getName().equals("MyOtherRecord"))
@@ -634,7 +642,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void dropField() {
+    void dropField() {
         FileDescriptor updatedFile = mutateFile(fileBuilder ->
                 fileBuilder.getMessageTypeBuilderList().forEach(message -> {
                     if (message.getName().equals("MySimpleRecord")) {
@@ -653,7 +661,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void renameField() {
+    void renameField() {
         FileDescriptor updatedFile = mutateField("MySimpleRecord", "num_value_2",
                 field -> field.setName("num_value_too"));
         assertInvalid("field renamed", TestRecords1Proto.getDescriptor(), updatedFile);
@@ -675,7 +683,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void fieldTypeChanged() throws InvalidProtocolBufferException {
+    void fieldTypeChanged() throws InvalidProtocolBufferException {
         FileDescriptor updatedFile = mutateField("MySimpleRecord", "str_value_indexed",
                 field -> field.setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES));
         assertInvalid("field type changed", TestRecords1Proto.getDescriptor(), updatedFile);
@@ -710,7 +718,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void fieldChangedFromMessageToGroup() {
+    void fieldChangedFromMessageToGroup() {
         // The message and group types here have the same form, but messages and groups are serialized differently
         assertInvalid("field type changed", TestRecordsWithHeaderProto.getDescriptor(), TestHeaderAsGroupProto.getDescriptor());
         assertInvalid("field type changed", TestHeaderAsGroupProto.getDescriptor(), TestRecordsWithHeaderProto.getDescriptor());
@@ -723,7 +731,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void enumFieldChanged() {
+    void enumFieldChanged() {
         // Add an enum field
         FileDescriptor updatedFile = mutateFile(TestRecordsEnumProto.getDescriptor(), fileBuilder ->
                 fileBuilder.getMessageTypeBuilderList().forEach(message -> {
@@ -764,7 +772,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void selfReferenceChanged() {
+    void selfReferenceChanged() {
         // This is largely to test that messages which include themselves as nested types don't cause the validator to blow up
         final Descriptor selfReferenceUnion = TestSelfReferenceProto.RecordTypeUnion.getDescriptor();
         final Descriptor unspooledUnion = TestSelfReferenceUnspooledProto.RecordTypeUnion.getDescriptor();
@@ -783,7 +791,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void nestedTypeChangesName() {
+    void nestedTypeChangesName() {
         FileDescriptor updatedFile = mutateFile(TestRecordsWithHeaderProto.getDescriptor(), fileBuilder ->
                 fileBuilder.getMessageTypeBuilderList().forEach(message -> {
                     if (message.getName().equals("HeaderRecord")) {
@@ -807,7 +815,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void nestedTypeChangesFieldName() {
+    void nestedTypeChangesFieldName() {
         FileDescriptor updatedFile = mutateField("HeaderRecord", "num", TestRecordsWithHeaderProto.getDescriptor(),
                 field -> field.setName("numb"));
         assertInvalid("field renamed", TestRecordsWithHeaderProto.getDescriptor(), updatedFile);
@@ -819,7 +827,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void nestedTypeChangesFieldType() {
+    void nestedTypeChangesFieldType() {
         FileDescriptor updatedFile = mutateField("HeaderRecord", "num", TestRecordsWithHeaderProto.getDescriptor(),
                 field -> field.setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_SFIXED32));
         assertInvalid("field type changed", TestRecordsWithHeaderProto.getDescriptor(), updatedFile);
@@ -831,7 +839,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void nestedTypesMerged() {
+    void nestedTypesMerged() {
         validator.validateUnion(TestUnmergedNestedTypesProto.RecordTypeUnion.getDescriptor(), TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor());
 
         FileDescriptor updatedMergedFile = mutateField("OneTrueNested", "b", TestMergedNestedTypesProto.getDescriptor(),
@@ -840,7 +848,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void nestedTypesSplit() {
+    void nestedTypesSplit() {
         validator.validateUnion(TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor(), TestSplitNestedTypesProto.RecordTypeUnion.getDescriptor());
 
         FileDescriptor updatedSplitFile = mutateField("NestedB", "b", TestSplitNestedTypesProto.getDescriptor(),
@@ -849,7 +857,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void fieldLabelChanged() {
+    void fieldLabelChanged() {
         FileDescriptor oldFile = TestRecords1Proto.getDescriptor();
         List<DescriptorProtos.FieldDescriptorProto.Label> labels = Arrays.asList(
                 DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL,
@@ -875,7 +883,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void addRequiredField() {
+    void addRequiredField() {
         FileDescriptor updatedFile = mutateFile(fileBuilder ->
                 fileBuilder.getMessageTypeBuilderList().forEach(message -> {
                     if (message.getName().equals("MySimpleRecord")) {
@@ -895,7 +903,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void dropType() {
+    void dropType() {
         FileDescriptor updatedFile = mutateFile(fileBuilder ->
                 fileBuilder.getMessageTypeBuilderList().forEach(message -> {
                     if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
@@ -919,7 +927,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void addNewPlaceInUnionDescriptor() {
+    void addNewPlaceInUnionDescriptor() {
         // Add a new field to the union descriptor that points to an existing record; leave the old one
         FileDescriptor updatedFile = mutateFile(fileBuilder ->
                 fileBuilder.getMessageTypeBuilderList().forEach(message -> {
@@ -999,19 +1007,21 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void newTypeWithoutSinceVersion() {
+    void newTypeWithoutSinceVersion() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = addNewRecordType(metaData1, RecordMetaDataProto.RecordType.Builder::clearSinceVersion);
+        assertFalse(validator.allowsNoSinceVersion());
         assertInvalid("new record type is missing since version", metaData1, metaData2);
 
         MetaDataEvolutionValidator laxerValidator = MetaDataEvolutionValidator.newBuilder()
                 .setAllowNoSinceVersion(true)
                 .build();
+        assertTrue(laxerValidator.allowsNoSinceVersion());
         laxerValidator.validate(metaData1, metaData2);
     }
 
     @Test
-    public void newTypeWithOlderSinceVersion() {
+    void newTypeWithOlderSinceVersion() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = addNewRecordType(metaData1, protoBuilder -> protoBuilder.setSinceVersion(metaData1.getVersion() - 1));
         assertInvalid("new record type has since version older than old meta-data", metaData1, metaData2);
@@ -1021,7 +1031,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void recordTypeKeyChanged() {
+    void recordTypeKeyChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaDataProto.MetaData.Builder protoBuilder = metaData1.toProto().toBuilder()
                 .setVersion(metaData1.getVersion() + 1);
@@ -1035,7 +1045,7 @@ public class MetaDataEvolutionValidatorTest {
     // Former index tests
 
     @Test
-    public void removeFormerIndex() {
+    void removeFormerIndex() {
         RecordMetaDataBuilder metaData1Builder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaData1Builder.removeIndex("MySimpleRecord$str_value_indexed");
         RecordMetaData metaData1 = metaData1Builder.getRecordMetaData();
@@ -1046,7 +1056,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void changeFormerIndexVersion() {
+    void changeFormerIndexVersion() {
         RecordMetaDataBuilder metaData1Builder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaData1Builder.removeIndex("MySimpleRecord$str_value_indexed");
         RecordMetaData metaData1 = metaData1Builder.getRecordMetaData();
@@ -1067,7 +1077,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void changeFormerIndexName() {
+    void changeFormerIndexName() {
         RecordMetaDataBuilder metaData1Builder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaData1Builder.removeIndex("MySimpleRecord$str_value_indexed");
         RecordMetaData metaData1 = metaData1Builder.getRecordMetaData();
@@ -1090,7 +1100,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void formerIndexFromThePast() {
+    void formerIndexFromThePast() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = RecordMetaData.build(
                 metaData1.toProto().toBuilder()
@@ -1115,7 +1125,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void formerIndexWithoutExistingIndex() {
+    void formerIndexWithoutExistingIndex() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = RecordMetaData.build(
                 metaData1.toProto().toBuilder()
@@ -1145,7 +1155,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void indexUsedWhereFormerIndexWas() {
+    void indexUsedWhereFormerIndexWas() {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
         RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
@@ -1160,7 +1170,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void removeIndexAndChangeName() {
+    void removeIndexAndChangeName() {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         // FIXME: Calling getRecordMetaData appears to pollute the FormerIndexes list
         RecordMetaData metaData1 = RecordMetaData.build(metaDataBuilder.getRecordMetaData().toProto());
@@ -1183,16 +1193,18 @@ public class MetaDataEvolutionValidatorTest {
                         .addFormerIndexes(metaData2Proto.getFormerIndexes(0).toBuilder().clearFormerName())
                         .build()
         ).getRecordMetaData();
+        assertFalse(validator.allowsMissingFormerIndexNames());
         assertInvalid("former index has different name", metaData1, metaData3);
 
         MetaDataEvolutionValidator laxerValidator = MetaDataEvolutionValidator.newBuilder()
                 .setAllowMissingFormerIndexNames(true)
                 .build();
+        assertTrue(laxerValidator.allowsMissingFormerIndexNames());
         laxerValidator.validate(metaData1, metaData3);
     }
 
     @Test
-    public void removeIndexAndDropAddedVersion() {
+    void removeIndexAndDropAddedVersion() {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData1 = RecordMetaData.build(metaDataBuilder.getRecordMetaData().toProto());
         metaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
@@ -1203,12 +1215,14 @@ public class MetaDataEvolutionValidatorTest {
                     .addFormerIndexes(metaData2Proto.getFormerIndexes(0).toBuilder().clearAddedVersion())
                     .build()
         );
+        assertFalse(validator.allowsOlderFormerIndexAddedVersions());
         assertInvalid("former index reports added version older than replacing index", metaData1, metaData2);
 
         // With the option set, it should validate
         MetaDataEvolutionValidator laxerValidator = MetaDataEvolutionValidator.newBuilder()
                 .setAllowOlderFormerIndexAddedVerions(true)
                 .build();
+        assertTrue(laxerValidator.allowsOlderFormerIndexAddedVersions());
         laxerValidator.validate(metaData1, metaData2);
     }
 
@@ -1218,7 +1232,7 @@ public class MetaDataEvolutionValidatorTest {
      * information than the evolution validator.
      */
     @Test
-    public void defaultIndexRemovalPath() {
+    void defaultIndexRemovalPath() {
         final String newIndexName = "MySimpleRecord$num_value_2";
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.addIndex("MySimpleRecord", newIndexName, "num_value_2");
@@ -1285,7 +1299,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void silentlyRemoveIndex() {
+    void silentlyRemoveIndex() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = RecordMetaData.build(
                 metaData1.toProto().toBuilder().setVersion(metaData1.getVersion() + 1).removeIndexes(0).build()
@@ -1294,7 +1308,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void newIndexFromThePast() {
+    void newIndexFromThePast() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         Index newIndex = new Index("newIndex", Key.Expressions.field("num_value_2"));
         newIndex.setAddedVersion(metaData1.getVersion() - 1);
@@ -1314,7 +1328,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void indexSubspaceKeyChanged() {
+    void indexSubspaceKeyChanged() {
         // The index subspace key is the thing that determines whether an index is even there, so changing it
         // is identical to removing the index
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
@@ -1325,7 +1339,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void indexNameChanged() {
+    void indexNameChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
                 indexProto.toBuilder()
@@ -1337,7 +1351,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void indexAddedVersionChanged() {
+    void indexAddedVersionChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
                 indexProto.toBuilder().setAddedVersion(metaData1.getVersion() + 1).setLastModifiedVersion(metaData1.getVersion() + 1).build()
@@ -1351,7 +1365,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void indexLastModifiedVersionTooOld() {
+    void indexLastModifiedVersionTooOld() {
         RecordMetaData metaData1 = replaceIndex(RecordMetaData.build(TestRecords1Proto.getDescriptor()), "MySimpleRecord$str_value_indexed", indexProto ->
                 indexProto.toBuilder().setLastModifiedVersion(2).build()
         );
@@ -1362,16 +1376,18 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void indexLastModifiedVersionChanged() {
+    void indexLastModifiedVersionChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
                 indexProto.toBuilder().setLastModifiedVersion(metaData1.getVersion() + 1).build()
         );
+        assertFalse(validator.allowsIndexRebuilds());
         assertInvalid("last modified version of index changed", metaData1, metaData2);
 
         MetaDataEvolutionValidator laxerValidator = MetaDataEvolutionValidator.newBuilder()
                 .setAllowIndexRebuilds(true)
                 .build();
+        assertTrue(laxerValidator.allowsIndexRebuilds());
         laxerValidator.validate(metaData1, metaData2);
     }
 
@@ -1392,7 +1408,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void indexTypeChanged() {
+    void indexTypeChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         validateIndexMutation("index type changed", metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
                 indexProto.toBuilder().setType(IndexTypes.RANK).build()
@@ -1400,7 +1416,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void indexKeyExpressionChanged() {
+    void indexKeyExpressionChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         validateIndexMutation("index key expression changed", metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
                 indexProto.toBuilder().setRootExpression(Key.Expressions.field("num_value_2").toKeyExpression()).build()
@@ -1408,7 +1424,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void indexRecordTypeRemoved() {
+    void indexRecordTypeRemoved() {
         final String indexName = "simple&other$num_value_2";
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.addMultiTypeIndex(Arrays.asList(metaDataBuilder.getRecordType("MySimpleRecord"), metaDataBuilder.getRecordType("MyOtherRecord")),
@@ -1420,7 +1436,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void indexRecordTypeAdded() {
+    void indexRecordTypeAdded() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         validateIndexMutation("new index adds record type that is not newer than old meta-data", metaData1, "MySimpleRecord$num_value_3_indexed", indexProto ->
                 indexProto.toBuilder().addRecordType("MyOtherRecord").build()
@@ -1436,7 +1452,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void indexPrimaryKeyComponentsChanged() {
+    void indexPrimaryKeyComponentsChanged() {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.addIndex("MySimpleRecord", "rec_no", "rec_no");
         RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
@@ -1460,7 +1476,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void addRecordTypeWithUniversalIndex() {
+    void addRecordTypeWithUniversalIndex() {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.addUniversalIndex(new Index("rec_no", "rec_no"));
         RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
@@ -1481,7 +1497,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void uniquenessConstraintChanged() {
+    void uniquenessConstraintChanged() {
         // Adding a uniqueness constraint should throw an error
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         validateIndexMutation("index adds uniqueness constraint", metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
@@ -1495,7 +1511,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void allowedForQueriesChanged() {
+    void allowedForQueriesChanged() {
         // Changing this option is always fine
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed",
@@ -1509,7 +1525,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void changeReplacedByIndex() {
+    void changeReplacedByIndex() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed",
                 indexProto -> changeOption(indexProto, IndexOptions.REPLACED_BY_OPTION_PREFIX, "MySimpleRecord$num_value_3_indexed"));
@@ -1523,7 +1539,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void changeReplacedByIndexSet() {
+    void changeReplacedByIndexSet() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
                 changeOption(changeOption(indexProto, IndexOptions.REPLACED_BY_OPTION_PREFIX + "_0", "MySimpleRecord$num_value_3_indexed"),
@@ -1539,7 +1555,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void unknownOptionChanged() {
+    void unknownOptionChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         validateIndexMutation("index option changed", metaData1, "MySimpleRecord$str_value_indexed",
                 indexProto -> changeOption(indexProto, "dummyOption", "dummyValue"));
@@ -1553,7 +1569,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void rankLevelsChanged() {
+    void rankLevelsChanged() {
         final String indexName = "MySimpleRecord$rank(num_value_2)";
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.addIndex("MySimpleRecord", new Index(indexName, Key.Expressions.field("num_value_2").ungrouped(), IndexTypes.RANK));
@@ -1573,7 +1589,7 @@ public class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    public void textOptionsChanged() {
+    void textOptionsChanged() {
         final String indexName = "MySimpleRecord$text(str_value_indexed)";
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.addIndex("MySimpleRecord", new Index(indexName, Key.Expressions.field("str_value_indexed"), IndexTypes.TEXT));
