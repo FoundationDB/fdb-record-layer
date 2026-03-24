@@ -1423,7 +1423,7 @@ public class AstNormalizerTests {
     @Test
     void queryCacheKeyToString() {
         final var key = QueryCacheKey.of("select ? from testTable", plannerConfiguration, "someAuxiliaryMetadata", 3, 7);
-        final var expected = "(3 || someAuxiliaryMetadata)||select ? from testTable||-1792041415";
+        final var expected = "(3 || someAuxiliaryMetadata)||select ? from testTable||" + key.hashCode();
         Assertions.assertThat(key).hasToString(expected);
     }
 }
