@@ -1044,7 +1044,10 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                     Assert.thatUnchecked(fieldType.isNullable(), ErrorCode.NOT_NULL_VIOLATION, "null value in column \"" + elementField.getFieldName() + "\" violates not-null constraint");
                     currentFieldExpression = Expression.fromUnderlying(new NullValue(fieldType));
                 }
-                resultColumnsBuilder.add(Column.of(elementField, currentFieldExpression.getUnderlying()));
+                final var value = currentFieldExpression.getUnderlying();
+                resultColumnsBuilder.add(Column.of(
+                        Type.Record.Field.of(value.getResultType(), elementField.getFieldNameOptional(), elementField.getFieldIndexOptional()),
+                        value));
             }
             return resultColumnsBuilder.build();
         }
@@ -1056,7 +1059,10 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         for (int i = 0; i < providedColumnContexts.size(); i++) {
             final var elementField = elementFields.get(i);
             final var expression = parseRecordField(providedColumnContexts.get(i), elementField);
-            resultColumnsBuilder.add(Column.of(elementField, expression.getUnderlying()));
+            final var value = expression.getUnderlying();
+            resultColumnsBuilder.add(Column.of(
+                    Type.Record.Field.of(value.getResultType(), elementField.getFieldNameOptional(), elementField.getFieldIndexOptional()),
+                    value));
         }
         return resultColumnsBuilder.build();
     }

@@ -46,20 +46,24 @@ test_block:
   tests:
     -
       - query: select * from Person order by "id"
+      - supported_version: !current_version
       - result: [{FIRST_NAME: 'Alice', LAST_NAME: 'Smith', ID: !l 1, ADDRESS: {STREET: '123 Main St', CITY: 'Springfield'}},
                  {FIRST_NAME: 'Bob',   LAST_NAME: 'Jones', ID: !l 2, ADDRESS: {STREET: '456 Oak Ave', CITY: 'Shelbyville'}},
                  {FIRST_NAME: 'Carol', LAST_NAME: 'White', ID: !l 3, ADDRESS: !null }]
     -
       - query: select "first_name", "last_name" from Person where "id" = 2
+      - supported_version: !current_version
       - result: [{FIRST_NAME: 'Bob', LAST_NAME: 'Jones'}]
     -
       - query: select "id", "first_name" from Person where "last_name" = 'White'
       - result: [{ID: !l 3, FIRST_NAME: 'Carol'}]
     -
       - query: select "address" from Person where "id" = 1
+      - supported_version: !current_version
       - result: [{ADDRESS: {STREET: '123 Main St', CITY: 'Springfield'}}]
     -
       - query: select "address"."street", "address"."city" from Person where "id" = 2
+      - supported_version: !current_version
       - result: [{STREET: '456 Oak Ave', CITY: 'Shelbyville'}]
 ---
 setup:
