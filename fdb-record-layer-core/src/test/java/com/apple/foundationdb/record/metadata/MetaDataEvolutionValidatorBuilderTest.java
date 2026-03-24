@@ -48,7 +48,10 @@ class MetaDataEvolutionValidatorBuilderTest {
         final MetaDataEvolutionValidator.Builder builder = MetaDataEvolutionValidator.newBuilder();
         T defaultValue = values.get(0);
         assertThat(getterFromBuilder.apply(builder))
-                .as("unexpected default value for field %s", name)
+                .as("unexpected default value from builder for field %s", name)
+                .isEqualTo(defaultValue);
+        assertThat(getterFromValidator.apply(MetaDataEvolutionValidator.getDefaultInstance()))
+                .as("unexpected default value from validator for field %s", name)
                 .isEqualTo(defaultValue);
         for (T value : values) {
             setter.accept(builder, value);
