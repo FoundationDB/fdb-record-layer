@@ -1,5 +1,5 @@
 /*
- * QueryHashingTests.java
+ * AstNormalizerTests.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -1418,6 +1419,18 @@ public class AstNormalizerTests {
         Assertions.assertThat(expRes.getQueryCachingFlags())
                 .as("NormalizationResult query caching flags differ between explain and non-explain")
                 .isEqualTo(selRes.getQueryCachingFlags());
+    }
+
+    @Test
+    void visitFullDescribeStatementThrows() throws ReflectiveOperationException {
+        final var constructor = AstNormalizer.class.getDeclaredConstructor(
+                PreparedParams.class, boolean.class, PlanHashable.PlanHashMode.class, boolean.class);
+        constructor.setAccessible(true);
+        final AstNormalizer normalizer = constructor.newInstance(PreparedParams.empty(), false, PlanHashable.PlanHashMode.VC0, false);
+
+        Assertions.assertThatThrownBy(() -> normalizer.visitFullDescribeStatement(new RelationalParser.FullDescribeStatementContext(null, -1)))
+                .isInstanceOf(UncheckedRelationalException.class)
+                .hasMessageContaining("Explain/Describe statement should not appear at the parser level");
     }
 
     @Test
