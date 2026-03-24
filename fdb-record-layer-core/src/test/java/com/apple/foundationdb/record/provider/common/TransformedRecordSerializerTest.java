@@ -825,8 +825,8 @@ public class TransformedRecordSerializerTest {
                 .setWriteEncryptionValidationRatio(1.0)
                 .build();
 
-        MySimpleRecord record = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
-        assertDoesNotThrow(() -> serialize(serializer, record));
+        MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
+        assertDoesNotThrow(() -> serialize(serializer, mySimpleRecord));
     }
 
     /**
@@ -844,9 +844,9 @@ public class TransformedRecordSerializerTest {
                 .build();
         final CorruptEncryptSerializer serializer = new CorruptEncryptSerializer((TransformedRecordSerializerJCE<Message>) base);
 
-        final MySimpleRecord record = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
-        RecordSerializationException e = assertThrows(RecordSerializationException.class,
-                () -> serialize(serializer, record));
+        final MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
+        RecordSerializationValidationException e = assertThrows(RecordSerializationValidationException.class,
+                () -> serialize(serializer, mySimpleRecord));
         assertThat(e.getMessage(), containsString("encryption validation error: decrypted bytes do not match original"));
     }
 
@@ -865,8 +865,8 @@ public class TransformedRecordSerializerTest {
                 .build();
         final CorruptEncryptSerializer serializer = new CorruptEncryptSerializer((TransformedRecordSerializerJCE<Message>) base);
 
-        final MySimpleRecord record = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
-        assertDoesNotThrow(() -> serialize(serializer, record));
+        final MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
+        assertDoesNotThrow(() -> serialize(serializer, mySimpleRecord));
     }
 
     /**
@@ -881,10 +881,9 @@ public class TransformedRecordSerializerTest {
         @Override
         protected void encrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
             super.encrypt(state, timer);
-            // Flip one bit in the IV so decryption in validateEncrypt produces different plaintext
+            // Flip one bit in the IV so decryption in validateEncryption produces different plaintext
             byte[] data = state.getDataArray();
             data[0] ^= 0x01;
-            state.setDataArray(data);
         }
 
         @Nonnull
