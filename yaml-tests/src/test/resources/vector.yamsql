@@ -629,3 +629,73 @@ test_block:
     -
       - query: select embeddingGrouped.vdatas from tWithGroupedStruct where a = 300
       - result: [{[!v32 [7.7, 8.8, 9.9]]}]
+    # Delete a half vector row by primary key
+    -
+      - query: insert into tHalfVector values (500, !! !v16 [10.0, 20.0, 30.0] !!)
+      - count: 1
+    -
+      - query: delete from tHalfVector where a = 500
+      - count: 1
+    -
+      - query: select * from tHalfVector where a = 500
+      - result: []
+    # Delete a float vector row by primary key
+    -
+      - query: insert into tFloatVector values (500, !! !v32 [10.0, 20.0, 30.0] !!)
+      - count: 1
+    -
+      - query: delete from tFloatVector where a = 500
+      - count: 1
+    -
+      - query: select * from tFloatVector where a = 500
+      - result: []
+    # Delete a double vector row by primary key
+    -
+      - query: insert into tDoubleVector values (500, !! !v64 [10.0, 20.0, 30.0] !!)
+      - count: 1
+    -
+      - query: delete from tDoubleVector where a = 500
+      - count: 1
+    -
+      - query: select * from tDoubleVector where a = 500
+      - result: []
+    # Delete a row with null vector
+    -
+      - query: insert into tHalfVector values (501, null)
+      - count: 1
+    -
+      - query: delete from tHalfVector where a = 501
+      - count: 1
+    -
+      - query: select * from tHalfVector where a = 501
+      - result: []
+    # Delete non-existent row returns count 0
+    -
+      - query: delete from tHalfVector where a = 999
+      - count: 0
+    # Delete one of multiple rows, verify others remain
+    -
+      - query: insert into tFloatVector values (510, !! !v32 [1.0, 2.0, 3.0] !!)
+      - count: 1
+    -
+      - query: insert into tFloatVector values (511, !! !v32 [4.0, 5.0, 6.0] !!)
+      - count: 1
+    -
+      - query: delete from tFloatVector where a = 510
+      - count: 1
+    -
+      - query: select * from tFloatVector where a = 510
+      - result: []
+    -
+      - query: select * from tFloatVector where a = 511
+      - result: [{511, !v32 [4.0, 5.0, 6.0]}]
+    # Delete struct with vector field
+    -
+      - query: insert into tWithStruct values (500, ('deleteMe', !! !v16 [5.0, 6.0, 7.0] !!))
+      - count: 1
+    -
+      - query: delete from tWithStruct where a = 500
+      - count: 1
+    -
+      - query: select * from tWithStruct where a = 500
+      - result: []

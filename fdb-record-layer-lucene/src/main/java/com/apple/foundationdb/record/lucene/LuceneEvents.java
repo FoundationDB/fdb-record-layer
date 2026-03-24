@@ -310,6 +310,8 @@ public class LuceneEvents {
         LUCENE_REBALANCE_PARTITION_DOCS("lucene rebalance partition count"),
         /** Size of the list of files loaded in loadFileReferenceCacheForMemoization operation in FDBDirectory. */
         LUCENE_FILES_COUNT("lucene files"),
+        /** size of the pending writes queue. */
+        LUCENE_QUEUE_SIZE("lucene queue size")
         ;
 
         private final String title;

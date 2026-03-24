@@ -38,9 +38,11 @@ import com.apple.foundationdb.record.lucene.LuceneIndexMaintainerHelper;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
@@ -179,13 +181,21 @@ public class PendingWriteQueue {
             @Nonnull FDBRecordContext context,
             @Nonnull ScanProperties scanProperties,
             @Nullable byte[] continuation) {
-
-        final KeyValueCursor cursor = KeyValueCursor.Builder.newBuilder(queueSubspace)
+        KeyValueCursor inner = KeyValueCursor.Builder.newBuilder(queueSubspace)
                 .setContext(context)
-                .setScanProperties(scanProperties)
+                .setScanProperties(scanProperties
+                        .with(ExecuteProperties::clearRowAndTimeLimits)
+                        .with(ExecuteProperties::clearSkipAndLimit)
+                        .with(ExecuteProperties::clearState))
                 .setContinuation(continuation)
                 .build();
-        return cursor.map(kv -> PendingWritesQueueHelper.toQueueEntry(queueSubspace, serializer, kv));
+        RecordCursor<FDBRawRecord> unsplitter = new SplitHelper.KeyValueUnsplitter(
+                context, queueSubspace, inner,
+                false, null, scanProperties)
+                .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
+
+        return unsplitter.map(rawRecord ->
+                PendingWritesQueueHelper.toQueueEntry(serializer, rawRecord.getPrimaryKey(), rawRecord.getRawRecord()));
     }
 
     /**
@@ -204,7 +214,9 @@ public class PendingWriteQueue {
             throw new RecordCoreArgumentException("Queue item should have complete version stamp");
         }
 
-        context.ensureActive().clear(queueSubspace.pack(entry.versionstamp));
+        // The only element of the key is the completed version stamp
+        final Tuple key = Tuple.from(entry.getVersionstamp());
+        SplitHelper.deleteSplit(context, queueSubspace, key, true, false, false, null);
 
         // Atomically decrement the queue size counter
         mutateQueueSizeCounter(context, -1);
@@ -328,20 +340,11 @@ public class PendingWriteQueue {
 
         // Build key with incomplete versionStamp with a new local version
         FDBRecordVersion recordVersion = FDBRecordVersion.incomplete(context.claimLocalVersion());
+        // key contains only an incomplete version
         Tuple keyTuple = Tuple.from(recordVersion.toVersionstamp());
-        byte[] queueKey = queueSubspace.packWithVersionstamp(keyTuple);
         byte[] value = serializer.encode(builder.build().toByteArray());
-
-        // Use addVersionMutation to let FDB assign the versionStamp
-        final byte[] current = context.addVersionMutation(
-                MutationType.SET_VERSIONSTAMPED_KEY,
-                queueKey,
-                value);
-
-        if (current != null) {
-            // This should never happen
-            throw new RecordCoreInternalException("Pending queue item overwritten");
-        }
+        // save with splits
+        SplitHelper.saveWithSplit(context, queueSubspace, keyTuple, value, null, true, false, false, null, null);
 
         // Atomically increment the queue size counter
         mutateQueueSizeCounter(context, 1);
@@ -403,7 +406,15 @@ public class PendingWriteQueue {
     @Nonnull
     public CompletableFuture<Long> getQueueSize(@Nonnull FDBRecordContext context) {
         return context.readTransaction(true).get(queueSizeSubspace.pack())
-                .thenApply(size -> (size == null) ? null : decodeQueueSize(size));
+                .thenApply(size -> {
+                    if (size == null) {
+                        return null;
+                    } else {
+                        final Long actualSize = decodeQueueSize(size);
+                        context.recordSize(LuceneEvents.SizeEvents.LUCENE_QUEUE_SIZE, actualSize);
+                        return actualSize;
+                    }
+                });
     }
 
     private byte[] encodeQueueSize(long count) {
