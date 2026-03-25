@@ -76,6 +76,7 @@ import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -96,6 +97,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
@@ -1703,6 +1705,93 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                 assertEquals(Tuple.from(saved.getNumValue2(), saved.getRecNo()), indexedRecord.getIndexEntry().getKey());
             }
             commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource("includeNameInFormerIndex")
+    void removeIndexWithSubspaceKeyEqualToOtherIndexName(boolean includeNameInFormerIndex) {
+        final String indexName1 = "index_one";
+        final String indexName2 = "index_two";
+
+        // Add both indexes to the meta-data and then mark them as WRITE_ONLY
+        final RecordMetaDataHook hook1 = builder -> {
+            // Create two indexes. For each of them, the subspace key is the other's name.
+            // There's not a great reason for doing this, though there are some almost
+            // plausible scenarios when one index's name may be another index's subspace
+            // key, e.g., an index is added with one name and subspace key, and then a future
+            // index is created with the same name (but a different key) as a replacement,
+            // at which point, the old index may be renamed
+            final Index index1 = new Index(indexName1, "num_value_2");
+            index1.setSubspaceKey(indexName2);
+            final Index index2 = new Index(indexName2, "str_value_indexed");
+            index2.setSubspaceKey(indexName1);
+
+            builder.addIndex("MySimpleRecord", index1);
+            builder.addIndex("MySimpleRecord", index2);
+        };
+        final int metaDataVersion1;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook1);
+            metaDataVersion1 = recordStore.getRecordMetaData().getVersion();
+            recordStore.markIndexWriteOnly(indexName1).join();
+            recordStore.markIndexWriteOnly(indexName2).join();
+            commit(context);
+        }
+
+        // Remove index1
+        final RecordMetaDataHook hook2 = builder -> {
+            if (includeNameInFormerIndex) {
+                hook1.apply(builder);
+                builder.removeIndex(indexName1);
+            } else {
+                // Simulate a situation where we add both indexes, then remove one of them.
+                // We don't call the old RecordMetaDataHook here because we then the only way
+                // to remove the index introduces a FormerIndex that includes the name
+                final Index index2 = new Index(indexName2, "str_value_indexed");
+                index2.setSubspaceKey(indexName1);
+                builder.addIndex("MySimpleRecord", index2);
+
+                builder.addFormerIndex(new FormerIndex(indexName2, metaDataVersion1, metaDataVersion1 + 1, null));
+                builder.setVersion(metaDataVersion1 + 1);
+            }
+        };
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook2);
+
+            // Validate that the former index would have been selected during check version
+            final int metaDataVersion2 = recordStore.getRecordMetaData().getVersion();
+            assertThat(metaDataVersion2, greaterThan(metaDataVersion1));
+            final FormerIndex formerIndex = Iterables.getOnlyElement(recordStore.getRecordMetaData().getFormerIndexesSince(metaDataVersion1));
+            assertEquals(indexName2, formerIndex.getSubspaceKey());
+            assertThat(formerIndex.getAddedVersion(), lessThanOrEqualTo(metaDataVersion1));
+            assertThat(formerIndex.getRemovedVersion(), both(greaterThan(metaDataVersion1)).and(lessThanOrEqualTo(metaDataVersion2)));
+            assertEquals(includeNameInFormerIndex ? indexName1 : null, formerIndex.getFormerName());
+
+            // After the update, index 1 should no longer be accessible in the meta-data, hence the exception.
+            // The state for index 2 should be preserved.
+            assertThrows(MetaDataException.class, () -> recordStore.getIndexState(indexName1));
+            assertEquals(IndexState.WRITE_ONLY, recordStore.getIndexState(indexName2));
+
+            // The map should definitely contain an entry for indexName2, as we haven't built the index yet.
+            // If we have the index name available, the indexName1 entry should be cleared
+            final Map<String, IndexState> indexStateMap = recordStore.getRecordStoreState().getIndexStates();
+            assertThat(indexStateMap, hasEntry(indexName2, IndexState.WRITE_ONLY));
+            assertThat(indexStateMap, includeNameInFormerIndex ? not(hasKey(indexName1)) : hasEntry(indexName1, IndexState.WRITE_ONLY));
+
+            commit(context);
+        }
+
+        // Validate that the states are preserved after committing
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook2);
+
+            assertThrows(MetaDataException.class, () -> recordStore.getIndexState(indexName1));
+            assertEquals(IndexState.WRITE_ONLY, recordStore.getIndexState(indexName2));
+
+            final Map<String, IndexState> indexStateMap = recordStore.getRecordStoreState().getIndexStates();
+            assertThat(indexStateMap, hasEntry(indexName2, IndexState.WRITE_ONLY));
+            assertThat(indexStateMap, includeNameInFormerIndex ? not(hasKey(indexName1)) : hasEntry(indexName1, IndexState.WRITE_ONLY));
         }
     }
 
