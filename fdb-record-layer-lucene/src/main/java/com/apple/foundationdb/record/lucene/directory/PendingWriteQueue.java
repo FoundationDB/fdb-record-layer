@@ -154,27 +154,6 @@ public class PendingWriteQueue {
     }
 
     /**
-     * Enqueue an INSERT operation with a context and no incarnation.
-     * This is package-private for use in tests that do not have a full record store.
-     *
-     * @param context the record context to use for the operation
-     * @param primaryKey the record's primary key
-     * @param fields the document fields to index
-     */
-    void enqueueInsert(
-            @Nonnull FDBRecordContext context,
-            @Nonnull Tuple primaryKey,
-            @Nonnull List<LuceneDocumentFromRecord.DocumentField> fields) {
-
-        enqueueOperationInternal(
-                context,
-                LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
-                primaryKey,
-                fields,
-                0);
-    }
-
-    /**
      * Enqueue a DELETE operation.
      *
      * @param store the record store (used for context and incarnation)
@@ -190,25 +169,6 @@ public class PendingWriteQueue {
                 primaryKey,
                 null,
                 getIncarnationSafe(store));
-    }
-
-    /**
-     * Enqueue a DELETE operation with a context and no incarnation.
-     * This is package-private for use in tests that do not have a full record store.
-     *
-     * @param context the record context to use for the operation
-     * @param primaryKey the record's primary key to delete
-     */
-    void enqueueDelete(
-            @Nonnull FDBRecordContext context,
-            @Nonnull Tuple primaryKey) {
-
-        enqueueOperationInternal(
-                context,
-                LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE,
-                primaryKey,
-                null,
-                0);
     }
 
     /**
@@ -258,9 +218,7 @@ public class PendingWriteQueue {
             throw new RecordCoreArgumentException("Queue item should have complete version stamp");
         }
 
-        // The key is (incarnation, completed version stamp)
-        final Tuple key = Tuple.from(entry.getIncarnation(), entry.getVersionstamp());
-        SplitHelper.deleteSplit(context, queueSubspace, key, true, false, false, null);
+        SplitHelper.deleteSplit(context, queueSubspace, entry.getKeyTuple(), true, false, false, null);
 
         // Atomically decrement the queue size counter
         mutateQueueSizeCounter(context, -1);
@@ -482,21 +440,21 @@ public class PendingWriteQueue {
      * Gives access to the queued item and its VersionStamp ID.
      */
     public static class QueueEntry {
-        private final int incarnation;
-        private final Versionstamp versionstamp;
+        private final Tuple keyTuple;
         private final LucenePendingWriteQueueProto.PendingWriteItem item;
 
-        public QueueEntry(
-                int incarnation,
-                Versionstamp versionstamp,
-                LucenePendingWriteQueueProto.PendingWriteItem item) {
-            this.incarnation = incarnation;
-            this.versionstamp = versionstamp;
+        public QueueEntry(Tuple keyTuple,
+                          LucenePendingWriteQueueProto.PendingWriteItem item) {
+            this.keyTuple = keyTuple;
             this.item = item;
         }
 
         public Versionstamp getVersionstamp() {
-            return versionstamp;
+            final int i =
+                    keyTuple.size() > 2
+                    ? 1   // new: (incarnation, versionStamp, splitterTag)
+                    : 0;  // old: (versionStamp, splitterTag)
+            return keyTuple.getVersionstamp(i);
         }
 
         public LucenePendingWriteQueueProto.PendingWriteItem.OperationType getOperationType() {
@@ -515,8 +473,8 @@ public class PendingWriteQueue {
             return item.getEnqueueTimestamp();
         }
 
-        public int getIncarnation() {
-            return incarnation;
+        public Tuple getKeyTuple() {
+            return keyTuple;
         }
 
         public List<LucenePendingWriteQueueProto.DocumentField> getDocumentFields() {

@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import javax.annotation.Nonnull;
@@ -43,19 +42,9 @@ public final class PendingWritesQueueHelper {
      */
     public static PendingWriteQueue.QueueEntry toQueueEntry(LuceneSerializer serializer, Tuple keyTuple, byte[] valueBytes) {
         try {
-            // Key is (incarnation, versionstamp) for new entries, or (versionstamp) for old entries
-            final int incarnation;
-            final Versionstamp versionstamp;
-            if (keyTuple.size() >= 2) {
-                incarnation = (int)keyTuple.getLong(0);
-                versionstamp = keyTuple.getVersionstamp(1);
-            } else {
-                incarnation = 0;
-                versionstamp = keyTuple.getVersionstamp(0);
-            }
             final byte[] value = serializer.decode(valueBytes);
             LucenePendingWriteQueueProto.PendingWriteItem item = LucenePendingWriteQueueProto.PendingWriteItem.parseFrom(value);
-            return new PendingWriteQueue.QueueEntry(incarnation, versionstamp, item);
+            return new PendingWriteQueue.QueueEntry(keyTuple, item);
         } catch (InvalidProtocolBufferException e) {
             throw new RecordCoreStorageException("Failed to parse queue item", e)
                     .addLogInfo("key", keyTuple);
