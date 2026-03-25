@@ -84,6 +84,15 @@ public abstract class IndexMaintainer {
     }
 
     /**
+     * Returns the tertiary subspace in which the index data is stored.
+     * @return tertiary window subspace for index data
+     */
+    @Nonnull
+    public Subspace getTertiarySubspace() {
+        return state.store.indexSlidingWindowSubspace(state.index);
+    }
+
+    /**
      * Scan entries in the index.
      * @param scanType the {@link IndexScanType type} of scan to perform
      * @param range the range to scan
