@@ -228,7 +228,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Void visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
-        throw Assert.failUnchecked("Explain/Describe statement should not appear at the parser level");
+        throw new RelationalException("Explain/Describe statement should not appear at the parser level", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
     }
 
     @Override
