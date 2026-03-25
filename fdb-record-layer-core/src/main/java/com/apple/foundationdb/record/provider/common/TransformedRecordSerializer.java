@@ -175,22 +175,21 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     }
 
     private void validateEncryption(@Nonnull byte[] beforeEncrypt, @Nonnull byte[] afterEncrypt, @Nonnull RecordType recordType, @Nonnull M rec, @Nullable StoreTimer timer) {
-        TransformedRecordSerializerState verifyState = new TransformedRecordSerializerState(afterEncrypt);
-        Tuple primaryKey = null;
+        final TransformedRecordSerializerState verifyState = new TransformedRecordSerializerState(afterEncrypt);
         try {
             decrypt(verifyState, timer);
         } catch (GeneralSecurityException ex) {
-            FDBStoredRecordBuilder<M> recordBuilder = FDBStoredRecord.<M>newBuilder()
+            final FDBStoredRecordBuilder<M> recordBuilder = FDBStoredRecord.<M>newBuilder()
                     .setRecordType(recordType)
                     .setRecord(rec);
-            primaryKey = recordType.getPrimaryKey().evaluateMessageSingleton(recordBuilder, rec).toTuple();
+            final Tuple primaryKey = recordType.getPrimaryKey().evaluateMessageSingleton(recordBuilder, rec).toTuple();
             throw new RecordSerializationValidationException("encryption validation error: decryption failed", recordType, primaryKey, ex);
         }
         if (!Arrays.equals(verifyState.getDataArray(), beforeEncrypt)) {
             FDBStoredRecordBuilder<M> recordBuilder = FDBStoredRecord.<M>newBuilder()
                     .setRecordType(recordType)
                     .setRecord(rec);
-            primaryKey = recordType.getPrimaryKey().evaluateMessageSingleton(recordBuilder, rec).toTuple();
+            final Tuple primaryKey = recordType.getPrimaryKey().evaluateMessageSingleton(recordBuilder, rec).toTuple();
             throw new RecordSerializationValidationException("encryption validation error: decrypted bytes do not match original", recordType, primaryKey);
         }
     }
