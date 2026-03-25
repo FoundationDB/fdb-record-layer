@@ -34,6 +34,8 @@ import org.antlr.v4.runtime.tree.RuleNode;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 /**
  * this holds query parsing information.
@@ -112,17 +114,18 @@ public final class ParseTreeInfoImpl implements ParseTreeInfo {
             final int offset = src instanceof TerminalNode
                     ? ((TerminalNode) src).getSymbol().getTokenIndex()
                     : ((ParserRuleContext) src).start.getTokenIndex();
-            shiftTokenIndices(src, offset);
-        }
-
-        private static void shiftTokenIndices(@Nonnull final ParseTree tree, final int offset) {
-            if (tree instanceof TerminalNode) {
-                final CommonToken token = (CommonToken) ((TerminalNode) tree).getSymbol();
-                token.setTokenIndex(token.getTokenIndex() - offset);
-                return;
-            }
-            for (int i = 0; i < tree.getChildCount(); i++) {
-                shiftTokenIndices(tree.getChild(i), offset);
+            final Deque<ParseTree> stack = new ArrayDeque<>();
+            stack.push(src);
+            while (!stack.isEmpty()) {
+                final ParseTree node = stack.pop();
+                if (node instanceof TerminalNode) {
+                    final CommonToken token = (CommonToken) ((TerminalNode) node).getSymbol();
+                    token.setTokenIndex(token.getTokenIndex() - offset);
+                } else {
+                    for (int i = node.getChildCount() - 1; i >= 0; i--) {
+                        stack.push(node.getChild(i));
+                    }
+                }
             }
         }
 
