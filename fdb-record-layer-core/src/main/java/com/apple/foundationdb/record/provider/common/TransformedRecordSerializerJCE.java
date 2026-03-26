@@ -119,8 +119,8 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
     @Override
     public RecordSerializer<Message> widen() {
         return new TransformedRecordSerializerJCE<>(inner.widen(), compressWhenSerializing, compressionLevel,
-                encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio, failOnDeserializeReAttempt,
-                deserializeReAttemptCount, keyManager);
+                encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio, failOnDeserializeReattempt,
+                deserializeReattemptCount, keyManager);
     }
 
     /**
@@ -316,8 +316,8 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
                     encryptWhenSerializing,
                     writeValidationRatio,
                     writeEncryptionValidationRatio,
-                    failOnDeserializeReAttempt,
-                    deserializeReAttemptCount,
+                    failOnDeserializeReattempt,
+                    deserializeReattemptCount,
                     resolveKeyManager()
             );
         }
