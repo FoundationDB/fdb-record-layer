@@ -424,7 +424,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         protected double writeValidationRatio;
         protected double writeEncryptionValidationRatio;
         protected boolean failOnDeserializeReattempt;
-        protected int deserializeReattemptCount = 0;
+        protected int deserializeReattemptCount;
 
         protected Builder(@Nonnull RecordSerializer<M> inner) {
             this.inner = inner;

@@ -47,10 +47,10 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
                                              boolean encryptWhenSerializing,
                                              double writeValidationRatio,
                                              double writeEncryptionValidationRatio,
-                                             boolean failOnDeserializeReAttempt,
-                                             int deserializeReAttemptCount,
+                                             boolean failOnDeserializeReattempt,
+                                             int deserializeReattemptCount,
                                              @Nullable SerializationKeyManager keyManager) {
-        super(inner, compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio, failOnDeserializeReAttempt, deserializeReAttemptCount);
+        super(inner, compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio, failOnDeserializeReattempt, deserializeReattemptCount);
         this.keyManager = keyManager;
     }
 
