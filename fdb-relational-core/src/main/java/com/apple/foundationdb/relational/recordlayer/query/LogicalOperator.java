@@ -301,7 +301,7 @@ public class LogicalOperator {
         //  - lookup("item.price", ..., matchQualifiedOnly=true) iterates [EphemeralExpression(item), item.b, item.c, ...]
         //  - EphemeralExpression(item): exact match fails; lookupNestedField → skipped
         //  - item.b: exact match item.b.
-        if (alias.isPresent() && !resultingQuantifier.getFlowedObjectType().isPrimitive()) {
+        if (alias.isPresent() && resultingQuantifier.getFlowedObjectType().isRecord()) {
             final var elementType = DataTypeUtils.toRelationalType(resultingQuantifier.getFlowedObjectType());
             final var wholeStructExpr = new EphemeralExpression(alias, elementType,
                     resultingQuantifier.getFlowedObjectValue(), Expression.Visibility.VISIBLE);
