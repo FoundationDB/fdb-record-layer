@@ -39,6 +39,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalStatement;
 import com.apple.foundationdb.relational.recordlayer.Utils;
@@ -1753,5 +1754,146 @@ public class StandardQueryTests {
                 .build();
         int cnt = s.executeInsert("RESTAURANTCOMPLEXRECORD", struct);
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+    }
+
+    // -------------------------------------------------------------------------
+    // Skipped proto field-number tests
+    // -------------------------------------------------------------------------
+
+    /**
+     * Saves a schema template built from a proto file descriptor into the in-process catalog.
+     * This mirrors the yaml-test "load schema template … from …" command.
+     */
+    private void saveSchemaTemplateFromProto(String templateName, com.google.protobuf.Descriptors.FileDescriptor descriptor)
+            throws java.sql.SQLException, com.apple.foundationdb.relational.api.exceptions.RelationalException {
+        com.apple.foundationdb.record.RecordMetaData metaData =
+                com.apple.foundationdb.record.RecordMetaData.build(descriptor);
+        com.apple.foundationdb.relational.api.metadata.SchemaTemplate schemaTemplate =
+                com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate.fromRecordMetadata(
+                        metaData, templateName, 1);
+
+        try (EmbeddedRelationalConnection connection =
+                     java.sql.DriverManager.getConnection("jdbc:embed:/__SYS")
+                             .unwrap(EmbeddedRelationalConnection.class)) {
+            connection.setSchema("CATALOG");
+            com.apple.foundationdb.relational.api.catalog.StoreCatalog catalog = connection.getBackingCatalog();
+            com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory factory =
+                    new com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory.Builder()
+                            .setBaseKeySpace(com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider.instance().getKeySpace())
+                            .setRlConfig(com.apple.foundationdb.relational.recordlayer.RecordLayerConfig.getDefault())
+                            .setStoreCatalog(catalog)
+                            .build();
+            connection.setAutoCommit(false);
+            connection.createNewTransaction();
+            factory.getSaveSchemaTemplateConstantAction(schemaTemplate, com.apple.foundationdb.relational.api.Options.NONE)
+                    .execute(connection.getTransaction());
+            connection.commit();
+            connection.setAutoCommit(true);
+        }
+    }
+
+    /**
+     * Tests that INSERT and SELECT work correctly when the underlying proto schema has intentionally skipped
+     * field numbers (first_name=1, &lt;2 skipped&gt;, last_name=3, id=4, address=5, and inside Address:
+     * street=1, &lt;2 skipped&gt;, city=3).  The gaps must not cause column values to be shifted or
+     * misrouted.
+     * This test can be removed once skipped-field-number-proto.yamsql is enabled.
+     */
+    @Test
+    void skippedProtoFieldNumbers() throws Exception {
+        final String templateName = "SKIPPED_FIELD_TEMPLATE";
+        final String dbPath = "/TEST/SKIPPED_FIELD";
+        final String schemaName = "TEST";
+
+        saveSchemaTemplateFromProto(templateName,
+                com.apple.foundationdb.relational.test.skippedfield.TestPersonSkippedFieldProto.getDescriptor());
+        try {
+            // Create database and schema
+            try (Connection conn = java.sql.DriverManager.getConnection("jdbc:embed:/__SYS")) {
+                conn.setSchema("CATALOG");
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.executeUpdate("DROP DATABASE IF EXISTS \"" + dbPath + "\"");
+                    stmt.executeUpdate("CREATE DATABASE \"" + dbPath + "\"");
+                    stmt.executeUpdate("CREATE SCHEMA \"" + dbPath + "/" + schemaName + "\" WITH TEMPLATE \"" + templateName + "\"");
+                }
+            }
+
+            try (Connection conn = java.sql.DriverManager.getConnection("jdbc:embed://" + dbPath + "?schema=" + schemaName)) {
+                try (Statement stmt = conn.createStatement()) {
+                    // Insert test data
+                    stmt.executeUpdate("INSERT INTO Person(\"first_name\", \"last_name\", \"id\", \"address\") VALUES " +
+                            "('Alice', 'Smith', 1, ('123 Main St', 'Springfield')), " +
+                            "('Bob',   'Jones', 2, ('456 Oak Ave', 'Shelbyville')), " +
+                            "('Carol', 'White', 3, null)");
+
+                    // SELECT * ordered by id → Alice, Bob, Carol
+                    try (java.sql.ResultSet rs = stmt.executeQuery("SELECT * FROM Person ORDER BY \"id\"")) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals("Alice", rs.getString("FIRST_NAME"));
+                        Assertions.assertEquals("Smith", rs.getString("LAST_NAME"));
+                        Assertions.assertEquals(1L, rs.getLong("ID"));
+
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals("Bob", rs.getString("FIRST_NAME"));
+                        Assertions.assertEquals("Jones", rs.getString("LAST_NAME"));
+                        Assertions.assertEquals(2L, rs.getLong("ID"));
+
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals("Carol", rs.getString("FIRST_NAME"));
+                        Assertions.assertEquals("White", rs.getString("LAST_NAME"));
+                        Assertions.assertEquals(3L, rs.getLong("ID"));
+
+                        Assertions.assertFalse(rs.next());
+                    }
+
+                    // SELECT first_name, last_name WHERE id = 2 → Bob Jones
+                    try (java.sql.ResultSet rs = stmt.executeQuery(
+                            "SELECT \"first_name\", \"last_name\" FROM Person WHERE \"id\" = 2")) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals("Bob", rs.getString("FIRST_NAME"));
+                        Assertions.assertEquals("Jones", rs.getString("LAST_NAME"));
+                        Assertions.assertFalse(rs.next());
+                    }
+
+                    // SELECT id, first_name WHERE last_name = 'White' → id=3, Carol
+                    try (java.sql.ResultSet rs = stmt.executeQuery(
+                            "SELECT \"id\", \"first_name\" FROM Person WHERE \"last_name\" = 'White'")) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(3L, rs.getLong("ID"));
+                        Assertions.assertEquals("Carol", rs.getString("FIRST_NAME"));
+                        Assertions.assertFalse(rs.next());
+                    }
+
+                    // SELECT address WHERE id = 1 → {STREET: '123 Main St', CITY: 'Springfield'}
+                    try (RelationalResultSet rs = stmt.unwrap(RelationalStatement.class)
+                            .executeQuery("SELECT \"address\" FROM Person WHERE \"id\" = 1")) {
+                        Assertions.assertTrue(rs.next());
+                        RelationalStruct address = rs.getStruct("ADDRESS");
+                        Assertions.assertNotNull(address);
+                        Assertions.assertEquals("123 Main St", address.getString("STREET"));
+                        Assertions.assertEquals("Springfield", address.getString("CITY"));
+                        Assertions.assertFalse(rs.next());
+                    }
+
+                    // SELECT address.street, address.city WHERE id = 2 → '456 Oak Ave', 'Shelbyville'
+                    try (java.sql.ResultSet rs = stmt.executeQuery(
+                            "SELECT \"address\".\"street\", \"address\".\"city\" FROM Person WHERE \"id\" = 2")) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals("456 Oak Ave", rs.getString("STREET"));
+                        Assertions.assertEquals("Shelbyville", rs.getString("CITY"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            }
+        } finally {
+            // Cleanup database and schema template
+            try (Connection conn = java.sql.DriverManager.getConnection("jdbc:embed:/__SYS")) {
+                conn.setSchema("CATALOG");
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.executeUpdate("DROP DATABASE IF EXISTS \"" + dbPath + "\"");
+                    stmt.executeUpdate("DROP SCHEMA TEMPLATE IF EXISTS \"" + templateName + "\"");
+                }
+            }
+        }
     }
 }

@@ -56,6 +56,7 @@ test_block:
       - result: [{FIRST_NAME: 'Bob', LAST_NAME: 'Jones'}]
     -
       - query: select "id", "first_name" from Person where "last_name" = 'White'
+      - supported_version: !current_version
       - result: [{ID: !l 3, FIRST_NAME: 'Carol'}]
     -
       - query: select "address" from Person where "id" = 1
