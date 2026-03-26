@@ -51,6 +51,7 @@ import javax.annotation.Nullable;
 import javax.crypto.SecretKey;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.util.ArrayList;
@@ -809,6 +810,87 @@ public class TransformedRecordSerializerTest {
         ByteBuffer.wrap(serialized, 2, Integer.BYTES)
                 .order(ByteOrder.BIG_ENDIAN)
                 .putInt(newSize);
+    }
+
+    /**
+     * Validate that {@code writeEncryptionValidationRatio = 1.0} passes silently when encryption is correct.
+     */
+    @ParameterizedTest
+    @RandomSeedSource
+    void encryptionValidationPassesForCorrectEncryption(long seed) {
+        SecretKey key = RandomSecretUtil.randomSecretKey(seed);
+        TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
+                .setEncryptWhenSerializing(true)
+                .setEncryptionKey(key)
+                .setWriteEncryptionValidationRatio(1.0)
+                .build();
+
+        MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
+        assertDoesNotThrow(() -> serialize(serializer, mySimpleRecord));
+    }
+
+    /**
+     * Validate that {@code writeEncryptionValidationRatio = 1.0} detects when the encrypted output
+     * has been corrupted (IV tampered so decryption produces different plaintext).
+     */
+    @ParameterizedTest
+    @RandomSeedSource
+    void encryptionValidationDetectsMismatch(long seed) {
+        final SecretKey key = RandomSecretUtil.randomSecretKey(seed);
+        final TransformedRecordSerializer<Message> base = TransformedRecordSerializerJCE.newDefaultBuilder()
+                .setEncryptionKey(key)
+                .setEncryptWhenSerializing(true)
+                .setWriteEncryptionValidationRatio(1.0)
+                .build();
+        final CorruptEncryptSerializer serializer = new CorruptEncryptSerializer((TransformedRecordSerializerJCE<Message>) base);
+
+        final MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
+        RecordSerializationValidationException e = assertThrows(RecordSerializationValidationException.class,
+                () -> serialize(serializer, mySimpleRecord));
+        assertThat(e.getMessage(), containsString("encryption validation error: decrypted bytes do not match original"));
+    }
+
+    /**
+     * Validate that {@code writeEncryptionValidationRatio = 0.0} skips validation entirely,
+     * even when the encrypted output is corrupted.
+     */
+    @ParameterizedTest
+    @RandomSeedSource
+    void encryptionValidationSkippedWhenRatioIsZero(long seed) {
+        final SecretKey key = RandomSecretUtil.randomSecretKey(seed);
+        final TransformedRecordSerializer<Message> base = TransformedRecordSerializerJCE.newDefaultBuilder()
+                .setEncryptWhenSerializing(true)
+                .setEncryptionKey(key)
+                .setWriteEncryptionValidationRatio(0.0)
+                .build();
+        final CorruptEncryptSerializer serializer = new CorruptEncryptSerializer((TransformedRecordSerializerJCE<Message>) base);
+
+        final MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
+        assertDoesNotThrow(() -> serialize(serializer, mySimpleRecord));
+    }
+
+    /**
+     * Encrypts normally then flips the first byte of the IV so that {@code validateEncrypt}'s
+     * decryption produces different first-block plaintext, triggering the mismatch check.
+     */
+    private static class CorruptEncryptSerializer extends TransformedRecordSerializerJCE<Message> {
+        CorruptEncryptSerializer(@Nonnull TransformedRecordSerializerJCE<Message> base) {
+            super(base.inner, base.compressWhenSerializing, base.compressionLevel, base.encryptWhenSerializing, base.writeValidationRatio, base.writeEncryptionValidationRatio, base.keyManager);
+        }
+
+        @Override
+        protected void encrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
+            super.encrypt(state, timer);
+            // Flip one bit in the IV so decryption in validateEncryption produces different plaintext
+            byte[] data = state.getDataArray();
+            data[0] ^= 0x01;
+        }
+
+        @Nonnull
+        @Override
+        public RecordSerializer<Message> widen() {
+            return this;
+        }
     }
 
     /**
