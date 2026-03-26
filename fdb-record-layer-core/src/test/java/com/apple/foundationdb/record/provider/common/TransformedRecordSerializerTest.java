@@ -923,8 +923,8 @@ public class TransformedRecordSerializerTest {
                 .setFailOnDeserializeReattempt(failOnDeserializeReattempt)
                 .build();
 
-        MySimpleRecord record = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
-        byte[] serialized = serialize(serializer, record);
+        MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
+        byte[] serialized = serialize(serializer, mySimpleRecord);
         assertTrue(isCompressed(serialized));
 
         // Corrupt the first byte of the actual ciphertext (after the 1-byte prefix and 16-byte IV).
@@ -975,8 +975,8 @@ public class TransformedRecordSerializerTest {
                 .setCompressWhenSerializing(true)
                 .build();
 
-        final MySimpleRecord record = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
-        final byte[] serialized = serialize(serializer, record);
+        final MySimpleRecord mySimpleRecord = MySimpleRecord.newBuilder().setRecNo(PRIMARY_KEY_REC_NO).setStrValueIndexed(SONNET_108).build();
+        final byte[] serialized = serialize(serializer, mySimpleRecord);
         assertTrue(isCompressed(serialized));
 
         // Build a deserializer that corrupts plaintext on the first initialKFailures decrypt calls.
@@ -1000,7 +1000,7 @@ public class TransformedRecordSerializerTest {
             } else {
                 // No retry needed, or failOnDeserializeReattempt=false: success.
                 Message deserialized = deserialize(deserializer, PRIMARY_KEY, serialized);
-                assertEquals(record, deserialized);
+                assertEquals(mySimpleRecord, deserialized);
             }
         } else {
             RecordSerializationException e = assertThrows(RecordSerializationException.class,
