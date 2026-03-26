@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistry;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.BiMap;
@@ -852,7 +851,7 @@ public class MetaDataEvolutionValidator {
          * @see MetaDataEvolutionValidator#getIndexValidatorRegistry()
          */
         @Nonnull
-        public Builder setIndexValidatorRegistry(@Nonnull IndexMaintainerRegistry indexValidatorRegistry) {
+        public Builder setIndexValidatorRegistry(@Nonnull IndexValidatorRegistry indexValidatorRegistry) {
             this.indexValidatorRegistry = indexValidatorRegistry;
             return this;
         }

@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecordBuilder;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
@@ -34,6 +36,7 @@ import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.GeneralSecurityException;
+import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
@@ -86,17 +89,20 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     protected final int compressionLevel;
     protected final boolean encryptWhenSerializing;
     protected final double writeValidationRatio;
+    protected final double writeEncryptionValidationRatio;
 
     protected TransformedRecordSerializer(@Nonnull RecordSerializer<M> inner,
                                           boolean compressWhenSerializing,
                                           int compressionLevel,
                                           boolean encryptWhenSerializing,
-                                          double writeValidationRatio) {
+                                          double writeValidationRatio,
+                                          double writeEncryptionValidationRatio) {
         this.inner = inner;
         this.compressWhenSerializing = compressWhenSerializing;
         this.compressionLevel = compressionLevel;
         this.encryptWhenSerializing = encryptWhenSerializing;
         this.writeValidationRatio = writeValidationRatio;
+        this.writeEncryptionValidationRatio = writeEncryptionValidationRatio;
     }
 
     protected void compress(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) {
@@ -156,8 +162,36 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         throw new RecordSerializationException("this serializer cannot encrypt");
     }
 
+    private boolean shouldIncludeInSample(double ratio) {
+        return ratio >= 1.0 || (ratio > 0.0 && ThreadLocalRandom.current().nextDouble() < ratio);
+    }
+
     private boolean shouldValidateSerialization() {
-        return writeValidationRatio >= 1.0 || (writeValidationRatio > 0.0 && ThreadLocalRandom.current().nextDouble() < writeValidationRatio);
+        return shouldIncludeInSample(writeValidationRatio);
+    }
+
+    private boolean shouldValidateEncryption() {
+        return shouldIncludeInSample(writeEncryptionValidationRatio);
+    }
+
+    private void validateEncryption(@Nonnull byte[] beforeEncrypt, @Nonnull byte[] afterEncrypt, @Nonnull RecordType recordType, @Nonnull M rec, @Nullable StoreTimer timer) {
+        final TransformedRecordSerializerState verifyState = new TransformedRecordSerializerState(afterEncrypt);
+        try {
+            decrypt(verifyState, timer);
+        } catch (GeneralSecurityException ex) {
+            final FDBStoredRecordBuilder<M> recordBuilder = FDBStoredRecord.<M>newBuilder()
+                    .setRecordType(recordType)
+                    .setRecord(rec);
+            final Tuple primaryKey = recordType.getPrimaryKey().evaluateMessageSingleton(recordBuilder, rec).toTuple();
+            throw new RecordSerializationValidationException("encryption validation error: decryption failed", recordType, primaryKey, ex);
+        }
+        if (!Arrays.equals(verifyState.getDataArray(), beforeEncrypt)) {
+            FDBStoredRecordBuilder<M> recordBuilder = FDBStoredRecord.<M>newBuilder()
+                    .setRecordType(recordType)
+                    .setRecord(rec);
+            final Tuple primaryKey = recordType.getPrimaryKey().evaluateMessageSingleton(recordBuilder, rec).toTuple();
+            throw new RecordSerializationValidationException("encryption validation error: decrypted bytes do not match original", recordType, primaryKey);
+        }
     }
 
     @Nonnull
@@ -175,12 +209,16 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         }
 
         if (encryptWhenSerializing) {
+            final byte[] beforeEncrypt = state.getDataArray();
             try {
                 encrypt(state, timer);
             } catch (GeneralSecurityException ex) {
                 throw new RecordSerializationException("encryption error", ex)
                         .addLogInfo("recordType", recordType.getName())
                         .addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion());
+            }
+            if (shouldValidateEncryption()) {
+                validateEncryption(beforeEncrypt, state.getDataArray(), recordType, rec, timer);
             }
         }
 
@@ -277,7 +315,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     @Nonnull
     @Override
     public RecordSerializer<Message> widen() {
-        return new TransformedRecordSerializer<>(inner.widen(), compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio);
+        return new TransformedRecordSerializer<>(inner.widen(), compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio);
     }
 
     @Nonnull
@@ -328,6 +366,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         protected int compressionLevel = DEFAULT_COMPRESSION_LEVEL;
         protected boolean encryptWhenSerializing;
         protected double writeValidationRatio;
+        protected double writeEncryptionValidationRatio;
 
         protected Builder(@Nonnull RecordSerializer<M> inner) {
             this.inner = inner;
@@ -403,6 +442,22 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         }
 
         /**
+         * Allows the user to specify a portion of encryptions that will be validated. Every validated encryption will
+         * decrypt the result and verify it matches the original plaintext. If the decrypted result does not match the
+         * original plaintext, a {@link RecordSerializationValidationException} is thrown, causing the write to fail.
+         * If the ratio is less than or equal to 0.0, no encryptions will be validated. If the ratio is greater than
+         * or equal to 1.0, all encryptions will be validated. Otherwise, a random sampling will be selected.
+         *
+         * @param writeEncryptionValidationRatio what ratio of record encryptions should be validated
+         * @return this <code>Builder</code>
+         */
+        @Nonnull
+        public Builder<M> setWriteEncryptionValidationRatio(double writeEncryptionValidationRatio) {
+            this.writeEncryptionValidationRatio = writeEncryptionValidationRatio;
+            return this;
+        }
+
+        /**
          * Construct a {@link TransformedRecordSerializer} from the
          * parameters specified by this builder. If one has enabled
          * encryption at serialization time, then this will fail
@@ -419,7 +474,8 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
                     compressWhenSerializing,
                     compressionLevel,
                     encryptWhenSerializing,
-                    writeValidationRatio
+                    writeValidationRatio,
+                    writeEncryptionValidationRatio
             );
         }
     }
