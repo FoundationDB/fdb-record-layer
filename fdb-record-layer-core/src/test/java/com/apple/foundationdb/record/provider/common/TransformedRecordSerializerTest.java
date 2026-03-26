@@ -814,7 +814,7 @@ public class TransformedRecordSerializerTest {
     }
 
     /**
-     * * Validate that {@code writeEncryptionValidationRatio = 1.0} passes silently when encryption is correct.
+     * Validate that {@code writeEncryptionValidationRatio = 1.0} passes silently when encryption is correct.
      */
     @ParameterizedTest
     @RandomSeedSource
