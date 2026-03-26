@@ -33,11 +33,11 @@ import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
+import com.apple.test.BooleanSource;
 import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
@@ -86,7 +86,7 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @EnumSource
-    void testEnqueueAndIterate(LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType) throws Exception {
+    void testEnqueueAndIterate(LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType) {
         // don't deal with the "unspecified" operation type
         Assumptions.assumeFalse(operationType.equals(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.OPERATION_TYPE_UNSPECIFIED));
 
@@ -94,15 +94,14 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
 
         PendingWriteQueue queue;
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = getSimpleRecordStore(context);
             queue = getQueue(context);
             docs.forEach(doc -> {
                 switch (operationType) {
                     case INSERT:
-                        queue.enqueueInsert(store, doc.getPrimaryKey(), doc.getFields());
+                        queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields(), 0);
                         break;
                     case DELETE:
-                        queue.enqueueDelete(store, doc.getPrimaryKey());
+                        queue.enqueueDelete(context, doc.getPrimaryKey(), 0);
                         break;
                     case OPERATION_TYPE_UNSPECIFIED:
                     default:
@@ -116,24 +115,22 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void testEnqueueMultipleTransactions() throws Exception {
+    void testEnqueueMultipleTransactions() {
         List<TestDocument> docs = createTestDocuments();
         List<TestDocument> moreDocs = createTestDocuments();
         PendingWriteQueue queue;
 
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = getSimpleRecordStore(context);
             queue = getQueue(context);
             docs.forEach(doc -> {
-                queue.enqueueInsert(store, doc.getPrimaryKey(), doc.getFields());
+                queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields(), 0);
             });
             commit(context);
         }
 
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = getSimpleRecordStore(context);
             moreDocs.forEach(doc -> {
-                queue.enqueueInsert(store, doc.getPrimaryKey(), doc.getFields());
+                queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields(), 0);
             });
             commit(context);
         }
@@ -142,15 +139,14 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void testEnqueueAndDelete() throws Exception {
+    void testEnqueueAndDelete() {
         List<TestDocument> docs = createTestDocuments();
         PendingWriteQueue queue;
 
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = getSimpleRecordStore(context);
             queue = getQueue(context);
             docs.forEach(doc -> {
-                queue.enqueueInsert(store, doc.getPrimaryKey(), doc.getFields());
+                queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields(), 0);
             });
             assertEquals(docs.size(), context.getTimer().getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_WRITE));
             commit(context);
@@ -175,15 +171,14 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void testDeleteAll() throws Exception {
+    void testDeleteAll() {
         List<TestDocument> docs = createTestDocuments();
         PendingWriteQueue queue;
 
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = getSimpleRecordStore(context);
             queue = getQueue(context);
             docs.forEach(doc -> {
-                queue.enqueueInsert(store, doc.getPrimaryKey(), doc.getFields());
+                queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields(), 0);
             });
             commit(context);
         }
@@ -214,45 +209,42 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void testWrongValueType() throws Exception {
+    void testWrongValueType() {
         final LuceneDocumentFromRecord.DocumentField fieldWithWrongType =
                 createField("f", 5, LuceneIndexExpressions.DocumentFieldType.STRING, true, true);
 
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = getSimpleRecordStore(context);
             PendingWriteQueue queue = getQueue(context);
-            Assertions.assertThatThrownBy(() -> queue.enqueueInsert(store, Tuple.from(1), List.of(fieldWithWrongType)))
+            Assertions.assertThatThrownBy(() -> queue.enqueueInsert(context, Tuple.from(1), List.of(fieldWithWrongType), 0))
                     .isInstanceOf(ClassCastException.class);
         }
     }
 
     @Test
-    void testUnsupportedFieldConfigType() throws Exception {
+    void testUnsupportedFieldConfigType() {
         final LuceneDocumentFromRecord.DocumentField fieldWithWrongConfig =
                 createField("f", 5, LuceneIndexExpressions.DocumentFieldType.INT, true, true, Map.of("Double", 5.42D));
 
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = getSimpleRecordStore(context);
             PendingWriteQueue queue = getQueue(context);
-            Assertions.assertThatThrownBy(() -> queue.enqueueInsert(store, Tuple.from(1), List.of(fieldWithWrongConfig)))
+            Assertions.assertThatThrownBy(() -> queue.enqueueInsert(context, Tuple.from(1), List.of(fieldWithWrongConfig), 0))
                     .isInstanceOf(RecordCoreArgumentException.class);
         }
     }
 
     @Test
-    void testIterateWithContinuations() throws Exception {
+    void testIterateWithContinuations() {
         List<TestDocument> docs = createTestDocuments();
         List<TestDocument> moreDocs = createTestDocuments();
 
         PendingWriteQueue queue;
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = getSimpleRecordStore(context);
             queue = getQueue(context);
             docs.forEach(doc -> {
-                queue.enqueueInsert(store, doc.getPrimaryKey(), doc.getFields());
+                queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields(), 0);
             });
             moreDocs.forEach(doc -> {
-                queue.enqueueInsert(store, doc.getPrimaryKey(), doc.getFields());
+                queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields(), 0);
             });
             commit(context);
         }
@@ -301,26 +293,21 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         Assertions.assertThat(allResults).zipSatisfy(allDocs, (entry, doc) -> entryEquals(entry, doc, LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT));
     }
 
-    @Test
-    void testIsQueueEmpty() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    void testIsQueueEmpty(boolean allowIncarnation) {
         List<TestDocument> docs = createTestDocuments();
         PendingWriteQueue queue;
 
         try (FDBRecordContext context = openContext()) {
-            queue = getQueue(context);
+            queue = getQueue(context, serializer, allowIncarnation);
             assertTrue(queue.isQueueEmpty(context).join());
             commit(context);
         }
 
         docs.forEach(doc -> {
             try (FDBRecordContext context = openContext()) {
-                FDBRecordStore store;
-                try {
-                    store = getSimpleRecordStore(context);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-                queue.enqueueInsert(store, doc.getPrimaryKey(), doc.getFields());
+                queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields(), 0);
                 commit(context);
             }
             // the enqueue is finalized only after the commit. Verifying should be done with another context
@@ -332,16 +319,15 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void testFailToSerialize() throws Exception {
+    void testFailToSerialize() {
         List<TestDocument> docs = createTestDocuments();
         LuceneSerializer failingSerializer = new FailingLuceneSerializer();
         PendingWriteQueue queue;
 
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = getSimpleRecordStore(context);
             queue = getQueue(context, failingSerializer);
             final TestDocument doc = docs.get(0);
-            Assertions.assertThatThrownBy(() -> queue.enqueueInsert(store, doc.getPrimaryKey(), doc.getFields()))
+            Assertions.assertThatThrownBy(() -> queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields(), 0))
                     .isInstanceOf(RecordCoreInternalException.class)
                     .hasMessageContaining("Failing to encode");
 
@@ -356,19 +342,18 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void testFailToDeserialize() throws Exception {
+    void testFailToDeserialize() {
         List<TestDocument> docs = createTestDocuments();
         LuceneSerializer failingSerializer = new FailingLuceneSerializer();
         PendingWriteQueue queue;
         PendingWriteQueue failingQueue;
 
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = getSimpleRecordStore(context);
             queue = getQueue(context);
             failingQueue = getQueue(context, failingSerializer);
             final TestDocument doc = docs.get(0);
             // save a single doc using the good queue
-            queue.enqueueInsert(store, doc.getPrimaryKey(), doc.getFields());
+            queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields(), 0);
             commit(context);
         }
 
@@ -401,10 +386,9 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         PendingWriteQueue queue;
 
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = getSimpleRecordStore(context);
             queue = getQueue(context, serializerToUse);
             // save a single doc using the appropriate serializer (should succeed since we split the records even for uncompressed)
-            queue.enqueueInsert(store, docWithHugeString.getPrimaryKey(), docWithHugeString.getFields());
+            queue.enqueueInsert(context, docWithHugeString.getPrimaryKey(), docWithHugeString.getFields(), 0);
             commit(context);
         }
 
@@ -418,7 +402,7 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @RandomSeedSource({663377L, 7758893L})
-    void testLargeQueueItemDelete(long seed) throws Exception {
+    void testLargeQueueItemDelete(long seed) {
         // A split entry (>100KB) must be fully removed when clearEntry is called
         TestDocument docWithHugeString = createHugeDocument(new Random(seed));
         TestDocument normalDoc = new TestDocument(primaryKey("Normal"),
@@ -426,10 +410,9 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
 
         PendingWriteQueue queue;
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = getSimpleRecordStore(context);
             queue = getQueue(context, new PassThroughLuceneSerializer());
-            queue.enqueueInsert(store, docWithHugeString.getPrimaryKey(), docWithHugeString.getFields());
-            queue.enqueueInsert(store, normalDoc.getPrimaryKey(), normalDoc.getFields());
+            queue.enqueueInsert(context, docWithHugeString.getPrimaryKey(), docWithHugeString.getFields(), 0);
+            queue.enqueueInsert(context, normalDoc.getPrimaryKey(), normalDoc.getFields(), 0);
             commit(context);
         }
 
@@ -453,78 +436,6 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void testOrderingPreservedAcrossIncarnations() throws Exception {
-        PendingWriteQueue queue;
-        List<LuceneDocumentFromRecord.DocumentField> fields =
-                List.of(createField("f", "value", LuceneIndexExpressions.DocumentFieldType.STRING, false, false));
-        Tuple pk1 = primaryKey("doc1");
-        Tuple pk2 = primaryKey("doc2");
-        Tuple pk3 = primaryKey("del1");
-        Tuple pk4 = primaryKey("del2");
-        Tuple pk5 = primaryKey("del3");
-        Tuple pk6 = primaryKey("doc3");
-
-        // Enqueue via store at default incarnation (0)
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            Subspace testSubspace = path.toSubspace(context);
-            Subspace queueSpace = testSubspace.subspace(Tuple.from("test_queue"));
-            Subspace counterSpace = testSubspace.subspace(Tuple.from("test_counter"));
-            queue = new PendingWriteQueue(queueSpace, counterSpace, serializer);
-            queue.enqueueInsert(recordStore, pk1, fields);
-            queue.enqueueDelete(recordStore, pk3);
-            commit(context);
-        }
-
-        // Update incarnation to 42, enqueue more
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            recordStore.updateIncarnation(current -> 42).join();
-            queue.enqueueInsert(recordStore, pk2, fields);
-            queue.enqueueDelete(recordStore, pk4);
-            commit(context);
-        }
-
-        // Enqueue more
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            queue.enqueueDelete(recordStore, pk5);
-            queue.enqueueInsert(recordStore, pk6, fields);
-            commit(context);
-        }
-
-        // Verify ordering matches insertion order
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            List<PendingWriteQueue.QueueEntry> entries =
-                    queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
-            assertEquals(6, entries.size());
-
-            Tuple[] expectedKeys = { pk1, pk3, pk2, pk4, pk5, pk6 };
-            for (int i = 0; i < entries.size(); i++) {
-                assertEquals(expectedKeys[i], entries.get(i).getPrimaryKeyParsed(),
-                        "entry " + i + " should have expected primary key");
-            }
-            commit(context);
-        }
-    }
-
-    @Test
-    void testClearEntryWithIncompleteVersionstamp() {
-        try (FDBRecordContext context = openContext()) {
-            PendingWriteQueue queue = getQueue(context);
-            // Manufacture an entry with an incomplete versionstamp
-            Versionstamp incomplete = Versionstamp.incomplete(0);
-            PendingWriteQueue.QueueEntry entryWithIncompleteStamp = new PendingWriteQueue.QueueEntry(
-                    Tuple.from(0, incomplete, null),
-                    LucenePendingWriteQueueProto.PendingWriteItem.getDefaultInstance());
-            Assertions.assertThatThrownBy(() -> queue.clearEntry(context, entryWithIncompleteStamp))
-                    .isInstanceOf(RecordCoreArgumentException.class)
-                    .hasMessageContaining("complete");
-        }
-    }
-
     @Nonnull
     private TestDocument createHugeDocument(Random random) {
         StringBuilder builder = new StringBuilder();
@@ -541,14 +452,16 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     private PendingWriteQueue getQueue(FDBRecordContext context, LuceneSerializer serializer) {
-        Subspace queueSpace = path.toSubspace(context).subspace(Tuple.from(0));
-        Subspace counterSpace = path.toSubspace(context).subspace(Tuple.from(1));
-        return new PendingWriteQueue(queueSpace, counterSpace, serializer);
+        return getQueue(context, serializer, true);
     }
 
-    private FDBRecordStore getSimpleRecordStore(FDBRecordContext context) throws Exception {
-        openSimpleRecordStore(context);
-        return recordStore;
+    private PendingWriteQueue getQueue(FDBRecordContext context, LuceneSerializer serializer, boolean allowIncarnation) {
+        Subspace queueSpace = path.toSubspace(context).subspace(Tuple.from(0, 0));
+        Subspace counterSpace = path.toSubspace(context).subspace(Tuple.from(0, 1));
+        return new PendingWriteQueue(queueSpace, counterSpace,
+                PendingWriteQueue.DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY,
+                PendingWriteQueue.DEFAULT_MAX_PENDING_QUEUE_SIZE,
+                serializer, allowIncarnation);
     }
 
     private void assertQueueEntries(final PendingWriteQueue queue, final List<TestDocument> docs, LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType) {
@@ -563,7 +476,8 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     private void entryEquals(PendingWriteQueue.QueueEntry queueEntry, TestDocument testDocument, LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType) {
-        assertTrue(queueEntry.getVersionstamp().isComplete());
+        Versionstamp versionstamp = (Versionstamp)queueEntry.getKeyTuple().get(1);
+        assertTrue(versionstamp.isComplete());
         assertTrue(queueEntry.getEnqueuedTimeStamp() > 0);
         assertEquals(testDocument.getPrimaryKey(), queueEntry.getPrimaryKeyParsed());
         assertEquals(operationType, queueEntry.getOperationType());

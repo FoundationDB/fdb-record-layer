@@ -26,7 +26,9 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneFunctionNames;
+import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
 import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils;
@@ -71,6 +73,7 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.ENABLE_PEN
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.simpleTextSuffixesIndex;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
@@ -919,6 +922,176 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
             assertTrue(directory.shouldUseQueue(), "Ongoing merge indicator should not have been cleared after lock failure");
             commit(context);
         }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testOrderingPreservedAcrossIncarnations(boolean incarnationEnabled) {
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Set "ongoing merge" indicator so the queue is used
+        setOngoingMergeIndicator(schemaSetup, index, null, null);
+
+        LuceneSerializer serializer = new LuceneSerializer(true, false, null, true);
+        PendingWriteQueue queue;
+        List<Tuple> primaryKeys = IntStream.rangeClosed(1, 6)
+                .mapToObj(i -> Tuple.from((long)(1000 + i)))
+                .collect(Collectors.toList());
+        List<LuceneDocumentFromRecord.DocumentField> fields = List.of(
+                new LuceneDocumentFromRecord.DocumentField("f", "value",
+                        LuceneIndexExpressions.DocumentFieldType.STRING, false, false, Map.of()));
+
+        // Enqueue at default incarnation (0): insert pk[0], delete pk[2]
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            Subspace testSubspace = recordStore.indexSubspace(index);
+            Subspace queueSpace = testSubspace.subspace(Tuple.from("test_queue"));
+            Subspace counterSpace = testSubspace.subspace(Tuple.from("test_counter"));
+            queue = new PendingWriteQueue(queueSpace, counterSpace,
+                    PendingWriteQueue.DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY,
+                    PendingWriteQueue.DEFAULT_MAX_PENDING_QUEUE_SIZE,
+                    serializer, incarnationEnabled);
+            queue.enqueueInsert(recordStore.getContext(), primaryKeys.get(0), fields, recordStore.getIncarnation());
+            queue.enqueueDelete(recordStore.getContext(), primaryKeys.get(2), recordStore.getIncarnation());
+            commit(context);
+        }
+
+        // Update incarnation to 42, enqueue more: insert pk[1], delete pk[3]
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.updateIncarnation(current -> 42).join();
+            queue.enqueueInsert(recordStore.getContext(), primaryKeys.get(1), fields, recordStore.getIncarnation());
+            queue.enqueueDelete(recordStore.getContext(), primaryKeys.get(3), recordStore.getIncarnation());
+            commit(context);
+        }
+
+        // Enqueue more at incarnation 42: delete pk[4], insert pk[5]
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            queue.enqueueDelete(recordStore.getContext(), primaryKeys.get(4), recordStore.getIncarnation());
+            queue.enqueueInsert(recordStore.getContext(), primaryKeys.get(5), fields, recordStore.getIncarnation());
+            commit(context);
+        }
+
+        // Verify ordering matches insertion order
+        List<Tuple> expectedOrder = List.of(
+                primaryKeys.get(0), primaryKeys.get(2),
+                primaryKeys.get(1), primaryKeys.get(3),
+                primaryKeys.get(4), primaryKeys.get(5));
+        try (FDBRecordContext context = openContext()) {
+            schemaSetup.apply(context);
+            List<Tuple> actualKeys =
+                    queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join()
+                            .stream()
+                            .map(PendingWriteQueue.QueueEntry::getPrimaryKeyParsed)
+                            .collect(Collectors.toList());
+            assertEquals(expectedOrder, actualKeys);
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testPendingQueueIncarnationIndexOption(boolean incarnationEnabled) {
+        // Verify that the PENDING_WRITE_QUEUE_INCARNATION_ENABLED index option flows through to the queue
+        final Index index = simpleTextSuffixesIndex(options ->
+                options.put(LuceneIndexOptions.PENDING_WRITE_QUEUE_INCARNATION_ENABLED, Boolean.toString(incarnationEnabled)));
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Set "ongoing merge" indicator so the queue is used
+        setOngoingMergeIndicator(schemaSetup, index, null, null);
+
+        // Write a record — goes through the index option path
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1001L, "test document", 1));
+            commit(context);
+        }
+
+        // Verify record is in queue and key tuple size reflects the incarnation option
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectory directory = FDBDirectoryManager.getManager(state).getDirectory(null, null);
+            PendingWriteQueue queue = directory.createPendingWritesQueue();
+            List<PendingWriteQueue.QueueEntry> entries =
+                    queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
+            assertEquals(1, entries.size());
+            // With incarnation: key is (incarnation, versionstamp); without: key is (versionstamp)
+            int expectedKeySize = incarnationEnabled ? 2 : 1;
+            assertEquals(expectedKeySize, entries.get(0).getKeyTuple().size());
+            commit(context);
+        }
+
+        // Merge drains the queue
+        mergeIndexNow(schemaSetup, index);
+
+        // Verify queue is empty
+        verifyClearedQueueAndIndicator(schemaSetup, index, null, null);
+
+        // Verify record is found in query (from index)
+        verifyExpectedDocIds(schemaSetup, index, Set.of(1001L));
+    }
+
+    @Test
+    void testMergeDrainsMultipleIncarnations() {
+        final Index index = SIMPLE_TEXT_SUFFIXES;
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
+                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                        TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
+                        index, useCascadesPlanner).getLeft();
+
+        // Set "ongoing merge" indicator so writes go to queue
+        setOngoingMergeIndicator(schemaSetup, index, null, null);
+
+        // Incarnation 0: insert a record
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1001L, "first incarnation", 1));
+            commit(context);
+        }
+
+        // Bump incarnation to 5 and insert another record
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.updateIncarnation(current -> 5).join();
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1002L, "second incarnation", 2));
+            commit(context);
+        }
+
+        // Bump incarnation to 10 and insert a third record
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+            recordStore.updateIncarnation(current -> 10).join();
+            recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(1003L, "third incarnation", 3));
+            commit(context);
+        }
+
+        // Verify queue has 3 entries across incarnations
+        verifyExpectedQueueAndIndicator(schemaSetup, index, null, null,
+                List.of(LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
+                        LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT));
+
+        // Merge drains the queue
+        mergeIndexNow(schemaSetup, index);
+
+        // Verify queue is empty and shouldUseQueue() returns false
+        verifyClearedQueueAndIndicator(schemaSetup, index, null, null);
+
+        // Verify all three records are queryable from the index
+        verifyExpectedDocIds(schemaSetup, index, Set.of(1001L, 1002L, 1003L));
     }
 
     protected static void snooze(int millis) {

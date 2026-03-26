@@ -262,7 +262,7 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
             }
             // Save docs to the index
             PendingWriteQueue queue = getPendingWriteQueue(recordStore, index);
-            DOCUMENTS.forEach(doc -> enqueueInsert(recordStore, queue, doc));
+            DOCUMENTS.forEach(doc -> enqueueInsert(context, queue, doc));
             // Docs are not available
             try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, scanBounds, null, scanProperties)) {
                 final List<IndexEntry> indexEntries = cursor.asList().get();
@@ -276,36 +276,36 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
 
     private void enqueueInsertAllDocs(Index index) {
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = openRecordStore(context, index);
-            PendingWriteQueue queue = getPendingWriteQueue(store, index);
-            DOCUMENTS.forEach(doc -> enqueueInsert(store, queue, doc));
+            openRecordStore(context, index);
+            PendingWriteQueue queue = getPendingWriteQueue(recordStore, index);
+            DOCUMENTS.forEach(doc -> enqueueInsert(context, queue, doc));
             commit(context);
         }
     }
 
     private void enqueueDeleteAllDocs(Index index) {
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = openRecordStore(context, index);
-            PendingWriteQueue queue = getPendingWriteQueue(store, index);
-            DOCUMENTS.forEach(doc -> enqueueDelete(store, queue, doc));
+            openRecordStore(context, index);
+            PendingWriteQueue queue = getPendingWriteQueue(recordStore, index);
+            DOCUMENTS.forEach(doc -> enqueueDelete(context, queue, doc));
             commit(context);
         }
     }
 
     private void enqueueDeleteSomeDocs(Index index) {
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = openRecordStore(context, index);
-            PendingWriteQueue queue = getPendingWriteQueue(store, index);
-            enqueueDelete(store, queue, DOCUMENTS.get(2));
+            openRecordStore(context, index);
+            PendingWriteQueue queue = getPendingWriteQueue(recordStore, index);
+            enqueueDelete(context, queue, DOCUMENTS.get(2));
             commit(context);
         }
     }
 
     private void enqueueUpdateDoc(Index index, int docToUpdate, int textToUse) {
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = openRecordStore(context, index);
-            PendingWriteQueue queue = getPendingWriteQueue(store, index);
-            enqueueUpdate(store, queue, DOCUMENTS.get(docToUpdate).getDocId(), DOCUMENTS.get(textToUse).getText());
+            openRecordStore(context, index);
+            PendingWriteQueue queue = getPendingWriteQueue(recordStore, index);
+            enqueueUpdate(context, queue, DOCUMENTS.get(docToUpdate).getDocId(), DOCUMENTS.get(textToUse).getText());
             commit(context);
         }
     }
@@ -320,10 +320,10 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
 
     private void saveSomeDocsInQueueAndSomeInIndex(Index index) {
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore store = openRecordStore(context, index);
-            PendingWriteQueue queue = getPendingWriteQueue(store, index);
-            DOCUMENTS.subList(0, 3).forEach(doc -> enqueueInsert(store, queue, doc));
-            DOCUMENTS.subList(3, 6).forEach(store::saveRecord);
+            openRecordStore(context, index);
+            PendingWriteQueue queue = getPendingWriteQueue(recordStore, index);
+            DOCUMENTS.subList(0, 3).forEach(doc -> enqueueInsert(context, queue, doc));
+            DOCUMENTS.subList(3, 6).forEach(recordStore::saveRecord);
             commit(context);
         }
     }
@@ -351,20 +351,20 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void enqueueInsert(FDBRecordStore store, PendingWriteQueue queue, TestRecordsTextProto.SimpleDocument doc) {
+    private void enqueueInsert(FDBRecordContext context, PendingWriteQueue queue, TestRecordsTextProto.SimpleDocument doc) {
         List<LuceneDocumentFromRecord.DocumentField> fields = toDocumentFields(doc);
-        queue.enqueueInsert(store, Tuple.from(doc.getDocId()), fields);
+        queue.enqueueInsert(context, Tuple.from(doc.getDocId()), fields, 0);
     }
 
-    private void enqueueUpdate(FDBRecordStore store, PendingWriteQueue queue, long docId, String text) {
+    private void enqueueUpdate(FDBRecordContext context, PendingWriteQueue queue, long docId, String text) {
         List<LuceneDocumentFromRecord.DocumentField> fields = toDocumentFields(text);
         // Update is delete followed by insert
-        queue.enqueueDelete(store, Tuple.from(docId));
-        queue.enqueueInsert(store, Tuple.from(docId), fields);
+        queue.enqueueDelete(context, Tuple.from(docId), 0);
+        queue.enqueueInsert(context, Tuple.from(docId), fields, 0);
     }
 
-    private void enqueueDelete(FDBRecordStore store, PendingWriteQueue queue, TestRecordsTextProto.SimpleDocument doc) {
-        queue.enqueueDelete(store, Tuple.from(doc.getDocId()));
+    private void enqueueDelete(FDBRecordContext context, PendingWriteQueue queue, TestRecordsTextProto.SimpleDocument doc) {
+        queue.enqueueDelete(context, Tuple.from(doc.getDocId()), 0);
     }
 
     private void emptyQueue(FDBRecordContext context, PendingWriteQueue queue) {

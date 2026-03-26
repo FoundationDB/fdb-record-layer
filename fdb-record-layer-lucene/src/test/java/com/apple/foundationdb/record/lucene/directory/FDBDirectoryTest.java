@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -34,9 +33,7 @@ import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.assertj.core.api.Assertions;
@@ -395,10 +392,10 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
                     "shouldUseQueue should return true in new transaction after commit");
 
             PendingWriteQueue queue = newDirectory.createPendingWritesQueue();
-            FDBRecordStore store = getSimpleRecordStore(newContext);
-            queue.enqueueInsert(store,
+            queue.enqueueInsert(newContext,
                     Tuple.from("testDoc", 1),
-                    createTestFields());
+                    createTestFields(),
+                    0);
             newContext.commit();
         }
 
@@ -480,16 +477,5 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
                         java.util.Map.of()
                 )
         );
-    }
-
-    private FDBRecordStore getSimpleRecordStore(FDBRecordContext context) {
-        RecordMetaData metaData = RecordMetaData.newBuilder()
-                .setRecords(TestRecordsTextProto.getDescriptor())
-                .getRecordMetaData();
-        return FDBRecordStore.newBuilder()
-                .setContext(context)
-                .setKeySpacePath(path)
-                .setMetaDataProvider(metaData)
-                .createOrOpen();
     }
 }
