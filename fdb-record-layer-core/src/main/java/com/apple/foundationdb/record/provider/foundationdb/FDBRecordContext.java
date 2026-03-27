@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.apple.foundationdb.util.CloseableUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Utf8;
@@ -428,6 +429,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         try {
             closeTransaction(false);
         } finally {
+            // This may throw exception when any/some of the callbacks failed, and that exception should be propagated
             asyncToSync(FDBStoreTimer.Waits.WAIT_RUN_CLOSE_HOOKS, runPostClose());
         }
     }
@@ -1043,28 +1045,45 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
     }
 
+    /**
+     * Run all post-commit callbacks.
+     * This method would invoke all given callbacks and will abort on exception.
+     * This semantic is correct given that any exception thrown prior to the commit should fail the commit and roll
+     * back the transaction.
+     * @return a future that completes when callbacks were invoked and futures have completed
+     */
     @Nonnull
     private CompletableFuture<Void> runPostCommits() {
-        return runPostCommits(postCommits);
-    }
-
-    @Nonnull
-    private CompletableFuture<Void> runPostClose() {
-        return runPostCommits(postClose);
-    }
-
-    @Nonnull
-    private CompletableFuture<Void> runPostCommits(Map<String, PostCommit> hooksToRun) {
-        synchronized (hooksToRun) {
-            if (hooksToRun.isEmpty()) {
+        synchronized (postCommits) {
+            if (postCommits.isEmpty()) {
                 return AsyncUtil.DONE;
             }
-            List<CompletableFuture<Void>> work = hooksToRun.values().stream()
+            List<CompletableFuture<Void>> work = postCommits.values().stream()
                     .map(PostCommit::get)
                     .collect(Collectors.toList());
-            hooksToRun.clear();
+            postCommits.clear();
             return AsyncUtil.whenAll(work);
         }
+    }
+
+    /**
+     * Run all post-close callbacks.
+     * This method does its best to ensure all callbacks are invoked, regardless if some throw exceptions.
+     * @return a future that completes when all callbacks were invoked and all futures have completed
+     */
+    @Nonnull
+    private CompletableFuture<Void> runPostClose() {
+        synchronized (postClose) {
+            List<Supplier<CompletableFuture<Void>>> callbacks = postClose.values().stream().map(this::postCommitCallback).collect(Collectors.toList());
+            // This would ensure best-effort in calling all suppliers and waiting for all the futures
+            final CompletableFuture<Void> result = CloseableUtils.invokeAllFutures(callbacks);
+            postClose.clear();
+            return result;
+        }
+    }
+
+    private Supplier<CompletableFuture<Void>> postCommitCallback(PostCommit pc) {
+        return pc::get;
     }
 
     private void checkCommitHookName(@Nonnull String name) {
