@@ -609,7 +609,7 @@ test_block:
                    and t2.b3 = t1.a3
                    and t3.c2 = t1.a2
                    and t3.c3 = t2.b3
-      - explain: "ISCAN(t1$a1 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c36 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c36 AS LONG), EQUALS q0.a2]) | FILTER _.c3 EQUALS q1.b3 AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3._0.id AS id, q3._0.b1 AS b1, q3._0.b2 AS b2, q3._0.b3 AS b3) AS b, (q3._1.id AS id, q3._1.c1 AS c1, q3._1.c2 AS c2, q3._1.c3 AS c3, q3._1.aRef AS aRef) AS c) }"
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c36 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c36 AS LONG), EQUALS q0.a2]) | FILTER _.c3 EQUALS q1.b3 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q3._0.id AS id, q3._0.c1 AS c1, q3._0.c2 AS c2, q3._0.c3 AS c3, q3._0.aRef AS aRef) AS c) }"
       - unorderedResult: [
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2001, b1: 1, b2: 20, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2002, b1: 1, b2: 19, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
@@ -624,7 +624,7 @@ test_block:
                    and t3.c2 = t1.a2
                    and t3.c3 = t2.b3
                  order by t1.a2
-      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c36 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c36 AS LONG), EQUALS q0.a2]) | FILTER _.c3 EQUALS q1.b3 AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3._0.id AS id, q3._0.b1 AS b1, q3._0.b2 AS b2, q3._0.b3 AS b3) AS b, (q3._1.id AS id, q3._1.c1 AS c1, q3._1.c2 AS c2, q3._1.c3 AS c3, q3._1.aRef AS aRef) AS c) }"
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c36 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c36 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c36 AS LONG), EQUALS q0.a2]) | FILTER _.c3 EQUALS q1.b3 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q3._0.id AS id, q3._0.c1 AS c1, q3._0.c2 AS c2, q3._0.c3 AS c3, q3._0.aRef AS aRef) AS c) }"
       - result: [
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2001, b1: 1, b2: 20, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2002, b1: 1, b2: 19, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },

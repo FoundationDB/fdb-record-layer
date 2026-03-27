@@ -105,7 +105,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.containsAll;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.defaultOnEmptyPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.descendantPlans;
@@ -704,24 +703,11 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 flatMapPlan(
-                        typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
-                                .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))),
-                        flatMapPlan(
-                                indexPlan()
-                                        .where(indexName("RestaurantRecord$name"))
-                                        .and(scanComparisons(range("[[name],[name]]"))),
-                                predicatesFilterPlan(anyPlan())
-                        )
-                );
-        /*
-        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                flatMapPlan(
                         indexPlan()
                                 .where(indexName("RestaurantRecord$name"))
                                 .and(scanComparisons(range("[[name],[name]]"))),
                         descendantPlans(typeFilterPlan(scanPlan().where(scanComparisons(equalities(only(anyValueComparison())))))
                                 .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer"))))));
-         */
 
         assertMatchesExactly(plan, planMatcher);
     }
