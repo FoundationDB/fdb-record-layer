@@ -945,7 +945,7 @@ public class TransformedRecordSerializerTest {
     }
 
     /**
-     * Validates deserialization behaviour under transient decrypt failures.
+     * Validates deserialization behavior under transient decrypt failures.
      *
      * <p>The deserializer corrupts the plaintext on the first {@code initialKFailures} calls to
      * {@link TransformedRecordSerializerJCE#decrypt}. Whether deserialization ultimately succeeds
