@@ -71,6 +71,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    void arrays_cardinality(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("arrays_cardinality.yamsql");
+    }
+
+    @TestTemplate
     void arraysOperators(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("arrays-operators.yamsql");
     }

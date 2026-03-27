@@ -1,0 +1,63 @@
+#
+# arrays_cardinality.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2023-2030 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+  CREATE TABLE "dummy" ("id" INTEGER, PRIMARY KEY ("id"))
+  CREATE TABLE "tab1_nn" ("id" INTEGER, "int_arr" INTEGER ARRAY NOT NULL, PRIMARY KEY ("id"))
+  CREATE TABLE "tab1" ("id" INTEGER, "int_arr" INTEGER ARRAY NULL, PRIMARY KEY ("id"))
+---
+setup:
+  steps:
+    - query: INSERT INTO "dummy" ("id") VALUES (1)
+    - query: INSERT INTO "tab1_nn" ("id", "int_arr") VALUES (1, []), (2, [1]), (3, [1, 2])
+    - query: INSERT INTO "tab1" ("id", "int_arr") VALUES (0, NULL), (1, []), (2, [1]), (3, [1, 2])
+---
+test_block:
+  name: arrays-cardinality-tests
+  # Basic tests for CARDINALITY().
+  preset: single_repetition_ordered
+  tests:
+    - # Incorrect argument type: Passing a non-array (here: INTEGER) raises error 22000.
+      - query: SELECT CARDINALITY("id") FROM "dummy"
+      - error: "22000"
+    - # Incorrect argument type (constant case)
+      - query: SELECT CARDINALITY(1) FROM "dummy"
+      - error: "22000"
+    - # NULL argument array (constant case): NULL gets mapped to NULL.
+      - query: SELECT CARDINALITY(CAST(NULL AS INTEGER ARRAY)) FROM "tab1" WHERE "id" = 1
+      - result: [{!null _}]
+    - # Non-NULL constant cases using array constructor literals.
+      - query: SELECT CARDINALITY(CAST([] AS INTEGER ARRAY)),
+                      CARDINALITY(CAST([1] AS INTEGER ARRAY)),
+                      CARDINALITY(CAST([1, 2] AS INTEGER ARRAY))
+                FROM "dummy"
+      - result: [{0, 1, 2}]
+    - # Not-nullable array column containing arrays of size 0, 1, >1.
+      - query: SELECT CARDINALITY("int_arr") FROM "tab1_nn"
+      - explain: "SCAN([IS tab1_nn]) | MAP (cardinality(_.int_arr) AS _0)"
+      - unorderedResult: [{0}, {1}, {2}]
+    - # Nullable array column containing arrays of size 0, 1, >1 as well as a NULL array.
+      - query: SELECT CARDINALITY("int_arr") FROM "tab1"
+      - explain: "SCAN([IS tab1]) | MAP (cardinality(_.int_arr) AS _0)"
+      - unorderedResult: [{!null _}, {0}, {1}, {2}]
+...
