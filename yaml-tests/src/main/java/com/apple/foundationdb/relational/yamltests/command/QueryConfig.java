@@ -53,13 +53,35 @@ import java.util.Set;
 import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.reportTestFailure;
 
 /**
- * A {@link QueryConfig} defines how the query is to be run and how the output of the query execution or the error
- * (in case of failure in query execution) is to be tested. To do so, it utilizes 2 methods
- * <ul>
- *     <li>{@code decorateQuery}: takes in the canonical query string and changes it as is needed to be run</li>
- *     <li>{@code checkResult}: checks for the result from the query execution.</li>
- *     <li>{@code checkError}: checks for the error.</li>
- * </ul>
+ * A {@link QueryConfig} defines how a query is validated after execution. Each test in a {@code test_block} consists
+ * of a query command followed by zero or more config directives. The supported directives are:
+ *
+ * <table>
+ *   <caption>Query configuration directives (parsed by {@code parseConfig})</caption>
+ *   <tr><th>Directive</th><th>Description</th></tr>
+ *   <tr><td>{@code result}</td><td>Validate result rows in order. Multiple {@code result} directives test consecutive
+ *       continuations (pagination). Rows can use named syntax ({@code [{ID: !l 10, NAME: 'Alice'}]}) or
+ *       positional syntax with {@code !pos} ({@code [{!pos 1: !l 10, !pos 2: 'Alice'}]}).</td></tr>
+ *   <tr><td>{@code unorderedResult}</td><td>Validate result rows regardless of order.</td></tr>
+ *   <tr><td>{@code count}</td><td>Validate the affected row count for INSERT/UPDATE/DELETE.</td></tr>
+ *   <tr><td>{@code error}</td><td>Expect failure with a specific SQL state code (e.g., {@code "42601"}).</td></tr>
+ *   <tr><td>{@code explain}</td><td>Validate the exact query execution plan string.</td></tr>
+ *   <tr><td>{@code explainContains}</td><td>Validate the plan contains a given substring.</td></tr>
+ *   <tr><td>{@code planHash}</td><td>Validate the query plan hash (integer).</td></tr>
+ *   <tr><td>{@code maxRows}</td><td>Limit rows fetched per result set (enables pagination testing with multiple
+ *       {@code result} directives).</td></tr>
+ *   <tr><td>{@code setup}</td><td>Inline transaction-scoped setup SQL (only {@code CREATE TEMPORARY FUNCTION}).</td></tr>
+ *   <tr><td>{@code setupReference}</td><td>Reference a named setup from a {@code transaction_setups} block.</td></tr>
+ *   <tr><td>{@code supported_version}</td><td>Minimum version for this query. Must be the first directive if
+ *       present.</td></tr>
+ *   <tr><td>{@code initialVersionAtLeast} / {@code initialVersionLessThan}</td><td>Version-dependent expected results.
+ *       Ranges must cover all possible versions.</td></tr>
+ *   <tr><td>{@code debugger}</td><td>Attach a planner debugger ({@code SANE}, {@code VERBOSE}, {@code QUIET}).</td></tr>
+ *   <tr><td>{@code noOp}</td><td>No-operation placeholder indicating the query continues.</td></tr>
+ * </table>
+ *
+ * <p>Result directives must appear last (after all non-result directives). See {@code showcasing-tests.yamsql} for
+ * examples of each directive.
  */
 @SuppressWarnings({"PMD.GuardLogStatement", "PMD.AvoidCatchingThrowable"})
 public abstract class QueryConfig {
