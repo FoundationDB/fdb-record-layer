@@ -286,6 +286,7 @@ message PValue {
     PEuclideanSquareDistanceRowNumberValue euclidean_square_distance_row_number_value = 60;
     PDotProductDistanceRowNumberValue dot_product_distance_row_number_value = 61;
     PIncarnationValue incarnation_value = 62;
+    PCardinalityValue cardinality_value = 63;
   }
 }
 
@@ -1349,6 +1350,10 @@ message PVersionValue {
 
 message PIncarnationValue {
   // No fields needed - this function takes no arguments
+}
+
+message PCardinalityValue {
+  optional PValue child_value = 1;
 }
 
 message PWindowedValue {
