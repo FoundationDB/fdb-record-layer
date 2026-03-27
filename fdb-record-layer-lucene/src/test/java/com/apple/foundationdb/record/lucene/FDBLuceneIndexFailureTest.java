@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.CloseException;
 import com.apple.foundationdb.util.LoggableException;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -74,6 +75,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * A test that uses a few of the tests from {@link LuceneIndexTest} under a fault-injection scenario.
@@ -407,8 +409,8 @@ public class FDBLuceneIndexFailureTest extends FDBLuceneTestBase {
                     5);
             // this should fail with injected exception
             recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 2));
-            assertThrows(LuceneConcurrency.AsyncToSyncTimeoutException.class,
-                    () -> context.commit());
+            final CloseException closeException = assertThrows(CloseException.class, () -> context.commit());
+            assertTrue(closeException.getCause().getCause() instanceof LuceneConcurrency.AsyncToSyncTimeoutException);
         }
     }
 
