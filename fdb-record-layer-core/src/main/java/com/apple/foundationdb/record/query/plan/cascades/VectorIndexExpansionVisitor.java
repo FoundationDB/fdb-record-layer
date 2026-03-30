@@ -50,8 +50,9 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 /**
  * Class to expand vector index access into a candidate graph. The visitation methods are left unchanged from the super
@@ -77,12 +78,12 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public MatchCandidate expand(@Nonnull final Function<Optional<CorrelationIdentifier>, Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
         Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
 
-        final var baseQuantifier = baseQuantifierSupplier.get();
+        final var baseQuantifier = baseQuantifierSupplier.apply(Optional.empty()); // todo
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
         allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));

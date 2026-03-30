@@ -22,23 +22,33 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GroupByMappings;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
@@ -46,13 +56,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A relational planner expression that represents an unimplemented type filter on the records produced by its inner
@@ -62,14 +76,18 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWithChildren implements TypeFilterExpression, PlannerGraphRewritable {
     @Nonnull
+    private final QueryPredicate recordTypePredicate;
+    @Nonnull
     private final Set<String> recordTypes;
     @Nonnull
     private final Quantifier innerQuantifier;
     @Nonnull
     private final Type resultType;
 
-    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier innerQuantifier, @Nonnull Type resultType) {
-        this.recordTypes = recordTypes;
+    public LogicalTypeFilterExpression(@Nonnull QueryPredicate recordTypePredicate, @Nonnull Set<String> recordTypes,
+                                       @Nonnull Quantifier innerQuantifier, @Nonnull Type resultType) {
+        this.recordTypePredicate = recordTypePredicate;
+        this.recordTypes = ImmutableSet.copyOf(recordTypes);
         this.innerQuantifier = innerQuantifier;
         this.resultType = resultType;
     }
@@ -90,6 +108,11 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
     @Nonnull
     public Set<String> getRecordTypes() {
         return recordTypes;
+    }
+
+    @Nonnull
+    public QueryPredicate getRecordTypePredicate() {
+        return recordTypePredicate;
     }
 
     @Override
@@ -113,7 +136,8 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
     public LogicalTypeFilterExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                              final boolean shouldSimplifyValues,
                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new LogicalTypeFilterExpression(getRecordTypes(), Iterables.getOnlyElement(translatedQuantifiers),
+        final var translatedPredicates = recordTypePredicate.translateCorrelations(translationMap, shouldSimplifyValues);
+        return new LogicalTypeFilterExpression(translatedPredicates, getRecordTypes(), Iterables.getOnlyElement(translatedQuantifiers),
                 resultType);
     }
 
@@ -135,7 +159,6 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
 
     @Nonnull
     @Override
-    @SuppressWarnings("OptionalIsPresent")
     public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
@@ -175,7 +198,69 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
             return ImmutableList.of();
         }
 
-        return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, translationMapOptional.get());
+        final var translationMap = translationMapOptional.get();
+        final var translatedPredicate = recordTypePredicate.translateCorrelations(translationMap, true);
+
+        final var bindingValueEquivalence =
+                ValueEquivalence.fromAliasMap(bindingAliasMap)
+                        .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
+
+        PredicateMultiMap.PredicateMapping impliedMappingForPredicate =
+                Iterables.getOnlyElement(translatedPredicate.findImpliedMappings(bindingValueEquivalence, recordTypePredicate,
+                        ImmutableList.of(candidateTypeFilterExpression.getRecordTypePredicate()), evaluationContext));
+
+        final var predicateMapBuilder = PredicateMultiMap.builder();
+        final var originalQueryPredicate = impliedMappingForPredicate.getOriginalQueryPredicate();
+        predicateMapBuilder.put(originalQueryPredicate, impliedMappingForPredicate);
+
+        final var parameterAliasOptional = impliedMappingForPredicate.getParameterAliasOptional();
+        final var comparisonRangeOptional = impliedMappingForPredicate.getComparisonRangeOptional();
+        final var parameterBindingMap = Maps.<CorrelationIdentifier, ComparisonRange>newHashMap();
+        if (parameterAliasOptional.isPresent() &&
+                comparisonRangeOptional.isPresent()) {
+            parameterBindingMap.put(parameterAliasOptional.get(), comparisonRangeOptional.get());
+        }
+
+        final var predicateMapOptional = predicateMapBuilder.buildMaybe();
+        if (predicateMapOptional.isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        final var matchInfos = PartialMatch.matchInfosFromMap(partialMatchMap);
+
+        // merge parameter maps -- early out if a binding clashes
+        final var parameterBindingMaps =
+                matchInfos
+                        .stream()
+                        .map(MatchInfo::getRegularMatchInfo)
+                        .map(MatchInfo.RegularMatchInfo::getParameterBindingMap)
+                        .collect(ImmutableList.toImmutableList());
+        final var mergedParameterBindingMapOptional =
+                MatchInfo.RegularMatchInfo.tryMergeParameterBindings(parameterBindingMaps);
+        if (mergedParameterBindingMapOptional.isEmpty()) {
+            return ImmutableList.of();
+        }
+        final var mergedParameterBindingMap = mergedParameterBindingMapOptional.get();
+
+
+        final Optional<Map<CorrelationIdentifier, ComparisonRange>> allParameterBindingMapOptional =
+                MatchInfo.RegularMatchInfo.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
+        final var translatedResultValue =
+                getResultValue().translateCorrelations(translationMap, true);
+        return allParameterBindingMapOptional
+                .flatMap(allParameterBindingMap -> {
+                    final var maxMatchMap =
+                            MaxMatchMap.compute(translatedResultValue,
+                                    candidateExpression.getResultValue(),
+                                    Quantifiers.aliases(candidateExpression.getQuantifiers()),
+                                    bindingValueEquivalence);
+                    return MatchInfo.RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap,
+                            allParameterBindingMap, predicateMapOptional.get(),
+                            maxMatchMap, GroupByMappings.empty(), null,
+                            maxMatchMap.getQueryPlanConstraint());
+                })
+                .map(ImmutableList::of)
+                .orElse(ImmutableList.of());
     }
 
     @Nonnull
@@ -184,24 +269,95 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nullable final PullUp pullUp,
                                    @Nonnull final CorrelationIdentifier candidateAlias) {
+        final var predicateCompensationMap = new LinkedIdentityMap<QueryPredicate, PredicateMultiMap.PredicateCompensationFunction>();
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
+        final var quantifiers = getQuantifiers();
+
         final var nestedPullUpPair =
                 partialMatch.nestPullUp(pullUp, candidateAlias);
         final var rootOfMatchPullUp = nestedPullUpPair.getKey();
         final var adjustedPullUp = Objects.requireNonNull(nestedPullUpPair.getRight());
-        final var bindingAliasMap = regularMatchInfo.getBindingAliasMap();
 
-        final PartialMatch childPartialMatch =
-                Objects.requireNonNull(regularMatchInfo
-                        .getChildPartialMatchMaybe(innerQuantifier)
-                        .orElseThrow(() -> new RecordCoreException("expected a match child")));
+        //
+        // The partial match we are called with here has child matches that have compensations on their own.
+        // Given a pair of these matches that we reach along two for-each quantifiers (forming a join) we have to
+        // apply both compensations. The compensation class has a union method to combine two compensations in an
+        // optimal way. We need to fold over all those compensations to form one child compensation. The tree that
+        // is formed by partial matches therefore collapses into a chain of compensations.
+        //
+        final Compensation childCompensation = quantifiers
+                .stream()
+                .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
+                .flatMap(quantifier ->
+                        regularMatchInfo.getChildPartialMatchMaybe(quantifier)
+                                .map(childPartialMatch -> {
+                                    final var bindingAliasMap = regularMatchInfo.getBindingAliasMap();
+                                    return childPartialMatch.compensate(boundParameterPrefixMap, adjustedPullUp,
+                                            Objects.requireNonNull(bindingAliasMap.getTarget(quantifier.getAlias())));
+                                }).stream())
+                .reduce(Compensation.noCompensation(), Compensation::union);
 
-        final var childCompensation =
-                childPartialMatch.compensate(boundParameterPrefixMap, adjustedPullUp,
-                        Objects.requireNonNull(bindingAliasMap.getTarget(innerQuantifier.getAlias())));
-
-        if (childCompensation.isImpossible()) {
+        if (childCompensation.isImpossible() ||
+                !childCompensation.canBeDeferred()) {
             return Compensation.impossibleCompensation();
+        }
+
+        final var predicateMap = regularMatchInfo.getPredicateMap();
+        final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
+        final var unmatchedQuantifierAliases =
+                unmatchedQuantifiers.stream().map(Quantifier::getAlias).collect(ImmutableList.toImmutableList());
+        boolean isAnyCompensationFunctionImpossible = false;
+        boolean isAnyCompensationFunctionNeeded = false;
+
+        //
+        // Go through all predicates and invoke the reapplication logic for each associated mapping. Remember, each
+        // predicate MUST have a mapping to the other side (which may just be a tautology). If something needs to be
+        // reapplied that logic creates the correct predicates. The reapplication logic is also passed enough context
+        // to skip reapplication in which case we won't do anything when compensation needs to be applied.
+        //
+        final var predicate = recordTypePredicate;
+        final var predicateMappings = predicateMap.get(predicate);
+        if (!predicateMappings.isEmpty()) {
+            if (predicate.getCorrelatedTo().stream().anyMatch(unmatchedQuantifierAliases::contains)) {
+                isAnyCompensationFunctionImpossible = true;
+            }
+
+            //
+            // This logic follows the same approach used in Compensation::intersect where duplicate mappings can
+            // arise from different partial matches when their compensations are intersected.
+            // We use the first compensation we encounter (with the same reasoning as given in
+            // Compensation::intersect). If we find a mapping that does not need a compensation to be applied
+            // (in all reality those mappings are mappings to tautological placeholders), we do not need
+            // compensation for this query predicate at all.
+            //
+            PredicateMultiMap.PredicateCompensationFunction compensationFunction = null;
+            boolean isCompensationFunctionNeeded = true;
+            boolean isCompensationFunctionImpossible = true;
+            for (final var predicateMapping : predicateMappings) {
+                final var compensationFunctionForCandidatePredicate =
+                        predicateMapping.getPredicateCompensation()
+                                .computeCompensationFunction(partialMatch, boundParameterPrefixMap, adjustedPullUp);
+                if (!compensationFunctionForCandidatePredicate.isNeeded()) {
+                    isCompensationFunctionNeeded = false;
+                    break;
+                }
+
+                if (compensationFunction == null) {
+                    compensationFunction = compensationFunctionForCandidatePredicate;
+                }
+
+                if (!compensationFunctionForCandidatePredicate.isImpossible()) {
+                    isCompensationFunctionImpossible = false;
+                }
+            }
+
+            if (isCompensationFunctionNeeded) {
+                isAnyCompensationFunctionNeeded = true;
+                if (isCompensationFunctionImpossible) {
+                    isAnyCompensationFunctionImpossible = true;
+                }
+                predicateCompensationMap.put(predicate, Objects.requireNonNull(compensationFunction));
+            }
         }
 
         final var compensatedResultOptional =
@@ -210,18 +366,36 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
             return Compensation.impossibleCompensation();
         }
         final var compensatedResult = compensatedResultOptional.get();
-        if (!childCompensation.isNeeded() &&
-                !compensatedResult.getResultCompensationFunction().isNeeded()) {
+        isAnyCompensationFunctionImpossible |= compensatedResult.isCompensationImpossible();
+
+        final var isCompensationNeeded =
+                childCompensation.isNeeded() ||
+                        !unmatchedQuantifiers.isEmpty() ||
+                        isAnyCompensationFunctionNeeded ||
+                        compensatedResult.getResultCompensationFunction().isNeeded();
+
+        if (!isCompensationNeeded) {
             return Compensation.noCompensation();
         }
 
-        final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
-        Verify.verify(unmatchedQuantifiers.isEmpty());
+        //
+        // We now know we need compensation, and if we have more than one quantifier, we would have to translate
+        // the references of the values from the query graph to values operating on the MQT in order to do that
+        // compensation. We cannot do that (yet). If we, however, do not have to worry about compensation we just do
+        // this select entirely with the scan.
+        //
+        final var partialMatchMap = regularMatchInfo.getPartialMatchMap();
+        if (quantifiers.stream()
+                .filter(quantifier -> quantifier instanceof Quantifier.ForEach &&
+                        partialMatchMap.containsKeyUnwrapped(quantifier))
+                .count() > 1) {
+            return Compensation.impossibleCompensation();
+        }
 
-        return childCompensation.derived(compensatedResult.isCompensationImpossible(),
-                new LinkedIdentityMap<>(),
+        return childCompensation.derived(isAnyCompensationFunctionImpossible,
+                predicateCompensationMap,
                 getMatchedQuantifiers(partialMatch),
-                unmatchedQuantifiers,
+                partialMatch.getUnmatchedQuantifiers(),
                 partialMatch.getCompensatedAliases(),
                 compensatedResult.getResultCompensationFunction(),
                 compensatedResult.getGroupByMappings());
@@ -236,5 +410,44 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
                         ImmutableList.of("WHERE record IS {{types}}"),
                         ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList())))),
                 childGraphs);
+    }
+
+    @Nonnull
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    public static LogicalTypeFilterExpression newInstanceForMatchCandidate(@Nonnull final Set<String> recordTypes,
+                                                                           @Nonnull final Quantifier innerQuantifier,
+                                                                           @Nonnull final Type resultType,
+                                                                           @Nonnull final Optional<CorrelationIdentifier> recordTypeKeyAliasMaybe) {
+        final var value = new RecordTypeValue(QuantifiedObjectValue.of(innerQuantifier));
+        final var rangeConstraints = recordTypes.stream().flatMap(recordTypeName -> {
+            final var rangeConstraintBuilder = RangeConstraints.newBuilder();
+            rangeConstraintBuilder.addComparisonMaybe(new RecordTypeKeyComparison(recordTypeName).getComparison());
+            return rangeConstraintBuilder.build().stream();
+        }).collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (recordTypeKeyAliasMaybe.isPresent()) {
+            final var placeholder = Placeholder.newInstance(value, rangeConstraints, recordTypeKeyAliasMaybe.get());
+            return new LogicalTypeFilterExpression(placeholder, recordTypes, innerQuantifier, resultType);
+        }
+
+        final var predicate = PredicateWithValueAndRanges.ofRanges(value, rangeConstraints);
+        return new LogicalTypeFilterExpression(predicate, recordTypes, innerQuantifier, resultType);
+    }
+
+    @Nonnull
+    public static LogicalTypeFilterExpression newInstance(@Nonnull final Set<String> recordTypes,
+                                                          @Nonnull final Quantifier innerQuantifier,
+                                                          @Nonnull final Type resultType) {
+
+
+        final var value = new RecordTypeValue(QuantifiedObjectValue.of(innerQuantifier));
+        final var rangeConstraints = recordTypes.stream().flatMap(recordTypeName -> {
+            final var rangeConstraintBuilder = RangeConstraints.newBuilder();
+            rangeConstraintBuilder.addComparisonMaybe(new RecordTypeKeyComparison(recordTypeName).getComparison());
+            return rangeConstraintBuilder.build().stream();
+        }).collect(Collectors.toCollection(LinkedHashSet::new));
+
+        final var recordTypePredicate = PredicateWithValueAndRanges.ofRanges(value, rangeConstraints);
+        return new LogicalTypeFilterExpression(recordTypePredicate, recordTypes, innerQuantifier, resultType);
     }
 }

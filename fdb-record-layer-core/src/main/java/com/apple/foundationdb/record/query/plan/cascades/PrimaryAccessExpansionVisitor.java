@@ -22,11 +22,13 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
@@ -35,7 +37,8 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Supplier;
+import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * Class to expand primary data access into a candidate. The visitation methods are left unchanged from the super class
@@ -55,16 +58,21 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    public PrimaryScanMatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public PrimaryScanMatchCandidate expand(@Nonnull final Function<Optional<CorrelationIdentifier>, Quantifier.ForEach> baseQuantifierSupplier,
                                             @Nullable final KeyExpression primaryKey,
                                             final boolean isReverse) {
         Objects.requireNonNull(primaryKey);
         Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
 
-        final var baseQuantifier = baseQuantifierSupplier.get();
+        final Optional<CorrelationIdentifier> recordTypeQuantifierMaybe;
+        if (Key.Expressions.recordType().isPrefixKey(primaryKey)) {
+            recordTypeQuantifierMaybe = Optional.of(newParameterAlias());
+        } else {
+            recordTypeQuantifierMaybe = Optional.empty();
+        }
+        final Quantifier.ForEach baseQuantifier = baseQuantifierSupplier.apply(recordTypeQuantifierMaybe);
 
-        // expand
-        final var graphExpansion =
+        final var graphExpansionBuilder =
                 pop(primaryKey.expand(push(VisitorState.of(Lists.newArrayList(),
                         Lists.newArrayList(),
                         baseQuantifier,
@@ -74,11 +82,18 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                         false,
                         true))))
                         .toBuilder()
-                        .removeAllResultColumns()
-                        .build();
+                        .removeAllResultColumns();
+
+        recordTypeQuantifierMaybe.ifPresent(correlationIdentifier -> graphExpansionBuilder.replacePlaceholder(placeholder -> {
+            if (placeholder.getValue() instanceof RecordTypeValue) {
+                return placeholder.withAlias(correlationIdentifier);
+            }
+            return placeholder;
+        }));
+
 
         final var allExpansions =
-                GraphExpansion.ofOthers(GraphExpansion.ofQuantifier(baseQuantifier), graphExpansion);
+                GraphExpansion.ofOthers(GraphExpansion.ofQuantifier(baseQuantifier), graphExpansionBuilder.build());
 
         final var parameters = allExpansions.getPlaceholderAliases();
 

@@ -433,4 +433,17 @@ public class YamlIntegrationTests {
     public void largeRecordFails(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("large-record-fails.yamsql");
     }
+
+    @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
+    public void recordTypeKeyTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("record-type-key-tests.yamsql");
+    }
+
+
+    @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
+    public void filterIndexTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("filter-index.yamsql");
+    }
 }

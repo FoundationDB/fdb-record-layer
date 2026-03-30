@@ -32,6 +32,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -184,32 +185,17 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
         final var queriedRecordTypeNames = getQueriedRecordTypeNames();
         Verify.verify(availableRecordTypeNames.containsAll(queriedRecordTypeNames));
 
-        RecordQueryScanPlan scanPlan;
-        if (queriedRecordTypeNames.size() == availableRecordTypeNames.size()) {
-            scanPlan =
-                    new RecordQueryScanPlan(availableRecordTypeNames,
-                            baseType,
-                            primaryKey,
-                            toScanComparisons(comparisonRanges),
-                            reverseScanOrder,
-                            false,
-                            this);
-            return scanPlan;
-        } else {
-            scanPlan =
-                    new RecordQueryScanPlan(availableRecordTypeNames,
-                            new Type.AnyRecord(false),
-                            primaryKey,
-                            toScanComparisons(comparisonRanges),
-                            reverseScanOrder,
-                            false,
-                            this);
+        final var flowedTypes = queriedRecordTypeNames.size() == availableRecordTypeNames.size()
+                ? baseType
+                : inferUniversalType(queriedRecordTypes);
 
-            return new RecordQueryTypeFilterPlan(
-                    Quantifier.physical(memoizer.memoizePlan(scanPlan)),
-                    queriedRecordTypeNames,
-                    baseType);
-        }
+        return new RecordQueryScanPlan(availableRecordTypeNames,
+                flowedTypes,
+                primaryKey,
+                toScanComparisons(comparisonRanges),
+                reverseScanOrder,
+                false,
+                this);
     }
 
     @Nonnull
@@ -219,5 +205,13 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
             builder.addComparisonRange(comparisonRange);
         }
         return builder.build();
+    }
+
+    @Nonnull
+    private static Type inferUniversalType(@Nonnull final Collection<RecordType> types) {
+        if (types.size() == 1) {
+            return Type.Record.fromDescriptor(Iterables.getOnlyElement(types).getDescriptor());
+        }
+        return new Type.AnyRecord(false);
     }
 }

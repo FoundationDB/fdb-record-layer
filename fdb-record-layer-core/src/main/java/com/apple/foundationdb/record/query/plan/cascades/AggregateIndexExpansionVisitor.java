@@ -64,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -125,11 +126,11 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
      */
     @Nonnull
     @Override
-    public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public MatchCandidate expand(@Nonnull final Function<Optional<CorrelationIdentifier>, Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression ignored,
                                  final boolean isReverse) {
         Verify.verify(ignored == null);
-        final var baseQuantifier = baseQuantifierSupplier.get();
+        final var baseQuantifier = baseQuantifierSupplier.apply(Optional.empty()); // todo
 
         // 0. create a base expansion to resolve the key expression to columns with appropriate quantifiers
         final var baseExpansion = constructBaseExpansion(baseQuantifier);
