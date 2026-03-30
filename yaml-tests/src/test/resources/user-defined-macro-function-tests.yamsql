@@ -143,7 +143,7 @@ test_block:
       # The query unnests order_t.items as item and joins with price_list where
       # get_price(item) matches price_list.list_price.
       - query: select order_t.id as order_id, price_list.id as price_id, price_list.list_price, item.price, item.description from order_t, order_t.items as item, price_list where get_price(item) = price_list.list_price
-      - supported_version: !current_version
+      - supported_version: 4.10.10.0
       - unorderedResult: [{order_id: 1, price_id: 1, list_price: 20, price: 20, description: 'twenty'}, {order_id: 2, price_id: 2, list_price: 30, price: 30, description: 'thirty'}]
     -
       # Test deeply nested resolution a.b.c.d: select all ids with their deep field value
@@ -172,36 +172,36 @@ test_block:
       # Both item.price and item.description are resolved directly from the output of
       # generateCorrelatedFieldAccess (EphemeralExpression(item) + ITEM.PRICE + ITEM.DESCRIPTION).
       - query: select item.price, item.description from order_t, order_t.items as item
-      - supported_version: !current_version
+      - supported_version: 4.10.10.0
       - unorderedResult: [{10, 'ten'}, {20, 'twenty'}, {30, 'thirty'}, {40, 'forty'}]
     -
       # direct field access with a filter on the unnested struct field.
       - query: select order_t.id, item.price from order_t, order_t.items as item where item.price >= 20
-      - supported_version: !current_version
+      - supported_version: 4.10.10.0
       - unorderedResult: [{1, 20}, {2, 30}, {2, 40}]
     -
       # subquery that projects the whole struct element; outer query accesses a field.
       # The inner query selects item (EphemeralExpression) and the outer resolves item.price via
       # lookupNestedField on the EphemeralExpression after clearQualifier().
       - query: select item.price from (select item from order_t, order_t.items as item) as a
-      - supported_version: !current_version
+      - supported_version: 4.10.10.0
       - unorderedResult: [{10}, {20}, {30}, {40}]
     -
       # same subquery pattern, accessing both fields and filtering on one of them.
       - query: select item.price, item.description from (select item from order_t, order_t.items as item) as a where item.price < 25
-      - supported_version: !current_version
+      - supported_version: 4.10.10.0
       - unorderedResult: [{10, 'ten'}, {20, 'twenty'}]
     -
       # UDF receiving the whole struct element (EphemeralExpression exact-match).
       # get_price(item) is resolved by matching the unqualified name 'item' to EphemeralExpression(ITEM).
       - query: select get_price(item) as p from order_t, order_t.items as item
-      - supported_version: !current_version
+      - supported_version: 4.10.10.0
       - unorderedResult: [{10}, {20}, {30}, {40}]
     -
       # UDF whole-struct result alongside direct field access — both must resolve
       # without ambiguity (EphemeralExpression-derived ITEM.PRICE deduped against direct ITEM.PRICE).
       - query: select item.price as direct, get_price(item) as via_udf from order_t, order_t.items as item
-      - supported_version: !current_version
+      - supported_version: 4.10.10.0
       - unorderedResult: [{direct: 10, via_udf: 10}, {direct: 20, via_udf: 20}, {direct: 30, via_udf: 30}, {direct: 40, via_udf: 40}]
     -
       # wrong function name
