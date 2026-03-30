@@ -73,6 +73,11 @@ public class EmbeddedYamlConnectionFactory implements YamlConnectionFactory {
     }
 
     @Override
+    public int getAvailableClusterCount() {
+        return 1 + additionalClusterDrivers.size();
+    }
+
+    @Override
     public Set<SemanticVersion> getVersionsUnderTest() {
         return Set.of(SemanticVersion.current());
     }

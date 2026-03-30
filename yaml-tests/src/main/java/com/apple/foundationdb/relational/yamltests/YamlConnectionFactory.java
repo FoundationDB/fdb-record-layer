@@ -83,4 +83,13 @@ public interface YamlConnectionFactory {
     default boolean isMultiServer() {
         return false;
     }
+
+    /**
+     * Returns the number of clusters available for testing.
+     *
+     * @return the number of available clusters (1 means only the default cluster)
+     */
+    default int getAvailableClusterCount() {
+        return 1;
+    }
 }

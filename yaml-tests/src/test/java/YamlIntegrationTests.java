@@ -223,6 +223,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void multiClusterIsolation(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("multi-cluster-isolation.yamsql");
+    }
+
+    @TestTemplate
     public void indexDdl(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("index-ddl.yamsql");
     }

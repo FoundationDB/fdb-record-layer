@@ -61,6 +61,11 @@ public class YamlConnectionFactoryWithOptions implements YamlConnectionFactory {
     }
 
     @Override
+    public int getAvailableClusterCount() {
+        return underlying.getAvailableClusterCount();
+    }
+
+    @Override
     public boolean isMultiServer() {
         return underlying.isMultiServer();
     }
