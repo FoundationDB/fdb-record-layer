@@ -91,6 +91,10 @@ public class FRL implements AutoCloseable {
     }
 
     public FRL(@Nonnull Options options, @Nullable String clusterFile) throws RelationalException {
+        this(options, clusterFile, true);
+    }
+
+    public FRL(@Nonnull Options options, @Nullable String clusterFile, boolean registerDriver) throws RelationalException {
         final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase(clusterFile);
         final Long asyncToSyncTimeout = options.getOption(Options.Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS);
         if (asyncToSyncTimeout > 0) {
@@ -130,11 +134,17 @@ public class FRL implements AutoCloseable {
                             .setTertiarySize(options.getOption(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES))
                             .build()));
 
-            DriverManager.registerDriver(this.registeredDriver);
-            this.registeredJDBCEmbedDriver = true;
+            if (registerDriver) {
+                DriverManager.registerDriver(this.registeredDriver);
+                this.registeredJDBCEmbedDriver = true;
+            }
         } catch (SQLException ve) {
             throw new RelationalException(ve);
         }
+    }
+
+    public RelationalDriver getDriver() {
+        return registeredDriver;
     }
 
     @SuppressWarnings("AbbreviationAsWordInName") // allow JDBCURI, though perhaps we should update this to make it clearer

@@ -44,6 +44,23 @@ public interface YamlConnectionFactory {
     YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException;
 
     /**
+     * Convert a connection uri into an actual connection on a specific cluster.
+     *
+     * @param connectPath the path to connect to
+     * @param clusterIndex the cluster to connect to (0 is the default cluster)
+     *
+     * @return A new {@link RelationalConnection} for the given path on the specified cluster
+     *
+     * @throws SQLException if we cannot connect or the cluster index is not supported
+     */
+    default YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
+        if (clusterIndex != 0) {
+            throw new SQLException("This connection factory does not support multiple clusters (requested cluster " + clusterIndex + ")");
+        }
+        return getNewConnection(connectPath);
+    }
+
+    /**
      * The versions that the connection has, other than the current code.
      * <p>
      * If we are just testing against the current code, this will be empty, but otherwise it will include the

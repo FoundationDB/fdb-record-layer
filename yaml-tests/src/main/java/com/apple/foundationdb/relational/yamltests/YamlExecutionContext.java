@@ -302,7 +302,36 @@ public final class YamlExecutionContext {
      * @return a valid connection URI
      */
     public URI inferConnectionURI(@Nonnull final YamlReference.YamlResource resource, @Nullable Object connectObject) {
+        return inferConnectionTarget(resource, connectObject).getUri();
+    }
+
+    /**
+     * Infers the connection target (URI and cluster index) for a block.
+     * <br>
+     * Supports all the forms of {@link #inferConnectionURI}, plus a map form for specifying the cluster:
+     * <pre>{@code
+     * connect: { cluster: 1, uri: 0 }
+     * connect: { cluster: 1 }
+     * }</pre>
+     *
+     * @param connectObject can be {@code null}, an {@link Integer}, a {@link String}, or a {@link Map} with
+     *                      optional {@code cluster} and {@code uri} keys.
+     *
+     * @return a valid connection target
+     */
+    public ConnectionTarget inferConnectionTarget(@Nonnull final YamlReference.YamlResource resource, @Nullable Object connectObject) {
         Assert.thatUnchecked(registeredResources.contains(resource), "A YamlResource should be registered before registering available connection URIs");
+        if (connectObject instanceof Map) {
+            final Map<?, ?> connectMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(connectObject, "connect"));
+            final int clusterIndex = connectMap.containsKey("cluster")
+                    ? ((Number) connectMap.get("cluster")).intValue() : 0;
+            final Object uriSpec = connectMap.getOrDefault("uri", null);
+            return new ConnectionTarget(resolveConnectionURI(resource, uriSpec), clusterIndex);
+        }
+        return new ConnectionTarget(resolveConnectionURI(resource, connectObject), 0);
+    }
+
+    private URI resolveConnectionURI(@Nonnull final YamlReference.YamlResource resource, @Nullable Object connectObject) {
         if (connectObject == null) {
             return getConnectionFromConnectionURIList(resource, true, -1, true);
         } else if (connectObject instanceof Integer) {
