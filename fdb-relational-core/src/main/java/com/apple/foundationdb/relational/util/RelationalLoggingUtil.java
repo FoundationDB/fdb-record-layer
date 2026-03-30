@@ -48,12 +48,17 @@ public class RelationalLoggingUtil {
             message.addKeyAndValue("plan", plan.explain());
         }
         if (e != null) {
+            message.addKeyAndValue("planCache", PlanCacheEvent.INCONCLUSIVE);
             logger.error(message, e);
         } else if (logQuery || isSlow) {
             logger.info(message);
         } else if (logger.isDebugEnabled()) {
             logger.debug(message);
         }
+    }
+
+    public static void reportError() {
+
     }
 
     public static void publishNormalizeQueryLogs(KeyValueLogMessage message, long stepTime, int queryHash, String query) {
@@ -86,5 +91,6 @@ public class RelationalLoggingUtil {
         SKIP,
         HIT,
         MISS,
+        INCONCLUSIVE,
     }
 }
