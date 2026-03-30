@@ -7,6 +7,28 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.10.10.0
+
+<h4> New Features </h4>
+
+* Support user defined function on exploded array - [PR #4001](https://github.com/FoundationDB/fdb-record-layer/pull/4001)
+<h4> Bug Fixes </h4>
+
+* Revert "Reuse cached plan for explain request. (#4013)" - [PR #4031](https://github.com/FoundationDB/fdb-record-layer/pull/4031)
+
+
+**[Full Changelog (4.10.9.0...4.10.10.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.9.0...4.10.10.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.9.9.0`, ✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`, ✅`4.10.6.0`, ✅`4.10.7.0`, ✅`4.10.8.0`, ✅`4.10.9.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/23757892829)
+
+
+
 ### 4.10.9.0
 
 <h4> New Features </h4>
