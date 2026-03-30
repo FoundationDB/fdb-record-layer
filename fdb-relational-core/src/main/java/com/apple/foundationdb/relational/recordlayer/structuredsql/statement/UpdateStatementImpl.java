@@ -385,13 +385,13 @@ public class UpdateStatementImpl implements UpdateStatement {
 
             public UpdateVisitor(@Nonnull final RelationalConnection connection,
                                  @Nonnull final SchemaTemplate schemaTemplate,
-                                 @Nonnull final ParseTree ast) {
+                                 @Nonnull final RelationalParser.RootContext ast) {
                 this(connection, schemaTemplate, ast, Map.of());
             }
 
             public UpdateVisitor(@Nonnull final RelationalConnection connection,
                                  @Nonnull final SchemaTemplate schemaTemplate,
-                                 @Nonnull final ParseTree ast,
+                                 @Nonnull final RelationalParser.RootContext ast,
                                  @Nonnull final Map<String, List<String>> columnSynonyms) {
                 this.queryStringScratchpad = new StringBuilder();
                 this.updateBuilder = new BuilderImpl(connection, schemaTemplate);

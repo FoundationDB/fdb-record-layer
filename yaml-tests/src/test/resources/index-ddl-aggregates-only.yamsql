@@ -173,11 +173,11 @@ test_block:
     # Test filtering on specific category
     -
       - query: select category, region, sum(amount) as total from sales_mat_view where category = 'Electronics' group by category, region order by region
-      - explain: "AISCAN(IDX_MV_CAT_REGION_SUM [EQUALS promote(@c16 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)"
+      - explain: "AISCAN(IDX_MV_CAT_REGION_SUM [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)"
       - result: [{ "Electronics", "East", 1200 }, { "Electronics", "North", 3300 }, { "Electronics", "South", 2000 }]
     -
       - query: select category, region, sum(amount) as total from sales_index_on where category = 'Electronics' group by category, region order by region
-      - explain: "AISCAN(IDX_IOT_CAT_REGION_SUM [EQUALS promote(@c16 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)"
+      - explain: "AISCAN(IDX_IOT_CAT_REGION_SUM [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)"
       - result: [{ "Electronics", "East", 1200 }, { "Electronics", "North", 3300 }, { "Electronics", "South", 2000 }]
 
 ---
@@ -229,11 +229,11 @@ test_block:
     # Test HAVING clause with aggregates
     -
       - query: select category, sum(amount) as total from sales_mat_view group by category having sum(amount) > 2000 order by category
-      - explain: "AISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._1 GREATER_THAN promote(@c20 AS LONG) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)"
+      - explain: "AISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._1 GREATER_THAN promote(@c21 AS LONG) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)"
       - result: [{ "Electronics", 6500 }, { "Furniture", 2850 }]
     -
       - query: select category, sum(amount) as total from sales_index_on group by category having sum(amount) > 2000 order by category
-      - explain: "AISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._1 GREATER_THAN promote(@c20 AS LONG) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)"
+      - explain: "AISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._1 GREATER_THAN promote(@c21 AS LONG) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)"
       - result: [{ "Electronics", 6500 }, { "Furniture", 2850 }]
 
 ---

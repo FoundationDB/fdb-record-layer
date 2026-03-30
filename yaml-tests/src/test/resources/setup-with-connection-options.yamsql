@@ -33,19 +33,19 @@ setup:
         create table TaBlE1(x bigint, y string, primary key(x))
     - query: drop database if exists /FRL/CASE_SENSITIVE_TEMPLATE
     - query: create database /FRL/CASE_SENSITIVE_TEMPLATE
-    - query: create schema /FRL/CASE_SENSITIVE_TEMPLATE/test1 with template case_sensitive_template
+    - query: create schema /FRL/CASE_SENSITIVE_TEMPLATE/test with template case_sensitive_template
 ---
 setup:
   options:
     connection_options:
       CASE_SENSITIVE_IDENTIFIERS: true
-  connect: "jdbc:embed:/FRL/CASE_SENSITIVE_TEMPLATE?schema=test1"
+  connect: "jdbc:embed:/FRL/CASE_SENSITIVE_TEMPLATE?schema=test"
   steps:
     - query: insert into TaBlE1 values (1, 'foo'), (2, 'bar'), (3, 'blah')
 ---
 test_block:
   name: transaction-with-connection-options
-  connect: "jdbc:embed:/FRL/CASE_SENSITIVE_TEMPLATE?schema=test1"
+  connect: "jdbc:embed:/FRL/CASE_SENSITIVE_TEMPLATE?schema=test"
   options:
     supported_version: 4.7.1.0
     connection_options:
