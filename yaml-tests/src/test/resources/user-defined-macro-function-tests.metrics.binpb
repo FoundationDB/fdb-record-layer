@@ -195,4 +195,33 @@ b
   3 -> 2 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q84> label="q84" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‰
+\
+"user-defined-scalar-function-tests6EXPLAIN select id, abcd(a) as d_val from deep_nested_t¨
+þõÑæ
+< ÖâÓ(0éàM8@iCOVERING(DEEP_IDX <,> -> [ID: KEY:[2], A: [B: [C: [D: KEY:[0]]]]]) | MAP (_.ID AS ID, _.A.B.C.D AS D_VAL)Ÿdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q41.ID AS ID, q41.A.B.C.D AS D_VAL)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS D_VAL)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS D, LONG AS EXTRA AS C, LONG AS EXTRA AS B, LONG AS EXTRA AS A)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DEEP_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS D, LONG AS EXTRA AS C, LONG AS EXTRA AS B, LONG AS EXTRA AS A)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ÿ
+`
+"user-defined-scalar-function-tests:EXPLAIN select abcd(a) from deep_nested_t group by abcd(a)š
+‘Ì‰”F ¯É¡(0—§d8@`ISCAN(DEEP_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A.B.C.D AS _0) | MAP (_._0._0 AS _0)šdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT ()</td></tr><tr><td align="left">GROUP BY (q44._0.A.B.C.D AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0,  AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS D, LONG AS EXTRA AS C, LONG AS EXTRA AS B, LONG AS EXTRA AS A AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS D, LONG AS EXTRA AS C, LONG AS EXTRA AS B, LONG AS EXTRA AS A)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DEEP_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS D, LONG AS EXTRA AS C, LONG AS EXTRA AS B, LONG AS EXTRA AS A)" ];
+  3 -> 2 [ label=<&nbsp;q44> label="q44" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }
