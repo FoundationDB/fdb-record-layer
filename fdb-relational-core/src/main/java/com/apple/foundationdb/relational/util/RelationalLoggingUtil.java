@@ -57,10 +57,6 @@ public class RelationalLoggingUtil {
         }
     }
 
-    public static void reportError() {
-
-    }
-
     public static void publishNormalizeQueryLogs(KeyValueLogMessage message, long stepTime, int queryHash, String query) {
         message.addKeyAndValue("queryHash", queryHash);
         message.addKeyAndValue("query", query.trim());
