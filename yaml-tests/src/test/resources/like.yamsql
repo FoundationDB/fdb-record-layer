@@ -154,12 +154,7 @@ test_block:
           {'\\||%'}]
     -
       - query: select * from C WHERE C2 LIKE '%'
-      # currently LIKE statement does not work for cached plan
-      # in this test EXPLAIN statement runs first and caches the plan
-      # for compare results plan is executed from the cache
-      # that causes an exception `Missing binding for __const_CONSTANT`
-      # to be uncommented after the fix
-      # - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1:  1, C2: alphabet},
           { C1:  2, C2: anticipation},
@@ -183,12 +178,7 @@ test_block:
         ]
     -
       - query: select * from C WHERE C2 LIKE 'a%'
-      # currently LIKE statement does not work for cached plan
-      # in this test EXPLAIN statement runs first and caches the plan
-      # for compare results plan is executed from the cache
-      # that causes an exception `Missing binding for __const_CONSTANT`
-      # to be uncommented after the fix
-      # - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1:  1, C2: alphabet},
           { C1:  2, C2: anticipation},
@@ -200,12 +190,7 @@ test_block:
         ]
     -
       - query: select * from C WHERE C2 LIKE 'ap%'
-      # currently LIKE statement does not work for cached plan
-      # in this test EXPLAIN statement runs first and caches the plan
-      # for compare results plan is executed from the cache
-      # that causes an exception `Missing binding for __const_CONSTANT`
-      # to be uncommented after the fix
-      # - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1:  3, C2: aplomb},
           { C1:  4, C2: apple},
@@ -214,12 +199,7 @@ test_block:
         ]
     -
       - query: select * from C WHERE C2 LIKE 'a%l%'
-      # currently LIKE statement does not work for cached plan
-      # in this test EXPLAIN statement runs first and caches the plan
-      # for compare results plan is executed from the cache
-      # that causes an exception `Missing binding for __const_CONSTANT`
-      # to be uncommented after the fix
-      # - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1:  1, C2: alphabet},
           { C1:  3, C2: aplomb},
@@ -297,13 +277,7 @@ test_block:
     -
       - query: select * from C WHERE C2 LIKE 'ca%'
       # In theory, this could be executed optimally with prefix string scan with the prefix "ca"
-
-      # currently LIKE statement does not work for cached plan
-      # in this test EXPLAIN statement runs first and caches the plan
-      # for compare results plan is executed from the cache
-      # that causes an exception `Missing binding for __const_CONSTANT`
-      # to be uncommented after the fix
-      # - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1: 13, C2: cabal},
           { C1: 14, C2: camel},
@@ -316,13 +290,7 @@ test_block:
       - query: select * from C WHERE C2 LIKE 'ca_al'
       # In theory, this could be optimized with prefix string scan with the prefix "ca" followed by compensation
       # to handle filtering out based on the tail
-
-      # currently LIKE statement does not work for cached plan
-      # in this test EXPLAIN statement runs first and caches the plan
-      # for compare results plan is executed from the cache
-      # that causes an exception `Missing binding for __const_CONSTANT`
-      # to be uncommented after the fix
-      # - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1: 13, C2: cabal},
           { C1: 15, C2: canal},
@@ -331,13 +299,7 @@ test_block:
       - query: select * from C WHERE C2 LIKE 'ca%al'
       # In theory, this could be optimized with prefix string scan with the prefix "ca" followed by compensation
       # to handle matching the tail
-
-      # currently LIKE statement does not work for cached plan
-      # in this test EXPLAIN statement runs first and caches the plan
-      # for compare results plan is executed from the cache
-      # that causes an exception `Missing binding for __const_CONSTANT`
-      # to be uncommented after the fix
-      # - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1: 13, C2: cabal},
           { C1: 15, C2: canal},
@@ -345,12 +307,7 @@ test_block:
         ]
     -
       - query: select * from C WHERE C2 LIKE 'ca_al%'
-      # currently LIKE statement does not work for cached plan
-      # in this test EXPLAIN statement runs first and caches the plan
-      # for compare results plan is executed from the cache
-      # that causes an exception `Missing binding for __const_CONSTANT`
-      # to be uncommented after the fix
-      # - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1: 13, C2: cabal},
           { C1: 15, C2: canal},
@@ -358,12 +315,7 @@ test_block:
         ]
     -
       - query: select * from C WHERE C2 LIKE 'ca%al%'
-      # currently LIKE statement does not work for cached plan
-      # in this test EXPLAIN statement runs first and caches the plan
-      # for compare results plan is executed from the cache
-      # that causes an exception `Missing binding for __const_CONSTANT`
-      # to be uncommented after the fix
-      # - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7 ESCAPE 'null' | FETCH"
+      - explain: "COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
       - result: [
           { C1: 13, C2: cabal},
           { C1: 15, C2: canal},
