@@ -1045,13 +1045,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
     }
 
-    /**
-     * Run all post-commit callbacks.
-     * This method would invoke all given callbacks and will abort on exception.
-     * This semantic is correct given that any exception thrown prior to the commit should fail the commit and roll
-     * back the transaction.
-     * @return a future that completes when callbacks were invoked and futures have completed
-     */
     @Nonnull
     private CompletableFuture<Void> runPostCommits() {
         synchronized (postCommits) {

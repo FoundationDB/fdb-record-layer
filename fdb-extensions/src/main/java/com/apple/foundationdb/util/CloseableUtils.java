@@ -74,13 +74,10 @@ public class CloseableUtils {
 
     /**
      * A utility to invoke multiple callbacks and return their results.
-     * This method guarantees that each of the callbacks is invoked (regardless of whether previous calls threw an
-     * exception).
-     * The returned result holds the result of every successful call and an exception that holds every thrown
-     * exception.
+     * This method guarantees that each of the callbacks is invoked (regardless of whether previous calls threw an exception).
+     * The returned instance holds the result of every successful call and an exception that holds every thrown exception.
      *
      * @param callbacks the given callbacks to invoke
-     *
      * @return a {@link InvokeResults} with a list of results returned from successful invocations and a {@link CloseException}
      * that holds the exceptions thrown during unsuccessful invocations
      */
@@ -109,12 +106,9 @@ public class CloseableUtils {
      * regardless of whether they succeed or fail.
      *
      * @param callbacks the given sequence of callbacks
-     *
      * @return a future that completes when all the produced futures complete. The returned future's result is
      * <code>CompletedSuccessfully</code> if all futures were created and completed successfully, or an exception that
      * holds all the exceptions that were thrown during the process
-     *
-     * @throws CompletionException with the accumulated exceptions if there are any
      */
     @API(API.Status.INTERNAL)
     @Nonnull
