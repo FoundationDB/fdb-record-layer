@@ -293,6 +293,59 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         Assertions.assertThat(allResults).zipSatisfy(allDocs, (entry, doc) -> entryEquals(entry, doc, LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT));
     }
 
+    @Test
+    void testIncarnationOrdering() {
+        // Make sure that the incarnation order precedes the versionStamp order in the queue.
+        // This emulates copying the data to a different cluster, which may have an incompatible versionStamp. The order
+        // is protected by the incarnation value (which should be higher at the destination cluster)
+        PendingWriteQueue queue;
+
+        Tuple pkA = Tuple.from("inc2-a");
+        Tuple pkB = Tuple.from("inc2-b");
+        Tuple pkC = Tuple.from("inc0-a");
+        Tuple pkD = Tuple.from("inc0-b");
+        Tuple pkE = Tuple.from("inc1-a");
+        Tuple pkF = Tuple.from("inc1-b");
+
+        List<LuceneDocumentFromRecord.DocumentField> fields =
+                List.of(createField("f", "v", LuceneIndexExpressions.DocumentFieldType.STRING, false, false));
+
+        try (FDBRecordContext context = openContext()) {
+            queue = getQueue(context);
+            // incarnation 2
+            queue.enqueueInsert(context, pkA, fields, 2);
+            queue.enqueueInsert(context, pkB, fields, 2);
+            // incarnation 0
+            queue.enqueueInsert(context, pkC, fields, 0);
+            queue.enqueueInsert(context, pkD, fields, 0);
+            // incarnation 1
+            queue.enqueueInsert(context, pkE, fields, 1);
+            queue.enqueueInsert(context, pkF, fields, 1);
+            commit(context);
+        }
+
+        // Expected order: incarnation 0 (C, D), incarnation 1 (E, F), incarnation 2 (A, B)
+        try (FDBRecordContext context = openContext()) {
+            List<PendingWriteQueue.QueueEntry> entries =
+                    queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
+            assertEquals(6, entries.size());
+            List<Tuple> actualOrder = entries.stream()
+                    .map(PendingWriteQueue.QueueEntry::getPrimaryKeyParsed)
+                    .collect(Collectors.toList());
+            assertEquals(List.of(pkC, pkD, pkE, pkF, pkA, pkB), actualOrder);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testQueueEntryRejectsWrongKeySize(boolean allowIncarnation) {
+        Tuple wrongSizeKey = allowIncarnation ? Tuple.from(Versionstamp.complete(new byte[10])) : Tuple.from(0, Versionstamp.complete(new byte[10]));
+        Assertions.assertThatThrownBy(() -> new PendingWriteQueue.QueueEntry(
+                        wrongSizeKey, LucenePendingWriteQueueProto.PendingWriteItem.getDefaultInstance(), allowIncarnation))
+                .isInstanceOf(RecordCoreInternalException.class)
+                .hasMessageContaining("Unexpected keyTuple size");
+    }
+
     @ParameterizedTest
     @BooleanSource
     void testIsQueueEmpty(boolean allowIncarnation) {
@@ -456,8 +509,8 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     private PendingWriteQueue getQueue(FDBRecordContext context, LuceneSerializer serializer, boolean allowIncarnation) {
-        Subspace queueSpace = path.toSubspace(context).subspace(Tuple.from(0, 0));
-        Subspace counterSpace = path.toSubspace(context).subspace(Tuple.from(0, 1));
+        Subspace queueSpace = path.toSubspace(context).subspace(Tuple.from(0));
+        Subspace counterSpace = path.toSubspace(context).subspace(Tuple.from(1));
         return new PendingWriteQueue(queueSpace, counterSpace,
                 PendingWriteQueue.DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY,
                 PendingWriteQueue.DEFAULT_MAX_PENDING_QUEUE_SIZE,

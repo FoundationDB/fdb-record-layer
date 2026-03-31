@@ -355,7 +355,7 @@ public class PendingWriteQueue {
             }
         }
 
-        // Build key with incarnation prefix and incomplete versionStamp
+        // Build key with incarnation prefix and incomplete versionStamp (to become a local version)
         FDBRecordVersion recordVersion = FDBRecordVersion.incomplete(context.claimLocalVersion());
         // incarnation sorts first so newer incarnations always order after older ones
         Tuple keyTuple = allowIncarnation
