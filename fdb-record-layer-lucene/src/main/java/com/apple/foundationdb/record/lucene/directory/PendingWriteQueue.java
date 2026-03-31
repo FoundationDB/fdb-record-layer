@@ -455,11 +455,6 @@ public class PendingWriteQueue {
         public QueueEntry(Tuple keyTuple,
                           LucenePendingWriteQueueProto.PendingWriteItem item,
                           boolean allowIncarnation) {
-            if (keyTuple.size() > 2 && LOGGER.isWarnEnabled()) {
-                // expecting (incarnation, versionStamp) or (versionstamp)
-                LOGGER.warn(KeyValueLogMessage.of("Unexpected keyTuple size",
-                        LogMessageKeys.KEY_TUPLE, keyTuple));
-            }
             this.keyTuple = keyTuple;
             final int expectedKeySize = allowIncarnation ? 2 : 1;
             if (keyTuple.size() != expectedKeySize) {
