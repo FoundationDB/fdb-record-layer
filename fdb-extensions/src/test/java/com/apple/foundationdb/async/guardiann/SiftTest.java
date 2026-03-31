@@ -30,7 +30,6 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.test.TestClassSubspaceExtension;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -43,10 +42,8 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -58,8 +55,6 @@ public class SiftTest implements BaseTest {
     static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
     @RegisterExtension
     static final TestClassSubspaceExtension subspaceExtension = new TestClassSubspaceExtension(dbExtension);
-    @RegisterExtension
-    static final TestClassSubspaceExtension rtSecondarySubspace = new TestClassSubspaceExtension(dbExtension);
 
     @TempDir
     Path tempDir;
@@ -98,14 +93,14 @@ public class SiftTest implements BaseTest {
         final Config config =
                 Guardiann.newConfigBuilder()
                         .setUseRaBitQ(true)
-                        .setRaBitQNumExBits(6)
+                        .setRaBitQNumExBits(8)
                         .setMetric(metric)
-                        .setPrimaryClusterMax(400)
+                        .setPrimaryClusterMax(500)
                         .setPrimaryClusterMin(100)
                         .setPersistSequentialUuids(true)
-                        .setClusterOverlap(0.1d)
-                        .setReplicatedClusterTarget(500)
-                        .setReplicatedClusterMaxWrites(1500)
+                        .setClusterOverlap(0.0d)
+                        .setReplicatedClusterTarget(1000)
+                        .setReplicatedClusterMaxWrites(3000)
                         .build(512);
 
         guardiann = new Guardiann(subspaceExtension.getSubspace(),
@@ -124,20 +119,20 @@ public class SiftTest implements BaseTest {
     void testInsertSIFTSmall() throws Exception {
         final int k = 100;
         TestHelpers.validateSIFT(getDb(), guardiann, insertedData,
-                "/Users/nseemann/Downloads/embeddings-100k-queries.fvecs",
-                "/Users/nseemann/Downloads/embeddings-100k-groundtruth.ivecs", k);
+                "/Users/nseemann/Downloads/embeddings-unified-model-100k-queries-1.0.0.fvecs",
+                "/Users/nseemann/Downloads/embeddings-unified-model-100k-groundtruth-1.0.0.ivecs", k);
 
         final HNSW centroidHnsw = guardiann.getLocator().primitives().getClusterCentroidsHnsw();
 
         final Set<ResultEntry> centroids = Sets.newConcurrentHashSet();
         scanCentroids(db, centroidHnsw.getSubspace(), centroidHnsw.getConfig(), 0, 100, centroids::add);
 
-        logger.info("checking clusters numCentroids={}", centroids.size());
-        final Map<UUID, Integer> result = db.run(transaction -> {
-            final Search search = guardiann.getLocator().search();
-            return search.globalAssignmentCheck(transaction, ImmutableList.copyOf(centroids)).join();
-        });
-        System.out.println(result);
+//        logger.info("checking clusters numCentroids={}", centroids.size());
+//        final ListMultimap<UUID, Tuple> result = db.run(transaction -> {
+//            final Search search = guardiann.getLocator().search();
+//            return search.globalAssignmentCheck(transaction, ImmutableList.copyOf(centroids)).join();
+//        });
+//        System.out.println(result);
 
 //        TestHelpers.validateSIFT(getDb(), guardiann, insertedData,
 //                "/Users/nseemann/Downloads/sift-100k-queries.fvecs",

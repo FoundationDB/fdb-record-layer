@@ -143,6 +143,11 @@ public final class StorageHelpers {
         return Tuple.from(vector.getRawData());
     }
 
+    @Nonnull
+    public static byte[] bytesFromVector(@Nonnull final Transformed<RealVector> transformedVector) {
+        return transformedVector.getUnderlyingVector().getRawData();
+    }
+
     /**
      * Creates a {@link RealVector} from a given {@link Tuple}.
      * <p>

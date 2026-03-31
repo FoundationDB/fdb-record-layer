@@ -67,17 +67,26 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
     @Nonnull
     private final Transformed<RealVector> centroid;
+    @Nonnull
+    private final List<ClusterIdAndCentroid> neighborhood;
 
     private SplitMergeTask(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                            @Nonnull final UUID taskId, @Nonnull final UUID targetClusterId,
-                           @Nonnull final Transformed<RealVector> centroid) {
+                           @Nonnull final Transformed<RealVector> centroid,
+                           @Nonnull final List<ClusterIdAndCentroid> neighborhood) {
         super(locator, accessInfo, taskId, ImmutableSet.of(targetClusterId));
         this.centroid = centroid;
+        this.neighborhood = ImmutableList.copyOf(neighborhood);
     }
 
     @Nonnull
     public Transformed<RealVector> getCentroid() {
         return centroid;
+    }
+
+    @Nonnull
+    private List<ClusterIdAndCentroid> getNeighborhood() {
+        return neighborhood;
     }
 
     @Nonnull
@@ -96,8 +105,15 @@ public class SplitMergeTask extends AbstractDeferredTask {
     public Tuple valueTuple() {
         final Quantizer quantizer = primitives().quantizer(getAccessInfo());
         final Transformed<RealVector> encodedVector = quantizer.encode(getCentroid());
+
+        final ImmutableList.Builder<Object> neighborhoodTuplesBuilder = ImmutableList.builder();
+        for (final ClusterIdAndCentroid clusterMetadataWithDistance : getNeighborhood()) {
+            neighborhoodTuplesBuilder.add(
+                    StorageAdapter.valueTupleFromClusterIdAndCentroid(quantizer, clusterMetadataWithDistance));
+        }
+
         return Tuple.from(getKind().getCode(), getTargetClusterId(),
-                encodedVector.getUnderlyingVector().getRawData());
+                StorageHelpers.bytesFromVector(encodedVector), Tuple.fromItems(neighborhoodTuplesBuilder.build()));
     }
 
     @Nonnull
@@ -150,77 +166,103 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
         final int numNeighborhood = 24;
 
-        final var neighborhoodsFuture =
-                primitives.fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata, targetClusterCentroid,
-                        storageTransform, numNeighborhood);
-
-        return neighborhoodsFuture.thenCompose(clusterMetadataWithDistances -> {
-            final NeighborhoodsResult neighborhoods1To2 =
-                    primitives.neighborhoods(storageTransform, clusterMetadataWithDistances, targetClusterMetadata,
-                            targetClusterCentroid, 1, numNeighborhood - 1);
-            final NeighborhoodsResult neighborhoods2To3 =
-                    clusterMetadataWithDistances.size() < 2
-                    ? null
-                    : primitives.neighborhoods(storageTransform, clusterMetadataWithDistances, targetClusterMetadata,
-                            targetClusterCentroid, 2, numNeighborhood - 2);
-
-            final List<NeighborhoodsResult> allNeighborhoods =
-                    Lists.newArrayList(neighborhoods1To2, neighborhoods2To3);
-
-            return primitives.fetchInnerClusters(transaction,
-                            maxInner(neighborhoods1To2, neighborhoods2To3), storageTransform)
-                    .thenCompose(innerClusters -> RandomHelpers.forEach(random, allNeighborhoods,
-                                    (neighborhoods, nestedRandom) -> {
-                                        if (neighborhoods == null) {
-                                            return CompletableFuture.completedFuture(null);
-                                        }
-                                        final var innerNeighborhood = neighborhoods.getInnerNeighborhood();
-                                        final var clampedInnerClusters =
-                                                innerNeighborhood.size() == innerClusters.size()
-                                                ? innerClusters
-                                                : innerClusters.subList(0, innerNeighborhood.size());
-
-                                        return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true)
-                                                .thenApply(vectorReferences ->
-                                                        kMeans(neighborhoods, vectorReferences, nestedRandom, estimator));
-                                    }, 10, executor)
-                            .thenApply(assignmentCandidates -> {
-                                final AssignmentCandidate split1to2Candidate =
-                                        Objects.requireNonNull(assignmentCandidates.get(0));
-                                final UpgradeResult upgradeResult1to2 =
-                                        evaluateNewPartition(estimator, ImmutableList.of(innerClusters.get(0)),
-                                                split1to2Candidate);
-                                upgradeResult1to2.log(logger);
-                                final AssignmentCandidate split2to3Candidate = assignmentCandidates.get(1);
-                                if (split2to3Candidate != null) {
-                                    Verify.verify(innerClusters.size() > 1);
-                                    final UpgradeResult upgradeResult2to3 =
-                                            evaluateNewPartition(estimator, innerClusters,
-                                                    split2to3Candidate);
-                                    upgradeResult2to3.log(logger);
-                                    return upgradeResult1to2.getScoreGain() > upgradeResult2to3.getScoreGain()
-                                           ? split1to2Candidate : split2to3Candidate;
-                                }
-                                return split1to2Candidate;
-                            }))
-                    .thenCompose(assignmentCandidate -> {
-                        if (assignmentCandidate == null) {
-                            return null;
+        final List<ClusterIdAndCentroid> neighborhood = getNeighborhood();
+        if (neighborhood.isEmpty()) {
+            // if the neighborhoods are not set yet, fetch the neighborhood and write an urgent new task
+            return primitives.fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata,
+                    targetClusterCentroid, storageTransform, numNeighborhood)
+                    .thenAccept(fetchedNeighborhood -> {
+                        final SplitMergeTask splitMergeTask =
+                                withHighPriorityAndNeighborhood(random,
+                                        ClusterIdAndCentroid.fromClusterMetadataAndDistances(fetchedNeighborhood));
+                        primitives.writeDeferredTask(transaction, splitMergeTask);
+                        if (logger.isInfoEnabled()) {
+                            logger.info("enqueuing high priority SPLIT_MERGE; taskId={}; clusterId={}; neighborhoodSize={}",
+                                    AbstractDeferredTask.taskIdToString(splitMergeTask.getTaskId()),
+                                    splitMergeTask.getTargetClusterId(),
+                                    splitMergeTask.getNeighborhood().size());
                         }
-
-                        final NeighborhoodsResult neighborhoods = assignmentCandidate.getNeighborhoods();
-                        final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.getInnerNeighborhood();
-                        final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.getOuterNeighborhood();
-
-                        final AssignmentResult assignmentResult =
-                                assignPrimaryVectorReferences(random, estimator, outerNeighborhood,
-                                        assignmentCandidate.getPrimaryVectorReferences(), assignmentCandidate.getkMeansResult(),
-                                        innerNeighborhood.size() + 1);
-                        return updateHnsw(transaction, storageTransform, innerNeighborhood, assignmentResult)
-                                .thenAccept(ignored ->
-                                        updateAssignments(transaction, random, innerNeighborhood, assignmentResult, quantizer));
                     });
-        });
+        } else {
+            if (logger.isInfoEnabled()) {
+                logger.info("using precomputed neighborhood; taskId={}; neighborhoodSize={}",
+                        taskIdToString(getTaskId()), getNeighborhood().size());
+            }
+        }
+
+        return MoreAsyncUtil.forEach(neighborhood,
+                        clusterIdAndCentroid -> primitives.fetchClusterMetadataWithDistance(transaction,
+                                clusterIdAndCentroid.getClusterId(), clusterIdAndCentroid.getCentroid(), 0.0d),
+                        10, executor)
+                .thenCompose(neighborhoodClusterMetadataWithDistances -> {
+                    final NeighborhoodsResult neighborhoods1To2 =
+                            primitives.neighborhoods(storageTransform, neighborhoodClusterMetadataWithDistances,
+                                    targetClusterMetadata, getCentroid(),
+                                    1, numNeighborhood - 1);
+                    final NeighborhoodsResult neighborhoods2To3 =
+                            neighborhood.size() < 2
+                            ? null
+                            : primitives.neighborhoods(storageTransform, neighborhoodClusterMetadataWithDistances,
+                                    targetClusterMetadata, getCentroid(),
+                                    2, numNeighborhood - 2);
+
+                    final List<NeighborhoodsResult> allNeighborhoods =
+                            Lists.newArrayList(neighborhoods1To2, neighborhoods2To3);
+
+                    return primitives.fetchInnerClusters(transaction,
+                                    maxInner(neighborhoods1To2, neighborhoods2To3), storageTransform)
+                            .thenCompose(innerClusters -> RandomHelpers.forEach(random, allNeighborhoods,
+                                            (neighborhoods, nestedRandom) -> {
+                                                if (neighborhoods == null) {
+                                                    return CompletableFuture.completedFuture(null);
+                                                }
+                                                final var innerNeighborhood = neighborhoods.getInnerNeighborhood();
+                                                final var clampedInnerClusters =
+                                                        innerNeighborhood.size() == innerClusters.size()
+                                                        ? innerClusters
+                                                        : innerClusters.subList(0, innerNeighborhood.size());
+
+                                                return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true)
+                                                        .thenApply(vectorReferences ->
+                                                                kMeans(neighborhoods, vectorReferences, nestedRandom, estimator));
+                                            }, 10, executor)
+                                    .thenApply(assignmentCandidates -> {
+                                        final AssignmentCandidate split1to2Candidate =
+                                                Objects.requireNonNull(assignmentCandidates.get(0));
+                                        final UpgradeResult upgradeResult1to2 =
+                                                evaluateNewPartition(estimator, ImmutableList.of(innerClusters.get(0)),
+                                                        split1to2Candidate);
+                                        upgradeResult1to2.log(logger);
+                                        final AssignmentCandidate split2to3Candidate = assignmentCandidates.get(1);
+                                        if (split2to3Candidate != null) {
+                                            Verify.verify(innerClusters.size() > 1);
+                                            final UpgradeResult upgradeResult2to3 =
+                                                    evaluateNewPartition(estimator, innerClusters,
+                                                            split2to3Candidate);
+                                            upgradeResult2to3.log(logger);
+                                            return upgradeResult1to2.getScoreGain() > upgradeResult2to3.getScoreGain()
+                                                   ? split1to2Candidate : split2to3Candidate;
+                                        }
+                                        return split1to2Candidate;
+                                    }))
+                            .thenCompose(assignmentCandidate -> {
+                                if (assignmentCandidate == null) {
+                                    return null;
+                                }
+
+                                final NeighborhoodsResult neighborhoods = assignmentCandidate.getNeighborhoods();
+                                final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.getInnerNeighborhood();
+                                final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.getOuterNeighborhood();
+
+                                final AssignmentResult assignmentResult =
+                                        assignPrimaryVectorReferences(random, estimator, outerNeighborhood,
+                                                assignmentCandidate.getPrimaryVectorReferences(), assignmentCandidate.getkMeansResult(),
+                                                innerNeighborhood.size() + 1);
+                                return updateHnsw(transaction, storageTransform, innerNeighborhood, assignmentResult)
+                                        .thenAccept(ignored ->
+                                                updateAssignments(transaction, random, innerNeighborhood, assignmentResult, quantizer));
+                            });
+                });
     }
 
     @Nonnull
@@ -238,8 +280,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final int numOuterNeighborhood = 8;
 
         final CompletableFuture<NeighborhoodsResult> neighborhoodsFuture =
-                primitives.neighborhoods(transaction, storageTransform, targetClusterMetadata, targetClusterCentroid,
-                        numInnerNeighborhood, numOuterNeighborhood);
+                primitives.neighborhoods(transaction, storageTransform, targetClusterMetadata, getCentroid(),
+                        targetClusterCentroid, numInnerNeighborhood, numOuterNeighborhood);
 
         return neighborhoodsFuture.thenCompose(neighborhoods -> {
             final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.getInnerNeighborhood();
@@ -493,8 +535,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
                             numPrimaryVectorsAdded, numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
                             newClusterIds)
                     .ifPresent(newDependentTaskIdsBuilder::add);
-            if (logger.isInfoEnabled()) {
-                logger.info("pushing vectors during split; isNewCluster={}; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
+            if (logger.isTraceEnabled()) {
+                logger.trace("pushing vectors during split; isNewCluster={}; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
                                 "numTotalPrimaryUnderreplicatedReplicatedVectors={}, numPrimaryUnderreplicatedVectorsAdded={}, " +
                                 "numTotalReplicatedVectors={}, numReplicatedVectorsAdded={}",
                         newClusterIds.contains(clusterMetadata.getId()),
@@ -509,17 +551,24 @@ public class SplitMergeTask extends AbstractDeferredTask {
         if (!newDependentTaskIds.isEmpty()) {
             final BounceReassignTask newBounceReassignTask =
                     BounceReassignTask.of(getLocator(), getAccessInfo(),
-                            RandomHelpers.randomUUID(random), newClusterIds,
+                            randomNormalPriorityTaskId(random), newClusterIds,
                             newDependentTaskIds);
             primitives.writeDeferredTask(transaction, newBounceReassignTask);
 
             if (logger.isInfoEnabled()) {
                 logger.info("enqueuing BOUNCE_REASSIGN; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
-                        newBounceReassignTask.getTaskId(),
+                        taskIdToString(newBounceReassignTask.getTaskId()),
                         newBounceReassignTask.getTargetClusterIds(),
                         newBounceReassignTask.getDependentTaskIds());
             }
         }
+    }
+
+    @Nonnull
+    private SplitMergeTask withHighPriorityAndNeighborhood(@Nonnull final SplittableRandom random,
+                                                           @Nonnull final List<ClusterIdAndCentroid> neighborhood) {
+        return SplitMergeTask.of(getLocator(), getAccessInfo(), randomHighPriorityTaskId(random), getTargetClusterId(),
+                getCentroid(), neighborhood);
     }
 
     @Nonnull
@@ -529,16 +578,31 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final StorageTransform storageTransform = locator.primitives().storageTransform(accessInfo);
         final Transformed<RealVector> centroid = storageTransform.transform(
                 StorageHelpers.vectorFromBytes(locator.getConfig(), valueTuple.getBytes(2)));
+        final ImmutableList.Builder<ClusterIdAndCentroid> neighborhoodsBuilder = ImmutableList.builder();
+        final Tuple neighborhoodsTuple = valueTuple.getNestedTuple(3);
+        for (int i = 0; i < neighborhoodsTuple.size(); i ++) {
+            final Tuple clusterMetadataWithDistanceTuple = neighborhoodsTuple.getNestedTuple(i);
+            neighborhoodsBuilder.add(StorageAdapter.clusterIdAndCentroidFromTuple(locator.getConfig(),
+                    storageTransform, clusterMetadataWithDistanceTuple));
+        }
 
         return new SplitMergeTask(locator, accessInfo,
-                keyTuple.getUUID(0), valueTuple.getUUID(1), centroid);
+                keyTuple.getUUID(0), valueTuple.getUUID(1), centroid, neighborhoodsBuilder.build());
     }
 
     @Nonnull
     static SplitMergeTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                              @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
                              @Nonnull final Transformed<RealVector> centroid) {
-        return new SplitMergeTask(locator, accessInfo, taskId, clusterId, centroid);
+        return of(locator, accessInfo, taskId, clusterId, centroid, ImmutableList.of());
+    }
+
+    @Nonnull
+    static SplitMergeTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
+                             @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
+                             @Nonnull final Transformed<RealVector> centroid,
+                             @Nonnull final List<ClusterIdAndCentroid> neighborhood) {
+        return new SplitMergeTask(locator, accessInfo, taskId, clusterId, centroid, neighborhood);
     }
 
     @Nonnull

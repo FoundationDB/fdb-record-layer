@@ -22,9 +22,11 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.StorageHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
+import com.apple.foundationdb.async.guardiann.Primitives.NeighborhoodsResult;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
@@ -52,6 +54,7 @@ import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 public class ReassignTask extends AbstractDeferredTask {
     @Nonnull
@@ -62,14 +65,18 @@ public class ReassignTask extends AbstractDeferredTask {
 
     @Nonnull
     private final Set<UUID> causeClusterIds;
+    @Nonnull
+    private final List<ClusterIdAndCentroid> neighborhood;
 
     private ReassignTask(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                          @Nonnull final UUID taskId, @Nonnull final UUID targetClusterId,
                          @Nonnull final Transformed<RealVector> centroid,
-                         @Nonnull final Set<UUID> causeClusterIds) {
+                         @Nonnull final Set<UUID> causeClusterIds,
+                         @Nonnull final List<ClusterIdAndCentroid> neighborhood) {
         super(locator, accessInfo, taskId, ImmutableSet.of(targetClusterId));
         this.centroid = centroid;
         this.causeClusterIds = ImmutableSet.copyOf(causeClusterIds);
+        this.neighborhood = ImmutableList.copyOf(neighborhood);
     }
 
     @Nonnull
@@ -83,6 +90,11 @@ public class ReassignTask extends AbstractDeferredTask {
     }
 
     @Nonnull
+    private List<ClusterIdAndCentroid> getNeighborhood() {
+        return neighborhood;
+    }
+
+    @Nonnull
     public UUID getTargetClusterId() {
         return Iterables.getOnlyElement(getTargetClusterIds());
     }
@@ -92,9 +104,18 @@ public class ReassignTask extends AbstractDeferredTask {
     public Tuple valueTuple() {
         final Quantizer quantizer = getLocator().primitives().quantizer(getAccessInfo());
         final Transformed<RealVector> encodedVector = quantizer.encode(getCentroid());
+
+        final ImmutableList.Builder<Object> neighborhoodTuplesBuilder = ImmutableList.builder();
+        for (final ClusterIdAndCentroid clusterMetadataWithDistance : getNeighborhood()) {
+            neighborhoodTuplesBuilder.add(
+                    StorageAdapter.valueTupleFromClusterIdAndCentroid(quantizer,
+                            clusterMetadataWithDistance));
+        }
+
         return Tuple.from(getKind().getCode(), getTargetClusterId(),
-                encodedVector.getUnderlyingVector().getRawData(),
-                StorageAdapter.tupleFromClusterIds(getCauseClusterIds()));
+                StorageHelpers.bytesFromVector(encodedVector),
+                StorageAdapter.tupleFromClusterIds(getCauseClusterIds()),
+                Tuple.fromItems(neighborhoodTuplesBuilder.build()));
     }
 
     @Nonnull
@@ -133,6 +154,7 @@ public class ReassignTask extends AbstractDeferredTask {
                                              @Nonnull final ClusterMetadata targetClusterMetadata,
                                              @Nonnull final RealVector targetClusterCentroid) {
         final SplittableRandom random = RandomHelpers.random(targetClusterMetadata.getId());
+        final Executor executor = getLocator().getExecutor();
         final Primitives primitives = getLocator().primitives();
         final AccessInfo accessInfo = getAccessInfo();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
@@ -141,89 +163,116 @@ public class ReassignTask extends AbstractDeferredTask {
 
         final int numInnerNeighborhood = 1;
         final int numOuterNeighborhood = 32;
+        final int numNeighborhood = numInnerNeighborhood + numOuterNeighborhood;
 
-        final CompletableFuture<Primitives.NeighborhoodsResult> neighborhoodsFuture =
-                primitives.neighborhoods(transaction, storageTransform, targetClusterMetadata, targetClusterCentroid,
-                        numInnerNeighborhood, numOuterNeighborhood);
+        final List<ClusterIdAndCentroid> neighborhood = getNeighborhood();
+        if (neighborhood.isEmpty()) {
+            return primitives.fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata,
+                            targetClusterCentroid, storageTransform, numNeighborhood)
+                    .thenAccept(fetchedNeighborhood -> {
+                        final ReassignTask reassignTask = withHighPriorityAndNeighborhood(random,
+                                ClusterIdAndCentroid.fromClusterMetadataAndDistances(fetchedNeighborhood));
+                        primitives.writeDeferredTask(transaction, reassignTask);
+                        if (logger.isInfoEnabled()) {
+                            logger.info("enqueuing high priority REASSIGN; taskId={}; clusterId={}; neighborhoodSize={}",
+                                    AbstractDeferredTask.taskIdToString(reassignTask.getTaskId()),
+                                    reassignTask.getTargetClusterId(),
+                                    reassignTask.getNeighborhood().size());
+                        }
+                    });
+        } else {
+            if (logger.isInfoEnabled()) {
+                logger.info("using precomputed neighborhood; taskId={}; neighborhoodSize={}",
+                        taskIdToString(getTaskId()), getNeighborhood().size());
+            }
+        }
 
-        return neighborhoodsFuture.thenCompose(neighborhoods -> {
-            final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.getInnerNeighborhood();
-            final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.getOuterNeighborhood();
+        return MoreAsyncUtil.forEach(neighborhood,
+                        clusterIdAndCentroid -> primitives.fetchClusterMetadataWithDistance(transaction,
+                                clusterIdAndCentroid.getClusterId(), clusterIdAndCentroid.getCentroid(), 0.0d),
+                        10, executor)
+                .thenCompose(neighborhoodClusterMetadataWithDistances -> {
 
-            //
-            // At this point innerNeighborhood contains the clusters we want to split into
-            // innerNeighborhood.size() - 1 number of clusters and outerNeighborhood contains all clusters we
-            // may assign some vectors from innerNeighborhood to.
-            //
-            return primitives.fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
-                    .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction,
-                                    innerClusters, false)
-                            .thenAccept(cleanedUpVectorReferences -> {
-                                final ReassignmentResult reassignmentResult =
-                                        reassignVectorReferences(random, estimator, Iterables.getOnlyElement(innerNeighborhood),
-                                                outerNeighborhood, cleanedUpVectorReferences);
-                                final ListMultimap<UUID, VectorReference> assignmentMultimap =
-                                        reassignmentResult.getAssignmentMultimap();
-                                final List<VectorReference> targetClusterAssignedVectors =
-                                        assignmentMultimap.get(targetClusterMetadata.getId());
-                                final ImmutableMap.Builder<Tuple, VectorReference> targetClusterAssignedVectorsAsMapBuilder = ImmutableMap.builder();
-                                for (final VectorReference targetClusterAssignedVector : targetClusterAssignedVectors) {
-                                    targetClusterAssignedVectorsAsMapBuilder.put(targetClusterAssignedVector.getId().getPrimaryKey(),
-                                            targetClusterAssignedVector);
-                                }
-                                final ImmutableMap<Tuple, VectorReference> targetClusterAssignedVectorsAsMap =
-                                        targetClusterAssignedVectorsAsMapBuilder.build();
-                                final Cluster targetCluster = Iterables.getOnlyElement(innerClusters);
+                    final NeighborhoodsResult neighborhoods =
+                            primitives.neighborhoods(storageTransform, neighborhoodClusterMetadataWithDistances,
+                                    targetClusterMetadata, getCentroid(), numInnerNeighborhood, numOuterNeighborhood);
 
-                                final ImmutableList.Builder<Tuple> deleteTargetClusterAssignedVectorsBuilder =
-                                        ImmutableList.builder();
-                                final ImmutableList.Builder<VectorReference> writeTargetClusterAssignedVectorsBuilder =
-                                        ImmutableList.builder();
+                    final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.getInnerNeighborhood();
+                    final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.getOuterNeighborhood();
 
-                                for (final VectorReference vectorReference : targetCluster.getVectorReferences()) {
-                                    final Tuple primaryKey = vectorReference.getId().getPrimaryKey();
-                                    final VectorReference assignedVectorReference =
-                                            targetClusterAssignedVectorsAsMap.get(primaryKey);
-
-                                    if (assignedVectorReference != null) {
-                                        //
-                                        // Compare the version from the cluster with the version from the cleaned-up
-                                        // set. At this point, it should not happen that they are different, so it's
-                                        // more of a sanity check.
-                                        //
-                                        Verify.verify(assignedVectorReference.getId().getUuid()
-                                                .equals(vectorReference.getId().getUuid()));
-
-                                        //
-                                        // What can happen is that a reference can toggle between primary and
-                                        // replicated copy or primary and underreplicated primary, etc.
-                                        //
-                                        if (assignedVectorReference.isPrimaryCopy() != vectorReference.isPrimaryCopy() ||
-                                                assignedVectorReference.isUnderreplicated() != vectorReference.isUnderreplicated()) {
-                                            writeTargetClusterAssignedVectorsBuilder.add(assignedVectorReference);
+                    //
+                    // At this point innerNeighborhood contains the clusters we want to split into
+                    // innerNeighborhood.size() - 1 number of clusters and outerNeighborhood contains all clusters we
+                    // may assign some vectors from innerNeighborhood to.
+                    //
+                    return primitives.fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
+                            .thenCompose(innerClusters -> primitives.cleanUpVectorReferences(transaction,
+                                            innerClusters, false)
+                                    .thenAccept(cleanedUpVectorReferences -> {
+                                        final ReassignmentResult reassignmentResult =
+                                                reassignVectorReferences(estimator, Iterables.getOnlyElement(innerNeighborhood),
+                                                        outerNeighborhood, cleanedUpVectorReferences);
+                                        final ListMultimap<UUID, VectorReference> assignmentMultimap =
+                                                reassignmentResult.getAssignmentMultimap();
+                                        final List<VectorReference> targetClusterAssignedVectors =
+                                                assignmentMultimap.get(targetClusterMetadata.getId());
+                                        final ImmutableMap.Builder<Tuple, VectorReference> targetClusterAssignedVectorsAsMapBuilder = ImmutableMap.builder();
+                                        for (final VectorReference targetClusterAssignedVector : targetClusterAssignedVectors) {
+                                            targetClusterAssignedVectorsAsMapBuilder.put(targetClusterAssignedVector.getId().getPrimaryKey(),
+                                                    targetClusterAssignedVector);
                                         }
-                                    } else {
-                                        // add to delete list
-                                        deleteTargetClusterAssignedVectorsBuilder.add(primaryKey);
-                                    }
-                                }
+                                        final ImmutableMap<Tuple, VectorReference> targetClusterAssignedVectorsAsMap =
+                                                targetClusterAssignedVectorsAsMapBuilder.build();
+                                        final Cluster targetCluster = Iterables.getOnlyElement(innerClusters);
 
-                                final ImmutableList<VectorReference> writeTargetClusterAssignedVectors =
-                                        writeTargetClusterAssignedVectorsBuilder.build();
+                                        final ImmutableList.Builder<Tuple> deleteTargetClusterAssignedVectorsBuilder =
+                                                ImmutableList.builder();
+                                        final ImmutableList.Builder<VectorReference> writeTargetClusterAssignedVectorsBuilder =
+                                                ImmutableList.builder();
 
-                                final ImmutableList<Tuple> deleteTargetClusterAssignedVectors =
-                                        deleteTargetClusterAssignedVectorsBuilder.build();
+                                        for (final VectorReference vectorReference : targetCluster.getVectorReferences()) {
+                                            final Tuple primaryKey = vectorReference.getId().getPrimaryKey();
+                                            final VectorReference assignedVectorReference =
+                                                    targetClusterAssignedVectorsAsMap.get(primaryKey);
 
-                                updateAssignments(transaction, random, targetClusterMetadata, reassignmentResult,
-                                        writeTargetClusterAssignedVectors, deleteTargetClusterAssignedVectors,
-                                        quantizer);
-                            }));
-        });
+                                            if (assignedVectorReference != null) {
+                                                //
+                                                // Compare the version from the cluster with the version from the cleaned-up
+                                                // set. At this point, it should not happen that they are different, so it's
+                                                // more of a sanity check.
+                                                //
+                                                Verify.verify(assignedVectorReference.getId().getUuid()
+                                                        .equals(vectorReference.getId().getUuid()));
+
+                                                //
+                                                // What can happen is that a reference can toggle between primary and
+                                                // replicated copy or primary and underreplicated primary, etc.
+                                                //
+                                                if (assignedVectorReference.isPrimaryCopy() != vectorReference.isPrimaryCopy() ||
+                                                        assignedVectorReference.isUnderreplicated() != vectorReference.isUnderreplicated()) {
+                                                    writeTargetClusterAssignedVectorsBuilder.add(assignedVectorReference);
+                                                }
+                                            } else {
+                                                // add to delete list
+                                                deleteTargetClusterAssignedVectorsBuilder.add(primaryKey);
+                                            }
+                                        }
+
+                                        final ImmutableList<VectorReference> writeTargetClusterAssignedVectors =
+                                                writeTargetClusterAssignedVectorsBuilder.build();
+
+                                        final ImmutableList<Tuple> deleteTargetClusterAssignedVectors =
+                                                deleteTargetClusterAssignedVectorsBuilder.build();
+
+                                        updateAssignments(transaction, random, targetClusterMetadata, reassignmentResult,
+                                                writeTargetClusterAssignedVectors, deleteTargetClusterAssignedVectors,
+                                                quantizer);
+                                    }));
+                });
     }
 
     @Nonnull
-    private ReassignmentResult reassignVectorReferences(@Nonnull final SplittableRandom random,
-                                                        @Nonnull final Estimator estimator,
+    private ReassignmentResult reassignVectorReferences(@Nonnull final Estimator estimator,
                                                         @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
                                                         @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood,
                                                         @Nonnull final List<VectorReference> vectorReferences) {
@@ -413,8 +462,8 @@ public class ReassignTask extends AbstractDeferredTask {
                                 clusterMetadataWithDistance.getCentroid(), getAccessInfo(), numPrimaryVectorsAdded,
                                 numPrimaryUnderreplicatedVectorsAdded,
                                 numReplicatedVectorsAdded, ImmutableSet.of());
-                if (logger.isInfoEnabled()) {
-                    logger.info("pushing vectors during reassign; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
+                if (logger.isTraceEnabled()) {
+                    logger.trace("pushing vectors during reassign; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
                                     "numTotalPrimaryUnderreplicatedReplicatedVectors={}, numPrimaryUnderreplicatedVectorsAdded={}, " +
                                     "numTotalReplicatedVectors={}, numReplicatedVectorsAdded={}",
                             clusterMetadata.getId(),
@@ -438,6 +487,13 @@ public class ReassignTask extends AbstractDeferredTask {
     }
 
     @Nonnull
+    private ReassignTask withHighPriorityAndNeighborhood(@Nonnull final SplittableRandom random,
+                                                         @Nonnull final List<ClusterIdAndCentroid> neighborhood) {
+        return ReassignTask.of(getLocator(), getAccessInfo(), randomHighPriorityTaskId(random), getTargetClusterId(),
+                getCentroid(), getCauseClusterIds(), neighborhood);
+    }
+
+    @Nonnull
     static ReassignTask fromTuples(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
                                    @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
         Verify.verify(Kind.fromValueTuple(valueTuple) == Kind.REASSIGN);
@@ -446,10 +502,17 @@ public class ReassignTask extends AbstractDeferredTask {
         final UUID targetClusterId = valueTuple.getUUID(1);
         final Transformed<RealVector> centroid = storageTransform.transform(
                 StorageHelpers.vectorFromBytes(locator.getConfig(), valueTuple.getBytes(2)));
-
         final Set<UUID> causeClusterIds = StorageAdapter.clusterIdsFromTuple(valueTuple.getNestedTuple(3));
-        return new ReassignTask(locator, accessInfo, keyTuple.getUUID(0), targetClusterId,
-                centroid, causeClusterIds);
+        final ImmutableList.Builder<ClusterIdAndCentroid> neighborhoodsBuilder = ImmutableList.builder();
+        final Tuple neighborhoodsTuple = valueTuple.getNestedTuple(4);
+        for (int i = 0; i < neighborhoodsTuple.size(); i ++) {
+            final Tuple clusterMetadataWithDistanceTuple = neighborhoodsTuple.getNestedTuple(i);
+            neighborhoodsBuilder.add(StorageAdapter.clusterIdAndCentroidFromTuple(locator.getConfig(),
+                    storageTransform, clusterMetadataWithDistanceTuple));
+        }
+
+        return new ReassignTask(locator, accessInfo, keyTuple.getUUID(0), targetClusterId, centroid,
+                causeClusterIds, neighborhoodsBuilder.build());
     }
 
     @Nonnull
@@ -457,7 +520,16 @@ public class ReassignTask extends AbstractDeferredTask {
                            @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
                            @Nonnull final Transformed<RealVector> centroid,
                            @Nonnull final Set<UUID> causeClusterIds) {
-        return new ReassignTask(locator, accessInfo, taskId, clusterId, centroid, causeClusterIds);
+        return of(locator, accessInfo, taskId, clusterId, centroid, causeClusterIds, ImmutableList.of());
+    }
+
+    @Nonnull
+    static ReassignTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
+                           @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
+                           @Nonnull final Transformed<RealVector> centroid,
+                           @Nonnull final Set<UUID> causeClusterIds,
+                           @Nonnull final List<ClusterIdAndCentroid> neighborhood) {
+        return new ReassignTask(locator, accessInfo, taskId, clusterId, centroid, causeClusterIds, neighborhood);
     }
 
     private static class ReassignmentResult {

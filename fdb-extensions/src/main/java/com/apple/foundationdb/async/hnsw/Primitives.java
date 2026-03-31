@@ -165,11 +165,7 @@ public class Primitives {
     StorageTransform storageTransform(@Nullable final Long rotatorSeed,
                                       @Nullable final RealVector negatedCentroid,
                                       final boolean normalizeVectors) {
-        final LinearOperator linearOperator =
-                rotatorSeed == null
-                ? null : new FhtKacRotator(rotatorSeed, getConfig().getNumDimensions(), 10);
-
-        return new StorageTransform(linearOperator, negatedCentroid, normalizeVectors);
+        return storageTransform(rotatorSeed, negatedCentroid, normalizeVectors, getConfig().getNumDimensions());
     }
 
     @Nonnull
@@ -1086,6 +1082,18 @@ public class Primitives {
         return (int) Math.floor(-Math.log(u) * lambda);
     }
 
+    @Nonnull
+    static StorageTransform storageTransform(@Nullable final Long rotatorSeed,
+                                             @Nullable final RealVector negatedCentroid,
+                                             final boolean normalizeVectors,
+                                             final int numDimensions) {
+        final LinearOperator linearOperator =
+                rotatorSeed == null
+                ? null : new FhtKacRotator(rotatorSeed, numDimensions, 10);
+
+        return new StorageTransform(linearOperator, negatedCentroid, normalizeVectors);
+    }
+
     @VisibleForTesting
     static void scanLayer(@Nonnull final Config config,
                           @Nonnull final Subspace subspace,
@@ -1093,11 +1101,20 @@ public class Primitives {
                           final int layer,
                           final int batchSize,
                           @Nonnull final Consumer<ResultEntry> nodeConsumer) {
+        final AccessInfo accessInfo = db.run(readTransaction ->
+                StorageAdapter.fetchAccessInfo(config, readTransaction, subspace, OnReadListener.NOOP).join());
+        final StorageTransform storageTransform =
+                !accessInfo.canUseRaBitQ()
+                ? StorageTransform.identity() :
+                storageTransform(accessInfo.getRotatorSeed(), accessInfo.getNegatedCentroid(),
+                        config.getMetric() == Metric.COSINE_METRIC,
+                        config.getNumDimensions());
+
         scanLayerInternal(config, subspace, db, layer, batchSize,
                 node ->
                         nodeConsumer.accept(new ResultEntry(node.getPrimaryKey(),
-                                node.isCompactNode() ? node.asCompactNode().getVector().getUnderlyingVector() : null,
-                                node.isCompactNode() ? node.asCompactNode().getAdditionalValues(): null,
+                                node.isCompactNode() ? storageTransform.untransform(node.asCompactNode().getVector()) : null,
+                                node.isCompactNode() ? node.asCompactNode().getAdditionalValues() : null,
                                 0.0d, -1)));
     }
 

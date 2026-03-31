@@ -128,13 +128,13 @@ public class BounceReassignTask extends AbstractDeferredTask {
                                     final ImmutableSet<UUID> newDependentTaskIds = newDependentTaskIdsBuilder.build();
                                     final BounceReassignTask newBounceReassignTask =
                                             BounceReassignTask.of(getLocator(), accessInfo,
-                                                    RandomHelpers.randomUUID(splittableRandom), getTargetClusterIds(),
+                                                    randomNormalPriorityTaskId(splittableRandom), getTargetClusterIds(),
                                                     newDependentTaskIds);
                                     primitives.writeDeferredTask(transaction, newBounceReassignTask);
 
                                     if (logger.isInfoEnabled()) {
                                         logger.info("re-enqueuing BOUNCE_REASSIGN; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
-                                                newBounceReassignTask.getTaskId(),
+                                                taskIdToString(newBounceReassignTask.getTaskId()),
                                                 newBounceReassignTask.getTargetClusterIds(),
                                                 newBounceReassignTask.getDependentTaskIds());
                                     }
@@ -172,14 +172,14 @@ public class BounceReassignTask extends AbstractDeferredTask {
                                                     storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
                                             final ReassignTask reassignTask =
                                                     ReassignTask.of(getLocator(), accessInfo,
-                                                            RandomHelpers.randomUUID(nestedRandom),
+                                                            randomNormalPriorityTaskId(nestedRandom),
                                                             targetClusterId,
                                                             transformedCentroid,
                                                             ImmutableSet.of());
                                             primitives.writeDeferredTask(transaction, reassignTask);
                                             if (logger.isInfoEnabled()) {
                                                 logger.info("enqueuing final REASSIGN; taskId={}; targetClusterIds={}",
-                                                        reassignTask.getTaskId(),
+                                                        taskIdToString(reassignTask.getTaskId()),
                                                         reassignTask.getTargetClusterIds());
                                             }
 

@@ -129,10 +129,31 @@ class TestHelpers {
                                                     @Nonnull final Guardiann guardiann,
                                                     final int numVectors,
                                                     final int batchSize) throws Exception {
-        return insertSIFT(db, guardiann, "/Users/nseemann/downloads/embeddings-100k.fvecs",
+        return insertSIFT(db, guardiann, "/Users/nseemann/downloads/embeddings-unified-model-100k-1.0.0.fvecs",
                 numVectors, batchSize);
     }
 
+    @Nonnull
+    static List<PrimaryKeyAndVector> loadVectors(@Nonnull final String baseFile,
+                                                 final int numVectors) throws Exception {
+        final Path basePath = Paths.get(baseFile);
+
+        final ImmutableList.Builder<PrimaryKeyAndVector> insertedDataBuilder = ImmutableList.builder();
+
+        try (final var fileChannel = FileChannel.open(basePath, StandardOpenOption.READ)) {
+            final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
+
+            int i = 0;
+            while (vectorIterator.hasNext() && i < numVectors) {
+                final DoubleRealVector currentVector = vectorIterator.next();
+                final Tuple currentPrimaryKey = createPrimaryKey(i++);
+                insertedDataBuilder.add(new PrimaryKeyAndVector(currentPrimaryKey, currentVector));
+            }
+        }
+        return insertedDataBuilder.build();
+    }
+
+    @Nonnull
     static List<PrimaryKeyAndVector> insertSIFT(@Nonnull final Database db,
                                                 @Nonnull final Guardiann guardiann,
                                                 @Nonnull final String baseFile,

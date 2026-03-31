@@ -37,9 +37,9 @@ class ClusterMetadataWithDistance {
     public ClusterMetadataWithDistance(@Nonnull final ClusterMetadata clusterMetadata,
                                        @Nonnull final Transformed<RealVector> centroid,
                                        final double distance) {
+        this.clusterMetadata = clusterMetadata;
         this.centroid = centroid;
         this.distance = distance;
-        this.clusterMetadata = clusterMetadata;
     }
 
     @Nonnull

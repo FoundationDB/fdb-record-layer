@@ -30,7 +30,6 @@ import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
-import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.async.hnsw.HNSW;
@@ -551,16 +550,15 @@ class Primitives {
         if (!clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE) && // not already splitting
                 ((numPrimaryVectorsAdded > 0 && numTotalPrimaryVectors > config.getPrimaryClusterMax()) ||
                          (numPrimaryVectorsAdded < 0 && numTotalPrimaryVectors < config.getPrimaryClusterMin()))) {
-            if (logger.isInfoEnabled()) {
-                logger.info("enqueuing SPLIT_MERGE; clusterId={}; numTotalPrimaryVectors={}",
-                        clusterId, numTotalPrimaryVectors);
-            }
-
             // create a split/merge task
-            final UUID newTaskId = RandomHelpers.randomUUID(random);
+            final UUID newTaskId = AbstractDeferredTask.randomNormalPriorityTaskId(random);
             writeDeferredTask(transaction,
-                    SplitMergeTask.of(getLocator(), accessInfo, newTaskId,
-                            clusterId, clusterCentroid));
+                    SplitMergeTask.of(getLocator(), accessInfo, newTaskId, clusterId, clusterCentroid));
+
+            if (logger.isInfoEnabled()) {
+                logger.info("enqueuing SPLIT_MERGE; taskId={}; clusterId={}; numTotalPrimaryVectors={}",
+                        AbstractDeferredTask.taskIdToString(newTaskId), clusterId, numTotalPrimaryVectors);
+            }
 
             final ClusterMetadata newClusterMetadata =
                     clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
@@ -579,17 +577,17 @@ class Primitives {
                 (!causeClusterIds.isEmpty() ||                                                                     // either we just split or
                          numTotalReplicatedVectors > config.getReplicatedClusterMaxWrites() ||                     // we are violating some clean up bounds
                          numTotalPrimaryUnderreplicatedVectors > config.getUnderreplicatedPrimaryClusterMax())) {
-            if (logger.isInfoEnabled()) {
-                logger.info("enqueuing REASSIGN; clusterId={}; numTotalPrimaryVectors={}, numTotalReplicatedVectors={}, numTotalPrimaryUnderreplicatedVectors={}",
-                        clusterId, numTotalPrimaryVectors, numPrimaryUnderreplicatedVectorsAdded,
-                        numTotalReplicatedVectors);
-            }
-
             // create a reassign task
-            final UUID newTaskId = RandomHelpers.randomUUID(random);
+            final UUID newTaskId = AbstractDeferredTask.randomNormalPriorityTaskId(random);
             writeDeferredTask(transaction,
                     ReassignTask.of(getLocator(), accessInfo, newTaskId,
                             clusterId, clusterCentroid, causeClusterIds));
+
+            if (logger.isInfoEnabled()) {
+                logger.info("enqueuing REASSIGN; taskId={}; clusterId={}; numTotalPrimaryVectors={}, numTotalReplicatedVectors={}, numTotalPrimaryUnderreplicatedVectors={}",
+                        AbstractDeferredTask.taskIdToString(newTaskId), clusterId, numTotalPrimaryVectors,
+                        numPrimaryUnderreplicatedVectorsAdded, numTotalReplicatedVectors);
+            }
 
             final ClusterMetadata newClusterMetadata =
                     clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
@@ -622,6 +620,7 @@ class Primitives {
     CompletableFuture<NeighborhoodsResult> neighborhoods(@Nonnull final ReadTransaction readTransaction,
                                                          @Nonnull final StorageTransform storageTransform,
                                                          @Nonnull final ClusterMetadata targetClusterMetadata,
+                                                         @Nonnull final Transformed<RealVector> transformedClusterCentroid,
                                                          @Nonnull final RealVector targetClusterCentroid,
                                                          final int numInnerNeighborhood,
                                                          final int numOuterNeighborhood) {
@@ -631,14 +630,14 @@ class Primitives {
 
         return neighborhoodClusterMetadataFuture.thenApply(clusterMetadataWithDistances ->
                 neighborhoods(storageTransform, clusterMetadataWithDistances, targetClusterMetadata,
-                        targetClusterCentroid, numInnerNeighborhood, numOuterNeighborhood));
+                        transformedClusterCentroid, numInnerNeighborhood, numOuterNeighborhood));
     }
 
     @Nonnull
     NeighborhoodsResult neighborhoods(@Nonnull final StorageTransform storageTransform,
                                       @Nonnull final List<ClusterMetadataWithDistance> clusterMetadataWithDistances,
                                       @Nonnull final ClusterMetadata targetClusterMetadata,
-                                      @Nonnull final RealVector targetClusterCentroid,
+                                      @Nonnull final Transformed<RealVector> targetClusterCentroid,
                                       final int numInnerNeighborhood,
                                       final int numOuterNeighborhood) {
         //
@@ -671,8 +670,7 @@ class Primitives {
         final ImmutableList.Builder<ClusterMetadataWithDistance> innerNeighborhoodBuilder = ImmutableList.builder();
         // add the target cluster (which we should have found but did not because of reasons)
         innerNeighborhoodBuilder.add(
-                new ClusterMetadataWithDistance(targetClusterMetadata,
-                        storageTransform.transform(targetClusterCentroid), 0.0d));
+                new ClusterMetadataWithDistance(targetClusterMetadata, targetClusterCentroid, 0.0d));
         // now everything shifts
         final int cappedNumInnerNeighborhood = Math.min(numInnerNeighborhood - 1, clusterMetadataWithDistances.size());
 

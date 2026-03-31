@@ -268,9 +268,8 @@ public final class BoundedKMeans {
                     }
                 }
 
-                final double w = minD * minD;
-                weights[i] = w;
-                total += w;
+                weights[i] = minD;
+                total += minD;
             }
 
             if (total == 0.0d) {

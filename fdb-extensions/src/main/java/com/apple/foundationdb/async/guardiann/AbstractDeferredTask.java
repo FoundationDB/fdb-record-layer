@@ -21,8 +21,10 @@
 package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.slf4j.Logger;
 
 import javax.annotation.Nonnull;
@@ -30,6 +32,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -92,20 +95,22 @@ public abstract class AbstractDeferredTask {
 
     protected void logStart(@Nonnull final Logger logger) {
         if (logger.isInfoEnabled()) {
-            logger.info("executing task kind={}, taskId={}, targetClusterId={}", getKind(), getTaskId(),
+            logger.info("executing task kind={}, taskId={}, targetClusterId={}", getKind(), taskIdToString(getTaskId()),
                     getTargetClusterIds());
         }
     }
 
     protected void logSuccessful(@Nonnull final Logger logger) {
         if (logger.isInfoEnabled()) {
-            logger.info("successfully finished executing task kind={}, taskId={}", getKind(), getTaskId());
+            logger.info("successfully finished executing task kind={}, taskId={}", getKind(),
+                    taskIdToString(getTaskId()));
         }
     }
 
     @Nonnull
     public abstract Kind getKind();
 
+    @Nonnull
     static AbstractDeferredTask newFromTuples(@Nonnull final Locator locator,
                                               @Nonnull final AccessInfo accessInfo,
                                               @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
@@ -113,6 +118,30 @@ public abstract class AbstractDeferredTask {
         return kind.create(locator, accessInfo, keyTuple, valueTuple);
     }
 
+    @Nonnull
+    protected static UUID randomHighPriorityTaskId(@Nonnull final SplittableRandom random) {
+        final UUID randomUUID = RandomHelpers.randomUUID(random);
+        return new UUID(randomUUID.getMostSignificantBits() & 0x7fffffffffffffffL,
+                randomUUID.getLeastSignificantBits());
+    }
+
+    @Nonnull
+    protected static UUID randomNormalPriorityTaskId(@Nonnull final SplittableRandom random) {
+        final UUID randomUUID = RandomHelpers.randomUUID(random);
+        return new UUID(randomUUID.getMostSignificantBits() | 0x8000000000000000L,
+                randomUUID.getLeastSignificantBits());
+    }
+
+    @Nonnull
+    static String taskIdToString(@Nonnull final UUID taskId) {
+        return (isHighPriority(taskId) ? "NORMAL" : "HIGH") + ":" + taskId;
+    }
+
+    static boolean isHighPriority(@Nonnull final UUID taskId) {
+        return (taskId.getMostSignificantBits() & 0x8000000000000000L) != 0;
+    }
+
+    @CanIgnoreReturnValue
     protected static <T> int incrementCounter(@Nonnull final Map<T, Integer> countersMap, @Nonnull final T key) {
         return  countersMap.compute(key, (ignoredKey, oldCounter) -> {
             if (oldCounter == null) {

@@ -308,6 +308,21 @@ class StorageAdapter {
     }
 
     @Nonnull
+    static ClusterIdAndCentroid clusterIdAndCentroidFromTuple(@Nonnull final Config config,
+                                                              @Nonnull final StorageTransform storageTransform,
+                                                              @Nonnull final Tuple valueTuple) {
+        return new ClusterIdAndCentroid(valueTuple.getUUID(0),
+                storageTransform.transform(StorageHelpers.vectorFromBytes(config, valueTuple.getBytes(1))));
+    }
+
+    @Nonnull
+    static Tuple valueTupleFromClusterIdAndCentroid(@Nonnull final Quantizer quantizer,
+                                                    @Nonnull final ClusterIdAndCentroid clusterIdAndCentroid) {
+        return Tuple.from(clusterIdAndCentroid.getClusterId(),
+                StorageHelpers.bytesFromVector(quantizer.encode(clusterIdAndCentroid.getCentroid())));
+    }
+
+    @Nonnull
     static VectorReference vectorReferenceFromTuples(@Nonnull final Config config,
                                                      @Nonnull final StorageTransform storageTransform,
                                                      @Nonnull final Tuple primaryKey,

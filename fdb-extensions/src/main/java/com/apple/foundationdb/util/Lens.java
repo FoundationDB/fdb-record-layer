@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.util;
 
+import com.google.common.collect.ImmutableList;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.UnaryOperator;
 
@@ -88,5 +91,14 @@ public interface Lens<C, A> {
                 return Objects.requireNonNull(t2);
             }
         };
+    }
+
+    @Nonnull
+    static <T1, T2> List<T2> extract(@Nonnull final Lens<T1, T2> lens, @Nonnull final List<T1> elements) {
+        final ImmutableList.Builder<T2> resultsBuilder = ImmutableList.builder();
+        for (final T1 element : elements) {
+            resultsBuilder.add(lens.getNonnull(element));
+        }
+        return resultsBuilder.build();
     }
 }
