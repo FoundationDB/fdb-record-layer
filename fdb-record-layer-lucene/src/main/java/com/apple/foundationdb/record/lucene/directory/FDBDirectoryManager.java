@@ -505,7 +505,7 @@ public class FDBDirectoryManager implements AutoCloseable {
             // Call closeWithoutCommit once the transaction closes. If the transaction was committed, then close() was
             // called (see above) so this would be a noop. If the transaction was not committed, we still need to close
             // the created directoryWrappers, so call their closeWithoutCommit().
-            // Foe each context, there should be only one manager per index, so the name is qualified by index
+            // For each context, there should be only one manager per index, so the name is qualified by index
             final String hookName = "DirectoryManager/" + state.index.getName();
             context.addPostCloseHook(hookName, () -> {
                 try {
