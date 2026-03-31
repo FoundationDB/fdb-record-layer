@@ -22,12 +22,18 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
@@ -303,5 +309,20 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
             builder.addComparisonRange(comparisonRange);
         }
         return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public List<OrderingPart.MatchedOrderingPart> computeEqualityBoundImplicitOrderingParts() {
+        final var secondaryIndexScopedToSingleType = queriedRecordTypes.size() == 1;
+        if (secondaryIndexScopedToSingleType) {
+            final var comparison = new RecordTypeKeyComparison(queriedRecordTypes.get(0).getName());
+            final var opaqueParameterId = CorrelationIdentifier.uniqueId(PredicateWithValueAndRanges.class);
+            final var recordTypeValue = new RecordTypeValue(QuantifiedRecordValue.of(Quantifier.current(), baseType));
+
+            final var recordTypeKeyOrderingPart = OrderingPart.MatchedOrderingPart.of(opaqueParameterId, recordTypeValue, ComparisonRange.from(comparison.getComparison()), OrderingPart.MatchedSortOrder.ASCENDING);
+            return ImmutableList.of(recordTypeKeyOrderingPart);
+        }
+        return ImmutableList.of();
     }
 }

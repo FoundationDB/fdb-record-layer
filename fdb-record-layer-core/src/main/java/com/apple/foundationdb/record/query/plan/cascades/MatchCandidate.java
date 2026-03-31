@@ -191,6 +191,11 @@ public interface MatchCandidate {
                                                           boolean isReverse);
 
     @Nonnull
+    default List<MatchedOrderingPart> computeEqualityBoundImplicitOrderingParts() {
+        return ImmutableList.of();
+    }
+
+    @Nonnull
     Ordering computeOrderingFromScanComparisons(@Nonnull ScanComparisons scanComparisons,
                                                 boolean isReverse,
                                                 boolean isDistinct);

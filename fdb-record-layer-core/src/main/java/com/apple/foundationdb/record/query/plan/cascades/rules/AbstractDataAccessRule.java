@@ -977,6 +977,9 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
             // 2.) whose unmatchedIds are already equal to the unmatched ids of the entire partition
             // this partition is deemed redundant
             //
+
+            // I1 ->
+
             final var subIntersectionOrdering = subIntersectionInfo.getIntersectionOrdering();
             if (!subIntersectionOrdering.getEqualityBoundValues().containsAll(equalityBoundKeyValues)) {
                 continue;
@@ -1060,15 +1063,22 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
         final var partialMatch = singleMatchedAccess.getPartialMatch();
         final var boundParametersPrefixMap =
                 partialMatch.getBoundParameterPrefixMap();
-        final List<MatchedOrderingPart> adjustedMatchOrderingParts =
-                partialMatch.getMatchInfo()
-                        .getMatchedOrderingParts()
+        final var adjustedMatchOrderingPartsBuilder = ImmutableList.<MatchedOrderingPart>builder();
+
+        final var matchedOrderingPartsBuilder = ImmutableList.<MatchedOrderingPart>builder();
+        matchedOrderingPartsBuilder.addAll(partialMatch.getMatchCandidate().computeEqualityBoundImplicitOrderingParts())
+                .addAll(partialMatch.getMatchInfo()
+                        .getMatchedOrderingParts());
+
+        adjustedMatchOrderingPartsBuilder
+                .addAll(matchedOrderingPartsBuilder
+                        .build()
                         .stream()
                         .map(matchedOrderingPart -> matchedOrderingPart.getComparisonRange().isEquality() &&
                                                             !boundParametersPrefixMap.containsKey(matchedOrderingPart.getParameterId())
                                                     ? matchedOrderingPart.demote() : matchedOrderingPart)
-                        .collect(ImmutableList.toImmutableList());
-        return NonnullPair.of(adjustedMatchOrderingParts, singleMatchedAccess.isReverseScanOrder());
+                        .collect(ImmutableList.toImmutableList()));
+        return NonnullPair.of(adjustedMatchOrderingPartsBuilder.build(), singleMatchedAccess.isReverseScanOrder());
     }
 
     /**

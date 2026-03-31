@@ -1,13 +1,12 @@
 enum-tests:
 -   query: EXPLAIN SELECT * From table_a where "name" = 'bar'
     ref: filter-index.yamsql:42
-    explain: SCAN([IS TABLE_A]) ∩ ISCAN(I1 [EQUALS promote(@c7 AS STRING)]) COMPARE
-        BY (_.id)
-    task_count: 228
-    task_total_time_ms: 203
-    transform_count: 62
-    transform_time_ms: 149
-    transform_yield_count: 22
-    insert_time_ms: 9
-    insert_new_count: 22
-    insert_reused_count: 1
+    explain: ISCAN(I1 [EQUALS promote(@c7 AS STRING)])
+    task_count: 229
+    task_total_time_ms: 192
+    transform_count: 66
+    transform_time_ms: 140
+    transform_yield_count: 24
+    insert_time_ms: 8
+    insert_new_count: 23
+    insert_reused_count: 3

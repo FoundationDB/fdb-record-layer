@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
@@ -147,6 +148,14 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             bindingMapBuilder.put(simplifiedComparisonPair.getLeft(), Binding.fixed(simplifiedComparisonPair.getRight()));
             seenValues.add(simplifiedComparisonPair.getLeft());
         }
+
+        //
+        // if this is a single-typed index then create an equality-bound record-type predicate
+        // and add it to the binding map.
+        //
+        final var implicitEqualityBoundOrderingParts = computeEqualityBoundImplicitOrderingParts();
+        implicitEqualityBoundOrderingParts.forEach(orderingPart -> bindingMapBuilder.put(orderingPart.getValue(),
+                Binding.fixed(new Comparisons.OpaqueEqualityComparison())));
 
         final var orderingSequenceBuilder = ImmutableList.<Value>builder();
         for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
