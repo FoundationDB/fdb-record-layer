@@ -505,7 +505,7 @@ test_block:
     # Query the unindexed record to validate that copying the version from a scan works
     -
       - query: select * from unindexed_t where col2 = 'even';
-      - explain: "SCAN(<,>) | TFILTER UNINDEXED_T | FILTER _.COL2 EQUALS promote(@c7 AS STRING) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "SCAN([IS UNINDEXED_T]) | FILTER _.COL2 EQUALS promote(@c7 AS STRING) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - result: [
           { ID: 2, COL1: 10, COL2: "even" },
           { ID: 4, COL1: 20, COL2: "even" },
@@ -513,7 +513,7 @@ test_block:
         ]
     -
       - query: select "__ROW_VERSION", id, col1 from unindexed_t where col2 = 'even';
-      - explain: "SCAN(<,>) | TFILTER UNINDEXED_T | FILTER _.COL2 EQUALS promote(@c11 AS STRING) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1)"
+      - explain: "SCAN([IS UNINDEXED_T]) | FILTER _.COL2 EQUALS promote(@c11 AS STRING) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1)"
       - result: [
           { '__ROW_VERSION': !not_null _, ID: 2, COL1: 10 },
           { '__ROW_VERSION': !not_null _, ID: 4, COL1: 20 },
@@ -521,7 +521,7 @@ test_block:
         ]
     -
       - query: select * from unindexed_t_v(30) where col2 = 'odd' or col2 = 'even';
-      - explain: "SCAN(<,>) | TFILTER UNINDEXED_T | FILTER (_.COL2 EQUALS promote(@c10 AS STRING) OR _.COL2 EQUALS promote(@c14 AS STRING)) AND _.COL1 EQUALS promote(@c5 AS LONG) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "SCAN([IS UNINDEXED_T]) | FILTER (_.COL2 EQUALS promote(@c10 AS STRING) OR _.COL2 EQUALS promote(@c14 AS STRING)) AND _.COL1 EQUALS promote(@c5 AS LONG) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - result: [
           { '__ROW_VERSION': !not_null _, ID: 5, COL1: 30, COL2: 'odd' },
           { '__ROW_VERSION': !not_null _, ID: 6, COL1: 30, COL2: 'even' },

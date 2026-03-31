@@ -36,19 +36,19 @@ test_block:
   tests:
     -
       - query: select id, col1 from t1 where id > 1
-      - explain: "SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c9 AS LONG) | MAP (_.ID AS ID, _.COL1 AS COL1)"
+      - explain: "SCAN([IS T1, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.ID AS ID, _.COL1 AS COL1)"
       - debugger: sane
       - result: [{id: 2, col1: 'd'},
                  {id: 3, col1: 'g'}]
     -
       - query: select id, col2 from t1 where id > 1
-      - explain: "SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c9 AS LONG) | MAP (_.ID AS ID, _.COL2 AS COL2)"
+      - explain: "SCAN([IS T1, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.ID AS ID, _.COL2 AS COL2)"
       - debugger: insane
       - result: [{id: 2, col2: 'e'},
                  {id: 3, col2: 'h'}]
     -
       - query: select id, col3 from t1 where id > 1
-      - explain: "SCAN(<,>) | FILTER _.ID GREATER_THAN promote(@c9 AS LONG) | MAP (_.ID AS ID, _.COL3 AS COL3)"
+      - explain: "SCAN([IS T1, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.ID AS ID, _.COL3 AS COL3)"
       - debugger: recording
       - result: [ { id: 2, col3: 'f' },
                   { id: 3, col3: 'i' } ]

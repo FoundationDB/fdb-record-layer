@@ -3,10 +3,10 @@ unnamed-2:
     ref: record-type-key-tests.yamsql:34
     explain: SCAN([IS T1, EQUALS promote(@c7 AS LONG)])
     task_count: 160
-    task_total_time_ms: 148
+    task_total_time_ms: 158
     transform_count: 45
-    transform_time_ms: 117
+    transform_time_ms: 123
     transform_yield_count: 15
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 13
     insert_reused_count: 1

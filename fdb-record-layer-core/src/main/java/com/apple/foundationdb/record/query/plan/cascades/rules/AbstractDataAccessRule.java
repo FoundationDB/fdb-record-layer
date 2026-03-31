@@ -54,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalInte
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -1065,10 +1066,16 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
                 partialMatch.getBoundParameterPrefixMap();
         final var adjustedMatchOrderingPartsBuilder = ImmutableList.<MatchedOrderingPart>builder();
 
+
+        final var matchedOrderingParts = partialMatch.getMatchInfo()
+                .getMatchedOrderingParts()
+                .stream()
+                .filter(part -> !(part.getValue() instanceof RecordTypeValue))
+                .collect(ImmutableList.toImmutableList());
         final var matchedOrderingPartsBuilder = ImmutableList.<MatchedOrderingPart>builder();
+
         matchedOrderingPartsBuilder.addAll(partialMatch.getMatchCandidate().computeEqualityBoundImplicitOrderingParts())
-                .addAll(partialMatch.getMatchInfo()
-                        .getMatchedOrderingParts());
+                .addAll(matchedOrderingParts);
 
         adjustedMatchOrderingPartsBuilder
                 .addAll(matchedOrderingPartsBuilder

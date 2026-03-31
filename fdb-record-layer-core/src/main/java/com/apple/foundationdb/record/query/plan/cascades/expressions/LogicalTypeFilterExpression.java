@@ -209,6 +209,10 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
                 Iterables.getOnlyElement(translatedPredicate.findImpliedMappings(bindingValueEquivalence, recordTypePredicate,
                         ImmutableList.of(candidateTypeFilterExpression.getRecordTypePredicate()), evaluationContext));
 
+        if (impliedMappingForPredicate.getCandidatePredicate().isTautology()) {
+            return ImmutableList.of();
+        }
+
         final var predicateMapBuilder = PredicateMultiMap.builder();
         final var originalQueryPredicate = impliedMappingForPredicate.getOriginalQueryPredicate();
         predicateMapBuilder.put(originalQueryPredicate, impliedMappingForPredicate);

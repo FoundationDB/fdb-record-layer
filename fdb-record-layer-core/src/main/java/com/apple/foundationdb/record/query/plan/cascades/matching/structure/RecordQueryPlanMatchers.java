@@ -347,6 +347,14 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
+    public static BindingMatcher<MultidimensionalIndexScanComparisons> recordTypeKey(@Nonnull final BindingMatcher<? extends ScanComparisons> downstream) {
+        return typedWithDownstream(MultidimensionalIndexScanComparisons.class,
+                Extractor.of(MultidimensionalIndexScanComparisons::getSuffixScanComparisons, name -> "suffix(" + name + ")"),
+                downstream);
+    }
+
+
+    @Nonnull
     public static BindingMatcher<RecordQueryPredicatesFilterPlan> predicatesFilter(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(RecordQueryPredicatesFilterPlan.class, any(downstream));
     }
