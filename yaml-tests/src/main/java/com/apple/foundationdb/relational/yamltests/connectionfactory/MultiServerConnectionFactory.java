@@ -103,12 +103,10 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
 
     @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
-        if (connectionSelectionPolicy == ConnectionSelectionPolicy.DEFAULT) {
-            return defaultFactory.getNewConnection(connectPath, clusterIndex);
-        } else {
-            return new MultiServerConnection(connectionSelectionPolicy, getNextConnectionNumber(),
-                    defaultFactory.getNewConnection(connectPath, clusterIndex), alternateConnections(connectPath, clusterIndex));
-        }
+        // For multi-cluster connections, delegate directly to the default factory which has multi-cluster support.
+        // Alternation is not applied here because alternate factories (e.g. external servers) may not support
+        // all clusters.
+        return defaultFactory.getNewConnection(connectPath, clusterIndex);
     }
 
     @Override
@@ -123,11 +121,7 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
 
     @Override
     public int getAvailableClusterCount() {
-        int min = defaultFactory.getAvailableClusterCount();
-        for (final YamlConnectionFactory factory : alternateFactories) {
-            min = Math.min(min, factory.getAvailableClusterCount());
-        }
-        return min;
+        return defaultFactory.getAvailableClusterCount();
     }
 
     @Nonnull
@@ -135,17 +129,6 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
         return alternateFactories.stream().map(factory -> {
             try {
                 return factory.getNewConnection(connectPath);
-            } catch (SQLException e) {
-                throw new IllegalStateException("Failed to create a connection", e);
-            }
-        }).collect(Collectors.toList());
-    }
-
-    @Nonnull
-    private List<YamlConnection> alternateConnections(URI connectPath, int clusterIndex) {
-        return alternateFactories.stream().map(factory -> {
-            try {
-                return factory.getNewConnection(connectPath, clusterIndex);
             } catch (SQLException e) {
                 throw new IllegalStateException("Failed to create a connection", e);
             }

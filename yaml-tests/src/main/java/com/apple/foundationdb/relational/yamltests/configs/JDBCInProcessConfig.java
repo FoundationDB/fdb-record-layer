@@ -67,6 +67,15 @@ public class JDBCInProcessConfig implements YamlTestConfig {
         return new JDBCInProcessYamlConnectionFactory(server, clusterFile);
     }
 
+    protected InProcessRelationalServer getServer() {
+        return server;
+    }
+
+    @Nullable
+    protected String getClusterFile() {
+        return clusterFile;
+    }
+
     @Nonnull
     @Override
     public YamlExecutionContext.ContextOptions getRunnerOptions() {

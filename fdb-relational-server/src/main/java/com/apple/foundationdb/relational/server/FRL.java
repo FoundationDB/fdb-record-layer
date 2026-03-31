@@ -214,8 +214,7 @@ public class FRL implements AutoCloseable {
     }
 
     private RelationalConnection connect(String database, String schema, Options options) throws SQLException {
-        final var driver = (RelationalDriver) DriverManager.getDriver(createEmbeddedJDBCURI(database, schema));
-        return driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options);
+        return registeredDriver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options);
     }
 
     private Response executeInternal(@Nonnull RelationalConnection connection,
@@ -341,8 +340,7 @@ public class FRL implements AutoCloseable {
     }
 
     public TransactionalToken createTransactionalToken(String database, String schema, Options options) throws SQLException {
-        final var driver = (RelationalDriver) DriverManager.getDriver(createEmbeddedJDBCURI(database, schema));
-        RelationalConnection transactionalConnection = driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options);
+        RelationalConnection transactionalConnection = registeredDriver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options);
         transactionalConnection.setAutoCommit(false);
         return new TransactionalToken(transactionalConnection);
     }
