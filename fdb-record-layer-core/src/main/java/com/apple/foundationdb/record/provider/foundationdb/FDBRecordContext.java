@@ -1074,11 +1074,13 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nonnull
     private CompletableFuture<Void> runPostClose() {
         synchronized (postClose) {
-            List<Supplier<CompletableFuture<Void>>> callbacks = postClose.values().stream().map(this::postCommitCallback).collect(Collectors.toList());
-            // This would ensure best-effort in calling all suppliers and waiting for all the futures
-            final CompletableFuture<Void> result = CloseableUtils.invokeAllFutures(callbacks);
-            postClose.clear();
-            return result;
+            try {
+                List<Supplier<CompletableFuture<Void>>> callbacks = postClose.values().stream().map(this::postCommitCallback).collect(Collectors.toList());
+                // This would ensure best-effort in calling all suppliers and waiting for all the futures
+                return CloseableUtils.invokeAllFutures(callbacks);
+            } finally {
+                postClose.clear();
+            }
         }
     }
 
