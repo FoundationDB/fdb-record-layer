@@ -53,6 +53,7 @@ public class EmbeddedConfig implements YamlTestConfig {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource") // FRLs are tracked in the list and closed in afterAll()
     public void beforeAll() throws Exception {
         var options = Options.builder()
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
@@ -73,6 +74,7 @@ public class EmbeddedConfig implements YamlTestConfig {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource") // FRLs are being closed in this loop
     public void afterAll() throws Exception {
         for (final FRL frl : frls) {
             frl.close();
