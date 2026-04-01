@@ -34,29 +34,60 @@ import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Set;
 
 public class ExternalServerYamlConnectionFactory implements YamlConnectionFactory {
     private static final Logger LOG = LogManager.getLogger(ExternalServerYamlConnectionFactory.class);
     private final ExternalServer externalServer;
+    @Nonnull
+    private final List<ExternalServer> additionalClusterServers;
 
     public ExternalServerYamlConnectionFactory(final ExternalServer externalServer) {
+        this(externalServer, List.of());
+    }
+
+    public ExternalServerYamlConnectionFactory(final ExternalServer externalServer,
+                                               @Nonnull List<ExternalServer> additionalClusterServers) {
         this.externalServer = externalServer;
+        this.additionalClusterServers = additionalClusterServers;
     }
 
     @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + externalServer.getPort());
+        return createConnection(connectPath, externalServer);
+    }
+
+    @Override
+    public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
+        if (clusterIndex == 0) {
+            return getNewConnection(connectPath);
+        }
+        final int idx = clusterIndex - 1;
+        if (idx >= additionalClusterServers.size()) {
+            throw new SQLException("Cluster index " + clusterIndex + " not available (only " +
+                    (additionalClusterServers.size() + 1) + " clusters configured)");
+        }
+        return createConnection(connectPath, additionalClusterServers.get(idx));
+    }
+
+    @Override
+    public int getAvailableClusterCount() {
+        return 1 + additionalClusterServers.size();
+    }
+
+    private YamlConnection createConnection(@Nonnull URI connectPath, @Nonnull ExternalServer server) throws SQLException {
+        String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + server.getPort());
         if (LOG.isInfoEnabled()) {
             LOG.info(KeyValueLogMessage.of("Rewrote connection string for external server",
                     "original", connectPath,
                     "rewritten", uriStr,
-                    "version", externalServer.getVersion()));
+                    "version", server.getVersion()));
         }
 
         final Connection connection = DriverManager.getConnection(uriStr);
-        externalServer.validateConnectionVersion(connection);
-        return new SimpleYamlConnection(connection, externalServer.getVersion(), externalServer.getClusterFile());
+        server.validateConnectionVersion(connection);
+        return new SimpleYamlConnection(connection, server.getVersion(), server.getClusterFile());
     }
 
     @Override

@@ -45,17 +45,26 @@ public class JDBCMultiServerConfig extends JDBCInProcessConfig {
     private final ExternalServer externalServer;
     private final int initialConnection;
     @Nonnull
+    private final List<ExternalServer> additionalClusterExternalServers;
+    @Nonnull
     private final List<InProcessRelationalServer> additionalClusterServers = new ArrayList<>();
 
     public JDBCMultiServerConfig(final int initialConnection, ExternalServer externalServer) {
-        this(initialConnection, externalServer, null);
+        this(initialConnection, externalServer, null, List.of());
     }
 
     public JDBCMultiServerConfig(final int initialConnection, ExternalServer externalServer,
                                  @Nullable final String clusterFile) {
+        this(initialConnection, externalServer, clusterFile, List.of());
+    }
+
+    public JDBCMultiServerConfig(final int initialConnection, ExternalServer externalServer,
+                                 @Nullable final String clusterFile,
+                                 @Nonnull List<ExternalServer> additionalClusterExternalServers) {
         super(clusterFile);
         this.initialConnection = initialConnection;
         this.externalServer = externalServer;
+        this.additionalClusterExternalServers = additionalClusterExternalServers;
     }
 
     @Override
@@ -100,7 +109,7 @@ public class JDBCMultiServerConfig extends JDBCInProcessConfig {
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 initialConnection,
                 jdbcFactory,
-                List.of(new ExternalServerYamlConnectionFactory(externalServer)));
+                List.of(new ExternalServerYamlConnectionFactory(externalServer, additionalClusterExternalServers)));
     }
 
     @Override
