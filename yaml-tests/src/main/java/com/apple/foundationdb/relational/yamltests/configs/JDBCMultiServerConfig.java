@@ -20,25 +20,22 @@
 
 package com.apple.foundationdb.relational.yamltests.configs;
 
-import com.apple.foundationdb.relational.server.InProcessRelationalServer;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.ExternalServerYamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.JDBCInProcessYamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
-import com.apple.foundationdb.test.FDBTestEnvironment;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Run against an embedded JDBC driver, and an external server, alternating commands that go against each.
  * <p>
- * When multiple cluster files are available, starts one in-process server per additional cluster so that
- * multi-cluster tests (using {@code connect: { cluster: N }}) can route to the correct cluster.
+ * Multi-cluster support (additional in-process servers for non-primary cluster files) is inherited from
+ * {@link JDBCInProcessConfig}. When additional cluster external servers are provided, they are passed to
+ * the {@link ExternalServerYamlConnectionFactory} so that cluster-specific connections also alternate.
  */
 public class JDBCMultiServerConfig extends JDBCInProcessConfig {
 
@@ -46,8 +43,6 @@ public class JDBCMultiServerConfig extends JDBCInProcessConfig {
     private final int initialConnection;
     @Nonnull
     private final List<ExternalServer> additionalClusterExternalServers;
-    @Nonnull
-    private final List<InProcessRelationalServer> additionalClusterServers = new ArrayList<>();
 
     public JDBCMultiServerConfig(final int initialConnection, ExternalServer externalServer) {
         this(initialConnection, externalServer, null, List.of());
@@ -68,42 +63,9 @@ public class JDBCMultiServerConfig extends JDBCInProcessConfig {
     }
 
     @Override
-    public void beforeAll() throws Exception {
-        super.beforeAll();
-        // Start one in-process server per additional cluster file
-        for (final String otherClusterFile : FDBTestEnvironment.allClusterFiles()) {
-            if (!Objects.equals(otherClusterFile, getClusterFile())) {
-                final InProcessRelationalServer server = new InProcessRelationalServer(otherClusterFile).start();
-                additionalClusterServers.add(server);
-            }
-        }
-    }
-
-    @Override
-    public void afterAll() throws Exception {
-        for (final InProcessRelationalServer server : additionalClusterServers) {
-            server.close();
-        }
-        additionalClusterServers.clear();
-        super.afterAll();
-    }
-
-    @Override
     public YamlConnectionFactory createConnectionFactory() {
-        // Build the JDBCInProcessYamlConnectionFactory with multi-cluster support
-        final List<JDBCInProcessYamlConnectionFactory.ClusterServer> clusterServers = new ArrayList<>();
-        final List<String> allClusterFiles = FDBTestEnvironment.allClusterFiles();
-        for (int i = 0; i < additionalClusterServers.size(); i++) {
-            final String otherClusterFile = allClusterFiles.stream()
-                    .filter(cf -> !Objects.equals(cf, getClusterFile()))
-                    .skip(i)
-                    .findFirst()
-                    .orElseThrow();
-            clusterServers.add(new JDBCInProcessYamlConnectionFactory.ClusterServer(
-                    additionalClusterServers.get(i), otherClusterFile));
-        }
         final JDBCInProcessYamlConnectionFactory jdbcFactory =
-                new JDBCInProcessYamlConnectionFactory(getServer(), getClusterFile(), clusterServers);
+                new JDBCInProcessYamlConnectionFactory(getServer(), getClusterFile(), buildClusterServers());
 
         return new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,

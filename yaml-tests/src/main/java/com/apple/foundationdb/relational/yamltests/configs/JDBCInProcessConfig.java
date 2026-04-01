@@ -24,18 +24,27 @@ import com.apple.foundationdb.relational.server.InProcessRelationalServer;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.JDBCInProcessYamlConnectionFactory;
+import com.apple.foundationdb.test.FDBTestEnvironment;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Run against an embedded JDBC server.
+ * <p>
+ * When multiple cluster files are available, starts one in-process server per additional cluster so that
+ * multi-cluster tests (using {@code connect: { cluster: N }}) can route to the correct cluster.
  */
 public class JDBCInProcessConfig implements YamlTestConfig {
     @Nullable
     private InProcessRelationalServer server;
     @Nullable
     private final String clusterFile;
+    @Nonnull
+    private final List<InProcessRelationalServer> additionalClusterServers = new ArrayList<>();
 
     public JDBCInProcessConfig() {
         this(null);
@@ -52,10 +61,21 @@ public class JDBCInProcessConfig implements YamlTestConfig {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+        // Start one in-process server per additional cluster file
+        for (final String otherClusterFile : FDBTestEnvironment.allClusterFiles()) {
+            if (!Objects.equals(otherClusterFile, clusterFile)) {
+                final InProcessRelationalServer additionalServer = new InProcessRelationalServer(otherClusterFile).start();
+                additionalClusterServers.add(additionalServer);
+            }
+        }
     }
 
     @Override
     public void afterAll() throws Exception {
+        for (final InProcessRelationalServer additionalServer : additionalClusterServers) {
+            additionalServer.close();
+        }
+        additionalClusterServers.clear();
         if (server != null) {
             server.close();
             server = null;
@@ -64,7 +84,26 @@ public class JDBCInProcessConfig implements YamlTestConfig {
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
-        return new JDBCInProcessYamlConnectionFactory(server, clusterFile);
+        return new JDBCInProcessYamlConnectionFactory(server, clusterFile, buildClusterServers());
+    }
+
+    /**
+     * Build the list of {@link JDBCInProcessYamlConnectionFactory.ClusterServer} entries for the additional clusters.
+     */
+    @Nonnull
+    protected List<JDBCInProcessYamlConnectionFactory.ClusterServer> buildClusterServers() {
+        final List<JDBCInProcessYamlConnectionFactory.ClusterServer> clusterServers = new ArrayList<>();
+        final List<String> allClusterFiles = FDBTestEnvironment.allClusterFiles();
+        for (int i = 0; i < additionalClusterServers.size(); i++) {
+            final String otherClusterFile = allClusterFiles.stream()
+                    .filter(cf -> !Objects.equals(cf, clusterFile))
+                    .skip(i)
+                    .findFirst()
+                    .orElseThrow();
+            clusterServers.add(new JDBCInProcessYamlConnectionFactory.ClusterServer(
+                    additionalClusterServers.get(i), otherClusterFile));
+        }
+        return clusterServers;
     }
 
     protected InProcessRelationalServer getServer() {
