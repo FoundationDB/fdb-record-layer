@@ -234,6 +234,13 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
             parameterBindingMap.put(parameterAliasOptional.get(), comparisonRangeOptional.get());
         }
 
+        // Since the query language does not support multi-table selection (e.g., SQL's UNION of heterogeneous
+        // table types), we refuse to match if the candidate's type filter covers more record types than the query's
+        // without binding to a specific record type key.
+        if (parameterAliasOptional.isEmpty() && getRecordTypes().size() < candidateTypeFilterExpression.getRecordTypes().size()) {
+            return ImmutableList.of();
+        }
+
         final var predicateMapOptional = predicateMapBuilder.buildMaybe();
         if (predicateMapOptional.isEmpty()) {
             return ImmutableList.of();
