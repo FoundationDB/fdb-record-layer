@@ -28,9 +28,7 @@ import com.google.common.base.Supplier;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 /**
  * A sub interface of {@link KeyExpressionVisitor} that fixes the return type to be a {@link GraphExpansion} and
@@ -49,12 +47,12 @@ public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends 
      * @return a new {@link MatchCandidate} that can be used for matching.
      */
     @Nonnull
-    MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
-                          @Nonnull final Set<String> queriedRecordTypeNames,
-                          @Nonnull final Type.Record baseType,
-                          @Nonnull final AccessHint accessHint,
-                          @Nullable final KeyExpression primaryKey,
-                          final boolean isReverse);
+    MatchCandidate expand(@Nonnull Set<String> availableRecordTypeNames,
+                          @Nonnull Set<String> queriedRecordTypeNames,
+                          @Nonnull Type.Record baseType,
+                          @Nonnull AccessHint accessHint,
+                          @Nullable KeyExpression primaryKey,
+                          boolean isReverse);
 
     /**
      * Method that expands a data structure into a data flow graph.
@@ -66,9 +64,9 @@ public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends 
      * @return a new {@link MatchCandidate} that can be used for matching.
      */
     @Nonnull
-    default MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
-                          @Nullable final KeyExpression primaryKey,
-                          final boolean isReverse) {
+    default MatchCandidate expand(@Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+                          @Nullable KeyExpression primaryKey,
+                          boolean isReverse) {
         throw new UnsupportedOperationException("expansion with base quantifier supplier is not supported");
     }
 

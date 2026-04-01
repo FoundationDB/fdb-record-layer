@@ -101,7 +101,7 @@ public final class MatchCandidateExpansion {
         try {
             final var accessHint = new IndexAccessHint(info.getIndexName());
             final MatchCandidate matchCandidate;
-            if (info.getIndex().getType().equals(IndexTypes.RANK)) {
+            if (IndexTypes.RANK.equals(info.getIndex().getType())) {
                 //
                 // rank index requires a type filter supplier as it requires creating multiple type filter
                 // references when creating the match candidate, moreover, the current version of rank index

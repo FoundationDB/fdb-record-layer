@@ -148,6 +148,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     }
 
     @Nonnull
+    @Override
     public Set<CorrelationIdentifier> getSargableAliasesRequiredForBinding() {
         if (isSortedByRecordTypeKey()) {
             return ImmutableSet.of(parameters.get(0));
