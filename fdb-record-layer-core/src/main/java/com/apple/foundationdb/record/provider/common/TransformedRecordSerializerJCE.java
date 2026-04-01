@@ -47,8 +47,10 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
                                              boolean encryptWhenSerializing,
                                              double writeValidationRatio,
                                              double writeEncryptionValidationRatio,
+                                             boolean failOnDeserializeReattempt,
+                                             int deserializeReattemptCount,
                                              @Nullable SerializationKeyManager keyManager) {
-        super(inner, compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio);
+        super(inner, compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio, failOnDeserializeReattempt, deserializeReattemptCount);
         this.keyManager = keyManager;
     }
 
@@ -116,7 +118,9 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
     @Nonnull
     @Override
     public RecordSerializer<Message> widen() {
-        return new TransformedRecordSerializerJCE<>(inner.widen(), compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio, keyManager);
+        return new TransformedRecordSerializerJCE<>(inner.widen(), compressWhenSerializing, compressionLevel,
+                encryptWhenSerializing, writeValidationRatio, writeEncryptionValidationRatio, failOnDeserializeReattempt,
+                deserializeReattemptCount, keyManager);
     }
 
     /**
@@ -312,6 +316,8 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
                     encryptWhenSerializing,
                     writeValidationRatio,
                     writeEncryptionValidationRatio,
+                    failOnDeserializeReattempt,
+                    deserializeReattemptCount,
                     resolveKeyManager()
             );
         }

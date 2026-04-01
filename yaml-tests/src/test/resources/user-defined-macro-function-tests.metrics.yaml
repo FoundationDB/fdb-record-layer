@@ -1,6 +1,6 @@
 user-defined-scalar-function-tests:
 -   query: EXPLAIN select z(r) from nested group by z(r)
-    ref: user-defined-macro-function-tests.yamsql:59
+    ref: user-defined-macro-function-tests.yamsql:80
     explain: ISCAN(I2 <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.R.V.Z AS _0) |
         MAP (_._0._0 AS _0)
     task_count: 273
@@ -12,7 +12,7 @@ user-defined-scalar-function-tests:
     insert_new_count: 25
     insert_reused_count: 2
 -   query: EXPLAIN select st2_func(r) from nested
-    ref: user-defined-macro-function-tests.yamsql:63
+    ref: user-defined-macro-function-tests.yamsql:84
     explain: ISCAN(I2 <,>) | MAP (_.R.U AS _0)
     task_count: 226
     task_total_time_ms: 13
@@ -23,7 +23,7 @@ user-defined-scalar-function-tests:
     insert_new_count: 25
     insert_reused_count: 4
 -   query: EXPLAIN select id from nested where self(id) > 2 and self(id) < 5
-    ref: user-defined-macro-function-tests.yamsql:67
+    ref: user-defined-macro-function-tests.yamsql:88
     explain: ISCAN(I2 <,>) | FILTER _.ID GREATER_THAN promote(@c11 AS LONG) AND _.ID
         LESS_THAN promote(@c18 AS LONG) | MAP (_.ID AS ID)
     task_count: 375
@@ -36,7 +36,7 @@ user-defined-scalar-function-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select self(id) as A, self(id) as B, self(id * 2) as C from nested
         where id <= 2
-    ref: user-defined-macro-function-tests.yamsql:72
+    ref: user-defined-macro-function-tests.yamsql:93
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c30 AS LONG)
         | MAP (_.ID AS A, _.ID AS B, _.ID * @c30 AS C)
     task_count: 375
@@ -49,7 +49,7 @@ user-defined-scalar-function-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select z(r) as A, z(r) as B, st2_func(r) as C from nested where
         id = 1
-    ref: user-defined-macro-function-tests.yamsql:77
+    ref: user-defined-macro-function-tests.yamsql:98
     explain: ISCAN(I2 <,>) | FILTER _.ID EQUALS promote(@c27 AS LONG) | MAP (_.R.V.Z
         AS A, _.R.V.Z AS B, _.R.U AS C)
     task_count: 375
@@ -62,7 +62,7 @@ user-defined-scalar-function-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select self(id) as A, z(r) as B, z(r) as C from nested where z(r)
         = 100 and self(id) <= 3
-    ref: user-defined-macro-function-tests.yamsql:82
+    ref: user-defined-macro-function-tests.yamsql:103
     explain: ISCAN(I2 [EQUALS promote(@c30 AS LONG)]) | FILTER _.ID LESS_THAN_OR_EQUALS
         promote(@c38 AS LONG) | MAP (_.ID AS A, _.R.V.Z AS B, _.R.V.Z AS C)
     task_count: 435
@@ -74,7 +74,7 @@ user-defined-scalar-function-tests:
     insert_new_count: 45
     insert_reused_count: 3
 -   query: EXPLAIN select * from table_func1(3)
-    ref: user-defined-macro-function-tests.yamsql:87
+    ref: user-defined-macro-function-tests.yamsql:108
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG)
         | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)
     task_count: 527
@@ -86,7 +86,7 @@ user-defined-scalar-function-tests:
     insert_new_count: 69
     insert_reused_count: 4
 -   query: EXPLAIN select * from table_func2(140)
-    ref: user-defined-macro-function-tests.yamsql:92
+    ref: user-defined-macro-function-tests.yamsql:113
     explain: ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c6 AS LONG)]]) | MAP (_.ID
         AS PROCESSED_ID, _.R.V.Z AS Z_VAL)
     task_count: 556
@@ -98,7 +98,7 @@ user-defined-scalar-function-tests:
     insert_new_count: 71
     insert_reused_count: 3
 -   query: EXPLAIN select * from table_func3(20, 40)
-    ref: user-defined-macro-function-tests.yamsql:97
+    ref: user-defined-macro-function-tests.yamsql:118
     explain: SCAN(<,>) | TFILTER SIMPLE_TABLE | FILTER _.A GREATER_THAN_OR_EQUALS
         promote(@c6 AS LONG) AND _.A LESS_THAN_OR_EQUALS promote(@c8 AS LONG) | MAP
         (_.A AS A_VAL, _.A AS A_COPY)
@@ -112,7 +112,7 @@ user-defined-scalar-function-tests:
     insert_reused_count: 2
 -   query: EXPLAIN select t1.id_copy as A, t2.processed_id as B from table_func1(2)
         t1, table_func2(100) t2 where t1.id_copy = t2.processed_id
-    ref: user-defined-macro-function-tests.yamsql:102
+    ref: user-defined-macro-function-tests.yamsql:123
     explain: ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c22 AS LONG)]]) | FLATMAP
         q0 -> { ISCAN(I2 <,>) | FILTER _.ID EQUALS q0.ID AND _.ID LESS_THAN_OR_EQUALS
         promote(@c16 AS LONG) AS q1 RETURN (q1.ID AS A, q0.ID AS B) }
@@ -125,7 +125,7 @@ user-defined-scalar-function-tests:
     insert_new_count: 186
     insert_reused_count: 9
 -   query: EXPLAIN select self(id_copy) as A, z_val as B from table_func1(4)
-    ref: user-defined-macro-function-tests.yamsql:107
+    ref: user-defined-macro-function-tests.yamsql:128
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c15 AS LONG)
         | MAP (_.ID AS A, _.R.V.Z AS B)
     task_count: 527
@@ -138,7 +138,7 @@ user-defined-scalar-function-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select self(self(a_val)) as A, self(a_copy) as B from table_func3(10,
         30)
-    ref: user-defined-macro-function-tests.yamsql:112
+    ref: user-defined-macro-function-tests.yamsql:133
     explain: SCAN(<,>) | TFILTER SIMPLE_TABLE | FILTER _.A GREATER_THAN_OR_EQUALS
         promote(@c21 AS LONG) AND _.A LESS_THAN_OR_EQUALS promote(@c23 AS LONG) |
         MAP (_.A AS A, _.A AS B)
@@ -151,7 +151,7 @@ user-defined-scalar-function-tests:
     insert_new_count: 51
     insert_reused_count: 2
 -   query: EXPLAIN select * from table_func1(6) where self(id_copy) > 3
-    ref: user-defined-macro-function-tests.yamsql:117
+    ref: user-defined-macro-function-tests.yamsql:138
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG)
         AND _.ID GREATER_THAN promote(@c14 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY,
         _.R.V.Z AS Z_VAL)
@@ -163,3 +163,27 @@ user-defined-scalar-function-tests:
     insert_time_ms: 15
     insert_new_count: 112
     insert_reused_count: 12
+-   query: EXPLAIN select id, abcd(a) as d_val from deep_nested_t
+    ref: user-defined-macro-function-tests.yamsql:151
+    explain: 'COVERING(DEEP_IDX <,> -> [ID: KEY:[2], A: [B: [C: [D: KEY:[0]]]]]) |
+        MAP (_.ID AS ID, _.A.B.C.D AS D_VAL)'
+    task_count: 254
+    task_total_time_ms: 22
+    transform_count: 60
+    transform_time_ms: 7
+    transform_yield_count: 25
+    insert_time_ms: 1
+    insert_new_count: 28
+    insert_reused_count: 4
+-   query: EXPLAIN select abcd(a) from deep_nested_t group by abcd(a)
+    ref: user-defined-macro-function-tests.yamsql:156
+    explain: ISCAN(DEEP_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A.B.C.D AS
+        _0) | MAP (_._0._0 AS _0)
+    task_count: 273
+    task_total_time_ms: 17
+    transform_count: 70
+    transform_time_ms: 8
+    transform_yield_count: 24
+    insert_time_ms: 1
+    insert_new_count: 25
+    insert_reused_count: 2

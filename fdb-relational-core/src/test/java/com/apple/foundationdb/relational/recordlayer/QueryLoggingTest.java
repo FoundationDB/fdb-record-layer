@@ -369,6 +369,18 @@ public class QueryLoggingTest {
     }
 
     @Test
+    void testLogPlanningFailureDueToMissingIndex() {
+        // GROUP BY on a column with no compatible sorted index forces the planner to throw
+        // UnableToPlanException, which is logged at ERROR level with planCache="INCONCLUSIVE"
+        Assert.assertThrows(Exception.class, () -> statement.executeQuery(
+                "SELECT * FROM RESTAURANT ORDER BY encoded_bytes OPTIONS (LOG QUERY)"));
+        final var lastEvent = logAppender.getLastLogEvent();
+        org.junit.jupiter.api.Assertions.assertNotNull(lastEvent.getThrown());
+        Assertions.assertThat(lastEvent.getThrown()).hasMessageContaining("Cascades planner could not plan query");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"INCONCLUSIVE\"");
+    }
+
+    @Test
     void testLogInsert() throws Exception {
         statement.executeUpdate("INSERT INTO RESTAURANT(REST_NO) VALUES (45) OPTIONS (LOG QUERY)");
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("query=\"INSERT INTO 'RESTAURANT' ( 'REST_NO' ) VALUES ( ? )\"");
