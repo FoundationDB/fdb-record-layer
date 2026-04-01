@@ -24,10 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -100,8 +99,23 @@ public final class MatchCandidateExpansion {
                                                                      @Nullable KeyExpression commonPrimaryKey,
                                                                      @Nonnull final ExpansionVisitor<?> expansionVisitor) {
         try {
-            return Optional.of(expansionVisitor.expand(aliasMaybe -> Quantifier.forEach(createBaseRef(info, aliasMaybe,
-                    new IndexAccessHint(info.getIndexName()))), commonPrimaryKey, info.isReverse()));
+            final var accessHint = new IndexAccessHint(info.getIndexName());
+            final MatchCandidate matchCandidate;
+            if (info.getIndex().getType().equals(IndexTypes.RANK)) {
+                //
+                // rank index requires a type filter supplier as it requires creating multiple type filter
+                // references when creating the match candidate, moreover, the current version of rank index
+                // does not support pushing down record type key predicate similar to other index types
+                //
+                final Supplier<Quantifier.ForEach> logicalTypeFilterSupplier = () -> Quantifier.forEach(
+                        ExpansionVisitor.createBaseRef(info.getAvailableRecordTypeNames(), info.getIndexedRecordTypeNames(),
+                                info.getBaseType(), null, new IndexAccessHint(info.getIndexName())));
+                matchCandidate = expansionVisitor.expand(logicalTypeFilterSupplier, commonPrimaryKey, info.isReverse());
+            } else {
+                matchCandidate = expansionVisitor.expand(info.getAvailableRecordTypeNames(), info.getIndexedRecordTypeNames(),
+                        info.getBaseType(), accessHint, commonPrimaryKey, info.isReverse());
+            }
+            return Optional.of(matchCandidate);
         } catch (final UnsupportedOperationException uOE) {
             // just log and return empty
             if (LOGGER.isDebugEnabled()) {
@@ -129,38 +143,10 @@ public final class MatchCandidateExpansion {
 
             final var expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, queriedRecordTypes);
             // I don't think we need to put the parameters here, but let's see if that's necessary.
-            return Optional.of(expansionVisitor.expand(aliasMaybe ->
-                    Quantifier.forEach(createBaseRef(metaData.getRecordTypes().keySet(),
-                            queriedRecordTypeNames, metaData.getPlannerType(queriedRecordTypeNames), aliasMaybe, new PrimaryAccessHint())), primaryKey, isReverse));
+            return Optional.of(expansionVisitor.expand(metaData.getRecordTypes().keySet(), queriedRecordTypeNames,
+                    metaData.getPlannerType(queriedRecordTypeNames), new PrimaryAccessHint(), primaryKey, isReverse));
         }
 
         return Optional.empty();
-    }
-
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    @Nonnull
-    private static Reference createBaseRef(@Nonnull IndexExpansionInfo info,
-                                           @Nonnull final Optional<CorrelationIdentifier> recordTypeKeyAliasMaybe,
-                                           @Nonnull AccessHint accessHint) {
-        return createBaseRef(info.getAvailableRecordTypeNames(), info.getIndexedRecordTypeNames(), info.getBaseType(), recordTypeKeyAliasMaybe, accessHint);
-    }
-
-    @Nonnull
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    private static Reference createBaseRef(@Nonnull final Set<String> availableRecordTypeNames,
-                                           @Nonnull final Set<String> queriedRecordTypeNames,
-                                           @Nonnull final Type.Record baseType,
-                                           @Nonnull final Optional<CorrelationIdentifier> recordTypeKeyAliasMaybe,
-                                           @Nonnull AccessHint accessHint) {
-        final var quantifier =
-                Quantifier.forEach(
-                        Reference.initialOf(
-                                new FullUnorderedScanExpression(availableRecordTypeNames,
-                                        new Type.AnyRecord(false),
-                                        new AccessHints(accessHint))));
-        return Reference.initialOf(LogicalTypeFilterExpression.newInstanceForMatchCandidate(queriedRecordTypeNames,
-                quantifier,
-                baseType, recordTypeKeyAliasMaybe
-        ));
     }
 }

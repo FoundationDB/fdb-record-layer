@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
@@ -64,7 +65,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -118,7 +119,6 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     /**
      * Creates a new match candidate representing the aggregate index.
      *
-     * @param baseQuantifierSupplier a quantifier supplier to create base data access
      * @param ignored the primary key of the data object the caller wants to access, this parameter is ignored since
      *        an aggregate index does not possess primary key information, must be {@code null}.
      * @param isReverse an indicator whether the result set is expected to be returned in reverse order.
@@ -126,11 +126,15 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
      */
     @Nonnull
     @Override
-    public MatchCandidate expand(@Nonnull final Function<Optional<CorrelationIdentifier>, Quantifier.ForEach> baseQuantifierSupplier,
+    public MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
+                                 @Nonnull final Set<String> queriedRecordTypeNames,
+                                 @Nonnull final Type.Record baseType,
+                                 @Nonnull final AccessHint accessHint,
                                  @Nullable final KeyExpression ignored,
                                  final boolean isReverse) {
         Verify.verify(ignored == null);
-        final var baseQuantifier = baseQuantifierSupplier.apply(Optional.empty()); // todo
+        final var baseQuantifier = Quantifier.forEach(ExpansionVisitor.createBaseRef(availableRecordTypeNames,
+                queriedRecordTypeNames, baseType, null, accessHint));
 
         // 0. create a base expansion to resolve the key expression to columns with appropriate quantifiers
         final var baseExpansion = constructBaseExpansion(baseQuantifier);

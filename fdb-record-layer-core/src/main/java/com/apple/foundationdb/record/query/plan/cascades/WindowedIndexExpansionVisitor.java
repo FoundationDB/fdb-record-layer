@@ -32,10 +32,12 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -46,8 +48,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
-import java.util.function.Function;
+import java.util.Set;
 
 /**
  * Class to expand a by-rank index access into a candidate graph. The visitation methods are left unchanged from the super
@@ -94,7 +95,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
      */
     @Nonnull
     @Override
-    public MatchCandidate expand(@Nonnull final Function<Optional<CorrelationIdentifier>, Quantifier.ForEach> baseQuantifierSupplier,
+    public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
         var rootExpression = index.getRootExpression();
@@ -103,7 +104,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
-        final var baseQuantifier = baseQuantifierSupplier.apply(Optional.empty()); // todo
+        final var baseQuantifier = baseQuantifierSupplier.get();
 
         final var baseExpansion =
                 GraphExpansion.builder()
@@ -120,7 +121,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         // TODO verify if there is only ever going to be a grouped count of 1, for now assert on it
         Verify.verify(groupingKeyExpression.getGroupedCount() == 1);
 
-        final var innerBaseQuantifier = baseQuantifierSupplier.apply(Optional.empty()); // todo
+        final var innerBaseQuantifier = baseQuantifierSupplier.get();
         final var innerBaseAlias = innerBaseQuantifier.getAlias();
         final var expandGroupingsAndArgumentsResult =
                 expandGroupingsAndArguments(baseQuantifier, innerBaseQuantifier, groupingKeyExpression,
@@ -186,6 +187,17 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 indexKeyValues,
                 ValueIndexExpansionVisitor.fullKey(index, primaryKey),
                 primaryKey);
+    }
+
+    @Override
+    @Nonnull
+    public MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
+                                 @Nonnull final Set<String> queriedRecordTypeNames,
+                                 @Nonnull final Type.Record baseType,
+                                 @Nonnull final AccessHint accessHint,
+                                 @Nullable final KeyExpression ignored,
+                                 final boolean isReverse) {
+        throw new UnsupportedOperationException("windowed index expansion only works with a type filter supplier");
     }
 
     @Nonnull

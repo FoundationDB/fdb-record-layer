@@ -417,24 +417,24 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
     }
 
     @Nonnull
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static LogicalTypeFilterExpression newInstanceForMatchCandidate(@Nonnull final Set<String> recordTypes,
                                                                            @Nonnull final Quantifier innerQuantifier,
                                                                            @Nonnull final Type resultType,
-                                                                           @Nonnull final Optional<CorrelationIdentifier> recordTypeKeyAliasMaybe) {
+                                                                           @Nullable final CorrelationIdentifier recordTypeKeyParameterAlias) {
         final var value = new RecordTypeValue(QuantifiedObjectValue.of(innerQuantifier));
-        final var rangeConstraints = recordTypes.stream().flatMap(recordTypeName -> {
-            final var rangeConstraintBuilder = RangeConstraints.newBuilder();
-            rangeConstraintBuilder.addComparisonMaybe(new RecordTypeKeyComparison(recordTypeName).getComparison());
-            return rangeConstraintBuilder.build().stream();
-        }).collect(Collectors.toCollection(LinkedHashSet::new));
+        final var rangeConstraints = recordTypeNamesToRangeConstraints(recordTypes);
 
-        if (recordTypeKeyAliasMaybe.isPresent()) {
-            final var placeholder = Placeholder.newInstance(value, rangeConstraints, recordTypeKeyAliasMaybe.get());
-            return new LogicalTypeFilterExpression(placeholder, recordTypes, innerQuantifier, resultType);
+        //
+        // if the record type parameter alias is provided, create a placeholder with that same parameter alias,
+        // otherwise, create a predicate resembling an index filter.
+        //
+        final QueryPredicate predicate;
+        if (recordTypeKeyParameterAlias != null) {
+            predicate = Placeholder.newInstance(value, rangeConstraints, recordTypeKeyParameterAlias);
+        } else {
+            predicate = PredicateWithValueAndRanges.ofRanges(value, rangeConstraints);
         }
 
-        final var predicate = PredicateWithValueAndRanges.ofRanges(value, rangeConstraints);
         return new LogicalTypeFilterExpression(predicate, recordTypes, innerQuantifier, resultType);
     }
 
@@ -442,16 +442,19 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
     public static LogicalTypeFilterExpression newInstance(@Nonnull final Set<String> recordTypes,
                                                           @Nonnull final Quantifier innerQuantifier,
                                                           @Nonnull final Type resultType) {
-
-
         final var value = new RecordTypeValue(QuantifiedObjectValue.of(innerQuantifier));
-        final var rangeConstraints = recordTypes.stream().flatMap(recordTypeName -> {
+        final var rangeConstraints = recordTypeNamesToRangeConstraints(recordTypes);
+
+        final var recordTypePredicate = PredicateWithValueAndRanges.ofRanges(value, rangeConstraints);
+        return new LogicalTypeFilterExpression(recordTypePredicate, recordTypes, innerQuantifier, resultType);
+    }
+
+    @Nonnull
+    private static Set<RangeConstraints> recordTypeNamesToRangeConstraints(@Nonnull final Set<String> recordTypeNames) {
+        return recordTypeNames.stream().flatMap(recordTypeName -> {
             final var rangeConstraintBuilder = RangeConstraints.newBuilder();
             rangeConstraintBuilder.addComparisonMaybe(new RecordTypeKeyComparison(recordTypeName).getComparison());
             return rangeConstraintBuilder.build().stream();
         }).collect(Collectors.toCollection(LinkedHashSet::new));
-
-        final var recordTypePredicate = PredicateWithValueAndRanges.ofRanges(value, rangeConstraints);
-        return new LogicalTypeFilterExpression(recordTypePredicate, recordTypes, innerQuantifier, resultType);
     }
 }

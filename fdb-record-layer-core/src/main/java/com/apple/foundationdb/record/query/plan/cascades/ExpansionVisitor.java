@@ -21,10 +21,15 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.google.common.base.Supplier;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
@@ -38,6 +43,22 @@ public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends 
     /**
      * Method that expands a data structure into a data flow graph.
      *
+     * @param primaryKey the primary key of the data object the caller wants to access
+     * @param isReverse an indicator whether the result set is expected to be returned in reverse order
+     *
+     * @return a new {@link MatchCandidate} that can be used for matching.
+     */
+    @Nonnull
+    MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
+                          @Nonnull final Set<String> queriedRecordTypeNames,
+                          @Nonnull final Type.Record baseType,
+                          @Nonnull final AccessHint accessHint,
+                          @Nullable final KeyExpression primaryKey,
+                          final boolean isReverse);
+
+    /**
+     * Method that expands a data structure into a data flow graph.
+     *
      * @param baseQuantifierSupplier a quantifier supplier to create base data access
      * @param primaryKey the primary key of the data object the caller wants to access
      * @param isReverse an indicator whether the result set is expected to be returned in reverse order
@@ -45,7 +66,25 @@ public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends 
      * @return a new {@link MatchCandidate} that can be used for matching.
      */
     @Nonnull
-    MatchCandidate expand(@Nonnull final Function<Optional<CorrelationIdentifier>, Quantifier.ForEach> baseQuantifierSupplier,
+    default MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                           @Nullable final KeyExpression primaryKey,
-                          final boolean isReverse);
+                          final boolean isReverse) {
+        throw new UnsupportedOperationException("expansion with base quantifier supplier is not supported");
+    }
+
+    @Nonnull
+    static Reference createBaseRef(@Nonnull final Set<String> availableRecordTypeNames,
+                                   @Nonnull final Set<String> queriedRecordTypeNames,
+                                   @Nonnull final Type.Record baseType,
+                                   @Nullable final CorrelationIdentifier recordTypeKeyAlias,
+                                   @Nonnull AccessHint accessHint) {
+        final var quantifier =
+                Quantifier.forEach(
+                        Reference.initialOf(
+                                new FullUnorderedScanExpression(availableRecordTypeNames,
+                                        new Type.AnyRecord(false),
+                                        new AccessHints(accessHint))));
+        return Reference.initialOf(LogicalTypeFilterExpression.newInstanceForMatchCandidate(queriedRecordTypeNames,
+                quantifier, baseType, recordTypeKeyAlias));
+    }
 }

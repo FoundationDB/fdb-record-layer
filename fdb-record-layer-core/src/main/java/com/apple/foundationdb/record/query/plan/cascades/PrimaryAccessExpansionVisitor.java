@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -38,6 +39,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
@@ -58,19 +60,20 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    public PrimaryScanMatchCandidate expand(@Nonnull final Function<Optional<CorrelationIdentifier>, Quantifier.ForEach> baseQuantifierSupplier,
-                                            @Nullable final KeyExpression primaryKey,
-                                            final boolean isReverse) {
+    public MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
+                                 @Nonnull final Set<String> queriedRecordTypeNames,
+                                 @Nonnull final Type.Record baseType,
+                                 @Nonnull final AccessHint accessHint,
+                                 @Nullable final KeyExpression primaryKey,
+                                 final boolean isReverse) {
         Objects.requireNonNull(primaryKey);
         Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
 
-        final Optional<CorrelationIdentifier> recordTypeQuantifierMaybe;
-        if (Key.Expressions.recordType().isPrefixKey(primaryKey)) {
-            recordTypeQuantifierMaybe = Optional.of(newParameterAlias());
-        } else {
-            recordTypeQuantifierMaybe = Optional.empty();
-        }
-        final Quantifier.ForEach baseQuantifier = baseQuantifierSupplier.apply(recordTypeQuantifierMaybe);
+        @Nullable final var recordTypeKeyParameterAlias = Key.Expressions.recordType().isPrefixKey(primaryKey)
+                ? newParameterAlias()
+                : null;
+        final Quantifier.ForEach baseQuantifier = Quantifier.forEach(ExpansionVisitor.createBaseRef(availableRecordTypeNames,
+                queriedRecordTypeNames, baseType, recordTypeKeyParameterAlias, accessHint));
 
         final var graphExpansionBuilder =
                 pop(primaryKey.expand(push(VisitorState.of(Lists.newArrayList(),
@@ -84,13 +87,14 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                         .toBuilder()
                         .removeAllResultColumns();
 
-        recordTypeQuantifierMaybe.ifPresent(correlationIdentifier -> graphExpansionBuilder.replacePlaceholder(placeholder -> {
-            if (placeholder.getValue() instanceof RecordTypeValue) {
-                return placeholder.withAlias(correlationIdentifier);
-            }
-            return placeholder;
-        }));
-
+        if (recordTypeKeyParameterAlias != null) {
+            graphExpansionBuilder.replacePlaceholder(placeholder -> {
+                if (placeholder.getValue() instanceof RecordTypeValue) {
+                    return placeholder.withAlias(recordTypeKeyParameterAlias);
+                }
+                return placeholder;
+            });
+        }
 
         final var allExpansions =
                 GraphExpansion.ofOthers(GraphExpansion.ofQuantifier(baseQuantifier), graphExpansionBuilder.build());

@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.CosineDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.DotProductDistanceRowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EuclideanDistanceRowNumberValue;
@@ -50,9 +51,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 /**
  * Class to expand vector index access into a candidate graph. The visitation methods are left unchanged from the super
@@ -78,12 +77,21 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
     @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    public MatchCandidate expand(@Nonnull final Function<Optional<CorrelationIdentifier>, Quantifier.ForEach> baseQuantifierSupplier,
+    public MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
+                                 @Nonnull final Set<String> queriedRecordTypeNames,
+                                 @Nonnull final Type.Record baseType,
+                                 @Nonnull final AccessHint accessHint,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
         Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
 
-        final var baseQuantifier = baseQuantifierSupplier.apply(Optional.empty()); // todo
+        //
+        // to support pushing down record type key predicate defined on vector index, we should change
+        // the instantiation of the type filter below to create a placeholder for the record type key parameter
+        // alias and reuse it here. Similar to what we currently do for primary scans.
+        //
+        final var baseQuantifier = Quantifier.forEach(ExpansionVisitor.createBaseRef(availableRecordTypeNames,
+                queriedRecordTypeNames, baseType, null, accessHint));
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
 
         allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
