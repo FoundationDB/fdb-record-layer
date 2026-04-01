@@ -978,9 +978,6 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
             // 2.) whose unmatchedIds are already equal to the unmatched ids of the entire partition
             // this partition is deemed redundant
             //
-
-            // I1 ->
-
             final var subIntersectionOrdering = subIntersectionInfo.getIntersectionOrdering();
             if (!subIntersectionOrdering.getEqualityBoundValues().containsAll(equalityBoundKeyValues)) {
                 continue;

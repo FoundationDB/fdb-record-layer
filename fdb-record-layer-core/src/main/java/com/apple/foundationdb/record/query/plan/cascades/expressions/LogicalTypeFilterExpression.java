@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -84,8 +85,8 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
     @Nonnull
     private final Type resultType;
 
-    public LogicalTypeFilterExpression(@Nonnull QueryPredicate recordTypePredicate, @Nonnull Set<String> recordTypes,
-                                       @Nonnull Quantifier innerQuantifier, @Nonnull Type resultType) {
+    private LogicalTypeFilterExpression(@Nonnull QueryPredicate recordTypePredicate, @Nonnull Set<String> recordTypes,
+                                        @Nonnull Quantifier innerQuantifier, @Nonnull Type resultType) {
         this.recordTypePredicate = recordTypePredicate;
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
         this.innerQuantifier = innerQuantifier;
@@ -209,6 +210,14 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
                 Iterables.getOnlyElement(translatedPredicate.findImpliedMappings(bindingValueEquivalence, recordTypePredicate,
                         ImmutableList.of(candidateTypeFilterExpression.getRecordTypePredicate()), evaluationContext));
 
+        //
+        // If the candidate predicate mapped to a tautology, we must bail out immediately. The default predicate
+        // implication logic (see QueryPredicate#impliesCandidatePredicateMaybe) treats a tautology candidate as
+        // "always implied" and assumes the predicate can simply be reapplied as compensation on top of the match.
+        // However, this assumption does not hold for the record type predicate: the record type filter _must_ find
+        // a concrete match on the candidate side. It cannot be reapplied as a residual filter because the candidate
+        // scan may be reading from a completely different table (index), making reapplication meaningless.
+        //
         if (impliedMappingForPredicate.getCandidatePredicate().isTautology()) {
             return ImmutableList.of();
         }
@@ -281,25 +290,16 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
                 partialMatch.nestPullUp(pullUp, candidateAlias);
         final var rootOfMatchPullUp = nestedPullUpPair.getKey();
         final var adjustedPullUp = Objects.requireNonNull(nestedPullUpPair.getRight());
+        final var bindingAliasMap = regularMatchInfo.getBindingAliasMap();
 
-        //
-        // The partial match we are called with here has child matches that have compensations on their own.
-        // Given a pair of these matches that we reach along two for-each quantifiers (forming a join) we have to
-        // apply both compensations. The compensation class has a union method to combine two compensations in an
-        // optimal way. We need to fold over all those compensations to form one child compensation. The tree that
-        // is formed by partial matches therefore collapses into a chain of compensations.
-        //
-        final Compensation childCompensation = quantifiers
-                .stream()
-                .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
-                .flatMap(quantifier ->
-                        regularMatchInfo.getChildPartialMatchMaybe(quantifier)
-                                .map(childPartialMatch -> {
-                                    final var bindingAliasMap = regularMatchInfo.getBindingAliasMap();
-                                    return childPartialMatch.compensate(boundParameterPrefixMap, adjustedPullUp,
-                                            Objects.requireNonNull(bindingAliasMap.getTarget(quantifier.getAlias())));
-                                }).stream())
-                .reduce(Compensation.noCompensation(), Compensation::union);
+        final PartialMatch childPartialMatch =
+                Objects.requireNonNull(regularMatchInfo
+                        .getChildPartialMatchMaybe(innerQuantifier)
+                        .orElseThrow(() -> new RecordCoreException("expected a match child")));
+
+        final var childCompensation =
+                childPartialMatch.compensate(boundParameterPrefixMap, adjustedPullUp,
+                        Objects.requireNonNull(bindingAliasMap.getTarget(innerQuantifier.getAlias())));
 
         if (childCompensation.isImpossible() ||
                 !childCompensation.canBeDeferred()) {
@@ -315,9 +315,7 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
 
         //
         // Go through all predicates and invoke the reapplication logic for each associated mapping. Remember, each
-        // predicate MUST have a mapping to the other side (which may just be a tautology). If something needs to be
-        // reapplied that logic creates the correct predicates. The reapplication logic is also passed enough context
-        // to skip reapplication in which case we won't do anything when compensation needs to be applied.
+        // predicate MUST have a mapping to the other side that is not a tautology.
         //
         final var predicate = recordTypePredicate;
         final var predicateMappings = predicateMap.get(predicate);
@@ -416,6 +414,18 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
                 childGraphs);
     }
 
+    /**
+     * Creates a new {@link LogicalTypeFilterExpression} for use in match candidates, where the record type filter
+     * predicate is either a placeholder (if a record type key alias is provided) or a concrete range constraint.
+     *
+     * @param recordTypes the set of record type names to filter on
+     * @param innerQuantifier the quantifier over the inner (child) expression being filtered
+     * @param resultType the result type of the expression
+     * @param recordTypeKeyParameterAlias an optional alias for the record type key parameter; if non-null, a
+     *        {@link Placeholder} is created to allow the planner to bind the record type filter during matching,
+     *        otherwise a concrete {@link PredicateWithValueAndRanges} is used
+     * @return a new {@link LogicalTypeFilterExpression} suitable for match candidate expansion
+     */
     @Nonnull
     public static LogicalTypeFilterExpression newInstanceForMatchCandidate(@Nonnull final Set<String> recordTypes,
                                                                            @Nonnull final Quantifier innerQuantifier,
@@ -438,6 +448,14 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
         return new LogicalTypeFilterExpression(predicate, recordTypes, innerQuantifier, resultType);
     }
 
+    /**
+     * Creates a new {@link LogicalTypeFilterExpression} with a concrete record type range predicate (no placeholder).
+     *
+     * @param recordTypes the set of record type names to filter on
+     * @param innerQuantifier the quantifier over the inner (child) expression being filtered
+     * @param resultType the result type of the expression
+     * @return a new {@link LogicalTypeFilterExpression} with a concrete type filter predicate
+     */
     @Nonnull
     public static LogicalTypeFilterExpression newInstance(@Nonnull final Set<String> recordTypes,
                                                           @Nonnull final Quantifier innerQuantifier,

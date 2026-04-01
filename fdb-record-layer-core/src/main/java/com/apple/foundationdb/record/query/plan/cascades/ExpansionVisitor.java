@@ -72,6 +72,17 @@ public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends 
         throw new UnsupportedOperationException("expansion with base quantifier supplier is not supported");
     }
 
+    /**
+     * Creates a base reference consisting of a full unordered scan filtered by the queried record types,
+     * used as the starting point for index and value expansion.
+     *
+     * @param availableRecordTypeNames the set of all record type names available in the meta-data
+     * @param queriedRecordTypeNames the subset of record type names being queried
+     * @param baseType the record type representing the common fields across the queried record types
+     * @param recordTypeKeyAlias an optional alias for the record type key, or {@code null} if not applicable
+     * @param accessHint the access hint indicating the desired scan type (e.g., index scan, primary scan)
+     * @return a new {@link Reference} wrapping a type-filtered full unordered scan
+     */
     @Nonnull
     static Reference createBaseRef(@Nonnull final Set<String> availableRecordTypeNames,
                                    @Nonnull final Set<String> queriedRecordTypeNames,
