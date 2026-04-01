@@ -39,44 +39,35 @@ import java.util.Set;
 
 public class JDBCInProcessYamlConnectionFactory implements YamlConnectionFactory {
     private static final Logger LOG = LogManager.getLogger(JDBCInProcessYamlConnectionFactory.class);
-    private final InProcessRelationalServer server;
-    private final String clusterFile;
     @Nonnull
-    private final List<ClusterServer> additionalClusterServers;
+    private final List<ClusterServer> clusterServers;
 
-    public JDBCInProcessYamlConnectionFactory(final InProcessRelationalServer server, final String clusterFile) {
-        this(server, clusterFile, List.of());
-    }
-
-    public JDBCInProcessYamlConnectionFactory(final InProcessRelationalServer server, final String clusterFile,
-                                              @Nonnull List<ClusterServer> additionalClusterServers) {
-        this.server = server;
-        this.clusterFile = clusterFile;
-        this.additionalClusterServers = additionalClusterServers;
+    public JDBCInProcessYamlConnectionFactory(@Nonnull List<ClusterServer> clusterServers) {
+        if (clusterServers.isEmpty()) {
+            throw new IllegalArgumentException("At least one cluster server is required");
+        }
+        this.clusterServers = clusterServers;
     }
 
     @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        return createConnection(connectPath, server, clusterFile);
+        final ClusterServer primary = clusterServers.get(0);
+        return createConnection(connectPath, primary.server, primary.clusterFile);
     }
 
     @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
-        if (clusterIndex == 0) {
-            return getNewConnection(connectPath);
-        }
-        final int idx = clusterIndex - 1;
-        if (idx >= additionalClusterServers.size()) {
+        if (clusterIndex < 0 || clusterIndex >= clusterServers.size()) {
             throw new SQLException("Cluster index " + clusterIndex + " not available (only " +
-                    (additionalClusterServers.size() + 1) + " clusters configured)");
+                    clusterServers.size() + " clusters configured)");
         }
-        final ClusterServer clusterServer = additionalClusterServers.get(idx);
+        final ClusterServer clusterServer = clusterServers.get(clusterIndex);
         return createConnection(connectPath, clusterServer.server, clusterServer.clusterFile);
     }
 
     @Override
     public int getAvailableClusterCount() {
-        return 1 + additionalClusterServers.size();
+        return clusterServers.size();
     }
 
     private YamlConnection createConnection(@Nonnull URI connectPath, @Nonnull InProcessRelationalServer targetServer,
@@ -98,17 +89,27 @@ public class JDBCInProcessYamlConnectionFactory implements YamlConnectionFactory
     }
 
     /**
-     * A server associated with its cluster file, for additional (non-primary) clusters.
+     * A server associated with its cluster file.
      */
     public static class ClusterServer {
         @Nonnull
-        final InProcessRelationalServer server;
+        private final InProcessRelationalServer server;
         @Nonnull
-        final String clusterFile;
+        private final String clusterFile;
 
         public ClusterServer(@Nonnull InProcessRelationalServer server, @Nonnull String clusterFile) {
             this.server = server;
             this.clusterFile = clusterFile;
+        }
+
+        @Nonnull
+        public InProcessRelationalServer server() {
+            return server;
+        }
+
+        @Nonnull
+        public String clusterFile() {
+            return clusterFile;
         }
     }
 }

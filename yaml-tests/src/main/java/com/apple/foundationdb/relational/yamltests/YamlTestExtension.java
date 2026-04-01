@@ -51,11 +51,8 @@ import org.opentest4j.TestAbortedException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -68,44 +65,53 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private static final Logger logger = LogManager.getLogger(YamlTestExtension.class);
     private List<YamlTestConfig> testConfigs;
     private List<YamlTestConfig> maintainConfigs;
-    private List<ExternalServer> servers;
-    /** Additional external servers for non-primary cluster files, keyed by the primary server they belong to. */
-    @Nonnull
-    private final Map<ExternalServer, List<ExternalServer>> additionalClusterExternalServers = new HashMap<>();
+    /** External servers grouped by jar version. Each inner list has one server per cluster file (same order as {@link #clusterFiles}). */
     @Nullable
-    private final String clusterFile;
+    private List<List<ExternalServer>> externalServerGroups;
+    @Nonnull
+    private final List<String> clusterFiles;
     private final boolean includeMethodInDescriptions;
 
     @SuppressWarnings("unused") // Used implicitly with @ExtendWith(YamlTestExtension.class)
     public YamlTestExtension() {
-        this(FDBTestEnvironment.randomClusterFile(), false);
+        this(FDBTestEnvironment.allClusterFiles(), false);
     }
 
     /**
      * Create a new extension with some configuration.
-     * @param clusterFile a custom cluster file to use, or {@code null} to inherit it from the environment, namely
-     * {@code FDB_CLUSTER_FILE}.
+     * @param clusterFile a custom cluster file to use as the primary, or {@code null} to inherit it from the
+     * environment, namely {@code FDB_CLUSTER_FILE}.
      * @param includeMethodInDescriptions Set this to {@code true} if publishing test results to something that cannot
      * handle complex test hierarchies. In the record layer we maintain the full hierarchy in the output, so this is not
      * necessary, but if integrating some other tools this might be necessary.
      */
     public YamlTestExtension(@Nullable final String clusterFile, final boolean includeMethodInDescriptions) {
-        this.clusterFile = clusterFile;
+        this(List.of(clusterFile), includeMethodInDescriptions);
+    }
+
+    /**
+     * Create a new extension with an explicit list of cluster files.
+     * @param clusterFiles the cluster files to use, where index 0 is the primary cluster
+     * @param includeMethodInDescriptions Set this to {@code true} if publishing test results to something that cannot
+     * handle complex test hierarchies.
+     */
+    public YamlTestExtension(@Nonnull final List<String> clusterFiles, final boolean includeMethodInDescriptions) {
+        this.clusterFiles = clusterFiles;
         this.includeMethodInDescriptions = includeMethodInDescriptions;
     }
 
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
         maintainConfigs = List.of(
-                new CorrectExplains(new EmbeddedConfig(clusterFile)),
-                new CorrectMetrics(new EmbeddedConfig(clusterFile)),
-                new CorrectExplainsAndMetrics(new EmbeddedConfig(clusterFile)),
-                new ShowPlanOnDiff(new EmbeddedConfig(clusterFile))
+                new CorrectExplains(new EmbeddedConfig(clusterFiles)),
+                new CorrectMetrics(new EmbeddedConfig(clusterFiles)),
+                new CorrectExplainsAndMetrics(new EmbeddedConfig(clusterFiles)),
+                new ShowPlanOnDiff(new EmbeddedConfig(clusterFiles))
         );
         if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
-            testConfigs = List.of(new EmbeddedConfig(clusterFile));
+            testConfigs = List.of(new EmbeddedConfig(clusterFiles));
         } else if (Boolean.parseBoolean(System.getProperty("tests.runRPC", "false"))) {
-            testConfigs = List.of(new JDBCInProcessConfig(clusterFile));
+            testConfigs = List.of(new JDBCInProcessConfig(clusterFiles));
         } else {
             List<File> jars = ExternalServer.getAvailableServers();
             // Fail the test if there are no available servers. This would force the execution in "runQuick" mode in case
@@ -113,23 +119,15 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             // Potentially, we can relax this a little if all tests are disabled for multi-server execution, but this is
             // not a likely scenario.
             Assertions.assertFalse(jars.isEmpty(), "There are no external servers available to run");
-            servers = new ArrayList<>();
+            externalServerGroups = new ArrayList<>();
             List<ExternalServer> allExternalServers = new ArrayList<>();
-            final List<String> otherClusterFiles = FDBTestEnvironment.allClusterFiles().stream()
-                    .filter(cf -> !Objects.equals(cf, clusterFile))
-                    .collect(Collectors.toList());
             for (File jar : jars) {
-                ExternalServer primaryServer = new ExternalServer(jar, clusterFile);
-                servers.add(primaryServer);
-                allExternalServers.add(primaryServer);
-                // Create additional external servers for non-primary cluster files
-                List<ExternalServer> additionalServers = new ArrayList<>();
-                for (String otherClusterFile : otherClusterFiles) {
-                    ExternalServer additionalServer = new ExternalServer(jar, otherClusterFile);
-                    additionalServers.add(additionalServer);
-                    allExternalServers.add(additionalServer);
+                List<ExternalServer> group = new ArrayList<>();
+                for (String cf : clusterFiles) {
+                    group.add(new ExternalServer(jar, cf));
                 }
-                additionalClusterExternalServers.put(primaryServer, additionalServers);
+                externalServerGroups.add(group);
+                allExternalServers.addAll(group);
             }
             ExternalServer.startMultiple(allExternalServers);
             final boolean mixedModeOnly = Boolean.parseBoolean(System.getProperty("tests.mixedModeOnly", "false"));
@@ -152,28 +150,26 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         if (mixedModeOnly || singleExternalVersionOnly) {
             return Stream.of();
         } else {
-            return Stream.of(new EmbeddedConfig(clusterFile), new JDBCInProcessConfig(clusterFile));
+            return Stream.of(new EmbeddedConfig(clusterFiles), new JDBCInProcessConfig(clusterFiles));
         }
     }
 
     private Stream<YamlTestConfig> externalServerConfigs(final boolean singleExternalVersionOnly) {
         if (singleExternalVersionOnly) {
-            return servers.stream()
+            return externalServerGroups.stream()
+                    .map(group -> group.get(0))
                     // Create an ExternalServer config with two servers of the same version for each server
                     // (with and without forced continuations)
                     .flatMap(server ->
                             Stream.of(new ExternalMultiServerConfig(0, server, server),
                                     new ForceContinuations(new ExternalMultiServerConfig(0, server, server))));
         } else {
-            return servers.stream().flatMap(server -> {
-                    List<ExternalServer> additionalServers =
-                            additionalClusterExternalServers.getOrDefault(server, List.of());
-                    // (4 configs for each server available)
-                    return Stream.of(new JDBCMultiServerConfig(0, server, clusterFile, additionalServers),
-                            new ForceContinuations(new JDBCMultiServerConfig(0, server, clusterFile, additionalServers)),
-                            new JDBCMultiServerConfig(1, server, clusterFile, additionalServers),
-                            new ForceContinuations(new JDBCMultiServerConfig(1, server, clusterFile, additionalServers)));
-            });
+            return externalServerGroups.stream().flatMap(group ->
+                    // (4 configs for each server version available)
+                    Stream.of(new JDBCMultiServerConfig(0, group, clusterFiles),
+                            new ForceContinuations(new JDBCMultiServerConfig(0, group, clusterFiles)),
+                            new JDBCMultiServerConfig(1, group, clusterFiles),
+                            new ForceContinuations(new JDBCMultiServerConfig(1, group, clusterFiles))));
         }
     }
 
@@ -194,28 +190,19 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                                 return e;
                             }
                         }).filter(Objects::nonNull).findFirst();
-        if (servers != null) {
-            for (ExternalServer server : servers) {
-                try {
-                    server.stop();
-                } catch (Exception ex) {
-                    if (logger.isWarnEnabled()) {
-                        logger.warn("Failed to stop server " + server.getVersion() + " on " + server.getPort());
-                    }
-                }
-            }
-            for (List<ExternalServer> additionalServers : additionalClusterExternalServers.values()) {
-                for (ExternalServer server : additionalServers) {
+        if (externalServerGroups != null) {
+            for (List<ExternalServer> group : externalServerGroups) {
+                for (ExternalServer server : group) {
                     try {
                         server.stop();
                     } catch (Exception ex) {
                         if (logger.isWarnEnabled()) {
-                            logger.warn("Failed to stop additional cluster server " + server.getVersion() + " on " + server.getPort());
+                            logger.warn("Failed to stop server " + server.getVersion() + " on " + server.getPort());
                         }
                     }
                 }
             }
-            additionalClusterExternalServers.clear();
+            externalServerGroups = null;
         }
         if (exception.isPresent()) {
             throw exception.get();

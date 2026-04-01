@@ -25,26 +25,31 @@ import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.EmbeddedYamlConnectionFactory;
-import com.apple.foundationdb.test.FDBTestEnvironment;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Run directly against an instance of {@link FRL}.
+ * <p>
+ * Starts one FRL per cluster file so that multi-cluster tests
+ * (using {@code connect: { cluster: N }}) can route to the correct cluster.
  */
 public class EmbeddedConfig implements YamlTestConfig {
-    private FRL frl;
-    @Nullable
-    private final String clusterFile;
     @Nonnull
-    private final List<FRL> additionalClusterFrls = new ArrayList<>();
+    private final List<String> clusterFiles;
+    @Nonnull
+    private final List<FRL> frls = new ArrayList<>();
 
     public EmbeddedConfig(@Nullable final String clusterFile) {
-        this.clusterFile = clusterFile;
+        this(Collections.singletonList(clusterFile));
+    }
+
+    public EmbeddedConfig(@Nonnull final List<String> clusterFiles) {
+        this.clusterFiles = clusterFiles;
     }
 
     @Override
@@ -55,43 +60,34 @@ public class EmbeddedConfig implements YamlTestConfig {
                 .withOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 10)
                 .build();
-        frl = new FRL(options, clusterFile);
-
-        // Create drivers for additional clusters (without registering them in DriverManager)
-        for (final String otherClusterFile : FDBTestEnvironment.allClusterFiles()) {
-            if (!Objects.equals(otherClusterFile, clusterFile)) {
-                additionalClusterFrls.add(new FRL(options, otherClusterFile, false));
+        // The primary FRL registers its driver in DriverManager; additional ones do not
+        boolean first = true;
+        for (final String clusterFile : clusterFiles) {
+            if (first) {
+                frls.add(new FRL(options, clusterFile));
+                first = false;
+            } else {
+                frls.add(new FRL(options, clusterFile, false));
             }
         }
     }
 
     @Override
     public void afterAll() throws Exception {
-        for (final FRL additionalFrl : additionalClusterFrls) {
-            additionalFrl.close();
-        }
-        additionalClusterFrls.clear();
-        if (frl != null) {
+        for (final FRL frl : frls) {
             frl.close();
-            frl = null;
         }
+        frls.clear();
     }
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
-        final List<EmbeddedYamlConnectionFactory.ClusterDriver> additionalDrivers = new ArrayList<>();
-        final List<String> allClusterFiles = FDBTestEnvironment.allClusterFiles();
-        for (int i = 0; i < additionalClusterFrls.size(); i++) {
-            // Find the cluster file for this additional FRL
-            final String otherClusterFile = allClusterFiles.stream()
-                    .filter(cf -> !Objects.equals(cf, clusterFile))
-                    .skip(i)
-                    .findFirst()
-                    .orElseThrow();
-            additionalDrivers.add(new EmbeddedYamlConnectionFactory.ClusterDriver(
-                    additionalClusterFrls.get(i).getDriver(), otherClusterFile));
+        final List<EmbeddedYamlConnectionFactory.ClusterDriver> clusterDrivers = new ArrayList<>();
+        for (int i = 0; i < frls.size(); i++) {
+            clusterDrivers.add(new EmbeddedYamlConnectionFactory.ClusterDriver(
+                    frls.get(i).getDriver(), clusterFiles.get(i)));
         }
-        return new EmbeddedYamlConnectionFactory(clusterFile, additionalDrivers);
+        return new EmbeddedYamlConnectionFactory(clusterDrivers);
     }
 
     @Override

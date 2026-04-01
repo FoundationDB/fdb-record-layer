@@ -39,41 +39,33 @@ import java.util.Set;
 
 public class ExternalServerYamlConnectionFactory implements YamlConnectionFactory {
     private static final Logger LOG = LogManager.getLogger(ExternalServerYamlConnectionFactory.class);
-    private final ExternalServer externalServer;
     @Nonnull
-    private final List<ExternalServer> additionalClusterServers;
+    private final List<ExternalServer> servers;
 
-    public ExternalServerYamlConnectionFactory(final ExternalServer externalServer) {
-        this(externalServer, List.of());
-    }
-
-    public ExternalServerYamlConnectionFactory(final ExternalServer externalServer,
-                                               @Nonnull List<ExternalServer> additionalClusterServers) {
-        this.externalServer = externalServer;
-        this.additionalClusterServers = additionalClusterServers;
+    public ExternalServerYamlConnectionFactory(@Nonnull List<ExternalServer> servers) {
+        if (servers.isEmpty()) {
+            throw new IllegalArgumentException("At least one external server is required");
+        }
+        this.servers = servers;
     }
 
     @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        return createConnection(connectPath, externalServer);
+        return createConnection(connectPath, servers.get(0));
     }
 
     @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
-        if (clusterIndex == 0) {
-            return getNewConnection(connectPath);
-        }
-        final int idx = clusterIndex - 1;
-        if (idx >= additionalClusterServers.size()) {
+        if (clusterIndex < 0 || clusterIndex >= servers.size()) {
             throw new SQLException("Cluster index " + clusterIndex + " not available (only " +
-                    (additionalClusterServers.size() + 1) + " clusters configured)");
+                    servers.size() + " clusters configured)");
         }
-        return createConnection(connectPath, additionalClusterServers.get(idx));
+        return createConnection(connectPath, servers.get(clusterIndex));
     }
 
     @Override
     public int getAvailableClusterCount() {
-        return 1 + additionalClusterServers.size();
+        return servers.size();
     }
 
     private YamlConnection createConnection(@Nonnull URI connectPath, @Nonnull ExternalServer server) throws SQLException {
@@ -92,7 +84,7 @@ public class ExternalServerYamlConnectionFactory implements YamlConnectionFactor
 
     @Override
     public Set<SemanticVersion> getVersionsUnderTest() {
-        return Set.of(externalServer.getVersion());
+        return Set.of(servers.get(0).getVersion());
     }
 
 }

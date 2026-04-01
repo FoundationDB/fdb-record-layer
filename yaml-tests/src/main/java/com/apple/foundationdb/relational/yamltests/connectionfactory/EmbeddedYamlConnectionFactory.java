@@ -35,23 +35,21 @@ import java.util.List;
 import java.util.Set;
 
 public class EmbeddedYamlConnectionFactory implements YamlConnectionFactory {
-    private final String clusterFile;
     @Nonnull
-    private final List<ClusterDriver> additionalClusterDrivers;
+    private final List<ClusterDriver> clusterDrivers;
 
-    public EmbeddedYamlConnectionFactory(String clusterFile) {
-        this(clusterFile, List.of());
-    }
-
-    public EmbeddedYamlConnectionFactory(String clusterFile, @Nonnull List<ClusterDriver> additionalClusterDrivers) {
-        this.clusterFile = clusterFile;
-        this.additionalClusterDrivers = additionalClusterDrivers;
+    public EmbeddedYamlConnectionFactory(@Nonnull List<ClusterDriver> clusterDrivers) {
+        if (clusterDrivers.isEmpty()) {
+            throw new IllegalArgumentException("At least one cluster driver is required");
+        }
+        this.clusterDrivers = clusterDrivers;
     }
 
     @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+        // The primary cluster's driver is registered in DriverManager, so use that path
         return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()),
-                SemanticVersion.current(), "Embedded", clusterFile);
+                SemanticVersion.current(), "Embedded", clusterDrivers.get(0).clusterFile());
     }
 
     @Override
@@ -59,22 +57,22 @@ public class EmbeddedYamlConnectionFactory implements YamlConnectionFactory {
         if (clusterIndex == 0) {
             return getNewConnection(connectPath);
         }
-        final int idx = clusterIndex - 1;
-        if (idx >= additionalClusterDrivers.size()) {
+        if (clusterIndex < 0 || clusterIndex >= clusterDrivers.size()) {
             throw new SQLException("Cluster index " + clusterIndex + " not available (only " +
-                    (additionalClusterDrivers.size() + 1) + " clusters configured)");
+                    clusterDrivers.size() + " clusters configured)");
         }
-        final ClusterDriver clusterDriver = additionalClusterDrivers.get(idx);
+        // Non-primary clusters are not registered in DriverManager, so connect via the driver directly
+        final ClusterDriver clusterDriver = clusterDrivers.get(clusterIndex);
         return new SimpleYamlConnection(
-                clusterDriver.driver.connect(connectPath, Options.NONE),
+                clusterDriver.driver().connect(connectPath, Options.NONE),
                 SemanticVersion.current(),
                 "Embedded[cluster=" + clusterIndex + "]",
-                clusterDriver.clusterFile);
+                clusterDriver.clusterFile());
     }
 
     @Override
     public int getAvailableClusterCount() {
-        return 1 + additionalClusterDrivers.size();
+        return clusterDrivers.size();
     }
 
     @Override
@@ -83,17 +81,27 @@ public class EmbeddedYamlConnectionFactory implements YamlConnectionFactory {
     }
 
     /**
-     * A driver associated with its cluster file, for additional (non-primary) clusters.
+     * A driver associated with its cluster file.
      */
     public static class ClusterDriver {
         @Nonnull
-        final RelationalDriver driver;
+        private final RelationalDriver driver;
         @Nonnull
-        final String clusterFile;
+        private final String clusterFile;
 
         public ClusterDriver(@Nonnull RelationalDriver driver, @Nonnull String clusterFile) {
             this.driver = driver;
             this.clusterFile = clusterFile;
+        }
+
+        @Nonnull
+        public RelationalDriver driver() {
+            return driver;
+        }
+
+        @Nonnull
+        public String clusterFile() {
+            return clusterFile;
         }
     }
 }
