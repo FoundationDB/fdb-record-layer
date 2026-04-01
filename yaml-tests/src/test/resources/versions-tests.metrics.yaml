@@ -45,13 +45,13 @@ versions-queries:
     ref: versions-tests.yamsql:173
     explain: ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG), IS_NULL])
         | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)
-    task_count: 693
-    task_total_time_ms: 59
-    transform_count: 164
-    transform_time_ms: 26
-    transform_yield_count: 56
-    insert_time_ms: 8
-    insert_new_count: 76
+    task_count: 732
+    task_total_time_ms: 75
+    transform_count: 173
+    transform_time_ms: 39
+    transform_yield_count: 57
+    insert_time_ms: 3
+    insert_new_count: 81
     insert_reused_count: 5
 -   query: EXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 =
         10 and "__ROW_VERSION" is distinct from null;

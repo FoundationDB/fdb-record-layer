@@ -193,8 +193,8 @@ public interface MatchCandidate {
                                                           boolean isReverse);
 
     @Nonnull
-    default List<MatchedOrderingPart> computeEqualityBoundImplicitOrderingParts() {
-        return ImmutableList.of();
+    default Set<MatchedOrderingPart> computeEqualityBoundImplicitOrderingParts() {
+        return ImmutableSet.of();
     }
 
     @Nonnull

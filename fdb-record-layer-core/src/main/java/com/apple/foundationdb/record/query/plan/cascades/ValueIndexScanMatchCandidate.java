@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
@@ -48,6 +49,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -313,16 +315,17 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
     @Nonnull
     @Override
-    public List<OrderingPart.MatchedOrderingPart> computeEqualityBoundImplicitOrderingParts() {
+    public Set<OrderingPart.MatchedOrderingPart> computeEqualityBoundImplicitOrderingParts() {
         final var secondaryIndexScopedToSingleType = queriedRecordTypes.size() == 1;
         if (secondaryIndexScopedToSingleType) {
             final var comparison = new RecordTypeKeyComparison(queriedRecordTypes.get(0).getName());
             final var opaqueParameterId = CorrelationIdentifier.uniqueId(PredicateWithValueAndRanges.class);
             final var recordTypeValue = new RecordTypeValue(QuantifiedRecordValue.of(Quantifier.current(), baseType));
 
-            final var recordTypeKeyOrderingPart = OrderingPart.MatchedOrderingPart.of(opaqueParameterId, recordTypeValue, ComparisonRange.from(comparison.getComparison()), OrderingPart.MatchedSortOrder.ASCENDING);
-            return ImmutableList.of(recordTypeKeyOrderingPart);
+            final var recordTypeKeyOrderingPart = OrderingPart.MatchedOrderingPart.of(opaqueParameterId, recordTypeValue,
+                    ComparisonRange.from(comparison.getComparison()), OrderingPart.MatchedSortOrder.ASCENDING);
+            return ImmutableSet.of(recordTypeKeyOrderingPart);
         }
-        return ImmutableList.of();
+        return ImmutableSet.of();
     }
 }

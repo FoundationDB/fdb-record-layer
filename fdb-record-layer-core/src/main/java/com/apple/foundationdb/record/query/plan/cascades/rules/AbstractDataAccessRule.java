@@ -1063,20 +1063,27 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
                 partialMatch.getBoundParameterPrefixMap();
         final var adjustedMatchOrderingPartsBuilder = ImmutableList.<MatchedOrderingPart>builder();
 
+        //
+        // Reorganize the matched ordering parts so that implicit equality-bound parts (e.g. the record type key)
+        // are placed first, followed by the remaining matched ordering parts. The implicit parts are always
+        // equality-bound and must precede the rest to correctly reflect the scan order. Any matched ordering part
+        // that duplicates an implicit part is filtered out to avoid repetition. Additionally, matched parts that
+        // are equality-bound but not present in the bound parameters prefix map are demoted, since they cannot
+        // contribute to the ordering guarantee.
+        //
+        final var equalityBoundImplicitOrderingParts = partialMatch.getMatchCandidate().computeEqualityBoundImplicitOrderingParts();
+        final var equalityBoundImplicitOrderingValues = equalityBoundImplicitOrderingParts.stream().map(OrderingPart::getValue)
+                .collect(ImmutableSet.toImmutableSet());
 
         final var matchedOrderingParts = partialMatch.getMatchInfo()
                 .getMatchedOrderingParts()
                 .stream()
-                .filter(part -> !(part.getValue() instanceof RecordTypeValue))
+                .filter(part -> !(equalityBoundImplicitOrderingValues.contains(part.getValue())))
                 .collect(ImmutableList.toImmutableList());
-        final var matchedOrderingPartsBuilder = ImmutableList.<MatchedOrderingPart>builder();
-
-        matchedOrderingPartsBuilder.addAll(partialMatch.getMatchCandidate().computeEqualityBoundImplicitOrderingParts())
-                .addAll(matchedOrderingParts);
 
         adjustedMatchOrderingPartsBuilder
-                .addAll(matchedOrderingPartsBuilder
-                        .build()
+                .addAll(equalityBoundImplicitOrderingParts)
+                .addAll(matchedOrderingParts
                         .stream()
                         .map(matchedOrderingPart -> matchedOrderingPart.getComparisonRange().isEquality() &&
                                                             !boundParametersPrefixMap.containsKey(matchedOrderingPart.getParameterId())
