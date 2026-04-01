@@ -290,7 +290,27 @@ public class LogicalOperator {
         } else {
             outputAttributes = Expressions.of(convertToExpressions(resultingQuantifier));
         }
-        return LogicalOperator.newOperator(alias, outputAttributes, resultingQuantifier);
+        final var operator = LogicalOperator.newOperator(alias, outputAttributes, resultingQuantifier);
+        // For struct array elements, prepend a whole-struct EphemeralExpression named by the alias.
+        // This allows UDFs to receive the entire struct element as an argument.
+        // An example query: select T.a, item.b from T, T.item_array as item where get_price(item) = blah.
+        // For this example, get_price(item) resolving item:
+        //  - SemanticAnalyzer.lookup("item", ..., matchQualifiedOnly=false), iterates [EphemeralExpression(item), item.b, item.c, ...]
+        //  - EphemeralExpression(item) match item.
+        // select item.b ... resolving item.b:
+        //  - lookup("item.price", ..., matchQualifiedOnly=true) iterates [EphemeralExpression(item), item.b, item.c, ...]
+        //  - EphemeralExpression(item): exact match fails; lookupNestedField → skipped
+        //  - item.b: exact match item.b.
+        if (alias.isPresent() && resultingQuantifier.getFlowedObjectType().isRecord()) {
+            final var elementType = DataTypeUtils.toRelationalType(resultingQuantifier.getFlowedObjectType());
+            final var wholeStructExpr = new EphemeralExpression(alias, elementType,
+                    resultingQuantifier.getFlowedObjectValue(), Expression.Visibility.VISIBLE);
+            return operator.withOutput(Expressions.of(ImmutableList.<Expression>builder()
+                    .add(wholeStructExpr)
+                    .addAll(operator.getOutput().asList())
+                    .build()));
+        }
+        return operator;
     }
 
     @Nonnull

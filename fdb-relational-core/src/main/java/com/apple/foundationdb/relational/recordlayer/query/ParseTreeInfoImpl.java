@@ -26,16 +26,10 @@ import com.apple.foundationdb.relational.api.ParseTreeInfo;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 
-import com.apple.foundationdb.relational.util.Assert;
-import org.antlr.v4.runtime.CommonToken;
-import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.tree.ParseTree;
-import org.antlr.v4.runtime.tree.RuleNode;
-import org.antlr.v4.runtime.tree.TerminalNode;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayDeque;
-import java.util.Deque;
 
 /**
  * this holds query parsing information.
@@ -44,100 +38,50 @@ import java.util.Deque;
 public final class ParseTreeInfoImpl implements ParseTreeInfo {
 
     @Nonnull
-    private final ParseTree rootContext;
+    private final RelationalParser.RootContext rootContext;
 
     @Nonnull
-    private final QueryType queryType;
+    private final Supplier<QueryType> queryTypeSupplier;
 
-    private ParseTreeInfoImpl(@Nonnull final ParseTree effectiveContext, @Nonnull final QueryType queryType) {
-        this.rootContext = effectiveContext;
-        this.queryType = queryType;
-    }
+    private static class QueryTypeVisitor extends RelationalParserBaseVisitor<QueryType> {
 
-    private static class QueryTypeVisitor extends RelationalParserBaseVisitor<ParseTreeInfoImpl> {
-
-        @Nonnull
-        private final ParseTree rootContext;
-
-        private QueryTypeVisitor(@Nonnull final ParseTree rootContext) {
-            this.rootContext = rootContext;
+        @Override
+        public QueryType visitUpdateStatement(RelationalParser.UpdateStatementContext ctx) {
+            return QueryType.UPDATE;
         }
 
         @Override
-        public ParseTreeInfoImpl visitUpdateStatement(RelationalParser.UpdateStatementContext ctx) {
-            return new ParseTreeInfoImpl(rootContext, QueryType.UPDATE);
+        public QueryType visitInsertStatement(RelationalParser.InsertStatementContext ctx) {
+            return QueryType.INSERT;
         }
 
         @Override
-        public ParseTreeInfoImpl visitInsertStatement(RelationalParser.InsertStatementContext ctx) {
-            return new ParseTreeInfoImpl(rootContext, QueryType.INSERT);
+        public QueryType visitDeleteStatement(RelationalParser.DeleteStatementContext ctx) {
+            return QueryType.DELETE;
         }
 
         @Override
-        public ParseTreeInfoImpl visitDeleteStatement(RelationalParser.DeleteStatementContext ctx) {
-            return new ParseTreeInfoImpl(rootContext, QueryType.DELETE);
+        public QueryType visitQuery(RelationalParser.QueryContext ctx) {
+            return QueryType.SELECT;
         }
 
         @Override
-        public ParseTreeInfoImpl visitQuery(RelationalParser.QueryContext ctx) {
-            return new ParseTreeInfoImpl(rootContext, QueryType.SELECT);
+        public QueryType visitCreateDatabaseStatement(RelationalParser.CreateDatabaseStatementContext ctx) {
+            return QueryType.CREATE;
         }
 
         @Override
-        public ParseTreeInfoImpl visitCreateDatabaseStatement(RelationalParser.CreateDatabaseStatementContext ctx) {
-            return new ParseTreeInfoImpl(rootContext, QueryType.CREATE);
+        public QueryType visitCreateSchemaStatement(RelationalParser.CreateSchemaStatementContext ctx) {
+            return QueryType.CREATE;
         }
 
         @Override
-        public ParseTreeInfoImpl visitCreateSchemaStatement(RelationalParser.CreateSchemaStatementContext ctx) {
-            return new ParseTreeInfoImpl(rootContext, QueryType.CREATE);
+        public QueryType visitCreateSchemaTemplateStatement(RelationalParser.CreateSchemaTemplateStatementContext ctx) {
+            return QueryType.CREATE;
         }
 
         @Override
-        public ParseTreeInfoImpl visitCreateSchemaTemplateStatement(RelationalParser.CreateSchemaTemplateStatementContext ctx) {
-            return new ParseTreeInfoImpl(rootContext, QueryType.CREATE);
-        }
-
-        @Override
-        public ParseTreeInfoImpl visitChildren(final RuleNode node) {
-            for (int i = 0; i < node.getChildCount(); i++) {
-                final var child = Assert.notNullUnchecked(node.getChild(i));
-                final var childResult = child.accept(this);
-                if (childResult != null) {
-                    return childResult;
-                }
-            }
-            return new ParseTreeInfoImpl(rootContext, QueryType.OTHER);
-        }
-
-        private static void remapParseTree(@Nonnull final ParseTree src) {
-            final int offset = src instanceof TerminalNode
-                    ? ((TerminalNode) src).getSymbol().getTokenIndex()
-                    : ((ParserRuleContext) src).start.getTokenIndex();
-            final Deque<ParseTree> stack = new ArrayDeque<>();
-            stack.push(src);
-            while (!stack.isEmpty()) {
-                final ParseTree node = stack.pop();
-                if (node instanceof TerminalNode) {
-                    final CommonToken token = (CommonToken) ((TerminalNode) node).getSymbol();
-                    token.setTokenIndex(token.getTokenIndex() - offset);
-                } else {
-                    for (int i = node.getChildCount() - 1; i >= 0; i--) {
-                        stack.push(node.getChild(i));
-                    }
-                }
-            }
-        }
-
-        @Override
-        public ParseTreeInfoImpl visitFullDescribeStatement(final RelationalParser.FullDescribeStatementContext ctx) {
-            final var describeObjectClause = ctx.describeObjectClause();
-            remapParseTree(describeObjectClause);
-            return new ParseTreeInfoImpl(describeObjectClause, QueryType.DESCRIBE_QUERY);
-        }
-
-        @Override
-        protected ParseTreeInfoImpl aggregateResult(ParseTreeInfoImpl aggregate, ParseTreeInfoImpl nextResult) {
+        protected QueryType aggregateResult(QueryType aggregate, QueryType nextResult) {
             if (nextResult != null) {
                 return nextResult;
             }
@@ -145,19 +89,30 @@ public final class ParseTreeInfoImpl implements ParseTreeInfo {
         }
     }
 
-    @Nonnull
-    @Override
-    public QueryType getQueryType() {
-        return queryType;
+    private ParseTreeInfoImpl(@Nonnull final RelationalParser.RootContext rootContext) {
+        this.rootContext = rootContext;
+        this.queryTypeSupplier = Suppliers.memoize(this::calculateQueryType);
     }
 
     @Nonnull
-    public ParseTree getRootContext() {
+    private QueryType calculateQueryType() {
+        final var queryTypeVisitor = new QueryTypeVisitor();
+        return queryTypeVisitor.visit(rootContext);
+    }
+
+    @Nonnull
+    @Override
+    public QueryType getQueryType() {
+        return queryTypeSupplier.get();
+    }
+
+    @Nonnull
+    public RelationalParser.RootContext getRootContext() {
         return rootContext;
     }
 
     @Nonnull
     public static ParseTreeInfoImpl from(@Nonnull final RelationalParser.RootContext root) {
-        return new QueryTypeVisitor(root).visit(root);
+        return new ParseTreeInfoImpl(root);
     }
 }

@@ -31,6 +31,6 @@ test_block:
   tests:
     -
       - query: SELECT * from t1 where a = 10
-      - explain: "SCAN([IS T1, EQUALS promote(@c7 AS LONG)])"
+      - explain: "SCAN([IS T1, EQUALS promote(@c8 AS LONG)])"
       - result: [{10, 20}]
 ...

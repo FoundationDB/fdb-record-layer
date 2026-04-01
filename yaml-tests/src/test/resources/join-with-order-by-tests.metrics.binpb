@@ -735,6 +735,38 @@ j
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
+}Â'
+Š
+joins-with-order-by-testsmEXPLAIN select t1.* from t1 where exists (select 1 from t2 where t2.b1 = 1) and t1.a1 = 1 order by t1.a2 desc²&
+’À¸%ø ú ’(U0¼‡Y8c@ŸCOVERING(t2$b1 [EQUALS promote(@c19 AS LONG)] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c19 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c19 AS LONG)] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }ñ#digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.id AS id, q2.a1 AS a1, q2.a2 AS a2, q2.a3 AS a3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q10 NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">FIRST $q10 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (@c19 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t2$b1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG)]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t1$a1_a2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  3 -> 2 [ label=<&nbsp;q133> label="q133" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q122> label="q122" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    3 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 8 [ color="red" style="invis" ];
+  }
 }
 ‰
 joins-with-order-by-testslEXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.id = 1003 and t2.b3 >= t1.a3 and t2.b1 = 1 order by t2.b3€

@@ -176,7 +176,7 @@ test_block:
         ]
     -
       - query: SELECT * FROM t1 WHERE "__ROW_VERSION" > x'0010'
-      - explain: "SCAN([IS T1]) | FILTER _.__ROW_VERSION GREATER_THAN promote(@c7 AS BYTES)"
+      - explain: "SCAN([IS T1]) | FILTER _.__ROW_VERSION GREATER_THAN promote(@c8 AS BYTES)"
       - unorderedResult: [
           { ID: 4, COL1: "a", '__ROW_VERSION': x'0011' },
           { ID: 5, COL1: "b", '__ROW_VERSION': x'0100' },
@@ -184,7 +184,7 @@ test_block:
         ]
     -
       - query: SELECT * FROM t2 WHERE "__ROW_VERSION" > 'ab'
-      - explain: "ISCAN(T2_VERSION [[GREATER_THAN promote(@c7 AS STRING)]])"
+      - explain: "ISCAN(T2_VERSION [[GREATER_THAN promote(@c8 AS STRING)]])"
       - unorderedResult: [
           { ID: 3, COL1: 10, '__ROW_VERSION': "ac" },
           { ID: 4, COL1: 20, '__ROW_VERSION': "ad" },
@@ -193,7 +193,7 @@ test_block:
         ]
     -
       - query: SELECT * FROM t2 WHERE col1 = 20
-      - explain: "ISCAN(T2_COL1_VERSION [EQUALS promote(@c7 AS LONG)])"
+      - explain: "ISCAN(T2_COL1_VERSION [EQUALS promote(@c8 AS LONG)])"
       - unorderedResult: [
           { ID: 2, COL1: 20, '__ROW_VERSION': "ab" },
           { ID: 4, COL1: 20, '__ROW_VERSION': "ad" },
@@ -201,7 +201,7 @@ test_block:
         ]
     -
       - query: SELECT * FROM t3 WHERE col1 = 20
-      - explain: "ISCAN(T3_COL1_VERSION [EQUALS promote(@c7 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "ISCAN(T3_COL1_VERSION [EQUALS promote(@c8 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - unorderedResult: [
           { ID: 2, COL1: 20, COL2: "ab" },
           { ID: 4, COL1: 20, COL2: "ad" },
@@ -209,7 +209,7 @@ test_block:
         ]
     -
       - query: SELECT * FROM t2 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC
-      - explain: "ISCAN(T2_COL1_VERSION [EQUALS promote(@c7 AS LONG)] REVERSE)"
+      - explain: "ISCAN(T2_COL1_VERSION [EQUALS promote(@c8 AS LONG)] REVERSE)"
       - result: [
           { ID: 6, COL1: 20, '__ROW_VERSION': "af" },
           { ID: 4, COL1: 20, '__ROW_VERSION': "ad" },
@@ -217,7 +217,7 @@ test_block:
         ]
     -
       - query: SELECT * FROM t3 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC
-      - explain: "ISCAN(T3_COL1_VERSION [EQUALS promote(@c7 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "ISCAN(T3_COL1_VERSION [EQUALS promote(@c8 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - unorderedResult: [
           { ID: 6, COL1: 20, COL2: "af" },
           { ID: 4, COL1: 20, COL2: "ad" },
@@ -225,7 +225,7 @@ test_block:
         ]
     -
       - query: SELECT id, col1 FROM t2 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC
-      - explain: "COVERING(T2_COL1_VERSION [EQUALS promote(@c9 AS LONG)] REVERSE -> [COL1: KEY:[0], ID: KEY:[3], __ROW_VERSION: KEY:[1]]) | MAP (_.ID AS ID, _.COL1 AS COL1)"
+      - explain: "COVERING(T2_COL1_VERSION [EQUALS promote(@c10 AS LONG)] REVERSE -> [COL1: KEY:[0], ID: KEY:[3], __ROW_VERSION: KEY:[1]]) | MAP (_.ID AS ID, _.COL1 AS COL1)"
       - result: [
           { ID: 6, COL1: 20 },
           { ID: 4, COL1: 20 },
@@ -233,7 +233,7 @@ test_block:
         ]
     -
       - query: SELECT id, col1 FROM t3 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC
-      - explain: "ISCAN(T3_COL1_VERSION [EQUALS promote(@c9 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION) | MAP (_.ID AS ID, _.COL1 AS COL1)"
+      - explain: "ISCAN(T3_COL1_VERSION [EQUALS promote(@c10 AS LONG)] REVERSE) | MAP (_.ID AS ID, _.COL1 AS COL1, _.__ROW_VERSION AS __ROW_VERSION) | MAP (_.ID AS ID, _.COL1 AS COL1)"
       - result: [
           { ID: 6, COL1: 20 },
           { ID: 4, COL1: 20 },

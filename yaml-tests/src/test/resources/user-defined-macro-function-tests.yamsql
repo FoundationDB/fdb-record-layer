@@ -34,6 +34,16 @@ schema_template:
     CREATE FUNCTION table_func1(IN limit_val bigint) AS SELECT id, self(id) as id_copy, z(r) as z_val FROM nested WHERE id <= limit_val
     CREATE FUNCTION table_func2(IN threshold bigint) AS SELECT self(id) as processed_id, z(r) as z_val FROM nested WHERE z(r) >= threshold
     CREATE FUNCTION table_func3(IN x bigint, IN y bigint) AS SELECT self(a) as a_val, self(a) as a_copy FROM simple_table WHERE a BETWEEN x AND y
+    create type as struct line_item(price bigint, description string)
+    create table order_t(id bigint, items line_item array, primary key(id))
+    create table price_list(id bigint, list_price bigint, primary key(id))
+    CREATE FUNCTION get_price(IN item TYPE line_item) RETURNS bigint AS item.price
+    create type as struct level3(d bigint, extra bigint)
+    create type as struct level2(c level3, extra bigint)
+    create type as struct level1(b level2, extra bigint)
+    create table deep_nested_t(id bigint, a level1, primary key(id))
+    create index deep_idx as select a.b.c.d from deep_nested_t order by a.b.c.d
+    CREATE FUNCTION abcd(IN a TYPE level1) RETURNS bigint AS a.b.c.d
 ---
 setup:
   steps:
@@ -50,6 +60,17 @@ setup:
                (30, 'cherry', 3),
                (40, 'date', 4),
                (50, 'elderberry', 5)
+    - query: INSERT INTO order_t
+        VALUES (1, [(10, 'ten'), (20, 'twenty')]),
+               (2, [(30, 'thirty'), (40, 'forty')])
+    - query: INSERT INTO price_list
+        VALUES (1, 20), (2, 30), (3, 99)
+    - query: INSERT INTO deep_nested_t
+        VALUES (1, (((10, 0), 0), 0)),
+               (2, (((20, 0), 0), 0)),
+               (3, (((30, 0), 0), 0)),
+               (4, (((10, 0), 0), 0)),
+               (5, (((50, 0), 0), 0))
 ---
 test_block:
   name: user-defined-scalar-function-tests
@@ -64,58 +85,124 @@ test_block:
       - unorderedResult: [{{!l 5, !l 11}}, {{!l 5, !l 12}}, {{!l 5, !l 13}}, {{!l 5, !l 14}}, {{!l 5, !l 15}}, {{!l 5, !l 16}}]
     -
       - query: select id from nested where self(id) > 2 and self(id) < 5
-      - explain: "ISCAN(I2 <,>) | FILTER _.ID GREATER_THAN promote(@c10 AS LONG) AND _.ID LESS_THAN promote(@c17 AS LONG) | MAP (_.ID AS ID)"
+      - explain: "ISCAN(I2 <,>) | FILTER _.ID GREATER_THAN promote(@c11 AS LONG) AND _.ID LESS_THAN promote(@c18 AS LONG) | MAP (_.ID AS ID)"
       - unorderedResult: [{3}, {4}]
     -
       # Test multiple invocations of same function in SELECT clause
       - query: select self(id) as A, self(id) as B, self(id * 2) as C from nested where id <= 2
-      - explain: "ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c29 AS LONG) | MAP (_.ID AS A, _.ID AS B, _.ID * @c29 AS C)"
+      - explain: "ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c30 AS LONG) | MAP (_.ID AS A, _.ID AS B, _.ID * @c30 AS C)"
       - unorderedResult: [{A: 1, B: 1, C: 2}, {A: 2, B: 2, C: 4}]
     -
       # Test multiple invocations with different UDF functions
       - query: select z(r) as A, z(r) as B, st2_func(r) as C from nested where id = 1
-      - explain: "ISCAN(I2 <,>) | FILTER _.ID EQUALS promote(@c26 AS LONG) | MAP (_.R.V.Z AS A, _.R.V.Z AS B, _.R.U AS C)"
+      - explain: "ISCAN(I2 <,>) | FILTER _.ID EQUALS promote(@c27 AS LONG) | MAP (_.R.V.Z AS A, _.R.V.Z AS B, _.R.U AS C)"
       - unorderedResult: [{A: 100, B: 100, C: {!l 5, !l 11}}]
     -
       # Test multiple invocations in both SELECT and WHERE clauses
       - query: select self(id) as A, z(r) as B, z(r) as C from nested where z(r) = 100 and self(id) <= 3
-      - explain: "ISCAN(I2 [EQUALS promote(@c29 AS LONG)]) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c37 AS LONG) | MAP (_.ID AS A, _.R.V.Z AS B, _.R.V.Z AS C)"
+      - explain: "ISCAN(I2 [EQUALS promote(@c30 AS LONG)]) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c38 AS LONG) | MAP (_.ID AS A, _.R.V.Z AS B, _.R.V.Z AS C)"
       - unorderedResult: [{A: 1, B: 100, C: 100}, {A: 2, B: 100, C: 100}, {A: 3, B: 100, C: 100}]
     -
       # Test table function with scalar UDF in SELECT and WHERE
       - query: select * from table_func1(3)
-      - explain: "ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c5 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)"
+      - explain: "ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)"
       - unorderedResult: [{id: 1, id_copy: 1, z_val: 100}, {id: 2, id_copy: 2, z_val: 100}, {id: 3, id_copy: 3, z_val: 100}]
     -
       # Test table function with scalar UDF filtering
       - query: select * from table_func2(140)
-      - explain: "ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c5 AS LONG)]]) | MAP (_.ID AS PROCESSED_ID, _.R.V.Z AS Z_VAL)"
+      - explain: "ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c6 AS LONG)]]) | MAP (_.ID AS PROCESSED_ID, _.R.V.Z AS Z_VAL)"
       - unorderedResult: [{processed_id: 5, z_val: 140}, {processed_id: 6, z_val: 140}]
     -
       # Test table function with multiple scalar UDFs
       - query: select * from table_func3(20, 40)
-      - explain: "SCAN([IS SIMPLE_TABLE, [GREATER_THAN_OR_EQUALS promote(@c5 AS LONG) && LESS_THAN_OR_EQUALS promote(@c7 AS LONG)]]) | MAP (_.A AS A_VAL, _.A AS A_COPY)"
+      - explain: "SCAN([IS SIMPLE_TABLE, [GREATER_THAN_OR_EQUALS promote(@c6 AS LONG) && LESS_THAN_OR_EQUALS promote(@c8 AS LONG)]]) | MAP (_.A AS A_VAL, _.A AS A_COPY)"
       - unorderedResult: [{a_val: 20, a_copy: 20}, {a_val: 30, a_copy: 30}, {a_val: 40, a_copy: 40}]
     -
       # Test joining table function results with scalar UDF processing
       - query: select t1.id_copy as A, t2.processed_id as B from table_func1(2) t1, table_func2(100) t2 where t1.id_copy = t2.processed_id
-      - explain: "ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c21 AS LONG)]]) | FLATMAP q0 -> { ISCAN(I2 <,>) | FILTER _.ID EQUALS q0.ID AND _.ID LESS_THAN_OR_EQUALS promote(@c15 AS LONG) AS q1 RETURN (q1.ID AS A, q0.ID AS B) }"
+      - explain: "ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c22 AS LONG)]]) | FLATMAP q0 -> { ISCAN(I2 <,>) | FILTER _.ID EQUALS q0.ID AND _.ID LESS_THAN_OR_EQUALS promote(@c16 AS LONG) AS q1 RETURN (q1.ID AS A, q0.ID AS B) }"
       - unorderedResult: [{A: 1, B: 1}, {A: 2, B: 2}]
     -
       # Test scalar UDF applied to table function results
       - query: select self(id_copy) as A, z_val as B from table_func1(4)
-      - explain: "ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c14 AS LONG) | MAP (_.ID AS A, _.R.V.Z AS B)"
+      - explain: "ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | MAP (_.ID AS A, _.R.V.Z AS B)"
       - unorderedResult: [{A: 1, B: 100}, {A: 2, B: 100}, {A: 3, B: 100}, {A: 4, B: 100}]
     -
       # Test nested scalar UDF calls within table function results
       - query: select self(self(a_val)) as A, self(a_copy) as B from table_func3(10, 30)
-      - explain: "SCAN([IS SIMPLE_TABLE, [GREATER_THAN_OR_EQUALS promote(@c20 AS LONG) && LESS_THAN_OR_EQUALS promote(@c22 AS LONG)]]) | MAP (_.A AS A, _.A AS B)"
+      - explain: "SCAN([IS SIMPLE_TABLE, [GREATER_THAN_OR_EQUALS promote(@c21 AS LONG) && LESS_THAN_OR_EQUALS promote(@c23 AS LONG)]]) | MAP (_.A AS A, _.A AS B)"
       - unorderedResult: [{A: 10, B: 10}, {A: 20, B: 20}, {A: 30, B: 30}]
     -
       # Test table function with scalar UDF in WHERE clause filtering the result
       - query: select * from table_func1(6) where self(id_copy) > 3
-      - explain: "ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c5 AS LONG) AND _.ID GREATER_THAN promote(@c13 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)"
+      - explain: "ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c6 AS LONG) AND _.ID GREATER_THAN promote(@c14 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)"
       - unorderedResult: [{id: 4, id_copy: 4, z_val: 100}, {id: 5, id_copy: 5, z_val: 140}, {id: 6, id_copy: 6, z_val: 140}]
+    -
+      # Test UDF applied to unnested array-of-struct elements joined with another table.
+      # order_t.items is an array of line_item structs; get_price(item) returns item.price.
+      # The query unnests order_t.items as item and joins with price_list where
+      # get_price(item) matches price_list.list_price.
+      - query: select order_t.id as order_id, price_list.id as price_id, price_list.list_price, item.price, item.description from order_t, order_t.items as item, price_list where get_price(item) = price_list.list_price
+      - supported_version: 4.10.10.0
+      - unorderedResult: [{order_id: 1, price_id: 1, list_price: 20, price: 20, description: 'twenty'}, {order_id: 2, price_id: 2, list_price: 30, price: 30, description: 'thirty'}]
+    -
+      # Test deeply nested resolution a.b.c.d: select all ids with their deep field value
+      - query: select id, abcd(a) as d_val from deep_nested_t
+      - explain: "COVERING(DEEP_IDX <,> -> [ID: KEY:[2], A: [B: [C: [D: KEY:[0]]]]]) | MAP (_.ID AS ID, _.A.B.C.D AS D_VAL)"
+      - unorderedResult: [{id: 1, d_val: 10}, {id: 2, d_val: 20}, {id: 3, d_val: 30}, {id: 4, d_val: 10}, {id: 5, d_val: 50}]
+    -
+      # Test deeply nested resolution a.b.c.d: group by the 4-level deep field, deduplicating values
+      - query: select abcd(a) from deep_nested_t group by abcd(a)
+      - explain: "ISCAN(DEEP_IDX <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.A.B.C.D AS _0) | MAP (_._0._0 AS _0)"
+      - unorderedResult: [{10}, {20}, {30}, {50}]
+    -
+      # Test deeply nested resolution a.b.c.d: range filter on the 4-level deep field
+      - query: select id from deep_nested_t where abcd(a) > 20
+      - unorderedResult: [{3}, {5}]
+    -
+      # Test deeply nested resolution a.b.c.d: exact equality filter on 4-level deep field
+      - query: select id from deep_nested_t where abcd(a) = 10
+      - unorderedResult: [{1}, {4}]
+    -
+      # Test deeply nested resolution a.b.c.d: compose with self (self wraps the 4-level result)
+      - query: select self(abcd(a)) as d_val from deep_nested_t where abcd(a) <= 20
+      - unorderedResult: [{d_val: 10}, {d_val: 20}, {d_val: 10}]
+    -
+      # direct field access on unnested struct array via AS alias.
+      # Both item.price and item.description are resolved directly from the output of
+      # generateCorrelatedFieldAccess (EphemeralExpression(item) + ITEM.PRICE + ITEM.DESCRIPTION).
+      - query: select item.price, item.description from order_t, order_t.items as item
+      - supported_version: 4.10.10.0
+      - unorderedResult: [{10, 'ten'}, {20, 'twenty'}, {30, 'thirty'}, {40, 'forty'}]
+    -
+      # direct field access with a filter on the unnested struct field.
+      - query: select order_t.id, item.price from order_t, order_t.items as item where item.price >= 20
+      - supported_version: 4.10.10.0
+      - unorderedResult: [{1, 20}, {2, 30}, {2, 40}]
+    -
+      # subquery that projects the whole struct element; outer query accesses a field.
+      # The inner query selects item (EphemeralExpression) and the outer resolves item.price via
+      # lookupNestedField on the EphemeralExpression after clearQualifier().
+      - query: select item.price from (select item from order_t, order_t.items as item) as a
+      - supported_version: 4.10.10.0
+      - unorderedResult: [{10}, {20}, {30}, {40}]
+    -
+      # same subquery pattern, accessing both fields and filtering on one of them.
+      - query: select item.price, item.description from (select item from order_t, order_t.items as item) as a where item.price < 25
+      - supported_version: 4.10.10.0
+      - unorderedResult: [{10, 'ten'}, {20, 'twenty'}]
+    -
+      # UDF receiving the whole struct element (EphemeralExpression exact-match).
+      # get_price(item) is resolved by matching the unqualified name 'item' to EphemeralExpression(ITEM).
+      - query: select get_price(item) as p from order_t, order_t.items as item
+      - supported_version: 4.10.10.0
+      - unorderedResult: [{10}, {20}, {30}, {40}]
+    -
+      # UDF whole-struct result alongside direct field access — both must resolve
+      # without ambiguity (EphemeralExpression-derived ITEM.PRICE deduped against direct ITEM.PRICE).
+      - query: select item.price as direct, get_price(item) as via_udf from order_t, order_t.items as item
+      - supported_version: 4.10.10.0
+      - unorderedResult: [{direct: 10, via_udf: 10}, {direct: 20, via_udf: 20}, {direct: 30, via_udf: 30}, {direct: 40, via_udf: 40}]
     -
       # wrong function name
       - query: select zz(r) from nested group by z(r)

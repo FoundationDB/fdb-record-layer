@@ -128,21 +128,21 @@ test_block:
     # Test simple single-column value index on price
     -
       - query: select price from products_mat_view where price > 18.0 order by price
-      - explain: "COVERING(IDX_MV_PRICE_DESC [[LESS_THAN to_ordered_bytes(promote(@c7 AS DOUBLE), DESC_NULLS_LAST)]] REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)"
+      - explain: "COVERING(IDX_MV_PRICE_DESC [[LESS_THAN to_ordered_bytes(promote(@c8 AS DOUBLE), DESC_NULLS_LAST)]] REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)"
       - result: [{ 19.99 }, { 25.50 }, { 29.99 }, { 89.99 }, { 299.99 }, { 799.99 }]
     -
       - query: select price from products_index_on where price > 18.0 order by price
-      - explain: "COVERING(IDX_IOT_PRICE_DESC [[LESS_THAN to_ordered_bytes(promote(@c7 AS DOUBLE), DESC_NULLS_LAST)]] REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)"
+      - explain: "COVERING(IDX_IOT_PRICE_DESC [[LESS_THAN to_ordered_bytes(promote(@c8 AS DOUBLE), DESC_NULLS_LAST)]] REVERSE -> [ID: KEY:[2], PRICE: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)"
       - result: [{ 19.99 }, { 25.50 }, { 29.99 }, { 89.99 }, { 299.99 }, { 799.99 }]
 
     # Test simple single-column value index on category
     -
       - query: select category from products_mat_view where category = 'Electronics'
-      - explain: "COVERING(IDX_MV_CATEGORY [EQUALS promote(@c7 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[2]]) | MAP (_.CATEGORY AS CATEGORY)"
+      - explain: "COVERING(IDX_MV_CATEGORY [EQUALS promote(@c8 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[2]]) | MAP (_.CATEGORY AS CATEGORY)"
       - result: [{ "Electronics" }, { "Electronics" }, { "Electronics" }, { "Electronics" }, { "Electronics" }]
     -
       - query: select category from products_index_on where category = 'Electronics'
-      - explain: "COVERING(IDX_IOT_CATEGORY [EQUALS promote(@c7 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[2]]) | MAP (_.CATEGORY AS CATEGORY)"
+      - explain: "COVERING(IDX_IOT_CATEGORY [EQUALS promote(@c8 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[2]]) | MAP (_.CATEGORY AS CATEGORY)"
       - result: [{ "Electronics" }, { "Electronics" }, { "Electronics" }, { "Electronics" }, { "Electronics" }]
 
 ---
@@ -152,21 +152,21 @@ test_block:
     # Test multi-column index (category, price)
     -
       - query: select category, price from products_mat_view where category = 'Electronics' order by category, price
-      - explain: "COVERING(IDX_MV_CAT_PRICE [EQUALS promote(@c9 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)"
+      - explain: "COVERING(IDX_MV_CAT_PRICE [EQUALS promote(@c10 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)"
       - result: [{ "Electronics", 19.99 }, { "Electronics", 29.99 }, { "Electronics", 89.99 }, { "Electronics", 299.99 }, { "Electronics", 799.99 }]
     -
       - query: select category, price from products_index_on where category = 'Electronics' order by category, price
-      - explain: "COVERING(IDX_IOT_CAT_PRICE [EQUALS promote(@c9 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)"
+      - explain: "COVERING(IDX_IOT_CAT_PRICE [EQUALS promote(@c10 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], PRICE: KEY:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE)"
       - result: [{ "Electronics", 19.99 }, { "Electronics", 29.99 }, { "Electronics", 89.99 }, { "Electronics", 299.99 }, { "Electronics", 799.99 }]
 
     # Test multi-column index (name, rating)
     -
       - query: select name, rating from products_mat_view where name = 'Widget A'
-      - explain: "COVERING(IDX_MV_NAME_RATING [EQUALS promote(@c9 AS STRING)] -> [ID: KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING AS RATING)"
+      - explain: "COVERING(IDX_MV_NAME_RATING [EQUALS promote(@c10 AS STRING)] -> [ID: KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING AS RATING)"
       - result: [{ "Widget A", 4.5 }]
     -
       - query: select name, rating from products_index_on where name = 'Widget A'
-      - explain: "COVERING(IDX_IOT_NAME_RATING [EQUALS promote(@c9 AS STRING)] -> [ID: KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING AS RATING)"
+      - explain: "COVERING(IDX_IOT_NAME_RATING [EQUALS promote(@c10 AS STRING)] -> [ID: KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING AS RATING)"
       - result: [{ "Widget A", 4.5 }]
 
 ---
@@ -176,21 +176,21 @@ test_block:
     # Test covering index - price in key, name and supplier in values
     -
       - query: select price, name, supplier from products_mat_view where price > 15.0 order by price
-      - explain: "COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c11 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.PRICE AS PRICE, _.NAME AS NAME, _.SUPPLIER AS SUPPLIER)"
+      - explain: "COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c12 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.PRICE AS PRICE, _.NAME AS NAME, _.SUPPLIER AS SUPPLIER)"
       - result: [{ 15.50, "Tool D", "SupplierZ" }, { 19.99, "Widget A", "SupplierX" }, { 25.50, "Lamp A", "SupplierX" }, { 29.99, "Widget B", "SupplierY" }, { 89.99, "Speaker Z", "SupplierZ" }, { 299.99, "Tablet Y", "SupplierY" }, { 799.99, "Phone X", "SupplierX" }]
     -
       - query: select price, name, supplier from products_index_on where price > 15.0 order by price
-      - explain: "COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c11 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.PRICE AS PRICE, _.NAME AS NAME, _.SUPPLIER AS SUPPLIER)"
+      - explain: "COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c12 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.PRICE AS PRICE, _.NAME AS NAME, _.SUPPLIER AS SUPPLIER)"
       - result: [{ 15.50, "Tool D", "SupplierZ" }, { 19.99, "Widget A", "SupplierX" }, { 25.50, "Lamp A", "SupplierX" }, { 29.99, "Widget B", "SupplierY" }, { 89.99, "Speaker Z", "SupplierZ" }, { 299.99, "Tablet Y", "SupplierY" }, { 799.99, "Phone X", "SupplierX" }]
 
     # Test covering index - category and price in key, name and stock in values
     -
       - query: select category, price, name, stock from products_mat_view where category = 'Electronics' order by category, price
-      - explain: "COVERING(IDX_MV_CAT_PRICE_COVERING [EQUALS promote(@c13 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], NAME: VALUE:[0], PRICE: KEY:[1], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.NAME AS NAME, _.STOCK AS STOCK)"
+      - explain: "COVERING(IDX_MV_CAT_PRICE_COVERING [EQUALS promote(@c14 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], NAME: VALUE:[0], PRICE: KEY:[1], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.NAME AS NAME, _.STOCK AS STOCK)"
       - result: [{ "Electronics", 19.99, "Widget A", 100 }, { "Electronics", 29.99, "Widget B", 50 }, { "Electronics", 89.99, "Speaker Z", 150 }, { "Electronics", 299.99, "Tablet Y", 80 }, { "Electronics", 799.99, "Phone X", 120 }]
     -
       - query: select category, price, name, stock from products_index_on where category = 'Electronics' order by category, price
-      - explain: "COVERING(IDX_IOT_CAT_PRICE_COVERING [EQUALS promote(@c13 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], NAME: VALUE:[0], PRICE: KEY:[1], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.NAME AS NAME, _.STOCK AS STOCK)"
+      - explain: "COVERING(IDX_IOT_CAT_PRICE_COVERING [EQUALS promote(@c14 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[3], NAME: VALUE:[0], PRICE: KEY:[1], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.NAME AS NAME, _.STOCK AS STOCK)"
       - result: [{ "Electronics", 19.99, "Widget A", 100 }, { "Electronics", 29.99, "Widget B", 50 }, { "Electronics", 89.99, "Speaker Z", 150 }, { "Electronics", 299.99, "Tablet Y", 80 }, { "Electronics", 799.99, "Phone X", 120 }]
 
 ---
@@ -282,11 +282,11 @@ test_block:
     # Test filtered index - expensive products (price > 20)
     -
       - query: select name, price from products_mat_view where price > 20 order by price
-      - explain: "COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c9 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)"
+      - explain: "COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c10 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)"
       - result: [{ "Lamp A", 25.50 }, { "Widget B", 29.99 }, { "Speaker Z", 89.99 }, { "Tablet Y", 299.99 }, { "Phone X", 799.99 }]
     -
       - query: select name, price from products_index_on where price > 20 order by price
-      - explain: "COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c9 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)"
+      - explain: "COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c10 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)"
       - result: [{ "Lamp A", 25.50 }, { "Widget B", 29.99 }, { "Speaker Z", 89.99 }, { "Tablet Y", 299.99 }, { "Phone X", 799.99 }]
 
     # Test filtered index - electronics category
@@ -312,11 +312,11 @@ test_block:
     # Test filtered index with additional filter in query
     -
       - query: select name, price from products_mat_view where price > 50 order by price
-      - explain: "COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c9 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)"
+      - explain: "COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c10 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)"
       - result: [{ "Speaker Z", 89.99 }, { "Tablet Y", 299.99 }, { "Phone X", 799.99 }]
     -
       - query: select name, price from products_index_on where price > 50 order by price
-      - explain: "COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c9 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)"
+      - explain: "COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c10 AS DOUBLE)]] -> [ID: KEY:[2], NAME: VALUE:[0], PRICE: KEY:[0], SUPPLIER: VALUE:[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE)"
       - result: [{ "Speaker Z", 89.99 }, { "Tablet Y", 299.99 }, { "Phone X", 799.99 }]
 
 ...

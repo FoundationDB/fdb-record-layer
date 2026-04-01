@@ -344,7 +344,7 @@ public class QueryLoggingTest {
                     .withMetricsCollector(conn.getMetricCollector())
                     .withSchemaTemplate(conn.getSchemaTemplate())
                     .build();
-            queryHash = AstNormalizer.normalizeQuery(planContext, query1, false, PlanHashable.PlanHashMode.VC0).getQueryCacheKey().hashCode();
+            queryHash = AstNormalizer.normalizeQuery(planContext, query1, false, PlanHashable.PlanHashMode.VC0).getQueryCacheKey().getHash();
         }
         conn.commit();
         try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT where rest_no = 0 OPTIONS (LOG QUERY)")) {
@@ -366,6 +366,18 @@ public class QueryLoggingTest {
         org.junit.jupiter.api.Assertions.assertNotNull(thrown);
         Assertions.assertThat(thrown).hasMessage("Unknown table REST")
                 .hasNoCause();
+    }
+
+    @Test
+    void testLogPlanningFailureDueToMissingIndex() {
+        // GROUP BY on a column with no compatible sorted index forces the planner to throw
+        // UnableToPlanException, which is logged at ERROR level with planCache="INCONCLUSIVE"
+        Assert.assertThrows(Exception.class, () -> statement.executeQuery(
+                "SELECT * FROM RESTAURANT ORDER BY encoded_bytes OPTIONS (LOG QUERY)"));
+        final var lastEvent = logAppender.getLastLogEvent();
+        org.junit.jupiter.api.Assertions.assertNotNull(lastEvent.getThrown());
+        Assertions.assertThat(lastEvent.getThrown()).hasMessageContaining("Cascades planner could not plan query");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"INCONCLUSIVE\"");
     }
 
     @Test
