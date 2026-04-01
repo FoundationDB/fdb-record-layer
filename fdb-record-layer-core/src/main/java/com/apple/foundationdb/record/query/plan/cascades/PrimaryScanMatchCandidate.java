@@ -23,10 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -36,7 +33,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -152,6 +148,14 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     }
 
     @Nonnull
+    public Set<CorrelationIdentifier> getSargableAliasesRequiredForBinding() {
+        if (isSortedByRecordTypeKey()) {
+            return ImmutableSet.of(parameters.get(0));
+        }
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
     @Override
     public KeyExpression getFullKeyExpression() {
         return primaryKey;
@@ -189,47 +193,41 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
         final var queriedRecordTypeNames = getQueriedRecordTypeNames();
         Verify.verify(availableRecordTypeNames.containsAll(queriedRecordTypeNames));
 
-        final var scanComparisons = toScanComparisons(comparisonRanges);
+        final var flowedTypes = inferScanType(queriedRecordTypes);
 
-        boolean isSingleTypeScan = false;
-        if (!scanComparisons.isEmpty()) {
-            final var scannedTypes = scanComparisons.getEqualityComparisons()
-                    .stream().filter(comparison -> comparison instanceof RecordTypeKeyComparison.RecordTypeComparison)
-                    .flatMap(comparison -> availableRecordTypes.stream().filter(recordType ->
-                            recordType.getName().equals(((RecordTypeKeyComparison.RecordTypeComparison)comparison)
-                                    .getRecordTypeName())))
-                    .collect(ImmutableList.toImmutableList());
-            if (scannedTypes.size() == 1) {
-                isSingleTypeScan = true;
-            }
-        }
+        final var scanPlan = new RecordQueryScanPlan(availableRecordTypeNames,
+                flowedTypes,
+                primaryKey,
+                toScanComparisons(comparisonRanges),
+                reverseScanOrder,
+                false,
+                this);
 
-        RecordQueryScanPlan scanPlan;
-        if (isSingleTypeScan || queriedRecordTypeNames.size() == availableRecordTypeNames.size()) {
-            scanPlan =
-                    new RecordQueryScanPlan(availableRecordTypeNames,
-                            baseType,
-                            primaryKey,
-                            toScanComparisons(comparisonRanges),
-                            reverseScanOrder,
-                            false,
-                            this);
+        if (isSortedByRecordTypeKey()) {
             return scanPlan;
-        } else {
-            scanPlan =
-                    new RecordQueryScanPlan(availableRecordTypeNames,
-                            new Type.AnyRecord(false),
-                            primaryKey,
-                            toScanComparisons(comparisonRanges),
-                            reverseScanOrder,
-                            false,
-                            this);
-
-            return new RecordQueryTypeFilterPlan(
-                    Quantifier.physical(memoizer.memoizePlan(scanPlan)),
-                    queriedRecordTypeNames,
-                    baseType);
         }
+
+        return new RecordQueryTypeFilterPlan(
+                Quantifier.physical(memoizer.memoizePlan(scanPlan)),
+                queriedRecordTypeNames,
+                baseType);
+    }
+
+    @Override
+    public boolean isSortedByRecordTypeKey() {
+        return Key.Expressions.recordType().isPrefixKey(primaryKey);
+    }
+
+    @Nonnull
+    private Type inferScanType(@Nonnull final Collection<RecordType> types) {
+        if (types.size() == 1) {
+            return baseType;
+        }
+        //
+        // this should be replaced with a new Type capable of representing a choice among multiple types, akin
+        // to the Either type in functional languages.
+        //
+        return new Type.AnyRecord(false);
     }
 
     @Nonnull

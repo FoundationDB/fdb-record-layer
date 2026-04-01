@@ -2,11 +2,11 @@ unnamed-3:
 -   query: EXPLAIN SELECT * From "TableA"
     ref: insert-enum.yamsql:40
     explain: SCAN(<,>) | TFILTER TableA
-    task_count: 162
-    task_total_time_ms: 1742
+    task_count: 159
+    task_total_time_ms: 8
     transform_count: 41
-    transform_time_ms: 1683
+    transform_time_ms: 3
     transform_yield_count: 13
-    insert_time_ms: 3
+    insert_time_ms: 0
     insert_new_count: 13
     insert_reused_count: 2

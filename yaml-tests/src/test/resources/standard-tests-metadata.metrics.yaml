@@ -2,14 +2,14 @@ standard-tests-metadata:
 -   query: EXPLAIN select count(*) from (select * from (select * from (select * from
         T1  where ID = 5) as x) as y) as z;
     ref: standard-tests-metadata.yamsql:61
-    explain: SCAN([EQUALS promote(@c22 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0)
-    task_count: 375
-    task_total_time_ms: 21
-    transform_count: 90
-    transform_time_ms: 3
+    explain: SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_ AS _0) | AGG
+        (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0)
+    task_count: 399
+    task_total_time_ms: 14
+    transform_count: 92
+    transform_time_ms: 2
     transform_yield_count: 25
     insert_time_ms: 0
-    insert_new_count: 38
+    insert_new_count: 41
     insert_reused_count: 1

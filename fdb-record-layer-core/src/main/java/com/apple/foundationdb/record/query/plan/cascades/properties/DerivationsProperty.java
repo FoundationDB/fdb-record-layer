@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
@@ -105,7 +104,7 @@ import com.google.common.collect.Streams;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.StreamSupport;
+import java.util.Set;
 
 /**
  * A property used to create and collect the derivations of data flowing in a plan. A derivation is a {@link Value}-tree
@@ -412,13 +411,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
                                                      @Nonnull final Iterable<String> recordTypeNames) {
             final var comparisonValues = localValuesForComparisons(planWithComparisons.getComparisons());
             final var resultValueFromPlan = planWithComparisons.getResultValue();
-
-            final var scannedRecordTypes = planWithComparisons.getScanComparisons().getEqualityComparisons()
-                    .stream().filter(comparison -> comparison instanceof RecordTypeKeyComparison.RecordTypeComparison)
-                    .map(comparison -> ((RecordTypeKeyComparison.RecordTypeComparison)comparison).getRecordTypeName())
-                    .collect(ImmutableList.toImmutableList());
-
-            final var resultValue = new QueriedValue(resultValueFromPlan.getResultType(), scannedRecordTypes);
+            final var resultValue = new QueriedValue(resultValueFromPlan.getResultType(), recordTypeNames);
             return new Derivations(ImmutableList.of(resultValue), comparisonValues);
         }
 
@@ -772,7 +765,11 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         @Nonnull
         @Override
         public Derivations visitScanPlan(@Nonnull final RecordQueryScanPlan scanPlan) {
-            return visitPlanWithComparisons(scanPlan, Objects.requireNonNull(scanPlan.getRecordTypes()));
+            final var matchCandidate = scanPlan.getMatchCandidate();
+            final Set<String> recordTypeNames = matchCandidate.isSortedByRecordTypeKey()
+                                                ? matchCandidate.getQueriedRecordTypeNames()
+                                                : scanPlan.getRecordTypes();
+            return visitPlanWithComparisons(scanPlan, Objects.requireNonNull(recordTypeNames));
         }
 
         @Nonnull

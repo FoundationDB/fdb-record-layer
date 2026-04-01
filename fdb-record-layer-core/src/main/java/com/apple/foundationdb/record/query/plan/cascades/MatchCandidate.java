@@ -291,6 +291,10 @@ public interface MatchCandidate {
                 .collect(ImmutableSet.toImmutableSet());
     }
 
+    default boolean isSortedByRecordTypeKey() {
+        return false;
+    }
+
     @Nonnull
     static Optional<List<Value>> computePrimaryKeyValuesMaybe(@Nullable KeyExpression primaryKey, @Nonnull Type flowedType) {
         if (primaryKey == null) {
