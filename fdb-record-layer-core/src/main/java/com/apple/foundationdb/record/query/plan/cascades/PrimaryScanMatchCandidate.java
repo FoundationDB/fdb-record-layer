@@ -220,7 +220,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
     @Nonnull
     private Type inferScanType(@Nonnull final Collection<RecordType> types) {
-        if (types.size() == 1) {
+        if (types.size() == 1 && isSortedByRecordTypeKey()) {
             return baseType;
         }
         //
