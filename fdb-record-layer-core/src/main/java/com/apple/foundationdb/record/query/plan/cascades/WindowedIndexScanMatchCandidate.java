@@ -29,13 +29,17 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedSortOrder;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
@@ -55,6 +59,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -309,6 +314,22 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         }
 
         return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public Set<MatchedOrderingPart> computeEqualityBoundImplicitOrderingParts() {
+        final var secondaryIndexScopedToSingleType = queriedRecordTypes.size() == 1;
+        if (secondaryIndexScopedToSingleType) {
+            final var comparison = new RecordTypeKeyComparison(queriedRecordTypes.get(0).getName());
+            final var opaqueParameterId = CorrelationIdentifier.uniqueId(PredicateWithValueAndRanges.class);
+            final var recordTypeValue = new RecordTypeValue(QuantifiedRecordValue.of(Quantifier.current(), baseType));
+
+            final var recordTypeKeyOrderingPart = OrderingPart.MatchedOrderingPart.of(opaqueParameterId, recordTypeValue,
+                    ComparisonRange.from(comparison.getComparison()), OrderingPart.MatchedSortOrder.ASCENDING);
+            return ImmutableSet.of(recordTypeKeyOrderingPart);
+        }
+        return ImmutableSet.of();
     }
 
     @Nonnull
