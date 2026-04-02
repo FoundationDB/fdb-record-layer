@@ -43,7 +43,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -180,11 +179,8 @@ public class FDBDatabaseExtension implements AfterEachCallback {
 
     public void checkForOpenContexts() {
         for (final Map.Entry<String, FDBDatabase> clusterFileToDatabase : databases.entrySet()) {
-            slowly(() -> {
-                assertEquals(0, clusterFileToDatabase.getValue().warnAndCloseOldTrackedOpenContexts(0),
-                        clusterFileToDatabase.getKey() + " should not have left any contexts open");
-                return null;
-            });
+            assertEquals(0, clusterFileToDatabase.getValue().warnAndCloseOldTrackedOpenContexts(0),
+                    clusterFileToDatabase.getKey() + " should not have left any contexts open");
         }
     }
 
@@ -202,14 +198,5 @@ public class FDBDatabaseExtension implements AfterEachCallback {
         }
         // we don't do this in a beforeEach, in case a test is accessing the database in the constructor.
         defaultClusterFile = FDBTestEnvironment.randomClusterFile();
-    }
-
-    private static void slowly(@Nonnull final Supplier<Void> action) {
-        try {
-            Thread.sleep(10L); //
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        action.get();
     }
 }
