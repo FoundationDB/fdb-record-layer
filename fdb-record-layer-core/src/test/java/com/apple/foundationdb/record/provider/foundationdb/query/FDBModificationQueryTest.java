@@ -124,7 +124,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                                                 new AccessHints())));
 
                         qun = Quantifier.forEach(Reference.initialOf(
-                                new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
+                                LogicalTypeFilterExpression.newInstance(ImmutableSet.of("RestaurantRecord"),
                                         qun,
                                         restaurantType)));
 
@@ -434,7 +434,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                                 new AccessHints())));
 
         qun = Quantifier.forEach(Reference.initialOf(
-                new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
+                LogicalTypeFilterExpression.newInstance(ImmutableSet.of("RestaurantRecord"),
                         qun,
                         restaurantType)));
 
@@ -498,7 +498,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                                                 new AccessHints())));
 
                         qun = Quantifier.forEach(Reference.initialOf(
-                                new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
+                                LogicalTypeFilterExpression.newInstance(ImmutableSet.of("RestaurantRecord"),
                                         qun,
                                         restaurantType)));
 
@@ -688,7 +688,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                                                 new AccessHints())));
 
                         qun = Quantifier.forEach(Reference.initialOf(
-                                new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
+                                LogicalTypeFilterExpression.newInstance(ImmutableSet.of("RestaurantRecord"),
                                         qun,
                                         restaurantType)));
 
@@ -814,7 +814,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                                             new AccessHints())));
 
                     qun = Quantifier.forEach(Reference.initialOf(
-                            new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantReviewer"),
+                            LogicalTypeFilterExpression.newInstance(ImmutableSet.of("RestaurantReviewer"),
                                     qun,
                                     reviewerType)));
 
@@ -858,7 +858,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                                             new AccessHints())));
 
                     qun = Quantifier.forEach(Reference.initialOf(
-                            new LogicalTypeFilterExpression(ImmutableSet.of("RestaurantRecord"),
+                            LogicalTypeFilterExpression.newInstance(ImmutableSet.of("RestaurantRecord"),
                                     qun,
                                     recordType)));
 

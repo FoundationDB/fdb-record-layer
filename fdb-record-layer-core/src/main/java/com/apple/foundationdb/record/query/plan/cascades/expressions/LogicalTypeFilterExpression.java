@@ -23,36 +23,53 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GroupByMappings;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.google.common.base.Predicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A relational planner expression that represents an unimplemented type filter on the records produced by its inner
@@ -67,11 +84,15 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
     private final Quantifier innerQuantifier;
     @Nonnull
     private final Type resultType;
+    @Nonnull
+    private final List<? extends QueryPredicate> predicates;
 
-    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier innerQuantifier, @Nonnull Type resultType) {
+    private LogicalTypeFilterExpression(@Nonnull final Set<String> recordTypes, @Nonnull final Quantifier innerQuantifier,
+                                        @Nonnull final Type resultType, @Nonnull final List<? extends QueryPredicate> predicates) {
         this.recordTypes = recordTypes;
         this.innerQuantifier = innerQuantifier;
         this.resultType = resultType;
+        this.predicates = ImmutableList.copyOf(predicates);
     }
 
     @Nonnull
@@ -113,8 +134,12 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
     public LogicalTypeFilterExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                              final boolean shouldSimplifyValues,
                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        final var translatedPredicates =
+                predicates.stream()
+                        .map(p -> p.translateCorrelations(translationMap, shouldSimplifyValues))
+                        .collect(Collectors.toList());
         return new LogicalTypeFilterExpression(getRecordTypes(), Iterables.getOnlyElement(translatedQuantifiers),
-                resultType);
+                resultType, translatedPredicates);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -124,13 +149,41 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
     }
 
     @Override
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
+            return true;
+        }
+
+        if (getClass() != otherExpression.getClass()) {
+            return false;
+        }
+
+        final var otherLogicalTypeFilterExpression = (LogicalTypeFilterExpression)otherExpression;
+        if (!getRecordTypes().equals(otherLogicalTypeFilterExpression.getRecordTypes())) {
+            return false;
+        }
+
+        final var otherPredicates = otherLogicalTypeFilterExpression.getPredicates();
+        return TypeFilterExpression.super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
+                predicates.size() == otherPredicates.size() &&
+                Streams.zip(predicates.stream(),
+                                otherPredicates.stream(),
+                                (queryPredicate, otherQueryPredicate) -> queryPredicate.semanticEquals(otherQueryPredicate, equivalencesMap))
+                        .allMatch(isSame -> isSame);
+    }
+
+    @Override
     public int hashCode() {
         return semanticHashCode();
     }
 
     @Override
     public int computeHashCodeWithoutChildren() {
-        return TypeFilterExpression.super.computeHashCodeWithoutChildren();
+        if (predicates.isEmpty()) {
+            return TypeFilterExpression.super.computeHashCodeWithoutChildren();
+        } else {
+            return Objects.hash(getRecordTypes(), predicates);
+        }
     }
 
     @Nonnull
@@ -175,7 +228,46 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
             return ImmutableList.of();
         }
 
-        return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, translationMapOptional.get());
+        final var translatedResultValue =
+                getResultValue().translateCorrelations(translationMapOptional.get(), true);
+
+        if (candidateTypeFilterExpression.getPredicates().isEmpty()) {
+            return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, translationMapOptional.get());
+        } else {
+            if (recordTypes.size() > 1 || candidateTypeFilterExpression.getPredicates().size() != 1) {
+                // we can't plan queries across multiple types now.
+                return ImmutableList.of();
+            }
+            final String recordTypeName = Iterables.getOnlyElement(recordTypes);
+            final QueryPredicate candidatePredicate = Iterables.getOnlyElement(candidateTypeFilterExpression.getPredicates());
+            final Comparisons.Comparison comparison = new RecordTypeKeyComparison.RecordTypeComparison(recordTypeName);
+            final var translationMap = translationMapOptional.get();
+            final QueryPredicate queryPredicate = new ValuePredicate(new RecordTypeValue(QuantifiedRecordValue.of(innerQuantifier)), comparison);
+            final QueryPredicate translatedPredicate = queryPredicate.translateCorrelations(translationMap, true);
+            final var placeholderAlias = ((Placeholder)candidatePredicate).getParameterAlias();
+
+            final var mapping = PredicateMultiMap.PredicateMapping.regularMappingBuilder(queryPredicate, translatedPredicate, candidatePredicate)
+                    .setParameterAlias(placeholderAlias).build();
+
+            final var predicateMappingBuilder = PredicateMultiMap.builder();
+            predicateMappingBuilder.put(queryPredicate, mapping);
+            final var predicateMappingMaybe = predicateMappingBuilder.buildMaybe();
+
+            if (predicateMappingMaybe.isEmpty()) {
+                return ImmutableList.of();
+            }
+
+            ComparisonRange comparisonRange = ComparisonRange.from(comparison);
+
+            final var predicateMapping = predicateMappingMaybe.get();
+            final var maxMatchMap =
+                    MaxMatchMap.compute(translatedResultValue, candidateExpression.getResultValue(),
+                            Quantifiers.aliases(candidateExpression.getQuantifiers()), ValueEquivalence.fromAliasMap(bindingAliasMap));
+            final var constraints = maxMatchMap.getQueryPlanConstraint();
+            return MatchInfo.RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(placeholderAlias, comparisonRange), predicateMapping, maxMatchMap, GroupByMappings.empty(), ImmutableList.of(), constraints)
+                    .map(ImmutableList::of)
+                    .orElse(ImmutableList.of());
+        }
     }
 
     @Nonnull
@@ -236,5 +328,35 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
                         ImmutableList.of("WHERE record IS {{types}}"),
                         ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList())))),
                 childGraphs);
+    }
+
+    @Nonnull
+    public List<? extends QueryPredicate> getPredicates() {
+        return predicates;
+    }
+
+    @Nonnull
+    public static LogicalTypeFilterExpression newInstance(@Nonnull final Set<String> recordTypes, @Nonnull final Quantifier innerQuantifier,
+                                                          @Nonnull final Type resultType) {
+        return new LogicalTypeFilterExpression(recordTypes, innerQuantifier, resultType, ImmutableList.of());
+    }
+
+    @Nonnull
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    public static LogicalTypeFilterExpression newInstanceForMatchCandidate(@Nonnull final Set<String> recordTypes,
+                                                                           @Nonnull final Set<String> availableRecordTypes,
+                                                                           @Nonnull final Quantifier innerQuantifier,
+                                                                           @Nonnull final Optional<CorrelationIdentifier> recordTypeKeyAliasMaybe,
+                                                                           @Nonnull final Type resultType) {
+        Verify.verify(availableRecordTypes.containsAll(recordTypes));
+
+        final var predicateListBuilder = ImmutableList.<QueryPredicate>builder();
+        if (recordTypes.size() < availableRecordTypes.size() && recordTypeKeyAliasMaybe.isPresent()) {
+            final var recordTypeValue = new RecordTypeValue(QuantifiedRecordValue.of(innerQuantifier));
+            final var placeholder = recordTypeValue.asPlaceholder(recordTypeKeyAliasMaybe.get());
+            predicateListBuilder.add(placeholder);
+        }
+
+        return new LogicalTypeFilterExpression(recordTypes, innerQuantifier, resultType, predicateListBuilder.build());
     }
 }

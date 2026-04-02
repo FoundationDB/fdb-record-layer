@@ -139,7 +139,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                     new Type.AnyRecord(false),
                     new AccessHints()));
             baseRef = Reference.initialOf(
-                    new LogicalTypeFilterExpression(
+                    LogicalTypeFilterExpression.newInstance(
                             new HashSet<>(queriedRecordTypes),
                             Quantifier.forEach(fuseRef),
                             recordMetaData.getPlannerType(queriedRecordTypes)));

@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Verify;
@@ -39,6 +40,7 @@ import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -509,6 +511,26 @@ public class GraphExpansion {
         @Nonnull
         public Builder addPredicate(@Nonnull final QueryPredicate predicate) {
             predicates.add(predicate);
+            return this;
+        }
+
+        @Nonnull
+        public Builder replacePlaceholder(@Nonnull final Function<Placeholder, Placeholder> replacementFunction) {
+            final ImmutableList<Placeholder> currentPlaceholders = placeholders.build();
+            placeholders = new ImmutableList.Builder<>();
+            for (final Placeholder placeholder : currentPlaceholders) {
+                placeholders.add(replacementFunction.apply(placeholder));
+            }
+            return this;
+        }
+
+        @Nonnull
+        public Builder replacePredicate(@Nonnull final Function<QueryPredicate, QueryPredicate> replacementFunction) {
+            final ImmutableList<QueryPredicate> currentPlaceholders = predicates.build();
+            predicates = new ImmutableList.Builder<>();
+            for (final QueryPredicate predicate : currentPlaceholders) {
+                predicates.add(replacementFunction.apply(predicate));
+            }
             return this;
         }
 
