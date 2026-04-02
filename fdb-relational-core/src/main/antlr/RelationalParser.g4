@@ -593,6 +593,7 @@ queryOption
     | LOG QUERY
     | DRY RUN
     | EF_SEARCH decimalLiteral
+    | PRODUCE RIGHT DEEP PLANS ONLY
     ;
 
 // Transaction's Statements

@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.apple.foundationdb.relational.api.Options.Name.DISABLE_PLANNER_REWRITING;
+import static com.apple.foundationdb.relational.api.Options.Name.PRODUCE_RIGHT_DEEP_PLANS_ONLY;
 
 /**
  * This contains a set of configurations given to the planner that fine-tunes its behavior.
@@ -61,6 +62,8 @@ public final class PlannerConfiguration {
     @Nonnull
     private final Set<String> disabledPlannerRewriteRules;
 
+    private final boolean produceRightDeepPlansOnly;
+
     @Nonnull
     private final RecordQueryPlannerConfiguration recordQueryPlannerConfiguration;
 
@@ -69,11 +72,13 @@ public final class PlannerConfiguration {
     private PlannerConfiguration(@Nonnull final Optional<Set<String>> readableIndexes,
                                  @Nonnull final IndexFetchMethod indexFetchMethod,
                                  @Nonnull final Set<String> disabledPlannerRewriteRules,
-                                 boolean disabledAllPlannerRules) {
+                                 boolean disabledAllPlannerRules,
+                                 boolean produceRightDeepPlansOnly) {
         this.readableIndexes = readableIndexes;
         this.indexFetchMethod = indexFetchMethod;
         this.disabledAllPlannerRules = disabledAllPlannerRules;
         this.disabledPlannerRewriteRules = ImmutableSet.copyOf(disabledPlannerRewriteRules);
+        this.produceRightDeepPlansOnly = produceRightDeepPlansOnly;
         this.memoizedHash = computeHash();
         this.recordQueryPlannerConfiguration = buildRecordQueryPlannerConfiguration();
     }
@@ -88,6 +93,34 @@ public final class PlannerConfiguration {
         return recordQueryPlannerConfiguration;
     }
 
+    /**
+     * Returns a {@link PlannerConfiguration} identical to this one except with {@code produceRightDeepPlansOnly} set
+     * to {@code newProduceRightDeepPlansOnly}.
+     * <p>
+     * This is used by {@link com.apple.foundationdb.relational.recordlayer.query.AstNormalizer} to override
+     * the connection-level configuration with a query-level {@code OPTIONS (PRODUCE RIGHT DEEP PLANS ONLY)}
+     * clause, ensuring the resulting {@link com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey}
+     * reflects the planner settings actually in effect for that query.
+     * </p>
+     * <p>
+     * <em>Note:</em> this method is a narrow, per-option escape hatch. It should eventually be replaced by a more
+     * general mechanism that allows any subset of {@link com.apple.foundationdb.relational.api.Options} to override
+     * the corresponding fields of a {@link PlannerConfiguration}, so that new query-level planner options do not
+     * each require a dedicated {@code withXxx} method here.
+     * </p>
+     *
+     * @param newProduceRightDeepPlansOnly the desired value of the flag
+     * @return {@code this} if the flag is already equal to {@code newProduceRightDeepPlansOnly},
+     *         otherwise a new {@link PlannerConfiguration} with the flag overridden
+     */
+    @Nonnull
+    public PlannerConfiguration withProduceRightDeepPlansOnly(final boolean newProduceRightDeepPlansOnly) {
+        if (this.produceRightDeepPlansOnly == newProduceRightDeepPlansOnly) {
+            return this;
+        }
+        return new PlannerConfiguration(readableIndexes, indexFetchMethod, disabledPlannerRewriteRules, disabledAllPlannerRules, newProduceRightDeepPlansOnly);
+    }
+
     @Override
     public boolean equals(Object other) {
         if (this == other) {
@@ -100,11 +133,12 @@ public final class PlannerConfiguration {
         return Objects.equals(readableIndexes, that.readableIndexes)
                 && this.indexFetchMethod.equals(that.indexFetchMethod)
                 && this.disabledAllPlannerRules == that.disabledAllPlannerRules
-                && this.disabledPlannerRewriteRules.equals(that.disabledPlannerRewriteRules);
+                && this.disabledPlannerRewriteRules.equals(that.disabledPlannerRewriteRules)
+                && this.produceRightDeepPlansOnly == that.produceRightDeepPlansOnly;
     }
 
     private int computeHash() {
-        return Objects.hash(readableIndexes, indexFetchMethod, disabledAllPlannerRules, disabledPlannerRewriteRules);
+        return Objects.hash(readableIndexes, indexFetchMethod, disabledAllPlannerRules, disabledPlannerRewriteRules, produceRightDeepPlansOnly);
     }
 
     @Override
@@ -122,6 +156,7 @@ public final class PlannerConfiguration {
         if (disabledAllPlannerRules) {
             configurationBuilder.disableRewritingRules();
         }
+        configurationBuilder.setJoinRightDeep(produceRightDeepPlansOnly);
         return configurationBuilder.build();
     }
 
@@ -130,7 +165,8 @@ public final class PlannerConfiguration {
                                           @Nonnull final Options options) {
         final var disabledPlannerRules = ImmutableSet.copyOf(options.<Collection<String>>getOption(Options.Name.DISABLED_PLANNER_RULES));
         return new PlannerConfiguration(readableIndexesMaybe, OptionsUtils.getIndexFetchMethod(options),
-                disabledPlannerRules, options.getOption(DISABLE_PLANNER_REWRITING));
+                disabledPlannerRules, options.getOption(DISABLE_PLANNER_REWRITING),
+                options.getOption(PRODUCE_RIGHT_DEEP_PLANS_ONLY));
     }
 
     @Nonnull
