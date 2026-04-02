@@ -55,7 +55,13 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * Expansion visitor that implements the shared logic between primary scan data access and value index access.
+ * Expansion visitor that walks a {@link KeyExpression} tree and translates each node into a {@link GraphExpansion}.
+ *
+ * <p>This base class implements the shared expansion logic; subclasses tailor it to a specific access path. Current
+ * subclasses include {@link PrimaryAccessExpansionVisitor} (for primary scan data access) and
+ * {@link ValueIndexExpansionVisitor} (for value index access).
+ *
+ * <p>Per-visit context is carried on a stack of {@link VisitorState} objects.
  */
 public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<VisitorState, GraphExpansion> {
     /**
@@ -154,7 +160,10 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                         .builderWithInheritedPlaceholders()
                         .pullUpQuantifier(childQuantifier)
                         .build();
+            case Concatenate:
             case None:
+                // Note: `Concatenate` and `None` can use the graph expansion logic. Both just access the field directly
+                // via `FieldValue.ofFieldNames()`.
                 value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
                 if (state.isSelectStar()) {
                     if (state.isKey() && !state.isInternalExpansion()) {
@@ -168,10 +177,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     }
                     return GraphExpansion.ofResultColumn(column);
                 }
-            case Concatenate: // TODO collect/concatenate function
             default:
+                throw new UnsupportedOperationException();
         }
-        throw new UnsupportedOperationException();
     }
 
     @Nonnull
@@ -230,6 +238,21 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         throw new RecordCoreException("expression should have been handled at top level");
     }
 
+    /**
+     * Expands a {@link NestingKeyExpression}. The behavior depends on the fan-out type of the parent field:
+     * <ul>
+     * <li>{@code None} — The parent contributes a path segment; the child is expanded with the extended field-name
+     *     prefix. A special case is when the whole nesting matches the nullable-array wrapper pattern
+     *     {@code field(x).nest(field("values", FAN_OUT|CONCATENATE))}. In this case the {@code "values"} level is
+     *     stripped and expansion is delegated back to {@code visitExpression(FieldKeyExpression)} with the
+     *     corresponding fan-type on the parent.</li>
+     * <li>{@code FanOut} — The parent is exploded into a {@link Quantifier.ForEach}, the child is expanded under
+     *     that quantifier, and the resulting columns, predicates, and placeholders are pulled up through a newly
+     *     introduced {@link SelectExpression}.</li>
+     * <li>{@code Concatenate} — Rejected. A parent with this fan-type produces a single list-typed value, which has
+     *     no sub-fields to nest into, so {@code field(…, Concatenate).nest(...)} is not a meaningful construct.</li>
+     * </ul>
+     */
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull final NestingKeyExpression nestingKeyExpression) {
@@ -241,22 +264,44 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         final KeyExpression child = nestingKeyExpression.getChild();
         switch (parent.getFanType()) {
             case None:
-                List<String> newPrefix = ImmutableList.<String>builder()
-                        .addAll(fieldNamePrefix)
-                        .add(ProtoUtils.toUserIdentifier((parent.getFieldName())))
-                        .build();
-                if (NullableArrayTypeUtils.isArrayWrapper(nestingKeyExpression)) {
-                    final RecordKeyExpressionProto.KeyExpression childProto = nestingKeyExpression.getChild().toKeyExpression();
-                    if (childProto.hasNesting()) {
-                        RecordKeyExpressionProto.Nesting.Builder newNestingBuilder = RecordKeyExpressionProto.Nesting.newBuilder()
-                                .setParent(parent.toProto().toBuilder().setFanType(RecordKeyExpressionProto.Field.FanType.FAN_OUT))
-                                .setChild(childProto.getNesting().getChild());
-                        return visitExpression(new NestingKeyExpression(newNestingBuilder.build()));
-                    } else {
-                        return visitExpression(new FieldKeyExpression(parent.toProto().toBuilder().setFanType(RecordKeyExpressionProto.Field.FanType.FAN_OUT).build()));
+                final var arrayWrapperFanType = NullableArrayTypeUtils.matchArrayWrapper(nestingKeyExpression);
+                if (arrayWrapperFanType.isPresent()) {
+                    switch (arrayWrapperFanType.get()) {
+                        case FAN_OUT:
+                            final RecordKeyExpressionProto.KeyExpression childProto = nestingKeyExpression.getChild().toKeyExpression();
+                            if (childProto.hasNesting()) {
+                                RecordKeyExpressionProto.Nesting.Builder newNestingBuilder = RecordKeyExpressionProto.Nesting.newBuilder()
+                                        .setParent(parent.toProto().toBuilder().setFanType(RecordKeyExpressionProto.Field.FanType.FAN_OUT))
+                                        .setChild(childProto.getNesting().getChild());
+                                return visitExpression(new NestingKeyExpression(newNestingBuilder.build()));
+                            } else {
+                                return visitExpression(new FieldKeyExpression(parent.toProto()
+                                        .toBuilder()
+                                        .setFanType(RecordKeyExpressionProto.Field.FanType.FAN_OUT)
+                                        .build()));
+                            }
+                        case CONCATENATE:
+                            // "values" is always a leaf for a `Concatenate` wrapper: Concatenation produces a list,
+                            // which has no sub-fields. Rewrite this as a direct field access with fan-type
+                            // `Concatenate` on the parent, and delegate to the visitor for `FieldKeyExpression`.
+                            Verify.verify(!nestingKeyExpression.getChild().toKeyExpression().hasNesting(),
+                                    "\"values\" field in a `Concatenate` array wrapper must be a leaf");
+                            return visitExpression(
+                                    new FieldKeyExpression(parent.toProto()
+                                            .toBuilder()
+                                            .setFanType(RecordKeyExpressionProto.Field.FanType.CONCATENATE)
+                                            .build()));
+                        case SCALAR:
+                        default:
+                            throw new RecordCoreException("unexpected fan type for array wrapper values field");
                     }
+                } else {
+                    List<String> newPrefix = ImmutableList.<String>builder()
+                            .addAll(fieldNamePrefix)
+                            .add(ProtoUtils.toUserIdentifier((parent.getFieldName())))
+                            .build();
+                    return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));
                 }
-                return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));
             case FanOut:
                 // explode the parent field(s) also depending on the prefix
                 final Quantifier.ForEach childBaseQuantifier = parent.explodeField(baseQuantifier, fieldNamePrefix);
