@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -76,7 +75,7 @@ public final class MatchCandidateExpansion {
 
     @Nonnull
     public static Optional<MatchCandidate> expandValueIndexMatchCandidate(@Nonnull IndexExpansionInfo info) {
-        return expandIndexMatchCandidate(info, info.getCommonPrimaryKeyForTypes(),
+        return expandIndexMatchCandidate(info, false, info.getCommonPrimaryKeyForTypes(),
                 new ValueIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes()));
     }
 
@@ -90,18 +89,19 @@ public final class MatchCandidateExpansion {
     public static Optional<MatchCandidate> expandAggregateIndexMatchCandidate(@Nonnull IndexExpansionInfo info) {
         // Override the common primary key here. We always want it to be null because the primary key is not
         // included in the expanded aggregate index
-        return expandIndexMatchCandidate(info, null,
+        return expandIndexMatchCandidate(info, false, null,
                 new AggregateIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes()));
     }
 
     @Nonnull
     public static Optional<MatchCandidate> expandIndexMatchCandidate(@Nonnull IndexExpansionInfo info,
+                                                                     boolean forRankIndex,
                                                                      @Nullable KeyExpression commonPrimaryKey,
                                                                      @Nonnull final ExpansionVisitor<?> expansionVisitor) {
         try {
             final var accessHint = new IndexAccessHint(info.getIndexName());
             final MatchCandidate matchCandidate;
-            if (IndexTypes.RANK.equals(info.getIndex().getType())) {
+            if (forRankIndex) {
                 //
                 // rank index requires a type filter supplier as it requires creating multiple type filter
                 // references when creating the match candidate, moreover, the current version of rank index

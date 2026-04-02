@@ -246,7 +246,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
             Arguments.of(ImmutableMap.of(250L, 50L), ANY, List.of(250L, 50L, 10L, 1L)),
             Arguments.of(ImmutableMap.of(250L, 50L, 40L, 10L), LEVEL, List.of(250L, 40L, 50L, 10L, 10L, 1L, 1L)),
             Arguments.of(ImmutableMap.of(250L, 50L, 40L, 10L), PREORDER, List.of(250L, 50L, 10L, 1L, 40L, 10L, 1L)),
-            Arguments.of(ImmutableMap.of(250L, 50L, 40L, 10L), ANY, List.of(250L, 50L, 10L, 1L, 40L, 10L, 1L)),
+            Arguments.of(ImmutableMap.of(250L, 50L, 40L, 10L), ANY, List.of(250L, 40L, 50L, 10L, 10L, 1L, 1L)),
             Arguments.of(ImmutableMap.of(300L, 300L), LEVEL, List.of(300L)),
             Arguments.of(ImmutableMap.of(300L, 300L), PREORDER, List.of(300L)),
             Arguments.of(ImmutableMap.of(300L, 300L), ANY, List.of(300L))
@@ -267,11 +267,11 @@ class RecursiveQueriesTest extends TempTableTestBase {
             Arguments.of(ImmutableMap.of(1L, -1L), LEVEL, List.of(1L, 10L, 20L, 40L, 50L, 70L, 100L, 210L, 250L)),
             Arguments.of(ImmutableMap.of(1L, -1L), PREORDER, List.of(1L, 10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L)),
             Arguments.of(ImmutableMap.of(1L, -1L), POSTORDER, List.of(40L, 250L, 50L, 70L, 10L, 100L, 210L, 20L, 1L)),
-            Arguments.of(ImmutableMap.of(1L, -1L), ANY, List.of(1L, 10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L)),
+            Arguments.of(ImmutableMap.of(1L, -1L), ANY, List.of(1L, 10L, 20L, 40L, 50L, 70L, 100L, 210L, 250L)),
             Arguments.of(ImmutableMap.of(10L, 1L), LEVEL, List.of(10L, 40L, 50L, 70L, 250L)),
             Arguments.of(ImmutableMap.of(10L, 1L), PREORDER, List.of(10L, 40L, 50L, 250L, 70L)),
             Arguments.of(ImmutableMap.of(10L, 1L), POSTORDER, List.of(40L, 250L, 50L, 70L, 10L)),
-            Arguments.of(ImmutableMap.of(10L, 1L), ANY, List.of(10L, 40L, 50L, 250L, 70L))
+            Arguments.of(ImmutableMap.of(10L, 1L), ANY, List.of(10L, 40L, 50L, 70L, 250L))
         );
     }
 

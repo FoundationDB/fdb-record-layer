@@ -79,7 +79,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.filterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.recordTypes;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
@@ -210,16 +209,9 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
 
             assertEquals(recs.subList(0, 2), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
-            if (useCascadesPlanner) {
-                // Currently sub-optimal due to: https://github.com/FoundationDB/fdb-record-layer/issues/2108
-                assertMatchesExactly(plan,
-                        typeFilterPlan(
-                                scanPlan().where(scanComparisons(unbounded()))
-                        ).where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord")))));
-            } else {
-                assertMatchesExactly(plan, scanPlan()
-                        .where(scanComparisons(range("[IS MySimpleRecord]"))));
-            }
+
+            assertMatchesExactly(plan, scanPlan()
+                    .where(scanComparisons(range("[IS MySimpleRecord]"))));
         }
     }
 
@@ -247,11 +239,8 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             assertEquals(recs.subList(0, 2), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
             if (useCascadesPlanner) {
-                // Currently sub-optimal due to: https://github.com/FoundationDB/fdb-record-layer/issues/2108
-                assertMatchesExactly(plan,
-                        typeFilterPlan(
-                                scanPlan().where(scanComparisons(unbounded()))
-                        ).where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord")))));
+                assertMatchesExactly(plan, scanPlan()
+                        .where(scanComparisons(range("[IS MySimpleRecord]"))));
             } else {
                 assertMatchesExactly(plan, indexPlan()
                         .where(indexName("MySimpleRecord$str_value_indexed"))
@@ -309,18 +298,9 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
 
             assertEquals(recs.subList(0, 1), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
-            if (useCascadesPlanner) {
-                // Currently sub-optimal due to: https://github.com/FoundationDB/fdb-record-layer/issues/2108
-                assertMatchesExactly(plan,
-                        predicatesFilterPlan(
-                                typeFilterPlan(
-                                        scanPlan().where(scanComparisons(unbounded()))
-                                ).where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord"))))
-                        ));
-            } else {
-                assertMatchesExactly(plan, scanPlan()
-                        .where(scanComparisons(range("[IS MySimpleRecord, [LESS_THAN 400]]"))));
-            }
+
+            assertMatchesExactly(plan, scanPlan()
+                    .where(scanComparisons(range("[IS MySimpleRecord, [LESS_THAN 400]]"))));
         }
     }
 
@@ -341,18 +321,8 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
 
             assertEquals(recs.subList(1, 2), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
-            if (useCascadesPlanner) {
-                // Currently sub-optimal due to: https://github.com/FoundationDB/fdb-record-layer/issues/2108
-                assertMatchesExactly(plan,
-                        predicatesFilterPlan(
-                                typeFilterPlan(
-                                        scanPlan().where(scanComparisons(unbounded()))
-                                ).where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord"))))
-                        ));
-            } else {
-                assertMatchesExactly(plan, scanPlan()
-                        .where(scanComparisons(range("[IS MySimpleRecord, [GREATER_THAN 200 && LESS_THAN 500]]"))));
-            }
+            assertMatchesExactly(plan, scanPlan()
+                    .where(scanComparisons(range("[IS MySimpleRecord, [GREATER_THAN 200 && LESS_THAN 500]]"))));
         }
     }
 
