@@ -293,6 +293,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             if (ctx.DRY() != null) {
                 queryOptions.withOption(Options.Name.DRY_RUN, true);
             }
+            if (ctx.RIGHT() != null) {
+                queryOptions.withOption(Options.Name.PLAN_RIGHT_DEEP, true);
+            }
             return null;
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
@@ -643,7 +646,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         }
         return new NormalizationResult(
                 recordLayerSchemaTemplate.getName(),
-                QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), plannerConfiguration,
+                QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), getQuerySpecificPlannerConfig(plannerConfiguration, astNormalizer.getQueryOptions()),
                         recordLayerSchemaTemplate.getTransactionBoundMetadataAsString(), astNormalizer.getHash(),
                         recordLayerSchemaTemplate.getVersion(), userVersion),
                 astNormalizer.getQueryExecutionParameters(),
@@ -651,6 +654,19 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 astNormalizer.getQueryCachingFlags(),
                 astNormalizer.getQueryOptions(),
                 query);
+    }
+
+    // Query-level OPTIONS(...) clauses are parsed by AstNormalizer and returned as a separate Options object
+    // alongside the QueryCacheKey. The PlannerConfiguration that forms part of the cache key is built earlier,
+    // from connection-level options, before the query text is even parsed. This method bridges that gap: for any
+    // planner-affecting option that can be asserted at query level, it overrides the corresponding field in the
+    // connection-level PlannerConfiguration so that the cache key correctly reflects what was requested in the SQL.
+    private static PlannerConfiguration getQuerySpecificPlannerConfig(@Nonnull final PlannerConfiguration plannerConfiguration,
+                                                                      @Nonnull final Options options) {
+        if (options.getOption(Options.Name.PLAN_RIGHT_DEEP)) {
+            return plannerConfiguration.withPlanRightDeep(true);
+        }
+        return plannerConfiguration;
     }
 
     public static final class NormalizationResult {
