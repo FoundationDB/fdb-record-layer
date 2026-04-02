@@ -7,6 +7,22 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.10.12.0
+
+
+
+**[Full Changelog (4.10.11.0...4.10.12.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.11.0...4.10.12.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.1.0`, ✅`4.10.2.0`, ✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`, ✅`4.10.6.0`, ✅`4.10.7.0`, ✅`4.10.8.0`, ✅`4.10.9.0`, ✅`4.10.10.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/23917226305)
+
+
+
 ### 4.10.11.0
 
 <h4> New Features </h4>
