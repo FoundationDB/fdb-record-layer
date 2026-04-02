@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query.ddl;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
@@ -54,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.CardinalityValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
@@ -176,7 +178,7 @@ public final class MaterializedViewIndexGenerator {
         Assert.thatUnchecked(unsupportedAggregates.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
                 () -> String.format(Locale.ROOT, "Unsupported aggregate index definition containing non-indexable aggregation (%s), consider using a value index on the aggregated column instead.", unsupportedAggregates.stream().map(Objects::toString).collect(joining(","))));
 
-        Assert.thatUnchecked(simplifiedValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof IndexableAggregateValue || sv instanceof VersionValue || sv instanceof ArithmeticValue));
+        Assert.thatUnchecked(simplifiedValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof IndexableAggregateValue || sv instanceof VersionValue || sv instanceof ArithmeticValue || sv instanceof CardinalityValue));
         final var aggregateValues = simplifiedValues.stream().filter(sv -> sv instanceof IndexableAggregateValue).collect(toList());
         final var fieldValues = simplifiedValues.stream().filter(sv -> !(sv instanceof IndexableAggregateValue)).collect(toList());
         final var versionValues = simplifiedValues.stream().filter(sv -> sv instanceof FieldValue && sv.getResultType().equals(PseudoField.ROW_VERSION.getType())).collect(toList());
@@ -185,7 +187,7 @@ public final class MaterializedViewIndexGenerator {
         final var orderByValues = getOrderByValues(relationalExpression, orderingFunctions);
         if (aggregateValues.isEmpty()) {
             indexBuilder.setIndexType(versionValues.isEmpty() ? IndexTypes.VALUE : IndexTypes.VERSION);
-            Assert.thatUnchecked(orderByValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof VersionValue || sv instanceof ArithmeticValue), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, order by must be a subset of projection list");
+            Assert.thatUnchecked(orderByValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof VersionValue || sv instanceof ArithmeticValue || sv instanceof CardinalityValue), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, order by must be a subset of projection list");
             if (fieldValues.size() > 1) {
                 Assert.thatUnchecked(!orderByValues.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, value indexes must have an order by clause at the top level");
             }
@@ -532,29 +534,48 @@ public final class MaterializedViewIndexGenerator {
         }
     }
 
+    /**
+     * Build the key expression representing the arguments of a {@link FunctionKeyExpression}.
+     */
+    @Nonnull
+    private static KeyExpression buildArgumentKeyExpression(List<KeyExpression> argumentList) {
+        if (argumentList.isEmpty()) {
+            return empty();
+        } else if (argumentList.size() == 1) {
+            return argumentList.get(0);
+        } else {
+            return concat(argumentList);
+        }
+    }
+
     @Nonnull
     private KeyExpression toKeyExpression(@Nonnull Value value) {
         if (value instanceof VersionValue) {
             return VersionKeyExpression.VERSION;
         } else if (value instanceof FieldValue) {
             final FieldValue fieldValue = (FieldValue) value;
-            return toKeyExpression(fieldValue.getFieldPath().getFieldAccessors().iterator());
+            return toKeyExpression(fieldValue.getFieldPath().getFieldAccessors().iterator(), KeyExpression.FanType.FanOut);
+        } else if (value instanceof CardinalityValue) {
+            // CARDINALITY() consumes an array value. Currently, it can only be applied to a `field` directly. We make
+            // sure here that the field gets accessed with fan-out type `Concatenate` instead of `FanOut` so that it
+            // produces the materialized array.
+            final var it = value.getChildren().iterator();
+            Assert.thatUnchecked(it.hasNext(), "Invalid children list for `CardinalityValue`");
+            final Value childValue = it.next();
+            Assert.thatUnchecked(!it.hasNext(), "Invalid children list for `CardinalityValue`");
+            Assert.thatUnchecked(childValue instanceof FieldValue, "CARDINALITY() must be applied to a `field()` in an index key expression.");
+            final var fieldValue = (FieldValue)childValue;
+            final KeyExpression childKeyExpression = toKeyExpression(fieldValue.getFieldPath().getFieldAccessors().iterator(), KeyExpression.FanType.Concatenate);
+            return function(FunctionNames.CARDINALITY, childKeyExpression);
         } else if (value instanceof ArithmeticValue) {
             var children = value.getChildren();
             var builder = ImmutableList.<KeyExpression>builder();
             for (Value child : children) {
                 builder.add(toKeyExpression(child));
             }
-            final List<KeyExpression> argumentList = builder.build();
-            KeyExpression argumentExpr;
-            if (argumentList.isEmpty()) {
-                argumentExpr = empty();
-            } else if (argumentList.size() == 1) {
-                argumentExpr = argumentList.get(0);
-            } else {
-                argumentExpr = concat(argumentList);
-            }
-            return function(((ArithmeticValue) value).getLogicalOperator().name().toLowerCase(Locale.ROOT), argumentExpr);
+            KeyExpression argumentExpr = buildArgumentKeyExpression(builder.build());
+            final String name = ((ArithmeticValue)value).getLogicalOperator().name().toLowerCase(Locale.ROOT);
+            return function(name, argumentExpr);
         } else if (value instanceof LiteralValue<?>) {
             return Key.Expressions.value(((LiteralValue<?>) value).getLiteralValue());
         } else {
@@ -573,7 +594,7 @@ public final class MaterializedViewIndexGenerator {
         final var exprConstituents = childrenMap.entrySet().stream().map(nodeEntry -> {
             final FieldValue.ResolvedAccessor accessor = nodeEntry.getKey();
             final FieldValueTrieNode node = nodeEntry.getValue();
-            final KeyExpression expr = toFieldKeyExpression(accessor.getField());
+            final KeyExpression expr = toFieldKeyExpression(accessor.getField(), KeyExpression.FanType.FanOut);
             if (node.getChildrenMap() != null) {
                 final FieldKeyExpression fieldExpr = Assert.castUnchecked(expr, FieldKeyExpression.class);
                 return fieldExpr.nest(toKeyExpression(node, orderingFunctions));
@@ -610,7 +631,7 @@ public final class MaterializedViewIndexGenerator {
 
         final var allSimpleValues = expressions.stream()
                 .filter(r -> r.getResultType().getInnerType() instanceof Type.Record)
-                .allMatch(r -> Values.deconstructRecord(r.getResultValue()).stream().allMatch(v -> v instanceof FieldValue || v instanceof VersionValue || v instanceof QuantifiedObjectValue || v instanceof AggregateValue || v instanceof ArithmeticValue || v instanceof LiteralValue));
+                .allMatch(r -> Values.deconstructRecord(r.getResultValue()).stream().allMatch(v -> v instanceof FieldValue || v instanceof VersionValue || v instanceof QuantifiedObjectValue || v instanceof AggregateValue || v instanceof ArithmeticValue || v instanceof LiteralValue || v instanceof CardinalityValue));
         Assert.thatUnchecked(allSimpleValues, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, not all fields can be mapped to key expression in");
     }
 
@@ -753,12 +774,12 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull Iterator<FieldValue.ResolvedAccessor> resolvedAccessors) {
+    private KeyExpression toKeyExpression(@Nonnull Iterator<FieldValue.ResolvedAccessor> resolvedAccessors, KeyExpression.FanType fanTypeForArray) {
         Assert.thatUnchecked(resolvedAccessors.hasNext(), "cannot resolve empty list");
         final Type.Record.Field field = resolvedAccessors.next().getField();
-        final KeyExpression expression = toFieldKeyExpression(field);
+        final KeyExpression expression = toFieldKeyExpression(field, fanTypeForArray);
         if (resolvedAccessors.hasNext()) {
-            KeyExpression childExpression = toKeyExpression(resolvedAccessors);
+            KeyExpression childExpression = toKeyExpression(resolvedAccessors, fanTypeForArray);
             final FieldKeyExpression fieldExpression = Assert.castUnchecked(expression, FieldKeyExpression.class);
             return fieldExpression.nest(childExpression);
         } else {
@@ -778,17 +799,22 @@ public final class MaterializedViewIndexGenerator {
         return recordTypes.stream().findFirst().orElseThrow();
     }
 
+    /**
+     * Return a {@link FieldKeyExpression} or {@link VersionKeyExpression} for the given field type, as appropriate.
+     *
+     * @param fanTypeForArray The fan-out type to use for the {@code field} key expression in case the field is an
+     * ARRAY. This should be either {@code FanOut} or {@code Concatenate}.
+     */
     @Nonnull
-    private static KeyExpression toFieldKeyExpression(@Nonnull Type.Record.Field fieldType) {
+    private static KeyExpression toFieldKeyExpression(@Nonnull Type.Record.Field fieldType, KeyExpression.FanType fanTypeForArray) {
         Assert.notNullUnchecked(fieldType.getFieldStorageName());
-        final var fanType = fieldType.getFieldType().getTypeCode() == Type.TypeCode.ARRAY ?
-                KeyExpression.FanType.FanOut :
-                KeyExpression.FanType.None;
-        if (PseudoField.ROW_VERSION.getType().equals(fieldType.getFieldType()) && PseudoField.ROW_VERSION.getFieldName().equals(fieldType.getFieldName())) {
+        Assert.thatUnchecked(fanTypeForArray == KeyExpression.FanType.FanOut || fanTypeForArray == KeyExpression.FanType.Concatenate);
+        final Type type = fieldType.getFieldType();
+        if (PseudoField.ROW_VERSION.getType().equals(type) && PseudoField.ROW_VERSION.getFieldName().equals(fieldType.getFieldName())) {
             return VersionKeyExpression.VERSION;
         }
-        // At this point, we need to use the storage field name as that will be the name referenced
-        // in Protobuf storage
+        final var fanType = type.isArray() ? fanTypeForArray : KeyExpression.FanType.None;
+        // Here we need to use the storage field name, as that will be the name referenced in Protobuf storage.
         return field(fieldType.getFieldStorageName(), fanType);
     }
 

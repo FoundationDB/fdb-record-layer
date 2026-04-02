@@ -154,7 +154,10 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                         .builderWithInheritedPlaceholders()
                         .pullUpQuantifier(childQuantifier)
                         .build();
+            case Concatenate:
             case None:
+                // Note: `Concatenate` and `None` can use the graph expansion logic. Both just access the field directly
+                // via `FieldValue.ofFieldNames()`.
                 value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
                 if (state.isSelectStar()) {
                     if (state.isKey() && !state.isInternalExpansion()) {
@@ -168,10 +171,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     }
                     return GraphExpansion.ofResultColumn(column);
                 }
-            case Concatenate: // TODO collect/concatenate function
             default:
+                throw new UnsupportedOperationException();
         }
-        throw new UnsupportedOperationException();
     }
 
     @Nonnull

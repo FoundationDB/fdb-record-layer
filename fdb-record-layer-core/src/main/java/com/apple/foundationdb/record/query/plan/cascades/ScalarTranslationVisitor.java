@@ -119,9 +119,11 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
     @Nonnull
     @Override
     public Value visitExpression(@Nonnull FieldKeyExpression fieldKeyExpression) {
+        // The fan-out type is usually expected to be `None` aka. SCALAR here. It may also be `Concatenate`, for example
+        // when a function key expression invokes CARDINALITY() on an ARRAY field.
         final KeyExpression.FanType fanType = fieldKeyExpression.getFanType();
-        if (fanType != KeyExpression.FanType.None) {
-            throw new RecordCoreException("cannot expand fan outs in scalar expansion");
+        if (!(fanType == KeyExpression.FanType.None || fanType == KeyExpression.FanType.Concatenate)) {
+            throw new RecordCoreException("cannot expand fan-outs in scalar expansion");
         }
 
         final ScalarVisitorState state = getCurrentState();

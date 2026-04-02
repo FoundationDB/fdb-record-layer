@@ -41,12 +41,13 @@ import java.util.List;
 
 /**
  * Interface for expressions that evaluate to keys.
- * While Java will let you extend this class, you probably shouldn't because the planner does lots of instanceof
+ *
+ * <p>While Java will let you extend this class, you probably shouldn't because the planner does lots of instanceof
  * calls to figure out what query to use. If you're ok with always just doing a scan of all records, and evaluating
  * the expression on that, I guess that's ok.
  *
- * When implementing a new key expression, care should be taken to implement at least one (and possibly both) of
- * the interfaces Key.AtomExpression and Key.ExpressionWithChildren.
+ * <p>When implementing a new key expression, care should be taken to implement at least one (and possibly both) of
+ * the interfaces {@link AtomKeyExpression} and {@link KeyExpressionWithChildren}.
  */
 @API(API.Status.UNSTABLE)
 public interface KeyExpression extends PlanHashable {

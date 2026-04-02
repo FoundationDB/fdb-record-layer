@@ -88,7 +88,7 @@ import java.util.function.BiFunction;
  * This would produce the result of performing <code>substr(content, start, end)</code> for each <code>SubString</code>value
  * in substrings.
  *
- * <p>Actual implementations of <code>FunctionKeyExpressions</code> are discovered by polling all available
+ * <p>Concrete implementations of {@code FunctionKeyExpression} are discovered by polling all available
  * {@link Registry} implementations. A <code>Registry</code> returns a list of {@link Builder}s which, given a set of
  * arguments, are capable of creating an implementation of a function.
  */

@@ -272,29 +272,53 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     @VisibleForTesting
     public static FieldPath resolveFieldPath(@Nonnull final Type inputType, @Nonnull final List<Accessor> accessors) {
         final var accessorPathBuilder = ImmutableList.<ResolvedAccessor>builder();
-        var currentType = inputType;
-        for (final var accessor : accessors) {
-            final var fieldName = accessor.getName();
-            SemanticException.check(currentType.isRecord(), SemanticException.ErrorCode.FIELD_ACCESS_INPUT_NON_RECORD_TYPE,
-                    "field '" + (fieldName == null ? "#" + accessor.getOrdinal() : fieldName) + "' can only be resolved on records");
-            final var recordType = (Type.Record)currentType;
-            final var fieldNameFieldMap = Objects.requireNonNull(recordType.getFieldNameFieldMap());
-            final Field field;
-            final int ordinal;
-            if (fieldName != null) {
-                SemanticException.check(fieldNameFieldMap.containsKey(fieldName), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
-                field = fieldNameFieldMap.get(fieldName);
-                final var fieldOrdinalsMap = Objects.requireNonNull(recordType.getFieldNameToOrdinalMap());
-                SemanticException.check(fieldOrdinalsMap.containsKey(fieldName), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
-                ordinal = fieldOrdinalsMap.get(fieldName);
+        Type currentType = inputType;
+        for (final Accessor accessor : accessors) {
+            final String fieldName = accessor.getName();
+            // If there is an ARRAY type on the path and that array is nullable, then on the Protobuf level the actual
+            // repeated field will be wrapped into a `values` field (aka. the "repeated field name"). So we expect an
+            // additional accessor named "values" behind the array name in the list, and will just skip over it here.
+            // For example, if the table is
+            //     CREATE TABLE … AS (id INTEGER, int_array INTEGER ARRAY NULL)
+            // … and `resolveFieldPath()` is called for `int_array`, then the original `inputType` will be
+            //     "INT AS id, ARRAY(INT) AS int_array"
+            // and the accessors will be ["int_array", "values"]. After 1 iteration of this loop we then expect to be at
+            // `currentType == "ARRAY(INT)"` and `accessor == "values"`.
+            if (currentType.isArray()) {
+                if (currentType.isNullable()) {
+                    final var arrayType = (Type.Array)currentType;
+                    Verify.verify(arrayType.isNullable());
+                    Verify.verify(fieldName != null);
+                    Verify.verify(accessor.getOrdinal() == -1 || accessor.getOrdinal() == 0);
+                    SemanticException.check(fieldName.equals(NullableArrayTypeUtils.getRepeatedFieldName()), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
+                } else {
+                    // This case cannot currently be reached via SQL.
+                    SemanticException.fail(SemanticException.ErrorCode.FIELD_ACCESS_INPUT_NON_RECORD_TYPE,
+                            "field '" + (fieldName == null ? "#" + accessor.getOrdinal() : fieldName) + "' cannot be resolved on an array");
+                }
+            } else if (currentType.isRecord()) {
+                final var recordType = (Type.Record)currentType;
+                final var fieldNameFieldMap = Objects.requireNonNull(recordType.getFieldNameFieldMap());
+                final Field field;
+                final int ordinal;
+                if (fieldName != null) {
+                    SemanticException.check(fieldNameFieldMap.containsKey(fieldName), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
+                    field = fieldNameFieldMap.get(fieldName);
+                    final var fieldOrdinalsMap = Objects.requireNonNull(recordType.getFieldNameToOrdinalMap());
+                    SemanticException.check(fieldOrdinalsMap.containsKey(fieldName), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
+                    ordinal = fieldOrdinalsMap.get(fieldName);
+                } else {
+                    // field is not accessed by field but by ordinal number
+                    Verify.verify(accessor.getOrdinal() >= 0);
+                    field = recordType.getFields().get(accessor.getOrdinal());
+                    ordinal = accessor.getOrdinal();
+                }
+                currentType = field.getFieldType();
+                accessorPathBuilder.add(ResolvedAccessor.of(field, ordinal));
             } else {
-                // field is not accessed by field but by ordinal number
-                Verify.verify(accessor.getOrdinal() >= 0);
-                field = recordType.getFields().get(accessor.getOrdinal());
-                ordinal = accessor.getOrdinal();
+                SemanticException.fail(SemanticException.ErrorCode.FIELD_ACCESS_INPUT_NON_RECORD_TYPE,
+                        "field '" + (fieldName == null ? "#" + accessor.getOrdinal() : fieldName) + "' can only be resolved on records");
             }
-            currentType = field.getFieldType();
-            accessorPathBuilder.add(ResolvedAccessor.of(field, ordinal));
         }
         return new FieldPath(accessorPathBuilder.build());
     }
@@ -333,7 +357,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
     @Nonnull
     public static FieldValue ofOrdinalNumber(@Nonnull Value childValue, final int ordinalNumber) {
-        final var resolved = resolveFieldPath(childValue.getResultType(), ImmutableList.of(new Accessor(null, ordinalNumber)));
+        final FieldPath resolved = resolveFieldPath(childValue.getResultType(), ImmutableList.of(new Accessor(null, ordinalNumber)));
         return new FieldValue(childValue, resolved);
     }
 
