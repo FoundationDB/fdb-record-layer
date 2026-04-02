@@ -2787,25 +2787,24 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         boolean singleIndexScan;
 
         if (useCascadesPlanner) {
-            // The Cascades planner always goes with the union. Note that it splits the in-union in twain rather than
+            //
+            // The Cascades planner always goes with the union.
             //
             assertMatchesExactly(plan,
                     inUnionOnValuesPlan(
-                            inUnionOnValuesPlan(
-                                    fetchFromPartialRecordPlan(
-                                            intersectionOnValuesPlan(
-                                                    coveringIndexPlan().where(indexPlanOf(
-                                                            indexPlan().where(indexName(numValue2Then3Index.getName())).and(scanComparisons(equalities(only(anyComparison()))))
-                                                    )),
-                                                    coveringIndexPlan().where(indexPlanOf(
-                                                            indexPlan().where(indexName(strValueThen3Index.getName())).and(scanComparisons(equalities(only(anyComparison()))))
-                                                    ))
-                                            )
+                            fetchFromPartialRecordPlan(
+                                    intersectionOnValuesPlan(
+                                            coveringIndexPlan().where(indexPlanOf(
+                                                    indexPlan().where(indexName(numValue2Then3Index.getName())).and(scanComparisons(equalities(only(anyComparison()))))
+                                            )),
+                                            coveringIndexPlan().where(indexPlanOf(
+                                                    indexPlan().where(indexName(strValueThen3Index.getName())).and(scanComparisons(equalities(only(anyComparison()))))
+                                            ))
                                     )
-                            ).where(inUnionValuesSources(only(inUnionInParameter(equalsObject("str_list")))))
-                    ).where(inUnionValuesSources(only(inUnionInParameter(equalsObject("nv2_list"))))));
-            assertEquals(-1515112545, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-1918440177, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                            )
+                    ).where(inUnionValuesSources(exactly(inUnionInParameter(equalsObject("nv2_list")), inUnionInParameter(equalsObject("str_list"))))));
+            assertEquals(-12216859, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-955652267, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             singleIndexScan = false;
         } else if (replans < 0 || dropNumValue3Index) {
             // Before replanning, we always end up with an intersection. Neither index alone is enough to satisfy both

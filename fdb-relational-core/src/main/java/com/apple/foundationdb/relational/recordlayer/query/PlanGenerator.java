@@ -32,9 +32,9 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRe
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
-import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.costing.StableSelectorCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.util.ProtoUtils;
@@ -81,6 +81,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedT
 @API(API.Status.EXPERIMENTAL)
 public final class PlanGenerator {
     private static final Logger logger = LogManager.getLogger(PlanGenerator.class);
+    @Nonnull
+    private static final StableSelectorCostModel stableSelectorCostModel = new StableSelectorCostModel();
 
     /**
      * An optional plan cache used to improve performance by storing execution plans.
@@ -191,13 +193,18 @@ public final class PlanGenerator {
                                     final var candidatePhysicalPlan = Assert.castUnchecked(candidate, QueryPlan.PhysicalQueryPlan.class);
                                     final var candidateQueryPlan = candidatePhysicalPlan.getRecordQueryPlan();
                                     final var bestQueryPlanSoFar = acc == null ? null : Assert.castUnchecked(acc, QueryPlan.PhysicalQueryPlan.class).getRecordQueryPlan();
-                                    if (bestQueryPlanSoFar == null || new StableSelectorCostModel().compare(candidateQueryPlan, bestQueryPlanSoFar) < 0) {
+                                    if (bestQueryPlanSoFar == null ||
+                                            // It would be nice to replace this with a call to `stableSelectorCostModel.getBestExpression`
+                                            // This currently can't be done without pulling the RecordQueryPlans out of the QueryPlan objects,
+                                            // running the cost model, and then re-associate it with the original Plan<?>, which is a bit
+                                            // costly. So, for now, just use the cost model as a comparator
+                                            stableSelectorCostModel.compare(candidateQueryPlan, bestQueryPlanSoFar) < 0) {
                                         return candidate;
                                     } else {
                                         return acc;
                                     }
                                 } else {
-                                    return candidate;
+                                    return acc;
                                 }
                             }),
                             e -> planContext.getMetricsCollector().increment(e)
