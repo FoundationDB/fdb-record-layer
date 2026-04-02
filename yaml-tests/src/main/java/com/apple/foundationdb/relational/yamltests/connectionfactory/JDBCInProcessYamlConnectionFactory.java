@@ -50,12 +50,6 @@ public class JDBCInProcessYamlConnectionFactory implements YamlConnectionFactory
     }
 
     @Override
-    public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        final ClusterServer primary = clusterServers.get(0);
-        return createConnection(connectPath, primary.server, primary.clusterFile);
-    }
-
-    @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
         if (clusterIndex < 0 || clusterIndex >= clusterServers.size()) {
             throw new SQLException("Cluster index " + clusterIndex + " not available (only " +

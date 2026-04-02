@@ -26,8 +26,8 @@ import java.net.URI;
 /**
  * A resolved connection target consisting of a URI and a cluster index.
  *
- * <p>The cluster index identifies which FDB cluster to connect to. Index 0 is the default (and only) cluster
- * in single-cluster configurations. Additional clusters can be specified in YAMSQL files using the map form
+ * <p>The cluster index identifies which FDB cluster to connect to. Index 0 is the default.
+ * Additional clusters can be accessed in YAMSQL files using the map form
  * of the {@code connect} directive:
  * <pre>{@code
  * connect: { cluster: 1, uri: 0 }

@@ -33,17 +33,6 @@ import java.util.Set;
  */
 public interface YamlConnectionFactory {
     /**
-     * Convert a connection uri into an actual connection.
-     *
-     * @param connectPath the path to connect to
-     *
-     * @return A new {@link RelationalConnection} for the given path appropriate for this test class
-     *
-     * @throws SQLException if we cannot connect
-     */
-    YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException;
-
-    /**
      * Convert a connection uri into an actual connection on a specific cluster.
      *
      * @param connectPath the path to connect to
@@ -53,12 +42,7 @@ public interface YamlConnectionFactory {
      *
      * @throws SQLException if we cannot connect or the cluster index is not supported
      */
-    default YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
-        if (clusterIndex != 0) {
-            throw new SQLException("This connection factory does not support multiple clusters (requested cluster " + clusterIndex + ")");
-        }
-        return getNewConnection(connectPath);
-    }
+    YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException;
 
     /**
      * The versions that the connection has, other than the current code.

@@ -92,16 +92,6 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
     }
 
     @Override
-    public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        if (connectionSelectionPolicy == ConnectionSelectionPolicy.DEFAULT) {
-            return defaultFactory.getNewConnection(connectPath);
-        } else {
-            return new MultiServerConnection(connectionSelectionPolicy, getNextConnectionNumber(),
-                    defaultFactory.getNewConnection(connectPath), alternateConnections(connectPath));
-        }
-    }
-
-    @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
         if (connectionSelectionPolicy == ConnectionSelectionPolicy.DEFAULT) {
             return defaultFactory.getNewConnection(connectPath, clusterIndex);
@@ -125,17 +115,6 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
     @Override
     public int getAvailableClusterCount() {
         return defaultFactory.getAvailableClusterCount();
-    }
-
-    @Nonnull
-    private List<YamlConnection> alternateConnections(URI connectPath) {
-        return alternateFactories.stream().map(factory -> {
-            try {
-                return factory.getNewConnection(connectPath);
-            } catch (SQLException e) {
-                throw new IllegalStateException("Failed to create a connection", e);
-            }
-        }).collect(Collectors.toList());
     }
 
     @Nonnull

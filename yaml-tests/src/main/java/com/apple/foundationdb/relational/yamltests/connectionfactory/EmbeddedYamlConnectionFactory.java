@@ -46,20 +46,15 @@ public class EmbeddedYamlConnectionFactory implements YamlConnectionFactory {
     }
 
     @Override
-    public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        // The primary cluster's driver is registered in DriverManager, so use that path
-        return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()),
-                SemanticVersion.current(), "Embedded", clusterDrivers.get(0).clusterFile());
-    }
-
-    @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
-        if (clusterIndex == 0) {
-            return getNewConnection(connectPath);
-        }
         if (clusterIndex < 0 || clusterIndex >= clusterDrivers.size()) {
             throw new SQLException("Cluster index " + clusterIndex + " not available (only " +
                     clusterDrivers.size() + " clusters configured)");
+        }
+        if (clusterIndex == 0) {
+            // The primary cluster's driver is registered in DriverManager, so use that path
+            return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()),
+                    SemanticVersion.current(), "Embedded", clusterDrivers.get(0).clusterFile());
         }
         // Non-primary clusters are not registered in DriverManager, so connect via the driver directly
         final ClusterDriver clusterDriver = clusterDrivers.get(clusterIndex);

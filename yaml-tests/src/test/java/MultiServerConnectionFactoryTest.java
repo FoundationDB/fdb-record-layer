@@ -40,6 +40,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+// TODO add tests of multiple clusters
 public class MultiServerConnectionFactoryTest {
     private static final SemanticVersion PRIMARY_VERSION = SemanticVersion.parse("2.2.2.0");
     private static final SemanticVersion ALTERNATE_VERSION = SemanticVersion.parse("1.1.1.0");
@@ -59,17 +60,17 @@ public class MultiServerConnectionFactoryTest {
         // just the default for the set of versions
         assertEquals(Set.of(PRIMARY_VERSION, ALTERNATE_VERSION), classUnderTest.getVersionsUnderTest());
 
-        var connection = classUnderTest.getNewConnection(URI.create("Blah"));
+        var connection = classUnderTest.getNewConnection(URI.create("Blah"), 0);
         assertConnection(connection, PRIMARY_VERSION, List.of(PRIMARY_VERSION));
         assertStatement(connection.prepareStatement("SQL"), PRIMARY_VERSION);
         assertStatement(connection.prepareStatement("SQL"), PRIMARY_VERSION);
 
-        connection = classUnderTest.getNewConnection(URI.create("Blah"));
+        connection = classUnderTest.getNewConnection(URI.create("Blah"), 0);
         assertConnection(connection, PRIMARY_VERSION, List.of(PRIMARY_VERSION));
         assertStatement(connection.prepareStatement("SQL"), PRIMARY_VERSION);
         assertStatement(connection.prepareStatement("SQL"), PRIMARY_VERSION);
 
-        connection = classUnderTest.getNewConnection(URI.create("Blah"));
+        connection = classUnderTest.getNewConnection(URI.create("Blah"), 0);
         assertConnection(connection, PRIMARY_VERSION, List.of(PRIMARY_VERSION));
         assertStatement(connection.prepareStatement("SQL"), PRIMARY_VERSION);
         assertStatement(connection.prepareStatement("SQL"), PRIMARY_VERSION);
@@ -92,7 +93,7 @@ public class MultiServerConnectionFactoryTest {
         // - Factory current connection: initial connection
         // - connection current connection: initial connection
         // - statement: initial connection (2 statements)
-        var connection = classUnderTest.getNewConnection(URI.create("Blah"));
+        var connection = classUnderTest.getNewConnection(URI.create("Blah"), 0);
         assertConnection(connection, initialConnectionVersion, List.of(initialConnectionVersion, otherConnectionVersion));
         assertStatement(connection.prepareStatement("SQL"), initialConnectionVersion);
         // next statement
@@ -102,7 +103,7 @@ public class MultiServerConnectionFactoryTest {
         // - Factory current connection: alternate connection
         // - connection current connection: alternate connection
         // - statement: alternate connection (2 statements)
-        connection = classUnderTest.getNewConnection(URI.create("Blah"));
+        connection = classUnderTest.getNewConnection(URI.create("Blah"), 0);
         assertConnection(connection, otherConnectionVersion, List.of(otherConnectionVersion, initialConnectionVersion));
         assertStatement(connection.prepareStatement("SQL"), otherConnectionVersion);
         // next statement
@@ -112,7 +113,7 @@ public class MultiServerConnectionFactoryTest {
         // - Factory current connection: initial connection
         // - connection current connection: initial connection
         // - statement: initial connection (1 statement)
-        connection = classUnderTest.getNewConnection(URI.create("Blah"));
+        connection = classUnderTest.getNewConnection(URI.create("Blah"), 0);
         assertConnection(connection, initialConnectionVersion, List.of(initialConnectionVersion, otherConnectionVersion));
         // just one statement for this connection
         assertStatement(connection.prepareStatement("SQL"), initialConnectionVersion);
@@ -121,7 +122,7 @@ public class MultiServerConnectionFactoryTest {
         // - Factory current connection: alternate connection
         // - connection current connection: alternate connection
         // - statement: alternate connection (3 statements)
-        connection = classUnderTest.getNewConnection(URI.create("Blah"));
+        connection = classUnderTest.getNewConnection(URI.create("Blah"), 0);
         assertConnection(connection, otherConnectionVersion, List.of(otherConnectionVersion, initialConnectionVersion));
         assertStatement(connection.prepareStatement("SQL"), otherConnectionVersion);
         // next statements
@@ -155,7 +156,7 @@ public class MultiServerConnectionFactoryTest {
     YamlConnectionFactory dummyConnectionFactory(@Nonnull SemanticVersion version) {
         return new YamlConnectionFactory() {
             @Override
-            public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
+            public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
                 // Add query string to connection so we can tell where it came from
                 URI newPath = URI.create(connectPath + "?version=" + version);
                 return new SimpleYamlConnection(dummyConnection(newPath), version, CLUSTER_FILE);

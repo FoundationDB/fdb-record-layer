@@ -50,11 +50,6 @@ public class ExternalServerYamlConnectionFactory implements YamlConnectionFactor
     }
 
     @Override
-    public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        return createConnection(connectPath, servers.get(0));
-    }
-
-    @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
         if (clusterIndex < 0 || clusterIndex >= servers.size()) {
             throw new SQLException("Cluster index " + clusterIndex + " not available (only " +
