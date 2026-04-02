@@ -154,7 +154,10 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                         .builderWithInheritedPlaceholders()
                         .pullUpQuantifier(childQuantifier)
                         .build();
+            case Concatenate:
             case None:
+                // Note: `Concatenate` and `None` can use the graph expansion logic. Both just access the field directly
+                // via `FieldValue.ofFieldNames()`.
                 value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
                 if (state.isSelectStar()) {
                     if (state.isKey() && !state.isInternalExpansion()) {
@@ -168,10 +171,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     }
                     return GraphExpansion.ofResultColumn(column);
                 }
-            case Concatenate: // TODO collect/concatenate function
             default:
+                throw new UnsupportedOperationException();
         }
-        throw new UnsupportedOperationException();
     }
 
     @Nonnull
@@ -245,15 +247,30 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                         .addAll(fieldNamePrefix)
                         .add(ProtoUtils.toUserIdentifier((parent.getFieldName())))
                         .build();
-                if (NullableArrayTypeUtils.isArrayWrapper(nestingKeyExpression)) {
-                    final RecordKeyExpressionProto.KeyExpression childProto = nestingKeyExpression.getChild().toKeyExpression();
-                    if (childProto.hasNesting()) {
-                        RecordKeyExpressionProto.Nesting.Builder newNestingBuilder = RecordKeyExpressionProto.Nesting.newBuilder()
-                                .setParent(parent.toProto().toBuilder().setFanType(RecordKeyExpressionProto.Field.FanType.FAN_OUT))
-                                .setChild(childProto.getNesting().getChild());
-                        return visitExpression(new NestingKeyExpression(newNestingBuilder.build()));
-                    } else {
-                        return visitExpression(new FieldKeyExpression(parent.toProto().toBuilder().setFanType(RecordKeyExpressionProto.Field.FanType.FAN_OUT).build()));
+                final var arrayWrapperFanType = NullableArrayTypeUtils.isArrayWrapper(nestingKeyExpression);
+                if (arrayWrapperFanType.isPresent()) {
+                    switch (arrayWrapperFanType.get()) {
+                        case FAN_OUT:
+                            final RecordKeyExpressionProto.KeyExpression childProto = nestingKeyExpression.getChild().toKeyExpression();
+                            if (childProto.hasNesting()) {
+                                RecordKeyExpressionProto.Nesting.Builder newNestingBuilder = RecordKeyExpressionProto.Nesting.newBuilder()
+                                        .setParent(parent.toProto().toBuilder().setFanType(RecordKeyExpressionProto.Field.FanType.FAN_OUT))
+                                        .setChild(childProto.getNesting().getChild());
+                                return visitExpression(new NestingKeyExpression(newNestingBuilder.build()));
+                            } else {
+                                return visitExpression(new FieldKeyExpression(parent.toProto().toBuilder().setFanType(RecordKeyExpressionProto.Field.FanType.FAN_OUT).build()));
+                            }
+                        case CONCATENATE:
+                            // Unlike FAN_OUT wrappers above, CONCATENATE produces a single array-typed value, so we
+                            // strip the "values" child and produce a `FieldValue` for the array field directly.
+                            final Value value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), newPrefix));
+                            final Column<? extends Value> column = Column.unnamedOf(value);
+                            if (state.isKey() && !state.isInternalExpansion()) {
+                                return GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()));
+                            }
+                            return GraphExpansion.ofResultColumn(column);
+                        default:
+                            break;
                     }
                 }
                 return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));

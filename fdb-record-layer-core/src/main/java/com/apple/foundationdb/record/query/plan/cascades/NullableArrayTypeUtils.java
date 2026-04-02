@@ -29,6 +29,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Optional;
 
 /**
  * A Utils class that holds logic related to nullable arrays.
@@ -76,9 +77,10 @@ public class NullableArrayTypeUtils {
      *
      * @param nestingKeyExpression the nesting keyExpression.
      *
-     * @return <code>true</code> if it describes a wrapped array, otherwise <code>false</code>.
+     * @return The fan type of the wrapped {@code "values"} field, or empty if this is not an array wrapper.
      */
-    public static boolean isArrayWrapper(@Nonnull NestingKeyExpression nestingKeyExpression) {
+    @Nonnull
+    public static Optional<RecordKeyExpressionProto.Field.FanType> isArrayWrapper(@Nonnull NestingKeyExpression nestingKeyExpression) {
         RecordKeyExpressionProto.KeyExpression child = nestingKeyExpression.getChild().toKeyExpression();
         if (child.hasNesting()) {
             // if child is Nesting, check child.parent
@@ -88,7 +90,7 @@ public class NullableArrayTypeUtils {
             // if child is Field, check itself
             return isWrappedField(child.getField());
         }
-        return false;
+        return Optional.empty();
     }
 
     /**
@@ -114,11 +116,15 @@ public class NullableArrayTypeUtils {
     /**
      * Return whether a Field is a wrapped array.
      *
-     * @param field The input field
+     * @param field The input field.
      *
-     * @return <code>true</code> if it is a wrapped array, otherwise <code>false</code>.
+     * @return The fan type if this is a wrapped array field, or empty otherwise.
      */
-    private static boolean isWrappedField(@Nonnull RecordKeyExpressionProto.Field field) {
-        return REPEATED_FIELD_NAME.equals(field.getFieldName()) && RecordKeyExpressionProto.Field.FanType.FAN_OUT.equals(field.getFanType());
+    @Nonnull
+    private static Optional<RecordKeyExpressionProto.Field.FanType> isWrappedField(@Nonnull RecordKeyExpressionProto.Field field) {
+        if (REPEATED_FIELD_NAME.equals(field.getFieldName())) {
+            return Optional.of(field.getFanType());
+        }
+        return Optional.empty();
     }
 }

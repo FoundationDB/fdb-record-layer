@@ -55,19 +55,26 @@ public final class NullableArrayUtils {
         }
     }
 
+    /**
+     * Returns whether the given descriptor represents a wrapped ARRAY, that is, whether it contains a single repeated
+     * field named {@code values}.
+     */
     public static boolean isWrappedArrayDescriptor(@Nonnull final Descriptors.Descriptor descriptor) {
-        return descriptor.getFields().size() == 1 && REPEATED_FIELD_NAME.equals(descriptor.getFields().get(0).getName()) && descriptor.findFieldByName(REPEATED_FIELD_NAME).isRepeated();
+        return descriptor.getFields().size() == 1
+                && REPEATED_FIELD_NAME.equals(descriptor.getFields().get(0).getName())
+                && descriptor.findFieldByName(REPEATED_FIELD_NAME).isRepeated();
     }
 
     /**
-     * Adds the wrapped array structure in key expressions if the schema doesn't contain non-nullable array.
-     * For example, reviews.rating will change to reviews.values.rating
+     * Adds the wrapped array structure for any nullable arrays referenced in the given key expression (if the schema
+     * contains any such arrays).
+     *
+     * <p>For example, {@code reviews.rating} will change to {@code reviews.values.rating}.
+     *
      * @param keyExpression The key expression to modify.
      * @param record The record of the table.
      * @param containsNullableArray true if nullable arrays are to be found, otherwise false.
      * @return modified key expression where any nullable array is wrapped.
-     *
-     * TODO Add the wrapped array structure for nullable arrays.
      */
     public static RecordKeyExpressionProto.KeyExpression wrapArray(RecordKeyExpressionProto.KeyExpression keyExpression,
                                                                    final Type.Record record,
@@ -87,8 +94,8 @@ public final class NullableArrayUtils {
     (TODO): Add the wrapped array structure for nullable arrays.
      */
     public static RecordKeyExpressionProto.KeyExpression wrapArray(RecordKeyExpressionProto.KeyExpression keyExpression,
-                                                              Descriptors.Descriptor parentDescriptor,
-                                                              boolean containsNullableArray) {
+                                                                   Descriptors.Descriptor parentDescriptor,
+                                                                   boolean containsNullableArray) {
         if (!containsNullableArray) {
             return keyExpression;
         }
@@ -97,7 +104,7 @@ public final class NullableArrayUtils {
     }
 
     private static RecordKeyExpressionProto.KeyExpression wrapArrayInternal(RecordKeyExpressionProto.KeyExpression keyExpression,
-                                                                      Descriptors.Descriptor parentDescriptor) {
+                                                                            Descriptors.Descriptor parentDescriptor) {
         // handle concat (straightforward recursion)
         if (keyExpression.hasThen()) {
             final var newThenBuilder = RecordKeyExpressionProto.Then.newBuilder();
@@ -184,7 +191,19 @@ public final class NullableArrayUtils {
         return keyExpression;
     }
 
-    // wrap repeated fields in a Field type keyExpression
+    /**
+     * Wraps repeated fields in the given {@code field} key expression.
+     *
+     * @param original The original `field` key expression for the array field.
+     *
+     * <p>For example, {@code Field {field_name: "ARRAY_FIELD" fan_type: CONCATENATE …}} gets converted to:
+     * {@snippet :
+     *   nesting {
+     *     parent { field_name: "ARRAY_FIELD" fan_type: SCALAR …}
+     *     child { field { field_name: "values" fan_type: CONCATENATE …}}
+     *   }
+     *}
+     */
     private static RecordKeyExpressionProto.Nesting splitFieldIntoNestedWithValues(@Nonnull final RecordKeyExpressionProto.Field original) {
         final var nestedArrayBuilder = RecordKeyExpressionProto.Field.newBuilder()
                 .setFieldName(original.getFieldName())
