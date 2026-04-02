@@ -64,7 +64,7 @@ test_block:
 test_block:
   name: array-join-right-deep-query-option
   options:
-    supported_version: !current_version
+    supported_version: 4.10.12.0
   tests:
     -
       # Unnest t1.t2_refs and join to t2, with right-deep option in the query itself
