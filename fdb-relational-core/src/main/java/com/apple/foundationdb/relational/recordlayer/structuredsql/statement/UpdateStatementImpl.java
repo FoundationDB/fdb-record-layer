@@ -467,7 +467,7 @@ public class UpdateStatementImpl implements UpdateStatement {
                 } else if (ctx.DRY() != null) {
                     updateBuilder.withOption(QueryOptions.DRY_RUN);
                 } else if (ctx.RIGHT() != null) {
-                    updateBuilder.withOption(QueryOptions.PRODUCE_RIGHT_DEEP_PLANS_ONLY);
+                    updateBuilder.withOption(QueryOptions.PLAN_RIGHT_DEEP);
                 }
                 return null;
             }

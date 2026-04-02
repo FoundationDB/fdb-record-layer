@@ -62,7 +62,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -955,15 +954,15 @@ public class RelationalPlanCacheTests {
 
     @ParameterizedTest(name = "specifyInQuery={0}")
     @BooleanSource
-    void testPlanningQueryWithAndWithoutProduceRightDeepPlansOnlyOption(boolean specifyInQuery) throws Exception {
+    void testPlanningQueryWithAndWithoutPlanRightDeepOption(boolean specifyInQuery) throws Exception {
         final var ticker = new FakeTicker();
         final var cache = getCache(ticker);
-        final var rightDeepOption = Options.builder().withOption(Options.Name.PRODUCE_RIGHT_DEEP_PLANS_ONLY, true).build();
+        final var rightDeepOption = Options.builder().withOption(Options.Name.PLAN_RIGHT_DEEP, true).build();
 
         // When specifyInQuery=true, the option is embedded in the SQL; the Options parameter is left as none().
         // When specifyInQuery=false, the option is passed as connection-level Options; the SQL is plain.
         final String queryWithOption = specifyInQuery
-                ? "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979 OPTIONS (PRODUCE RIGHT DEEP PLANS ONLY)"
+                ? "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979 OPTIONS (PLAN RIGHT DEEP)"
                 : "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979";
         final Options optionsWithOption = specifyInQuery ? Options.none() : rightDeepOption;
         final String expectedCononicalString = "SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ";

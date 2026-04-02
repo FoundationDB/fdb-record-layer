@@ -203,11 +203,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void rightDeepPlanTests(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("right-deep-plan-tests.yamsql");
-    }
-
-    @TestTemplate
     void like(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("like.yamsql");
     }
@@ -285,6 +280,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void recursiveCte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("recursive-cte.yamsql");
+    }
+
+    @TestTemplate
+    public void rightDeepPlanTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("right-deep-plan-tests.yamsql");
     }
 
     @TestTemplate

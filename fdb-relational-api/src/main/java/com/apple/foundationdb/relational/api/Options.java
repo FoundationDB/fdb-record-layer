@@ -202,7 +202,7 @@ public final class Options {
          * enumerations are considered that has a single "upper" child and "n-1" lower children.
          * Scope: Query
          */
-        PRODUCE_RIGHT_DEEP_PLANS_ONLY,
+        PLAN_RIGHT_DEEP,
 
         /**
          * Treat identifiers as-is in terms of case without upper-casing non-quoted ones.
@@ -294,7 +294,7 @@ public final class Options {
         builder.put(Name.EXECUTION_TIME_LIMIT, 0L);
         builder.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, Integer.MAX_VALUE);
         builder.put(Name.DRY_RUN, false);
-        builder.put(Name.PRODUCE_RIGHT_DEEP_PLANS_ONLY, false);
+        builder.put(Name.PLAN_RIGHT_DEEP, false);
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
         builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
         builder.put(Name.ENCRYPT_WHEN_SERIALIZING, false);
@@ -549,7 +549,7 @@ public final class Options {
         data.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));
         data.put(Name.EXECUTION_SCANNED_BYTES_LIMIT, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
         data.put(Name.DRY_RUN, List.of(TypeContract.booleanType()));
-        data.put(Name.PRODUCE_RIGHT_DEEP_PLANS_ONLY, List.of(TypeContract.booleanType()));
+        data.put(Name.PLAN_RIGHT_DEEP, List.of(TypeContract.booleanType()));
         data.put(Name.CASE_SENSITIVE_IDENTIFIERS, List.of(TypeContract.booleanType()));
         data.put(Name.CURRENT_PLAN_HASH_MODE, List.of(TypeContract.stringType()));
         data.put(Name.VALID_PLAN_HASH_MODES, List.of(TypeContract.stringType()));

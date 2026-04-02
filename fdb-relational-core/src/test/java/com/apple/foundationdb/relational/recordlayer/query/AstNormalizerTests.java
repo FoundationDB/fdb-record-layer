@@ -712,7 +712,7 @@ public class AstNormalizerTests {
     }
 
     @Test
-    void parseDqlStatementWithoutProduceRightDeepPlansOnlySetsItToFalse() throws Exception {
+    void parseDqlStatementWithoutPlanRightDeepSetsItToFalse() throws Exception {
         validate(List.of("select * from t1 where col1 > 42"),
                 PreparedParams.empty(),
                 "select * from \"T1\" where \"COL1\" > ? ",
@@ -720,12 +720,12 @@ public class AstNormalizerTests {
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
-                Map.of(Options.Name.PRODUCE_RIGHT_DEEP_PLANS_ONLY, false));
+                Map.of(Options.Name.PLAN_RIGHT_DEEP, false));
     }
 
     @Test
-    void parseDqlStatementWithProduceRightDeepPlansOnlySetsItToTrue() throws Exception {
-        validate(List.of("select * from t1 where col1 > 42 options (produce right deep plans only)",
+    void parseDqlStatementWithPlanRightDeepSetsItToTrue() throws Exception {
+        validate(List.of("select * from t1 where col1 > 42 options (plan right deep)",
                          "  select * from t1   where   col1 > 42 options (  produce   right  deep  plans  only)"),
                 PreparedParams.empty(),
                 "select * from \"T1\" where \"COL1\" > ? ",
@@ -733,11 +733,11 @@ public class AstNormalizerTests {
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
-                Map.of(Options.Name.PRODUCE_RIGHT_DEEP_PLANS_ONLY, true));
+                Map.of(Options.Name.PLAN_RIGHT_DEEP, true));
     }
 
     @Test
-    void parseUpdateStatementWithoutProduceRightDeepPlansOnlySetsItToFalse() throws Exception {
+    void parseUpdateStatementWithoutPlanRightDeepSetsItToFalse() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2"),
                 PreparedParams.empty(),
                 "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
@@ -745,19 +745,19 @@ public class AstNormalizerTests {
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UPDATE_STATEMENT),
-                Map.of(Options.Name.PRODUCE_RIGHT_DEEP_PLANS_ONLY, false));
+                Map.of(Options.Name.PLAN_RIGHT_DEEP, false));
     }
 
     @Test
-    void parseUpdateStatementWithProduceRightDeepPlansOnlySetsItToTrue() throws Exception {
-        validate(List.of("update A set A2 = 52 where A1 > 2 OPTIONS(PRODUCE RIGHT DEEP PLANS ONLY)"),
+    void parseUpdateStatementWithPlanRightDeepSetsItToTrue() throws Exception {
+        validate(List.of("update A set A2 = 52 where A1 > 2 OPTIONS(PLAN RIGHT DEEP)"),
                 PreparedParams.empty(),
                 "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UPDATE_STATEMENT),
-                Map.of(Options.Name.PRODUCE_RIGHT_DEEP_PLANS_ONLY, true));
+                Map.of(Options.Name.PLAN_RIGHT_DEEP, true));
     }
 
     @Test

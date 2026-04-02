@@ -16,10 +16,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
----
-options:
-    supported_version: !current_version
 ---
 schema_template:
     create table t1(id bigint, name string, t2_refs bigint array, primary key(id))
@@ -45,12 +41,12 @@ test_block:
           {'A2', 'B2'},
           {'A4', 'B1'}]
 ---
-# Same array join with PRODUCE_RIGHT_DEEP_PLANS_ONLY enabled.
+# Same array join with PLAN_RIGHT_DEEP enabled.
 test_block:
   name: array-join-right-deep-planner
   options:
     connection_options:
-      PRODUCE_RIGHT_DEEP_PLANS_ONLY: true
+      PLAN_RIGHT_DEEP: true
   tests:
     -
       - query: SELECT t1.name, t2.name
@@ -64,9 +60,11 @@ test_block:
           {'A2', 'B2'},
           {'A4', 'B1'}]
 ---
-# Same array join with PRODUCE RIGHT DEEP PLANS ONLY set as a query-level option.
+# Same array join with PLAN RIGHT DEEP set as a query-level option.
 test_block:
   name: array-join-right-deep-query-option
+  options:
+    supported_version: !current_version
   tests:
     -
       # Unnest t1.t2_refs and join to t2, with right-deep option in the query itself
@@ -74,7 +72,7 @@ test_block:
                FROM t1, t1.t2_refs AS ref
                JOIN t2 ON ref = t2.id
                WHERE t2.id IN (1000, 2000)
-               OPTIONS (PRODUCE RIGHT DEEP PLANS ONLY)
+               OPTIONS (PLAN RIGHT DEEP)
       - explain: "EXPLODE arrayDistinct(promote(@c30 AS ARRAY(LONG))) | FLATMAP q0 -> { SCAN(<,>) | TFILTER T2 | FILTER _.ID EQUALS q0 | FLATMAP q1 -> { SCAN(<,>) | TFILTER T1 | FLATMAP q2 -> { EXPLODE q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q5 RETURN (q5._0.NAME AS _0, q5._1.NAME AS _1) }"
       - unorderedResult: [
           {'A1', 'B1'},

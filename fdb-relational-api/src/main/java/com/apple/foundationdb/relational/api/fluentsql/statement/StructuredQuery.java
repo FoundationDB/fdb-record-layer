@@ -32,7 +32,7 @@ public interface StructuredQuery {
         NOCACHE("NOCACHE"),
         LOG_QUERY("LOG QUERY"),
         DRY_RUN("DRY RUN"),
-        PRODUCE_RIGHT_DEEP_PLANS_ONLY("PRODUCE RIGHT DEEP PLANS ONLY");
+        PLAN_RIGHT_DEEP("PLAN RIGHT DEEP");
 
         @Nonnull
         private final String name;

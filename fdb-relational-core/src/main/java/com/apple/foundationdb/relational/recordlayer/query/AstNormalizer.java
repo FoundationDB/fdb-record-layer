@@ -294,7 +294,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 queryOptions.withOption(Options.Name.DRY_RUN, true);
             }
             if (ctx.RIGHT() != null) {
-                queryOptions.withOption(Options.Name.PRODUCE_RIGHT_DEEP_PLANS_ONLY, true);
+                queryOptions.withOption(Options.Name.PLAN_RIGHT_DEEP, true);
             }
             return null;
         } catch (SQLException e) {
@@ -663,8 +663,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     // connection-level PlannerConfiguration so that the cache key correctly reflects what was requested in the SQL.
     private static PlannerConfiguration getQuerySpecificPlannerConfig(@Nonnull final PlannerConfiguration plannerConfiguration,
                                                                       @Nonnull final Options options) {
-        if (options.getOption(Options.Name.PRODUCE_RIGHT_DEEP_PLANS_ONLY)) {
-            return plannerConfiguration.withProduceRightDeepPlansOnly(true);
+        if (options.getOption(Options.Name.PLAN_RIGHT_DEEP)) {
+            return plannerConfiguration.withPlanRightDeep(true);
         }
         return plannerConfiguration;
     }

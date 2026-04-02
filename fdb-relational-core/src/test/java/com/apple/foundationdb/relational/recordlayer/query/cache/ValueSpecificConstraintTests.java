@@ -350,14 +350,14 @@ public class ValueSpecificConstraintTests {
             map.put(1, null);
 
             // 1. enable right-deep join planning.
-            connection.setOption(Options.Name.PRODUCE_RIGHT_DEEP_PLANS_ONLY, true);
+            connection.setOption(Options.Name.PLAN_RIGHT_DEEP, true);
             preparedQueryShouldMissCache(connection, "select a + 43 from t where a = ?", map);
             // should get a cache hit, since the connection options did not change.
             preparedQueryShouldHitCache(connection, "select a + 43 from t where a = ?", map);
 
             // disabling right-deep join planning must result in a cache miss when attempting to
             // execute the same query.
-            connection.setOption(Options.Name.PRODUCE_RIGHT_DEEP_PLANS_ONLY, false);
+            connection.setOption(Options.Name.PLAN_RIGHT_DEEP, false);
             preparedQueryShouldMissCache(connection, "select a + 43 from t where a = ?", map);
             // should get a cache hit again, since the connection options did not change.
             preparedQueryShouldHitCache(connection, "select a + 43 from t where a = ?", map);
