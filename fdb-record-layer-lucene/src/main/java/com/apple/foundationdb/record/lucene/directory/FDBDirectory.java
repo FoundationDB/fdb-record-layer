@@ -1052,7 +1052,8 @@ public class FDBDirectory extends Directory {
     }
 
     public PendingWriteQueue createPendingWritesQueue() {
-        return new PendingWriteQueue(pendingWritesQueueSubspace, pendingQueueSizeSubspace, maxPendingWritesToReplay, maxPendingQueueSize, serializer);
+        final boolean allowIncarnation = getBooleanIndexOption(LuceneIndexOptions.PENDING_WRITE_QUEUE_INCARNATION_ENABLED, false);
+        return new PendingWriteQueue(pendingWritesQueueSubspace, pendingQueueSizeSubspace, maxPendingWritesToReplay, maxPendingQueueSize, serializer, allowIncarnation);
     }
 
     public int getBlockCacheMaximumSize() {

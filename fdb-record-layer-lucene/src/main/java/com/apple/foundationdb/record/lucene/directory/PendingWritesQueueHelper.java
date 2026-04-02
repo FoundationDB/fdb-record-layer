@@ -22,13 +22,9 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
-import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.Versionstamp;
-import com.google.protobuf.InvalidProtocolBufferException;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -38,21 +34,6 @@ import java.util.Map;
 
 @API(API.Status.INTERNAL)
 public final class PendingWritesQueueHelper {
-    /**
-     * Convert a raw record back to a queue entry.
-     */
-    public static PendingWriteQueue.QueueEntry toQueueEntry(LuceneSerializer serializer, Tuple keyTuple, byte[] valueBytes) {
-        try {
-            final Versionstamp versionstamp = keyTuple.getVersionstamp(0);
-            final byte[] value = serializer.decode(valueBytes);
-            LucenePendingWriteQueueProto.PendingWriteItem item = LucenePendingWriteQueueProto.PendingWriteItem.parseFrom(value);
-            return new PendingWriteQueue.QueueEntry(versionstamp, item);
-        } catch (InvalidProtocolBufferException e) {
-            throw new RecordCoreStorageException("Failed to parse queue item", e)
-                    .addLogInfo("key", keyTuple);
-        }
-    }
-
     /**
      * Convert DocumentField to protobuf DocumentField.
      */

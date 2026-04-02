@@ -120,6 +120,12 @@ public class LuceneIndexOptions {
      * which will keep consistency.
      */
     public static final String ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE = "enablePendingWriteQueueDuringMerge";
+    /**
+     * Enable incarnation-based ordering in the pending write queue.
+     * When enabled, queue entries are prefixed with an incarnation value, ensuring that entries from newer
+     * incarnations always sort after entries from older ones.
+     */
+    public static final String PENDING_WRITE_QUEUE_INCARNATION_ENABLED = "enablePendingWriteQueueIncarnation";
 
     private LuceneIndexOptions() {
     }
