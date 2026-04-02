@@ -1021,7 +1021,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
                         new Type.AnyRecord(false),
                         new AccessHints())));
 
-        qun = Quantifier.forEach(Reference.initialOf(LogicalTypeFilterExpression.newInstance(ImmutableSet.of("SimpleHierarchicalRecord"), qun, getHierarchyType())));
+        qun = Quantifier.forEach(Reference.initialOf(LogicalTypeFilterExpression.of(ImmutableSet.of("SimpleHierarchicalRecord"), qun, getHierarchyType())));
 
         final var predicate = queryPredicate.apply(qun, ttSelectQun);
 

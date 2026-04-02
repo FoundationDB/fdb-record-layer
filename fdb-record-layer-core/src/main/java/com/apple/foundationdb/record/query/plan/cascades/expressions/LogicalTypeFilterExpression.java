@@ -447,7 +447,7 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
         //
         final QueryPredicate predicate;
         if (recordTypeKeyParameterAlias != null) {
-            predicate = Placeholder.newInstance(value, rangeConstraints, recordTypeKeyParameterAlias);
+            predicate = Placeholder.of(value, rangeConstraints, recordTypeKeyParameterAlias);
         } else {
             predicate = PredicateWithValueAndRanges.ofRanges(value, rangeConstraints);
         }
@@ -464,9 +464,9 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
      * @return a new {@link LogicalTypeFilterExpression} with a concrete type filter predicate
      */
     @Nonnull
-    public static LogicalTypeFilterExpression newInstance(@Nonnull final Set<String> recordTypes,
-                                                          @Nonnull final Quantifier innerQuantifier,
-                                                          @Nonnull final Type resultType) {
+    public static LogicalTypeFilterExpression of(@Nonnull final Set<String> recordTypes,
+                                                 @Nonnull final Quantifier innerQuantifier,
+                                                 @Nonnull final Type resultType) {
         final var value = new RecordTypeValue(QuantifiedObjectValue.of(innerQuantifier));
         final var rangeConstraints = recordTypeNamesToRangeConstraints(recordTypes);
 

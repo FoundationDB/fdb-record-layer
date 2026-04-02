@@ -39,8 +39,14 @@ import java.util.Set;
 @SuppressWarnings("java:S3252")
 public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends KeyExpressionVisitor<S, GraphExpansion> {
     /**
-     * Method that expands a data structure into a data flow graph.
+     * Method that expands a data structure into a data flow graph. The expansion creates a base reference from
+     * the given record type information and access hint, then visits the underlying key expression to produce
+     * a {@link MatchCandidate} that can be used for index matching during planning.
      *
+     * @param availableRecordTypeNames the set of all record type names available in the meta-data
+     * @param queriedRecordTypeNames the subset of record type names being queried
+     * @param baseType the record type representing the common fields across the queried record types
+     * @param accessHint the access hint indicating the desired scan type (e.g., index scan, primary scan)
      * @param primaryKey the primary key of the data object the caller wants to access
      * @param isReverse an indicator whether the result set is expected to be returned in reverse order
      *
@@ -55,13 +61,19 @@ public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends 
                           boolean isReverse);
 
     /**
-     * Method that expands a data structure into a data flow graph.
+     * Alternative expand method that uses a pre-built base quantifier supplier instead of constructing
+     * the base reference from record type names. This overload exists to support windowed indexes (rank indexes)
+     * which require a custom base data access pattern. It should be removed once we migrate to the new
+     * representation of windowed indexes (see
+     * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/4039">issue #4039</a>).
+     * The default implementation throws {@link UnsupportedOperationException}.
      *
      * @param baseQuantifierSupplier a quantifier supplier to create base data access
      * @param primaryKey the primary key of the data object the caller wants to access
      * @param isReverse an indicator whether the result set is expected to be returned in reverse order
      *
      * @return a new {@link MatchCandidate} that can be used for matching.
+     * @throws UnsupportedOperationException if the visitor does not support this expand overload
      */
     @Nonnull
     default MatchCandidate expand(@Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,

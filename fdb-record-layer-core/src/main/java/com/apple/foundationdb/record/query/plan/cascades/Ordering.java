@@ -741,7 +741,7 @@ public class Ordering {
                             }
                             break;
                         default:
-                            throw   new RecordCoreException("unknown binding");
+                            throw new RecordCoreException("unknown binding");
                     }
 
                     seenSortOrder = binding.getSortOrder();

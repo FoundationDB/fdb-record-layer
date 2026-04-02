@@ -92,7 +92,7 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
     }
 
     @Nonnull
-    public static Placeholder newInstance(@Nonnull Value value, @Nonnull final Set<RangeConstraints> ranges, @Nonnull CorrelationIdentifier parameterAlias) {
+    public static Placeholder of(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges, @Nonnull CorrelationIdentifier parameterAlias) {
         return new Placeholder(value, ranges, parameterAlias);
     }
 

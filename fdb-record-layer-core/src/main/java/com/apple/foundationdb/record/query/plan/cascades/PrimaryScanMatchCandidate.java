@@ -150,7 +150,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getSargableAliasesRequiredForBinding() {
-        if (isSortedByRecordTypeKey()) {
+        if (hasAndOrderedByRecordTypeKey()) {
             return ImmutableSet.of(parameters.get(0));
         }
         return ImmutableSet.of();
@@ -204,7 +204,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
                 false,
                 this);
 
-        if (isSortedByRecordTypeKey()) {
+        if (hasAndOrderedByRecordTypeKey()) {
             return scanPlan;
         }
 
@@ -215,13 +215,13 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     }
 
     @Override
-    public boolean isSortedByRecordTypeKey() {
+    public boolean hasAndOrderedByRecordTypeKey() {
         return Key.Expressions.recordType().isPrefixKey(primaryKey);
     }
 
     @Nonnull
     private Type inferScanType(@Nonnull final Collection<RecordType> types) {
-        if (types.size() == 1 && isSortedByRecordTypeKey()) {
+        if (types.size() == 1 && hasAndOrderedByRecordTypeKey()) {
             return baseType;
         }
         //

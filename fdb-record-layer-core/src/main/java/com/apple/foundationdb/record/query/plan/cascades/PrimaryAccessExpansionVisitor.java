@@ -86,6 +86,8 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                         .removeAllResultColumns();
 
         if (recordTypeKeyParameterAlias != null) {
+            // Ensure the primary scan uses the same parameter alias for the record type key in both the
+            // select expression and the type filter, so that they bind to the same value during matching.
             graphExpansionBuilder.replacePlaceholder(placeholder -> {
                 if (placeholder.getValue() instanceof RecordTypeValue) {
                     return placeholder.withAlias(recordTypeKeyParameterAlias);

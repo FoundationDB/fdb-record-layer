@@ -292,7 +292,7 @@ public interface MatchCandidate {
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    default boolean isSortedByRecordTypeKey() {
+    default boolean hasAndOrderedByRecordTypeKey() {
         return false;
     }
 

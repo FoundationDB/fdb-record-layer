@@ -103,9 +103,11 @@ public final class MatchCandidateExpansion {
             final MatchCandidate matchCandidate;
             if (forRankIndex) {
                 //
-                // rank index requires a type filter supplier as it requires creating multiple type filter
-                // references when creating the match candidate, moreover, the current version of rank index
-                // does not support pushing down record type key predicate similar to other index types
+                // Rank indexes require a type filter supplier as they need to create multiple type filter
+                // references when creating the match candidate. Moreover, the current representation of rank indexes
+                // does not support pushing down record type key predicates similar to other index types.
+                // This special handling can be removed once rank indexes are migrated to the new representation
+                // (see https://github.com/FoundationDB/fdb-record-layer/issues/4039).
                 //
                 final Supplier<Quantifier.ForEach> logicalTypeFilterSupplier = () -> Quantifier.forEach(
                         ExpansionVisitor.createBaseRef(info.getAvailableRecordTypeNames(), info.getIndexedRecordTypeNames(),

@@ -766,7 +766,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         @Override
         public Derivations visitScanPlan(@Nonnull final RecordQueryScanPlan scanPlan) {
             final var matchCandidate = scanPlan.getMatchCandidate();
-            final Set<String> recordTypeNames = matchCandidate.isSortedByRecordTypeKey()
+            final Set<String> recordTypeNames = matchCandidate.hasAndOrderedByRecordTypeKey()
                                                 ? matchCandidate.getQueriedRecordTypeNames()
                                                 : scanPlan.getRecordTypes();
             return visitPlanWithComparisons(scanPlan, Objects.requireNonNull(recordTypeNames));

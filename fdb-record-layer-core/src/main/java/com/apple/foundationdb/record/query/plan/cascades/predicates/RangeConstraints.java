@@ -509,7 +509,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     /**
      * Represents a range boundary.
      */
-    public static class Boundary implements Comparable<Boundary> {
+    static class Boundary implements Comparable<Boundary> {
 
         @Nonnull
         private final Tuple tuple;
