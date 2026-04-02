@@ -726,7 +726,7 @@ public class AstNormalizerTests {
     @Test
     void parseDqlStatementWithPlanRightDeepSetsItToTrue() throws Exception {
         validate(List.of("select * from t1 where col1 > 42 options (plan right deep)",
-                         "  select * from t1   where   col1 > 42 options (  produce   right  deep  plans  only)"),
+                         "  select * from t1   where   col1 > 42 options (  plan   right  deep     )"),
                 PreparedParams.empty(),
                 "select * from \"T1\" where \"COL1\" > ? ",
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
