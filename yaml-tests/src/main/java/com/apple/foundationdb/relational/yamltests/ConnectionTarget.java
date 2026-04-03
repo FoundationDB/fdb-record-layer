@@ -43,10 +43,6 @@ public class ConnectionTarget {
         this.clusterIndex = clusterIndex;
     }
 
-    public ConnectionTarget(@Nonnull URI uri) {
-        this(uri, 0);
-    }
-
     @Nonnull
     public URI getUri() {
         return uri;
