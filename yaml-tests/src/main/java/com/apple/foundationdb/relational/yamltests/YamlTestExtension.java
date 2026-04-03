@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.yamltests.configs.JDBCInProcessConfig;
 import com.apple.foundationdb.relational.yamltests.configs.JDBCMultiServerConfig;
 import com.apple.foundationdb.relational.yamltests.configs.ShowPlanOnDiff;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.google.common.collect.Iterables;
@@ -65,9 +66,9 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private static final Logger logger = LogManager.getLogger(YamlTestExtension.class);
     private List<YamlTestConfig> testConfigs;
     private List<YamlTestConfig> maintainConfigs;
-    /** External servers grouped by jar version. Each inner list has one server per cluster file (same order as {@link #clusterFiles}). */
+    /** External servers grouped by jar version. Each {@link Clusters} has one server per cluster file (same order as {@link #clusterFiles}). */
     @Nullable
-    private List<List<ExternalServer>> externalServerGroups;
+    private List<Clusters<ExternalServer>> externalServerGroups;
     @Nonnull
     private final List<String> clusterFiles;
     private final boolean includeMethodInDescriptions;
@@ -122,12 +123,17 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             externalServerGroups = new ArrayList<>();
             List<ExternalServer> allExternalServers = new ArrayList<>();
             for (File jar : jars) {
-                List<ExternalServer> group = new ArrayList<>();
-                for (String cf : clusterFiles) {
-                    group.add(new ExternalServer(jar, cf));
-                }
+                Clusters<ExternalServer> group = Clusters.fromClusterFiles(clusterFiles, cf -> {
+                    try {
+                        return new ExternalServer(jar, cf);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
                 externalServerGroups.add(group);
-                allExternalServers.addAll(group);
+                for (Clusters.Entry<ExternalServer> entry : group) {
+                    allExternalServers.add(entry.server());
+                }
             }
             ExternalServer.startMultiple(allExternalServers);
             final boolean mixedModeOnly = Boolean.parseBoolean(System.getProperty("tests.mixedModeOnly", "false"));
@@ -157,7 +163,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private Stream<YamlTestConfig> externalServerConfigs(final boolean singleExternalVersionOnly) {
         if (singleExternalVersionOnly) {
             return externalServerGroups.stream()
-                    .map(group -> group.get(0))
+                    .map(group -> group.iterator().next().server())
                     // Create an ExternalServer config with two servers of the same version for each server
                     // (with and without forced continuations)
                     .flatMap(server ->
@@ -191,13 +197,13 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                             }
                         }).filter(Objects::nonNull).findFirst();
         if (externalServerGroups != null) {
-            for (List<ExternalServer> group : externalServerGroups) {
-                for (ExternalServer server : group) {
+            for (Clusters<ExternalServer> group : externalServerGroups) {
+                for (Clusters.Entry<ExternalServer> entry : group) {
                     try {
-                        server.stop();
+                        entry.server().stop();
                     } catch (Exception ex) {
                         if (logger.isWarnEnabled()) {
-                            logger.warn("Failed to stop server " + server.getVersion() + " on " + server.getPort());
+                            logger.warn("Failed to stop server " + entry.server().getVersion() + " on " + entry.server().getPort());
                         }
                     }
                 }

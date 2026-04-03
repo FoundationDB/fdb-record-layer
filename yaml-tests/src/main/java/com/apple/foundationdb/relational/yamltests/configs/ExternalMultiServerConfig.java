@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.ExternalServerYamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
@@ -59,8 +60,8 @@ public class ExternalMultiServerConfig implements YamlTestConfig {
         return new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 initialConnection,
-                new ExternalServerYamlConnectionFactory(JDBCMultiServerConfig.toExternalClusters(List.of(server0))),
-                List.of(new ExternalServerYamlConnectionFactory(JDBCMultiServerConfig.toExternalClusters(List.of(server1)))));
+                new ExternalServerYamlConnectionFactory(Clusters.fromServers(List.of(server0), ExternalServer::getClusterFile)),
+                List.of(new ExternalServerYamlConnectionFactory(Clusters.fromServers(List.of(server1), ExternalServer::getClusterFile))));
     }
 
     @Override

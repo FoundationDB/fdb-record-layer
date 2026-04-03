@@ -32,6 +32,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Run directly against an instance of {@link FRL}.
@@ -64,10 +65,10 @@ public class EmbeddedConfig implements YamlTestConfig {
                 .build();
         // The primary FRL registers its driver in DriverManager; additional ones do not
         final String registeredCluster = clusterFiles.get(0);
-        clusters = Clusters.mapped(clusterFiles,
+        clusters = Clusters.fromClusterFiles(clusterFiles,
                 clusterFile -> {
                     try {
-                        return new FRL(options, clusterFile, clusterFile == registeredCluster);
+                        return new FRL(options, clusterFile, Objects.equals(clusterFile, registeredCluster));
                     } catch (RelationalException e) {
                         throw e.toUncheckedWrappedException();
                     }

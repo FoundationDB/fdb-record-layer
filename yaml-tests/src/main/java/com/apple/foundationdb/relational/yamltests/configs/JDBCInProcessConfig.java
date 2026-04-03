@@ -49,7 +49,7 @@ public class JDBCInProcessConfig implements YamlTestConfig {
     @Override
     @SuppressWarnings("PMD.CloseResource") // Servers are tracked in the list and closed in afterAll()
     public void beforeAll() throws Exception {
-        clusters = Clusters.mapped(clusterFiles,
+        clusters = Clusters.fromClusterFiles(clusterFiles,
                 clusterFile -> {
                     try {
                         return new InProcessRelationalServer(clusterFile).start();

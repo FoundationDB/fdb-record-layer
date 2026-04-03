@@ -29,26 +29,21 @@ import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Run against an embedded JDBC driver, and an external server, alternating commands that go against each.
  * <p>
  * Multi-cluster support (in-process servers for all cluster files) is inherited from
- * {@link JDBCInProcessConfig}. The external servers list should have one entry per cluster file
+ * {@link JDBCInProcessConfig}. The external server clusters should have one entry per cluster file
  * (matching the in-process servers), so that cluster-specific connections also alternate.
  */
 public class JDBCMultiServerConfig extends JDBCInProcessConfig {
 
     @Nonnull
-    private final List<ExternalServer> externalServers;
+    private final Clusters<ExternalServer> externalServers;
     private final int initialConnection;
 
-    public JDBCMultiServerConfig(final int initialConnection, @Nonnull List<ExternalServer> externalServers) {
-        this(initialConnection, externalServers, List.of());
-    }
-
-    public JDBCMultiServerConfig(final int initialConnection, @Nonnull List<ExternalServer> externalServers,
+    public JDBCMultiServerConfig(final int initialConnection, @Nonnull Clusters<ExternalServer> externalServers,
                                  @Nonnull final List<String> clusterFiles) {
         super(clusterFiles);
         this.initialConnection = initialConnection;
@@ -61,23 +56,16 @@ public class JDBCMultiServerConfig extends JDBCInProcessConfig {
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 initialConnection,
                 new JDBCInProcessYamlConnectionFactory(getClusters()),
-                List.of(new ExternalServerYamlConnectionFactory(toExternalClusters(externalServers))));
+                List.of(new ExternalServerYamlConnectionFactory(externalServers)));
     }
 
     @Override
     public String toString() {
-        final ExternalServer primaryExternal = externalServers.get(0);
+        final ExternalServer primaryExternal = externalServers.iterator().next().server();
         if (initialConnection == 0) {
             return "MultiServer (" + super.toString() + " then " + primaryExternal.getVersion() + ")";
         } else {
             return "MultiServer (" + primaryExternal.getVersion() + " then " + super.toString() + ")";
         }
-    }
-
-    @Nonnull
-    static Clusters<ExternalServer> toExternalClusters(@Nonnull List<ExternalServer> servers) {
-        return new Clusters<>(servers.stream()
-                .map(s -> new Clusters.Entry<>(s, s.getClusterFile()))
-                .collect(Collectors.toList()));
     }
 }
