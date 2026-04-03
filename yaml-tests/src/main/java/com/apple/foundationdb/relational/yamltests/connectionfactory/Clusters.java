@@ -78,6 +78,14 @@ public class Clusters<T> implements Iterable<Clusters.Entry<T>> {
     }
 
     /**
+     * Returns the cluster files in order.
+     */
+    @Nonnull
+    public List<String> clusterFiles() {
+        return entries.stream().map(Entry::clusterFile).collect(Collectors.toList());
+    }
+
+    /**
      * Returns the number of clusters.
      */
     public int size() {

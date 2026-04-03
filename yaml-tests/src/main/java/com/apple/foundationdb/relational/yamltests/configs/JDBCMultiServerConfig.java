@@ -43,9 +43,8 @@ public class JDBCMultiServerConfig extends JDBCInProcessConfig {
     private final Clusters<ExternalServer> externalServers;
     private final int initialConnection;
 
-    public JDBCMultiServerConfig(final int initialConnection, @Nonnull Clusters<ExternalServer> externalServers,
-                                 @Nonnull final List<String> clusterFiles) {
-        super(clusterFiles);
+    public JDBCMultiServerConfig(final int initialConnection, @Nonnull Clusters<ExternalServer> externalServers) {
+        super(externalServers.clusterFiles());
         this.initialConnection = initialConnection;
         this.externalServers = externalServers;
     }

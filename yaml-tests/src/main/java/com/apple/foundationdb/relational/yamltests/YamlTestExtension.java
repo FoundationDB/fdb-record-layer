@@ -172,10 +172,10 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         } else {
             return externalServerGroups.stream().flatMap(group ->
                     // (4 configs for each server version available)
-                    Stream.of(new JDBCMultiServerConfig(0, group, clusterFiles),
-                            new ForceContinuations(new JDBCMultiServerConfig(0, group, clusterFiles)),
-                            new JDBCMultiServerConfig(1, group, clusterFiles),
-                            new ForceContinuations(new JDBCMultiServerConfig(1, group, clusterFiles))));
+                    Stream.of(new JDBCMultiServerConfig(0, group),
+                            new ForceContinuations(new JDBCMultiServerConfig(0, group)),
+                            new JDBCMultiServerConfig(1, group),
+                            new ForceContinuations(new JDBCMultiServerConfig(1, group))));
         }
     }
 
