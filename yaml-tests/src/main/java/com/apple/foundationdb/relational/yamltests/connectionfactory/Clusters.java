@@ -37,6 +37,11 @@ public class Clusters<T> implements Iterable<Clusters.Entry<T>> {
     @Nonnull
     private final List<Entry<T>> entries;
 
+    /** Private constructor to support the static {@link Clusters#empty()} **/
+    private Clusters() {
+        this.entries = List.of();
+    }
+
     public Clusters(@Nonnull List<Entry<T>> entries) {
         if (entries.isEmpty()) {
             throw new IllegalArgumentException("At least one cluster entry is required");
@@ -45,7 +50,7 @@ public class Clusters<T> implements Iterable<Clusters.Entry<T>> {
     }
 
     public static <T> Clusters<T> empty() {
-        return new Clusters<>(List.of());
+        return new Clusters<>();
     }
 
     public static <T> Clusters<T> fromClusterFiles(List<String> clusterFiles, Function<String, T> toServer) {
