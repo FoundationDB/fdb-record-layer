@@ -198,19 +198,23 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         if (externalServerGroups != null) {
             for (Clusters<ExternalServer> group : externalServerGroups) {
                 for (Clusters.Entry<ExternalServer> entry : group) {
-                    try {
-                        entry.server().stop();
-                    } catch (Exception ex) {
-                        if (logger.isWarnEnabled()) {
-                            logger.warn("Failed to stop server " + entry.server().getVersion() + " on " + entry.server().getPort());
-                        }
-                    }
+                    stopServerSafely(entry);
                 }
             }
             externalServerGroups = null;
         }
         if (exception.isPresent()) {
             throw exception.get();
+        }
+    }
+
+    private static void stopServerSafely(final Clusters.Entry<ExternalServer> entry) {
+        try {
+            entry.server().stop();
+        } catch (Exception ex) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("Failed to stop server " + entry.server().getVersion() + " on " + entry.server().getPort());
+            }
         }
     }
 
