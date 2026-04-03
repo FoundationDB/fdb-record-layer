@@ -34,34 +34,26 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.Set;
 
 public class JDBCInProcessYamlConnectionFactory implements YamlConnectionFactory {
     private static final Logger LOG = LogManager.getLogger(JDBCInProcessYamlConnectionFactory.class);
     @Nonnull
-    private final List<ClusterServer> clusterServers;
+    private final Clusters<InProcessRelationalServer> clusters;
 
-    public JDBCInProcessYamlConnectionFactory(@Nonnull List<ClusterServer> clusterServers) {
-        if (clusterServers.isEmpty()) {
-            throw new IllegalArgumentException("At least one cluster server is required");
-        }
-        this.clusterServers = clusterServers;
+    public JDBCInProcessYamlConnectionFactory(@Nonnull Clusters<InProcessRelationalServer> clusters) {
+        this.clusters = clusters;
     }
 
     @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
-        if (clusterIndex < 0 || clusterIndex >= clusterServers.size()) {
-            throw new SQLException("Cluster index " + clusterIndex + " not available (only " +
-                    clusterServers.size() + " clusters configured)");
-        }
-        final ClusterServer clusterServer = clusterServers.get(clusterIndex);
-        return createConnection(connectPath, clusterServer.server, clusterServer.clusterFile);
+        final Clusters.Entry<InProcessRelationalServer> entry = clusters.get(clusterIndex);
+        return createConnection(connectPath, entry.server(), entry.clusterFile());
     }
 
     @Override
     public int getAvailableClusterCount() {
-        return clusterServers.size();
+        return clusters.size();
     }
 
     private YamlConnection createConnection(@Nonnull URI connectPath, @Nonnull InProcessRelationalServer targetServer,
@@ -80,30 +72,5 @@ public class JDBCInProcessYamlConnectionFactory implements YamlConnectionFactory
     @Override
     public Set<SemanticVersion> getVersionsUnderTest() {
         return Set.of(SemanticVersion.current());
-    }
-
-    /**
-     * A server associated with its cluster file.
-     */
-    public static class ClusterServer {
-        @Nonnull
-        private final InProcessRelationalServer server;
-        @Nonnull
-        private final String clusterFile;
-
-        public ClusterServer(@Nonnull InProcessRelationalServer server, @Nonnull String clusterFile) {
-            this.server = server;
-            this.clusterFile = clusterFile;
-        }
-
-        @Nonnull
-        public InProcessRelationalServer server() {
-            return server;
-        }
-
-        @Nonnull
-        public String clusterFile() {
-            return clusterFile;
-        }
     }
 }

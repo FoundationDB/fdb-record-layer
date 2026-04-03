@@ -59,8 +59,8 @@ public class ExternalMultiServerConfig implements YamlTestConfig {
         return new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 initialConnection,
-                new ExternalServerYamlConnectionFactory(List.of(server0)),
-                List.of(new ExternalServerYamlConnectionFactory(List.of(server1))));
+                new ExternalServerYamlConnectionFactory(JDBCMultiServerConfig.toExternalClusters(List.of(server0))),
+                List.of(new ExternalServerYamlConnectionFactory(JDBCMultiServerConfig.toExternalClusters(List.of(server1)))));
     }
 
     @Override

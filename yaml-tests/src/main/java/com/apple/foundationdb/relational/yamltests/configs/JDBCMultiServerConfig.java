@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.ExternalServerYamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.JDBCInProcessYamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
@@ -28,6 +29,7 @@ import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Run against an embedded JDBC driver, and an external server, alternating commands that go against each.
@@ -58,8 +60,8 @@ public class JDBCMultiServerConfig extends JDBCInProcessConfig {
         return new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 initialConnection,
-                new JDBCInProcessYamlConnectionFactory(getClusterServers()),
-                List.of(new ExternalServerYamlConnectionFactory(externalServers)));
+                new JDBCInProcessYamlConnectionFactory(getClusters()),
+                List.of(new ExternalServerYamlConnectionFactory(toExternalClusters(externalServers))));
     }
 
     @Override
@@ -70,5 +72,12 @@ public class JDBCMultiServerConfig extends JDBCInProcessConfig {
         } else {
             return "MultiServer (" + primaryExternal.getVersion() + " then " + super.toString() + ")";
         }
+    }
+
+    @Nonnull
+    static Clusters<ExternalServer> toExternalClusters(@Nonnull List<ExternalServer> servers) {
+        return new Clusters<>(servers.stream()
+                .map(s -> new Clusters.Entry<>(s, s.getClusterFile()))
+                .collect(Collectors.toList()));
     }
 }

@@ -23,10 +23,11 @@ package com.apple.foundationdb.relational.yamltests.configs;
 import com.apple.foundationdb.relational.server.InProcessRelationalServer;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.JDBCInProcessYamlConnectionFactory;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -39,7 +40,7 @@ public class JDBCInProcessConfig implements YamlTestConfig {
     @Nonnull
     private final List<String> clusterFiles;
     @Nonnull
-    private final List<JDBCInProcessYamlConnectionFactory.ClusterServer> clusterServers = new ArrayList<>();
+    private Clusters<InProcessRelationalServer> clusters = Clusters.empty();
 
     public JDBCInProcessConfig(@Nonnull final List<String> clusterFiles) {
         this.clusterFiles = clusterFiles;
@@ -48,28 +49,32 @@ public class JDBCInProcessConfig implements YamlTestConfig {
     @Override
     @SuppressWarnings("PMD.CloseResource") // Servers are tracked in the list and closed in afterAll()
     public void beforeAll() throws Exception {
-        for (final String clusterFile : clusterFiles) {
-            final InProcessRelationalServer server = new InProcessRelationalServer(clusterFile).start();
-            clusterServers.add(new JDBCInProcessYamlConnectionFactory.ClusterServer(server, clusterFile));
-        }
+        clusters = Clusters.mapped(clusterFiles,
+                clusterFile -> {
+                    try {
+                        return new InProcessRelationalServer(clusterFile).start();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     @Override
     public void afterAll() throws Exception {
-        for (final JDBCInProcessYamlConnectionFactory.ClusterServer cs : clusterServers) {
-            cs.server().close();
+        for (final Clusters.Entry<InProcessRelationalServer> cluster : clusters) {
+            cluster.server().close();
         }
-        clusterServers.clear();
+        clusters = Clusters.empty();
     }
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
-        return new JDBCInProcessYamlConnectionFactory(clusterServers);
+        return new JDBCInProcessYamlConnectionFactory(clusters);
     }
 
     @Nonnull
-    protected List<JDBCInProcessYamlConnectionFactory.ClusterServer> getClusterServers() {
-        return clusterServers;
+    protected Clusters<InProcessRelationalServer> getClusters() {
+        return clusters;
     }
 
     @Nonnull

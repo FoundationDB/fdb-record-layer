@@ -21,14 +21,15 @@
 package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.EmbeddedYamlConnectionFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -42,7 +43,7 @@ public class EmbeddedConfig implements YamlTestConfig {
     @Nonnull
     private final List<String> clusterFiles;
     @Nonnull
-    private final List<FRL> frls = new ArrayList<>();
+    private Clusters<FRL> clusters = Clusters.empty();
 
     public EmbeddedConfig(@Nullable final String clusterFile) {
         this(Collections.singletonList(clusterFile));
@@ -62,38 +63,34 @@ public class EmbeddedConfig implements YamlTestConfig {
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 10)
                 .build();
         // The primary FRL registers its driver in DriverManager; additional ones do not
-        boolean first = true;
-        for (final String clusterFile : clusterFiles) {
-            if (first) {
-                frls.add(new FRL(options, clusterFile));
-                first = false;
-            } else {
-                frls.add(new FRL(options, clusterFile, false));
-            }
-        }
+        final String registeredCluster = clusterFiles.get(0);
+        clusters = Clusters.mapped(clusterFiles,
+                clusterFile -> {
+                    try {
+                        return new FRL(options, clusterFile, clusterFile == registeredCluster);
+                    } catch (RelationalException e) {
+                        throw e.toUncheckedWrappedException();
+                    }
+                });
     }
 
     @Override
     @SuppressWarnings("PMD.CloseResource") // FRLs are being closed in this loop
     public void afterAll() throws Exception {
-        for (final FRL frl : frls) {
-            frl.close();
+        for (final Clusters.Entry<FRL> cluster : clusters) {
+            cluster.server().close();
         }
-        frls.clear();
+        clusters = Clusters.empty();
     }
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
-        final List<EmbeddedYamlConnectionFactory.ClusterDriver> clusterDrivers = new ArrayList<>();
-        for (int i = 0; i < frls.size(); i++) {
-            clusterDrivers.add(new EmbeddedYamlConnectionFactory.ClusterDriver(
-                    frls.get(i).getDriver(), clusterFiles.get(i)));
-        }
-        return new EmbeddedYamlConnectionFactory(clusterDrivers);
+        return new EmbeddedYamlConnectionFactory(clusters.map(FRL::getDriver));
     }
 
+    @Nonnull
     @Override
-    public @Nonnull YamlExecutionContext.ContextOptions getRunnerOptions() {
+    public YamlExecutionContext.ContextOptions getRunnerOptions() {
         return YamlExecutionContext.ContextOptions.EMPTY_OPTIONS;
     }
 
