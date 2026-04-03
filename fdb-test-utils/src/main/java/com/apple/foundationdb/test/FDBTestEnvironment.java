@@ -26,6 +26,7 @@ import org.yaml.snakeyaml.Yaml;
 import javax.annotation.Nullable;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -71,6 +72,12 @@ public final class FDBTestEnvironment {
 
     public static List<String> allClusterFiles() {
         return clusterFiles;
+    }
+
+    public static List<String> allClusterFilesInRandomOrder() {
+        final List<String> randomized = new ArrayList<>(clusterFiles);
+        Collections.shuffle(randomized);
+        return List.copyOf(randomized);
     }
 
     public static String randomClusterFile() {

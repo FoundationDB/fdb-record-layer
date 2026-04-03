@@ -75,7 +75,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
     @SuppressWarnings("unused") // Used implicitly with @ExtendWith(YamlTestExtension.class)
     public YamlTestExtension() {
-        this(FDBTestEnvironment.allClusterFiles(), false);
+        this(FDBTestEnvironment.allClusterFilesInRandomOrder(), false);
     }
 
     /**
