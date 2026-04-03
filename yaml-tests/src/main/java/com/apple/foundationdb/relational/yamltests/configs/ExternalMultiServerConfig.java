@@ -37,14 +37,18 @@ import java.util.List;
 public class ExternalMultiServerConfig implements YamlTestConfig {
 
     private final int initialConnection;
-    private final ExternalServer server0;
-    private final ExternalServer server1;
+    @Nonnull
+    private final Clusters<ExternalServer> servers0;
+    @Nonnull
+    private final Clusters<ExternalServer> servers1;
 
-    public ExternalMultiServerConfig(final int initialConnection, ExternalServer server0, ExternalServer server1) {
+    public ExternalMultiServerConfig(final int initialConnection,
+                                     @Nonnull Clusters<ExternalServer> servers0,
+                                     @Nonnull Clusters<ExternalServer> servers1) {
         super();
         this.initialConnection = initialConnection;
-        this.server0 = server0;
-        this.server1 = server1;
+        this.servers0 = servers0;
+        this.servers1 = servers1;
     }
 
     @Override
@@ -60,16 +64,16 @@ public class ExternalMultiServerConfig implements YamlTestConfig {
         return new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 initialConnection,
-                new ExternalServerYamlConnectionFactory(Clusters.fromServers(List.of(server0), ExternalServer::getClusterFile)),
-                List.of(new ExternalServerYamlConnectionFactory(Clusters.fromServers(List.of(server1), ExternalServer::getClusterFile))));
+                new ExternalServerYamlConnectionFactory(servers0),
+                List.of(new ExternalServerYamlConnectionFactory(servers1)));
     }
 
     @Override
     public String toString() {
         if (initialConnection == 0) {
-            return "MultiServer (" + server0.getVersion() + " then " + server1.getVersion() + ")";
+            return "MultiServer (" + servers0.primary().server().getVersion() + " then " + servers1.primary().server().getVersion() + ")";
         } else {
-            return "MultiServer (" + server1.getVersion() + " then " + server0.getVersion() + ")";
+            return "MultiServer (" + servers1.primary().server().getVersion() + " then " + servers0.primary().server().getVersion() + ")";
         }
     }
 
