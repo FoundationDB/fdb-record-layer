@@ -70,6 +70,14 @@ public class Clusters<T> implements Iterable<Clusters.Entry<T>> {
     }
 
     /**
+     * Returns the first (primary) entry.
+     */
+    @Nonnull
+    public Entry<T> primary() {
+        return entries.get(0);
+    }
+
+    /**
      * Returns the number of clusters.
      */
     public int size() {

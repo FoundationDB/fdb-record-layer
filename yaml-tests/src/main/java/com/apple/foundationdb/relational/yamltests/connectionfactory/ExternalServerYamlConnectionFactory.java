@@ -73,7 +73,7 @@ public class ExternalServerYamlConnectionFactory implements YamlConnectionFactor
 
     @Override
     public Set<SemanticVersion> getVersionsUnderTest() {
-        return Set.of(clusters.iterator().next().server().getVersion());
+        return Set.of(clusters.primary().server().getVersion());
     }
 
 }

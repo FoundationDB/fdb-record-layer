@@ -163,7 +163,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private Stream<YamlTestConfig> externalServerConfigs(final boolean singleExternalVersionOnly) {
         if (singleExternalVersionOnly) {
             return externalServerGroups.stream()
-                    .map(group -> group.iterator().next().server())
+                    .map(group -> group.primary().server())
                     // Create an ExternalServer config with two servers of the same version for each server
                     // (with and without forced continuations)
                     .flatMap(server ->
