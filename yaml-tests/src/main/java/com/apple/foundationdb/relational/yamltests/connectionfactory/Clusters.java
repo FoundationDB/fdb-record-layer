@@ -37,7 +37,7 @@ public class Clusters<T> implements Iterable<Clusters.Entry<T>> {
     @Nonnull
     private final List<Entry<T>> entries;
 
-    /** Private constructor to support the static {@link Clusters#empty()} **/
+    /** Private constructor to support the static {@link Clusters#empty()}. */
     private Clusters() {
         this.entries = List.of();
     }
