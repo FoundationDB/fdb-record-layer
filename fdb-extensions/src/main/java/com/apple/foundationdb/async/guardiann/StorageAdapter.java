@@ -363,7 +363,7 @@ class StorageAdapter {
         final double r = distanceToPrimaryCentroid / (distance + EPS);
         final double z =
                 num < 200 ? 0 : Math.max(0, (distanceToPrimaryCentroid - mean) / (standardDeviation + EPS));
-        return 1.0d * r + 0.25d * z;
+        return 1.0d * r + 0.00d * z;
     }
 
     static double replicationPriorityOld(final double distance, final double distanceToPrimaryCentroid,

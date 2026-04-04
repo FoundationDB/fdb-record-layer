@@ -99,7 +99,7 @@ public class SiftTest implements BaseTest {
                         .setUseRaBitQ(true)
                         .setRaBitQNumExBits(8)
                         .setMetric(metric)
-                        .setPrimaryClusterMax(1024)
+                        .setPrimaryClusterMax(512)
                         .setPrimaryClusterMin(100)
                         .setDeterministicRandomness(true)
                         .setReplicationPriorityMin(0.90d)

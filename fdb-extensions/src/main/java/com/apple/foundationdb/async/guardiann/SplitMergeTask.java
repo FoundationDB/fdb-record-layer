@@ -163,7 +163,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final Quantizer quantizer = primitives.quantizer(accessInfo);
         final Estimator estimator = quantizer.estimator();
 
-        final int numNeighborhood = 16;
+        final int numNeighborhood = 32;
 
         final List<ClusterIdAndCentroid> neighborhood = getNeighborhood();
         if (neighborhood.isEmpty()) {
@@ -383,7 +383,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         // only considering primary copies here -- this will prune the replicated vectors
         for (final VectorReference vectorReference : primaryVectorReferences) {
             final TopK<ClusterMetadataWithDistance> nearestClusters =
-                    new TopK<>(Comparator.comparing(ClusterMetadataWithDistance::getDistance).reversed(), 24);
+                    new TopK<>(Comparator.comparing(ClusterMetadataWithDistance::getDistance).reversed(), 32);
             for (final ClusterMetadataWithDistance clusterMetadataWithDistance : clusterIdMetadataMap.values()) {
                 final double distance =
                         estimator.distance(vectorReference.getVector(), clusterMetadataWithDistance.getCentroid());

@@ -162,7 +162,7 @@ public class ReassignTask extends AbstractDeferredTask {
         final Estimator estimator = quantizer.estimator();
 
         final int numInnerNeighborhood = 1;
-        final int numOuterNeighborhood = 15;
+        final int numOuterNeighborhood = 31;
         final int numNeighborhood = numInnerNeighborhood + numOuterNeighborhood;
 
         final List<ClusterIdAndCentroid> neighborhood = getNeighborhood();
@@ -323,7 +323,7 @@ public class ReassignTask extends AbstractDeferredTask {
             //
 
             final TopK<ClusterMetadataWithDistance> nearestClusters =
-                    new TopK<>(Comparator.comparing(ClusterMetadataWithDistance::getDistance).reversed(), 24);
+                    new TopK<>(Comparator.comparing(ClusterMetadataWithDistance::getDistance).reversed(), 32);
             for (final ClusterMetadataWithDistance clusterMetadataWithDistance : clusterIdMetadataMap.values()) {
                 final double distance =
                         estimator.distance(vectorReference.getVector(), clusterMetadataWithDistance.getCentroid());
