@@ -137,9 +137,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
                         // false alarm
                         final EnumSet<ClusterMetadata.State> newStates = EnumSet.copyOf(clusterMetadata.getStates());
                         newStates.remove(ClusterMetadata.State.SPLIT_MERGE);
-                        primitives.writeClusterMetadata(transaction, new ClusterMetadata(clusterMetadata.getId(),
-                                clusterMetadata.getNumPrimaryVectors(), clusterMetadata.getNumPrimaryUnderreplicatedVectors(),
-                                clusterMetadata.getNumReplicatedVectors(), newStates));
+                        primitives.writeClusterMetadata(transaction, clusterMetadata.withNewStates(newStates));
+                        clusterMetadata.withNewStates(newStates);
                         return AsyncUtil.DONE;
                     }
 
@@ -352,7 +351,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
             clusterIdMetadataMapBuilder.put(newClusterId,
                     new ClusterMetadataWithDistance(
                             new ClusterMetadata(newClusterId,
-                                    0, 0, 0,
+                                    0, 0,
+                                    RunningStandardDeviation.identity(),
                                     EnumSet.noneOf(ClusterMetadata.State.class)),
                             clusterCentroids.get(i), 0.0d));
         }
@@ -376,7 +376,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         // only considering primary copies here -- this will prune the replicated vectors
         for (final VectorReference vectorReference : primaryVectorReferences) {
             final TopK<ClusterMetadataWithDistance> nearestClusters =
-                    new TopK<>(Comparator.comparing(ClusterMetadataWithDistance::getDistance), 24);
+                    new TopK<>(Comparator.comparing(ClusterMetadataWithDistance::getDistance).reversed(), 24);
             for (final ClusterMetadataWithDistance clusterMetadataWithDistance : clusterIdMetadataMap.values()) {
                 final double distance =
                         estimator.distance(vectorReference.getVector(),
@@ -405,30 +405,27 @@ public class SplitMergeTask extends AbstractDeferredTask {
             assignmentMultimapBuilder.put(primaryClusterId, vectorReference);
 
             while (nearestClustersIterator.hasNext()) {
-                final ClusterMetadataWithDistance replicatedCluster =
+                final ClusterMetadataWithDistance replicatedClusterMetadataWithDistance =
                         Objects.requireNonNull(nearestClustersIterator.next());
-                final double distance = replicatedCluster.getDistance();
+                final double distance = replicatedClusterMetadataWithDistance.getDistance();
                 Verify.verify(Double.isFinite(distance));
 
-                //
-                // Distance should be greater than the distance to the primary cluster's
-                // centroid. So the fraction on the left should always be greater or equal
-                // to 1.0d. The config provides some fuzziness to replicate the new vector
-                // into other clusters if it happens to be at the border between two (or more)
-                // clusters.
-                //
-                final double replicationScore = StorageAdapter.replicationScore(distance, distanceToPrimaryCentroid);
-                if (replicationScore <= config.getClusterOverlap()) {
+                final ClusterMetadata replicatedClusterMetadata =
+                        replicatedClusterMetadataWithDistance.getClusterMetadata();
+
+                final double replicationPriority = StorageAdapter.replicationPriority(distance, distanceToPrimaryCentroid,
+                        replicatedClusterMetadata.meanDistance(), replicatedClusterMetadata.standardDeviation());
+                if (replicationPriority >= config.getClusterOverlap()) {
                     final VectorReference newVectorReference =
-                            vectorReference.toReplicatedCopy(replicationScore);
-                    if (newClusterIds.contains(replicatedCluster.getClusterMetadata().getId())) {
+                            vectorReference.toReplicatedCopy(replicationPriority);
+                    if (newClusterIds.contains(replicatedClusterMetadata.getId())) {
                         final var reservoirSampler =
-                                replicatedAssignmentSamplerMap.computeIfAbsent(replicatedCluster.getClusterMetadata().getId(),
-                                        ignored -> new TopK<>(Comparator.comparing(VectorReference::getReplicationScore),
+                                replicatedAssignmentSamplerMap.computeIfAbsent(replicatedClusterMetadata.getId(),
+                                        ignored -> new TopK<>(Comparator.comparing(VectorReference::getReplicationPriority),
                                                 config.getReplicatedClusterTarget()));
                         reservoirSampler.add(newVectorReference);
                     } else {
-                        assignmentMultimapBuilder.put(replicatedCluster.getClusterMetadata().getId(),
+                        assignmentMultimapBuilder.put(replicatedClusterMetadata.getId(),
                                 newVectorReference);
                     }
                 } else {
@@ -491,6 +488,10 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                    @Nonnull final Quantizer quantizer) {
         final Config config = getConfig();
         final Primitives primitives = primitives();
+        final Estimator estimator = quantizer.estimator();
+
+        final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap =
+                assignmentResult.getClusterIdMetadataMap();
 
         // delete old clusters
         final Set<UUID> newClusterIds = assignmentResult.getNewClusterIds();
@@ -502,7 +503,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
         // write all vector references
         final ListMultimap<UUID, VectorReference> assignmentMultiMap = assignmentResult.getAssignmentMultimap();
-        final Map<UUID, Integer> clusterIdToNumPrimaryVectorsAdded = Maps.newHashMap();
+        final Map<UUID, RunningStandardDeviation> clusterIdToRunningStandardDeviationOfAdded = Maps.newHashMap();
         final Map<UUID, Integer> clusterIdToNumPrimaryUnderreplicatedVectorsAdded = Maps.newHashMap();
         final Map<UUID, Integer> clusterIdToNumReplicatedVectorsAdded = Maps.newHashMap();
         for (final Map.Entry<UUID, VectorReference> entry : assignmentMultiMap.entries()) {
@@ -511,7 +512,11 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
             primitives.writeVectorReference(transaction, quantizer, clusterId, vectorReference);
             if (vectorReference.isPrimaryCopy()) {
-                incrementCounter(clusterIdToNumPrimaryVectorsAdded, clusterId);
+                final double distanceToHomeCentroid =
+                        estimator.distance(vectorReference.getVector(),
+                                clusterIdMetadataMap.get(clusterId).getCentroid());
+                updateRunningStandardDeviation(clusterIdToRunningStandardDeviationOfAdded, clusterId,
+                        distanceToHomeCentroid);
                 if (vectorReference.isUnderreplicated()) {
                     incrementCounter(clusterIdToNumPrimaryUnderreplicatedVectorsAdded, clusterId);
                 }
@@ -521,23 +526,23 @@ public class SplitMergeTask extends AbstractDeferredTask {
         }
 
         // update all affected cluster metadata
-        final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap =
-                assignmentResult.getClusterIdMetadataMap();
         final ImmutableSet.Builder<UUID> newDependentTaskIdsBuilder = ImmutableSet.builder();
         for (final Map.Entry<UUID, ClusterMetadataWithDistance> entry : clusterIdMetadataMap.entrySet()) {
             final UUID toBeWritten = entry.getKey();
             final ClusterMetadataWithDistance clusterMetadataWithDistance = entry.getValue();
             final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.getClusterMetadata();
-            final int numPrimaryVectorsAdded = clusterIdToNumPrimaryVectorsAdded.getOrDefault(toBeWritten, 0);
+            final RunningStandardDeviation runningStandardDeviationOfAdded =
+                    clusterIdToRunningStandardDeviationOfAdded.getOrDefault(toBeWritten, RunningStandardDeviation.identity());
             final int numPrimaryUnderreplicatedVectorsAdded = clusterIdToNumPrimaryUnderreplicatedVectorsAdded.getOrDefault(toBeWritten, 0);
             final int numReplicatedVectorsAdded = clusterIdToNumReplicatedVectorsAdded.getOrDefault(toBeWritten, 0);
 
             primitives.writeDeferredTaskMaybe(transaction, random, clusterMetadata,
                             clusterMetadataWithDistance.getCentroid(), getAccessInfo(),
-                            numPrimaryVectorsAdded, numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
-                            newClusterIds)
+                            numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
+                            runningStandardDeviationOfAdded, newClusterIds)
                     .ifPresent(newDependentTaskIdsBuilder::add);
             if (logger.isTraceEnabled()) {
+                final int numPrimaryVectorsAdded = Math.toIntExact(runningStandardDeviationOfAdded.getNumElements());
                 logger.trace("pushing vectors during split; isNewCluster={}; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
                                 "numTotalPrimaryUnderreplicatedReplicatedVectors={}, numPrimaryUnderreplicatedVectorsAdded={}, " +
                                 "numTotalReplicatedVectors={}, numReplicatedVectorsAdded={}",

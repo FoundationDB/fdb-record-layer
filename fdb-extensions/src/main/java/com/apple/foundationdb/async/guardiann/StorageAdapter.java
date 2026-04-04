@@ -30,8 +30,6 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -44,8 +42,7 @@ import java.util.function.Supplier;
  * TODO.
  */
 class StorageAdapter {
-    @Nonnull
-    private static final Logger logger = LoggerFactory.getLogger(StorageAdapter.class);
+    private static double EPS = 1.0e-12;
 
     /**
      * Subspace for the access info.
@@ -294,17 +291,31 @@ class StorageAdapter {
 
     @Nonnull
     static ClusterMetadata clusterMetadataFromTuple(@Nonnull final Tuple valueTuple) {
-        return new ClusterMetadata(valueTuple.getUUID(0), Math.toIntExact(valueTuple.getLong(1)),
+        return new ClusterMetadata(valueTuple.getUUID(0),
+                Math.toIntExact(valueTuple.getLong(1)),
                 Math.toIntExact(valueTuple.getLong(2)),
-                Math.toIntExact(valueTuple.getLong(3)),
+                runningStandardDeviationFromTuple(valueTuple.getNestedTuple(3)),
                 Math.toIntExact(valueTuple.getLong(4)));
     }
 
     @Nonnull
     static Tuple valueTupleFromClusterMetadata(@Nonnull final ClusterMetadata clusterMetadata) {
-        return Tuple.from(clusterMetadata.getId(), clusterMetadata.getNumPrimaryVectors(),
+        return Tuple.from(clusterMetadata.getId(),
                 clusterMetadata.getNumPrimaryUnderreplicatedVectors(), clusterMetadata.getNumReplicatedVectors(),
+                valueTupleFromRunningStandardDeviation(clusterMetadata.getRunningStandardDeviation()),
                 clusterMetadata.getStatesCode());
+    }
+
+    @Nonnull
+    static RunningStandardDeviation runningStandardDeviationFromTuple(@Nonnull final Tuple valueTuple) {
+        return new RunningStandardDeviation(valueTuple.getLong(0), valueTuple.getDouble(1),
+                valueTuple.getDouble(2));
+    }
+
+    @Nonnull
+    static Tuple valueTupleFromRunningStandardDeviation(@Nonnull final RunningStandardDeviation runningStandardDeviation) {
+        return Tuple.from(runningStandardDeviation.getNumElements(), runningStandardDeviation.getRunningMean(),
+                runningStandardDeviation.getRunningSumSquaredDeviations());
     }
 
     @Nonnull
@@ -344,11 +355,14 @@ class StorageAdapter {
         final Transformed<RealVector> encodedVector = quantizer.encode(vectorReference.getVector());
         return Tuple.from(vectorId.getUuid(), vectorReference.isPrimaryCopy(),
                 vectorReference.isUnderreplicated(), encodedVector.getUnderlyingVector().getRawData(),
-                vectorReference.isPrimaryCopy() ? null : vectorReference.getReplicationScore());
+                vectorReference.isPrimaryCopy() ? null : vectorReference.getReplicationPriority());
     }
 
-    static double replicationScore(final double distance, final double distanceToPrimaryCentroid) {
-        return Math.max(0.0d, distance / distanceToPrimaryCentroid - 1.0d);
+    static double replicationPriority(final double distance, final double distanceToPrimaryCentroid,
+                                      final double mean, final double standardDeviation) {
+        final double r = distanceToPrimaryCentroid / (distance + EPS);
+        final double z = Math.max(0, (distanceToPrimaryCentroid - mean) / (standardDeviation + EPS));
+        return 1.0d * r + 0.15d * z;
     }
 
     @Nonnull

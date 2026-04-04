@@ -21,6 +21,7 @@
 package com.apple.foundationdb.kmeans;
 
 import com.apple.foundationdb.async.common.RandomHelpers;
+import com.apple.foundationdb.async.guardiann.TopK;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Metric;
@@ -31,6 +32,8 @@ import com.apple.foundationdb.util.Lens;
 import com.apple.test.RandomSeedSource;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
@@ -43,9 +46,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 import java.util.SplittableRandom;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -538,5 +544,19 @@ class BoundedKMeansTest {
                 id++;
             }
         }
+    }
+
+    @Test
+    void testTopK() {
+        final Random r = new Random(0);
+        final List<Integer> someList = IntStream.generate(r::nextInt).limit(100)
+                .boxed().collect(Collectors.toList());
+        final TopK<Integer> topK = new TopK<>(Comparator.comparingInt(x -> x), 10);
+        Collections.shuffle(someList);
+        someList.forEach(topK::add);
+        final var topKSortedList = topK.toSortedList();
+        System.out.printf("sorted" + topKSortedList);
+        someList.sort(Comparator.<Integer>comparingInt(x -> x).reversed());
+        Assertions.assertThat(topKSortedList).isEqualTo(someList.subList(0, 10));
     }
 }

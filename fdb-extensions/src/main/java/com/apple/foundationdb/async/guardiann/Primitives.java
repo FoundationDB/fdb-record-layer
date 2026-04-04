@@ -539,13 +539,14 @@ class Primitives {
                                           @Nonnull final ClusterMetadata clusterMetadata,
                                           @Nonnull final Transformed<RealVector> clusterCentroid,
                                           @Nonnull final AccessInfo accessInfo,
-                                          final int numPrimaryVectorsAdded,
                                           final int numPrimaryUnderreplicatedVectorsAdded,
                                           final int numReplicatedVectorsAdded,
+                                          @Nonnull final RunningStandardDeviation runningStandardDeviationOfAdded,
                                           @Nonnull final Set<UUID> causeClusterIds) {
         final Config config = getConfig();
         final UUID clusterId = clusterMetadata.getId();
 
+        final int numPrimaryVectorsAdded = Math.toIntExact(runningStandardDeviationOfAdded.getNumElements());
         final int numTotalPrimaryVectors = clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded;
         if (!clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE) && // not already splitting
                 ((numPrimaryVectorsAdded > 0 && numTotalPrimaryVectors > config.getPrimaryClusterMax()) ||
@@ -562,8 +563,8 @@ class Primitives {
             }
 
             final ClusterMetadata newClusterMetadata =
-                    clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
-                            numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
+                    clusterMetadata.withAdditionalVectorsAndStates(numPrimaryUnderreplicatedVectorsAdded,
+                            numReplicatedVectorsAdded, runningStandardDeviationOfAdded,
                             ClusterMetadata.State.SPLIT_MERGE);
             writeClusterMetadata(transaction, newClusterMetadata);
 
@@ -592,8 +593,8 @@ class Primitives {
             }
 
             final ClusterMetadata newClusterMetadata =
-                    clusterMetadata.withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded,
-                            numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
+                    clusterMetadata.withAdditionalVectorsAndStates(numPrimaryUnderreplicatedVectorsAdded,
+                            numReplicatedVectorsAdded, runningStandardDeviationOfAdded,
                             ClusterMetadata.State.REASSIGN);
             writeClusterMetadata(transaction, newClusterMetadata);
 
@@ -603,8 +604,8 @@ class Primitives {
         if (numPrimaryVectorsAdded != 0 || numReplicatedVectorsAdded != 0) {
             // write new metadata but do not create a task
             final ClusterMetadata newClusterMetadata =
-                    clusterMetadata.withAdditionalVectors(numPrimaryVectorsAdded, numPrimaryUnderreplicatedVectorsAdded,
-                            numReplicatedVectorsAdded);
+                    clusterMetadata.withAdditionalVectors(numPrimaryUnderreplicatedVectorsAdded,
+                            numReplicatedVectorsAdded, runningStandardDeviationOfAdded);
             writeClusterMetadata(transaction, newClusterMetadata);
         }
         return Optional.empty();
@@ -760,7 +761,7 @@ class Primitives {
                                 }
                                 // both of them are replicated vector references -- take the one with the lower
                                 // replication score
-                                return oldVectorReference.getReplicationScore() < vectorReference.getReplicationScore()
+                                return oldVectorReference.getReplicationPriority() < vectorReference.getReplicationPriority()
                                        ? oldVectorReference
                                        : vectorReference;
                             });

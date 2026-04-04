@@ -323,7 +323,8 @@ public class Search {
                             .thenApply(clusters -> {
                                 final ListMultimap<UUID, Tuple> assignmentsMap = ArrayListMultimap.create();
                                 for (final Cluster currentCluster : clusters) {
-                                    final UUID currentClusterId = currentCluster.getClusterMetadata().getId();
+                                    final ClusterMetadata clusterMetadata = currentCluster.getClusterMetadata();
+                                    final UUID currentClusterId = clusterMetadata.getId();
                                     int numAllPrimaryAssignments = 0;
                                     int numWrongAssignments = 0;
                                     int numReplicatedVectors = 0;
@@ -360,9 +361,15 @@ public class Search {
                                             numReplicatedVectors ++;
                                         }
                                     }
-                                    if (logger.isTraceEnabled()) {
-                                        logger.trace("assignment stats; clusterId={}, numAllPrimaryAssignments={}, numWrongAssignments={}, numReplicated={}, wrongAssignmentsByRankMap={}",
-                                                currentClusterId, numAllPrimaryAssignments, numWrongAssignments, numReplicatedVectors, wrongAssignmentsByRankMap);
+                                    if (numAllPrimaryAssignments != clusterMetadata.getNumPrimaryVectors()) {
+                                        if (logger.isErrorEnabled()) {
+                                            logger.error("cluster metadata count of primary vectors is wrong; exected={}; actual={}", clusterMetadata.getNumPrimaryVectors(), numAllPrimaryAssignments);
+                                        }
+                                    }
+                                    if (logger.isInfoEnabled()) {
+                                        logger.info("assignment stats; clusterId={}, numAllPrimaryAssignments={}, numWrongAssignments={}, numReplicated={}, stdDev={}, wrongAssignmentsByRankMap={}",
+                                                currentClusterId, numAllPrimaryAssignments, numWrongAssignments, numReplicatedVectors,
+                                                clusterMetadata.standardDeviation(), wrongAssignmentsByRankMap);
                                     }
                                 }
                                 return assignmentsMap;

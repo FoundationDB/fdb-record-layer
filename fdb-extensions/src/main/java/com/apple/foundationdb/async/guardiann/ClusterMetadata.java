@@ -34,26 +34,32 @@ import java.util.stream.Collectors;
 class ClusterMetadata {
     @Nonnull
     private final UUID id;
-    private final int numPrimaryVectors;
     private final int numPrimaryUnderreplicatedVectors;
     private final int numReplicatedVectors;
+
+    @Nonnull
+    private final RunningStandardDeviation runningStandardDeviation;
+
     @Nonnull
     private final EnumSet<State> states;
 
-    public ClusterMetadata(@Nonnull final UUID id, final int numPrimaryVectors,
+    public ClusterMetadata(@Nonnull final UUID id,
                            final int numPrimaryUnderreplicatedVectors, final int numReplicatedVectors,
+                           @Nonnull final RunningStandardDeviation runningStandardDeviation,
                            final int stateCode) {
-        this(id, numPrimaryVectors, numPrimaryUnderreplicatedVectors, numReplicatedVectors, State.ofCode(stateCode));
+        this(id, numPrimaryUnderreplicatedVectors, numReplicatedVectors, runningStandardDeviation,
+                State.ofCode(stateCode));
     }
 
-    public ClusterMetadata(@Nonnull final UUID id, final int numPrimaryVectors,
+    public ClusterMetadata(@Nonnull final UUID id,
                            final int numPrimaryUnderreplicatedVectors, final int numReplicatedVectors,
+                           @Nonnull final RunningStandardDeviation runningStandardDeviation,
                            @Nonnull final EnumSet<State> states) {
-        Preconditions.checkArgument(numPrimaryVectors >= numPrimaryUnderreplicatedVectors);
+        Preconditions.checkArgument(runningStandardDeviation.getNumElements() >= numPrimaryUnderreplicatedVectors);
         this.id = id;
-        this.numPrimaryVectors = numPrimaryVectors;
         this.numPrimaryUnderreplicatedVectors = numPrimaryUnderreplicatedVectors;
         this.numReplicatedVectors = numReplicatedVectors;
+        this.runningStandardDeviation = runningStandardDeviation;
         this.states = states;
     }
 
@@ -63,7 +69,7 @@ class ClusterMetadata {
     }
 
     public int getNumPrimaryVectors() {
-        return numPrimaryVectors;
+        return Math.toIntExact(runningStandardDeviation.getNumElements());
     }
 
     public int getNumPrimaryUnderreplicatedVectors() {
@@ -72,6 +78,19 @@ class ClusterMetadata {
 
     public int getNumReplicatedVectors() {
         return numReplicatedVectors;
+    }
+
+    @Nonnull
+    public RunningStandardDeviation getRunningStandardDeviation() {
+        return runningStandardDeviation;
+    }
+
+    public double meanDistance() {
+        return runningStandardDeviation.getRunningMean();
+    }
+
+    public double standardDeviation() {
+        return runningStandardDeviation.populationStandardDeviation();
     }
 
     @Nonnull
@@ -88,50 +107,52 @@ class ClusterMetadata {
     }
 
     @Nonnull
-    public ClusterMetadata withNewVectors(final int numPrimaryVectors,
-                                          final int numPrimaryUnderreplicatedVectors,
+    public ClusterMetadata withNewVectors(final int numPrimaryUnderreplicatedVectors,
                                           final int numReplicatedVectors,
+                                          @Nonnull final RunningStandardDeviation runningStandardDeviation,
                                           @Nonnull final EnumSet<State> states) {
         final EnumSet<State> newStates = EnumSet.copyOf(states);
-        return new ClusterMetadata(getId(), numPrimaryVectors, numPrimaryUnderreplicatedVectors,
-                numReplicatedVectors, newStates);
+        return new ClusterMetadata(getId(), numPrimaryUnderreplicatedVectors, numReplicatedVectors,
+                runningStandardDeviation, newStates);
     }
 
     @Nonnull
-    public ClusterMetadata withAdditionalVectors(final int numPrimaryVectorsAdded,
-                                                 final int numPrimaryUnderreplicatedVectorsAdded,
-                                                 final int numReplicatedVectorsAdded) {
-        return withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded, numPrimaryUnderreplicatedVectorsAdded,
-                numReplicatedVectorsAdded);
+    public ClusterMetadata withAdditionalVectors(final int numPrimaryUnderreplicatedVectorsAdded,
+                                                 final int numReplicatedVectorsAdded,
+                                                 @Nonnull final RunningStandardDeviation runningStandardDeviationOfAdded) {
+        return withAdditionalVectorsAndStates(numPrimaryUnderreplicatedVectorsAdded,
+                numReplicatedVectorsAdded, runningStandardDeviationOfAdded);
     }
 
     @Nonnull
-    public ClusterMetadata withNewStates(@Nonnull final State... additionalStates) {
-        return withAdditionalVectorsAndNewStates(0, 0,
-                0, additionalStates);
+    public ClusterMetadata withNewStates(@Nonnull final EnumSet<State> newStates) {
+        return new ClusterMetadata(getId(), getNumPrimaryUnderreplicatedVectors(), getNumReplicatedVectors(),
+                getRunningStandardDeviation(), newStates);
     }
 
     @Nonnull
-    public ClusterMetadata withAdditionalVectorsAndNewStates(final int numPrimaryVectorsAdded,
-                                                             final int numPrimaryUnderreplicatedVectorsAdded,
-                                                             final int numReplicatedVectorsAdded,
-                                                             @Nonnull final State... additionalStates) {
+    public ClusterMetadata withAdditionalVectorsAndStates(final int numPrimaryUnderreplicatedVectorsAdded,
+                                                          final int numReplicatedVectorsAdded,
+                                                          @Nonnull final RunningStandardDeviation runningStandardDeviationOfAdded,
+                                                          @Nonnull final State... additionalStates) {
         final EnumSet<State> newStates = EnumSet.copyOf(getStates());
         Collections.addAll(newStates, additionalStates);
-        return withAdditionalVectorsAndNewStates(numPrimaryVectorsAdded, numPrimaryUnderreplicatedVectorsAdded,
-                numReplicatedVectorsAdded, newStates);
+        return withAdditionalVectorsAndStates(numPrimaryUnderreplicatedVectorsAdded,
+                numReplicatedVectorsAdded, runningStandardDeviationOfAdded, newStates);
     }
 
     @Nonnull
-    public ClusterMetadata withAdditionalVectorsAndNewStates(final int numPrimaryVectorsAdded,
-                                                             final int numPrimaryUnderreplicatedVectorsAdded,
-                                                             final int numReplicatedVectorsAdded,
-                                                             @Nonnull final EnumSet<State> additionalStates) {
+    public ClusterMetadata withAdditionalVectorsAndStates(final int numPrimaryUnderreplicatedVectorsAdded,
+                                                          final int numReplicatedVectorsAdded,
+                                                          @Nonnull final RunningStandardDeviation runningStandardDeviationOfAdded,
+                                                          @Nonnull final EnumSet<State> additionalStates) {
         final EnumSet<State> newStates = EnumSet.copyOf(getStates());
         newStates.addAll(additionalStates);
-        return new ClusterMetadata(getId(), getNumPrimaryVectors() + numPrimaryVectorsAdded,
+        return new ClusterMetadata(getId(),
                 getNumPrimaryUnderreplicatedVectors() + numPrimaryUnderreplicatedVectorsAdded,
-                getNumReplicatedVectors() + numReplicatedVectorsAdded, newStates);
+                getNumReplicatedVectors() + numReplicatedVectorsAdded,
+                getRunningStandardDeviation().combine(runningStandardDeviationOfAdded),
+                newStates);
     }
 
     @Override

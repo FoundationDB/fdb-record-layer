@@ -237,6 +237,7 @@ public class Insert {
                                             getExecutor()),
                                     clusterMetadataWithDistance -> {
                                         final int index = indexAtomic.getAndIncrement();
+                                        final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.getClusterMetadata();
                                         final double distance = clusterMetadataWithDistance.getDistance();
 
                                         if (index == 0) {
@@ -257,7 +258,8 @@ public class Insert {
                                         // into other clusters if it happens to be at the border between two (or more)
                                         // clusters.
                                         //
-                                        return StorageAdapter.replicationScore(distance, distanceToPrimaryCentroid) <= config.getClusterOverlap();
+                                        return StorageAdapter.replicationPriority(distance, distanceToPrimaryCentroid,
+                                                clusterMetadata.meanDistance(), clusterMetadata.standardDeviation()) >= config.getClusterOverlap();
                                     }, getExecutor());
 
                     final VectorMetadata newVectorMetadata =
@@ -272,31 +274,35 @@ public class Insert {
                                 final UUID clusterId = clusterMetadata.getId();
                                 final boolean isPrimaryCluster = clusterId.equals(primaryClusterIdAtomic.get());
 
+                                final double distance = clusterMetadataWithDistance.getDistance();
+                                final RunningStandardDeviation runningStandardDeviationOfAdded;
                                 if (isPrimaryCluster) {
                                     primitives.writeVectorReference(transaction, quantizer, clusterId,
                                             new VectorReference(newVectorMetadata,
                                                     true, false, transformedNewVector,
                                                     -1.0d));
+                                    runningStandardDeviationOfAdded = RunningStandardDeviation.of(distance);
                                 } else {
                                     final double distanceToPrimaryCentroid = primaryDistanceAtomic.get();
                                     Verify.verify(Double.isFinite(distanceToPrimaryCentroid));
 
-                                    final double distance = clusterMetadataWithDistance.getDistance();
-                                    final double replicationScore =
-                                            StorageAdapter.replicationScore(distance, distanceToPrimaryCentroid);
+                                    final double replicationPriority =
+                                            StorageAdapter.replicationPriority(distance, distanceToPrimaryCentroid,
+                                                    clusterMetadata.meanDistance(), clusterMetadata.standardDeviation());
 
                                     primitives.writeVectorReference(transaction, quantizer, clusterId,
                                             new VectorReference(newVectorMetadata,
                                                     false, false, transformedNewVector,
-                                                    replicationScore));
+                                                    replicationPriority));
+                                    runningStandardDeviationOfAdded = RunningStandardDeviation.identity();
                                 }
 
                                 primitives.writeDeferredTaskMaybe(transaction, random.split(),
                                                 clusterMetadata,
                                                 clusterMetadataWithDistance.getCentroid(), accessInfo,
-                                                isPrimaryCluster ? 1 : 0,
                                                 0,
                                                 isPrimaryCluster ? 0 : 1,
+                                                runningStandardDeviationOfAdded,
                                                 ImmutableSet.of());
                                 return AsyncUtil.DONE;
                             },
@@ -341,8 +347,8 @@ public class Insert {
 
         final UUID clusterId = RandomHelpers.randomUuid(config.isDeterministicRandomness());
         primitives.writeClusterMetadata(transaction,
-                new ClusterMetadata(clusterId, 0, 0, 0,
-                        EnumSet.noneOf(ClusterMetadata.State.class)));
+                new ClusterMetadata(clusterId, 0, 0,
+                        RunningStandardDeviation.identity(), EnumSet.noneOf(ClusterMetadata.State.class)));
 
         return primitives.getClusterCentroidsHnsw()
                 .insert(transaction,

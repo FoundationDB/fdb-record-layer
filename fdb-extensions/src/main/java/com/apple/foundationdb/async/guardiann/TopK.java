@@ -34,7 +34,7 @@ public class TopK<T> {
     final int k;
 
     public TopK(@Nonnull final Comparator<T> comparator, final int k) {
-        this.queue = new PriorityQueue<>(comparator.reversed());
+        this.queue = new PriorityQueue<>(comparator);
         this.k = k;
     }
 
@@ -44,8 +44,9 @@ public class TopK<T> {
         }
 
         final Comparator<? super T> comparator = queue.comparator();
+        final T currentWorst = queue.peek();
 
-        if (comparator.compare(queue.peek(), item) < 0) {
+        if (comparator.compare(item, currentWorst) <= 0) {
             return false;
         }
 
@@ -60,11 +61,12 @@ public class TopK<T> {
 
     @SuppressWarnings("unchecked")
     public List<T> toSortedList() {
-        final int size = queue.size();
+        final PriorityQueue<T> copy = new PriorityQueue<>(queue);
+        final int size = copy.size();
         final T[] array = (T[]) new Object[size];
 
         for (int i = size - 1; i >= 0; i --) {
-            array[i] = queue.poll();
+            array[i] = copy.poll();
         }
 
         return ImmutableList.copyOf(array);

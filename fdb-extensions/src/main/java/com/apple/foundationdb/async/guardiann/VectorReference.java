@@ -39,16 +39,16 @@ class VectorReference {
     private final boolean isUnderreplicated;
     @Nonnull
     private final Transformed<RealVector> vector;
-    private final double replicationScore;
+    private final double replicationPriority;
 
     public VectorReference(@Nonnull final VectorId id, final boolean isPrimaryCopy, final boolean isUnderreplicated,
-                           @Nonnull final Transformed<RealVector> vector, final double replicationScore) {
+                           @Nonnull final Transformed<RealVector> vector, final double replicationPriority) {
         Preconditions.checkArgument(isPrimaryCopy || !isUnderreplicated);
         this.id = id;
         this.isPrimaryCopy = isPrimaryCopy;
         this.isUnderreplicated = isUnderreplicated;
         this.vector = vector;
-        this.replicationScore = replicationScore;
+        this.replicationPriority = replicationPriority;
     }
 
     @Nonnull
@@ -69,8 +69,8 @@ class VectorReference {
         return vector;
     }
 
-    public double getReplicationScore() {
-        return replicationScore;
+    public double getReplicationPriority() {
+        return replicationPriority;
     }
 
     @Nonnull
@@ -79,7 +79,7 @@ class VectorReference {
             return this;
         }
         return new VectorReference(newVectorId, isPrimaryCopy(), isUnderreplicated(),
-                getVector(), getReplicationScore());
+                getVector(), getReplicationPriority());
     }
 
     @Nonnull
@@ -88,7 +88,7 @@ class VectorReference {
             return this;
         }
         return new VectorReference(getId(), isPrimaryCopy, isUnderreplicated,
-                getVector(), isPrimaryCopy ? -1.0d : getReplicationScore());
+                getVector(), isPrimaryCopy ? -1.0d : getReplicationPriority());
     }
 
     @Nonnull
@@ -96,7 +96,7 @@ class VectorReference {
         if (getVector() == newVector) {
             return this;
         }
-        return new VectorReference(getId(), isPrimaryCopy(), isUnderreplicated(), newVector, getReplicationScore());
+        return new VectorReference(getId(), isPrimaryCopy(), isUnderreplicated(), newVector, getReplicationPriority());
     }
 
     @Nonnull
@@ -124,12 +124,12 @@ class VectorReference {
                 isPrimaryCopy() == that.isPrimaryCopy() &&
                 isUnderreplicated() == that.isUnderreplicated() &&
                 Objects.equals(getVector(), that.getVector()) &&
-                getReplicationScore() == that.getReplicationScore();
+                getReplicationPriority() == that.getReplicationPriority();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getId(), isPrimaryCopy(), isUnderreplicated(), getVector(), getReplicationScore());
+        return Objects.hash(getId(), isPrimaryCopy(), isUnderreplicated(), getVector(), getReplicationPriority());
     }
 
     @Override
@@ -137,7 +137,7 @@ class VectorReference {
         return "VR[" + getId() +
                 ", isPrimaryCopy=" + isPrimaryCopy() +
                 ", isUnderreplicated=" + isUnderreplicated() +
-                ", replicationScore=" + getReplicationScore() + "]";
+                ", replicationPriority=" + getReplicationPriority() + "]";
     }
 
     @Nonnull

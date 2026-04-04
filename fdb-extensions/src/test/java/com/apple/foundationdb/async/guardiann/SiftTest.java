@@ -101,7 +101,7 @@ public class SiftTest implements BaseTest {
                         .setMetric(metric)
                         .setPrimaryClusterMax(1024)
                         .setPrimaryClusterMin(100)
-                        .setDeterministicRandomness(false)
+                        .setDeterministicRandomness(true)
                         .setClusterOverlap(0.10d)
                         .setReplicatedClusterTarget(500)
                         .setReplicatedClusterMaxWrites(1500)
@@ -136,7 +136,7 @@ public class SiftTest implements BaseTest {
             final Search search = guardiann.getLocator().search();
             return search.globalAssignmentCheck(transaction, ImmutableList.copyOf(centroids)).join();
         });
-        System.out.println(result);
+        //System.out.println(result);
     }
 
     static long countNodesCentroidHnsw(@Nonnull final Database db,

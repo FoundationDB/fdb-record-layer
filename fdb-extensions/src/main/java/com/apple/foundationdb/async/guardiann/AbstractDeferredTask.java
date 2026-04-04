@@ -150,12 +150,24 @@ public abstract class AbstractDeferredTask {
     }
 
     @CanIgnoreReturnValue
-    protected static <T> int incrementCounter(@Nonnull final Map<T, Integer> countersMap, @Nonnull final T key) {
+    static <T> int incrementCounter(@Nonnull final Map<T, Integer> countersMap, @Nonnull final T key) {
         return  countersMap.compute(key, (ignoredKey, oldCounter) -> {
             if (oldCounter == null) {
                 return 1;
             }
             return oldCounter + 1;
+        });
+    }
+
+    @CanIgnoreReturnValue
+    static <T> RunningStandardDeviation
+            updateRunningStandardDeviation(@Nonnull final Map<T, RunningStandardDeviation> countersMap,
+                                           @Nonnull final T key, final double distance) {
+        return countersMap.compute(key, (ignoredKey, oldCounter) -> {
+            if (oldCounter == null) {
+                return RunningStandardDeviation.of(distance);
+            }
+            return oldCounter.add(distance);
         });
     }
 
