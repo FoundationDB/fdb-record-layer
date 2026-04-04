@@ -35,7 +35,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -195,7 +194,7 @@ public class Search {
                     final var boundedClusterMetadataIterable =
                             MoreAsyncUtil.iterableFromCollection(
                                     clusterMetadataWithDistancesFuture.thenApply(clusterMetadataWithDistances -> {
-                                        if (clusterMetadataWithDistances.size() <= 16) {
+                                        if (clusterMetadataWithDistances.size() <= 48) {
                                             if (logger.isInfoEnabled()) {
                                                 logger.info("querying numClusters={}", clusterMetadataWithDistances.size());
                                             }
@@ -204,7 +203,7 @@ public class Search {
 
                                         final double nearestCentroidDistance = clusterMetadataWithDistances.get(0).getDistance();
                                         int i;
-                                        for (i = 16; i < clusterMetadataWithDistances.size(); i ++) {
+                                        for (i = 48; i < clusterMetadataWithDistances.size(); i ++) {
                                             final ClusterMetadataWithDistance currentClusterMetadata =
                                                     clusterMetadataWithDistances.get(i);
                                             if (currentClusterMetadata.getDistance() / nearestCentroidDistance > 1.50) {
@@ -295,10 +294,6 @@ public class Search {
         return resultBuilder.build();
     }
 
-    public static final Set<Integer> interestingKeys = ImmutableSet.of(27650, 61187, 85275, 56620, 23342, 3378, 12091,
-            68689, 17751, 48476, 94321, 67445, 45693, 65918, 48266, 91279, 77461, 1961, 700, 93375, 81354, 29644, 14031,
-            51408, 53713, 64979, 7901, 18935, 66303);
-
     @SuppressWarnings("checkstyle:MethodName")
     CompletableFuture<ListMultimap<UUID, Tuple>> globalAssignmentCheck(@Nonnull final ReadTransaction readTransaction,
                                                                        @Nonnull final List<ResultEntry> centroids) {
@@ -334,9 +329,6 @@ public class Search {
                                     int numReplicatedVectors = 0;
                                     final Map<Integer, Integer> wrongAssignmentsByRankMap = Maps.newHashMap();
                                     for (final VectorReference vectorReference : currentCluster.getVectorReferences()) {
-//                                        if (!interestingKeys.contains(Math.toIntExact(vectorReference.getId().getPrimaryKey().getLong(0)))) {
-//                                            continue;
-//                                        }
                                         if (vectorReference.isPrimaryCopy()) {
                                             assignmentsMap.put(currentClusterId, vectorReference.getId().getPrimaryKey());
                                             numAllPrimaryAssignments++;

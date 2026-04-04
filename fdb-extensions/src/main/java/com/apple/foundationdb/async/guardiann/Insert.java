@@ -233,7 +233,7 @@ public class Insert {
                     final AtomicDouble primaryDistanceAtomic = new AtomicDouble(Double.NaN);
 
                     final AsyncIterable<ClusterMetadataWithDistance> affectedNeighborhood =
-                            takeWhileIterable(limitIterable(clusterMetadataIterable, 16,
+                            takeWhileIterable(limitIterable(clusterMetadataIterable, 10,
                                             getExecutor()),
                                     clusterMetadataWithDistance -> {
                                         final int index = indexAtomic.getAndIncrement();
@@ -262,7 +262,7 @@ public class Insert {
 
                     final VectorMetadata newVectorMetadata =
                             new VectorMetadata(newPrimaryKey,
-                                    RandomHelpers.nextUuid(random, config.isPersistSequentialUuids()),
+                                    RandomHelpers.randomUuid(config.isDeterministicRandomness()),
                                     newAdditionalValues);
                     primitives.writeVectorMetadata(transaction, newVectorMetadata);
 
@@ -339,7 +339,7 @@ public class Insert {
             logger.trace("written initial access info");
         }
 
-        final UUID clusterId = RandomHelpers.nextUuid(random, config.isPersistSequentialUuids());
+        final UUID clusterId = RandomHelpers.randomUuid(config.isDeterministicRandomness());
         primitives.writeClusterMetadata(transaction,
                 new ClusterMetadata(clusterId, 0, 0, 0,
                         EnumSet.noneOf(ClusterMetadata.State.class)));
@@ -374,13 +374,14 @@ public class Insert {
                                                           @Nonnull final SplittableRandom random,
                                                           @Nonnull final AccessInfo currentAccessInfo,
                                                           @Nonnull final Transformed<RealVector> transformedNewVector) {
+        final Config config = getConfig();
         final Subspace samplesSubspace = getSamplesSubspace();
-        if (getConfig().isUseRaBitQ() &&
+        if (config.isUseRaBitQ() &&
                 !currentAccessInfo.canUseRaBitQ()) {
             final Primitives primitives = primitives();
             if (shouldSampleVector(random)) {
-                appendSampledVector(transaction, random, samplesSubspace, 1, transformedNewVector,
-                        getOnWriteListener());
+                appendSampledVector(transaction, random, config.isDeterministicRandomness(),
+                        samplesSubspace, 1, transformedNewVector, getOnWriteListener());
             }
             if (shouldMaintainStats(random)) {
                 return consumeSampledVectors(transaction, samplesSubspace,
@@ -392,17 +393,17 @@ public class Insert {
                             if (aggregatedSampledVector != null) {
                                 final int partialCount = aggregatedSampledVector.getPartialCount();
                                 final Transformed<RealVector> partialVector = aggregatedSampledVector.getPartialVector();
-                                appendSampledVector(transaction, random, samplesSubspace, partialCount, partialVector,
-                                        getOnWriteListener());
+                                appendSampledVector(transaction, random, config.isDeterministicRandomness(),
+                                        samplesSubspace, partialCount, partialVector, getOnWriteListener());
                                 if (logger.isTraceEnabled()) {
                                     logger.trace("updated stats with numVectors={}, partialCount={}, partialVector={}",
                                             sampledVectors.size(), partialCount, partialVector);
                                 }
 
-                                if (partialCount >= getConfig().getStatsThreshold()) {
+                                if (partialCount >= config.getStatsThreshold()) {
                                     final long rotatorSeed = random.nextLong();
                                     final FhtKacRotator rotator =
-                                            new FhtKacRotator(rotatorSeed, getConfig().getNumDimensions(), 10);
+                                            new FhtKacRotator(rotatorSeed, config.getNumDimensions(), 10);
 
                                     final Transformed<RealVector> centroid =
                                             partialVector.multiply(-1.0d / partialCount);

@@ -74,12 +74,12 @@ public final class RandomHelpers {
     }
 
     @Nonnull
-    public static UUID nextUuid(@Nonnull final SplittableRandom random, final boolean sequential) {
-        return sequential ? SequentialUUID.getNext() : randomUUID(random);
+    public static UUID randomUuid(final boolean deterministicRandomness) {
+        return deterministicRandomness ? SequentialUUID.getNext() : UUID.randomUUID();
     }
 
     @Nonnull
-    public static UUID randomUUID(@Nonnull final SplittableRandom random) {
+    public static UUID randomUuid(@Nonnull final SplittableRandom random) {
         long msb = random.nextLong();
         long lsb = random.nextLong();
 

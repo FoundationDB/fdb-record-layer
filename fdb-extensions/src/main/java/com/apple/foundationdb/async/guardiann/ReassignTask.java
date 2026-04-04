@@ -46,10 +46,10 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
@@ -154,6 +154,7 @@ public class ReassignTask extends AbstractDeferredTask {
                                              @Nonnull final ClusterMetadata targetClusterMetadata,
                                              @Nonnull final RealVector targetClusterCentroid) {
         final SplittableRandom random = RandomHelpers.random(targetClusterMetadata.getId());
+        final Config config = getConfig();
         final Executor executor = getLocator().getExecutor();
         final Primitives primitives = getLocator().primitives();
         final AccessInfo accessInfo = getAccessInfo();
@@ -162,7 +163,7 @@ public class ReassignTask extends AbstractDeferredTask {
         final Estimator estimator = quantizer.estimator();
 
         final int numInnerNeighborhood = 1;
-        final int numOuterNeighborhood = 32;
+        final int numOuterNeighborhood = 15;
         final int numNeighborhood = numInnerNeighborhood + numOuterNeighborhood;
 
         final List<ClusterIdAndCentroid> neighborhood = getNeighborhood();
@@ -171,6 +172,7 @@ public class ReassignTask extends AbstractDeferredTask {
                             targetClusterCentroid, storageTransform, numNeighborhood)
                     .thenAccept(fetchedNeighborhood -> {
                         final ReassignTask reassignTask = withHighPriorityAndNeighborhood(random,
+                                config.isDeterministicRandomness(),
                                 ClusterIdAndCentroid.fromClusterMetadataAndDistances(fetchedNeighborhood));
                         primitives.writeDeferredTask(transaction, reassignTask);
                         if (logger.isInfoEnabled()) {
@@ -303,9 +305,8 @@ public class ReassignTask extends AbstractDeferredTask {
                 continue;
             }
 
-            final PriorityQueue<ClusterMetadataWithDistance> nearestClusters =
-                    new PriorityQueue<>(1 + outerNeighborhood.size(),
-                            Comparator.comparing(ClusterMetadataWithDistance::getDistance));
+            final TopK<ClusterMetadataWithDistance> nearestClusters =
+                    new TopK<>(Comparator.comparing(ClusterMetadataWithDistance::getDistance), 24);
             for (final ClusterMetadataWithDistance clusterMetadataWithDistance : clusterIdMetadataMap.values()) {
                 final double distance =
                         estimator.distance(vectorReference.getVector(),
@@ -314,8 +315,10 @@ public class ReassignTask extends AbstractDeferredTask {
                 nearestClusters.add(clusterMetadataWithDistance.withNewDistance(distance));
             }
 
+            final Iterator<ClusterMetadataWithDistance> nearestClustersIterator =
+                    nearestClusters.toSortedList().iterator();
             final ClusterMetadataWithDistance primaryCluster =
-                    Objects.requireNonNull(nearestClusters.poll());
+                    Objects.requireNonNull(nearestClustersIterator.next());
             final double distanceToPrimaryCentroid = primaryCluster.getDistance();
             Verify.verify(Double.isFinite(distanceToPrimaryCentroid));
 
@@ -328,15 +331,13 @@ public class ReassignTask extends AbstractDeferredTask {
                 continue;
             }
 
-            assignmentBuilder.put(
-                    primaryClusterId,
-                    vectorReference.toPrimaryCopy());
+            assignmentBuilder.put(primaryClusterId, vectorReference.toPrimaryCopy());
 
             final Set<UUID> causeClusterIds = getCauseClusterIds();
 
-            while (!nearestClusters.isEmpty()) {
+            while (nearestClustersIterator.hasNext()) {
                 final ClusterMetadataWithDistance replicatedCluster =
-                        Objects.requireNonNull(nearestClusters.poll());
+                        Objects.requireNonNull(nearestClustersIterator.next());
                 final double distance = replicatedCluster.getDistance();
                 Verify.verify(Double.isFinite(distance));
 
@@ -488,8 +489,10 @@ public class ReassignTask extends AbstractDeferredTask {
 
     @Nonnull
     private ReassignTask withHighPriorityAndNeighborhood(@Nonnull final SplittableRandom random,
+                                                         final boolean deterministicRandomness,
                                                          @Nonnull final List<ClusterIdAndCentroid> neighborhood) {
-        return ReassignTask.of(getLocator(), getAccessInfo(), randomHighPriorityTaskId(random), getTargetClusterId(),
+        return ReassignTask.of(getLocator(), getAccessInfo(),
+                randomHighPriorityTaskId(random, deterministicRandomness), getTargetClusterId(),
                 getCentroid(), getCauseClusterIds(), neighborhood);
     }
 

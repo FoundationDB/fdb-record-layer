@@ -119,17 +119,25 @@ public abstract class AbstractDeferredTask {
     }
 
     @Nonnull
-    protected static UUID randomHighPriorityTaskId(@Nonnull final SplittableRandom random) {
-        final UUID randomUUID = RandomHelpers.randomUUID(random);
-        return new UUID(randomUUID.getMostSignificantBits() & 0x7fffffffffffffffL,
-                randomUUID.getLeastSignificantBits());
+    protected static UUID randomHighPriorityTaskId(@Nonnull final SplittableRandom random, final boolean isDeterministic) {
+        return uuidToHighPriorityTaskId(isDeterministic ? RandomHelpers.randomUuid(random) : UUID.randomUUID());
     }
 
     @Nonnull
-    protected static UUID randomNormalPriorityTaskId(@Nonnull final SplittableRandom random) {
-        final UUID randomUUID = RandomHelpers.randomUUID(random);
-        return new UUID(randomUUID.getMostSignificantBits() | 0x8000000000000000L,
-                randomUUID.getLeastSignificantBits());
+    private static UUID uuidToHighPriorityTaskId(@Nonnull final UUID uuid) {
+        return new UUID(uuid.getMostSignificantBits() & 0x7fffffffffffffffL,
+                uuid.getLeastSignificantBits());
+    }
+
+    @Nonnull
+    protected static UUID randomNormalPriorityTaskId(@Nonnull final SplittableRandom random, final boolean isDeterministic) {
+        return uuidToNormalPriorityTaskId(isDeterministic ? RandomHelpers.randomUuid(random) : UUID.randomUUID());
+    }
+
+    @Nonnull
+    private static UUID uuidToNormalPriorityTaskId(@Nonnull final UUID uuid) {
+        return new UUID(uuid.getMostSignificantBits() | 0x8000000000000000L,
+                uuid.getLeastSignificantBits());
     }
 
     @Nonnull

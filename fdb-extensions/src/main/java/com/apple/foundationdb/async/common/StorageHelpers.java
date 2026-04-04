@@ -88,11 +88,13 @@ public final class StorageHelpers {
 
     public static void appendSampledVector(@Nonnull final Transaction transaction,
                                            @Nonnull final SplittableRandom random,
+                                           final boolean deterministicRandomness,
                                            @Nonnull final Subspace prefixSubspace,
                                            final int partialCount,
                                            @Nonnull final Transformed<RealVector> vector,
                                            @Nonnull final OnKeyValueWriteListener onWriteListener) {
-        final Subspace keySubspace = prefixSubspace.subspace(Tuple.from(partialCount, RandomHelpers.randomUUID(random)));
+        final Subspace keySubspace = prefixSubspace.subspace(Tuple.from(partialCount,
+                RandomHelpers.randomUuid(deterministicRandomness)));
         final byte[] prefixKey = keySubspace.pack();
         // getting underlying is okay as it is only written to the database
         final byte[] value = tupleFromVector(vector.getUnderlyingVector().toDoubleRealVector()).pack();

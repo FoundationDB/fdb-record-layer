@@ -85,6 +85,7 @@ public class BounceReassignTask extends AbstractDeferredTask {
         final SplittableRandom splittableRandom = Objects.requireNonNull(
                 RandomHelpers.random(Iterables.getFirst(getTargetClusterIds(), null)));
 
+        final Config config = getConfig();
         final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();
         final AccessInfo accessInfo = getAccessInfo();
@@ -128,7 +129,7 @@ public class BounceReassignTask extends AbstractDeferredTask {
                                     final ImmutableSet<UUID> newDependentTaskIds = newDependentTaskIdsBuilder.build();
                                     final BounceReassignTask newBounceReassignTask =
                                             BounceReassignTask.of(getLocator(), accessInfo,
-                                                    randomNormalPriorityTaskId(splittableRandom), getTargetClusterIds(),
+                                                    randomNormalPriorityTaskId(splittableRandom, config.isDeterministicRandomness()), getTargetClusterIds(),
                                                     newDependentTaskIds);
                                     primitives.writeDeferredTask(transaction, newBounceReassignTask);
 
@@ -150,6 +151,7 @@ public class BounceReassignTask extends AbstractDeferredTask {
     @Nonnull
     private CompletableFuture<Void> enqueueReassign(@Nonnull final Transaction transaction,
                                                     @Nonnull final SplittableRandom random) {
+        final Config config = getConfig();
         final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();
         final AccessInfo accessInfo = getAccessInfo();
@@ -172,7 +174,7 @@ public class BounceReassignTask extends AbstractDeferredTask {
                                                     storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
                                             final ReassignTask reassignTask =
                                                     ReassignTask.of(getLocator(), accessInfo,
-                                                            randomNormalPriorityTaskId(nestedRandom),
+                                                            randomNormalPriorityTaskId(nestedRandom, config.isDeterministicRandomness()),
                                                             targetClusterId,
                                                             transformedCentroid,
                                                             ImmutableSet.of());

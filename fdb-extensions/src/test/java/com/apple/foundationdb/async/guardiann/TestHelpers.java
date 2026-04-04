@@ -184,7 +184,7 @@ class TestHelpers {
                                         final DoubleRealVector doubleVector = remainingBatch.get(indexInBatch);
                                         return new PrimaryKeyAndVector(currentPrimaryKey, doubleVector);
                                     });
-                    insertedDataBuilder.addAll(insertedInBatch);
+                    //insertedDataBuilder.addAll(insertedInBatch);
                     final int numInsertedInBatch = insertedInBatch.size();
                     i += numInsertedInBatch;
                     remainingBatch.subList(0, numInsertedInBatch).clear();
@@ -252,6 +252,54 @@ class TestHelpers {
                     final double distance = metric.distance(originalVector,
                             Objects.requireNonNull(resultEntry.getVector()).toDoubleRealVector());
                     assertThat(distance).isCloseTo(0.0d, within(30.0d));
+
+                    logger.trace("retrieved result nodeId = {} at distance = {} ",
+                            primaryKeyIndex, resultEntry.getDistance());
+                    if (groundTruthIndices.contains(primaryKeyIndex)) {
+                        recallCount ++;
+                    }
+                }
+
+                final double recall = (double)recallCount / k;
+                //assertThat(recall).isGreaterThan(0.93);
+
+                logger.info("query returned results recall={}", String.format(Locale.ROOT, "%.2f", recall * 100.0d));
+            }
+        }
+    }
+
+    static void validateSIFT(@Nonnull final Database db,
+                             @Nonnull final Guardiann guardiann,
+                             @Nonnull final String queriesFile,
+                             @Nonnull final String groundTruthFile,
+                             final int k) throws IOException {
+        final Path siftQueryPath = Paths.get(queriesFile);
+        final Path siftGroundTruthPath = Paths.get(groundTruthFile);
+
+        final TestOnReadListener onReadListener = (TestOnReadListener)guardiann.getOnReadListener();
+
+        try (final var queryChannel = FileChannel.open(siftQueryPath, StandardOpenOption.READ);
+             final var groundTruthChannel = FileChannel.open(siftGroundTruthPath, StandardOpenOption.READ)) {
+            final Iterator<DoubleRealVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
+            final Iterator<List<Integer>> groundTruthIterator = new StoredVecsIterator.StoredIVecsIterator(groundTruthChannel);
+
+            Verify.verify(queryIterator.hasNext() == groundTruthIterator.hasNext());
+
+            while (queryIterator.hasNext()) {
+                final HalfRealVector queryVector = queryIterator.next().toHalfRealVector();
+                final Set<Integer> groundTruthIndices = ImmutableSet.copyOf(groundTruthIterator.next());
+                onReadListener.reset();
+                final long beginTs = System.nanoTime();
+                final List<? extends ResultEntry> results =
+                        db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, 30000,
+                                true, queryVector).join());
+                final long endTs = System.nanoTime();
+                logger.info("retrieved result in elapsedTimeMs={}, reading readBytes={}",
+                        TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getBytesReadByLayer());
+
+                int recallCount = 0;
+                for (final ResultEntry resultEntry : results) {
+                    final int primaryKeyIndex = (int)resultEntry.getPrimaryKey().getLong(0);
 
                     logger.trace("retrieved result nodeId = {} at distance = {} ",
                             primaryKeyIndex, resultEntry.getDistance());

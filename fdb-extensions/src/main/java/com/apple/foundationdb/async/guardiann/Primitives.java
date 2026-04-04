@@ -551,7 +551,8 @@ class Primitives {
                 ((numPrimaryVectorsAdded > 0 && numTotalPrimaryVectors > config.getPrimaryClusterMax()) ||
                          (numPrimaryVectorsAdded < 0 && numTotalPrimaryVectors < config.getPrimaryClusterMin()))) {
             // create a split/merge task
-            final UUID newTaskId = AbstractDeferredTask.randomNormalPriorityTaskId(random);
+            final UUID newTaskId =
+                    AbstractDeferredTask.randomNormalPriorityTaskId(random, config.isDeterministicRandomness());
             writeDeferredTask(transaction,
                     SplitMergeTask.of(getLocator(), accessInfo, newTaskId, clusterId, clusterCentroid));
 
@@ -578,7 +579,8 @@ class Primitives {
                          numTotalReplicatedVectors > config.getReplicatedClusterMaxWrites() ||                     // we are violating some clean up bounds
                          numTotalPrimaryUnderreplicatedVectors > config.getUnderreplicatedPrimaryClusterMax())) {
             // create a reassign task
-            final UUID newTaskId = AbstractDeferredTask.randomNormalPriorityTaskId(random);
+            final UUID newTaskId =
+                    AbstractDeferredTask.randomNormalPriorityTaskId(random, config.isDeterministicRandomness());
             writeDeferredTask(transaction,
                     ReassignTask.of(getLocator(), accessInfo, newTaskId,
                             clusterId, clusterCentroid, causeClusterIds));

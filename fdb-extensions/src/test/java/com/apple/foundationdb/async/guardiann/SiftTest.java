@@ -30,6 +30,9 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.test.TestClassSubspaceExtension;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
+import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -44,6 +47,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -82,7 +86,7 @@ public class SiftTest implements BaseTest {
     }
 
     @BeforeAll
-    @Timeout(value = 30, unit = TimeUnit.MINUTES)
+    @Timeout(value = 300, unit = TimeUnit.MINUTES)
     public static void setUpDb() throws Exception {
         db = dbExtension.getDatabase();
 
@@ -95,12 +99,12 @@ public class SiftTest implements BaseTest {
                         .setUseRaBitQ(true)
                         .setRaBitQNumExBits(8)
                         .setMetric(metric)
-                        .setPrimaryClusterMax(500)
+                        .setPrimaryClusterMax(1024)
                         .setPrimaryClusterMin(100)
-                        .setPersistSequentialUuids(true)
-                        .setClusterOverlap(0.0d)
-                        .setReplicatedClusterTarget(1000)
-                        .setReplicatedClusterMaxWrites(3000)
+                        .setDeterministicRandomness(false)
+                        .setClusterOverlap(0.10d)
+                        .setReplicatedClusterTarget(500)
+                        .setReplicatedClusterMaxWrites(1500)
                         .build(512);
 
         guardiann = new Guardiann(subspaceExtension.getSubspace(),
@@ -111,14 +115,14 @@ public class SiftTest implements BaseTest {
 
         logger.info("Preparing db and inserting SIFT small dataset...");
         //insertedData = TestHelpers.insertSIFTSmall(db, guardiann);
-        insertedData = TestHelpers.insertSIFT100k(db, guardiann, 100000, 50);
+        insertedData = TestHelpers.insertSIFT100k(db, guardiann, 100_000, 50);
     }
 
     @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
     @Test
     void testInsertSIFTSmall() throws Exception {
         final int k = 100;
-        TestHelpers.validateSIFT(getDb(), guardiann, insertedData,
+        TestHelpers.validateSIFT(getDb(), guardiann,
                 "/Users/nseemann/Downloads/embeddings-unified-model-100k-queries-1.0.0.fvecs",
                 "/Users/nseemann/Downloads/embeddings-unified-model-100k-groundtruth-1.0.0.ivecs", k);
 
@@ -127,16 +131,12 @@ public class SiftTest implements BaseTest {
         final Set<ResultEntry> centroids = Sets.newConcurrentHashSet();
         scanCentroids(db, centroidHnsw.getSubspace(), centroidHnsw.getConfig(), 0, 100, centroids::add);
 
-//        logger.info("checking clusters numCentroids={}", centroids.size());
-//        final ListMultimap<UUID, Tuple> result = db.run(transaction -> {
-//            final Search search = guardiann.getLocator().search();
-//            return search.globalAssignmentCheck(transaction, ImmutableList.copyOf(centroids)).join();
-//        });
-//        System.out.println(result);
-
-//        TestHelpers.validateSIFT(getDb(), guardiann, insertedData,
-//                "/Users/nseemann/Downloads/sift-100k-queries.fvecs",
-//                "/Users/nseemann/Downloads/sift-100k-groundtruth.ivecs", k);
+        logger.info("checking clusters numCentroids={}", centroids.size());
+        final ListMultimap<UUID, Tuple> result = db.run(transaction -> {
+            final Search search = guardiann.getLocator().search();
+            return search.globalAssignmentCheck(transaction, ImmutableList.copyOf(centroids)).join();
+        });
+        System.out.println(result);
     }
 
     static long countNodesCentroidHnsw(@Nonnull final Database db,

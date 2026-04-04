@@ -332,8 +332,8 @@ public class Insert {
         if (getConfig().isUseRaBitQ() &&
                 !currentAccessInfo.canUseRaBitQ()) {
             if (shouldSampleVector(random)) {
-                appendSampledVector(transaction, random, getSamplesSubspace(), 1, transformedNewVector,
-                        getOnWriteListener());
+                appendSampledVector(transaction, random, false,
+                        getSamplesSubspace(), 1, transformedNewVector, getOnWriteListener());
             }
             if (shouldMaintainStats(random)) {
                 return consumeSampledVectors(transaction, getSamplesSubspace(),
@@ -345,8 +345,8 @@ public class Insert {
                             if (aggregatedSampledVector != null) {
                                 final int partialCount = aggregatedSampledVector.getPartialCount();
                                 final Transformed<RealVector> partialVector = aggregatedSampledVector.getPartialVector();
-                                appendSampledVector(transaction, random, getSamplesSubspace(),
-                                        partialCount, partialVector, getOnWriteListener());
+                                appendSampledVector(transaction, random, false,
+                                        getSamplesSubspace(), partialCount, partialVector, getOnWriteListener());
                                 if (logger.isTraceEnabled()) {
                                     logger.trace("updated stats with numVectors={}, partialCount={}, partialVector={}",
                                             sampledVectors.size(), partialCount, partialVector);

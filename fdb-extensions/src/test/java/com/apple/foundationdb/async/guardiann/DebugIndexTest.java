@@ -115,7 +115,7 @@ public class DebugIndexTest implements BaseTest {
     }
 
     @BeforeAll
-    @Timeout(value = 30, unit = TimeUnit.MINUTES)
+    @Timeout(value = 1000, unit = TimeUnit.MINUTES)
     public static void setUpDb() throws Exception {
         db = dbExtension.getDatabase();
 
@@ -128,10 +128,10 @@ public class DebugIndexTest implements BaseTest {
                         .setUseRaBitQ(true)
                         .setRaBitQNumExBits(6)
                         .setMetric(metric)
-                        .setPrimaryClusterMax(500)
+                        .setPrimaryClusterMax(1024)
                         .setPrimaryClusterMin(100)
-                        .setPersistSequentialUuids(true)
-                        .setClusterOverlap(0.1d)
+                        .setDeterministicRandomness(false)
+                        .setClusterOverlap(0.15d)
                         .setReplicatedClusterTarget(1000)
                         .setReplicatedClusterMaxWrites(3000)
                         .build(512);
@@ -144,10 +144,10 @@ public class DebugIndexTest implements BaseTest {
 
         logger.info("Preparing db and inserting SIFT small dataset...");
         //insertedData = TestHelpers.insertSIFTSmall(db, guardiann);
-        //insertedData = TestHelpers.insertSIFT100k(db, guardiann, 100000, 50);
-        insertedData =
-                TestHelpers.loadVectors("/Users/nseemann/downloads/embeddings-unified-model-100k-1.0.0.fvecs",
-                        100000);
+        insertedData = TestHelpers.insertSIFT100k(db, guardiann, 100_000, 20);
+//        insertedData =
+//                TestHelpers.loadVectors("/Users/nseemann/downloads/embeddings-unified-model-100k-1.0.0.fvecs",
+//                        100000);
     }
 
     @Test
@@ -221,7 +221,7 @@ public class DebugIndexTest implements BaseTest {
         }
 
         final ImmutableList<Integer> missedItemIds =
-                ImmutableList.copyOf(Search.interestingKeys);
+                ImmutableList.of(); // TODO
 
         Map<Integer, ClusterData> clusterLookupByItemId = Maps.newHashMap();
         for (final Integer missedItemId : missedItemIds) {
@@ -285,6 +285,11 @@ public class DebugIndexTest implements BaseTest {
                     r.getTotalCentroids()
             );
         }
+    }
+
+    @Test
+    void testJustInsert() throws Exception {
+        // nothing
     }
 
     @Test

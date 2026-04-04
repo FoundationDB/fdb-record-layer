@@ -51,10 +51,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
@@ -156,6 +156,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
     private CompletableFuture<Void> split(@Nonnull final Transaction transaction,
                                           @Nonnull final ClusterMetadata targetClusterMetadata,
                                           @Nonnull final RealVector targetClusterCentroid) {
+        final Config config = getConfig();
         final SplittableRandom random = RandomHelpers.random(targetClusterMetadata.getId());
         final Primitives primitives = primitives();
         final Executor executor = getLocator().getExecutor();
@@ -164,7 +165,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final Quantizer quantizer = primitives.quantizer(accessInfo);
         final Estimator estimator = quantizer.estimator();
 
-        final int numNeighborhood = 24;
+        final int numNeighborhood = 16;
 
         final List<ClusterIdAndCentroid> neighborhood = getNeighborhood();
         if (neighborhood.isEmpty()) {
@@ -174,6 +175,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                     .thenAccept(fetchedNeighborhood -> {
                         final SplitMergeTask splitMergeTask =
                                 withHighPriorityAndNeighborhood(random,
+                                        config.isDeterministicRandomness(),
                                         ClusterIdAndCentroid.fromClusterMetadataAndDistances(fetchedNeighborhood));
                         primitives.writeDeferredTask(transaction, splitMergeTask);
                         if (logger.isInfoEnabled()) {
@@ -232,14 +234,12 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                         final UpgradeResult upgradeResult1to2 =
                                                 evaluateNewPartition(estimator, ImmutableList.of(innerClusters.get(0)),
                                                         split1to2Candidate);
-                                        upgradeResult1to2.log(logger);
                                         final AssignmentCandidate split2to3Candidate = assignmentCandidates.get(1);
                                         if (split2to3Candidate != null) {
                                             Verify.verify(innerClusters.size() > 1);
                                             final UpgradeResult upgradeResult2to3 =
                                                     evaluateNewPartition(estimator, innerClusters,
                                                             split2to3Candidate);
-                                            upgradeResult2to3.log(logger);
                                             return upgradeResult1to2.getScoreGain() > upgradeResult2to3.getScoreGain()
                                                    ? split1to2Candidate : split2to3Candidate;
                                         }
@@ -321,8 +321,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
         // re-fit only the primary vectors
         final BoundedKMeans.Result<Transformed<RealVector>> kMeansResult =
                 BoundedKMeans.fit(random, estimator, VectorReference.vectorLens(),
-                        Transformed.underlyingLens(), primaryVectorReferences, targetNumPartitions, 3,
-                        1, 0.00, BoundedKMeans.overflowQuadraticPenalty(),
+                        Transformed.underlyingLens(), primaryVectorReferences, targetNumPartitions, 8,
+                        3, 0.00, BoundedKMeans.overflowQuadraticPenalty(),
                         true);
 
         return assignPrimaryVectorReferences(random, estimator, outerNeighborhood, primaryVectorReferences,
@@ -346,7 +346,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                 ImmutableMap.builder();
         final ImmutableSet.Builder<UUID> newClusterIdsBuilder = ImmutableSet.builder();
         for (int i = 0; i < targetNumPartitions; i++) {
-            final UUID newClusterId = RandomHelpers.nextUuid(random, config.isPersistSequentialUuids());
+            final UUID newClusterId = RandomHelpers.randomUuid(config.isDeterministicRandomness());
             newClusterIdsBuilder.add(newClusterId);
 
             clusterIdMetadataMapBuilder.put(newClusterId,
@@ -375,9 +375,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
         // only considering primary copies here -- this will prune the replicated vectors
         for (final VectorReference vectorReference : primaryVectorReferences) {
-            final PriorityQueue<ClusterMetadataWithDistance> nearestClusters =
-                    new PriorityQueue<>(targetNumPartitions + outerNeighborhood.size(),
-                            Comparator.comparing(ClusterMetadataWithDistance::getDistance));
+            final TopK<ClusterMetadataWithDistance> nearestClusters =
+                    new TopK<>(Comparator.comparing(ClusterMetadataWithDistance::getDistance), 24);
             for (final ClusterMetadataWithDistance clusterMetadataWithDistance : clusterIdMetadataMap.values()) {
                 final double distance =
                         estimator.distance(vectorReference.getVector(),
@@ -386,7 +385,9 @@ public class SplitMergeTask extends AbstractDeferredTask {
                 nearestClusters.add(clusterMetadataWithDistance.withNewDistance(distance));
             }
 
-            final ClusterMetadataWithDistance primaryCluster = Objects.requireNonNull(nearestClusters.poll());
+            final Iterator<ClusterMetadataWithDistance> nearestClustersIterator =
+                    nearestClusters.toSortedList().iterator();
+            final ClusterMetadataWithDistance primaryCluster = Objects.requireNonNull(nearestClustersIterator.next());
             final double distanceToPrimaryCentroid = primaryCluster.getDistance();
             Verify.verify(Double.isFinite(distanceToPrimaryCentroid));
 
@@ -403,9 +404,9 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
             assignmentMultimapBuilder.put(primaryClusterId, vectorReference);
 
-            while (!nearestClusters.isEmpty()) {
+            while (nearestClustersIterator.hasNext()) {
                 final ClusterMetadataWithDistance replicatedCluster =
-                        Objects.requireNonNull(nearestClusters.poll());
+                        Objects.requireNonNull(nearestClustersIterator.next());
                 final double distance = replicatedCluster.getDistance();
                 Verify.verify(Double.isFinite(distance));
 
@@ -488,6 +489,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                    @Nonnull final List<ClusterMetadataWithDistance> innerNeighborhood,
                                    @Nonnull final AssignmentResult assignmentResult,
                                    @Nonnull final Quantizer quantizer) {
+        final Config config = getConfig();
         final Primitives primitives = primitives();
 
         // delete old clusters
@@ -551,7 +553,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         if (!newDependentTaskIds.isEmpty()) {
             final BounceReassignTask newBounceReassignTask =
                     BounceReassignTask.of(getLocator(), getAccessInfo(),
-                            randomNormalPriorityTaskId(random), newClusterIds,
+                            randomNormalPriorityTaskId(random, config.isDeterministicRandomness()), newClusterIds,
                             newDependentTaskIds);
             primitives.writeDeferredTask(transaction, newBounceReassignTask);
 
@@ -566,8 +568,10 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
     @Nonnull
     private SplitMergeTask withHighPriorityAndNeighborhood(@Nonnull final SplittableRandom random,
+                                                           final boolean deterministicRandomness,
                                                            @Nonnull final List<ClusterIdAndCentroid> neighborhood) {
-        return SplitMergeTask.of(getLocator(), getAccessInfo(), randomHighPriorityTaskId(random), getTargetClusterId(),
+        return SplitMergeTask.of(getLocator(), getAccessInfo(),
+                randomHighPriorityTaskId(random, deterministicRandomness), getTargetClusterId(),
                 getCentroid(), neighborhood);
     }
 
@@ -648,8 +652,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
         return new AssignmentCandidate(neighborhoods, primaryVectorReferences,
                 BoundedKMeans.fit(random, estimator, VectorReference.vectorLens(),
                         Transformed.underlyingLens(), primaryVectorReferences,
-                        neighborhoods.getInnerNeighborhood().size() + 1, 3,
-                        1, 0.00, BoundedKMeans.overflowQuadraticPenalty(),
+                        neighborhoods.getInnerNeighborhood().size() + 1, 8,
+                        3, 0.00, BoundedKMeans.overflowQuadraticPenalty(),
                         true));
     }
 

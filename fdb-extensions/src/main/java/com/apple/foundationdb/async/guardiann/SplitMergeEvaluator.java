@@ -32,7 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SplitMergeEvaluator {
-    private static final Logger log = LoggerFactory.getLogger(SplitMergeEvaluator.class);
+    private static final Logger logger = LoggerFactory.getLogger(SplitMergeEvaluator.class);
 
     @Nonnull
     public static <V> UpgradeResult evaluateUpgrade(@Nonnull final List<V> currentVectors,
@@ -48,37 +48,11 @@ public class SplitMergeEvaluator {
         final PartitionStats currentStats = evaluatePartition(currentVectors, vectorLens, current, parameters);
         final PartitionStats candidateStats = evaluatePartition(candidateVectors, vectorLens, candidate, parameters);
 
-        // Candidate-specific hard rejects
-//        if (candidate.k() == 2) {
-//            if (candidateStats.getSmallestFrac() < parameters.getMinSmallestFracFor2()) {
-//                return reject(currentStats, candidateStats, "candidate 2-way split too imbalanced");
-//            }
-//        } else if (candidate.k() == 3) {
-//            if (candidateStats.getSmallestFrac() < parameters.getMinSmallestFracFor3()) {
-//                return reject(currentStats, candidateStats, "candidate 3-way has tiny child");
-//            }
-//            if (candidateStats.getLargestFrac() > parameters.getMaxLargestFracFor3()) {
-//                return reject(currentStats, candidateStats, "candidate 3-way largest child too large");
-//            }
-//        }
-//
-//        if (Double.isNaN(candidateStats.getSeparation()) ||
-//                candidateStats.getSeparation() < parameters.getMinSeparation()) {
-//            return reject(currentStats, candidateStats, "candidate separation too low");
-//        }
-//
-//        if (candidateStats.getLowMarginRate() > parameters.getMaxLowMarginRate()) {
-//            return reject(currentStats, candidateStats, "candidate low-margin rate too high");
-//        }
-
         final double relativeSseGain =
                 (currentStats.getSse() - candidateStats.getSse()) / Math.max(currentStats.getSse(), 1e-12);
 
-//        if (relativeSseGain < parameters.getMinRelativeSseGain()) {
-//            return reject(currentStats, candidateStats, "relative SSE gain too small");
-//        }
-
         final double scoreGain;
+        final String splitKind;
         if (current.k() == 1 && candidate.k() == 2) {
             // For 1 -> 2, current separation/margins are undefined, so score only
             // from the candidate's absolute quality plus SSE gain.
@@ -87,6 +61,7 @@ public class SplitMergeEvaluator {
                             parameters.getBetaSeparationGain() * candidateStats.getSeparation() -
                             parameters.getGammaImbalancePenalty() * candidateStats.getImbalance() -
                             parameters.getDeltaLowMarginPenalty() * candidateStats.getLowMarginRate();
+            splitKind = "[1 → 2]";
         } else {
             // For 2 -> 3, compare candidate against current on routing-oriented metrics.
             double separationGain;
@@ -107,22 +82,71 @@ public class SplitMergeEvaluator {
                             parameters.getBetaSeparationGain() * separationGain -
                             parameters.getGammaImbalancePenalty() * imbalancePenalty -
                             parameters.getDeltaLowMarginPenalty() * lowMarginPenalty;
+            splitKind = "[2 → 3]";
+        }
+
+        // Candidate-specific hard rejects
+        if (candidate.k() == 2) {
+            if (candidateStats.getSmallestFrac() < parameters.getMinSmallestFracFor2()) {
+                return reject(currentStats, candidateStats, relativeSseGain, scoreGain,
+                        splitKind + " too imbalanced");
+            }
+        } else if (candidate.k() == 3) {
+            if (candidateStats.getSmallestFrac() < parameters.getMinSmallestFracFor3()) {
+                return reject(currentStats, candidateStats, relativeSseGain, scoreGain,
+                        splitKind + " has tiny child");
+            }
+            if (candidateStats.getLargestFrac() > parameters.getMaxLargestFracFor3()) {
+                return reject(currentStats, candidateStats, relativeSseGain, scoreGain,
+                        splitKind + " largest child too large");
+            }
+        }
+
+        if (Double.isNaN(candidateStats.getSeparation()) ||
+                candidateStats.getSeparation() < parameters.getMinSeparation()) {
+            return reject(currentStats, candidateStats, relativeSseGain, scoreGain,
+                    splitKind + " candidate separation too low");
+        }
+
+        if (candidateStats.getLowMarginRate() > parameters.getMaxLowMarginRate()) {
+            return reject(currentStats, candidateStats, relativeSseGain, scoreGain,
+                    splitKind + " candidate low-margin rate too high");
+        }
+
+        if (relativeSseGain < parameters.getMinRelativeSseGain()) {
+            return reject(currentStats, candidateStats, relativeSseGain, scoreGain,
+                    splitKind + " relative SSE gain too small");
         }
 
         if (scoreGain < parameters.getMinScoreGain()) {
-            return reject(currentStats, candidateStats, "overall gain too small");
+            return reject(currentStats, candidateStats, relativeSseGain, scoreGain,
+                    splitKind + " overall gain too small");
         }
 
-        return new UpgradeResult(Decision.ACCEPT_CANDIDATE, currentStats, candidateStats, relativeSseGain,
-                scoreGain, "accept candidate partition");
+        return accept(currentStats, candidateStats, relativeSseGain, scoreGain, "accept candidate partition");
     }
 
-    private static UpgradeResult reject(@Nonnull final PartitionStats currentStats, @Nonnull final PartitionStats candidateStats,
-                                        @Nonnull final String reason) {
-        double relativeSseGain = (currentStats.getSse() - candidateStats.getSse()) / Math.max(currentStats.getSse(), 1e-12);
-        return new UpgradeResult(Decision.KEEP_CURRENT, currentStats, candidateStats, relativeSseGain,
-                Double.NEGATIVE_INFINITY, reason);
+    private static UpgradeResult reject(@Nonnull final PartitionStats currentStats,
+                                        @Nonnull final PartitionStats candidateStats, final double relativeSseGain,
+                                        final double scoreGain, @Nonnull final String reason) {
+        currentStats.log(logger, "current stats");
+        candidateStats.log(logger, "candidate stats");
+        logger.error("upgrade rejected reason={}, relativeSseGain={}, scoreGain={}",
+                reason, relativeSseGain, scoreGain);
+        return new UpgradeResult(Decision.KEEP_CURRENT, currentStats, candidateStats,
+                relativeSseGain, scoreGain, reason);
     }
+
+    private static UpgradeResult accept(@Nonnull final PartitionStats currentStats,
+                                        @Nonnull final PartitionStats candidateStats, final double relativeSseGain,
+                                        final double scoreGain, @Nonnull final String reason) {
+        currentStats.log(logger, "current stats");
+        candidateStats.log(logger, "candidate stats");
+        logger.error("upgrade accepted, relativeSseGain={}, scoreGain={}", relativeSseGain, scoreGain);
+        return new UpgradeResult(Decision.ACCEPT_CANDIDATE, currentStats, candidateStats,
+                relativeSseGain, scoreGain, reason);
+    }
+
 
     private static void validate(@Nonnull final List<?> vectors,
                                  @Nonnull final Partition<?> partition) {
@@ -507,7 +531,7 @@ public class SplitMergeEvaluator {
         public Parameters(@Nonnull final Estimator estimator) {
             this(estimator,
                     0.10d,
-                    1.25d,
+                    0.3d,
                     0.25d,
                     0.30d,
                     0.15d,
@@ -657,16 +681,6 @@ public class SplitMergeEvaluator {
                     ", scoreGain=" + scoreGain +
                     ", reason='" + reason + '\'' +
                     '}';
-        }
-
-        public void log(@Nonnull final Logger logger) {
-            currentStats.log(logger, "current stats");
-            candidateStats.log(logger, "candidate stats");
-
-            if (logger.isErrorEnabled()) {
-                log.error("SPLIT evaluation result: decision={}, relativeSseGain={}, scoreGain={}, reason={}",
-                        decision, relativeSseGain, scoreGain, reason);
-            }
         }
     }
 }

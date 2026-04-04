@@ -103,7 +103,7 @@ import java.util.concurrent.CompletableFuture;
  *     Tuple transactionKey = keySpace.path("state", "CA")
  *         .add("office_id", 1234)
  *         .add("sales")
- *         .add("transaction_id", UUID.randomUUID())
+ *         .add("transaction_id", UUID.randomUuid())
  *         .toTuple(context);
  * </pre>
  * Creates a row key suitable to store a new sales transaction in California in office 1234.
