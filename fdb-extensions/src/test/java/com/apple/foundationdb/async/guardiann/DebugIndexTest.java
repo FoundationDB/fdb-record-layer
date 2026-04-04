@@ -131,7 +131,7 @@ public class DebugIndexTest implements BaseTest {
                         .setPrimaryClusterMax(1024)
                         .setPrimaryClusterMin(100)
                         .setDeterministicRandomness(false)
-                        .setClusterOverlap(0.15d)
+                        .setReplicationPriorityMin(0.15d)
                         .setReplicatedClusterTarget(1000)
                         .setReplicatedClusterMaxWrites(3000)
                         .build(512);

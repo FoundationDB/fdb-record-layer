@@ -161,13 +161,13 @@ public abstract class AbstractDeferredTask {
 
     @CanIgnoreReturnValue
     static <T> RunningStandardDeviation
-            updateRunningStandardDeviation(@Nonnull final Map<T, RunningStandardDeviation> countersMap,
-                                           @Nonnull final T key, final double distance) {
-        return countersMap.compute(key, (ignoredKey, oldCounter) -> {
-            if (oldCounter == null) {
+    updateRunningStandardDeviationsMap(@Nonnull final Map<T, RunningStandardDeviation> map,
+                                       @Nonnull final T key, final double distance) {
+        return map.compute(key, (ignoredKey, old) -> {
+            if (old == null) {
                 return RunningStandardDeviation.of(distance);
             }
-            return oldCounter.add(distance);
+            return old.add(distance);
         });
     }
 

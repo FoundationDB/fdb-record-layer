@@ -344,8 +344,8 @@ class StorageAdapter {
         final boolean isUnderreplicated = valueTuple.getBoolean(2);
         final Transformed<RealVector> vector =
                 storageTransform.transform(StorageHelpers.vectorFromBytes(config, valueTuple.getBytes(3)));
-        final double replicationScore = isPrimaryCopy ? -1 : valueTuple.getDouble(4);
-        return new VectorReference(vectorId, isPrimaryCopy, isUnderreplicated, vector, replicationScore);
+        final double replicationPriority = isPrimaryCopy ? -1 : valueTuple.getDouble(4);
+        return new VectorReference(vectorId, isPrimaryCopy, isUnderreplicated, vector, replicationPriority);
     }
 
     @Nonnull
@@ -359,10 +359,17 @@ class StorageAdapter {
     }
 
     static double replicationPriority(final double distance, final double distanceToPrimaryCentroid,
-                                      final double mean, final double standardDeviation) {
+                                      final int num, final double mean, final double standardDeviation) {
         final double r = distanceToPrimaryCentroid / (distance + EPS);
-        final double z = Math.max(0, (distanceToPrimaryCentroid - mean) / (standardDeviation + EPS));
-        return 1.0d * r + 0.15d * z;
+        final double z =
+                num < 200 ? 0 : Math.max(0, (distanceToPrimaryCentroid - mean) / (standardDeviation + EPS));
+        return 1.0d * r + 0.25d * z;
+    }
+
+    static double replicationPriorityOld(final double distance, final double distanceToPrimaryCentroid,
+                                         final int num, final double mean, final double standardDeviation) {
+        final double r = distanceToPrimaryCentroid / (distance + EPS);
+        return 1.0d * r;
     }
 
     @Nonnull
