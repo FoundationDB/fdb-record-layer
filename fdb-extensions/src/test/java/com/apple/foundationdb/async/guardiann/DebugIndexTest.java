@@ -128,13 +128,14 @@ public class DebugIndexTest implements BaseTest {
                         .setUseRaBitQ(true)
                         .setRaBitQNumExBits(6)
                         .setMetric(metric)
-                        .setPrimaryClusterMax(1024)
+                        .setPrimaryClusterMax(512)
                         .setPrimaryClusterMin(100)
                         .setDeterministicRandomness(false)
-                        .setReplicationPriorityMin(0.15d)
-                        .setReplicatedClusterTarget(1000)
-                        .setReplicatedClusterMaxWrites(3000)
+                        .setReplicationPriorityMin(0.90d)
+                        .setReplicatedClusterTarget(500)
+                        .setReplicatedClusterMaxWrites(2000)
                         .build(512);
+        // 0 - 775549 exist
 
         guardiann = new Guardiann(subspaceExtension.getSubspace(),
                 TestExecutors.defaultThreadPool(),
@@ -144,7 +145,7 @@ public class DebugIndexTest implements BaseTest {
 
         logger.info("Preparing db and inserting SIFT small dataset...");
         //insertedData = TestHelpers.insertSIFTSmall(db, guardiann);
-        insertedData = TestHelpers.insertSIFT100k(db, guardiann, 100_000, 20);
+        //insertedData = TestHelpers.insertSIFT100k(db, guardiann, 1_000_000, 50);
 //        insertedData =
 //                TestHelpers.loadVectors("/Users/nseemann/downloads/embeddings-unified-model-100k-1.0.0.fvecs",
 //                        100000);
@@ -290,6 +291,13 @@ public class DebugIndexTest implements BaseTest {
     @Test
     void testJustInsert() throws Exception {
         // nothing
+    }
+
+    @Test
+    void testValidate() throws Exception {
+        TestHelpers.validateSIFT(getDb(), guardiann,
+                "/Users/nseemann/Downloads/embeddings-unified-model-1m-queries-1.0.0.fvecs",
+                "/Users/nseemann/Downloads/embeddings-unified-model-1m-groundtruth-1.0.0.ivecs", 100, 775549);
     }
 
     @Test

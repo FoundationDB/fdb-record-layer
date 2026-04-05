@@ -214,9 +214,9 @@ class StorageAdapter {
                 .setExtendCandidates(false)
                 .setKeepPrunedConnections(false)
                 .setUseRaBitQ(false)
-                .setM(32)
-                .setMMax(48)
-                .setMMax0(64)
+                .setM(16)
+                .setMMax(24)
+                .setMMax0(32)
                 .build(config.getNumDimensions());
     }
 

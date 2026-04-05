@@ -303,7 +303,9 @@ public class ReassignTask extends AbstractDeferredTask {
         final Map<UUID, RunningStandardDeviation> updatedStandardDeviationMap = Maps.newHashMap();
         for (final Map.Entry<UUID, ClusterMetadataWithDistance> entry : clusterIdMetadataMap.entrySet()) {
             final UUID clusterId = entry.getKey();
-            if (!targetClusterId.equals(clusterId)) {
+            if (targetClusterId.equals(clusterId)) {
+                updatedStandardDeviationMap.put(clusterId, RunningStandardDeviation.identity());
+            } else {
                 // Don't add the target as we re-add all vectors.
                 updatedStandardDeviationMap.put(clusterId,
                         entry.getValue().getClusterMetadata().getRunningStandardDeviation());

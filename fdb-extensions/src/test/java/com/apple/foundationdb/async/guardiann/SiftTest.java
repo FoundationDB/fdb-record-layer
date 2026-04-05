@@ -97,14 +97,14 @@ public class SiftTest implements BaseTest {
         final Config config =
                 Guardiann.newConfigBuilder()
                         .setUseRaBitQ(true)
-                        .setRaBitQNumExBits(8)
+                        .setRaBitQNumExBits(6)
                         .setMetric(metric)
                         .setPrimaryClusterMax(512)
                         .setPrimaryClusterMin(100)
                         .setDeterministicRandomness(true)
                         .setReplicationPriorityMin(0.90d)
                         .setReplicatedClusterTarget(500)
-                        .setReplicatedClusterMaxWrites(1500)
+                        .setReplicatedClusterMaxWrites(2000)
                         .build(512);
 
         guardiann = new Guardiann(subspaceExtension.getSubspace(),

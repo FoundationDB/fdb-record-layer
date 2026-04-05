@@ -129,7 +129,7 @@ class TestHelpers {
                                                     @Nonnull final Guardiann guardiann,
                                                     final int numVectors,
                                                     final int batchSize) throws Exception {
-        return insertSIFT(db, guardiann, "/Users/nseemann/downloads/embeddings-unified-model-100k-1.0.0.fvecs",
+        return insertSIFT(db, guardiann, "/Users/nseemann/downloads/embeddings-unified-model-1m-1.0.0.fvecs",
                 numVectors, batchSize);
     }
 
@@ -210,6 +210,16 @@ class TestHelpers {
                              @Nonnull final String queriesFile,
                              @Nonnull final String groundTruthFile,
                              final int k) throws IOException {
+        validateSIFT(db, guardiann, data, queriesFile, groundTruthFile, k, -1);
+    }
+
+    static void validateSIFT(@Nonnull final Database db,
+                             @Nonnull final Guardiann guardiann,
+                             @Nonnull final List<PrimaryKeyAndVector> data,
+                             @Nonnull final String queriesFile,
+                             @Nonnull final String groundTruthFile,
+                             final int k,
+                             final int maxIndex) throws IOException {
 
         final Metric metric = guardiann.getConfig().getMetric();
         final Path siftQueryPath = Paths.get(queriesFile);
@@ -226,7 +236,15 @@ class TestHelpers {
 
             while (queryIterator.hasNext()) {
                 final HalfRealVector queryVector = queryIterator.next().toHalfRealVector();
-                final Set<Integer> groundTruthIndices = ImmutableSet.copyOf(groundTruthIterator.next());
+                final Set<Integer> groundTruthIndices =
+                        groundTruthIterator.next()
+                                .stream()
+                                .filter(index -> maxIndex < 0 || index <= maxIndex)
+                                .collect(ImmutableSet.toImmutableSet());
+                if (groundTruthIndices.isEmpty()) {
+                    logger.info("query ground truth does not have indices that have been inserted yet");
+                    continue;
+                }
                 onReadListener.reset();
                 final long beginTs = System.nanoTime();
                 final List<? extends ResultEntry> results =
@@ -260,10 +278,12 @@ class TestHelpers {
                     }
                 }
 
-                final double recall = (double)recallCount / k;
+                final double recall = (double)recallCount / groundTruthIndices.size();
                 //assertThat(recall).isGreaterThan(0.93);
 
-                logger.info("query returned results recall={}", String.format(Locale.ROOT, "%.2f", recall * 100.0d));
+                logger.info("query returned results recall={}, k={}",
+                        String.format(Locale.ROOT, "%.2f", recall * 100.0d),
+                        groundTruthIndices.size());
             }
         }
     }
@@ -273,13 +293,22 @@ class TestHelpers {
                              @Nonnull final String queriesFile,
                              @Nonnull final String groundTruthFile,
                              final int k) throws IOException {
+        validateSIFT(db, guardiann, queriesFile, groundTruthFile, k, -1);
+    }
+
+    static void validateSIFT(@Nonnull final Database db,
+                             @Nonnull final Guardiann guardiann,
+                             @Nonnull final String queriesFile,
+                             @Nonnull final String groundTruthFile,
+                             final int k,
+                             final int maxIndex) throws IOException {
         final Path siftQueryPath = Paths.get(queriesFile);
         final Path siftGroundTruthPath = Paths.get(groundTruthFile);
 
         final TestOnReadListener onReadListener = (TestOnReadListener)guardiann.getOnReadListener();
 
         try (final var queryChannel = FileChannel.open(siftQueryPath, StandardOpenOption.READ);
-             final var groundTruthChannel = FileChannel.open(siftGroundTruthPath, StandardOpenOption.READ)) {
+                 final var groundTruthChannel = FileChannel.open(siftGroundTruthPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
             final Iterator<List<Integer>> groundTruthIterator = new StoredVecsIterator.StoredIVecsIterator(groundTruthChannel);
 
@@ -287,7 +316,15 @@ class TestHelpers {
 
             while (queryIterator.hasNext()) {
                 final HalfRealVector queryVector = queryIterator.next().toHalfRealVector();
-                final Set<Integer> groundTruthIndices = ImmutableSet.copyOf(groundTruthIterator.next());
+                final Set<Integer> groundTruthIndices =
+                        groundTruthIterator.next()
+                                .stream()
+                                .filter(index -> maxIndex < 0 || index <= maxIndex)
+                                .collect(ImmutableSet.toImmutableSet());
+                if (groundTruthIndices.isEmpty()) {
+                    logger.info("query ground truth does not have indices that have been inserted yet");
+                    continue;
+                }
                 onReadListener.reset();
                 final long beginTs = System.nanoTime();
                 final List<? extends ResultEntry> results =
@@ -308,10 +345,11 @@ class TestHelpers {
                     }
                 }
 
-                final double recall = (double)recallCount / k;
+                final double recall = (double)recallCount / groundTruthIndices.size();
                 //assertThat(recall).isGreaterThan(0.93);
 
-                logger.info("query returned results recall={}", String.format(Locale.ROOT, "%.2f", recall * 100.0d));
+                logger.info("query returned results recall={}, k={}",
+                        String.format(Locale.ROOT, "%.2f", recall * 100.0d), groundTruthIndices.size());
             }
         }
     }
