@@ -1395,12 +1395,12 @@ public class AstNormalizerTests {
 
     @Test
     void parseCopyExport() throws Exception {
-        validate(List.of("copy /test/foo/bar",
-                        "  copy   /test/foo/bar  "),
+        validate(List.of("copy /test/foo/bar preserve incarnation",
+                        "  copy   /test/foo/bar   preserve   incarnation  "),
                 PreparedParams.empty(),
                 // the canonical representation isn't super important because we're not caching, but it is part of the
                 // standard validate helper method
-                "copy \"/TEST/FOO/BAR\" ",
+                "copy \"/TEST/FOO/BAR\" preserve incarnation ",
                 List.of(Map.of(), Map.of()),
                 null,
                 -1,
