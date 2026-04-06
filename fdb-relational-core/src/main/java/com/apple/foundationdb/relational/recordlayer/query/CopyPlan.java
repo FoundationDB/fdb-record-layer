@@ -71,6 +71,7 @@ import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.sql.Array;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -502,9 +503,9 @@ public final class CopyPlan extends QueryPlan {
             return dataArray;
         }
 
-        if (parameterValue instanceof java.sql.Array) {
+        if (parameterValue instanceof Array) {
             try {
-                final java.sql.Array sqlArray = (java.sql.Array) parameterValue;
+                final Array sqlArray = (Array) parameterValue;
                 final List<Object> elements = new ArrayList<>();
                 try (RelationalResultSet rs = ((RelationalArray) sqlArray).getResultSet(1, Integer.MAX_VALUE)) {
                     while (rs.next()) {
