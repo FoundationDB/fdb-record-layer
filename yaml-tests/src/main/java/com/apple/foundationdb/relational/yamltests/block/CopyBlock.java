@@ -196,7 +196,7 @@ public class CopyBlock extends ReferencedBlock implements Block {
                     try (RelationalResultSet rs = ps.executeQuery()) {
                         if (rs.next()) {
                             // TODO assert count is same as chunk size
-                            totalCount += rs.getInt("COUNT");
+                            totalCount += rs.getInt(1);
                         }
                     }
                 }
