@@ -31,6 +31,17 @@ Parameters
 ``path``
     The name of the database to export, or the target database to import into
 
+``PRESERVE INCARNATION``
+    Export data without modifying the incarnation value in the store header.
+    This can be used this when copying within the same cluster.
+
+``INCREMENT INCARNATION``
+    Export data with the incarnation value in the store header incremented by 1.
+    Use this when copying to a different cluster, so the destination has a higher incarnation
+    than the source to reflect that data has been moved. This ensures that records written with
+    :doc:`/reference/Functions/scalar_functions/get_versionstamp_incarnation` can be correctly
+    attributed to the cluster where they were written.
+
 ``preparedStatementParameter``
     The source data when importing. This should be bound to a list of blobs, as returned by a previous call to ``COPY``
 
@@ -41,11 +52,11 @@ Examples
 Copy to a different FoundationDB cluster
 ----------------------------------------
 
-Export all the data. Use ``setMaxRows`` to keep it within a single transaction.
+Export all the data with an incremented incarnation. Use ``setMaxRows`` to keep it within a single transaction.
 
 .. code-block:: sql
 
-    COPY /MY/DB
+    COPY /MY/DB INCREMENT INCARNATION
 
 Connect to a different cluster, and with the resulting blobs from the export, break it into lists, and import.
 You may need to respond to errors, and import smaller lists within a transaction.
@@ -57,11 +68,11 @@ You may need to respond to errors, and import smaller lists within a transaction
 Copy to a different part of the same FoundationDB cluster
 ---------------------------------------------------------
 
-Export all the data. Use ``setMaxRows`` to keep it within a single transaction.
+Export all the data, preserving the incarnation. Use ``setMaxRows`` to keep it within a single transaction.
 
 .. code-block:: sql
 
-    COPY /MY/DB
+    COPY /MY/DB PRESERVE INCARNATION
 
 With the resulting blobs from the export, break it into lists, and import.
 You may need to respond to errors, and import smaller lists within a transaction.
