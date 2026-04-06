@@ -24,6 +24,7 @@
 ---
 options:
   required_clusters: 2
+  supported_version: !current_version
 ---
 # Cleanup cluster 0
 # TODO this cleanup is going to have to happen a lot, can it be more pithy
