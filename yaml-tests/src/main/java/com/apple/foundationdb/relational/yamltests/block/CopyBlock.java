@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
@@ -111,7 +112,6 @@ public class CopyBlock extends ReferencedBlock implements Block {
                                     @Nonnull YamlExecutionContext executionContext) {
         try {
             final Map<?, ?> blockMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, COPY_BLOCK));
-            // TODO can this use executionContext.inferConnectionTarget
             final Map<?, ?> sourceMap = CustomYamlConstructor.LinedObject.unlineKeys(
                     Matchers.map(blockMap.get("source"), "copy_block source"));
             final int sourceCluster = sourceMap.containsKey("cluster")
@@ -166,11 +166,14 @@ public class CopyBlock extends ReferencedBlock implements Block {
                         allData.add(rs.getBytes(1));
                     }
                     if (exportLimit != null) {
+                        Assert.thatUnchecked(allData.size() <= exportLimit,
+                                "Expected at most " + exportLimit + " rows from initial export batch, got " + allData.size());
                         Continuation continuation = rs.getContinuation();
                         while (!continuation.atEnd()) {
+                            final int sizeBefore = allData.size();
                             try (RelationalPreparedStatement ps = conn.prepareStatement("EXECUTE CONTINUATION ?")) {
                                 ps.setBytes(1, continuation.serialize());
-                                ps.setMaxRows(exportLimit); // TODO assert maxRows is respected
+                                ps.setMaxRows(exportLimit);
                                 try (RelationalResultSet crs = ps.executeQuery()) {
                                     while (crs.next()) {
                                         allData.add(crs.getBytes(1));
@@ -178,6 +181,9 @@ public class CopyBlock extends ReferencedBlock implements Block {
                                     continuation = crs.getContinuation();
                                 }
                             }
+                            final int batchSize = allData.size() - sizeBefore;
+                            Assert.thatUnchecked(batchSize <= exportLimit,
+                                    "Expected at most " + exportLimit + " rows from continuation batch, got " + batchSize);
                         }
                     }
                 }
@@ -196,8 +202,10 @@ public class CopyBlock extends ReferencedBlock implements Block {
                     ps.setArray(1, array);
                     try (RelationalResultSet rs = ps.executeQuery()) {
                         if (rs.next()) {
-                            // TODO assert count is same as chunk size
-                            totalCount += rs.getInt(1);
+                            final int count = rs.getInt(1);
+                            Assert.thatUnchecked(count == chunk.size(),
+                                    "Expected import count " + chunk.size() + ", got " + count);
+                            totalCount += count;
                         }
                     }
                 }
