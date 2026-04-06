@@ -49,7 +49,6 @@ import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.util.CallbackUtils;
-import com.apple.foundationdb.util.CloseableUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Utf8;
@@ -62,7 +61,6 @@ import java.nio.charset.Charset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -1055,13 +1053,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nonnull
     private CompletableFuture<Void> runPostCommits() {
         synchronized (postCommits) {
-            try {
-                List<Supplier<CompletableFuture<Void>>> callbacks = toCallbacks(postCommits.values());
-                // This would ensure best-effort in calling all suppliers and waiting for all the futures
-                return CallbackUtils.invokeAllFutures(callbacks);
-            } finally {
-                postCommits.clear();
-            }
+            return runPostCommits(postCommits);
         }
     }
 
@@ -1073,42 +1065,23 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nonnull
     private CompletableFuture<Void> runPostClose() {
         synchronized (postClose) {
-            try {
-                List<Supplier<CompletableFuture<Void>>> callbacks = toCallbacks(postClose.values());
-                // This would ensure best-effort in calling all suppliers and waiting for all the futures
-                return CallbackUtils.invokeAllFutures(callbacks);
-            } finally {
-                postClose.clear();
-            }
+            return runPostCommits(postClose);
         }
     }
 
     @Nonnull
-    private List<Supplier<CompletableFuture<Void>>> toCallbacks(final Collection<PostCommit> callbacks) {
-        return callbacks.stream()
-                .map(this::postCommitCallback)
-                .collect(Collectors.toList());
-    }
-
-    private Supplier<CompletableFuture<Void>> postCommitCallback(PostCommit pc) {
-        return pc::get;
-    }
-
-    /**
-     * Run all post-close callbacks.
-     * This method does its best to ensure all callbacks are invoked, regardless if some throw exceptions.
-     * @return a future that completes when all callbacks were invoked and all futures have completed
-     */
-    @Nonnull
-    private CompletableFuture<Void> runPostClose() {
-        synchronized (postClose) {
-            try {
-                List<Supplier<CompletableFuture<Void>>> callbacks = postClose.values().stream().map(this::postCommitCallback).collect(Collectors.toList());
-                // This would ensure best-effort in calling all suppliers and waiting for all the futures
-                return CloseableUtils.invokeAllFutures(callbacks);
-            } finally {
-                postClose.clear();
-            }
+    private CompletableFuture<Void> runPostCommits(Map<String, PostCommit> hooksToRun) {
+        if (hooksToRun.isEmpty()) {
+            return AsyncUtil.DONE;
+        }
+        try {
+            List<Supplier<CompletableFuture<Void>>> callbacks = hooksToRun.values().stream()
+                    .map(this::postCommitCallback)
+                    .collect(Collectors.toList());
+            // This would ensure best-effort in calling all suppliers and waiting for all the futures
+            return CallbackUtils.invokeAllFutures(callbacks);
+        } finally {
+            hooksToRun.clear();
         }
     }
 
