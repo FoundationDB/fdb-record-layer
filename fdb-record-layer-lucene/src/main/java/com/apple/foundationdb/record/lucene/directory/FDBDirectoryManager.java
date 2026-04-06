@@ -118,13 +118,12 @@ public class FDBDirectoryManager implements AutoCloseable {
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public synchronized void close() throws IOException {
-        try {
-            CloseableUtils.closeAll(createdDirectories.values().toArray(new AutoCloseable[0]));
-        } catch (CloseException e) {
-            throw new IOException(e);
-        } finally {
-            createdDirectories.clear();
+        // This is invoked through commitCheck therefore is expected to abort on failure
+        // and should not attempt to complete all calls
+        for (FDBDirectoryWrapper directory : createdDirectories.values()) {
+            directory.close();
         }
+        createdDirectories.clear();
     }
 
     /**
