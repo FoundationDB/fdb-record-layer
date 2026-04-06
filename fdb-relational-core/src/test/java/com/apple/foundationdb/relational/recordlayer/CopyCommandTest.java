@@ -24,7 +24,9 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspace;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataInKeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -43,6 +45,7 @@ import com.apple.foundationdb.relational.recordlayer.query.CopyPlan;
 import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
+import com.apple.foundationdb.relational.recordlayer.storage.BackingRecordStore;
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
@@ -51,6 +54,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -245,53 +249,86 @@ public class CopyCommandTest {
     @ParameterizedTest
     @BooleanSource("incrementIncarnation")
     void exportWithIncarnationOption(boolean incrementIncarnation) throws Exception {
-        final String pathId = "/TEST/" + UUID.randomUUID().toString().replace("-", "_").toUpperCase(Locale.ROOT);
-        final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
-        final KeySpacePath databasePath = KeySpaceUtils.toKeySpacePath(URI.create(pathId), keySpace);
-        final KeySpacePath schemaPath = KeySpaceUtils.toKeySpacePath(URI.create(pathId + "/1"), keySpace);
+        final String uuidName = uuidForPath(false);
+        // Use a driver with FormatVersion.INCARNATION so the store supports incarnation natively
+        final ConnectionUtils incarnationConnectionUtils =
+                new ConnectionUtils(relationalExtension.getDriver(FormatVersion.INCARNATION));
+        final SchemaInfo schema = new SchemaInfo("/TEST/DB_" + uuidName, "1", incarnationConnectionUtils);
+        String templateName = "TEMPLATE_" + uuidName;
 
-        // Write a DataStoreInfo with a known incarnation as the STORE_INFO key
-        final int originalIncarnation = 42;
-        final RecordMetaDataProto.DataStoreInfo storeInfo = RecordMetaDataProto.DataStoreInfo.newBuilder()
-                .setFormatVersion(13) // FormatVersion.INCARNATION
-                .setIncarnation(originalIncarnation)
-                .build();
+        try {
+            // Create a schema and insert data
+            incarnationConnectionUtils.runCatalogStatement(stmt -> {
+                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + templateName +
+                        " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
+                stmt.executeUpdate("CREATE DATABASE " + schema.databasePath);
+                stmt.executeUpdate("CREATE SCHEMA " + schema.schemaPath + " WITH TEMPLATE " + templateName);
+            });
 
-        connectionUtils.runAgainstCatalog(conn -> {
-            conn.setAutoCommit(false);
-            final FDBRecordContext context = getRecordContext(conn);
-            byte[] key = schemaPath.toSubspace(context).pack(
-                    Tuple.from(FDBRecordStoreKeyspace.STORE_INFO.id()));
-            context.ensureActive().set(key, storeInfo.toByteArray());
-            conn.commit();
-        });
+            incarnationConnectionUtils.runStatementUpdate(schema.databasePath, schema.schemaName,
+                    "INSERT INTO my_table VALUES (1, 'a')");
 
-        // Export with the incarnation option
-        final String incarnationClause = incrementIncarnation ? "INCREMENT INCARNATION" : "PRESERVE INCARNATION";
-        final List<byte[]> exportedData = connectionUtils.getFromCatalog(conn -> {
-            try (RelationalStatement stmt = conn.createStatement();
-                     RelationalResultSet rs = stmt.executeQuery("COPY " + pathId + " " + incarnationClause)) {
-                List<byte[]> data = new ArrayList<>();
-                while (rs.next()) {
-                    data.add(rs.getBytes(1));
+            // Set a known incarnation on the store via the record store API
+            final int originalIncarnation = 42;
+            incarnationConnectionUtils.runAgainstConnection(schema.databasePath, schema.schemaName, conn -> {
+                conn.setAutoCommit(false);
+                // Force transaction to start
+                try (RelationalStatement stmt = conn.createStatement()) {
+                    stmt.executeQuery("SELECT id FROM my_table").close();
                 }
-                return data;
+                final AbstractDatabase recordLayerDatabase =
+                        conn.unwrap(EmbeddedRelationalConnection.class).getRecordLayerDatabase();
+                final RecordLayerSchema recordLayerSchema =
+                        recordLayerDatabase.loadSchema(conn.getSchema());
+                final BackingRecordStore backingRecordStore =
+                        (BackingRecordStore) recordLayerSchema.loadStore();
+                @SuppressWarnings("unchecked")
+                final FDBRecordStoreBase<Message> store =
+                        (FDBRecordStoreBase<Message>) backingRecordStore.unwrap(FDBRecordStoreBase.class);
+                store.updateIncarnation(current -> originalIncarnation).join();
+                conn.setAutoCommit(true);
+            });
+
+            // Export with the incarnation option
+            final String incarnationClause = incrementIncarnation ? "INCREMENT INCARNATION" : "PRESERVE INCARNATION";
+            final List<byte[]> exportedData = incarnationConnectionUtils.getFromCatalog(conn -> {
+                try (RelationalStatement stmt = conn.createStatement();
+                         RelationalResultSet rs = stmt.executeQuery("COPY " + schema.databasePath + " " + incarnationClause)) {
+                    List<byte[]> data = new ArrayList<>();
+                    while (rs.next()) {
+                        data.add(rs.getBytes(1));
+                    }
+                    return data;
+                }
+            });
+
+            // Find the store info entry in the exported data and check incarnation
+            final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
+            final KeySpacePath databasePath = KeySpaceUtils.toKeySpacePath(URI.create(schema.databasePath), keySpace);
+            final KeySpacePathSerializer serializer = new KeySpacePathSerializer(databasePath);
+            RecordMetaDataProto.DataStoreInfo exportedInfo = null;
+            for (byte[] rawData : exportedData) {
+                final CopyData copyData = CopyData.parseFrom(rawData);
+                final DataInKeySpacePath dataInKeySpacePath = serializer.deserialize(copyData.getData());
+                final Tuple remainder = dataInKeySpacePath.getRemainder();
+                if (remainder != null && remainder.size() == 1
+                        && remainder.getLong(0) == FDBRecordStoreKeyspace.STORE_INFO.id()) {
+                    exportedInfo = RecordMetaDataProto.DataStoreInfo.parseFrom(dataInKeySpacePath.getValue());
+                    break;
+                }
             }
-        });
+            assertNotNull(exportedInfo, "Should find store info in exported data");
 
-        assertThat(exportedData).hasSize(1);
-
-        // Parse the exported data and check the incarnation
-        final CopyData copyData = CopyData.parseFrom(exportedData.get(0));
-        final KeySpacePathSerializer serializer = new KeySpacePathSerializer(databasePath);
-        final DataInKeySpacePath dataInKeySpacePath = serializer.deserialize(copyData.getData());
-        final RecordMetaDataProto.DataStoreInfo exportedInfo =
-                RecordMetaDataProto.DataStoreInfo.parseFrom(dataInKeySpacePath.getValue());
-
-        if (incrementIncarnation) {
-            assertEquals(originalIncarnation + 1, exportedInfo.getIncarnation());
-        } else {
-            assertEquals(originalIncarnation, exportedInfo.getIncarnation());
+            if (incrementIncarnation) {
+                assertEquals(originalIncarnation + 1, exportedInfo.getIncarnation());
+            } else {
+                assertEquals(originalIncarnation, exportedInfo.getIncarnation());
+            }
+        } finally {
+            incarnationConnectionUtils.runCatalogStatement(stmt -> {
+                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + templateName);
+                stmt.executeUpdate("DROP DATABASE " + schema.databasePath);
+            });
         }
     }
 
