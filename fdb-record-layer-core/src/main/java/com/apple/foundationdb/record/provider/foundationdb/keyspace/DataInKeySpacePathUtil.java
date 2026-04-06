@@ -41,8 +41,8 @@ public class DataInKeySpacePathUtil {
     /**
      * If the given {@link DataInKeySpacePath} represents a store info record (i.e., its remainder key matches
      * {@link FDBRecordStoreKeyspace#STORE_INFO}), and the store's format version supports incarnation, and the
-     * current incarnation is not zero, then return a new {@link DataInKeySpacePath} with the incarnation incremented
-     * by one. Otherwise, return the original entry unchanged.
+     * current incarnation is greater than zero, then return a new {@link DataInKeySpacePath} with the incarnation
+     * incremented by one. Otherwise, return the original entry unchanged.
      *
      * @param dataInKeySpacePath the data entry to potentially transform
      * @return the entry with bumped incarnation, or the original entry if no bump is needed
@@ -64,13 +64,12 @@ public class DataInKeySpacePathUtil {
         }
 
         final FormatVersion formatVersion = FormatVersion.getFormatVersion(storeInfo.getFormatVersion());
-        // TODO: Should I validate a max format version, in case something gets added
         if (!formatVersion.isAtLeast(FormatVersion.INCARNATION)) {
             return dataInKeySpacePath;
         }
 
         final int currentIncarnation = storeInfo.getIncarnation();
-        if (currentIncarnation == 0) {
+        if (currentIncarnation <= 0) {
             return dataInKeySpacePath;
         }
 

@@ -50,6 +50,15 @@ class DataInKeySpacePathUtilTest {
             new KeySpaceDirectory("root", KeySpaceDirectory.KeyType.STRING, "test")
     ).path("root");
 
+    @Test
+    void checkMaxFormatVersion() {
+        // This should only fail when a new format version is added. If this test fails, the developer should
+        // validate that bumpIncarnationIfStoreInfo handles the new format version correctly, then update this
+        // to the new value.
+        assertEquals(FormatVersion.FULL_STORE_LOCK, FormatVersion.getMaximumSupportedVersion(),
+                "The behavior of bumpIncarnationIfStoreInfo needs to be validated with the new format version");
+    }
+
     @ParameterizedTest
     @EnumSource(FormatVersion.class)
     void bumpIncarnationForStoreInfoWithNonZeroIncarnation(FormatVersion formatVersion) throws InvalidProtocolBufferException {
@@ -70,9 +79,14 @@ class DataInKeySpacePathUtilTest {
         }
     }
 
-    @Test
-    void doNotBumpIncarnationWhenZero() throws InvalidProtocolBufferException {
-        final DataInKeySpacePath entry = storeInfoEntry(FormatVersion.INCARNATION, 0);
+    static Stream<Integer> nonPositiveIncarnations() {
+        return Stream.of(0, -1, Integer.MIN_VALUE);
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonPositiveIncarnations")
+    void doNotBumpIncarnationWhenNotPositive(int incarnation) throws InvalidProtocolBufferException {
+        final DataInKeySpacePath entry = storeInfoEntry(FormatVersion.INCARNATION, incarnation);
 
         final DataInKeySpacePath result = DataInKeySpacePathUtil.bumpIncarnationIfStoreInfo(entry);
 
@@ -90,6 +104,17 @@ class DataInKeySpacePathUtilTest {
 
         // incarnation defaults to 0 when not set, so should not bump
         assertSame(entry, result);
+    }
+
+    static Stream<Tuple> remainders() {
+        return Stream.of(
+                STORE_INFO_REMAINDER,
+                null,
+                Tuple.from(FDBRecordStoreKeyspace.RECORD.id()),
+                Tuple.from(FDBRecordStoreKeyspace.STORE_INFO.id(), FDBRecordStoreKeyspace.STORE_INFO.id()),
+                Tuple.from(FDBRecordStoreKeyspace.STORE_INFO.id(), "extra"),
+                Tuple.from(99L)
+        );
     }
 
     @ParameterizedTest
@@ -110,17 +135,6 @@ class DataInKeySpacePathUtilTest {
         } else {
             assertSame(entry, result);
         }
-    }
-
-    static Stream<Tuple> remainders() {
-        return Stream.of(
-                STORE_INFO_REMAINDER,
-                null,
-                Tuple.from(FDBRecordStoreKeyspace.RECORD.id()),
-                Tuple.from(FDBRecordStoreKeyspace.STORE_INFO.id(), FDBRecordStoreKeyspace.STORE_INFO.id()),
-                Tuple.from(FDBRecordStoreKeyspace.STORE_INFO.id(), "extra"),
-                Tuple.from(99L)
-        );
     }
 
     @Test
@@ -167,7 +181,7 @@ class DataInKeySpacePathUtilTest {
     private static RecordMetaDataProto.DataStoreInfo buildStoreInfo(@Nonnull FormatVersion formatVersion, int incarnation) {
         final RecordMetaDataProto.DataStoreInfo.Builder builder = RecordMetaDataProto.DataStoreInfo.newBuilder();
         FormatVersionTestUtils.addToStoreInfo(builder, formatVersion);
-        if (incarnation > 0) {
+        if (incarnation != 0) {
             builder.setIncarnation(incarnation);
         }
         return builder.build();
