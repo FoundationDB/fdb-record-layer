@@ -192,7 +192,8 @@ public class CopyBlock extends ReferencedBlock implements Block {
             int totalCount = 0;
             for (List<byte[]> chunk : chunks) {
                 try (RelationalPreparedStatement ps = conn.prepareStatement("COPY " + destPath + " FROM ?")) {
-                    ps.setObject(1, chunk);
+                    java.sql.Array array = ps.getConnection().createArrayOf("BINARY", chunk.toArray(new byte[0][]));
+                    ps.setArray(1, array);
                     try (RelationalResultSet rs = ps.executeQuery()) {
                         if (rs.next()) {
                             // TODO assert count is same as chunk size
