@@ -1,0 +1,102 @@
+#
+# copy-basic.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Tests basic cross-cluster COPY: export from cluster 0, import to cluster 1, then verify.
+# Requires at least 2 clusters; skipped otherwise.
+# TODO test moving within a cluster
+# TODO test moving just a schema
+---
+options:
+  required_clusters: 2
+---
+# Cleanup cluster 0
+# TODO this cleanup is going to have to happen a lot, can it be more pithy
+setup:
+  connect: { cluster: 0, uri: "jdbc:embed:/__SYS?schema=CATALOG" }
+  steps:
+    - query: drop database if exists /FRL/COPY_SRC_DB
+    - query: drop schema template if exists COPY_TEMPLATE
+---
+# Cleanup cluster 1
+setup:
+  connect: { cluster: 1, uri: "jdbc:embed:/__SYS?schema=CATALOG" }
+  steps:
+    - query: drop database if exists /FRL/COPY_DEST_DB
+    - query: drop schema template if exists COPY_TEMPLATE
+---
+# Create template, database, and schema on cluster 0 (source)
+setup:
+  connect: { cluster: 0, uri: "jdbc:embed:/__SYS?schema=CATALOG" }
+  steps:
+    - query: create schema template COPY_TEMPLATE create table T1(ID bigint, NAME string, primary key(ID))
+    - query: create database /FRL/COPY_SRC_DB
+    - query: create schema /FRL/COPY_SRC_DB/S1 with template COPY_TEMPLATE
+---
+# Insert data on cluster 0
+setup:
+  connect: { cluster: 0, uri: "jdbc:embed:/FRL/COPY_SRC_DB?schema=S1" }
+  steps:
+    - query: insert into T1 values (1, 'alpha')
+    - query: insert into T1 values (2, 'bravo')
+    - query: insert into T1 values (3, 'charlie')
+---
+# Create database on cluster 1 (dest) with the same template
+# TODO don't create the database before moving
+setup:
+  connect: { cluster: 1, uri: "jdbc:embed:/__SYS?schema=CATALOG" }
+  steps:
+    - query: create schema template COPY_TEMPLATE create table T1(ID bigint, NAME string, primary key(ID))
+    - query: create database /FRL/COPY_DEST_DB
+    - query: create schema /FRL/COPY_DEST_DB/S1 with template COPY_TEMPLATE
+---
+# Copy data from cluster 0 to cluster 1
+copy_block:
+  source: { cluster: 0, path: "/FRL/COPY_SRC_DB" }
+  dest: { cluster: 1, path: "/FRL/COPY_DEST_DB" }
+---
+# Verify the data arrived on cluster 1
+test_block:
+  connect: { cluster: 1, uri: "jdbc:embed:/FRL/COPY_DEST_DB?schema=S1" }
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select * from T1
+      - result: [{ID: 1, NAME: 'alpha'}, {ID: 2, NAME: 'bravo'}, {ID: 3, NAME: 'charlie'}]
+---
+# Test chunked export with continuations and chunked import
+copy_block:
+  source: { cluster: 0, path: "/FRL/COPY_SRC_DB" }
+  dest: { cluster: 1, path: "/FRL/COPY_DEST_DB" }
+  export_limit: 2
+  import_chunk_size: 1
+# TODO assert about second copy
+---
+# Cleanup cluster 0
+setup:
+  connect: { cluster: 0, uri: "jdbc:embed:/__SYS?schema=CATALOG" }
+  steps:
+    - query: drop database /FRL/COPY_SRC_DB
+    - query: drop schema template COPY_TEMPLATE
+---
+# Cleanup cluster 1
+setup:
+  connect: { cluster: 1, uri: "jdbc:embed:/__SYS?schema=CATALOG" }
+  steps:
+    - query: drop database /FRL/COPY_DEST_DB
+    - query: drop schema template COPY_TEMPLATE

@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.yamltests;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.block.CopyBlock;
 import com.apple.foundationdb.relational.yamltests.block.IncludeBlock;
 import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
 import com.apple.foundationdb.relational.yamltests.block.SetupBlock;
@@ -61,6 +62,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         requireLineNumber.add(TransactionSetupsBlock.TRANSACTION_SETUP);
         requireLineNumber.add(TestBlock.TEST_BLOCK);
         requireLineNumber.add(IncludeBlock.INCLUDE);
+        requireLineNumber.add(CopyBlock.COPY_BLOCK);
         // commands
         requireLineNumber.add(Command.COMMAND_LOAD_SCHEMA_TEMPLATE);
         requireLineNumber.add(Command.COMMAND_SET_SCHEMA_STATE);
