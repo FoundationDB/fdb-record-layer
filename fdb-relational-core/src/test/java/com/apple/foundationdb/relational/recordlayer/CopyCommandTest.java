@@ -22,15 +22,11 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspace;
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataInKeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePathSerializer;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
@@ -72,6 +68,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -253,82 +250,35 @@ public class CopyCommandTest {
         // Use a driver with FormatVersion.INCARNATION so the store supports incarnation natively
         final ConnectionUtils incarnationConnectionUtils =
                 new ConnectionUtils(relationalExtension.getDriver(FormatVersion.INCARNATION));
-        final SchemaInfo schema = new SchemaInfo("/TEST/DB_" + uuidName, "1", incarnationConnectionUtils);
+        final SchemaInfo source = new SchemaInfo("/TEST/SOURCE_DB_" + uuidName, "1", incarnationConnectionUtils);
+        final SchemaInfo dest = new SchemaInfo("/TEST/DEST_DB_" + uuidName, "1", incarnationConnectionUtils);
         String templateName = "TEMPLATE_" + uuidName;
 
         try {
-            // Create a schema and insert data
-            incarnationConnectionUtils.runCatalogStatement(stmt -> {
-                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + templateName +
-                        " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
-                stmt.executeUpdate("CREATE DATABASE " + schema.databasePath);
-                stmt.executeUpdate("CREATE SCHEMA " + schema.schemaPath + " WITH TEMPLATE " + templateName);
-            });
+            createTemplateAndSchema(incarnationConnectionUtils, templateName, source,
+                    "CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
 
-            incarnationConnectionUtils.runStatementUpdate(schema.databasePath, schema.schemaName,
+            incarnationConnectionUtils.runStatementUpdate(source.databasePath, source.schemaName,
                     "INSERT INTO my_table VALUES (1, 'a')");
 
             // Set a known incarnation on the store via the record store API
             final int originalIncarnation = 42;
-            incarnationConnectionUtils.runAgainstConnection(schema.databasePath, schema.schemaName, conn -> {
-                conn.setAutoCommit(false);
-                // Force transaction to start
-                try (RelationalStatement stmt = conn.createStatement()) {
-                    stmt.executeQuery("SELECT id FROM my_table").close();
-                }
-                final AbstractDatabase recordLayerDatabase =
-                        conn.unwrap(EmbeddedRelationalConnection.class).getRecordLayerDatabase();
-                final RecordLayerSchema recordLayerSchema =
-                        recordLayerDatabase.loadSchema(conn.getSchema());
-                final BackingRecordStore backingRecordStore =
-                        (BackingRecordStore) recordLayerSchema.loadStore();
-                @SuppressWarnings("unchecked")
-                final FDBRecordStoreBase<Message> store =
-                        (FDBRecordStoreBase<Message>) backingRecordStore.unwrap(FDBRecordStoreBase.class);
-                store.updateIncarnation(current -> originalIncarnation).join();
-                conn.setAutoCommit(true);
-            });
+            updateIncarnation(incarnationConnectionUtils, source, current -> originalIncarnation);
 
             // Export with the incarnation option
             final String incarnationClause = incrementIncarnation ? "INCREMENT INCARNATION" : "PRESERVE INCARNATION";
-            final List<byte[]> exportedData = incarnationConnectionUtils.getFromCatalog(conn -> {
-                try (RelationalStatement stmt = conn.createStatement();
-                         RelationalResultSet rs = stmt.executeQuery("COPY " + schema.databasePath + " " + incarnationClause)) {
-                    List<byte[]> data = new ArrayList<>();
-                    while (rs.next()) {
-                        data.add(rs.getBytes(1));
-                    }
-                    return data;
-                }
-            });
+            final List<byte[]> exportedData = exportData(source, incarnationClause);
 
-            // Find the store info entry in the exported data and check incarnation
-            final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
-            final KeySpacePath databasePath = KeySpaceUtils.toKeySpacePath(URI.create(schema.databasePath), keySpace);
-            final KeySpacePathSerializer serializer = new KeySpacePathSerializer(databasePath);
-            RecordMetaDataProto.DataStoreInfo exportedInfo = null;
-            for (byte[] rawData : exportedData) {
-                final CopyData copyData = CopyData.parseFrom(rawData);
-                final DataInKeySpacePath dataInKeySpacePath = serializer.deserialize(copyData.getData());
-                final Tuple remainder = dataInKeySpacePath.getRemainder();
-                if (remainder != null && remainder.size() == 1
-                        && remainder.getLong(0) == FDBRecordStoreKeyspace.STORE_INFO.id()) {
-                    exportedInfo = RecordMetaDataProto.DataStoreInfo.parseFrom(dataInKeySpacePath.getValue());
-                    break;
-                }
-            }
-            assertNotNull(exportedInfo, "Should find store info in exported data");
+            // Import to destination and verify the incarnation via get_versionstamp_incarnation()
+            importDatabase(false, true, dest, exportedData);
 
-            if (incrementIncarnation) {
-                assertEquals(originalIncarnation + 1, exportedInfo.getIncarnation());
-            } else {
-                assertEquals(originalIncarnation, exportedInfo.getIncarnation());
-            }
+            final int expectedIncarnation = incrementIncarnation ? originalIncarnation + 1 : originalIncarnation;
+            incarnationConnectionUtils.runStatement(dest.databasePath, dest.schemaName, stmt ->
+                    ResultSetAssert.assertThat(stmt.executeQuery("SELECT get_versionstamp_incarnation() FROM my_table"))
+                            .containsRowsExactly(List.<Object[]>of(new Object[] {expectedIncarnation})));
         } finally {
-            incarnationConnectionUtils.runCatalogStatement(stmt -> {
-                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + templateName);
-                stmt.executeUpdate("DROP DATABASE " + schema.databasePath);
-            });
+            dropTemplateAndDatabase(false, List.of(templateName), source);
+            dropTemplateAndDatabase(false, List.of(templateName), dest);
         }
     }
 
@@ -461,14 +411,8 @@ public class CopyCommandTest {
         String templateName = "TEMPLATE_" + uuidName;
 
         try {
-            // Export from source (using quoted path)
-            // create a schema
-            connectionUtils.runCatalogStatement(stmt -> {
-                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + templateName +
-                        " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
-                stmt.executeUpdate("CREATE DATABASE " + schema.databasePath);
-                stmt.executeUpdate("CREATE SCHEMA " + schema.schemaPath + " WITH TEMPLATE " + templateName);
-            });
+            createTemplateAndSchema(connectionUtils, templateName, schema,
+                    "CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
 
             connectionUtils.runStatementUpdate(schema.databasePath, schema.schemaName, "INSERT INTO my_table VALUES (1, 'a'), (2, 'b')");
 
@@ -489,10 +433,7 @@ public class CopyCommandTest {
                                     List.of(2, "b")
                             )));
         } finally {
-            connectionUtils.runCatalogStatement(stmt -> {
-                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + templateName);
-                stmt.executeUpdate("DROP DATABASE " + schema.databasePath);
-            });
+            dropTemplateAndDatabase(false, List.of(templateName), schema);
         }
     }
 
@@ -657,20 +598,12 @@ public class CopyCommandTest {
 
         try {
             // Create source database with a schema template
-            connectionUtils.runCatalogStatement(stmt -> {
-                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + sourceTemplateName +
-                        " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
-                stmt.executeUpdate("CREATE DATABASE " + setup.source.databasePath);
-                stmt.executeUpdate("CREATE SCHEMA " + setup.source.schemaPath + " WITH TEMPLATE " + sourceTemplateName);
-            });
+            createTemplateAndSchema(connectionUtils, sourceTemplateName, setup.source,
+                    "CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
 
             // Create destination database with a DIFFERENT schema template
-            connectionUtils.runCatalogStatement(stmt -> {
-                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + destTemplateName +
-                        " CREATE TABLE other_table (id bigint, col2 string, PRIMARY KEY(id))");
-                stmt.executeUpdate("CREATE DATABASE " + setup.dest.databasePath);
-                stmt.executeUpdate("CREATE SCHEMA " + setup.dest.schemaPath + " WITH TEMPLATE " + destTemplateName);
-            });
+            createTemplateAndSchema(connectionUtils, destTemplateName, setup.dest,
+                    "CREATE TABLE other_table (id bigint, col2 string, PRIMARY KEY(id))");
 
             // Insert some records in the source database using SQL
             insertData(setup.source, data);
@@ -757,6 +690,41 @@ public class CopyCommandTest {
                 " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
     }
 
+    private static void createTemplateAndSchema(@Nonnull ConnectionUtils connUtils,
+                                                @Nonnull String templateName,
+                                                @Nonnull SchemaInfo schema, String schemaTemplate) throws SQLException, RelationalException {
+        connUtils.runCatalogStatement(stmt -> {
+            stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + templateName + " " + schemaTemplate);
+            stmt.executeUpdate("CREATE DATABASE " + schema.databasePath);
+            stmt.executeUpdate("CREATE SCHEMA " + schema.schemaPath + " WITH TEMPLATE " + templateName);
+        });
+    }
+
+    private static FDBRecordStoreBase<Message> getBackingStore(final RelationalConnection conn) throws SQLException, RelationalException {
+        try (RelationalStatement stmt = conn.createStatement()) {
+            stmt.executeQuery("SELECT id FROM my_table").close();
+        }
+        final RecordLayerSchema recordLayerSchema =
+                conn.unwrap(EmbeddedRelationalConnection.class).getRecordLayerDatabase().loadSchema(conn.getSchema());
+        final BackingRecordStore backingRecordStore =
+                (BackingRecordStore) recordLayerSchema.loadStore();
+        @SuppressWarnings("unchecked")
+        final FDBRecordStoreBase<Message> store =
+                (FDBRecordStoreBase<Message>) backingRecordStore.unwrap(FDBRecordStoreBase.class);
+        return store;
+    }
+
+    private static void updateIncarnation(@Nonnull ConnectionUtils connUtils,
+                                          @Nonnull SchemaInfo schema,
+                                          @Nonnull IntFunction<Integer> updater) throws SQLException, RelationalException {
+        connUtils.runAgainstConnection(schema.databasePath, schema.schemaName, conn -> {
+            conn.setAutoCommit(false);
+            final FDBRecordStoreBase<Message> store = getBackingStore(conn);
+            store.updateIncarnation(updater).join();
+            conn.setAutoCommit(true);
+        });
+    }
+
     @Nonnull
     private static String uuidForPath(final boolean quoted) {
         if (quoted) {
@@ -831,10 +799,18 @@ public class CopyCommandTest {
         return exportData(quoted, schemaInfo.databasePath, schemaInfo.connectionUtils);
     }
 
+    private static List<byte[]> exportData(SchemaInfo schemaInfo, String incarnationClause) throws SQLException, RelationalException {
+        return exportData(schemaInfo.databasePath, schemaInfo.connectionUtils, incarnationClause);
+    }
+
     private static List<byte[]> exportData(boolean quoted, String path, ConnectionUtils connectionUtils) throws SQLException, RelationalException {
+        return exportData(maybeQuote(path, quoted), connectionUtils, "PRESERVE INCARNATION");
+    }
+
+    private static List<byte[]> exportData(String path, ConnectionUtils connectionUtils, String incarnationClause) throws SQLException, RelationalException {
         return connectionUtils.getFromCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement();
-                     RelationalResultSet rs = stmt.executeQuery("COPY " + maybeQuote(path, quoted) + " PRESERVE INCARNATION")) {
+                     RelationalResultSet rs = stmt.executeQuery("COPY " + path + " " + incarnationClause)) {
                 List<byte[]> exportedData = new ArrayList<>();
                 while (rs.next()) {
                     exportedData.add(rs.getBytes(1));

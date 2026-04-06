@@ -33,7 +33,7 @@ import javax.annotation.Nonnull;
  * Utility methods for transforming {@link DataInKeySpacePath} entries during export/import operations.
  */
 @API(API.Status.EXPERIMENTAL)
-public class DataInKeySpacePathUtil {
+public final class DataInKeySpacePathUtil {
 
     private DataInKeySpacePathUtil() {
     }
