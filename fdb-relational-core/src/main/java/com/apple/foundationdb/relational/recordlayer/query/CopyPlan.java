@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto.MetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataInKeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataInKeySpacePathUtil;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataNotAtLeafException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -110,6 +111,8 @@ public final class CopyPlan extends QueryPlan {
     @Nonnull
     private final String path;
 
+    private final boolean incrementIncarnation;
+
     @Nonnull
     private final QueryExecutionContext queryExecutionContext;
     @Nullable
@@ -121,13 +124,16 @@ public final class CopyPlan extends QueryPlan {
      * Creates a COPY export plan.
      *
      * @param path the KeySpace path to export from (e.g., "/FRL/MY_DATABASE")
+     * @param queryExecutionContext the query execution context
+     * @param incrementIncarnation whether to increment the incarnation in store info during export
      *
      * @return a CopyPlan for exporting data
      */
     @Nonnull
     public static CopyPlan getCopyExportAction(@Nonnull String path,
-                                               @Nonnull QueryExecutionContext queryExecutionContext) {
-        return new CopyPlan(CopyType.EXPORT, path, queryExecutionContext, null);
+                                               @Nonnull QueryExecutionContext queryExecutionContext,
+                                               boolean incrementIncarnation) {
+        return new CopyPlan(CopyType.EXPORT, path, incrementIncarnation, queryExecutionContext, null);
     }
 
     /**
@@ -140,7 +146,7 @@ public final class CopyPlan extends QueryPlan {
     @Nonnull
     public static CopyPlan getCopyImportAction(@Nonnull String path,
                                                @Nonnull QueryExecutionContext queryExecutionContext) {
-        return new CopyPlan(CopyType.IMPORT, path, queryExecutionContext, null);
+        return new CopyPlan(CopyType.IMPORT, path, false, queryExecutionContext, null);
     }
 
     public static CopyPlan fromContinuation(@Nonnull final com.apple.foundationdb.relational.continuation.CopyPlan protobuf,
@@ -148,20 +154,23 @@ public final class CopyPlan extends QueryPlan {
                                             @Nonnull final MutablePlanGenerationContext planGenerationContext) {
         return new CopyPlan(CopyType.EXPORT,
                 protobuf.getPath(),
+                protobuf.getIncrementIncarnation(),
                 planGenerationContext,
                 continuation);
     }
 
     private CopyPlan(@Nonnull CopyType copyType,
                      @Nonnull String path,
+                     boolean incrementIncarnation,
                      @Nonnull QueryExecutionContext queryExecutionContext,
                      @Nullable byte[] continuation) {
         super("COPY " + copyType.name() + " " + path);
         this.copyType = copyType;
         this.path = path;
+        this.incrementIncarnation = incrementIncarnation;
         this.queryExecutionContext = queryExecutionContext;
         this.continuation = continuation == null ? null : Arrays.copyOf(continuation, continuation.length);
-        this.planHashSupplier = Suppliers.memoize(() -> Objects.hash(copyType, path))::get;
+        this.planHashSupplier = Suppliers.memoize(() -> Objects.hash(copyType, path, incrementIncarnation))::get;
     }
 
     @Override
@@ -218,7 +227,7 @@ public final class CopyPlan extends QueryPlan {
 
             // Transform DataInKeySpacePath to Row with serialized bytes
             RecordLayerIterator<DataInKeySpacePath> iterator = RecordLayerIterator.create(cursor,
-                    data -> convertDataToRow(context, data, serializer, pathSchemaCache, storeCatalog));
+                    data -> convertDataToRow(context, data, serializer, pathSchemaCache, storeCatalog, incrementIncarnation));
 
             // Build metadata for single BYTES column
             DataType.StructType structType = DataType.StructType.from("COPY_EXPORT", List.of(
@@ -237,6 +246,7 @@ public final class CopyPlan extends QueryPlan {
                         if (!continuation.atEnd()) {
                             builder.withCopyPlan(com.apple.foundationdb.relational.continuation.CopyPlan.newBuilder()
                                     .setPath(path)
+                                    .setIncrementIncarnation(incrementIncarnation)
                                     .build());
                         }
                         return builder.build();
@@ -254,13 +264,27 @@ public final class CopyPlan extends QueryPlan {
                                              @Nullable final DataInKeySpacePath data,
                                              @Nonnull final KeySpacePathSerializer serializer,
                                              @Nonnull final Map<KeySpacePath, CatalogInfo> pathSchemaCache,
-                                             @Nonnull final StoreCatalog storeCatalog) {
+                                             @Nonnull final StoreCatalog storeCatalog,
+                                             final boolean incrementIncarnation) {
         if (data == null) {
             return null;
         }
 
+        final DataInKeySpacePath effectiveData;
+        if (incrementIncarnation) {
+            try {
+                effectiveData = DataInKeySpacePathUtil.bumpIncarnationIfStoreInfo(data);
+            } catch (Exception e) {
+                throw new UncheckedRelationalException(new RelationalException(
+                        "Error incrementing incarnation in store info",
+                        ErrorCode.COPY_SERIALIZATION_ERROR, e));
+            }
+        } else {
+            effectiveData = data;
+        }
+
         CopyData.Builder copyDataBuilder = CopyData.newBuilder()
-                .setData(serializer.serialize(data));
+                .setData(serializer.serialize(effectiveData));
 
         // Try to extract schema information from the path
         try {
@@ -542,13 +566,13 @@ public final class CopyPlan extends QueryPlan {
         if (queryExecutionContext == this.queryExecutionContext) {
             return this;
         }
-        return new CopyPlan(copyType, path, queryExecutionContext, continuation);
+        return new CopyPlan(copyType, path, incrementIncarnation, queryExecutionContext, continuation);
     }
 
     @Nonnull
     @Override
     public String explain() {
-        return "CopyPlan(" + copyType + ", path=" + path + ")";
+        return "CopyPlan(" + copyType + ", path=" + path + ", incrementIncarnation=" + incrementIncarnation + ")";
     }
 
     @Nonnull

@@ -22,9 +22,13 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspace;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataInKeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePathSerializer;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
@@ -220,8 +224,7 @@ public class CopyCommandTest {
 
         connectionUtils.runAgainstCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement();
-                     RelationalResultSet rs = stmt.executeQuery("COPY " + pathId)) {
-                // Should have no data
+                     RelationalResultSet rs = stmt.executeQuery("COPY " + pathId + " PRESERVE INCARNATION")) {
                 assertFalse(rs.next(), "Empty path should return empty result set");
             }
         });
@@ -233,10 +236,63 @@ public class CopyCommandTest {
         connectionUtils.runAgainstCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(
-                                () -> stmt.executeQuery("COPY /INVALID/PATH/STRUCTURE"))
+                                () -> stmt.executeQuery("COPY /INVALID/PATH/STRUCTURE PRESERVE INCARNATION"))
                         .hasErrorCode(ErrorCode.INVALID_PATH);
             }
         });
+    }
+
+    @ParameterizedTest
+    @BooleanSource("incrementIncarnation")
+    void exportWithIncarnationOption(boolean incrementIncarnation) throws Exception {
+        final String pathId = "/TEST/" + UUID.randomUUID().toString().replace("-", "_").toUpperCase(Locale.ROOT);
+        final KeySpace keySpace = RelationalKeyspaceProvider.instance().getKeySpace();
+        final KeySpacePath databasePath = KeySpaceUtils.toKeySpacePath(URI.create(pathId), keySpace);
+        final KeySpacePath schemaPath = KeySpaceUtils.toKeySpacePath(URI.create(pathId + "/1"), keySpace);
+
+        // Write a DataStoreInfo with a known incarnation as the STORE_INFO key
+        final int originalIncarnation = 42;
+        final RecordMetaDataProto.DataStoreInfo storeInfo = RecordMetaDataProto.DataStoreInfo.newBuilder()
+                .setFormatVersion(13) // FormatVersion.INCARNATION
+                .setIncarnation(originalIncarnation)
+                .build();
+
+        connectionUtils.runAgainstCatalog(conn -> {
+            conn.setAutoCommit(false);
+            final FDBRecordContext context = getRecordContext(conn);
+            byte[] key = schemaPath.toSubspace(context).pack(
+                    Tuple.from(FDBRecordStoreKeyspace.STORE_INFO.id()));
+            context.ensureActive().set(key, storeInfo.toByteArray());
+            conn.commit();
+        });
+
+        // Export with the incarnation option
+        final String incarnationClause = incrementIncarnation ? "INCREMENT INCARNATION" : "PRESERVE INCARNATION";
+        final List<byte[]> exportedData = connectionUtils.getFromCatalog(conn -> {
+            try (RelationalStatement stmt = conn.createStatement();
+                     RelationalResultSet rs = stmt.executeQuery("COPY " + pathId + " " + incarnationClause)) {
+                List<byte[]> data = new ArrayList<>();
+                while (rs.next()) {
+                    data.add(rs.getBytes(1));
+                }
+                return data;
+            }
+        });
+
+        assertThat(exportedData).hasSize(1);
+
+        // Parse the exported data and check the incarnation
+        final CopyData copyData = CopyData.parseFrom(exportedData.get(0));
+        final KeySpacePathSerializer serializer = new KeySpacePathSerializer(databasePath);
+        final DataInKeySpacePath dataInKeySpacePath = serializer.deserialize(copyData.getData());
+        final RecordMetaDataProto.DataStoreInfo exportedInfo =
+                RecordMetaDataProto.DataStoreInfo.parseFrom(dataInKeySpacePath.getValue());
+
+        if (incrementIncarnation) {
+            assertEquals(originalIncarnation + 1, exportedInfo.getIncarnation());
+        } else {
+            assertEquals(originalIncarnation, exportedInfo.getIncarnation());
+        }
     }
 
     @ParameterizedTest
@@ -283,7 +339,7 @@ public class CopyCommandTest {
         connectionUtils.runAgainstCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement()) {
                 stmt.setMaxRows(limit);
-                try (RelationalResultSet rs = stmt.executeQuery("COPY " + pathId)) {
+                try (RelationalResultSet rs = stmt.executeQuery("COPY " + pathId + " PRESERVE INCARNATION")) {
                     final ArrayList<byte[]> results = new ArrayList<>();
                     while (rs.next()) {
                         results.add(rs.getBytes(1));
@@ -314,7 +370,7 @@ public class CopyCommandTest {
             try (RelationalStatement stmt = conn.createStatement()) {
                 final int limit = 3;
                 stmt.setMaxRows(limit);
-                try (RelationalResultSet rs = stmt.executeQuery("COPY " + pathId)) {
+                try (RelationalResultSet rs = stmt.executeQuery("COPY " + pathId + " PRESERVE INCARNATION")) {
                     final ArrayList<byte[]> results = new ArrayList<>();
                     while (rs.next()) {
                         results.add(rs.getBytes(1));
@@ -741,7 +797,7 @@ public class CopyCommandTest {
     private static List<byte[]> exportData(boolean quoted, String path, ConnectionUtils connectionUtils) throws SQLException, RelationalException {
         return connectionUtils.getFromCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement();
-                     RelationalResultSet rs = stmt.executeQuery("COPY " + maybeQuote(path, quoted))) {
+                     RelationalResultSet rs = stmt.executeQuery("COPY " + maybeQuote(path, quoted) + " PRESERVE INCARNATION")) {
                 List<byte[]> exportedData = new ArrayList<>();
                 while (rs.next()) {
                     exportedData.add(rs.getBytes(1));
