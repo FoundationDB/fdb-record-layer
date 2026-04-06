@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.foundationdb.util.CallbackUtils;
 import com.apple.foundationdb.util.CloseException;
 import com.apple.foundationdb.util.CloseableUtils;
 import com.google.common.annotations.VisibleForTesting;
@@ -136,7 +137,7 @@ public class FDBDirectoryManager implements AutoCloseable {
             List<Supplier<Void>> callbacks = createdDirectories.values().stream()
                     .map(this::closeWithoutCommitCallback).collect(Collectors.toList());
             // ensure we close all resources, regardless of exceptions
-            final CloseableUtils.InvokeResults<Void> results = CloseableUtils.invokeAll(callbacks);
+            final CallbackUtils.InvokeResults<Void> results = CallbackUtils.invokeAll(callbacks);
             if (results.getAccumulatedException() != null) {
                 throw new IOException(results.getAccumulatedException());
             }

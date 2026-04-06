@@ -30,13 +30,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
-import com.apple.foundationdb.record.locking.AsyncLock;
-import com.apple.foundationdb.record.locking.LockRegistry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.locking.AsyncLock;
 import com.apple.foundationdb.record.locking.LockIdentifier;
+import com.apple.foundationdb.record.locking.LockRegistry;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -48,7 +48,7 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
-import com.apple.foundationdb.util.CloseableUtils;
+import com.apple.foundationdb.util.CallbackUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Utf8;
@@ -61,6 +61,7 @@ import java.nio.charset.Charset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -1045,17 +1046,21 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
     }
 
+    /**
+     * Run all post-commit callbacks.
+     * This method does its best to ensure all callbacks are invoked, regardless if some throw exceptions.
+     * @return a future that completes when all callbacks were invoked and all futures have completed
+     */
     @Nonnull
     private CompletableFuture<Void> runPostCommits() {
         synchronized (postCommits) {
-            if (postCommits.isEmpty()) {
-                return AsyncUtil.DONE;
+            try {
+                List<Supplier<CompletableFuture<Void>>> callbacks = toCallbacks(postCommits.values());
+                // This would ensure best-effort in calling all suppliers and waiting for all the futures
+                return CallbackUtils.invokeAllFutures(callbacks);
+            } finally {
+                postCommits.clear();
             }
-            List<CompletableFuture<Void>> work = postCommits.values().stream()
-                    .map(PostCommit::get)
-                    .collect(Collectors.toList());
-            postCommits.clear();
-            return AsyncUtil.whenAll(work);
         }
     }
 
@@ -1068,13 +1073,20 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private CompletableFuture<Void> runPostClose() {
         synchronized (postClose) {
             try {
-                List<Supplier<CompletableFuture<Void>>> callbacks = postClose.values().stream().map(this::postCommitCallback).collect(Collectors.toList());
+                List<Supplier<CompletableFuture<Void>>> callbacks = toCallbacks(postClose.values());
                 // This would ensure best-effort in calling all suppliers and waiting for all the futures
-                return CloseableUtils.invokeAllFutures(callbacks);
+                return CallbackUtils.invokeAllFutures(callbacks);
             } finally {
                 postClose.clear();
             }
         }
+    }
+
+    @Nonnull
+    private List<Supplier<CompletableFuture<Void>>> toCallbacks(final Collection<PostCommit> callbacks) {
+        return callbacks.stream()
+                .map(this::postCommitCallback)
+                .collect(Collectors.toList());
     }
 
     private Supplier<CompletableFuture<Void>> postCommitCallback(PostCommit pc) {
