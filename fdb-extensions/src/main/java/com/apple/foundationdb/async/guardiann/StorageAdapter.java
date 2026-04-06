@@ -23,6 +23,7 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.async.common.StorageHelpers;
 import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.async.hnsw.HNSW;
+import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
@@ -32,6 +33,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -364,6 +366,29 @@ class StorageAdapter {
         final double z =
                 num < 200 ? 0 : Math.max(0, (distanceToPrimaryCentroid - mean) / (standardDeviation + EPS));
         return 1.0d * r + 0.00d * z;
+    }
+
+    static boolean isOccluded(@Nonnull final Estimator estimator,
+                              @Nonnull final ClusterMetadataWithDistance replicationCandidate,
+                              @Nonnull final List<ClusterMetadataWithDistance> selectedReplicationClusters) {
+        final double vectorToCentroidDistance = replicationCandidate.getDistance();
+        if (!selectedReplicationClusters.isEmpty()) {
+            final Transformed<RealVector> replicationCandidateCentroid =
+                    replicationCandidate.getCentroid();
+            boolean occluded = false;
+            for (final ClusterMetadataWithDistance selectedReplicationCluster : selectedReplicationClusters) {
+                final double selectedCentroidToCandidateCentroidDistance =
+                        estimator.distance(replicationCandidateCentroid, selectedReplicationCluster.getCentroid());
+                if (vectorToCentroidDistance > selectedCentroidToCandidateCentroidDistance) {
+                    occluded = true;
+                    break;
+                }
+            }
+            if (occluded) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static double replicationPriorityOld(final double distance, final double distanceToPrimaryCentroid,

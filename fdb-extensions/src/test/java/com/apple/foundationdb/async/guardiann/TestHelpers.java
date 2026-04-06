@@ -129,7 +129,7 @@ class TestHelpers {
                                                     @Nonnull final Guardiann guardiann,
                                                     final int numVectors,
                                                     final int batchSize) throws Exception {
-        return insertSIFT(db, guardiann, "/Users/nseemann/downloads/embeddings-unified-model-1m-1.0.0.fvecs",
+        return insertSIFT(db, guardiann, "/Users/nseemann/downloads/embeddings-unified-model-100k-1.0.0.fvecs",
                 numVectors, batchSize);
     }
 

@@ -413,8 +413,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
         RunningStandardDeviation replicationPriorityStandardDeviation = RunningStandardDeviation.identity();
         int numReplicated = 0;
-        int numNonReplicated = 0;
-        int numPrioritySplit = 0;
+        int numOccluded = 0;
         // only considering primary copies here -- this will prune the replicated vectors
         for (final VectorReference vectorReference : primaryVectorReferences) {
             final var nearestClusters =
@@ -436,24 +435,20 @@ public class SplitMergeTask extends AbstractDeferredTask {
             // add primary to one of the new clusters and in the remainder populate the replicated clusters
             assignmentMultimapBuilder.put(primaryClusterId, vectorReference.toPrimaryCopy());
 
-            final ImmutableList<ClusterMetadataWithDistance> replicatedClusters =
+            final ImmutableList<ClusterMetadataWithDistance> replicationCandidates =
                     nearestClusters.subList(1, nearestClusters.size());
-            for (final ClusterMetadataWithDistance replicatedClusterMetadataWithDistance : replicatedClusters) {
-                final double distance = replicatedClusterMetadataWithDistance.getDistance();
+            final List<ClusterMetadataWithDistance> selectedReplicationClusters =
+                    Lists.newArrayListWithExpectedSize(replicationCandidates.size());
+
+            for (final ClusterMetadataWithDistance replicationCandidate : replicationCandidates) {
+                final double distance = replicationCandidate.getDistance();
                 Verify.verify(Double.isFinite(distance));
 
-                final ClusterMetadata replicatedClusterMetadata =
-                        replicatedClusterMetadataWithDistance.getClusterMetadata();
+                final ClusterMetadata replicationCandidateClusterMetadata = replicationCandidate.getClusterMetadata();
 
                 final RunningStandardDeviation updatedStandardDeviation =
                         Objects.requireNonNull(
-                                updatedStandardDeviationMap.get(replicatedClusterMetadata.getId()));
-
-                final double replicationPriorityOld =
-                        StorageAdapter.replicationPriorityOld(distance, distanceToPrimaryCentroid,
-                                Math.toIntExact(updatedStandardDeviation.getNumElements()),
-                                updatedStandardDeviation.mean(),
-                                updatedStandardDeviation.populationStandardDeviation());
+                                updatedStandardDeviationMap.get(replicationCandidateClusterMetadata.getId()));
 
                 final double replicationPriority =
                         StorageAdapter.replicationPriority(distance, distanceToPrimaryCentroid,
@@ -462,35 +457,35 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                 updatedStandardDeviation.populationStandardDeviation());
                 replicationPriorityStandardDeviation = replicationPriorityStandardDeviation.add(replicationPriority);
 
-                if (replicationPriorityOld < config.getReplicationPriorityMin() &&
-                        replicationPriority > config.getReplicationPriorityMin()) {
-                    numPrioritySplit ++;
-                }
-
                 if (replicationPriority >= config.getReplicationPriorityMin()) {
+                    if (StorageAdapter.isOccluded(estimator, replicationCandidate, selectedReplicationClusters)) {
+                        numOccluded ++;
+                        continue;
+                    }
+
                     final VectorReference newVectorReference =
                             vectorReference.toReplicatedCopy(replicationPriority);
-                    if (newClusterIds.contains(replicatedClusterMetadata.getId())) {
+                    if (newClusterIds.contains(replicationCandidateClusterMetadata.getId())) {
                         final var reservoirSampler =
-                                replicatedAssignmentSamplerMap.computeIfAbsent(replicatedClusterMetadata.getId(),
+                                replicatedAssignmentSamplerMap.computeIfAbsent(replicationCandidateClusterMetadata.getId(),
                                         ignored -> new TopK<>(Comparator.comparing(VectorReference::getReplicationPriority),
                                                 config.getReplicatedClusterTarget()));
                         reservoirSampler.add(newVectorReference);
                     } else {
-                        assignmentMultimapBuilder.put(replicatedClusterMetadata.getId(), newVectorReference);
+                        assignmentMultimapBuilder.put(replicationCandidateClusterMetadata.getId(), newVectorReference);
                     }
+                    selectedReplicationClusters.add(replicationCandidate);
                     numReplicated++;
-                } else {
-                    numNonReplicated++;
                 }
             }
         }
+
         if (logger.isInfoEnabled()) {
-            logger.info("replication priority num={}. mean={}, standard deviation={}, numReplicated={}, numNonReplicated={}, numPrioritySplit={}",
+            logger.info("replication priority num={}. mean={}, standard deviation={}, numReplicated={}, numOccluded={}",
                     replicationPriorityStandardDeviation.getNumElements(),
                     replicationPriorityStandardDeviation.mean(),
                     replicationPriorityStandardDeviation.populationStandardDeviation(),
-                    numReplicated, numNonReplicated, numPrioritySplit);
+                    numReplicated, numOccluded);
         }
 
         for (final Map.Entry<UUID, TopK<VectorReference>> entry : replicatedAssignmentSamplerMap.entrySet()) {

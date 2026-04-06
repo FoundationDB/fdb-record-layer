@@ -39,6 +39,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -355,6 +356,9 @@ public class ReassignTask extends AbstractDeferredTask {
                 new TopK<>(Comparator.comparing(VectorReference::getReplicationPriority),
                         config.getReplicatedClusterTarget());
 
+        RunningStandardDeviation replicationPriorityStandardDeviation = RunningStandardDeviation.identity();
+        int numReplicated = 0;
+        int numOccluded = 0;
         for (final VectorReference vectorReference : vectorReferences) {
             if (!vectorReference.isPrimaryCopy()) {
                 replicatedTopK.add(vectorReference);
@@ -381,15 +385,17 @@ public class ReassignTask extends AbstractDeferredTask {
 
             final Set<UUID> causeClusterIds = getCauseClusterIds();
 
-            final ImmutableList<ClusterMetadataWithDistance> replicatedClusters =
+            final ImmutableList<ClusterMetadataWithDistance> replicationCandidates =
                     nearestClusters.subList(1, nearestClusters.size());
+            final List<ClusterMetadataWithDistance> selectedReplicationClusters =
+                    Lists.newArrayListWithExpectedSize(replicationCandidates.size());
 
-            for (final ClusterMetadataWithDistance replicatedClusterMetadataWithDistance : replicatedClusters) {
-                final double distance = replicatedClusterMetadataWithDistance.getDistance();
+            for (final ClusterMetadataWithDistance replicationCandidate : replicationCandidates) {
+                final double distance = replicationCandidate.getDistance();
                 Verify.verify(Double.isFinite(distance));
 
-                final ClusterMetadata replicatedClusterMetadata =
-                        replicatedClusterMetadataWithDistance.getClusterMetadata();
+                final ClusterMetadata replicationCandidateClusterMetadata =
+                        replicationCandidate.getClusterMetadata();
 
                 //
                 // The following test is written in a slightly more wordy but (I think) better to understand form.
@@ -398,31 +404,47 @@ public class ReassignTask extends AbstractDeferredTask {
                 // new cluster's replicated vectors.
                 //
                 if (!(vectorReference.isUnderreplicated() ||
-                              causeClusterIds.contains(replicatedClusterMetadata.getId()))) {
+                              causeClusterIds.contains(replicationCandidateClusterMetadata.getId()))) {
                     continue;
                 }
 
                 final RunningStandardDeviation updatedStandardDeviation =
                         Objects.requireNonNull(
-                                updatedStandardDeviationMap.get(replicatedClusterMetadata.getId()));
+                                updatedStandardDeviationMap.get(replicationCandidateClusterMetadata.getId()));
 
                 final double replicationPriority =
                         StorageAdapter.replicationPriority(distance, distanceToPrimaryCentroid,
                                 Math.toIntExact(updatedStandardDeviation.getNumElements()),
                                 updatedStandardDeviation.mean(),
                                 updatedStandardDeviation.populationStandardDeviation());
+                replicationPriorityStandardDeviation = replicationPriorityStandardDeviation.add(replicationPriority);
                 if (replicationPriority >= config.getReplicationPriorityMin()) {
+                    if (StorageAdapter.isOccluded(estimator, replicationCandidate, selectedReplicationClusters)) {
+                        numOccluded++;
+                        continue;
+                    }
+
                     final VectorReference newVectorReference =
                             vectorReference.toReplicatedCopy(replicationPriority);
-                    if (targetClusterId.equals(replicatedClusterMetadata.getId())) {
-                        replicatedTopK.add(newVectorReference);
+                    if (targetClusterId.equals(replicationCandidateClusterMetadata.getId())) {
+                        replicatedTopK.add(newVectorReference); // TODO remove this as this should never happen
                     } else {
                         assignmentBuilder.put(
-                                replicatedClusterMetadata.getId(),
+                                replicationCandidateClusterMetadata.getId(),
                                 newVectorReference);
                     }
+                    selectedReplicationClusters.add(replicationCandidate);
+                    numReplicated++;
                 }
             }
+        }
+
+        if (logger.isInfoEnabled()) {
+            logger.info("replication priority num={}. mean={}, standard deviation={}, numReplicated={}, numOccluded={}",
+                    replicationPriorityStandardDeviation.getNumElements(),
+                    replicationPriorityStandardDeviation.mean(),
+                    replicationPriorityStandardDeviation.populationStandardDeviation(),
+                    numReplicated, numOccluded);
         }
 
         assignmentBuilder.putAll(targetClusterId, replicatedTopK.toUnsortedList());
