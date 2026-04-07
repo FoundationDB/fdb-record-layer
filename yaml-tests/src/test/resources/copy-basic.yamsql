@@ -19,32 +19,35 @@
 
 # Tests basic cross-cluster COPY: export from cluster 0, import to cluster 1, then verify.
 # Requires at least 2 clusters; skipped otherwise.
-# TODO test moving just a schema
 ---
 options:
   required_clusters: 2
   supported_version: !current_version
 ---
 # Cleanup cluster 0
-# TODO this cleanup is going to have to happen a lot, can it be more pithy
 setup:
   connect: { cluster: 0, uri: "jdbc:embed:/__SYS?schema=CATALOG" }
   steps:
     - query: drop database if exists /FRL/COPY_SRC_DB
     - query: drop schema template if exists COPY_TEMPLATE
+    - query: drop schema template if exists COPY_TEMPLATE2
 ---
 include:
     copy-basic-includes/copy-clear-dest.yamsql
 ---
-# Create template, database, and schema on cluster 0 (source)
+# Create two templates, a database with 3 schemas on cluster 0 (source).
+# S1 and S2 share COPY_TEMPLATE, S3 uses COPY_TEMPLATE2.
 setup:
   connect: { cluster: 0, uri: "jdbc:embed:/__SYS?schema=CATALOG" }
   steps:
     - query: create schema template COPY_TEMPLATE create table T1(ID bigint, NAME string, primary key(ID))
+    - query: create schema template COPY_TEMPLATE2 create table T2(ID bigint, VAL bigint, primary key(ID))
     - query: create database /FRL/COPY_SRC_DB
     - query: create schema /FRL/COPY_SRC_DB/S1 with template COPY_TEMPLATE
+    - query: create schema /FRL/COPY_SRC_DB/S2 with template COPY_TEMPLATE
+    - query: create schema /FRL/COPY_SRC_DB/S3 with template COPY_TEMPLATE2
 ---
-# Insert data on cluster 0
+# Insert data into S1
 setup:
   connect: { cluster: 0, uri: "jdbc:embed:/FRL/COPY_SRC_DB?schema=S1" }
   steps:
@@ -52,7 +55,21 @@ setup:
     - query: insert into T1 values (2, 'bravo')
     - query: insert into T1 values (3, 'charlie')
 ---
-# Unlimited copy
+# Insert data into S2
+setup:
+  connect: { cluster: 0, uri: "jdbc:embed:/FRL/COPY_SRC_DB?schema=S2" }
+  steps:
+    - query: insert into T1 values (10, 'delta')
+    - query: insert into T1 values (20, 'echo')
+---
+# Insert data into S3
+setup:
+  connect: { cluster: 0, uri: "jdbc:embed:/FRL/COPY_SRC_DB?schema=S3" }
+  steps:
+    - query: insert into T2 values (100, 1000)
+    - query: insert into T2 values (200, 2000)
+---
+# Unlimited copy of entire database
 copy_block:
   source: { cluster: 0, path: "/FRL/COPY_SRC_DB" }
   dest: { cluster: 1, path: "/FRL/COPY_DEST_DB" }
@@ -73,12 +90,56 @@ copy_block:
 include:
     copy-basic-includes/copy-verify-dest.yamsql
 ---
+include:
+    copy-basic-includes/copy-clear-dest.yamsql
+---
+# Test copying a single schema between clusters
+copy_block:
+  source: { cluster: 0, path: "/FRL/COPY_SRC_DB/S2" }
+  dest: { cluster: 1, path: "/FRL/COPY_DEST_DB/S2" }
+---
+# Verify S2 data arrived
+test_block:
+  connect: { cluster: 1, uri: "jdbc:embed:/FRL/COPY_DEST_DB?schema=S2" }
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select * from T1
+      - result: [{ID: 10, NAME: 'delta'},
+                 {ID: 20, NAME: 'echo'}]
+---
+# Verify S1 and S3 do not exist on the destination
+test_block:
+  connect: { cluster: 1, uri: "jdbc:embed:/__SYS?schema=CATALOG" }
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select count(*) from "SCHEMAS" where database_id = '/FRL/COPY_DEST_DB' and schema_name = 'S1'
+      - result: [{0}]
+    -
+      - query: select count(*) from "SCHEMAS" where database_id = '/FRL/COPY_DEST_DB' and schema_name = 'S3'
+      - result: [{0}]
+---
+# Create S1 on the destination (template was copied with S2) and verify it has no data
+setup:
+  connect: { cluster: 1, uri: "jdbc:embed:/__SYS?schema=CATALOG" }
+  steps:
+    - query: create schema /FRL/COPY_DEST_DB/S1 with template COPY_TEMPLATE
+---
+test_block:
+  connect: { cluster: 1, uri: "jdbc:embed:/FRL/COPY_DEST_DB?schema=S1" }
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select * from T1
+      - result: []
+---
 # Test copying within a cluster
 copy_block:
-      source: { cluster: 0, path: "/FRL/COPY_SRC_DB" }
-      dest: { cluster: 0, path: "/FRL/COPY_DEST_DB" }
-      export_limit: 2
-      import_chunk_size: 3
+  source: { cluster: 0, path: "/FRL/COPY_SRC_DB" }
+  dest: { cluster: 0, path: "/FRL/COPY_DEST_DB" }
+  export_limit: 2
+  import_chunk_size: 3
 ---
 test_block:
   connect: { cluster: 0, uri: "jdbc:embed:/FRL/COPY_DEST_DB?schema=S1" }
@@ -95,7 +156,9 @@ setup:
   connect: { cluster: 0, uri: "jdbc:embed:/__SYS?schema=CATALOG" }
   steps:
     - query: drop database /FRL/COPY_SRC_DB
+    - query: drop database if exists /FRL/COPY_DEST_DB
     - query: drop schema template COPY_TEMPLATE
+    - query: drop schema template COPY_TEMPLATE2
 ---
 include:
     copy-basic-includes/copy-clear-dest.yamsql
