@@ -7,6 +7,25 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.10.13.0
+
+<h4> New Features </h4>
+
+* Planner support for matching record type key - [PR #4032](https://github.com/FoundationDB/fdb-record-layer/pull/4032)
+
+
+**[Full Changelog (4.10.12.0...4.10.13.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.12.0...4.10.13.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.10.2.0`, ❌`4.10.3.0`, ❌`4.10.4.0`, ❌`4.10.5.0`, ❌`4.10.6.0`, ❌`4.10.7.0`, ❌`4.10.8.0`, ❌`4.10.9.0`, ❌`4.10.10.0`, ❌`4.10.12.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24091073556)
+
+
+
 ### 4.10.12.0
 
 
