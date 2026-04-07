@@ -26,7 +26,7 @@ package com.apple.foundationdb.util;
  * exception thrown will be added as {@code Suppressed}.
  */
 @SuppressWarnings("serial")
-public class CloseException extends RuntimeException {
+public class CloseException extends Exception {
     public CloseException(final Throwable cause) {
         super(cause);
     }
