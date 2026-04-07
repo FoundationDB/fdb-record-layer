@@ -294,14 +294,9 @@ jobs:
       - name: Move tag to HEAD
         shell: bash
         run: git tag -m "Release ${{ steps.get_new_version.outputs.version }}" -f "${{ steps.get_new_version.outputs.version }}"
-  
-      # push the changes to gradle.properties, the release notes, and the tag as one operation, so if it fails,
-      # it will be as if the release never did anything
-      - name: Push Version Update
-        shell: bash
-        run: git push origin HEAD "${{ steps.get_new_version.outputs.version }}"
-  
+
       - name: Publish Artifacts
+        id: publish_artifacts
         uses: ./actions/run-gradle
         with:
           gradle_command: publish closeAndReleaseStagingRepositories -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
@@ -322,10 +317,23 @@ jobs:
       - name: Commit YAML updates
         shell: bash
         run: python ./build/commit_yamsql_updates.py "${{ steps.get_new_version.outputs.version }}"
-      - name: Push Updates
+
+      # Push updates back to origin.
+      # We want to do this regardless of whether publishing actually succeeds or fails, as the
+      # publishing process itself can fail non-atomically. If that happens, we still want to update
+      # the gradle.properties version, the release notes, etc.
+      #
+      # We pull updates before doing this as there may be concurrent PRs. This can introduce
+      # non-linearities into the history, but comparing tags should still correctly
+      # identify all commits that are present in one version but absent in another
+      - name: Push updates
         id: push_updates
+        if: steps.publish_artifacts.outcome != 'cancelled'
         shell: bash
-        run: git push origin
+        run: |
+            git fetch origin "${GITHUB_REF##*/}"
+            git merge "origin/${GITHUB_REF##*/}"
+            git push origin HEAD "${{ steps.get_new_version.outputs.version }}"
         # Continue the build (including downstream steps). If the push fails, we'll create a PR
         continue-on-error: true
       - name: Create Merge PR if conflict
