@@ -692,7 +692,8 @@ public class CopyCommandTest {
 
     private static void createTemplateAndSchema(@Nonnull ConnectionUtils connUtils,
                                                 @Nonnull String templateName,
-                                                @Nonnull SchemaInfo schema, String schemaTemplate) throws SQLException, RelationalException {
+                                                @Nonnull SchemaInfo schema,
+                                                @Nonnull String schemaTemplate) throws SQLException, RelationalException {
         connUtils.runCatalogStatement(stmt -> {
             stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + templateName + " " + schemaTemplate);
             stmt.executeUpdate("CREATE DATABASE " + schema.databasePath);
@@ -700,10 +701,8 @@ public class CopyCommandTest {
         });
     }
 
-    private static FDBRecordStoreBase<Message> getBackingStore(final RelationalConnection conn) throws SQLException, RelationalException {
-        try (RelationalStatement stmt = conn.createStatement()) {
-            stmt.executeQuery("SELECT id FROM my_table").close();
-        }
+    private static FDBRecordStoreBase<Message> getBackingStore(@Nonnull RelationalConnection conn) throws SQLException, RelationalException {
+        conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
         final RecordLayerSchema recordLayerSchema =
                 conn.unwrap(EmbeddedRelationalConnection.class).getRecordLayerDatabase().loadSchema(conn.getSchema());
         final BackingRecordStore backingRecordStore =
