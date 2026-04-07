@@ -1,0 +1,51 @@
+array-join-default-planner:
+-   query: EXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref
+        = t2.id WHERE t2.id IN (1000, 2000)
+    ref: right-deep-plan-tests.yamsql:37
+    explain: EXPLODE arrayDistinct(promote(@c30 AS ARRAY(LONG))) | FLATMAP q0 -> {
+        SCAN(<,>) | TFILTER T2 | FILTER _.ID EQUALS q0 | FLATMAP q1 -> { SCAN(<,>)
+        | TFILTER T1 | FLATMAP q2 -> { EXPLODE q2.T2_REFS | FILTER _ EQUALS q1.ID
+        AS q3 RETURN q2 } AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q5 RETURN (q5._0.NAME
+        AS _0, q5._1.NAME AS _1) }
+    task_count: 3345
+    task_total_time_ms: 547
+    transform_count: 1482
+    transform_time_ms: 233
+    transform_yield_count: 175
+    insert_time_ms: 51
+    insert_new_count: 387
+    insert_reused_count: 64
+array-join-right-deep-planner:
+-   query: EXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref
+        = t2.id WHERE t2.id IN (1000, 2000)
+    ref: right-deep-plan-tests.yamsql:56
+    explain: EXPLODE arrayDistinct(promote(@c30 AS ARRAY(LONG))) | FLATMAP q0 -> {
+        SCAN(<,>) | TFILTER T2 | FILTER _.ID EQUALS q0 | FLATMAP q1 -> { SCAN(<,>)
+        | TFILTER T1 | FLATMAP q2 -> { EXPLODE q2.T2_REFS | FILTER _ EQUALS q1.ID
+        AS q3 RETURN q2 } AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q5 RETURN (q5._0.NAME
+        AS _0, q5._1.NAME AS _1) }
+    task_count: 1864
+    task_total_time_ms: 153
+    transform_count: 774
+    transform_time_ms: 51
+    transform_yield_count: 99
+    insert_time_ms: 11
+    insert_new_count: 215
+    insert_reused_count: 32
+array-join-right-deep-query-option:
+-   query: EXPLAIN SELECT t1.name, t2.name FROM t1, t1.t2_refs AS ref JOIN t2 ON ref
+        = t2.id WHERE t2.id IN (1000, 2000) OPTIONS (PLAN RIGHT DEEP)
+    ref: right-deep-plan-tests.yamsql:76
+    explain: EXPLODE arrayDistinct(promote(@c30 AS ARRAY(LONG))) | FLATMAP q0 -> {
+        SCAN(<,>) | TFILTER T2 | FILTER _.ID EQUALS q0 | FLATMAP q1 -> { SCAN(<,>)
+        | TFILTER T1 | FLATMAP q2 -> { EXPLODE q2.T2_REFS | FILTER _ EQUALS q1.ID
+        AS q3 RETURN q2 } AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q5 RETURN (q5._0.NAME
+        AS _0, q5._1.NAME AS _1) }
+    task_count: 1864
+    task_total_time_ms: 176
+    transform_count: 774
+    transform_time_ms: 53
+    transform_yield_count: 99
+    insert_time_ms: 16
+    insert_new_count: 215
+    insert_reused_count: 32
