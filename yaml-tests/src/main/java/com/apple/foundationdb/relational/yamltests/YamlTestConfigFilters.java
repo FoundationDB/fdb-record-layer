@@ -89,6 +89,15 @@ public enum YamlTestConfigFilters {
         boolean filter(final YamlTestConfig config) {
             return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_SHOW_PLAN_ON_DIFF, false);
         }
+    },
+    /**
+     * Used to correct result metadata.
+     */
+    CORRECT_RESULT_METADATA {
+        @Override
+        boolean filter(final YamlTestConfig config) {
+            return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_RESULT_METADATA, false);
+        }
     };
 
     /**

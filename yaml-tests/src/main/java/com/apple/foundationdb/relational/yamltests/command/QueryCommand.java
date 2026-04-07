@@ -198,6 +198,10 @@ public final class QueryCommand extends Command {
                 Integer finalMaxRows = maxRows;
                 runWithDebugger(executionContext, debuggerImplementation,
                         () -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows));
+            } else if (QueryConfig.QUERY_CONFIG_RESULT_METADATA.equals(queryConfig.getConfigName())) {
+                Assert.that(!queryIsRunning, "Result metadata check should not be intermingled with query result tests");
+                final Integer finalMaxRows = maxRows;
+                executor.execute(connection, null, queryConfig, checkCache, finalMaxRows);
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfig.getConfigName())) {
                 Assert.that(!queryIsRunning, "Explain test should not be intermingled with query result tests");
                 // ignore debugger configuration, always set the debugger for explain, so we can always get consistent

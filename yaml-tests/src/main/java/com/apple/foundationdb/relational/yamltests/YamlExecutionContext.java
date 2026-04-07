@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.block.IncludeBlock;
+import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckResultMetadataConfig;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -91,6 +92,7 @@ public final class YamlExecutionContext {
     public static final ContextOption<Boolean> OPTION_FORCE_CONTINUATIONS = new ContextOption<>("optionForceContinuation");
     public static final ContextOption<Boolean> OPTION_CORRECT_EXPLAIN = new ContextOption<>("optionCorrectExplain");
     public static final ContextOption<Boolean> OPTION_CORRECT_METRICS = new ContextOption<>("optionCorrectMetrics");
+    public static final ContextOption<Boolean> OPTION_CORRECT_RESULT_METADATA = new ContextOption<>("optionCorrectResultMetadata");
     public static final ContextOption<Boolean> OPTION_SHOW_PLAN_ON_DIFF = new ContextOption<>("optionShowPlanOnDiff");
 
     private static final URI SYSTEM_CATALOG_ADDRESS = URI.create("jdbc:embed:/__SYS?schema=CATALOG");
@@ -102,6 +104,12 @@ public final class YamlExecutionContext {
     private final Map<YamlReference.YamlResource, List<String>> editedFileStream = new HashMap<>();
     @Nonnull
     private final Map<YamlReference.YamlResource, Boolean> isDirty = new HashMap<>();
+    /**
+     * Pending result-metadata corrections, buffered so they can be applied in descending line-number
+     * order (to avoid stale-offset corruption when multiple corrections target the same file).
+     */
+    @Nonnull
+    private final Map<YamlReference.YamlResource, List<PendingMetadataCorrection>> pendingMetadataCorrections = new HashMap<>();
     @Nullable
     private ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> expectedMetricsMap;
     @Nonnull
@@ -132,9 +140,9 @@ public final class YamlExecutionContext {
         this.additionalOptions = additionalOptions;
         if (isNightly()) {
             logger.info("ℹ️ Running in the NIGHTLY context.");
-            if (shouldCorrectExplains() || shouldCorrectMetrics()) {
-                logger.error("‼️ Explain and/or planner metrics cannot be modified during nightly runs.");
-                Assertions.fail("‼️ Explain or planner metrics cannot be modified during nightly runs. " +
+            if (shouldCorrectExplains() || shouldCorrectMetrics() || shouldCorrectResultMetadata()) {
+                logger.error("‼️ Explain, planner metrics, and/or result metadata cannot be modified during nightly runs.");
+                Assertions.fail("‼️ Explain, planner metrics, or result metadata cannot be modified during nightly runs. " +
                         "Make sure maintenance annotations have not been checked in.");
             }
             logger.info("ℹ️ Number of threads to be used for parallel execution " + getNumThreads());
@@ -146,7 +154,7 @@ public final class YamlExecutionContext {
         if (registeredResources.contains(resource)) {
             throw new RuntimeException("The resource " + resource + " is already registered.");
         }
-        if (shouldCorrectExplains()) {
+        if (shouldCorrectExplains() || shouldCorrectResultMetadata()) {
             this.editedFileStream.put(resource, loadYamlResource(resource));
         }
         if (this.expectedMetricsMap == null) {
@@ -177,6 +185,103 @@ public final class YamlExecutionContext {
 
     public boolean shouldShowPlanOnDiff() {
         return additionalOptions.getOrDefault(OPTION_SHOW_PLAN_ON_DIFF, false);
+    }
+
+    public boolean shouldCorrectResultMetadata() {
+        return additionalOptions.getOrDefault(OPTION_CORRECT_RESULT_METADATA, false);
+    }
+
+    public boolean correctResultMetadata(@Nonnull final YamlReference reference,
+                                         @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
+        if (!shouldCorrectResultMetadata()) {
+            return false;
+        }
+        if (editedFileStream.get(reference.getResource()) == null) {
+            return false;
+        }
+        // Buffer the correction; it will be applied in descending line-number order in replaceFilesIfRequired()
+        // to avoid stale-offset corruption when multiple corrections target the same file.
+        synchronized (this) {
+            pendingMetadataCorrections
+                    .computeIfAbsent(reference.getResource(), k -> new ArrayList<>())
+                    .add(new PendingMetadataCorrection(reference, new ArrayList<>(actualColumns)));
+            isDirty.put(reference.getResource(), true);
+        }
+        return true;
+    }
+
+    private void applyPendingMetadataCorrections(@Nonnull final YamlReference.YamlResource resource) {
+        final List<PendingMetadataCorrection> corrections = pendingMetadataCorrections.get(resource);
+        if (corrections == null || corrections.isEmpty()) {
+            return;
+        }
+        final List<String> lines = editedFileStream.get(resource);
+        if (lines == null) {
+            return;
+        }
+        // Sort descending by line number so each edit only shifts lines that have already been processed.
+        corrections.sort(Comparator.comparingInt(c -> -c.reference.getLineNumber()));
+        for (final PendingMetadataCorrection correction : corrections) {
+            final int startIdx = correction.reference.getLineNumber() - 1; // 1-based → 0-based
+            if (startIdx < 0 || startIdx >= lines.size()) {
+                continue;
+            }
+            final String startLine = lines.get(startIdx);
+
+            // Determine the indentation of the "- resultMetadata:" entry
+            int indent = 0;
+            while (indent < startLine.length() && startLine.charAt(indent) == ' ') {
+                indent++;
+            }
+
+            // Build replacement lines
+            final List<String> newLines = new ArrayList<>();
+            final String itemPrefix = " ".repeat(indent);
+            final String childPrefix = " ".repeat(indent + 4);
+            newLines.add(itemPrefix + "- resultMetadata:");
+            for (final CheckResultMetadataConfig.ColumnDescriptor col : correction.actualColumns) {
+                newLines.add(childPrefix + "- {name: " + col.name + ", type: " + col.typeName + "}");
+            }
+
+            // Find the end of the existing resultMetadata block
+            int endIdx = startIdx + 1;
+            while (endIdx < lines.size()) {
+                final String line = lines.get(endIdx);
+                if (line.isBlank()) {
+                    endIdx++;
+                    continue;
+                }
+                int lineIndent = 0;
+                while (lineIndent < line.length() && line.charAt(lineIndent) == ' ') {
+                    lineIndent++;
+                }
+                if (lineIndent > indent) {
+                    endIdx++;
+                } else {
+                    break;
+                }
+            }
+
+            lines.subList(startIdx, endIdx).clear();
+            lines.addAll(startIdx, newLines);
+        }
+    }
+
+    /**
+     * A buffered result-metadata correction: the parse-time reference (line number) plus the actual
+     * column descriptors to write.
+     */
+    private static final class PendingMetadataCorrection {
+        @Nonnull
+        final YamlReference reference;
+        @Nonnull
+        final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns;
+
+        PendingMetadataCorrection(@Nonnull final YamlReference reference,
+                                  @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
+            this.reference = reference;
+            this.actualColumns = actualColumns;
+        }
     }
 
     public boolean correctExplain(@Nonnull final YamlReference reference, @Nonnull String actual) {
@@ -257,6 +362,8 @@ public final class YamlExecutionContext {
             if (filePathsWithResourceCount.getOrDefault(resource.getPath(), 0L) > 1) {
                 Assertions.fail("Found duplicate entries for writing to file: " + resource.getPath());
             }
+            // Apply buffered result-metadata corrections in descending line-number order before saving.
+            applyPendingMetadataCorrections(resource);
             saveYamlFile(resource);
         }
         if (!isDirtyMetrics) {
