@@ -115,7 +115,7 @@ test_block:
     -
       # Test table function with multiple scalar UDFs
       - query: select * from table_func3(20, 40)
-      - explain: "SCAN(<,>) | TFILTER SIMPLE_TABLE | FILTER _.A GREATER_THAN_OR_EQUALS promote(@c5 AS LONG) AND _.A LESS_THAN_OR_EQUALS promote(@c7 AS LONG) | MAP (_.A AS A_VAL, _.A AS A_COPY)"
+      - explain: "SCAN([IS SIMPLE_TABLE, [GREATER_THAN_OR_EQUALS promote(@c5 AS LONG) && LESS_THAN_OR_EQUALS promote(@c7 AS LONG)]]) | MAP (_.A AS A_VAL, _.A AS A_COPY)"
       - unorderedResult: [{a_val: 20, a_copy: 20}, {a_val: 30, a_copy: 30}, {a_val: 40, a_copy: 40}]
     -
       # Test joining table function results with scalar UDF processing
@@ -130,7 +130,7 @@ test_block:
     -
       # Test nested scalar UDF calls within table function results
       - query: select self(self(a_val)) as A, self(a_copy) as B from table_func3(10, 30)
-      - explain: "SCAN(<,>) | TFILTER SIMPLE_TABLE | FILTER _.A GREATER_THAN_OR_EQUALS promote(@c20 AS LONG) AND _.A LESS_THAN_OR_EQUALS promote(@c22 AS LONG) | MAP (_.A AS A, _.A AS B)"
+      - explain: "SCAN([IS SIMPLE_TABLE, [GREATER_THAN_OR_EQUALS promote(@c20 AS LONG) && LESS_THAN_OR_EQUALS promote(@c22 AS LONG)]]) | MAP (_.A AS A, _.A AS B)"
       - unorderedResult: [{A: 10, B: 10}, {A: 20, B: 20}, {A: 30, B: 30}]
     -
       # Test table function with scalar UDF in WHERE clause filtering the result

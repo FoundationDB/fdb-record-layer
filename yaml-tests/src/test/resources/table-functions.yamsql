@@ -121,7 +121,7 @@ test_block:
                  {A: 2, B: 3}]
     -
       - query: select a.id as x, a.col1 as y, b.id as z from t1 as a, range(a.id) as b
-      - explain: "SCAN(<,>) | FLATMAP q0 -> { TF range(0l, q0.ID, STEP 1l) AS q1 RETURN (q0.ID AS X, q0.COL1 AS Y, q1.ID AS Z) }"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { TF range(0l, q0.ID, STEP 1l) AS q1 RETURN (q0.ID AS X, q0.COL1 AS Y, q1.ID AS Z) }"
       - result: [{X: 1, Y: 'a', Z: 0},
                  {X: 2, Y: 'b', Z: 0},
                  {X: 2, Y: 'b', Z: 1},
