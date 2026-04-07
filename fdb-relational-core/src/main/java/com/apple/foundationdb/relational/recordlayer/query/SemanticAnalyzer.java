@@ -399,7 +399,12 @@ public class SemanticAnalyzer {
         if (matchQualifiedOnly && !referenceIdentifier.isQualified()) {
             return ImmutableList.of();
         }
-        final ImmutableList.Builder<Expression> matchedAttributes = ImmutableList.builder();
+        // Separate direct matches from nested-field results derived from an EphemeralExpression.
+        // When the same field is reachable both ways (e.g. NEST.F exists directly in the output
+        // because of addAll, AND lookupNestedField on EphemeralExpression(NEST) also resolves to
+        // NEST.F), the direct match takes priority and the ephemeral-derived duplicate is dropped.
+        final ImmutableList.Builder<Expression> directMatchesBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<Expression> ephemeralDerivedBuilder = ImmutableList.builder();
         for (final var operator : operators) {
             if (operator.getQuantifier() instanceof Quantifier.Existential) {
                 continue;
@@ -411,29 +416,52 @@ public class SemanticAnalyzer {
                 }
                 final var attributeIdentifier = attribute.getName().get();
                 if (attributeIdentifier.equals(referenceIdentifier)) {
-                    matchedAttributes.add(attribute);
+                    directMatchesBuilder.add(attribute);
                     continue;
                 }
                 if (!referenceIdentifier.isQualified() && !attribute.isVisible()) {
                     continue;
                 }
                 if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
-                    matchedAttributes.add(attribute);
+                    directMatchesBuilder.add(attribute);
                     continue;
                 }
                 if (matchQualifiedOnly && operatorNameMaybe.isPresent()) {
                     if (attributeIdentifier.withQualifier(operatorNameMaybe.get().getName()).equals(referenceIdentifier)) {
-                        matchedAttributes.add(attribute);
+                        directMatchesBuilder.add(attribute);
                         continue;
                     }
                 }
                 final var nestedFieldMaybe = lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
                 if (nestedFieldMaybe.isPresent()) {
-                    matchedAttributes.add(nestedFieldMaybe.get());
+                    if (attribute instanceof EphemeralExpression) {
+                        ephemeralDerivedBuilder.add(nestedFieldMaybe.get());
+                    } else {
+                        directMatchesBuilder.add(nestedFieldMaybe.get());
+                    }
                 }
             }
         }
-        return matchedAttributes.build();
+        final var directMatches = directMatchesBuilder.build();
+        final var ephemeralDerived = ephemeralDerivedBuilder.build();
+        if (ephemeralDerived.isEmpty()) {
+            return directMatches;
+        }
+        if (directMatches.isEmpty()) {
+            return ephemeralDerived;
+        }
+        // At least one direct match and at least one ephemeral-derived match: suppress any
+        // ephemeral-derived result whose identifier is already covered by a direct match.
+        final var directNames = directMatches.stream()
+                .flatMap(e -> e.getName().stream())
+                .collect(ImmutableSet.toImmutableSet());
+        final var uniqueEphemeralDerived = ephemeralDerived.stream()
+                .filter(e -> e.getName().isEmpty() || !directNames.contains(e.getName().get()))
+                .collect(ImmutableList.toImmutableList());
+        return ImmutableList.<Expression>builder()
+                .addAll(directMatches)
+                .addAll(uniqueEphemeralDerived)
+                .build();
     }
 
     @Nonnull
@@ -836,8 +864,15 @@ public class SemanticAnalyzer {
     }
 
     public static void validateDatabaseUri(@Nonnull Identifier path) {
-        Assert.thatUnchecked(Objects.requireNonNull(path.getName()).matches("/\\w[a-zA-Z0-9_/]*\\w"),
-                ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", path));
+        validateDatabaseUri(path.getName());
+    }
+
+    public static void validateDatabaseUri(String pathName) {
+        // TODO this should probably follow the same rules as other quoted identifiers:
+        //      https://github.com/FoundationDB/fdb-record-layer/issues/4004
+        // It can end with `/` if the schema is the default (null) schema
+        Assert.thatUnchecked(Objects.requireNonNull(pathName).matches("/\\w[-a-zA-Z0-9_/]*\\w"),
+                ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", pathName));
     }
 
     public static void validateCteColumnAliases(@Nonnull LogicalOperator logicalOperator, @Nonnull List<Identifier> columnAliases) {
@@ -848,10 +883,14 @@ public class SemanticAnalyzer {
 
     @Nonnull
     public static NonnullPair<Optional<URI>, String> parseSchemaIdentifier(@Nonnull final Identifier schemaIdentifier) {
-        final var id = schemaIdentifier.getName();
+        return parseSchemaURI(schemaIdentifier.getName());
+    }
+
+    @Nonnull
+    public static NonnullPair<Optional<URI>, String> parseSchemaURI(@Nonnull final String id) {
         Assert.notNullUnchecked(id);
         if (id.startsWith("/")) {
-            validateDatabaseUri(schemaIdentifier);
+            validateDatabaseUri(id);
             int separatorIdx = id.lastIndexOf("/");
             Assert.thatUnchecked(separatorIdx < id.length() - 1);
             return NonnullPair.of(Optional.of(URI.create(id.substring(0, separatorIdx))), id.substring(separatorIdx + 1));

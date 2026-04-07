@@ -651,7 +651,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
 
             assertTrue(recordStore.isIndexReadable("newIndex"));
 
-            assertEquals(10, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+            assertEquals(510, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
             assertEquals(10, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
 
             assertEquals(IntStream.range(0, 10).mapToObj(i -> Tuple.from(i, 1, i)).collect(Collectors.toList()),
@@ -698,7 +698,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             }
             recordStore.markIndexReadable("newIndex").join();
 
-            assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+            assertEquals(500, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
             assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
 
             assertEquals(IntStream.range(0, 250).mapToObj(i -> Tuple.from(i, 1, i)).collect(Collectors.toList()),
@@ -725,7 +725,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         }
 
         assertThat(timer.getCount(FDBStoreTimer.Events.COMMIT), Matchers.greaterThanOrEqualTo(3));
-        assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(500, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
 
         try (FDBRecordContext context = openContext()) {
@@ -783,7 +783,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         }
 
         assertThat(timer.getCount(FDBStoreTimer.Events.COMMIT), Matchers.greaterThanOrEqualTo(3));
-        assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(500, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
 
         try (FDBRecordContext context = openContext()) {

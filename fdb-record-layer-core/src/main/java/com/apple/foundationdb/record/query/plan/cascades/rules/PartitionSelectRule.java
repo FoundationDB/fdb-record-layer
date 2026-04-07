@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
@@ -77,6 +78,7 @@ public class PartitionSelectRule extends ExplorationCascadesRule<SelectExpressio
         if (selectExpression.getQuantifiers().size() < 3) {
             return;
         }
+        final RecordQueryPlannerConfiguration plannerConfiguration = call.getContext().getPlannerConfiguration();
 
         //
         // Form lowerAliases and upperAliases. We get lowerAliases from the matcher; upperAliases is what lowerAliases
@@ -86,7 +88,18 @@ public class PartitionSelectRule extends ExplorationCascadesRule<SelectExpressio
                 .stream()
                 .map(Quantifier::getAlias)
                 .collect(ImmutableSet.toImmutableSet());
-        if (lowerAliases.isEmpty()) {
+        if (lowerAliases.isEmpty()
+                || (plannerConfiguration.shouldJoinRightDeep() && lowerAliases.size() != selectExpression.getQuantifiers().size() - 1)) {
+            // Not a useful case.
+            //
+            // If there are no elements in the lower aliases, then running this rule would not actually modify
+            // the graph, so skip it.
+            //
+            // If we want to only consider right deep plans, then we require that there is only 1 element in the upper.
+            // This will naturally result in right deep plans, with the upper quantifier planned as the outer. If the
+            // sole upper quantifier is completely uncorrelated to the other quantifiers, it is possible the new
+            // lower quantifier gets planned as the outer of the join. That's generally fine for what we
+            // need of this, which is just less join enumeration.
             return;
         }
 
@@ -106,7 +119,6 @@ public class PartitionSelectRule extends ExplorationCascadesRule<SelectExpressio
 
         final var independentQuantifiersPartitioning = selectExpression.getIndependentQuantifiersPartitioning();
         if (independentQuantifiersPartitioning.size() > 1) {
-            final var plannerConfiguration = call.getContext().getPlannerConfiguration();
             if (plannerConfiguration.shouldDeferCrossProducts()) {
                 //
                 // If we are here it means that this select expression has at least one partitioning that falls along

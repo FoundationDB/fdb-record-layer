@@ -21,11 +21,13 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
@@ -33,45 +35,52 @@ import java.sql.SQLException;
 public final class ConnectionUtils {
     public static final String SYS_DATABASE = "/__SYS";
     public static final String CATALOG_SCHEMA = "CATALOG";
+    @Nonnull
+    private final SqlFunction<String, RelationalConnection> getConnection;
 
-    private ConnectionUtils() {
+    public ConnectionUtils() {
+        getConnection = databaseName -> DriverManager.getConnection("jdbc:embed:" + databaseName).unwrap(RelationalConnection.class);
     }
 
-    public static void runAgainstCatalog(@Nonnull final SQLConsumer<RelationalConnection> action) throws SQLException, RelationalException {
+    public ConnectionUtils(@Nonnull RelationalDriver driver) {
+        getConnection = databaseName -> driver.connect(URI.create("jdbc:embed:" + databaseName)).unwrap(RelationalConnection.class);
+    }
+
+    public void runAgainstCatalog(@Nonnull final SQLConsumer<RelationalConnection> action) throws SQLException, RelationalException {
         runAgainstConnection(SYS_DATABASE, CATALOG_SCHEMA, action);
     }
 
     @Nullable
-    public static <R> R getFromCatalog(@Nonnull final SQLFunction<RelationalConnection, R> action) throws SQLException, RelationalException {
+    public <R> R getFromCatalog(@Nonnull final SQLFunction<RelationalConnection, R> action) throws SQLException, RelationalException {
         return getFromConnection(SYS_DATABASE, CATALOG_SCHEMA, action);
     }
 
     @Nullable
-    public static <R> R getFromConnection(@Nonnull final String databaseName,
-                                          @Nonnull final String schemaName,
-                                          @Nonnull final SQLFunction<RelationalConnection, R> action) throws SQLException, RelationalException {
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:" + databaseName).unwrap(RelationalConnection.class)) {
+    public <R> R getFromConnection(@Nonnull final String databaseName,
+                                   @Nonnull final String schemaName,
+                                   @Nonnull final SQLFunction<RelationalConnection, R> action) throws SQLException, RelationalException {
+        try (RelationalConnection conn = getConnection.apply(databaseName).unwrap(RelationalConnection.class)) {
             conn.setSchema(schemaName);
             return action.apply(conn);
         }
     }
 
-    public static void runAgainstConnection(@Nonnull final String databaseName,
-                                            @Nonnull final String schemaName,
-                                            @Nonnull final SQLConsumer<RelationalConnection> action) throws SQLException, RelationalException {
+    public void runAgainstConnection(@Nonnull final String databaseName,
+                                     @Nonnull final String schemaName,
+                                     @Nonnull final SQLConsumer<RelationalConnection> action) throws SQLException, RelationalException {
         getFromConnection(databaseName, schemaName, conn -> {
             action.accept(conn);
             return null;
         });
     }
 
-    public static void runCatalogStatement(@Nonnull final SQLConsumer<RelationalStatement> action) throws SQLException, RelationalException {
+    public void runCatalogStatement(@Nonnull final SQLConsumer<RelationalStatement> action) throws SQLException, RelationalException {
         runStatement(SYS_DATABASE, CATALOG_SCHEMA, action);
     }
 
-    public static void runStatement(@Nonnull final String databaseName,
-                                    @Nonnull final String schemaName,
-                                    @Nonnull final SQLConsumer<RelationalStatement> action) throws SQLException, RelationalException {
+    public void runStatement(@Nonnull final String databaseName,
+                             @Nonnull final String schemaName,
+                             @Nonnull final SQLConsumer<RelationalStatement> action) throws SQLException, RelationalException {
         runAgainstConnection(databaseName, schemaName, conn -> {
             try (RelationalStatement stmt = conn.createStatement()) {
                 action.accept(stmt);
@@ -79,9 +88,9 @@ public final class ConnectionUtils {
         });
     }
 
-    public static void runStatementUpdate(@Nonnull final String databaseName,
-                                          @Nonnull String schemaName,
-                                          @Nonnull String statement) throws SQLException, RelationalException {
+    public void runStatementUpdate(@Nonnull final String databaseName,
+                                   @Nonnull String schemaName,
+                                   @Nonnull String statement) throws SQLException, RelationalException {
         runStatement(databaseName, schemaName, stmt -> stmt.execute(statement));
     }
 
