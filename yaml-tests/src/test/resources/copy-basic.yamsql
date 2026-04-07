@@ -57,15 +57,6 @@ setup:
     - query: insert into T1 values (2, 'bravo')
     - query: insert into T1 values (3, 'charlie')
 ---
-# Create database on cluster 1 (dest) with the same template
-# TODO don't create the database before moving
-setup:
-  connect: { cluster: 1, uri: "jdbc:embed:/__SYS?schema=CATALOG" }
-  steps:
-    - query: create schema template COPY_TEMPLATE create table T1(ID bigint, NAME string, primary key(ID))
-    - query: create database /FRL/COPY_DEST_DB
-    - query: create schema /FRL/COPY_DEST_DB/S1 with template COPY_TEMPLATE
----
 # Copy data from cluster 0 to cluster 1
 copy_block:
   source: { cluster: 0, path: "/FRL/COPY_SRC_DB" }
@@ -78,7 +69,16 @@ test_block:
   tests:
     -
       - query: select * from T1
-      - result: [{ID: 1, NAME: 'alpha'}, {ID: 2, NAME: 'bravo'}, {ID: 3, NAME: 'charlie'}]
+      - result: [{ID: 1, NAME: 'alpha'},
+                 {ID: 2, NAME: 'bravo'},
+                 {ID: 3, NAME: 'charlie'}]
+---
+# Cleanup cluster 1
+setup:
+  connect: { cluster: 1, uri: "jdbc:embed:/__SYS?schema=CATALOG" }
+  steps:
+    - query: drop database if exists /FRL/COPY_DEST_DB
+    - query: drop schema template if exists COPY_TEMPLATE
 ---
 # Test chunked export with continuations and chunked import
 copy_block:
@@ -86,7 +86,17 @@ copy_block:
   dest: { cluster: 1, path: "/FRL/COPY_DEST_DB" }
   export_limit: 2
   import_chunk_size: 1
-# TODO assert about second copy
+---
+# Verify the data arrived on cluster 1
+test_block:
+  connect: { cluster: 1, uri: "jdbc:embed:/FRL/COPY_DEST_DB?schema=S1" }
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select * from T1
+      - result: [{ID: 1, NAME: 'alpha'},
+                 {ID: 2, NAME: 'bravo'},
+                 {ID: 3, NAME: 'charlie'}]
 ---
 # Cleanup cluster 0
 setup:
