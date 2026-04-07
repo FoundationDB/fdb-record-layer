@@ -712,6 +712,55 @@ public class AstNormalizerTests {
     }
 
     @Test
+    void parseDqlStatementWithoutPlanRightDeepSetsItToFalse() throws Exception {
+        validate(List.of("select * from t1 where col1 > 42"),
+                PreparedParams.empty(),
+                "select * from \"T1\" where \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.PLAN_RIGHT_DEEP, false));
+    }
+
+    @Test
+    void parseDqlStatementWithPlanRightDeepSetsItToTrue() throws Exception {
+        validate(List.of("select * from t1 where col1 > 42 options (plan right deep)",
+                         "  select * from t1   where   col1 > 42 options (  plan   right  deep     )"),
+                PreparedParams.empty(),
+                "select * from \"T1\" where \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.PLAN_RIGHT_DEEP, true));
+    }
+
+    @Test
+    void parseUpdateStatementWithoutPlanRightDeepSetsItToFalse() throws Exception {
+        validate(List.of("update A set A2 = 52 where A1 > 2"),
+                PreparedParams.empty(),
+                "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
+                List.of(Map.of(constantId(5), 52, constantId(9), 2)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UPDATE_STATEMENT),
+                Map.of(Options.Name.PLAN_RIGHT_DEEP, false));
+    }
+
+    @Test
+    void parseUpdateStatementWithPlanRightDeepSetsItToTrue() throws Exception {
+        validate(List.of("update A set A2 = 52 where A1 > 2 OPTIONS(PLAN RIGHT DEEP)"),
+                PreparedParams.empty(),
+                "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
+                List.of(Map.of(constantId(5), 52, constantId(9), 2)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UPDATE_STATEMENT),
+                Map.of(Options.Name.PLAN_RIGHT_DEEP, true));
+    }
+
+    @Test
     void parseUpdateStatementSetsQueryFlagCorrectly() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2"),
                 PreparedParams.empty(),
