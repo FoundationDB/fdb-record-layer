@@ -17,7 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Verifies that the copied data arrived correctly on cluster 1.
+# Verifies that all copied data arrived correctly on cluster 1.
 ---
 test_block:
   connect: { cluster: 1, uri: "jdbc:embed:/FRL/COPY_DEST_DB?schema=S1" }
@@ -28,3 +28,21 @@ test_block:
       - result: [{ID: 1, NAME: 'alpha'},
                  {ID: 2, NAME: 'bravo'},
                  {ID: 3, NAME: 'charlie'}]
+---
+test_block:
+  connect: { cluster: 1, uri: "jdbc:embed:/FRL/COPY_DEST_DB?schema=S2" }
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select * from T1
+      - result: [{ID: 10, NAME: 'delta'},
+                 {ID: 20, NAME: 'echo'}]
+---
+test_block:
+  connect: { cluster: 1, uri: "jdbc:embed:/FRL/COPY_DEST_DB?schema=S3" }
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select * from T2
+      - result: [{ID: 100, VAL: 1000},
+                 {ID: 200, VAL: 2000}]

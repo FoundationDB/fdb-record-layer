@@ -25,3 +25,4 @@ setup:
   steps:
     - query: drop database if exists /FRL/COPY_DEST_DB
     - query: drop schema template if exists COPY_TEMPLATE
+    - query: drop schema template if exists COPY_TEMPLATE2
