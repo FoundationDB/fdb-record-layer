@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -45,17 +46,12 @@ public interface TranslationMap {
     boolean containsSourceAlias(@Nullable CorrelationIdentifier sourceAlias);
 
     @Nonnull
-    default CorrelationIdentifier getTargetOrDefault(@Nonnull final CorrelationIdentifier sourceAlias,
-                                                     @Nonnull final CorrelationIdentifier defaultAlias) {
-        final var targetFromMap = getTarget(sourceAlias);
-        if (targetFromMap != null) {
-            return targetFromMap;
-        }
-        return defaultAlias;
-    }
+    Optional<CorrelationIdentifier> getTargetMaybe(@Nonnull CorrelationIdentifier sourceAlias);
 
-    @Nullable
-    CorrelationIdentifier getTarget(@Nonnull CorrelationIdentifier sourceAlias);
+    @Nonnull
+    default CorrelationIdentifier getTarget(@Nonnull CorrelationIdentifier sourceAlias) {
+        return getTargetMaybe(sourceAlias).orElseThrow(() -> new RecordCoreException("cannot find target for: " + sourceAlias));
+    }
 
     @Nonnull
     Value applyTranslationFunction(@Nonnull CorrelationIdentifier sourceAlias,

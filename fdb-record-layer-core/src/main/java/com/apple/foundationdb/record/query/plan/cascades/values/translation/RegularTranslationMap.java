@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
@@ -58,6 +59,7 @@ public class RegularTranslationMap implements TranslationMap {
 
     @Override
     public boolean definesOnlyIdentities() {
+        // The absence of an AliasMap could be regarded as defining only identities.
         return getAliasMapMaybe().map(AliasMap::definesOnlyIdentities).orElse(true) &&
                 aliasToFunctionMap.isEmpty();
     }
@@ -67,14 +69,14 @@ public class RegularTranslationMap implements TranslationMap {
         return aliasToFunctionMap.containsKey(sourceAlias);
     }
 
-    @Nullable
+    @Nonnull
     @Override
-    public CorrelationIdentifier getTarget(@Nonnull final CorrelationIdentifier sourceAlias) {
+    public Optional<CorrelationIdentifier> getTargetMaybe(@Nonnull final CorrelationIdentifier sourceAlias) {
         AliasMap aliasMap = getAliasMapMaybe().orElse(null);
         if (aliasMap == null) {
-            return null;
+            return Optional.empty();
         }
-        return aliasMap.getTarget(sourceAlias);
+        return Optional.ofNullable(aliasMap.getTarget(sourceAlias));
     }
 
     @Nonnull

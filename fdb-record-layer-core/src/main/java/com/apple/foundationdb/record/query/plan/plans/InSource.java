@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -79,7 +80,7 @@ public abstract class InSource implements PlanHashable, PlanSerializable, Typed 
 
     @Nonnull
     public Set<Type> getDynamicTypes() {
-        return Set.of();
+        return ImmutableSet.of();
     }
 
     public abstract boolean isSorted();
