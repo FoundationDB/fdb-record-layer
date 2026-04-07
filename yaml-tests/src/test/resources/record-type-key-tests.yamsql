@@ -1,0 +1,151 @@
+#
+# record-type-key-tests.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+schema_template:
+    CREATE TABLE t1 (a bigint, b bigint, PRIMARY KEY(a))
+    CREATE TABLE t2 (c bigint, d bigint, primary key(c))
+    CREATE INDEX i1 on t1(b)
+    CREATE INDEX i2 on t2(d)
+    WITH OPTIONS(INTERMINGLE_TABLES=false)
+---
+setup:
+  steps:
+    - query: insert into t1 values (10, 20)
+    - query: insert into t1 values (11, 21)
+    - query: insert into t1 values (12, 22)
+    - query: insert into t2 values (100, 200)
+    - query: insert into t2 values (101, 201)
+    - query: insert into t2 values (102, 202)
+---
+# Basic: record type key pushed into equality scan on primary key
+test_block:
+  name: primary-key-equality
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: SELECT * from t1 where a = 10
+      - explain: "SCAN([IS T1, EQUALS promote(@c8 AS LONG)])"
+      - result: [{10, 20}]
+    -
+      - query: SELECT * from t2 where c = 100
+      - explain: "SCAN([IS T2, EQUALS promote(@c8 AS LONG)])"
+      - result: [{100, 200}]
+---
+# Full table scan: record type key constrains scan to one table
+test_block:
+  name: full-table-scan
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: SELECT * from t1
+      - explain: "ISCAN(I1 <,>)"
+      - result: [{10, 20}, {11, 21}, {12, 22}]
+    -
+      - query: SELECT * from t2
+      - explain: "ISCAN(I2 <,>)"
+      - result: [{100, 200}, {101, 201}, {102, 202}]
+---
+# Range scans on primary key with record type key prefix
+test_block:
+  name: primary-key-range-scan
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: SELECT * from t1 where a > 10
+      - explain: "SCAN([IS T1, [GREATER_THAN promote(@c8 AS LONG)]])"
+      - result: [{11, 21}, {12, 22}]
+    -
+      - query: SELECT * from t1 where a >= 11
+      - explain: "SCAN([IS T1, [GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]])"
+      - result: [{11, 21}, {12, 22}]
+    -
+      - query: SELECT * from t1 where a < 12
+      - explain: "SCAN([IS T1, [LESS_THAN promote(@c8 AS LONG)]])"
+      - result: [{10, 20}, {11, 21}]
+    -
+      - query: SELECT * from t1 where a <= 11
+      - explain: "SCAN([IS T1, [LESS_THAN_OR_EQUALS promote(@c9 AS LONG)]])"
+      - result: [{10, 20}, {11, 21}]
+    -
+      - query: SELECT * from t1 where a >= 10 and a <= 11
+      - explain: "SCAN([IS T1, [GREATER_THAN_OR_EQUALS promote(@c9 AS LONG) && LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]])"
+      - result: [{10, 20}, {11, 21}]
+    -
+      - query: SELECT * from t2 where c > 101
+      - explain: "SCAN([IS T2, [GREATER_THAN promote(@c8 AS LONG)]])"
+      - result: [{102, 202}]
+---
+# Index scans: verify index usage on non-PK columns
+test_block:
+  name: index-scan
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: SELECT * from t1 where b = 21
+      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)])"
+      - result: [{11, 21}]
+    -
+      - query: SELECT * from t2 where d = 201
+      - explain: "ISCAN(I2 [EQUALS promote(@c8 AS LONG)])"
+      - result: [{101, 201}]
+---
+# Table isolation: queries on one table must not return rows from the other
+test_block:
+  name: table-isolation
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: SELECT count(*) from t1
+      - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - result: [{!l 3}]
+    -
+      - query: SELECT count(*) from t2
+      - explain: "ISCAN(I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - result: [{!l 3}]
+---
+# DML: insert and verify record type key scans still work
+test_block:
+  name: dml-operations
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: insert into t1 values (13, 23)
+      - count: 1
+    -
+      - query: SELECT * from t1 where a = 13
+      - explain: "SCAN([IS T1, EQUALS promote(@c8 AS LONG)])"
+      - result: [{13, 23}]
+    -
+      - query: insert into t2 values (103, 203)
+      - count: 1
+    -
+      - query: SELECT * from t2 where c = 103
+      - explain: "SCAN([IS T2, EQUALS promote(@c8 AS LONG)])"
+      - result: [{103, 203}]
+    -
+      - query: delete from t1 where a = 13
+      - count: 1
+    -
+      - query: SELECT * from t1 where a = 13
+      - explain: "SCAN([IS T1, EQUALS promote(@c8 AS LONG)])"
+      - result: []
+    -
+      - query: delete from t2 where c = 103
+      - count: 1
+...

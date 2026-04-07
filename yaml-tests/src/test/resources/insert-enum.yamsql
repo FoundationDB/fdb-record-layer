@@ -37,6 +37,7 @@ test_block:
   tests:
     -
       - query: SELECT * From "TableA"
+      - explain: "SCAN(<,>) | TFILTER TableA"
       - result: [{'OWNING', 42}]
     -
       - query: SELECT * From "TableB"
