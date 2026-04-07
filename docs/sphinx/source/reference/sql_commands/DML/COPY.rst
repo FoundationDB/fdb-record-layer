@@ -36,7 +36,8 @@ Parameters
     This can be used this when copying within the same cluster.
 
 ``INCREMENT INCARNATION``
-    Export data with the incarnation value in the store header incremented by 1.
+    Export data with the incarnation value in the store header incremented by 1, if the incarnation is currently greater
+    than 0.
     Use this when copying to a different cluster, so the destination has a higher incarnation
     than the source to reflect that data has been moved. This ensures that records written with
     :doc:`/reference/Functions/scalar_functions/get_versionstamp_incarnation` can be correctly
