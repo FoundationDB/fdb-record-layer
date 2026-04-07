@@ -137,7 +137,7 @@ public class FDBDirectoryManager implements AutoCloseable {
             // ensure we close all resources, regardless of exceptions
             final CallbackUtils.InvokeResults<Void> results = CallbackUtils.invokeAll(callbacks);
             if (results.getAccumulatedException() != null) {
-                throw new IOException(results.getAccumulatedException());
+                throw LuceneExceptions.toIoException(results.getAccumulatedException(), null);
             }
         } finally {
             createdDirectories.clear();

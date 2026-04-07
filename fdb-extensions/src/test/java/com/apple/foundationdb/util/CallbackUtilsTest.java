@@ -32,7 +32,7 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Tests for the {@link CloseableUtils} class.
+ * Tests for the {@link CallbackUtils} class.
  */
 class CallbackUtilsTest {
 
@@ -232,43 +232,5 @@ class CallbackUtilsTest {
         return () -> {
             throw new RuntimeException(msg);
         };
-    }
-
-    private static class SimpleCloseable implements AutoCloseable {
-        private final boolean fail;
-        private final String message;
-        private boolean closed = false;
-
-        public SimpleCloseable(boolean fail, String message) {
-            this.fail = fail;
-            this.message = message;
-        }
-
-        @Override
-        public void close() {
-            closed = true;
-            if (fail) {
-                throw new RuntimeException(message);
-            }
-        }
-
-        public boolean isClosed() {
-            return closed;
-        }
-    }
-
-    @SuppressWarnings("try")
-    private static class InterruptingCloseable implements AutoCloseable {
-        private boolean closed = false;
-
-        @Override
-        public void close() throws InterruptedException {
-            closed = true;
-            throw new InterruptedException("interrupted");
-        }
-
-        public boolean isClosed() {
-            return closed;
-        }
     }
 }

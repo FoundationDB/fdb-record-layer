@@ -21,15 +21,6 @@
 package com.apple.foundationdb.util;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncUtil;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.function.Supplier;
 
 /**
  * Utility methods to help interact with {@link AutoCloseable} classes.

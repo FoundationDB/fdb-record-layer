@@ -49,7 +49,7 @@ public class CallbackUtils {
      */
     @API(API.Status.INTERNAL)
     @Nonnull
-    public static <T> InvokeResults<T> invokeAll(List<Supplier<T>> callbacks) {
+    public static <T> InvokeResults<T> invokeAll(@Nonnull List<Supplier<T>> callbacks) {
         List<T> results = new ArrayList<>(callbacks.size());
         CallbackException accumulatedException = null;
         for (Supplier<T> callback : callbacks) {
@@ -79,7 +79,7 @@ public class CallbackUtils {
      */
     @API(API.Status.INTERNAL)
     @Nonnull
-    public static <T> CompletableFuture<Void> invokeAllFutures(List<Supplier<CompletableFuture<T>>> callbacks) {
+    public static <T> CompletableFuture<Void> invokeAllFutures(@Nonnull List<Supplier<CompletableFuture<T>>> callbacks) {
         if (callbacks.isEmpty()) {
             return AsyncUtil.DONE;
         }
@@ -102,7 +102,9 @@ public class CallbackUtils {
     }
 
     public static class InvokeResults<T> {
+        @Nonnull
         private final List<T> results;
+        @Nullable
         private final CallbackException accumulatedException;
 
         public InvokeResults(@Nonnull List<T> results, @Nullable CallbackException accumulatedException) {
