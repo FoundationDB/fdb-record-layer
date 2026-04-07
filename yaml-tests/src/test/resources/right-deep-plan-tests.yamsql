@@ -34,7 +34,7 @@ test_block:
                FROM t1, t1.t2_refs AS ref
                JOIN t2 ON ref = t2.id
                WHERE t2.id IN (1000, 2000)
-      - explain: "EXPLODE arrayDistinct(promote(@c30 AS ARRAY(LONG))) | FLATMAP q0 -> { SCAN(<,>) | TFILTER T2 | FILTER _.ID EQUALS q0 | FLATMAP q1 -> { SCAN(<,>) | TFILTER T1 | FLATMAP q2 -> { EXPLODE q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q5 RETURN (q5._0.NAME AS _0, q5._1.NAME AS _1) }"
+      - explain: "[IN arrayDistinct(promote(@c30 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS T2, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { EXPLODE q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q1.NAME AS _1) }"
       - unorderedResult: [
           {'A1', 'B1'},
           {'A1', 'B2'},
@@ -53,7 +53,7 @@ test_block:
                FROM t1, t1.t2_refs AS ref
                JOIN t2 ON ref = t2.id
                WHERE t2.id IN (1000, 2000)
-      - explain: "EXPLODE arrayDistinct(promote(@c30 AS ARRAY(LONG))) | FLATMAP q0 -> { SCAN(<,>) | TFILTER T2 | FILTER _.ID EQUALS q0 | FLATMAP q1 -> { SCAN(<,>) | TFILTER T1 | FLATMAP q2 -> { EXPLODE q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q5 RETURN (q5._0.NAME AS _0, q5._1.NAME AS _1) }"
+      - explain: "[IN arrayDistinct(promote(@c30 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS T2, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { EXPLODE q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q1.NAME AS _1) }"
       - unorderedResult: [
           {'A1', 'B1'},
           {'A1', 'B2'},
@@ -73,7 +73,7 @@ test_block:
                JOIN t2 ON ref = t2.id
                WHERE t2.id IN (1000, 2000)
                OPTIONS (PLAN RIGHT DEEP)
-      - explain: "EXPLODE arrayDistinct(promote(@c30 AS ARRAY(LONG))) | FLATMAP q0 -> { SCAN(<,>) | TFILTER T2 | FILTER _.ID EQUALS q0 | FLATMAP q1 -> { SCAN(<,>) | TFILTER T1 | FLATMAP q2 -> { EXPLODE q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q5 RETURN (q5._0.NAME AS _0, q5._1.NAME AS _1) }"
+      - explain: "[IN arrayDistinct(promote(@c30 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS T2, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { EXPLODE q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q1.NAME AS _1) }"
       - unorderedResult: [
           {'A1', 'B1'},
           {'A1', 'B2'},

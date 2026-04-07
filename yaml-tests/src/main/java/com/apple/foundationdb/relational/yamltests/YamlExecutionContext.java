@@ -317,11 +317,11 @@ public final class YamlExecutionContext {
         this.isDirtyMetrics = true;
     }
 
-    public boolean isInCI() {
+    public static boolean isInCI() {
         return Boolean.parseBoolean(System.getProperty(YamlRunner.TEST_CI, "false"));
     }
 
-    public boolean isNightly() {
+    public static boolean isNightly() {
         return Boolean.parseBoolean(System.getProperty(YamlRunner.TEST_NIGHTLY, "false"));
     }
 

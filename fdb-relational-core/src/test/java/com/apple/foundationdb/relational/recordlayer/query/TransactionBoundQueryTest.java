@@ -283,7 +283,7 @@ public class TransactionBoundQueryTest {
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
                                 .doesNotContain(countIndex)
-                                .contains("SCAN(<,>)");
+                                .contains("SCAN([IS T1])");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }

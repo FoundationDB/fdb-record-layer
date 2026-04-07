@@ -240,7 +240,7 @@ public class StandardQueryTests {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord WHERE rest_no > 10")) {
                     resultSet.next();
                     String plan = resultSet.getString(1);
-                    assertThat(plan).matches("(.*SCAN.*RESTAURANTCOMPLEXRECORD|.*COVERING.* <,>).*REST_NO GREATER_THAN promote\\(@c8 AS LONG\\).*");
+                    assertThat(plan).matches(".*SCAN.*IS.*RESTAURANTCOMPLEXRECORD.*GREATER_THAN promote\\(@c8 AS LONG\\).*");
                 }
             }
         }
