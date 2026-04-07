@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2025-2035 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
             }
 
             // Slurp remaining rows to fully release any server-side cursor resources
-            //noinspection StatementWithEmptyBody
+            // noinspection StatementWithEmptyBody
             while (rs.next()) {
                 // consume
             }
