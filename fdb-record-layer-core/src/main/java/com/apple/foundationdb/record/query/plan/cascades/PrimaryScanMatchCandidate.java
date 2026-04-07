@@ -231,6 +231,11 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
         return new Type.AnyRecord(false);
     }
 
+    @Override
+    public boolean isScopedToSingleType() {
+        return queriedRecordTypes.size() == 1 || hasAndOrderedByRecordTypeKey();
+    }
+
     @Nonnull
     private static ScanComparisons toScanComparisons(@Nonnull List<ComparisonRange> comparisonRanges) {
         ScanComparisons.Builder builder = new ScanComparisons.Builder();

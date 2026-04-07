@@ -116,8 +116,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionOnExpressionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionOnValuesPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
@@ -2519,18 +2517,19 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         } else {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                     RecordQueryPlanMatchers.unionOnValuesPlan(
-                            predicatesFilterPlan(typeFilterPlan(scanPlan().where(scanComparisons(unbounded()))))
-                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "m"))))),
-                            predicatesFilterPlan(typeFilterPlan(scanPlan().where(scanComparisons(unbounded()))))
-                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 3))))),
+                            fetchFromPartialRecordPlan(
+                                    RecordQueryPlanMatchers.unionOnValuesPlan(
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$str_value_indexed")))),
+                                            coveringIndexPlan()
+                                                    .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")))))),
                             predicatesFilterPlan(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")))
-                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 3)))))
-                            );
+                                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 3))))));
 
             assertMatchesExactly(plan, planMatcher);
 
-            assertEquals(53048319, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(859354569, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(2082208238, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1572133935, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
     }
 
