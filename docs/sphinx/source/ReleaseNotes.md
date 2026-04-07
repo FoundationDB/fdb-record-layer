@@ -7,6 +7,36 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.10.16.0
+
+<h4> New Features </h4>
+
+* Ensure all callbacks (or close()) calls are made in the occurrence of exceptions  - [PR #4025](https://github.com/FoundationDB/fdb-record-layer/pull/4025)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Fail tests in CI if MaintainYamlTestConfig annotation exists - [PR #4049](https://github.com/FoundationDB/fdb-record-layer/pull/4049)
+
+</details>
+
+
+**[Full Changelog (4.10.15.0...4.10.16.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.15.0...4.10.16.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.3.0`, ✅`4.10.4.0`, ✅`4.10.5.0`, ✅`4.10.6.0`, ✅`4.10.7.0`, ✅`4.10.8.0`, ✅`4.10.9.0`, ✅`4.10.10.0`, ✅`4.10.12.0`, ✅`4.10.13.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24100346761)
+
+
+
 ### 4.10.15.0
 
 <h4> New Features </h4>
