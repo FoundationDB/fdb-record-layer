@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedSortOrder;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
 import com.google.common.base.Verify;
@@ -155,8 +154,11 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
         // and add it to the binding map.
         //
         final var implicitEqualityBoundOrderingParts = computeEqualityBoundImplicitOrderingParts();
-        implicitEqualityBoundOrderingParts.forEach(orderingPart -> bindingMapBuilder.put(orderingPart.getValue(),
-                Binding.fixed(orderingPart.getComparisonRange().getEqualityComparison())));
+        implicitEqualityBoundOrderingParts.forEach(orderingPart -> {
+            bindingMapBuilder.put(orderingPart.getValue(),
+                    Binding.fixed(orderingPart.getComparisonRange().getEqualityComparison()));
+            seenValues.add(orderingPart.getValue());
+        });
 
         final var orderingSequenceBuilder = ImmutableList.<Value>builder();
         for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
@@ -182,7 +184,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
                             OrderingValueComputationRuleSet.usingProvidedOrderingParts());
 
             final var providedOrderingValue = providedOrderingPart.getValue();
-            if (!seenValues.contains(providedOrderingValue) && (!(providedOrderingValue instanceof RecordTypeValue))) {
+            if (!seenValues.contains(providedOrderingValue)) {
                 seenValues.add(providedOrderingValue);
                 bindingMapBuilder.put(providedOrderingValue,
                         Binding.sorted(providedOrderingPart.getSortOrder()

@@ -434,10 +434,10 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
      * @return a new {@link LogicalTypeFilterExpression} suitable for match candidate expansion
      */
     @Nonnull
-    public static LogicalTypeFilterExpression newInstanceForMatchCandidate(@Nonnull final Set<String> recordTypes,
-                                                                           @Nonnull final Quantifier innerQuantifier,
-                                                                           @Nonnull final Type resultType,
-                                                                           @Nullable final CorrelationIdentifier recordTypeKeyParameterAlias) {
+    public static LogicalTypeFilterExpression forMatchCandidate(@Nonnull final Set<String> recordTypes,
+                                                                @Nonnull final Quantifier innerQuantifier,
+                                                                @Nonnull final Type resultType,
+                                                                @Nullable final CorrelationIdentifier recordTypeKeyParameterAlias) {
         final var value = new RecordTypeValue(QuantifiedObjectValue.of(innerQuantifier));
         final var rangeConstraints = recordTypeNamesToRangeConstraints(recordTypes);
 

@@ -105,7 +105,7 @@ public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends 
                                 new FullUnorderedScanExpression(availableRecordTypeNames,
                                         new Type.AnyRecord(false),
                                         new AccessHints(accessHint))));
-        return Reference.initialOf(LogicalTypeFilterExpression.newInstanceForMatchCandidate(queriedRecordTypeNames,
+        return Reference.initialOf(LogicalTypeFilterExpression.forMatchCandidate(queriedRecordTypeNames,
                 quantifier, baseType, recordTypeKeyAlias));
     }
 }
