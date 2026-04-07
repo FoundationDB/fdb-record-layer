@@ -354,7 +354,7 @@ test_block:
     # functions
     -
       - query: select * from "__$func3"(10, 1, 1);
-      - explain: "SCAN(<,>) | TFILTER my__1adjacency__1list | FILTER _.me LESS_THAN promote(@c6 AS LONG) AND _.my__parent EQUALS promote(@c8 AS LONG) | FLATMAP q0 -> { SCAN(<,>) | TFILTER my__1adjacency__1list | FILTER _.me EQUALS promote(@c8 AS LONG) AS q1 RETURN (q0.me AS _0, q0.my__parent AS _1, q1.me AS _2, q1.my__parent AS _3) }"
+      - explain: "SCAN([IS my__1adjacency__1list, EQUALS promote(@c7 AS LONG)]) | FLATMAP q0 -> { SCAN([IS my__1adjacency__1list, [LESS_THAN promote(@c5 AS LONG)]]) | FILTER _.my__parent EQUALS promote(@c7 AS LONG) AS q1 RETURN (q1.me AS _0, q1.my__parent AS _1, q0.me AS _2, q0.my__parent AS _3) }"
       - result: [{"_0": 2, "_1": 1, "_2": 1, "_3": -1}, {"_0": 3, "_1": 1, "_2": 1, "_3": -1}, {"_0": 4, "_1": 1, "_2": 1, "_3": -1}]
     -
       - query: select * from "$yay"(5);
