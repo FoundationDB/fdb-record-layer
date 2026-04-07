@@ -34,7 +34,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -78,17 +77,15 @@ public class CopyBlock extends ReferencedBlock implements Block {
     private final int destCluster;
     @Nonnull
     private final String destPath;
-    @Nullable
-    private final Integer exportLimit;
-    @Nullable
-    private final Integer importChunkSize;
+    private final int exportLimit;
+    private final int importChunkSize;
     @Nonnull
     private final YamlExecutionContext executionContext;
 
     private CopyBlock(@Nonnull YamlReference reference,
                       int sourceCluster, @Nonnull String sourcePath,
                       int destCluster, @Nonnull String destPath,
-                      @Nullable Integer exportLimit, @Nullable Integer importChunkSize,
+                      int exportLimit, int importChunkSize,
                       @Nonnull YamlExecutionContext executionContext) {
         super(reference);
         this.sourceCluster = sourceCluster;
@@ -112,22 +109,16 @@ public class CopyBlock extends ReferencedBlock implements Block {
                                     @Nonnull YamlExecutionContext executionContext) {
         try {
             final Map<?, ?> blockMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, COPY_BLOCK));
-            final Map<?, ?> sourceMap = CustomYamlConstructor.LinedObject.unlineKeys(
-                    Matchers.map(blockMap.get("source"), "copy_block source"));
-            final int sourceCluster = sourceMap.containsKey("cluster")
-                    ? ((Number) sourceMap.get("cluster")).intValue() : 0;
-            final String sourcePath = Matchers.string(sourceMap.get("path"), "copy_block source path");
+            final Map<?, ?> sourceMap = getMap(blockMap, "source");
+            final int sourceCluster = getIntOrDefault(sourceMap, "cluster", 0);
+            final String sourcePath = getString(sourceMap, "path", "source path");
 
-            final Map<?, ?> destMap = CustomYamlConstructor.LinedObject.unlineKeys(
-                    Matchers.map(blockMap.get("dest"), "copy_block dest"));
-            final int destCluster = destMap.containsKey("cluster")
-                    ? ((Number) destMap.get("cluster")).intValue() : 0;
-            final String destPath = Matchers.string(destMap.get("path"), "copy_block dest path");
+            final Map<?, ?> destMap = getMap(blockMap, "dest");
+            final int destCluster = getIntOrDefault(destMap, "cluster", 0);
+            final String destPath = getString(destMap, "path", "dest path");
 
-            final Integer exportLimit = blockMap.containsKey("export_limit")
-                    ? ((Number) blockMap.get("export_limit")).intValue() : null;
-            final Integer importChunkSize = blockMap.containsKey("import_chunk_size")
-                    ? ((Number) blockMap.get("import_chunk_size")).intValue() : null;
+            final int exportLimit = getIntOrDefault(blockMap, "export_limit", 0);
+            final int importChunkSize = getIntOrDefault(blockMap, "import_chunk_size", 0);
 
             return List.of(new CopyBlock(reference, sourceCluster, sourcePath, destCluster, destPath,
                     exportLimit, importChunkSize, executionContext));
@@ -135,6 +126,20 @@ public class CopyBlock extends ReferencedBlock implements Block {
             throw YamlExecutionContext.wrapContext(e,
                     () -> "Error parsing copy_block at " + reference, COPY_BLOCK, reference);
         }
+    }
+
+    @Nonnull
+    private static String getString(final Map<?, ?> sourceMap, String key, String description) {
+        final String fullDescription = "copy_block " + description;
+        return Matchers.notNull(Matchers.string(sourceMap.get(key), fullDescription), fullDescription);
+    }
+
+    private static int getIntOrDefault(final Map<?, ?> sourceMap, String key, int defaultValue) {
+        return sourceMap.containsKey(key) ? ((Number)sourceMap.get(key)).intValue() : defaultValue;
+    }
+
+    private static Map<?, ?> getMap(final Map<?, ?> blockMap, String name) {
+        return CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(blockMap.get(name), "copy_block " + name));
     }
 
     @Override
@@ -158,14 +163,14 @@ public class CopyBlock extends ReferencedBlock implements Block {
         try (YamlConnection conn = executionContext.getConnectionFactory().getNewConnection(CATALOG_URI, sourceCluster)) {
             final List<byte[]> allData = new ArrayList<>();
             try (RelationalStatement stmt = conn.createStatement()) {
-                if (exportLimit != null) {
+                if (exportLimit > 0) {
                     stmt.setMaxRows(exportLimit);
                 }
                 try (RelationalResultSet rs = stmt.executeQuery("COPY " + sourcePath)) {
                     while (rs.next()) {
                         allData.add(rs.getBytes(1));
                     }
-                    if (exportLimit != null) {
+                    if (exportLimit > 0) {
                         Assert.thatUnchecked(allData.size() <= exportLimit,
                                 "Expected at most " + exportLimit + " rows from initial export batch, got " + allData.size());
                         Continuation continuation = rs.getContinuation();
@@ -216,7 +221,7 @@ public class CopyBlock extends ReferencedBlock implements Block {
 
     @Nonnull
     private List<List<byte[]>> partition(@Nonnull List<byte[]> data) {
-        if (importChunkSize == null || importChunkSize >= data.size()) {
+        if (importChunkSize <= 0 || importChunkSize >= data.size()) {
             return List.of(data);
         }
         final List<List<byte[]>> chunks = new ArrayList<>();
