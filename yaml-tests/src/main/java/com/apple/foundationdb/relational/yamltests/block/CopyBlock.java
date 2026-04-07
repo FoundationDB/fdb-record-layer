@@ -82,11 +82,11 @@ public class CopyBlock extends ReferencedBlock implements Block {
     @Nonnull
     private final YamlExecutionContext executionContext;
 
-    private CopyBlock(@Nonnull YamlReference reference,
-                      int sourceCluster, @Nonnull String sourcePath,
-                      int destCluster, @Nonnull String destPath,
-                      int exportLimit, int importChunkSize,
-                      @Nonnull YamlExecutionContext executionContext) {
+    private CopyBlock(@Nonnull final YamlReference reference,
+                      final int sourceCluster, @Nonnull final String sourcePath,
+                      final int destCluster, @Nonnull final String destPath,
+                      final int exportLimit, final int importChunkSize,
+                      @Nonnull final YamlExecutionContext executionContext) {
         super(reference);
         this.sourceCluster = sourceCluster;
         this.sourcePath = sourcePath;
@@ -105,8 +105,9 @@ public class CopyBlock extends ReferencedBlock implements Block {
      * @param executionContext the execution context
      * @return a singleton list containing the parsed {@link CopyBlock}
      */
-    public static List<Block> parse(@Nonnull YamlReference reference, @Nonnull Object document,
-                                    @Nonnull YamlExecutionContext executionContext) {
+    @Nonnull
+    public static List<Block> parse(@Nonnull final YamlReference reference, @Nonnull final Object document,
+                                    @Nonnull final YamlExecutionContext executionContext) {
         try {
             final Map<?, ?> blockMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, COPY_BLOCK));
             final Map<?, ?> sourceMap = getMap(blockMap, "source");
@@ -129,17 +130,20 @@ public class CopyBlock extends ReferencedBlock implements Block {
     }
 
     @Nonnull
-    private static String getString(final Map<?, ?> sourceMap, String key, String description) {
-        final String fullDescription = "copy_block " + description;
+    private static String getString(@Nonnull final Map<?, ?> sourceMap, @Nonnull final String key,
+                                    @Nonnull final String description) {
+        final String fullDescription = COPY_BLOCK + " " + description;
         return Matchers.notNull(Matchers.string(sourceMap.get(key), fullDescription), fullDescription);
     }
 
-    private static int getIntOrDefault(final Map<?, ?> sourceMap, String key, int defaultValue) {
+    private static int getIntOrDefault(@Nonnull final Map<?, ?> sourceMap, @Nonnull final String key,
+                                       final int defaultValue) {
         return sourceMap.containsKey(key) ? ((Number)sourceMap.get(key)).intValue() : defaultValue;
     }
 
-    private static Map<?, ?> getMap(final Map<?, ?> blockMap, String name) {
-        return CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(blockMap.get(name), "copy_block " + name));
+    @Nonnull
+    private static Map<?, ?> getMap(@Nonnull final Map<?, ?> blockMap, @Nonnull final String name) {
+        return CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(blockMap.get(name), COPY_BLOCK + " " + name));
     }
 
     @Override
@@ -159,6 +163,7 @@ public class CopyBlock extends ReferencedBlock implements Block {
         }
     }
 
+    @Nonnull
     private List<byte[]> executeExport() throws SQLException {
         try (YamlConnection conn = executionContext.getConnectionFactory().getNewConnection(CATALOG_URI, sourceCluster)) {
             final List<byte[]> allData = new ArrayList<>();
@@ -167,60 +172,74 @@ public class CopyBlock extends ReferencedBlock implements Block {
                     stmt.setMaxRows(exportLimit);
                 }
                 try (RelationalResultSet rs = stmt.executeQuery("COPY " + sourcePath)) {
-                    while (rs.next()) {
-                        allData.add(rs.getBytes(1));
+                    Continuation continuation = collectExportBatch(rs, allData);
+                    while (exportLimit > 0 && !continuation.atEnd()) {
+                        continuation = executeContinuation(conn, continuation, allData);
                     }
-                    if (exportLimit > 0) {
-                        Assert.thatUnchecked(allData.size() <= exportLimit,
-                                "Expected at most " + exportLimit + " rows from initial export batch, got " + allData.size());
-                        Continuation continuation = rs.getContinuation();
-                        while (!continuation.atEnd()) {
-                            final int sizeBefore = allData.size();
-                            try (RelationalPreparedStatement ps = conn.prepareStatement("EXECUTE CONTINUATION ?")) {
-                                ps.setBytes(1, continuation.serialize());
-                                ps.setMaxRows(exportLimit);
-                                try (RelationalResultSet crs = ps.executeQuery()) {
-                                    while (crs.next()) {
-                                        allData.add(crs.getBytes(1));
-                                    }
-                                    continuation = crs.getContinuation();
-                                }
-                            }
-                            final int batchSize = allData.size() - sizeBefore;
-                            Assert.thatUnchecked(batchSize <= exportLimit,
-                                    "Expected at most " + exportLimit + " rows from continuation batch, got " + batchSize);
-                        }
-                    }
+
+                    Assert.thatUnchecked(continuation.atEnd(), "Should have exhausted continuations");
                 }
             }
             return allData;
         }
     }
 
-    private void executeImport(@Nonnull List<byte[]> data) throws SQLException {
+    @Nonnull
+    private Continuation executeContinuation(@Nonnull final YamlConnection conn, @Nonnull final Continuation continuation,
+                                             @Nonnull final List<byte[]> allData) throws SQLException {
+        try (RelationalPreparedStatement ps = conn.prepareStatement("EXECUTE CONTINUATION ?")) {
+            ps.setBytes(1, continuation.serialize());
+            ps.setMaxRows(exportLimit);
+            try (RelationalResultSet crs = ps.executeQuery()) {
+                return collectExportBatch(crs, allData);
+            }
+        }
+    }
+
+    @Nonnull
+    private Continuation collectExportBatch(@Nonnull RelationalResultSet rs,
+                                            @Nonnull List<byte[]> allData) throws SQLException {
+        final int sizeBefore = allData.size();
+        while (rs.next()) {
+            allData.add(rs.getBytes(1));
+        }
+        if (exportLimit > 0) {
+            final int batchSize = allData.size() - sizeBefore;
+            Assert.thatUnchecked(batchSize <= exportLimit,
+                    "Expected at most " + exportLimit + " rows from export batch, got " + batchSize);
+        }
+        return rs.getContinuation();
+    }
+
+    private void executeImport(@Nonnull final List<byte[]> data) throws SQLException {
         try (YamlConnection conn = executionContext.getConnectionFactory().getNewConnection(CATALOG_URI, destCluster)) {
             final List<List<byte[]>> chunks = partition(data);
             int totalCount = 0;
             for (List<byte[]> chunk : chunks) {
-                try (RelationalPreparedStatement ps = conn.prepareStatement("COPY " + destPath + " FROM ?")) {
-                    java.sql.Array array = ps.getConnection().createArrayOf("BINARY", chunk.toArray(new byte[0][]));
-                    ps.setArray(1, array);
-                    try (RelationalResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) {
-                            final int count = rs.getInt(1);
-                            Assert.thatUnchecked(count == chunk.size(),
-                                    "Expected import count " + chunk.size() + ", got " + count);
-                            totalCount += count;
-                        }
-                    }
-                }
+                totalCount = importChunk(chunk, conn, totalCount);
             }
             logger.debug("📋 Imported {} record(s) to cluster {}", totalCount, destCluster);
         }
     }
 
+    private int importChunk(@Nonnull final List<byte[]> chunk, @Nonnull final YamlConnection conn, int totalCount) throws SQLException {
+        try (RelationalPreparedStatement ps = conn.prepareStatement("COPY " + destPath + " FROM ?")) {
+            java.sql.Array array = ps.getConnection().createArrayOf("BINARY", chunk.toArray(new byte[0][]));
+            ps.setArray(1, array);
+            try (RelationalResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    final int count = rs.getInt(1);
+                    Assert.thatUnchecked(count == chunk.size(),
+                            "Expected import count " + chunk.size() + ", got " + count);
+                    totalCount += count;
+                }
+            }
+        }
+        return totalCount;
+    }
+
     @Nonnull
-    private List<List<byte[]>> partition(@Nonnull List<byte[]> data) {
+    private List<List<byte[]>> partition(@Nonnull final List<byte[]> data) {
         if (importChunkSize <= 0 || importChunkSize >= data.size()) {
             return List.of(data);
         }
