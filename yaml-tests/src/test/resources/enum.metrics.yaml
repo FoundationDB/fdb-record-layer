@@ -52,11 +52,11 @@ enum-tests:
     explain: ISCAN(B$MOOD [EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2),
         INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)])
     task_count: 311
-    task_total_time_ms: 11
+    task_total_time_ms: 20
     transform_count: 75
-    transform_time_ms: 6
+    transform_time_ms: 7
     transform_yield_count: 30
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 31
     insert_reused_count: 4
 -   query: EXPLAIN SELECT * From TABLE_B where "mood" > 'INDIFFERENT'
