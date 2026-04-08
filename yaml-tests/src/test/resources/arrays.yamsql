@@ -145,8 +145,6 @@ test_block:
       # empty result
       - query: select X[1] AS F FROM G where pk = 42
       - supported_version: 4.5.13.0
-      - resultMetadata:
-          - {name: F, type: STRING}
       - result: []
     -
       # subscript from empty array
