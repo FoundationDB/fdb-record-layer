@@ -21,11 +21,12 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsCollector;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
@@ -163,12 +164,11 @@ public class ExplainTests {
     }
 
     @Test
-    void explainContainsEventStatsWithDefaultEventStatsCollectorEnabled() throws Exception {
+    void explainContainsEventStats() throws Exception {
         final var defaultDebugger = Debugger.getDebugger();
         try {
             Debugger.setDebugger(null);
             org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
-            PlannerEventStatsCollector.enableDefaultStatsCollector();
 
             try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
                 executeInsert(ddl);
@@ -188,6 +188,44 @@ public class ExplainTests {
                         assertResult.hasNoNextRow();
                     }
                 }
+            }
+        } finally {
+            Debugger.setDebugger(defaultDebugger);
+        }
+    }
+
+    @Test
+    void explainContainsEventStatsFromCache() throws Exception {
+        final var defaultDebugger = Debugger.getDebugger();
+        try {
+            Debugger.setDebugger(null);
+            org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
+
+            try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+                executeInsert(ddl);
+                try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
+                    ps.executeQuery();
+                }
+                try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
+                    ps.setMaxRows(2);
+                    try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                        final var assertResult = ResultSetAssert.assertThat(resultSet);
+                        assertResult.hasNextRow()
+                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
+                                .hasColumn("PLAN_HASH", -1635569052)
+                                .hasColumn("PLAN_CONTINUATION", null);
+                        final var plannerMetrics = resultSet.getStruct("PLANNER_METRICS");
+                        org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
+                        RelationalStructAssert.assertThat(plannerMetrics)
+                                .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
+                                .hasValue("PLANNING_PHASE_TASK_COUNT", 185L);
+                        assertResult.hasNoNextRow();
+                    }
+                }
+                final var metricCollector = ((EmbeddedRelationalConnection)ddl.getConnection()).getMetricCollector();
+                org.junit.jupiter.api.Assertions.assertNotNull(metricCollector);
+                org.junit.jupiter.api.Assertions.assertTrue(metricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+                org.junit.jupiter.api.Assertions.assertEquals(1L, metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
             }
         } finally {
             Debugger.setDebugger(defaultDebugger);

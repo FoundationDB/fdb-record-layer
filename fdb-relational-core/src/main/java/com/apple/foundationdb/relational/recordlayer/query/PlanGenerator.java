@@ -179,7 +179,7 @@ public final class PlanGenerator {
                             planEquivalence,
                             () -> {
                                 final Plan<?> physicalPlan;
-                                try (final var ignored = new PlannerEventStatsCollector.DefaultStatsCollectorController()) {
+                                try (var ignored = new PlannerEventStatsCollector.DefaultStatsCollectorController()) {
                                     physicalPlan = generatePhysicalPlan(astHashResult, validPlanHashModes, currentPlanHashMode);
                                 } catch (final RelationalException vE) {
                                     throw vE.toUncheckedWrappedException();
