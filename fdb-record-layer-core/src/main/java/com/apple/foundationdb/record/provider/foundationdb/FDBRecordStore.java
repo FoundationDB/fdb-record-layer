@@ -245,9 +245,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // The size of preload cache
     private static final int PRELOAD_CACHE_SIZE = 100;
 
-    @Nonnull
-
-
     protected static final Object STORE_INFO_KEY = FDBRecordStoreKeyspace.STORE_INFO.key();
     protected static final Object RECORD_KEY = FDBRecordStoreKeyspace.RECORD.key();
     protected static final Object INDEX_KEY = FDBRecordStoreKeyspace.INDEX.key();
@@ -2868,10 +2865,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private void beginRecordStoreStateRead() {
-        // When the record store state is being updated multiple times, this function (and its implicit retry loop at
-        // the atomic reference level) will retry the update on the new record store state, so the operation always
-        // does what's expected (i.e., update the "in flight reads" value while leaving the record store state otherwise
-        // in tact).
         recordStoreStateRef.get().beginRead();
     }
 
@@ -4373,28 +4366,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private CompletableFuture<Map<Index, IndexState>> rebuildIndexesGetDesiredIndexStates(
             @Nonnull List<CompletableFuture<Void>> preWork,
             @Nonnull Map<Index, CompletableFuture<IndexState>> newStates) {
-        final Map<Index, IndexState> desiredIndexStates = new HashMap<>();
+        final ConcurrentHashMap<Index, IndexState> desiredIndexStates = new ConcurrentHashMap<>();
         // Combine pre-existing work and newStates resolution into a single list of futures
         final List<CompletableFuture<Void>> allWork = new ArrayList<>(preWork);
         for (Map.Entry<Index, CompletableFuture<IndexState>> entry : newStates.entrySet()) {
             allWork.add(entry.getValue().thenAccept(state -> desiredIndexStates.put(entry.getKey(), state)));
         }
-        if (allWork.isEmpty()) { // this should never happen
-            return CompletableFuture.completedFuture(desiredIndexStates);
-        }
-        // Run all futures with a window of MAX_PARALLEL_INDEX_REBUILD concurrent items
-        final Iterator<CompletableFuture<Void>> iter = allWork.iterator();
-        final List<CompletableFuture<Void>> window = new ArrayList<>();
-        return AsyncUtil.whileTrue(() -> {
-            window.removeIf(CompletableFuture::isDone);
-            while (window.size() < MAX_PARALLEL_INDEX_REBUILD && iter.hasNext()) {
-                window.add(iter.next());
-            }
-            if (window.isEmpty()) {
-                return AsyncUtil.READY_FALSE;
-            }
-            return AsyncUtil.whenAny(window).thenApply(v -> true);
-        }, getExecutor()).thenApply(ignore -> desiredIndexStates);
+        return AsyncUtil.whenAll(allWork).thenApply(ignore -> desiredIndexStates);
     }
 
     @Nonnull
@@ -5537,10 +5515,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Deprecated(forRemoval = true)
         @SuppressWarnings("removal") // this method is deprecated to be removed with parent
         public int getFormatVersion() {
-            return formatVersion.getValueForSerialization();
-        }
-
-        protected int getFormatVersionForTesting() {
             return formatVersion.getValueForSerialization();
         }
 

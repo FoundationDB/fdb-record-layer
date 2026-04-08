@@ -55,13 +55,11 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializationException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
-import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -1333,8 +1331,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     .setMetaDataProvider(metaData2)
                     .setUserVersionChecker(new SelectiveUserVersionChecker(Map.of("new_index", IndexState.READABLE)));
 
-            SlowCountRecordStoreBuilder customBuilder = new SlowCountRecordStoreBuilder(standardBuilder);
-            FDBRecordStore store = customBuilder.open();
+            FDBRecordStore store = openWithSlowRecordCount(standardBuilder);
 
             // If we got here, the fix works: no "record store state is being used for queries"
             assertTrue(store.getRecordStoreState().allIndexesReadable(),
@@ -1389,8 +1386,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     .setMetaDataProvider(metaData2)
                     .setUserVersionChecker(new SelectiveUserVersionChecker(Map.of("immediate_index", IndexState.READABLE)));
 
-            SlowCountRecordStoreBuilder customBuilder = new SlowCountRecordStoreBuilder(standardBuilder);
-            FDBRecordStore store = customBuilder.open();
+            FDBRecordStore store = openWithSlowRecordCount(standardBuilder);
 
             assertTrue(store.getRecordStoreState().allIndexesReadable(),
                     "all indexes should be readable after successful rebuild");
@@ -1447,8 +1443,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                             "readable_index", IndexState.READABLE,
                             "disabled_index", IndexState.DISABLED)));
 
-            SlowCountRecordStoreBuilder customBuilder = new SlowCountRecordStoreBuilder(standardBuilder);
-            FDBRecordStore store = customBuilder.open();
+            FDBRecordStore store = openWithSlowRecordCount(standardBuilder);
 
             assertTrue(store.getRecordStoreState().isReadable("readable_index"),
                     "readable_index should be readable after rebuild");
@@ -1458,6 +1453,38 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     "slow_index should be readable after record-count-dependent rebuild");
             context.commit();
         }
+    }
+
+    /**
+     * Opens an {@link FDBRecordStore} whose {@code getRecordCountForRebuildIndexes} simulates a slow
+     * FDB read by holding a {@code beginRead()} on the record store state for a short delay.
+     */
+    private static FDBRecordStore openWithSlowRecordCount(FDBRecordStore.Builder standardBuilder) {
+        return new FDBRecordStore.Builder(standardBuilder) {
+            @Override
+            @Nonnull
+            public FDBRecordStore build() {
+                return new FDBRecordStore(getContext(), subspaceProvider, getFormatVersionEnum(),
+                        getMetaDataProvider(), getSerializer(),
+                        getIndexMaintainerRegistry(), getIndexMaintenanceFilter(),
+                        getPipelineSizer(), getStoreStateCache(),
+                        getStateCacheabilityOnOpen(), getUserVersionChecker(),
+                        getBypassFullStoreLockReason(), getPlanSerializationRegistry()) {
+                    @Nonnull
+                    @Override
+                    protected CompletableFuture<Long> getRecordCountForRebuildIndexes(
+                            boolean newStore, boolean rebuildRecordCounts,
+                            @Nonnull Map<Index, List<RecordType>> indexes,
+                            @Nullable RecordType singleRecordTypeWithPrefixKey) {
+                        recordStoreStateRef.get().beginRead();
+                        return MoreAsyncUtil.delayedFuture(100, TimeUnit.MILLISECONDS).thenApply(vignore -> {
+                            recordStoreStateRef.get().endRead();
+                            return 0L; // Report empty store to allow inline rebuild
+                        });
+                    }
+                };
+            }
+        }.open();
     }
 
     /**
@@ -1482,8 +1509,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         @Override
         public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion,
                                                            RecordMetaDataProvider metaData) {
-            Assertions.fail(); // if we've hit this, then we've gone down an unexpected path
-            return CompletableFuture.completedFuture(oldUserVersion);
+            return Assertions.fail(); // if we've hit this, then we've gone down an unexpected path
         }
 
         @Nonnull
@@ -1499,71 +1525,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             // Default: consult the record count (ties this future to the slow read)
             return lazyRecordCount.get().thenApply(count ->
                     FDBRecordStore.disabledIfTooManyRecordsForRebuild(count, indexOnNewRecordTypes));
-        }
-    }
-
-    /**
-     * Builder that creates a {@link SlowCountRecordStore} instead of a regular FDBRecordStore.
-     */
-    private static class SlowCountRecordStoreBuilder extends FDBRecordStore.Builder {
-        SlowCountRecordStoreBuilder(FDBRecordStore.Builder other) {
-            super(other);
-        }
-
-        @SuppressWarnings("deprecation")
-        @Override
-        public FDBRecordStore build() {
-            return new SlowCountRecordStore(
-                    getContext(), subspaceProvider,
-                    FormatVersion.getFormatVersion(getFormatVersionForTesting()),
-                    getMetaDataProvider(), getSerializer(),
-                    getIndexMaintainerRegistry(), getIndexMaintenanceFilter(),
-                    getPipelineSizer(), getStoreStateCache(),
-                    getStateCacheabilityOnOpen(), getUserVersionChecker(),
-                    getBypassFullStoreLockReason(), getPlanSerializationRegistry());
-        }
-    }
-
-    /**
-     * An FDBRecordStore subclass that overrides getRecordCountForRebuildIndexes to return
-     * a future that holds a record store state read for a controlled duration, simulating
-     * a slow getSnapshotRecordCount FDB read.
-     */
-    private static class SlowCountRecordStore extends FDBRecordStore {
-        protected SlowCountRecordStore(@Nonnull FDBRecordContext context,
-                                       @Nonnull SubspaceProvider subspaceProvider,
-                                       @Nonnull FormatVersion formatVersion,
-                                       @Nonnull RecordMetaDataProvider metaDataProvider,
-                                       @Nonnull RecordSerializer<Message> serializer,
-                                       @Nonnull IndexMaintainerFactoryRegistry indexMaintainerRegistry,
-                                       @Nonnull IndexMaintenanceFilter indexMaintenanceFilter,
-                                       @Nonnull PipelineSizer pipelineSizer,
-                                       @Nullable FDBRecordStoreStateCache storeStateCache,
-                                       @Nonnull StateCacheabilityOnOpen stateCacheabilityOnOpen,
-                                       @Nullable UserVersionChecker userVersionChecker,
-                                       @Nullable String bypassFullStoreLockReason,
-                                       @Nonnull PlanSerializationRegistry planSerializationRegistry) {
-            super(context, subspaceProvider, formatVersion, metaDataProvider, serializer,
-                    indexMaintainerRegistry, indexMaintenanceFilter, pipelineSizer, storeStateCache,
-                    stateCacheabilityOnOpen, userVersionChecker, bypassFullStoreLockReason,
-                    planSerializationRegistry);
-        }
-
-        @Nonnull
-        @Override
-        protected CompletableFuture<Long> getRecordCountForRebuildIndexes(
-                boolean newStore, boolean rebuildRecordCounts,
-                @Nonnull Map<Index, List<RecordType>> indexes,
-                @Nullable RecordType singleRecordTypeWithPrefixKey) {
-            // Simulate what getSnapshotRecordCount does:
-            // 1. beginRead() synchronously (read counter incremented)
-            // 2. Return a future that calls endRead() when the "FDB read" completes
-            // The delay ensures the read is still active when rebuildOrMarkIndex tries to write.
-            recordStoreStateRef.get().beginRead();
-            return MoreAsyncUtil.delayedFuture(100, TimeUnit.MILLISECONDS).thenApply(vignore -> {
-                recordStoreStateRef.get().endRead();
-                return 0L; // Report empty store -> triggers inline rebuild (READABLE state)
-            });
         }
     }
 }
