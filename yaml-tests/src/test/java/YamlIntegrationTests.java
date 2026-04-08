@@ -168,6 +168,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAINS)
     public void inPredicate(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("in-predicate.yamsql");
     }

@@ -74,9 +74,6 @@ public class PartitionSelectRule extends ExplorationCascadesRule<SelectExpressio
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
-        if (!selectExpression.getResultValue().getResultType().isRecord()) {
-            return;
-        }
         if (selectExpression.getQuantifiers().size() < 3) {
             return;
         }
