@@ -24,21 +24,31 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexPredicate;
+import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.SlidingWindowKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -53,18 +63,25 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * An index maintainer that keeps only the top-N records based on a globally-scoped window key.
- * This extends {@link StandardIndexMaintainer} and overrides {@link #updateIndexKeys} to enforce
- * the sliding window, while delegating scan and other operations to the standard implementation.
+ * An index maintainer decorator that keeps only the top-N records based on a globally-scoped window key.
+ * It wraps a delegate {@link IndexMaintainer} (which can be any index type, e.g. value, vector, etc.)
+ * and applies sliding window semantics for mutations before delegating the actual index operations.
  *
- * <p>The tertiary subspace is partitioned into two sub-subspaces to avoid key collisions:</p>
+ * <p>The secondary subspace is partitioned into three logical sub-subspaces:</p>
  * <ul>
- *     <li>Data subspace {@code (0)}: {@code [window_key_values..., primary_key...] → [primary_key packed]}</li>
- *     <li>Meta subspace {@code (1)}: {@code ["count"] → long}</li>
+ *     <li>Partition 0 (WINDOW): {@code [windowKey..., primaryKey...] → primaryKey packed} — records IN the window</li>
+ *     <li>Partition 1 (OVERFLOW): {@code [windowKey..., primaryKey...] → primaryKey packed} — records NOT in the window</li>
+ *     <li>Partition 2 (META): {@code ["count"] → long} — count of records in the window</li>
  * </ul>
+ *
+ * <p>On insert, if the window is full, the new record is compared against the worst entry in the window.
+ * If better, it replaces the worst (which moves to overflow). If not better, it goes directly to overflow.</p>
+ *
+ * <p>On delete, if the deleted record was in the window, the best candidate from overflow is promoted
+ * (re-election).</p>
  */
 @API(API.Status.EXPERIMENTAL)
-public class SlidingWindowIndexMaintainer extends StandardIndexMaintainer {
+public class SlidingWindowIndexMaintainer extends IndexMaintainer {
 
     protected enum Type {
         MIN(Comparator.naturalOrder()),
@@ -78,76 +95,85 @@ public class SlidingWindowIndexMaintainer extends StandardIndexMaintainer {
             this.valueComparator = valueComparator;
         }
 
-        public boolean shouldEvict(@Nonnull Tuple oldValue, @Nonnull Tuple newValue) {
-            return valueComparator.compare(oldValue, newValue) > 0;
+        public boolean isBetter(@Nonnull Tuple candidate, @Nonnull Tuple worst) {
+            return valueComparator.compare(candidate, worst) < 0;
         }
 
         /**
-         * Read the eviction candidate from the data subspace: a single entry scan.
+         * Read the worst entry in the window: a single entry scan.
          * MAX keeps highest values, so the worst is the lowest (forward scan).
          * MIN keeps lowest values, so the worst is the highest (reverse scan).
          */
         @Nonnull
-        public CompletableFuture<KeyValue> getEvictionCandidate(@Nonnull Subspace dataSubspace,
-                                                                 @Nonnull Transaction tr) {
+        public CompletableFuture<KeyValue> getWorstInWindow(@Nonnull Subspace windowSubspace,
+                                                             @Nonnull Transaction tr) {
             final boolean reverse = this == MIN;
-            return tr.getRange(dataSubspace.range(), 1, reverse)
+            return tr.getRange(windowSubspace.range(), 1, reverse)
+                    .asList()
+                    .thenApply(entries -> entries.isEmpty() ? null : entries.get(0));
+        }
+
+        /**
+         * Read the best candidate from overflow for re-election: a single entry scan.
+         * MAX: best overflow = highest = reverse scan.
+         * MIN: best overflow = lowest = forward scan.
+         */
+        @Nonnull
+        public CompletableFuture<KeyValue> getBestInOverflow(@Nonnull Subspace overflowSubspace,
+                                                              @Nonnull Transaction tr) {
+            final boolean reverse = this == MAX;
+            return tr.getRange(overflowSubspace.range(), 1, reverse)
                     .asList()
                     .thenApply(entries -> entries.isEmpty() ? null : entries.get(0));
         }
     }
 
 
-    private static final Tuple DATA_SUBSPACE_KEY = Tuple.from(0);
-    private static final Tuple META_SUBSPACE_KEY = Tuple.from(1);
+    private static final Tuple WINDOW_SUBSPACE_KEY = Tuple.from(0);
+    private static final Tuple OVERFLOW_SUBSPACE_KEY = Tuple.from(1);
+    private static final Tuple META_SUBSPACE_KEY = Tuple.from(2);
     private static final Tuple COUNT_KEY = Tuple.from("count");
 
+    @Nonnull
+    private final IndexMaintainer delegate;
     private final Type extremumType;
-
     private final int windowSize;
     @Nonnull
     private final KeyExpression windowKey;
     private final int windowKeyColumnSize;
 
-    public SlidingWindowIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    public SlidingWindowIndexMaintainer(@Nonnull IndexMaintainerState state, @Nonnull IndexMaintainer delegate) {
         super(state);
-        final SlidingWindowKeyExpression rootExpression = (SlidingWindowKeyExpression) state.index.getRootExpression();
-        this.windowKey = rootExpression.getWindowKey();
+        this.delegate = delegate;
+        final IndexPredicate.QualifyRowNumberPredicate predicate = getQualifyPredicate(state.index);
+        this.windowKey = predicate.getWindowKey();
         this.windowKeyColumnSize = windowKey.getColumnSize();
-        this.windowSize = getWindowSize(state.index);
-        this.extremumType = getExtremumType(state.index);
-    }
-
-    protected static int getWindowSize(@Nonnull Index index) {
-        String windowSizeOption = index.getOption(IndexOptions.SLIDING_WINDOW_SIZE_OPTION);
-        if (windowSizeOption == null) {
-            throw new MetaDataException("sliding window size not specified",
-                    LogMessageKeys.INDEX_NAME, index.getName());
-        }
-        int size = Integer.parseInt(windowSizeOption);
-        if (size <= 0) {
-            throw new MetaDataException("sliding window size must be positive",
-                    LogMessageKeys.INDEX_NAME, index.getName());
-        }
-        return size;
+        this.windowSize = predicate.getSize();
+        this.extremumType = predicate.getDirection() == IndexPredicate.QualifyRowNumberPredicate.Direction.ASC
+                ? Type.MIN : Type.MAX;
     }
 
     @Nonnull
-    protected static Type getExtremumType(@Nonnull Index index) {
-        String orderOption = index.getOption(IndexOptions.SLIDING_WINDOW_ORDER_OPTION);
-        if (orderOption == null) {
-            return Type.MIN;
+    protected static IndexPredicate.QualifyRowNumberPredicate getQualifyPredicate(@Nonnull Index index) {
+        IndexPredicate predicate = index.getPredicate();
+        if (predicate != null) {
+            IndexPredicate.validateQualifyPlacement(predicate);
         }
-        switch (orderOption.toUpperCase()) {
-            case "MIN":
-                return Type.MIN;
-            case "MAX":
-                return Type.MAX;
-            default:
-                throw new MetaDataException("invalid sliding window order: " + orderOption,
-                        LogMessageKeys.INDEX_NAME, index.getName());
+        if (predicate instanceof IndexPredicate.QualifyRowNumberPredicate) {
+            return (IndexPredicate.QualifyRowNumberPredicate) predicate;
         }
+        if (predicate instanceof IndexPredicate.AndPredicate) {
+            for (IndexPredicate child : ((IndexPredicate.AndPredicate) predicate).getChildren()) {
+                if (child instanceof IndexPredicate.QualifyRowNumberPredicate) {
+                    return (IndexPredicate.QualifyRowNumberPredicate) child;
+                }
+            }
+        }
+        throw new MetaDataException("sliding window index requires a QualifyRowNumberPredicate",
+                LogMessageKeys.INDEX_NAME, index.getName());
     }
+
+    // ===== Delegate all read/query operations to the inner maintainer =====
 
     @Nonnull
     @Override
@@ -155,31 +181,153 @@ public class SlidingWindowIndexMaintainer extends StandardIndexMaintainer {
                                          @Nonnull TupleRange range,
                                          @Nullable byte[] continuation,
                                          @Nonnull ScanProperties scanProperties) {
-        if (!scanType.equals(IndexScanType.BY_VALUE)) {
-            throw new RecordCoreException("Can only scan sliding window index by value.");
-        }
-        return scan(range, continuation, scanProperties);
+        return delegate.scan(scanType, range, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanBounds scanBounds,
+                                         @Nullable byte[] continuation,
+                                         @Nonnull ScanProperties scanProperties) {
+        return delegate.scan(scanBounds, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range,
+                                                              @Nullable byte[] continuation,
+                                                              @Nonnull ScanProperties scanProperties) {
+        return delegate.scanUniquenessViolations(range, continuation, scanProperties);
     }
 
     @Override
-    @SuppressWarnings("PMD.CloseResource")
-    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
-                                                                          final boolean remove,
-                                                                          @Nonnull final List<IndexEntry> indexEntries) {
-        if (remove) {
-            return handleDelete(savedRecord, indexEntries);
-        } else {
-            return handleInsert(savedRecord, indexEntries);
+    public CompletableFuture<Void> clearUniquenessViolations() {
+        return delegate.clearUniquenessViolations();
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
+                                                            @Nullable ScanProperties scanProperties) {
+        return delegate.validateEntries(continuation, scanProperties);
+    }
+
+    @Override
+    public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
+        return delegate.canEvaluateRecordFunction(function);
+    }
+
+    @Nullable
+    @Override
+    public <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record) {
+        return delegate.evaluateIndex(record);
+    }
+
+    @Nullable
+    @Override
+    public <M extends Message> List<IndexEntry> filteredIndexEntries(@Nullable FDBIndexableRecord<M> savedRecord) {
+        return delegate.filteredIndexEntries(savedRecord);
+    }
+
+    @Nonnull
+    @Override
+    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
+                                                                               @Nonnull IndexRecordFunction<T> function,
+                                                                               @Nonnull FDBRecord<M> record) {
+        return delegate.evaluateRecordFunction(context, function, record);
+    }
+
+    @Override
+    public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
+        return delegate.canEvaluateAggregateFunction(function);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
+                                                               @Nonnull TupleRange range,
+                                                               @Nonnull IsolationLevel isolationLevel) {
+        return delegate.evaluateAggregateFunction(function, range, isolationLevel);
+    }
+
+    @Override
+    public boolean canDeleteWhere(@Nonnull QueryToKeyMatcher matcher, @Nonnull Key.Evaluated evaluated) {
+        return delegate.canDeleteWhere(matcher, evaluated);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<IndexOperationResult> performOperation(@Nonnull IndexOperation operation) {
+        return delegate.performOperation(operation);
+    }
+
+    @Nonnull
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
+                                                              @Nullable final byte[] continuation,
+                                                              @Nonnull final ScanProperties scanProperties,
+                                                              int commonPrimaryKeyLength) {
+        return delegate.scanRemoteFetch(scanBounds, continuation, scanProperties, commonPrimaryKeyLength);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Boolean> addedRangeWithKey(@Nonnull Tuple primaryKey) {
+        return delegate.addedRangeWithKey(primaryKey);
+    }
+
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    public CompletableFuture<Void> mergeIndex() {
+        return delegate.mergeIndex();
+    }
+
+    @Override
+    @API(API.Status.EXPERIMENTAL)
+    @Nullable
+    public IndexScrubbingTools<?> getIndexScrubbingTools(IndexScrubbingTools.ScrubbingType type) {
+        return delegate.getIndexScrubbingTools(type);
+    }
+
+    // ===== Sliding window mutation logic =====
+
+    @Override
+    public boolean isIdempotent() {
+        return false;
+    }
+
+    @Nonnull
+    @Override
+    public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                               @Nullable FDBIndexableRecord<M> newRecord) {
+        CompletableFuture<Void> future = AsyncUtil.DONE;
+        if (oldRecord != null) {
+            future = future.thenCompose(vignore -> handleDelete(oldRecord));
         }
+        if (newRecord != null) {
+            final CompletableFuture<Void> prev = future;
+            future = prev.thenCompose(vignore -> handleInsert(newRecord));
+        }
+        return future;
+    }
+
+    @Nonnull
+    @Override
+    public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                                             @Nullable FDBIndexableRecord<M> newRecord) {
+        // For non-idempotent indexes during write-only builds, use the same logic as update.
+        // The sliding window state is authoritative.
+        return update(oldRecord, newRecord);
     }
 
     @SuppressWarnings("PMD.CloseResource")
     @Nonnull
-    private <M extends Message> CompletableFuture<Void> handleInsert(@Nonnull final FDBIndexableRecord<M> savedRecord,
-                                                                      @Nonnull final List<IndexEntry> indexEntries) {
-        final Subspace tertiarySubspace = getTertiarySubspace();
-        final Subspace dataSubspace = tertiarySubspace.subspace(DATA_SUBSPACE_KEY);
-        final Subspace metaSubspace = tertiarySubspace.subspace(META_SUBSPACE_KEY);
+    private <M extends Message> CompletableFuture<Void> handleInsert(@Nonnull final FDBIndexableRecord<M> savedRecord) {
+        final Subspace secondarySubspace = getSecondarySubspace();
+        final Subspace windowSubspace = secondarySubspace.subspace(WINDOW_SUBSPACE_KEY);
+        final Subspace overflowSubspace = secondarySubspace.subspace(OVERFLOW_SUBSPACE_KEY);
+        final Subspace metaSubspace = secondarySubspace.subspace(META_SUBSPACE_KEY);
         final Transaction tr = state.store.ensureContextActive();
         final Tuple primaryKey = savedRecord.getPrimaryKey();
 
@@ -193,75 +341,78 @@ public class SlidingWindowIndexMaintainer extends StandardIndexMaintainer {
             final long count = counterBytes == null ? 0L : decodeLong(counterBytes);
 
             if (count < windowSize) {
-                // Window not full yet: insert into primary index and window subspace
-                return super.updateIndexKeys(savedRecord, false, indexEntries).thenApply(vignore -> {
-                    writeWindowEntry(tr, dataSubspace, windowValue, primaryKey);
+                // Window not full yet: add to delegate index and window partition
+                return delegate.update(null, savedRecord).thenApply(vignore -> {
+                    writePartitionEntry(tr, windowSubspace, windowValue, primaryKey);
                     tr.set(counterKey, encodeLong(count + 1));
                     return null;
                 });
             } else {
-                // Window is full: read the eviction candidate (single entry, O(1))
-                return extremumType.getEvictionCandidate(dataSubspace, tr).thenCompose(worstKV -> {
+                // Window is full: read the worst entry in the window (single entry, O(1))
+                return extremumType.getWorstInWindow(windowSubspace, tr).thenCompose(worstKV -> {
                     if (worstKV == null) {
                         // Should not happen if count >= windowSize, but handle gracefully
-                        return super.updateIndexKeys(savedRecord, false, indexEntries).thenApply(vignore -> {
-                            writeWindowEntry(tr, dataSubspace, windowValue, primaryKey);
-                            tr.set(counterKey, encodeLong(count + 1));
-                            return null;
-                        });
+                        return addToOverflow(tr, overflowSubspace, windowValue, primaryKey);
                     }
 
-                    final Tuple worstEntryKey = dataSubspace.unpack(worstKV.getKey());
+                    final Tuple worstEntryKey = windowSubspace.unpack(worstKV.getKey());
                     final Tuple worstWindowTuple = TupleHelpers.subTuple(worstEntryKey, 0, windowKeyColumnSize);
-                    final Tuple newWindowTuple = windowValue;
 
-                    if (!extremumType.shouldEvict(worstWindowTuple, newWindowTuple)) {
-                        // New record is not better than the worst in the window: skip
-                        return AsyncUtil.DONE;
+                    if (!extremumType.isBetter(windowValue, worstWindowTuple)) {
+                        // New record is not better than the worst in the window: add to overflow
+                        return addToOverflow(tr, overflowSubspace, windowValue, primaryKey);
                     }
 
-                    // New record is "better" than the worst: evict worst, insert new
+                    // New record IS better: evict worst from window to overflow, insert new into window
                     final Tuple worstPrimaryKey = Tuple.fromBytes(worstKV.getValue());
                     tr.clear(worstKV.getKey());
 
+                    // Move evicted record to overflow
+                    writePartitionEntry(tr, overflowSubspace, worstWindowTuple,
+                            TupleHelpers.subTuple(worstEntryKey, windowKeyColumnSize, worstEntryKey.size()));
+
+                    // Remove evicted record from delegate index
                     return state.store.loadRecordAsync(worstPrimaryKey).thenCompose(oldRecord -> {
                         CompletableFuture<Void> removeFuture;
                         if (oldRecord != null) {
-                            List<IndexEntry> oldEntries = evaluateIndex(oldRecord);
-                            if (oldEntries != null && !oldEntries.isEmpty()) {
-                                removeFuture = super.updateIndexKeys(oldRecord, true, oldEntries);
-                            } else {
-                                removeFuture = AsyncUtil.DONE;
-                            }
+                            removeFuture = delegate.update(oldRecord, null);
                         } else {
                             removeFuture = AsyncUtil.DONE;
                         }
 
-                        return removeFuture.thenCompose(vignore -> {
-                            return super.updateIndexKeys(savedRecord, false, indexEntries).thenApply(vignore2 -> {
-                                writeWindowEntry(tr, dataSubspace, windowValue, primaryKey);
+                        // Add new record to delegate index and window partition
+                        return removeFuture.thenCompose(vignore ->
+                            delegate.update(null, savedRecord).thenApply(vignore2 -> {
+                                writePartitionEntry(tr, windowSubspace, windowValue, primaryKey);
                                 return null;
-                            });
-                        });
+                            })
+                        );
                     });
                 });
             }
         });
     }
 
-    private void writeWindowEntry(@Nonnull Transaction tr, @Nonnull Subspace dataSubspace,
-                                  @Nonnull Tuple windowValue, @Nonnull Tuple primaryKey) {
-        final Tuple windowEntryKey = windowValue.addAll(primaryKey);
-        tr.set(dataSubspace.pack(windowEntryKey), primaryKey.pack());
+    @Nonnull
+    private CompletableFuture<Void> addToOverflow(@Nonnull Transaction tr, @Nonnull Subspace overflowSubspace,
+                                                   @Nonnull Tuple windowValue, @Nonnull Tuple primaryKey) {
+        writePartitionEntry(tr, overflowSubspace, windowValue, primaryKey);
+        return AsyncUtil.DONE;
+    }
+
+    private void writePartitionEntry(@Nonnull Transaction tr, @Nonnull Subspace partitionSubspace,
+                                     @Nonnull Tuple windowValue, @Nonnull Tuple primaryKey) {
+        final Tuple entryKey = windowValue.addAll(primaryKey);
+        tr.set(partitionSubspace.pack(entryKey), primaryKey.pack());
     }
 
     @SuppressWarnings("PMD.CloseResource")
     @Nonnull
-    private <M extends Message> CompletableFuture<Void> handleDelete(@Nonnull final FDBIndexableRecord<M> savedRecord,
-                                                                      @Nonnull final List<IndexEntry> indexEntries) {
-        final Subspace tertiarySubspace = getTertiarySubspace();
-        final Subspace dataSubspace = tertiarySubspace.subspace(DATA_SUBSPACE_KEY);
-        final Subspace metaSubspace = tertiarySubspace.subspace(META_SUBSPACE_KEY);
+    private <M extends Message> CompletableFuture<Void> handleDelete(@Nonnull final FDBIndexableRecord<M> savedRecord) {
+        final Subspace secondarySubspace = getSecondarySubspace();
+        final Subspace windowSubspace = secondarySubspace.subspace(WINDOW_SUBSPACE_KEY);
+        final Subspace overflowSubspace = secondarySubspace.subspace(OVERFLOW_SUBSPACE_KEY);
+        final Subspace metaSubspace = secondarySubspace.subspace(META_SUBSPACE_KEY);
         final Transaction tr = state.store.ensureContextActive();
         final Tuple primaryKey = savedRecord.getPrimaryKey();
 
@@ -269,40 +420,71 @@ public class SlidingWindowIndexMaintainer extends StandardIndexMaintainer {
         final Key.Evaluated windowEval = windowKey.evaluateSingleton(savedRecord);
         final Tuple windowValue = windowEval.toTuple();
 
-        // Check if this record is in the data subspace
-        final Tuple windowEntryKey = windowValue.addAll(primaryKey);
-        final byte[] packedWindowKey = dataSubspace.pack(windowEntryKey);
+        final Tuple entryKey = windowValue.addAll(primaryKey);
+        final byte[] packedWindowKey = windowSubspace.pack(entryKey);
+        final byte[] packedOverflowKey = overflowSubspace.pack(entryKey);
 
-        return tr.get(packedWindowKey).thenCompose(existingValue -> {
-            if (existingValue == null) {
-                // Record was never in the window, no-op
-                return AsyncUtil.DONE;
+        // Check if this record is in the window partition
+        return tr.get(packedWindowKey).thenCompose(windowEntry -> {
+            if (windowEntry != null) {
+                // Record is in the window: remove it, update count, remove from delegate index
+                tr.clear(packedWindowKey);
+                final byte[] counterKey = metaSubspace.pack(COUNT_KEY);
+
+                return tr.get(counterKey).thenCompose(counterBytes -> {
+                    final long count = counterBytes == null ? 0L : decodeLong(counterBytes);
+                    tr.set(counterKey, encodeLong(Math.max(0, count - 1)));
+
+                    // Remove from delegate index
+                    return delegate.update(savedRecord, null).thenCompose(vignore -> {
+                        // Re-election: find best candidate from overflow
+                        return extremumType.getBestInOverflow(overflowSubspace, tr).thenCompose(bestKV -> {
+                            if (bestKV == null) {
+                                // No overflow candidates
+                                return AsyncUtil.DONE;
+                            }
+                            // Promote: move from overflow to window, add to delegate index
+                            final Tuple bestEntryKey = overflowSubspace.unpack(bestKV.getKey());
+                            final Tuple bestPrimaryKey = Tuple.fromBytes(bestKV.getValue());
+                            final Tuple bestWindowTuple = TupleHelpers.subTuple(bestEntryKey, 0, windowKeyColumnSize);
+                            final Tuple bestPKTuple = TupleHelpers.subTuple(bestEntryKey, windowKeyColumnSize, bestEntryKey.size());
+
+                            // Remove from overflow
+                            tr.clear(bestKV.getKey());
+                            // Add to window
+                            writePartitionEntry(tr, windowSubspace, bestWindowTuple, bestPKTuple);
+                            // Restore count
+                            tr.set(counterKey, encodeLong(Math.max(0, count - 1) + 1));
+
+                            // Add promoted record to delegate index
+                            return state.store.loadRecordAsync(bestPrimaryKey).thenCompose(promotedRecord -> {
+                                if (promotedRecord != null) {
+                                    return delegate.update(null, promotedRecord);
+                                }
+                                return AsyncUtil.DONE;
+                            });
+                        });
+                    });
+                });
             }
-            // Remove from data subspace
-            tr.clear(packedWindowKey);
 
-            // Decrement counter
-            final byte[] counterKey = metaSubspace.pack(COUNT_KEY);
-            return tr.get(counterKey).thenCompose(counterBytes -> {
-                final long count = counterBytes == null ? 0L : decodeLong(counterBytes);
-                tr.set(counterKey, encodeLong(Math.max(0, count - 1)));
-
-                // Remove from primary index via super
-                return super.updateIndexKeys(savedRecord, true, indexEntries);
+            // Check if it's in the overflow partition
+            return tr.get(packedOverflowKey).thenCompose(overflowEntry -> {
+                if (overflowEntry != null) {
+                    // Record is in overflow: just remove it
+                    tr.clear(packedOverflowKey);
+                }
+                // If in neither, no-op
+                return AsyncUtil.DONE;
             });
         });
     }
 
     @Override
-    public boolean isIdempotent() {
-        return false;
-    }
-
-    @Override
     public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
-        return super.deleteWhere(tr, prefix).thenApply(v -> {
-            final Subspace windowSubspace = getTertiarySubspace();
-            state.context.clear(windowSubspace.subspace(prefix).range());
+        return delegate.deleteWhere(tr, prefix).thenApply(v -> {
+            final Subspace secondarySubspace = getSecondarySubspace();
+            state.context.clear(secondarySubspace.subspace(prefix).range());
             return v;
         });
     }

@@ -40,7 +40,6 @@ public enum FDBRecordStoreKeyspace {
     INDEX_UNIQUENESS_VIOLATIONS_SPACE(7L),
     RECORD_VERSION_SPACE(8L),
     INDEX_BUILD_SPACE(9L),
-    INDEX_TERTIARY_SPACE(10L),
     ;
 
     private long id;

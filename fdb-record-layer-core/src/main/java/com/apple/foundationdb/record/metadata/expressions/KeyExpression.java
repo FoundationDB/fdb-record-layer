@@ -394,10 +394,6 @@ public interface KeyExpression extends PlanHashable {
             found++;
             root = new DimensionsKeyExpression(expression.getDimensions());
         }
-        if (expression.hasSlidingWindow()) {
-            found++;
-            root = new SlidingWindowKeyExpression(expression.getSlidingWindow());
-        }
         if (root == null || found > 1) {
             throw new DeserializationException("Exactly one root must be specified for an index");
         }

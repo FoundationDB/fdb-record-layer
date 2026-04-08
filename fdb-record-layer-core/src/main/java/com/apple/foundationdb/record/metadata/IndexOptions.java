@@ -185,18 +185,6 @@ public class IndexOptions {
     public static final String PERMUTED_SIZE_OPTION = "permutedSize";
 
     /**
-     * The size of the sliding window, i.e., the maximum number of index entries to maintain.
-     * Must be a positive integer.
-     */
-    public static final String SLIDING_WINDOW_SIZE_OPTION = "slidingWindowSize";
-
-    /**
-     * The order of the sliding window: {@code "MIN"} to keep the lowest values, {@code "MAX"} to keep the highest.
-     * Defaults to {@code "MIN"} if not specified.
-     */
-    public static final String SLIDING_WINDOW_ORDER_OPTION = "slidingWindowOrder";
-
-    /**
      * Minimum number of slots in a node of an R-tree (except for the root node for which that minimum number may be as
      * low as {@code 0}. See {@link  RTree#DEFAULT_S} for suggestions on how to set this
      * option as well as {@link #RTREE_MAX_M}. Be aware that the following inequality must hold

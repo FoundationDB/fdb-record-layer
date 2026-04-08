@@ -64,11 +64,6 @@ message Dimensions {
   optional int32 dimensions_size = 3;
 }
 
-message SlidingWindow {
-  required KeyExpression whole_key = 1;
-  required KeyExpression window_key = 2;
-}
-
 message KeyWithValue {
   required KeyExpression inner_key = 1;
   optional int32 split_point = 2 [default = 1];
@@ -120,5 +115,4 @@ message KeyExpression {
   optional RecordTypeKey record_type_key = 11;
   optional List list = 12;
   optional Dimensions dimensions = 13;
-  optional SlidingWindow sliding_window = 14;
 }

@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -109,6 +110,8 @@ public abstract class IndexPredicate {
             return new NotPredicate(proto.getNotPredicate());
         } else if (proto.hasValuePredicate()) {
             return new ValuePredicate(proto.getValuePredicate());
+        } else if (proto.hasQualifyRowNumberPredicate()) {
+            return new QualifyRowNumberPredicate(proto.getQualifyRowNumberPredicate());
         } else {
             throw new RecordCoreException("attempt to deserialize unsupported predicate").addLogInfo(LogMessageKeys.VALUE, proto);
         }
@@ -161,6 +164,62 @@ public abstract class IndexPredicate {
         } else {
             return false;
         }
+    }
+
+    /**
+     * Validates that a {@link QualifyRowNumberPredicate} only appears on a pure conjunctive (AND-only) path
+     * from the root. It must never appear under an {@link OrPredicate}.
+     *
+     * @param predicate the root predicate to validate
+     * @throws RecordCoreException if a {@link QualifyRowNumberPredicate} is found under a disjunction
+     */
+    public static void validateQualifyPlacement(@Nonnull final IndexPredicate predicate) {
+        if (!isValidInConjunctivePath(predicate)) {
+            throw new RecordCoreException("QualifyRowNumberPredicate must not appear under a disjunction (OR)");
+        }
+    }
+
+    private static boolean isValidInConjunctivePath(@Nonnull final IndexPredicate predicate) {
+        if (predicate instanceof QualifyRowNumberPredicate) {
+            return true;
+        }
+        if (predicate instanceof ConstantPredicate || predicate instanceof ValuePredicate) {
+            return true;
+        }
+        if (predicate instanceof AndPredicate) {
+            return ((AndPredicate) predicate).getChildren().stream()
+                    .allMatch(IndexPredicate::isValidInConjunctivePath);
+        }
+        if (predicate instanceof OrPredicate) {
+            // Under an OR, no QualifyRowNumber is allowed anywhere below
+            return ((OrPredicate) predicate).getChildren().stream()
+                    .allMatch(IndexPredicate::hasNoQualify);
+        }
+        if (predicate instanceof NotPredicate) {
+            return hasNoQualify(((NotPredicate) predicate).getValue());
+        }
+        return true;
+    }
+
+    private static boolean hasNoQualify(@Nonnull final IndexPredicate predicate) {
+        if (predicate instanceof QualifyRowNumberPredicate) {
+            return false;
+        }
+        if (predicate instanceof ConstantPredicate || predicate instanceof ValuePredicate) {
+            return true;
+        }
+        if (predicate instanceof AndPredicate) {
+            return ((AndPredicate) predicate).getChildren().stream()
+                    .allMatch(IndexPredicate::hasNoQualify);
+        }
+        if (predicate instanceof OrPredicate) {
+            return ((OrPredicate) predicate).getChildren().stream()
+                    .allMatch(IndexPredicate::hasNoQualify);
+        }
+        if (predicate instanceof NotPredicate) {
+            return hasNoQualify(((NotPredicate) predicate).getValue());
+        }
+        return true;
     }
 
     /**
@@ -477,6 +536,126 @@ public abstract class IndexPredicate {
         @Override
         public String toString() {
             return '(' + fieldPath.stream().collect(Collectors.joining("/")) + ' ' + comparison + ") ";
+        }
+    }
+
+    /**
+     * A predicate that qualifies records based on their row number position when sorted by a field.
+     * Syntax: {@code QualifyRowNumber(fieldName, direction) <= size}.
+     *
+     * <p>For example, {@code QualifyRowNumber(score, DESC) <= 100} keeps the 100 records with
+     * the highest {@code score} values in the index.</p>
+     *
+     * <ul>
+     *     <li>{@code ASC}: keeps the smallest values (lowest row numbers in ascending order)</li>
+     *     <li>{@code DESC}: keeps the largest values (lowest row numbers in descending order)</li>
+     * </ul>
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public static class QualifyRowNumberPredicate extends IndexPredicate {
+
+        /**
+         * Sort direction for the qualifying field.
+         */
+        public enum Direction {
+            ASC,
+            DESC
+        }
+
+        @Nonnull
+        private final String fieldName;
+        private final int size;
+        @Nonnull
+        private final Direction direction;
+
+        public QualifyRowNumberPredicate(@Nonnull final String fieldName, @Nonnull final Direction direction, int size) {
+            this.fieldName = fieldName;
+            this.direction = direction;
+            this.size = size;
+        }
+
+        public QualifyRowNumberPredicate(@Nonnull final RecordMetaDataProto.QualifyRowNumberPredicate proto) {
+            this.fieldName = proto.getFieldName();
+            this.size = proto.getSize();
+            switch (proto.getDirection()) {
+                case ASC:
+                    this.direction = Direction.ASC;
+                    break;
+                case DESC:
+                    this.direction = Direction.DESC;
+                    break;
+                default:
+                    throw new RecordCoreException("unknown QualifyRowNumber direction")
+                            .addLogInfo(LogMessageKeys.VALUE, proto.getDirection());
+            }
+        }
+
+        @Nonnull
+        public String getFieldName() {
+            return fieldName;
+        }
+
+        public int getSize() {
+            return size;
+        }
+
+        @Nonnull
+        public Direction getDirection() {
+            return direction;
+        }
+
+        @Nonnull
+        public KeyExpression getWindowKey() {
+            return Key.Expressions.field(fieldName);
+        }
+
+        @Override
+        public <M extends Message> boolean shouldIndexThisRecord(@Nonnull FDBRecordStore store, @Nonnull final FDBIndexableRecord<M> savedRecord) {
+            return true;
+        }
+
+        @Nonnull
+        @Override
+        public RecordMetaDataProto.Predicate toProto() {
+            final RecordMetaDataProto.QualifyRowNumberPredicate.Direction protoDirection =
+                    direction == Direction.ASC
+                            ? RecordMetaDataProto.QualifyRowNumberPredicate.Direction.ASC
+                            : RecordMetaDataProto.QualifyRowNumberPredicate.Direction.DESC;
+            return RecordMetaDataProto.Predicate.newBuilder()
+                    .setQualifyRowNumberPredicate(RecordMetaDataProto.QualifyRowNumberPredicate.newBuilder()
+                            .setFieldName(fieldName)
+                            .setSize(size)
+                            .setDirection(protoDirection)
+                            .build())
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public QueryPredicate toPredicate(@Nonnull final Value value) {
+            return com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate.TRUE;
+        }
+
+        @Override
+        public String toString() {
+            return "QualifyRowNumber(" + fieldName + ", " + direction + ") <= " + size + " ";
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            QualifyRowNumberPredicate that = (QualifyRowNumberPredicate) o;
+            return size == that.size && direction == that.direction && fieldName.equals(that.fieldName);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(fieldName, direction, size);
         }
     }
 }
