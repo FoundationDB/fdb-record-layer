@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializationException;
@@ -1451,6 +1452,68 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     "disabled_index should be disabled as requested");
             assertTrue(store.getRecordStoreState().isReadable("slow_index"),
                     "slow_index should be readable after record-count-dependent rebuild");
+            context.commit();
+        }
+    }
+
+    /**
+     * Test that rebuildIndexes avoids lock contention between record count reads and index
+     * rebuilds even without a format version change.
+     */
+    @Test
+    @SuppressWarnings("deprecation") // setRecordCountKey is deprecated but older RecordMetaData objects can have it
+    void rebuildIndexesWithRecordCountKeyAndMixedStates() {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestRecords1Proto.getDescriptor());
+        metaDataBuilder.setRecordCountKey(Key.Expressions.empty());
+        final RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
+
+        // Create store and save records (uses max format version throughout)
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                    .setContext(context)
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(metaData1)
+                    .create();
+            for (int i = 0; i < 5; i++) {
+                store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setStrValueIndexed("value_" + i)
+                        .setNumValue2(i * 100)
+                        .setNumValue3Indexed(i * 10)
+                        .build());
+            }
+            context.commit();
+        }
+
+        // Add new indexes
+        metaDataBuilder.addIndex("MySimpleRecord", "readable_index", "num_value_2");
+        metaDataBuilder.addIndex("MySimpleRecord", "disabled_index", "num_value_3_indexed");
+        metaDataBuilder.addIndex("MySimpleRecord", "count_dependent_index", "str_value_indexed");
+        final RecordMetaData metaData2 = metaDataBuilder.getRecordMetaData();
+
+        // Reopen at same format version.
+        // "readable_index" and "disabled_index" resolve immediately, but
+        // "count_dependent_index" goes through lazyRecordCount.
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.Builder standardBuilder = FDBRecordStore.newBuilder()
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                    .setContext(context)
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(metaData2)
+                    .setUserVersionChecker(new SelectiveUserVersionChecker(Map.of(
+                            "readable_index", IndexState.READABLE,
+                            "disabled_index", IndexState.DISABLED)));
+
+            FDBRecordStore store = openWithSlowRecordCount(standardBuilder);
+
+            assertTrue(store.getRecordStoreState().isReadable("readable_index"),
+                    "readable_index should be readable after rebuild");
+            assertTrue(store.getRecordStoreState().isDisabled("disabled_index"),
+                    "disabled_index should be disabled as requested");
+            assertTrue(store.getRecordStoreState().isReadable("count_dependent_index"),
+                    "count_dependent_index should be readable after record-count-dependent rebuild");
             context.commit();
         }
     }
