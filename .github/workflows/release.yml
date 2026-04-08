@@ -289,11 +289,16 @@ jobs:
           --version ${{ steps.get_new_version.outputs.version }}
         env:
           GH_TOKEN: ${{ github.token }}
-      # We move the tag to after the release notes are updated so that later steps (i.e. sphinx) will pick up the udpated
+      # We move the tag to after the release notes are updated so that later steps (i.e. sphinx) will pick up the updated
       # release notes
       - name: Move tag to HEAD
         shell: bash
         run: git tag -m "Release ${{ steps.get_new_version.outputs.version }}" -f "${{ steps.get_new_version.outputs.version }}"
+      # Push the tag now before publishing. That way, even if publishing fails or if merging the latest changes into the
+      # base branch fails, we should at least have the tag and can recover manually
+      - name: Push tag
+        shell: bash
+        run: git push origin "${{ steps.get_new_version.outputs.version }}"
 
       - name: Publish Artifacts
         id: publish_artifacts
@@ -331,9 +336,12 @@ jobs:
         if: steps.publish_artifacts.outcome != 'cancelled'
         shell: bash
         run: |
-            git fetch origin "${GITHUB_REF##*/}"
-            git merge "origin/${GITHUB_REF##*/}"
-            git push origin HEAD "${{ steps.get_new_version.outputs.version }}"
+            # Remove the leading "refs/heads/" from the branch name stored in the GITHUB_REF environment variable
+            local branch_name="${GITHUB_REF##*/}"
+            echo "Fetching and merging latest updates from branch ${branch_name} into HEAD..."
+            git fetch origin "${branch_name}"
+            git merge --no-edit "origin/${branch_name}"
+            git push origin HEAD
         # Continue the build (including downstream steps). If the push fails, we'll create a PR
         continue-on-error: true
       - name: Create Merge PR if conflict
