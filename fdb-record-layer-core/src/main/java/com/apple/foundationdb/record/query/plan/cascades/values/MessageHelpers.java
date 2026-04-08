@@ -452,13 +452,12 @@ public class MessageHelpers {
             return Verify.verifyNotNull(coercionFunction.apply(targetDescriptor, current));
         }
 
-        //
-        // This juggles with a change in nullability for arrays. If we were nullable before, but now we are not or
-        // vice versa, we need to change the wrapping in protobuf.
-        //
+        // This juggles with a change in nullability for arrays. If the array was nullable before, but now is not or
+        // vice versa, we need to change the wrapping in protobuf. This case also covers the promotion of `[]` (of type
+        // `None`) to an array (via the coercion function NONE_TO_ARRAY, which just returns the empty list unchanged).
         if (targetType.isArray()) {
-            Verify.verify(currentType.isArray());
-            final var coercionFunction = Verify.verifyNotNull(coercionsTrie.getValue());
+            Verify.verify(currentType.isArray() || currentType.isNone());
+            final CoercionBiFunction coercionFunction = Verify.verifyNotNull(coercionsTrie.getValue());
             return Verify.verifyNotNull(coercionFunction.apply(targetDescriptor, current));
         }
 
@@ -471,13 +470,16 @@ public class MessageHelpers {
     }
 
     /**
-     * Method to coerce an array.
-     * This juggles with a change in nullability for arrays. If we were nullable before, but now we are not or
-     * vice versa, we need to change the wrapping in protobuf.
+     * Coerce the given array {@code current}.
+     *
+     * <p>This juggles with a change in nullability for arrays. If the array was nullable before, but now is not or
+     * vice versa, we need to change the wrapping in protobuf. Note though that the protobuf wrapping path is only taken
+     * when a real {@link Descriptors.Descriptor} is provided (i.e., during storage-layer serialization as opposed to
+     * in-memory evaluation, where {@code targetDescriptor} would be {@code null}).
      *
      * @param targetArrayType target array type
      * @param currentArrayType current array type
-     * @param targetDescriptor target protobuf descriptor
+     * @param targetDescriptor target protobuf descriptor, if available; else {@code null}
      * @param elementsTrie a trie describing the coercions of the elements data structures
      * @param current the current object
      * @return a coerced array adjusted for nullability-differences of current versus target
@@ -492,7 +494,7 @@ public class MessageHelpers {
         final var currentElementType = Verify.verifyNotNull(currentArrayType.getElementType());
 
         final Descriptors.FieldDescriptor targetElementFieldDescriptor;
-        if (targetArrayType.isNullable()) {
+        if (targetDescriptor != null && targetArrayType.isNullable()) {
             Verify.verify(targetDescriptor instanceof Descriptors.Descriptor);
             targetElementFieldDescriptor = Verify.verifyNotNull((Descriptors.Descriptor)targetDescriptor).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
         } else {
@@ -518,15 +520,27 @@ public class MessageHelpers {
                             currentObject));
             coercedObjectsBuilder.add(coercedObject);
         }
-        final var coercedArray = coercedObjectsBuilder.build();
+        final ImmutableList<Object> coercedArray = coercedObjectsBuilder.build();
 
-        if (targetArrayType.isNullable()) {
-            // the target descriptor is the wrapping holder
-            final var wrapperBuilder = DynamicMessage.newBuilder(Verify.verifyNotNull((Descriptors.Descriptor)targetDescriptor));
-            wrapperBuilder.setField(Verify.verifyNotNull(targetElementFieldDescriptor), coercedArray);
-            return wrapperBuilder.build();
+        if (targetDescriptor != null && targetArrayType.isNullable()) {
+            Verify.verifyNotNull(targetElementFieldDescriptor);
+            return wrapNullableArray((Descriptors.Descriptor)targetDescriptor, targetElementFieldDescriptor, coercedArray);
         }
         return coercedArray;
+    }
+
+    /**
+     * Wrap the given {@code array} into a message.
+     *
+     * @param targetDescriptor Descriptor for the wrapper message holding the array.
+     */
+    @Nonnull
+    private static DynamicMessage wrapNullableArray(@Nonnull final Descriptors.Descriptor targetDescriptor,
+                                                    @Nonnull final Descriptors.FieldDescriptor targetElementFieldDescriptor,
+                                                    final List<? extends Object> array) {
+        final var builder = DynamicMessage.newBuilder(targetDescriptor);
+        builder.setField(targetElementFieldDescriptor, array);
+        return builder.build();
     }
 
     @Nonnull

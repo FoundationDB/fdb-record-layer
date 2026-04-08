@@ -290,7 +290,7 @@ public class TypeRepository {
      */
     @Nonnull
     private static Type canonicalizeNullability(@Nonnull final Type type) {
-        if (type.getTypeCode() == Type.TypeCode.RELATION || type.getTypeCode() == Type.TypeCode.NONE) {
+        if (type.getTypeCode() == Type.TypeCode.RELATION || type.isNone()) {
             return type.notNullable();
         } else {
             return type.nullable();

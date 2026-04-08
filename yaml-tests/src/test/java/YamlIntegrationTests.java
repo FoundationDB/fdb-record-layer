@@ -71,6 +71,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    void arraysOperators(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("arrays-operators.yamsql");
+    }
+
+    @TestTemplate
     public void betweenTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("between.yamsql");
     }

@@ -1,0 +1,275 @@
+#
+# arrays-operators.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2023-2030 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+  CREATE TABLE "dummy" ("pk" INTEGER, PRIMARY KEY ("pk"))
+  CREATE TABLE T1 (
+      "pk"      INTEGER,
+      "arr"     INTEGER ARRAY NULL,
+      "arr_nn"  INTEGER ARRAY NOT NULL,
+      PRIMARY KEY ("pk"))
+---
+setup:
+  steps:
+    - query: INSERT INTO "dummy" VALUES (1)
+    - query: INSERT INTO T1 ("pk", "arr", "arr_nn")
+             VALUES (-1, NULL, []),
+                    (0, [],  []),
+                    (1, [1], [1])
+---
+test_block:
+  # These tests exercise the two unary `IS [NOT] NULL` predicates on constant ARRAYs, i.e., different combinations of:
+  #     {ARRAY|NULL|NONE} × {IS NULL|IS NOT NULL}
+  name: arrays-operators-unary-const
+  preset: single_repetition_ordered
+  tests:
+    - - query: SELECT [1]  IS NULL                            FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT CAST(NULL AS INTEGER ARRAY) IS NULL     FROM "dummy"
+      - result: [{TRUE}]
+    - - query: SELECT [] IS NULL                              FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT [1]  IS NOT NULL                        FROM "dummy"
+      - result: [{TRUE}]
+    - - query: SELECT CAST(NULL AS INTEGER ARRAY) IS NOT NULL FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT [] IS NOT NULL                          FROM "dummy"
+      - result: [{TRUE}]
+---
+test_block:
+  # These tests exercise the 4 different flavors of binary equality/inequality predicates with constant ARRAY arguments.
+  # Since the type system distinguishes NULL and [] (which has the "none" type), we also exercise all combinations of
+  # those argument types. That makes 3×4×3 = 36 cases:
+  #      {ARRAY|NULL|NONE} × {=|<>|IS DISTINCT FROM|IS NOT DISTINCT FROM} × {ARRAY|NULL|NONE}
+  name: arrays-operators-binary-const
+  preset: single_repetition_ordered
+  tests:
+    - - query: SELECT [1]   = [1]                                           FROM "dummy"
+      - result: [{TRUE}]
+    - - query: SELECT [1]   = NULL                                          FROM "dummy"
+      - result: [{!null _}]
+    - - query: SELECT [1]   = []                                            FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT NULL  = [1]                                           FROM "dummy"
+      - result: [{!null _}]
+    - - query: SELECT NULL  = CAST(NULL AS INTEGER ARRAY)                   FROM "dummy"
+      - result: [{!null _}]
+    - - query: SELECT NULL  = []                                            FROM "dummy"
+      - result: [{!null _}]
+    - - query: SELECT []    = [1]                                           FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT []    = NULL                                          FROM "dummy"
+      - result: [{!null _}]
+    - - query: SELECT []    = CAST([] AS INTEGER ARRAY)                     FROM "dummy"
+      - result: [{TRUE}]
+    - - query: SELECT [1]  <> [1]                                           FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT [1]  <> NULL                                          FROM "dummy"
+      - result: [{!null _}]
+    - - query: SELECT [1]  <> []                                            FROM "dummy"
+      - result: [{TRUE}]
+    - - query: SELECT NULL <> [1]                                           FROM "dummy"
+      - result: [{!null _}]
+    - - query: SELECT NULL <> CAST(NULL AS INTEGER ARRAY)                   FROM "dummy"
+      - result: [{!null _}]
+    - - query: SELECT NULL <> []                                            FROM "dummy"
+      - result: [{!null _}]
+    - - query: SELECT []   <> [1]                                           FROM "dummy"
+      - result: [{TRUE}]
+    - - query: SELECT []   <> NULL                                          FROM "dummy"
+      - result: [{!null _}]
+    - - query: SELECT []   <> CAST([] AS INTEGER ARRAY)                     FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT [1]  IS DISTINCT FROM [1]                             FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT [1]  IS DISTINCT FROM NULL                            FROM "dummy"
+      - result: [{TRUE}]
+    - - query: SELECT [1]  IS DISTINCT FROM []                              FROM "dummy"
+      - result: [{TRUE}]
+    - - query: SELECT NULL IS DISTINCT FROM [1]                             FROM "dummy"
+      - result: [{TRUE}]
+    - - query: SELECT NULL IS DISTINCT FROM CAST(NULL AS INTEGER ARRAY)     FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT NULL IS DISTINCT FROM []                              FROM "dummy"
+      - result: [{TRUE}]
+    - - query: SELECT []   IS DISTINCT FROM [1]                             FROM "dummy"
+      - result: [{TRUE}]
+    - - query: SELECT []   IS DISTINCT FROM NULL                            FROM "dummy"
+      - result: [{TRUE}]
+    - - query: SELECT []   IS DISTINCT FROM CAST([] AS INTEGER ARRAY)       FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT [1]  IS NOT DISTINCT FROM [1]                         FROM "dummy"
+      - result: [{TRUE}]
+    - - query: SELECT [1]  IS NOT DISTINCT FROM NULL                        FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT [1]  IS NOT DISTINCT FROM []                          FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT NULL IS NOT DISTINCT FROM [1]                         FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT NULL IS NOT DISTINCT FROM CAST(NULL AS INTEGER ARRAY) FROM "dummy"
+      - result: [{TRUE}]
+    - - query: SELECT NULL IS NOT DISTINCT FROM []                          FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT []   IS NOT DISTINCT FROM [1]                         FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT []   IS NOT DISTINCT FROM NULL                        FROM "dummy"
+      - result: [{FALSE}]
+    - - query: SELECT []   IS NOT DISTINCT FROM CAST([] AS INTEGER ARRAY)   FROM "dummy"
+      - result: [{TRUE}]
+---
+test_block:
+  # Tests for `<array> IS [NOT] NULL` as well as `<array> = []` against non-constant arguments.
+  name: arrays-operators-unary-nonconst
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: SELECT "arr",
+                      "arr" IS NULL AS "is_null",
+                      "arr" IS NOT NULL AS "is_not_null",
+                      "arr" = [] AS "is_empty"
+                 FROM T1
+      - unorderedResult: [
+          {arr: !null _,  is_null: TRUE, is_not_null: FALSE, is_empty: !null _},
+          {arr: [],  is_null: FALSE, is_not_null: TRUE, is_empty: TRUE},
+          {arr: [1], is_null: FALSE, is_not_null: TRUE, is_empty: FALSE}
+        ]
+    -
+      # Same test as above, but with a non-nullable array.
+      - query: SELECT "arr_nn",
+                      "arr_nn" IS NULL AS "is_null",
+                      "arr_nn" IS NOT NULL AS "is_not_null",
+                      "arr_nn" = [] AS "is_empty"
+                 FROM T1
+                WHERE "pk" != -1
+      - unorderedResult: [
+        {arr_nn: [],  is_null: FALSE, is_not_null: TRUE, is_empty: TRUE},
+        {arr_nn: [1], is_null: FALSE, is_not_null: TRUE, is_empty: FALSE}
+      ]
+---
+test_block:
+  # Tests for {=|<>|IS DISTINCT FROM|IS NOT DISTINCT FROM} against non-constant arguments.
+  name: arrays-operators-binary-nonconst
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: SELECT L."arr" AS "lhs", R."arr" AS "rhs",
+                      L."arr" = R."arr" AS "eq",
+                      L."arr" <> R."arr" AS "ne",
+                      L."arr" IS NOT DISTINCT FROM r."arr" AS "indf",
+                      L."arr" IS DISTINCT FROM r."arr" AS "idf"
+                 FROM T1 L, T1 R
+      - unorderedResult: [
+          {lhs: !null _,  rhs: !null _,  eq: !null _,  ne: !null _,  indf: TRUE,  idf: FALSE},
+          {lhs: !null _,  rhs: [],       eq: !null _,  ne: !null _,  indf: FALSE, idf: TRUE},
+          {lhs: !null _,  rhs: [1],      eq: !null _,  ne: !null _,  indf: FALSE, idf: TRUE},
+          {lhs: [],       rhs: !null _,  eq: !null _,  ne: !null _,  indf: FALSE, idf: TRUE},
+          {lhs: [],       rhs: [],       eq: TRUE,     ne: FALSE,    indf: TRUE,  idf: FALSE},
+          {lhs: [],       rhs: [1],      eq: FALSE,    ne: TRUE,     indf: FALSE, idf: TRUE},
+          {lhs: [1],      rhs: !null _,  eq: !null _,  ne: !null _,  indf: FALSE, idf: TRUE},
+          {lhs: [1],      rhs: [],       eq: FALSE,    ne: TRUE,     indf: FALSE, idf: TRUE},
+          {lhs: [1],      rhs: [1],      eq: TRUE,     ne: FALSE,    indf: TRUE,  idf: FALSE}
+        ]
+    -
+      # Same test as above, but with non-nullable arrays.
+      - query: SELECT L."arr_nn" AS "lhs", R."arr_nn" AS "rhs",
+                      L."arr_nn" = R."arr_nn" AS "eq",
+                      L."arr_nn" <> R."arr_nn" AS "ne",
+                      L."arr_nn" IS NOT DISTINCT FROM r."arr_nn" AS "indf",
+                      L."arr_nn" IS DISTINCT FROM r."arr_nn" AS "idf"
+                 FROM T1 L, T1 R
+                WHERE L."pk" != -1
+                  AND R."pk" != -1
+      - unorderedResult: [
+          {lhs: [],  rhs: [],  eq: TRUE,  ne: FALSE, indf: TRUE,  idf: FALSE},
+          {lhs: [],  rhs: [1], eq: FALSE, ne: TRUE,  indf: FALSE, idf: TRUE},
+          {lhs: [1], rhs: [],  eq: FALSE, ne: TRUE,  indf: FALSE, idf: TRUE},
+          {lhs: [1], rhs: [1], eq: TRUE,  ne: FALSE, indf: TRUE,  idf: FALSE}
+        ]
+    -
+      # Same test as above, but comparing a nullable to a non-nullable array (which involves type promotion).
+      - query: SELECT L."arr" AS "lhs", R."arr_nn" AS "rhs",
+                      L."arr" = R."arr_nn" AS "eq",
+                      L."arr" <> R."arr_nn" AS "ne",
+                      L."arr" IS NOT DISTINCT FROM r."arr_nn" AS "indf",
+                      L."arr" IS DISTINCT FROM r."arr_nn" AS "idf"
+                 FROM T1 L, T1 R
+                WHERE R."pk" != -1
+      - unorderedResult: [
+          {lhs: !null _,  rhs: [],  eq: !null _,  ne: !null _, indf: FALSE, idf: TRUE},
+          {lhs: !null _,  rhs: [1], eq: !null _,  ne: !null _, indf: FALSE, idf: TRUE},
+          {lhs: [],       rhs: [],  eq: TRUE,     ne: FALSE,   indf: TRUE,  idf: FALSE},
+          {lhs: [],       rhs: [1], eq: FALSE,    ne: TRUE,    indf: FALSE, idf: TRUE},
+          {lhs: [1],      rhs: [],  eq: FALSE,    ne: TRUE,    indf: FALSE, idf: TRUE},
+          {lhs: [1],      rhs: [1], eq: TRUE,     ne: FALSE,   indf: TRUE,  idf: FALSE}
+        ]
+---
+test_block:
+  # Some other test cases of interest.
+  name: arrays-operators-other
+  preset: single_repetition_ordered
+  tests:
+    -
+      # Comparing the untyped empty array constructor to itself.
+      - query: SELECT [] = [] FROM "dummy"
+      - result: [{TRUE}]
+    -
+      # Comparison of an INTEGER ARRAY field to [], casted to an ARRAY type that is not compatible with INTEGER ARRAY.
+      - query: SELECT * FROM T1 WHERE "arr" = CAST([] AS STRING ARRAY)
+      - error: "42804"
+    -
+      # Comparison of a nullable ARRAY field to [], casted to the correct type.
+      - query: SELECT "pk" FROM T1 WHERE "arr" = CAST([] AS INTEGER ARRAY)
+      - result: [{pk: 0}]
+    -
+      # Comparison of a nullable ARRAY field to [] without a CAST.
+      - query: SELECT "pk" FROM T1 WHERE "arr" = []
+      - result: [{pk: 0}]
+    -
+      # Comparison of a not-nullable ARRAY field to [], casted to the correct type.
+      - query: SELECT "pk" FROM T1 WHERE "arr_nn" = CAST([] AS INTEGER ARRAY) AND "pk" != -1
+      - result: [{pk: 0}]
+    -
+      # Comparison of a not-nullable ARRAY field to [] without a CAST.
+      - query: SELECT "pk" FROM T1 WHERE "arr_nn" = [] AND "pk" != -1
+      - result: [{pk: 0}]
+    -
+      # The comparison of multi-element arrays is order-sensitive.
+      - query: SELECT [1, 2] <> [2, 1] FROM "dummy"
+      - result: [{TRUE}]
+    -
+      # Comparing arrays of arrays.
+      - query: SELECT [[1, 2], [3, 4]] IS NOT DISTINCT FROM [[1, 2], [3, 4]] FROM "dummy"
+      - result: [{TRUE}]
+    -
+      # Comparing arrays of tuples.
+      - query: SELECT [(1, 'a'), (2, 'b')] = [(1, 'a'), (2, 'b')] FROM "dummy"
+      - result: [{TRUE}]
+    -
+      # Comparison of an INTEGER ARRAY to a constant BIGINT ARRAY. The INTEGER ARRAY could be promoted to a BIGINT ARRAY
+      # but this is not yet supported.
+      - query: SELECT "pk" FROM T1 WHERE "arr" = CAST([1] AS BIGINT ARRAY)
+      - error: "42804"
+    - # Some more constant comparisons of different but promotable ARRAY types. This is not yet supported.
+      - query: SELECT 1I = 1L, [1I] = [1L] FROM "dummy"
+      - error: "42804"
+...
