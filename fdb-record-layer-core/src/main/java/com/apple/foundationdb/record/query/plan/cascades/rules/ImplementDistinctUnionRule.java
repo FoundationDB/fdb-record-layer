@@ -44,8 +44,10 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 
@@ -230,12 +232,52 @@ public class ImplementDistinctUnionRule extends ImplementationCascadesRule<Logic
         }
     }
 
+    @Nonnull
+    private static ImmutableList<Ordering> removeCommonEqualityBoundParts(@Nonnull final ImmutableList<Ordering> providedOrderings) {
+        if (providedOrderings.isEmpty()) {
+            return providedOrderings;
+        }
+
+        // Find values that are equality-bound in all orderings and have no dependencies
+        final var commonEqualityBoundValues =
+                providedOrderings.stream()
+                        .map(ordering -> {
+                            final var orderingSet = ordering.getOrderingSet();
+                            final var dependencyMap = orderingSet.getDependencyMap();
+                            return ordering.getEqualityBoundValues().stream()
+                                    .filter(value -> dependencyMap.get(value).isEmpty())
+                                    .collect(ImmutableSet.<Value>toImmutableSet());
+                        })
+                        .reduce((a, b) -> a.stream().filter(b::contains).collect(ImmutableSet.toImmutableSet()))
+                        .orElse(ImmutableSet.of());
+
+        if (commonEqualityBoundValues.isEmpty()) {
+            return providedOrderings;
+        }
+
+        return providedOrderings.stream()
+                .map(ordering -> {
+                    final var filteredOrderingSet =
+                            ordering.getOrderingSet().filterElements(value -> !commonEqualityBoundValues.contains(value));
+                    final var filteredBindingMap =
+                            ImmutableSetMultimap.<Value, Ordering.Binding>builder();
+                    for (final var entry : ordering.getBindingMap().entries()) {
+                        if (!commonEqualityBoundValues.contains(entry.getKey())) {
+                            filteredBindingMap.put(entry.getKey(), entry.getValue());
+                        }
+                    }
+                    return Ordering.ofOrderingSet(filteredBindingMap.build(), filteredOrderingSet, ordering.isDistinct());
+                })
+                .collect(ImmutableList.toImmutableList());
+    }
+
     private void pushInterestingOrders(@Nonnull final ImplementationCascadesRuleCall call,
                                        @Nonnull final Quantifier unionForEachQuantifier,
                                        @Nonnull final ImmutableList<Ordering> providedOrderings,
                                        @Nonnull final RequestedOrdering requestedOrdering) {
         final var unionRef = unionForEachQuantifier.getRangesOver();
-        for (final var providedOrdering : providedOrderings) {
+        final var providedOrderingWithoutCommonEqualityBoundParts = removeCommonEqualityBoundParts(providedOrderings);
+        for (final var providedOrdering : providedOrderingWithoutCommonEqualityBoundParts) {
             final var requestedOrderings =
                     providedOrdering.deriveRequestedOrderings(requestedOrdering, false);
             call.pushConstraint(unionRef, RequestedOrderingConstraint.REQUESTED_ORDERING, requestedOrderings);
