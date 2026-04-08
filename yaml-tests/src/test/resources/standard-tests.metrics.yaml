@@ -136,13 +136,13 @@ standard-tests:
 -   query: EXPLAIN select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20
         OR COL1 = 10) ORDER BY COL1
     ref: standard-tests.yamsql:231
-    explain: 'COVERING(I1 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]])
-        ∪ COVERING(I1 [EQUALS promote(@c12 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]])
+    explain: 'COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]])
+        ∪ COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]])
         COMPARE BY (_.COL1, _.ID) | FETCH'
     task_count: 1400
-    task_total_time_ms: 94
+    task_total_time_ms: 57
     transform_count: 269
-    transform_time_ms: 32
+    transform_time_ms: 22
     transform_yield_count: 72
     insert_time_ms: 4
     insert_new_count: 152
