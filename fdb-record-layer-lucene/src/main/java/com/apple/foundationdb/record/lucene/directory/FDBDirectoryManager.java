@@ -52,6 +52,8 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.foundationdb.util.CallbackUtils;
+import com.apple.foundationdb.util.CloseableUtils;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
@@ -65,14 +67,17 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * A transaction-scoped manager of {@link FDBDirectory} objects. For a single transaction, all {@link FDBDirectory}
@@ -112,6 +117,8 @@ public class FDBDirectoryManager implements AutoCloseable {
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public synchronized void close() throws IOException {
+        // This is invoked through commitCheck therefore is expected to abort on failure
+        // and should not attempt to complete all calls
         for (FDBDirectoryWrapper directory : createdDirectories.values()) {
             directory.close();
         }
@@ -125,8 +132,12 @@ public class FDBDirectoryManager implements AutoCloseable {
     @SuppressWarnings("PMD.CloseResource")
     public synchronized void closeWithoutCommit() throws IOException {
         try {
-            for (FDBDirectoryWrapper directory : createdDirectories.values()) {
-                directory.closeWithoutCommit();
+            List<Supplier<Void>> callbacks = createdDirectories.values().stream()
+                    .map(this::closeWithoutCommitCallback).collect(Collectors.toList());
+            // ensure we close all resources, regardless of exceptions
+            final CallbackUtils.InvokeResults<Void> results = CallbackUtils.invokeAll(callbacks);
+            if (results.getAccumulatedException() != null) {
+                throw LuceneExceptions.toIoException(results.getAccumulatedException(), null);
             }
         } finally {
             createdDirectories.clear();
@@ -493,7 +504,7 @@ public class FDBDirectoryManager implements AutoCloseable {
             // Call closeWithoutCommit once the transaction closes. If the transaction was committed, then close() was
             // called (see above) so this would be a noop. If the transaction was not committed, we still need to close
             // the created directoryWrappers, so call their closeWithoutCommit().
-            // Foe each context, there should be only one manager per index, so the name is qualified by index
+            // For each context, there should be only one manager per index, so the name is qualified by index
             final String hookName = "DirectoryManager/" + state.index.getName();
             context.addPostCloseHook(hookName, () -> {
                 try {
@@ -520,4 +531,21 @@ public class FDBDirectoryManager implements AutoCloseable {
                 .count());
     }
 
+    /**
+     * A Utility to create a callback to invoke {@link FDBDirectoryWrapper#closeWithoutCommit()}.
+     * Needed in order to wrap the exception.
+     *
+     * @param wrapper the wrapper to invoke
+     * @return a callback that can be given to the {@link CloseableUtils}
+     */
+    private Supplier<Void> closeWithoutCommitCallback(FDBDirectoryWrapper wrapper) {
+        return () -> {
+            try {
+                wrapper.closeWithoutCommit();
+                return null;
+            } catch (IOException ex) {
+                throw new CompletionException(ex);
+            }
+        };
+    }
 }

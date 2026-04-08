@@ -204,15 +204,17 @@ public class PendingWriteQueue {
                 .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
 
         return unsplitter.map(rawRecord ->
-                toQueueEntry(rawRecord.getPrimaryKey(), rawRecord.getRawRecord()));
+                toQueueEntry(context, rawRecord.getPrimaryKey(), rawRecord.getRawRecord()));
     }
 
     /**
      * Convert a raw record back to a queue entry.
      */
-    private QueueEntry toQueueEntry(Tuple keyTuple, byte[] valueBytes) {
+    private QueueEntry toQueueEntry(FDBRecordContext context, Tuple keyTuple, byte[] valueBytes) {
         try {
+            long startTime = System.nanoTime();
             final byte[] value = serializer.decode(valueBytes);
+            context.record(LuceneEvents.Waits.WAIT_LUCENE_DESERIALIZE, System.nanoTime() - startTime);
             LucenePendingWriteQueueProto.PendingWriteItem item = LucenePendingWriteQueueProto.PendingWriteItem.parseFrom(value);
             return new QueueEntry(keyTuple, item, allowIncarnation);
         } catch (InvalidProtocolBufferException e) {
@@ -361,7 +363,9 @@ public class PendingWriteQueue {
         Tuple keyTuple = allowIncarnation
                          ? Tuple.from(incarnation, recordVersion.toVersionstamp())
                          : Tuple.from(recordVersion.toVersionstamp());
+        long startTime = System.nanoTime();
         byte[] value = serializer.encode(builder.build().toByteArray());
+        context.record(LuceneEvents.Waits.WAIT_LUCENE_SERIALIZE, System.nanoTime() - startTime);
         // save with splits
         SplitHelper.saveWithSplit(context, queueSubspace, keyTuple, value, null, true, false, false, null, null);
 
