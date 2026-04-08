@@ -139,14 +139,14 @@ standard-tests:
     explain: 'COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]])
         ∪ COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]])
         COMPARE BY (_.COL1, _.ID) | FETCH'
-    task_count: 1183
-    task_total_time_ms: 87
-    transform_count: 245
+    task_count: 1400
+    task_total_time_ms: 57
+    transform_count: 269
     transform_time_ms: 22
     transform_yield_count: 72
     insert_time_ms: 4
-    insert_new_count: 139
-    insert_reused_count: 7
+    insert_new_count: 152
+    insert_reused_count: 21
 -   query: EXPLAIN select * from T1 where (COL1 >= 10 AND COL1 <= 20) OR (COL1 >=
         10 AND COL1 <= 20)
     ref: standard-tests.yamsql:249
