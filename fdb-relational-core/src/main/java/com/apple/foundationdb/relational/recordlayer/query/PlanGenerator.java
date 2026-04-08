@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsCollector;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -144,6 +145,7 @@ public final class PlanGenerator {
     }
 
     @Nonnull
+    @SuppressWarnings("try")
     private Plan<?> getPlanInternal(@Nonnull String query, @Nonnull KeyValueLogMessage message) throws RelationalException {
         try {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
@@ -177,7 +179,7 @@ public final class PlanGenerator {
                             planEquivalence,
                             () -> {
                                 final Plan<?> physicalPlan;
-                                try {
+                                try (final var ignored = new PlannerEventStatsCollector.DefaultStatsCollectorController()) {
                                     physicalPlan = generatePhysicalPlan(astHashResult, validPlanHashModes, currentPlanHashMode);
                                 } catch (final RelationalException vE) {
                                     throw vE.toUncheckedWrappedException();

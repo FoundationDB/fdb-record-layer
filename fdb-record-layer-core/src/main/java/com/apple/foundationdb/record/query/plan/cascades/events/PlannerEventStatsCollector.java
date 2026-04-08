@@ -119,4 +119,19 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
      */
     @Nonnull
     Optional<PlannerEventStatsMaps> getStatsMaps();
+
+    class DefaultStatsCollectorController implements AutoCloseable {
+        @Nullable
+        final PlannerEventStatsCollector prevCollector;
+
+        public DefaultStatsCollectorController() {
+            prevCollector = PlannerEventStatsCollector.getCollector();
+            PlannerEventStatsCollector.enableDefaultStatsCollector();
+        }
+
+        @Override
+        public void close() {
+            PlannerEventStatsCollector.setCollector(prevCollector);
+        }
+    }
 }
