@@ -246,7 +246,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private static final int PRELOAD_CACHE_SIZE = 100;
 
     @Nonnull
-    private static final CompletableFuture<IndexState> READY_READABLE = CompletableFuture.completedFuture(IndexState.READABLE);
+
 
     protected static final Object STORE_INFO_KEY = FDBRecordStoreKeyspace.STORE_INFO.key();
     protected static final Object RECORD_KEY = FDBRecordStoreKeyspace.RECORD.key();
@@ -4370,15 +4370,31 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    private CompletableFuture<Void> finishPreSetWork(@Nonnull List<CompletableFuture<Void>> work) {
-        if (work.isEmpty()) {
-            return AsyncUtil.DONE;
+    private CompletableFuture<Map<Index, IndexState>> rebuildIndexesGetDesiredIndexStates(
+            @Nonnull List<CompletableFuture<Void>> preWork,
+            @Nonnull Map<Index, CompletableFuture<IndexState>> newStates) {
+        final Map<Index, IndexState> desiredIndexStates = new HashMap<>();
+        // Combine pre-existing work and newStates resolution into a single list of futures
+        final List<CompletableFuture<Void>> allWork = new ArrayList<>(preWork);
+        for (Map.Entry<Index, CompletableFuture<IndexState>> entry : newStates.entrySet()) {
+            allWork.add(entry.getValue().thenAccept(state -> desiredIndexStates.put(entry.getKey(), state)));
         }
-        return AsyncUtil.whenAll(work).whenComplete((v, t) -> {
-            for (CompletableFuture<Void> w : work) {
-                context.asyncToSync(FDBStoreTimer.Waits.WAIT_ERROR_CHECK, w); // Just for error handling.
+        if (allWork.isEmpty()) { // this should never happen
+            return CompletableFuture.completedFuture(desiredIndexStates);
+        }
+        // Run all futures with a window of MAX_PARALLEL_INDEX_REBUILD concurrent items
+        final Iterator<CompletableFuture<Void>> iter = allWork.iterator();
+        final List<CompletableFuture<Void>> window = new ArrayList<>();
+        return AsyncUtil.whileTrue(() -> {
+            window.removeIf(CompletableFuture::isDone);
+            while (window.size() < MAX_PARALLEL_INDEX_REBUILD && iter.hasNext()) {
+                window.add(iter.next());
             }
-        });
+            if (window.isEmpty()) {
+                return AsyncUtil.READY_FALSE;
+            }
+            return AsyncUtil.whenAny(window).thenApply(v -> true);
+        }, getExecutor()).thenApply(ignore -> desiredIndexStates);
     }
 
     @Nonnull
@@ -4387,13 +4403,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                      @Nonnull List<CompletableFuture<Void>> work,
                                                      @Nonnull RebuildIndexReason reason,
                                                      @Nullable Integer oldMetaDataVersion) {
-        // Finish any pre-existing work items with potential index state reads before the rebuildIndexes's index state writes
-        return finishPreSetWork(work).thenCompose(ignore -> rebuildIndexes(indexes, newStates, reason, oldMetaDataVersion));
+        // Finish any pre-existing work items and resolve desired index states (which may query index states) before
+        // rebuilding indexes (which writes index states)
+        return rebuildIndexesGetDesiredIndexStates(work, newStates).thenCompose(desiredIndexStates ->
+                rebuildIndexes(indexes, desiredIndexStates, reason, oldMetaDataVersion));
     }
 
     @Nonnull
     protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
-                                                     @Nonnull Map<Index, CompletableFuture<IndexState>> newStates,
+                                                     @Nonnull Map<Index, IndexState> desiredIndexStates,
                                                      @Nonnull RebuildIndexReason reason,
                                                      @Nullable Integer oldMetaDataVersion) {
         List<CompletableFuture<Void>> work = new ArrayList<>();
@@ -4412,11 +4430,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     Map.Entry<Index, List<RecordType>> indexItem = indexIter.next();
                     Index index = indexItem.getKey();
                     List<RecordType> recordTypes = indexItem.getValue();
+                    IndexState indexState = desiredIndexStates.getOrDefault(index, IndexState.READABLE);
                     final StringBuilder errMessageBuilder = new StringBuilder("unable to ");
                     final CompletableFuture<Void> rebuildOrMarkIndexSafely = MoreAsyncUtil.handleOnException(
-                            () -> newStates.getOrDefault(index, READY_READABLE).thenCompose(
-                                    indexState -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder)
-                            ),
+                            () -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder),
                             exception -> {
                                 // If there is any issue, simply mark the index as disabled without blocking checkVersion
                                 logExceptionAsWarn(KeyValueLogMessage.build(errMessageBuilder.toString(),
