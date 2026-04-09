@@ -196,6 +196,54 @@ public class ExplainTests {
     }
 
     @Test
+    void explainDoesNotContainEventStats() throws Exception {
+        final var defaultDebugger = Debugger.getDebugger();
+        try {
+            Debugger.setDebugger(null);
+            PlannerEventStatsCollector.setCollector(new PlannerEventStatsCollector() {
+                @Override
+                public void onQuery(final String queryAsString, final com.apple.foundationdb.record.query.plan.cascades.PlanContext planContext) {
+                }
+
+                @Override
+                public void onEvent(final com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent event) {
+                }
+
+                @Override
+                public void onDone() {
+                }
+
+                @Override
+                public java.util.Optional<com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsMaps> getStatsMaps() {
+                    return java.util.Optional.empty();
+                }
+            });
+            org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
+            org.junit.jupiter.api.Assertions.assertNotNull(PlannerEventStatsCollector.getCollector());
+
+            try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+                executeInsert(ddl);
+                try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
+                    ps.setMaxRows(2);
+                    try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                        final var assertResult = ResultSetAssert.assertThat(resultSet);
+                        assertResult.hasNextRow()
+                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
+                                .hasColumn("PLAN_HASH", -1635569052)
+                                .hasColumn("PLAN_CONTINUATION", null);
+                        org.junit.jupiter.api.Assertions.assertNull(resultSet.getStruct("PLANNER_METRICS"));
+                        assertResult.hasNoNextRow();
+                    }
+                }
+
+                org.junit.jupiter.api.Assertions.assertNotNull(PlannerEventStatsCollector.getCollector());
+            }
+        } finally {
+            Debugger.setDebugger(defaultDebugger);
+        }
+    }
+
+    @Test
     void explainContainsEventStatsFromCache() throws Exception {
         final var defaultDebugger = Debugger.getDebugger();
 
