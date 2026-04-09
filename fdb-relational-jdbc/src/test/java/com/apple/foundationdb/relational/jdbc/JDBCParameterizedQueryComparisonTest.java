@@ -425,18 +425,19 @@ public class JDBCParameterizedQueryComparisonTest {
 
         createSchema(testCase.columnDdl, testCase.extraTypeDdl);
 
+        // Create the value on the insert connection, insert it, then verify the read-back
+        // matches the original inserted value (not a freshly created one).
+        final Object insertedValue;
         try (Connection insertConn = getConnection(insertWithJdbc)) {
-            Object insertValue = testCase.createValue(insertConn);
-            Assertions.assertNotNull(insertValue);
-            insert(insertConn, insertValue, useTypedSetter
+            insertedValue = testCase.createValue(insertConn);
+            Assertions.assertNotNull(insertedValue);
+            insert(insertConn, insertedValue, useTypedSetter
                     ? (statement, value) -> testCase.setTyped(statement, 2, value)
                     : (statement, value) -> statement.setObject(2, value));
         }
 
         try (Connection readConn = getConnection(readWithJdbc)) {
-            Object expectedValue = testCase.createValue(readConn);
-            Assertions.assertNotNull(expectedValue);
-            readAndAssert(readConn, expectedValue,
+            readAndAssert(readConn, insertedValue,
                     resultSet -> testCase.getTyped(resultSet, 1),
                     testCase::assertEquals);
         }
@@ -453,16 +454,18 @@ public class JDBCParameterizedQueryComparisonTest {
 
         createSchema(testCase.columnDdl + " array", testCase.extraTypeDdl);
 
+        // Create the array on the insert connection, insert it, then verify the read-back
+        // matches the original inserted array elements.
+        final Array insertedArray;
         try (Connection insertConn = getConnection(insertWithJdbc)) {
-            Array arrayValue = insertConn.createArrayOf(testCase.arrayTypeName, testCase.sampleArrayElements);
-            insert(insertConn, arrayValue, useTypedSetter
+            insertedArray = insertConn.createArrayOf(testCase.arrayTypeName, testCase.sampleArrayElements);
+            insert(insertConn, insertedArray, useTypedSetter
                     ? (statement, value) -> statement.setArray(2, (Array) value)
                     : (statement, value) -> statement.setObject(2, value));
         }
 
         try (Connection readConn = getConnection(readWithJdbc)) {
-            Array expectedArray = readConn.createArrayOf(testCase.arrayTypeName, testCase.sampleArrayElements);
-            readAndAssert(readConn, expectedArray,
+            readAndAssert(readConn, insertedArray,
                     resultSet -> resultSet.getArray(1),
                     this::assertArrayEquals);
         }
