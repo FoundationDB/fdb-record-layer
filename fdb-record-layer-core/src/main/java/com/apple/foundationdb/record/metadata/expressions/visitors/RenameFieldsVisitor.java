@@ -49,27 +49,26 @@ import com.google.protobuf.Descriptors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Visitor that can be used to rewrite a {@link KeyExpression} in response to a field renaming. This
- * should generally be invoked via {@link #renameFields(KeyExpression, Map, Descriptors.Descriptor)}.
+ * should generally be invoked via {@link #renameFields(KeyExpression, FieldRenames, Descriptors.Descriptor, Descriptors.Descriptor)}.
  *
- * @see #renameFields(KeyExpression, Map, Descriptors.Descriptor)
+ * @see #renameFields(KeyExpression, FieldRenames, Descriptors.Descriptor, Descriptors.Descriptor)
  */
 public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFieldsVisitor.RenameFieldsState, KeyExpression> {
     @Nonnull
-    private final Map<Descriptors.Descriptor, Map<String, String>> renamingMap;
+    private final FieldRenames fieldRenames;
     @Nonnull
     private final Deque<RenameFieldsState> stateStack;
 
-    private RenameFieldsVisitor(@Nonnull Map<Descriptors.Descriptor, Map<String, String>> renamingMap, @Nonnull Descriptors.Descriptor baseDescriptor) {
-        this.renamingMap = renamingMap;
+    private RenameFieldsVisitor(@Nonnull FieldRenames fieldRenames, @Nonnull Descriptors.Descriptor sourceDesctriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
+        this.fieldRenames = fieldRenames;
         this.stateStack = new ArrayDeque<>();
-        stateStack.add(new RenameFieldsState(renamingMap.getOrDefault(baseDescriptor, Collections.emptyMap()), baseDescriptor));
+        stateStack.add(new RenameFieldsState(fieldRenames.getRenamingForTypes(sourceDesctriptor, targetDescriptor), sourceDesctriptor, targetDescriptor));
     }
 
     @Override
@@ -89,7 +88,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
     public FieldKeyExpression visitExpression(@Nonnull final FieldKeyExpression fieldKeyExpression) {
         final String originalName = fieldKeyExpression.getFieldName();
         final RenameFieldsState state = getCurrentState();
-        final String newName = state.renamings.get(originalName);
+        final String newName = state.currentRenaming.get(originalName);
         if (newName == null) {
             return fieldKeyExpression;
         } else {
@@ -104,16 +103,13 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         final FieldKeyExpression originalParent = nestingKeyExpression.getParent();
         final FieldKeyExpression newParent = visitExpression(originalParent);
 
-        // Rewrite child field. To do this properly, we have to make sure to look up the new renamings
+        // Rewrite child field. To do this properly, we have to make sure to look up the new renaming map
         // that need to apply to the child's descriptor type
-        final Descriptors.Descriptor currentDescriptor = getCurrentState().currentDescriptor;
-        final Descriptors.FieldDescriptor fieldDescriptor = currentDescriptor.findFieldByName(originalParent.getFieldName());
-        if (fieldDescriptor == null) {
-            throw new MetaDataException("field missing from parent definition");
-        }
-        final Descriptors.Descriptor childDescriptor = fieldDescriptor.getMessageType();
-        final Map<String, String> childRenamings = renamingMap.getOrDefault(childDescriptor, Collections.emptyMap());
-        stateStack.addLast(new RenameFieldsState(childRenamings, childDescriptor));
+        final Descriptors.Descriptor childSource = getMessageTypeForField(getCurrentState().sourceDescriptor, originalParent);
+        final Descriptors.Descriptor childTarget = getMessageTypeForField(getCurrentState().targetDescriptor, newParent);
+        final Map<String, String> childRenaming = fieldRenames.getRenamingForTypes(childSource, childTarget);
+
+        stateStack.addLast(new RenameFieldsState(childRenaming, childSource, childTarget));
         final KeyExpression newChild = nestingKeyExpression.getChild().expand(this);
         stateStack.removeLast();
 
@@ -122,6 +118,15 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         } else {
             return newParent.nest(newChild);
         }
+    }
+
+    @Nonnull
+    private static Descriptors.Descriptor getMessageTypeForField(@Nonnull Descriptors.Descriptor descriptor, @Nonnull FieldKeyExpression field) {
+        final Descriptors.FieldDescriptor targetFieldDescriptor = descriptor.findFieldByName(field.getFieldName());
+        if (targetFieldDescriptor == null) {
+            throw new MetaDataException("field missing from parent definition");
+        }
+        return targetFieldDescriptor.getMessageType();
     }
 
     @Nonnull
@@ -260,13 +265,16 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
 
     public static final class RenameFieldsState implements KeyExpressionVisitor.State {
         @Nonnull
-        private final Map<String, String> renamings;
+        private final Map<String, String> currentRenaming;
         @Nonnull
-        private final Descriptors.Descriptor currentDescriptor;
+        private final Descriptors.Descriptor sourceDescriptor;
+        @Nonnull
+        private final Descriptors.Descriptor targetDescriptor;
 
-        private RenameFieldsState(@Nonnull Map<String, String> renamings, @Nonnull Descriptors.Descriptor currentDescriptor) {
-            this.renamings = renamings;
-            this.currentDescriptor = currentDescriptor;
+        private RenameFieldsState(@Nonnull Map<String, String> currentRenaming, @Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
+            this.currentRenaming = currentRenaming;
+            this.sourceDescriptor = sourceDescriptor;
+            this.targetDescriptor = targetDescriptor;
         }
     }
 
@@ -278,13 +286,17 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
      * in any semantic differences.
      *
      * @param expression the original expression
-     * @param renamingMap a map linking each {@link Descriptors.Descriptor} to a set of fields that have changed names
-     * @param baseDescriptor a {@link Descriptors.Descriptor} on which the base {@code expression} will be evaluated on
+     * @param fieldRenames a renaming specifying how all
+     * @param sourceDescriptor a {@link Descriptors.Descriptor} on which the base {@code expression} will be evaluated on
+     * @param targetDescriptor a {@link Descriptors.Descriptor} on which the base {@code expression} will be evaluated on
      * @return a new key expression with rewritten field information
      */
     @Nonnull
-    public static KeyExpression renameFields(@Nonnull KeyExpression expression, @Nonnull Map<Descriptors.Descriptor, Map<String, String>> renamingMap, @Nonnull Descriptors.Descriptor baseDescriptor) {
-        final RenameFieldsVisitor visitor = new RenameFieldsVisitor(renamingMap, baseDescriptor);
+    public static KeyExpression renameFields(@Nonnull KeyExpression expression, @Nonnull FieldRenames fieldRenames, @Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
+        if (fieldRenames.isIdentity()) {
+            return expression;
+        }
+        final RenameFieldsVisitor visitor = new RenameFieldsVisitor(fieldRenames, sourceDescriptor, targetDescriptor);
         return expression.expand(visitor);
     }
 }
