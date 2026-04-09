@@ -311,6 +311,11 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         return builder.build();
     }
 
+    @Override
+    public boolean isScopedToSingleType() {
+        return queriedRecordTypes.size() == 1 || hasAndOrderedByRecordTypeKey();
+    }
+
     @Nonnull
     @Override
     public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {

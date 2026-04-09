@@ -185,7 +185,9 @@ public class LuceneEvents {
         /** Replay items from queue in a read-only transaction. */
         WAIT_LUCENE_REPLAY_QUEUE("lucene replay pending writes queue"),
         /** Get the number of entries in the pending writes queue. */
-        WAIT_LUCENE_GET_QUEUE_SIZE("lucene get pending writes queue size");
+        WAIT_LUCENE_GET_QUEUE_SIZE("lucene get pending writes queue size"),
+        WAIT_LUCENE_SERIALIZE("lucene serialize data"),
+        WAIT_LUCENE_DESERIALIZE("lucene deserialize data");
         private final String title;
         private final String logKey;
 
@@ -310,6 +312,8 @@ public class LuceneEvents {
         LUCENE_REBALANCE_PARTITION_DOCS("lucene rebalance partition count"),
         /** Size of the list of files loaded in loadFileReferenceCacheForMemoization operation in FDBDirectory. */
         LUCENE_FILES_COUNT("lucene files"),
+        /** size of the pending writes queue. */
+        LUCENE_QUEUE_SIZE("lucene queue size")
         ;
 
         private final String title;

@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.IndexComparison;
 import com.apple.foundationdb.record.planprotos.PCompilableRange;
 import com.apple.foundationdb.record.planprotos.PRangeConstraints;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
@@ -571,6 +572,9 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         @Nonnull
         private static Tuple toTuple(@Nonnull final Comparisons.Comparison comparison, @Nonnull final EvaluationContext evaluationContext) {
             final List<Object> items = new ArrayList<>();
+            if (comparison instanceof RecordTypeKeyComparison.RecordTypeComparison) {
+                return Tuple.from(((RecordTypeKeyComparison.RecordTypeComparison)comparison).getRecordTypeName());
+            }
             var comparand = comparison.getComparand(null, evaluationContext);
             if (comparison.hasMultiColumnComparand()) {
                 items.addAll(((Tuple)comparand).getItems());
@@ -748,7 +752,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         }
 
         private boolean isCompileTime(@Nonnull final Comparisons.Comparison comparison) {
-            return IndexComparison.isSupported(comparison) && allowedComparisonTypes.contains(comparison.getType());
+            return (comparison instanceof RecordTypeKeyComparison.RecordTypeComparison || IndexComparison.isSupported(comparison))
+                    && allowedComparisonTypes.contains(comparison.getType());
         }
 
         private boolean canBeUsedInScanPrefix(@Nonnull final Comparisons.Comparison comparison) {

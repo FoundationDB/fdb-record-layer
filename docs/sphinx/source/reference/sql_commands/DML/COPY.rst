@@ -10,10 +10,12 @@ This should be called while connected to a different database/schema such as the
 
 Note: this is an experimental feature under active development, see:
 `Issue #3571 <https://github.com/FoundationDB/fdb-record-layer/issues/3571>`_
-Of particular note is: `COPY command should export and restore necessary catalog entries <https://github.com/FoundationDB/fdb-record-layer/issues/3816>`_
 
 **Warning**: There are no protections preventing concurrent access. If exporting/importing takes more than one
 transaction it is your responsibility to ensure that there are no interactions with the database during this time.
+
+**Warning**: This does not validate existing data, or clear before inserting. It is your responsibility to ensure that
+the target is clear. See: `Issue #4005 <https://github.com/FoundationDB/fdb-record-layer/issues/4005>`_
 
 **Note**: Like other update commands, if autoCommit is enabled, import will commit when the resultSet is closed.
 

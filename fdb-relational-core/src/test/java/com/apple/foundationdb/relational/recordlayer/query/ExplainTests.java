@@ -155,7 +155,7 @@ public class ExplainTests {
                     org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
                     RelationalStructAssert.assertThat(plannerMetrics)
                             .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
-                            .hasValue("PLANNING_PHASE_TASK_COUNT", 204L);
+                            .hasValue("PLANNING_PHASE_TASK_COUNT", 185L);
                     assertResult.hasNoNextRow();
                 }
             }
@@ -184,7 +184,7 @@ public class ExplainTests {
                         org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
                         RelationalStructAssert.assertThat(plannerMetrics)
                                 .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
-                                .hasValue("PLANNING_PHASE_TASK_COUNT", 204L);
+                                .hasValue("PLANNING_PHASE_TASK_COUNT", 185L);
                         assertResult.hasNoNextRow();
                     }
                 }

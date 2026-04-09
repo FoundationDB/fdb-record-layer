@@ -46,11 +46,13 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 
 import static com.apple.foundationdb.record.query.plan.cascades.PlanPropertiesMap.allAttributesExcept;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -230,12 +232,62 @@ public class ImplementDistinctUnionRule extends ImplementationCascadesRule<Logic
         }
     }
 
+    /**
+     * Removes ordering parts that are equality-bound to the <em>same</em> binding (i.e. same value and same
+     * {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison}) across <em>all</em> provided
+     * orderings. Such parts carry no distinguishing information between the union legs and are therefore not useful
+     * when pushing interesting orders down to individual legs.
+     * <p>
+     * For example, given two orderings where both bind {@code a = 5} as a fixed part, that entry is removed from
+     * both orderings. If one ordering binds {@code a = 5} and the other binds {@code a = 6}, the entry is
+     * <em>not</em> common and is retained in both.
+     *
+     * @param providedOrderings the list of orderings from each union leg
+     * @return a new list of orderings with common equality-bound parts removed from each ordering
+     */
+    @Nonnull
+    static ImmutableList<Ordering> removeCommonEqualityBoundParts(@Nonnull final ImmutableList<Ordering> providedOrderings) {
+        if (providedOrderings.isEmpty()) {
+            return providedOrderings;
+        }
+
+        final var commonFixedEntries =
+                providedOrderings.stream()
+                        .map(ordering -> ImmutableSet.copyOf(ordering.getFixedBindingMap().entries()))
+                        .reduce((a, b) -> a.stream().filter(b::contains).collect(ImmutableSet.toImmutableSet()))
+                        .orElse(ImmutableSet.of());
+
+        if (commonFixedEntries.isEmpty()) {
+            return providedOrderings;
+        }
+
+        final var valuesToRemove = commonFixedEntries.stream()
+                .map(Map.Entry::getKey)
+                .collect(ImmutableSet.toImmutableSet());
+
+        return providedOrderings.stream()
+                .map(ordering -> {
+                    final var filteredOrderingSet =
+                            ordering.getOrderingSet().filterElements(value -> !valuesToRemove.contains(value));
+                    final var filteredBindingMap =
+                            ImmutableSetMultimap.<Value, Ordering.Binding>builder();
+                    for (final var entry : ordering.getBindingMap().entries()) {
+                        if (!valuesToRemove.contains(entry.getKey())) {
+                            filteredBindingMap.put(entry.getKey(), entry.getValue());
+                        }
+                    }
+                    return Ordering.ofOrderingSet(filteredBindingMap.build(), filteredOrderingSet, ordering.isDistinct());
+                })
+                .collect(ImmutableList.toImmutableList());
+    }
+
     private void pushInterestingOrders(@Nonnull final ImplementationCascadesRuleCall call,
                                        @Nonnull final Quantifier unionForEachQuantifier,
                                        @Nonnull final ImmutableList<Ordering> providedOrderings,
                                        @Nonnull final RequestedOrdering requestedOrdering) {
         final var unionRef = unionForEachQuantifier.getRangesOver();
-        for (final var providedOrdering : providedOrderings) {
+        final var providedOrderingWithoutCommonEqualityBoundParts = removeCommonEqualityBoundParts(providedOrderings);
+        for (final var providedOrdering : providedOrderingWithoutCommonEqualityBoundParts) {
             final var requestedOrderings =
                     providedOrdering.deriveRequestedOrderings(requestedOrdering, false);
             call.pushConstraint(unionRef, RequestedOrderingConstraint.REQUESTED_ORDERING, requestedOrderings);
