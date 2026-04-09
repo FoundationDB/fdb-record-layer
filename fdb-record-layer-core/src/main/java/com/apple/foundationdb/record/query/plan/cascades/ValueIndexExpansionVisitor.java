@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -32,7 +33,9 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.ConstantFoldingRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -129,26 +132,28 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
         if (index.hasPredicate()) {
             final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate()).toPredicate(baseQuantifier.getFlowedObjectValue());
-            final var valueRangesMaybe = IndexPredicateExpansion.dnfPredicateToRanges(filteredIndexPredicate);
-            final var predicateExpansionBuilder = GraphExpansion.builder();
-            if (valueRangesMaybe.isEmpty()) { // could not create DNF, store the predicate as-is.
-                allExpansionsBuilder.add(GraphExpansion.ofPredicate(filteredIndexPredicate));
-            } else {
-                final var valueRanges = valueRangesMaybe.get();
-                for (final var value : valueRanges.keySet()) {
-                    // we check if the predicate value is a placeholder, if so, create a placeholder, otherwise, add it as a constraint.
-                    final var maybePlaceholder = keyValueExpansion.getPlaceholders()
-                            .stream()
-                            .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.emptyMap()))
-                            .findFirst();
-                    if (maybePlaceholder.isEmpty()) {
-                        predicateExpansionBuilder.addPredicate(PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.copyOf(valueRanges.get(value))));
-                    } else {
-                        predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withExtraRanges(ImmutableSet.copyOf(valueRanges.get(value))));
+            if (!filteredIndexPredicate.isTautology()) {
+                final var valueRangesMaybe = IndexPredicateExpansion.dnfPredicateToRanges(filteredIndexPredicate);
+                final var predicateExpansionBuilder = GraphExpansion.builder();
+                if (valueRangesMaybe.isEmpty()) { // could not create DNF, store the predicate as-is.
+                    allExpansionsBuilder.add(GraphExpansion.ofPredicate(filteredIndexPredicate));
+                } else {
+                    final var valueRanges = valueRangesMaybe.get();
+                    for (final var value : valueRanges.keySet()) {
+                        // we check if the predicate value is a placeholder, if so, create a placeholder, otherwise, add it as a constraint.
+                        final var maybePlaceholder = keyValueExpansion.getPlaceholders()
+                                .stream()
+                                .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.emptyMap()))
+                                .findFirst();
+                        if (maybePlaceholder.isEmpty()) {
+                            predicateExpansionBuilder.addPredicate(PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.copyOf(valueRanges.get(value))));
+                        } else {
+                            predicateExpansionBuilder.addPlaceholder(maybePlaceholder.get().withExtraRanges(ImmutableSet.copyOf(valueRanges.get(value))));
+                        }
                     }
                 }
+                allExpansionsBuilder.add(predicateExpansionBuilder.build());
             }
-            allExpansionsBuilder.add(predicateExpansionBuilder.build());
         }
 
         final var keySize = keyValues.size();

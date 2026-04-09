@@ -300,14 +300,27 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                @Nullable FDBIndexableRecord<M> newRecord) {
         CompletableFuture<Void> future = AsyncUtil.DONE;
-        if (oldRecord != null) {
+        if (oldRecord != null && passesBaseFilter(oldRecord)) {
             future = future.thenCompose(vignore -> handleDelete(oldRecord));
         }
-        if (newRecord != null) {
+        if (newRecord != null && passesBaseFilter(newRecord)) {
             final CompletableFuture<Void> prev = future;
             future = prev.thenCompose(vignore -> handleInsert(newRecord));
         }
         return future;
+    }
+
+    /**
+     * Checks whether a record passes the non-window portion of the index predicate.
+     * The full predicate is an AND of value predicates and the window predicate; the window
+     * predicate always evaluates to {@code true}, so this effectively checks the value predicates.
+     */
+    private <M extends Message> boolean passesBaseFilter(@Nonnull FDBIndexableRecord<M> record) {
+        final IndexPredicate predicate = state.index.getPredicate();
+        if (predicate == null) {
+            return true;
+        }
+        return predicate.shouldIndexThisRecord(state.store, record);
     }
 
     @Nonnull

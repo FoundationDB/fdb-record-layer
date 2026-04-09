@@ -1,0 +1,167 @@
+#
+# sliding-window-index.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Tests for sliding window indexes defined via QUALIFY ROW_NUMBER() on views.
+# A sliding window index keeps only the top-N records (by a ranking field) in
+# the underlying index. Records outside the window are stored in overflow for
+# re-election when a window entry is deleted.
+---
+options:
+    supported_version: !current_version
+---
+schema_template:
+    create table scores(id bigint, name string, score bigint, primary key(id))
+
+    create index sliding_window_idx_top3 as select score from scores qualify row_number() over (order by score) <= 3
+
+    create view v_filtered_top2 as
+        select name, score from scores
+        where score > 50
+        qualify row_number() over (order by score) <= 2
+    create index sliding_window_idx_filtered_top2 on v_filtered_top2(score)
+    
+    create index idx as select score, id from scores order by score, id
+---
+setup:
+  steps:
+    - query: INSERT INTO scores VALUES
+             (1, 'Alice', 95),
+             (2, 'Bob', 40),
+             (3, 'Carol', 72),
+             (4, 'Dave', 88),
+             (5, 'Eve', 55)
+---
+test_block:
+  preset: single_repetition_ordered
+  name: sliding-window-basic
+  tests:
+    # ---------------------------------------------------------------
+    # sliding_window_idx_top3: window of 3, ASC (keep lowest scores)
+    # Scores: 40(Bob), 55(Eve), 72(Carol), 88(Dave), 95(Alice)
+    # Window should contain the 3 lowest: 40, 55, 72
+    # ---------------------------------------------------------------
+    -
+      - query: select score from scores use index (sliding_window_idx_top3) order by score
+      - explain: "COVERING(SLIDING_WINDOW_IDX_TOP3 <,> -> [ID: KEY:[2], SCORE: KEY:[0]]) | MAP (_.SCORE AS SCORE)"
+      - result: [{!l 40}, {!l 55}, {!l 72}]
+
+    # The full table still has all 5 records (use normal value index to retrieve correct count).
+    -
+      - query: select count(*) from scores use index (idx)
+      - explain: "ISCAN(IDX <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - result: [{!l 5}]
+
+    # ---------------------------------------------------------------
+    # sliding_window_idx_filtered_top2: WHERE score > 50, then window of 2, ASC
+    # After filter: 55(Eve), 72(Carol), 88(Dave), 95(Alice)
+    # Window should keep the 2 lowest of those: 55, 72
+    # ---------------------------------------------------------------
+    -
+      - query: select score from scores use index (sliding_window_idx_filtered_top2) where score > 51  order by score
+      - explain: "COVERING(SLIDING_WINDOW_IDX_FILTERED_TOP2 [[GREATER_THAN promote(@c13 AS LONG)]] -> [ID: KEY:[2], SCORE: KEY:[0]]) | MAP (_.SCORE AS SCORE)"
+      - result: [{!l 55}, {!l 72}]
+
+    # ---------------------------------------------------------------
+    # Insert a new record that should enter the window (lower score)
+    # ---------------------------------------------------------------
+    -
+      - query: INSERT INTO scores VALUES (6, 'Frank', 30)
+      - count: 1
+
+    # sliding_window_idx_top3: now scores are 30, 40, 55, 72, 88, 95
+    # Window keeps 3 lowest: 30, 40, 55 (Carol's 72 was evicted)
+    -
+      - query: select score from scores use index (sliding_window_idx_top3) order by score
+      - explain: "COVERING(SLIDING_WINDOW_IDX_TOP3 <,> -> [ID: KEY:[2], SCORE: KEY:[0]]) | MAP (_.SCORE AS SCORE)"
+      - result: [{!l 30}, {!l 40}, {!l 55}]
+
+    # ---------------------------------------------------------------
+    # Insert a record that does NOT enter the window (higher score)
+    # ---------------------------------------------------------------
+    -
+      - query: INSERT INTO scores VALUES (7, 'Grace', 99)
+      - count: 1
+
+    # sliding_window_idx_top3 window unchanged: still 30, 40, 55
+    -
+      - query: select score from scores use index (sliding_window_idx_top3) order by score
+      - explain: "COVERING(SLIDING_WINDOW_IDX_TOP3 <,> -> [ID: KEY:[2], SCORE: KEY:[0]]) | MAP (_.SCORE AS SCORE)"
+      - result: [{!l 30}, {!l 40}, {!l 55}]
+
+    # ---------------------------------------------------------------
+    # Delete a window entry → triggers re-election from overflow
+    # ---------------------------------------------------------------
+    -
+      - query: DELETE FROM scores WHERE id = 6
+      - count: 1
+
+    # Frank(30) deleted from window. Re-election promotes the best
+    # overflow candidate. Remaining: 40, 55, 72, 88, 95, 99
+    # Window should now be: 40, 55, 72
+    -
+      - query: select score from scores use index (sliding_window_idx_top3) order by score
+      - explain: "COVERING(SLIDING_WINDOW_IDX_TOP3 <,> -> [ID: KEY:[2], SCORE: KEY:[0]]) | MAP (_.SCORE AS SCORE)"
+      - result: [{!l 40}, {!l 55}, {!l 72}]
+
+---
+test_block:
+  preset: single_repetition_ordered
+  name: sliding-window-filtered
+  tests:
+    # ---------------------------------------------------------------
+    # sliding_window_idx_filtered_top2: WHERE score > 50, window of 2, ASC
+    # Current data (after previous block): Bob(40), Carol(72), Dave(88), Eve(55), Alice(95), Grace(99)
+    # After filter (score > 50): 55, 72, 88, 95, 99
+    # Window keeps 2 lowest: 55, 72
+    # ---------------------------------------------------------------
+
+    # Insert a record that passes the filter and enters the window
+    -
+      - query: INSERT INTO scores VALUES (8, 'Hank', 51)
+      - count: 1
+
+    # sliding_window_idx_filtered_top2: filtered set now includes 51
+    # Filtered: 51, 55, 72, 88, 95, 99 → window keeps 2 lowest: 51, 55
+    -
+      - query: select score from scores use index (sliding_window_idx_filtered_top2) where score > 50 order by score
+      - explain: "COVERING(SLIDING_WINDOW_IDX_FILTERED_TOP2 [[GREATER_THAN promote(@c13 AS LONG)]] -> [ID: KEY:[2], SCORE: KEY:[0]]) | MAP (_.SCORE AS SCORE)"
+      - result: [{!l 51}, {!l 55}]
+
+    # Insert a record that does NOT pass the WHERE filter (score <= 50)
+    # This record should be completely invisible to the sliding window index.
+    -
+      - query: INSERT INTO scores VALUES (9, 'Ivy', 10)
+      - count: 1
+
+    # Window unchanged: still 51, 55
+    -
+      - query: select score from scores use index (sliding_window_idx_filtered_top2) where score > 50 order by score
+      - explain: "COVERING(SLIDING_WINDOW_IDX_FILTERED_TOP2 [[GREATER_THAN promote(@c13 AS LONG)]] -> [ID: KEY:[2], SCORE: KEY:[0]]) | MAP (_.SCORE AS SCORE)"
+      - result: [{!l 51}, {!l 55}]
+
+    # Delete Hank(51) from window → re-election from overflow
+    # Filtered overflow: 72, 88, 95, 99 → best (lowest) = 72
+    # Window becomes: 55, 72
+    -
+      - query: DELETE FROM scores WHERE id = 8
+      - count: 1
+    -
+      - query: select score from scores use index (sliding_window_idx_filtered_top2) where score > 50 order by score
+      - explain: "COVERING(SLIDING_WINDOW_IDX_FILTERED_TOP2 [[GREATER_THAN promote(@c13 AS LONG)]] -> [ID: KEY:[2], SCORE: KEY:[0]]) | MAP (_.SCORE AS SCORE)"
+      - result: [{!l 55}, {!l 72}]

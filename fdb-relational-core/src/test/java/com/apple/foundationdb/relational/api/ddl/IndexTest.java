@@ -53,9 +53,11 @@ import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.function.Consumer;
 
+import static com.apple.foundationdb.record.RecordMetaDataProto.AndPredicate;
 import static com.apple.foundationdb.record.RecordMetaDataProto.Comparison;
 import static com.apple.foundationdb.record.RecordMetaDataProto.ComparisonType;
 import static com.apple.foundationdb.record.RecordMetaDataProto.Predicate;
+import static com.apple.foundationdb.record.RecordMetaDataProto.RowNumberWindowPredicate;
 import static com.apple.foundationdb.record.RecordMetaDataProto.SimpleComparison;
 import static com.apple.foundationdb.record.RecordMetaDataProto.ValuePredicate;
 import static com.apple.foundationdb.record.expressions.RecordKeyExpressionProto.Value;
@@ -299,6 +301,58 @@ public class IndexTest {
                                             .setOperand(Value.newBuilder().setLongValue(10L).build())
                                             .build())
                                     .build())
+                            .build())
+                    .build());
+        });
+    }
+
+    @Test
+    void createSlidingWindowValueIndexIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x bigint) " +
+                "CREATE TYPE AS STRUCT B(y string) " +
+                "CREATE TYPE AS STRUCT C(z string) " +
+                "CREATE TABLE T(p bigint, a A array, b B array, c C, primary key(p))" +
+                "CREATE VIEW v AS SELECT p FROM T where p > 10 qualify row_number() over (order by c) <= 10 " +
+                "CREATE INDEX mv1 ON v(p)";
+        indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE, index -> {
+            assertThat(index.isUnique()).isFalse();
+            assertThat(index.getPredicate()).isEqualTo(Predicate.newBuilder()
+                    .setAndPredicate(AndPredicate.newBuilder()
+                            .addChildren(Predicate.newBuilder()
+                                    .setValuePredicate(ValuePredicate.newBuilder().addValue("P")
+                                            .setComparison(Comparison.newBuilder()
+                                                    .setSimpleComparison(SimpleComparison.newBuilder()
+                                                            .setType(ComparisonType.GREATER_THAN)
+                                                            .setOperand(Value.newBuilder().setLongValue(10L).build())
+                                                            .build())
+                                                    .build())
+                                            .build())
+                                    .build())
+                            .addChildren(Predicate.newBuilder()
+                                    .setRowNumberWindowPredicate(RowNumberWindowPredicate.newBuilder()
+                                            .addFieldPath("C")
+                                            .setSize(10)
+                                            .setDirection(RowNumberWindowPredicate.Direction.ASC)
+                                            .build())
+                                    .build())
+                            .build())
+                    .build());
+        });
+    }
+
+    @Test
+    void createSlidingWindowValueIndexWithoutWhereClause() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, score bigint, primary key(p)) " +
+                "CREATE VIEW v AS SELECT p FROM T qualify row_number() over (order by score) <= 50 " +
+                "CREATE INDEX mv1 ON v(p)";
+        indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE, index -> {
+            assertThat(index.getPredicate()).isEqualTo(Predicate.newBuilder()
+                    .setRowNumberWindowPredicate(RowNumberWindowPredicate.newBuilder()
+                            .addFieldPath("SCORE")
+                            .setSize(50)
+                            .setDirection(RowNumberWindowPredicate.Direction.ASC)
                             .build())
                     .build());
         });
