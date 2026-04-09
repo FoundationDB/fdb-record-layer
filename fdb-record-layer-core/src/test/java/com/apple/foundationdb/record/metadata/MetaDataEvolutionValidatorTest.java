@@ -1130,7 +1130,7 @@ class MetaDataEvolutionValidatorTest {
         assertFalse(validator.allowsFieldRenames());
         assertInvalid("field renamed", metaData1, metaData2);
 
-        // Even with field renames allowed, this should be rejected as the a.a_prime field has not been updated in the index
+        // Even with field renames allowed, this should be rejected as the a.b and b.b fields field have not been updated in the index
         final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
                 .setAllowFieldRenames(true)
                 .build();

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.metadata.expressions.visitors;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -65,10 +64,10 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
     @Nonnull
     private final Deque<RenameFieldsState> stateStack;
 
-    private RenameFieldsVisitor(@Nonnull FieldRenames fieldRenames, @Nonnull Descriptors.Descriptor sourceDesctriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
+    private RenameFieldsVisitor(@Nonnull FieldRenames fieldRenames, @Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
         this.fieldRenames = fieldRenames;
         this.stateStack = new ArrayDeque<>();
-        stateStack.add(new RenameFieldsState(fieldRenames.getRenamingForTypes(sourceDesctriptor, targetDescriptor), sourceDesctriptor, targetDescriptor));
+        stateStack.add(new RenameFieldsState(fieldRenames.getRenamingForTypes(sourceDescriptor, targetDescriptor), sourceDescriptor, targetDescriptor));
     }
 
     @Override
@@ -198,7 +197,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         } else if (keyExpression instanceof DimensionsKeyExpression) {
             return visitExpression((DimensionsKeyExpression) keyExpression);
         } else {
-            throw new RecordCoreException("field renaming not supported for expression")
+            throw new RecordCoreArgumentException("field renaming not supported for expression")
                     .addLogInfo(LogMessageKeys.KEY_EXPRESSION, keyExpression);
         }
     }
@@ -286,9 +285,9 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
      * in any semantic differences.
      *
      * @param expression the original expression
-     * @param fieldRenames a renaming specifying how all
-     * @param sourceDescriptor a {@link Descriptors.Descriptor} on which the base {@code expression} will be evaluated on
-     * @param targetDescriptor a {@link Descriptors.Descriptor} on which the base {@code expression} will be evaluated on
+     * @param fieldRenames a specification for how fields should be adjusted
+     * @param sourceDescriptor a {@link Descriptors.Descriptor} for which the original {@code expression} was written
+     * @param targetDescriptor a {@link Descriptors.Descriptor} on which to rewrite the {@code expression}
      * @return a new key expression with rewritten field information
      */
     @Nonnull

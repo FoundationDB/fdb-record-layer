@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.metadata.expressions.visitors.RenameFieldsV
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Sets;
@@ -58,8 +60,8 @@ import java.util.stream.Collectors;
  *     <li>No record types are dropped.</li>
  *     <li>None of the fields of any existing record type are dropped.</li>
  *     <li>None of the fields change type except in ways that preserve their serialized form in both Protobuf fields and as {@link com.apple.foundationdb.tuple.Tuple} elements.</li>
- *     <li>None of the fields change name (which is required as key expressions reference fields by name). If this validator {@link #allowsFieldRenames}, then this validates that
- *         key expressions have been appropriately updated.</li>
+ *     <li>None of the fields change name (which is required as key expressions reference fields by name). If this validator
+ *         {@linkplain #allowsFieldRenames() allows field renames}, then this validates that any key expressions have been appropriately updated.</li>
  *     <li>None of the fields change their label (e.g., switch from {@code optional} to {@code required}.</li>
  *     <li>The new meta-data continues to split long records if the old meta-data did.</li>
  *     <li>New record types include the version in which they were introduced.</li>
@@ -173,6 +175,7 @@ public class MetaDataEvolutionValidator {
      * @param newUnionDescriptor the new proposed meta-data
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @VisibleForTesting
     public FieldRenames validateUnion(@Nonnull Descriptor oldUnionDescriptor, @Nonnull Descriptor newUnionDescriptor) {
         if (oldUnionDescriptor == newUnionDescriptor) {
             // Don't bother validating the record types if they are all the same.
@@ -392,7 +395,8 @@ public class MetaDataEvolutionValidator {
                 } else {
                     throw new MetaDataException("record type primary key does not match required",
                             LogMessageKeys.RECORD_TYPE, newRecordTypeName,
-                            LogMessageKeys.OLD_KEY_EXPRESSION, renamedPrimaryKey,
+                            LogMessageKeys.OLD_KEY_EXPRESSION, oldRecordType.getPrimaryKey(),
+                            LogMessageKeys.REQUIRED_KEY_EXPRESSION, renamedPrimaryKey,
                             LogMessageKeys.NEW_KEY_EXPRESSION, newRecordType.getPrimaryKey());
                 }
             }
@@ -590,7 +594,11 @@ public class MetaDataEvolutionValidator {
                     LogMessageKeys.OLD_VERSION, oldFormerIndex.getAddedVersion(),
                     LogMessageKeys.NEW_VERSION, newFormerIndex.getAddedVersion());
         }
-        // The former name is mostly used for logging, but it is used during
+        // The former name is mostly used for logging, but it is also used during checkVersion
+        // to clear out the index state, so if this isn't set properly, we can end up leaving
+        // index state information uncleared. If we ever use the subspace key instead of the
+        // name to clear that information out, then we could get rid of this check.
+        // See: https://github.com/foundationdb/fdb-record-layer/issues/514
         if (!Objects.equals(oldFormerIndex.getFormerName(), newFormerIndex.getFormerName())) {
             throw new MetaDataException("name of former index differs from prior version",
                     LogMessageKeys.SUBSPACE_KEY, subspaceKey,
@@ -685,12 +693,11 @@ public class MetaDataEvolutionValidator {
                 }
             }
         }
-        if (expectedKeyExpression == null) {
-            // This shouldn't happen
-            throw new MetaDataException("Unable to create expected key expression");
-        }
-        if (!expectedKeyExpression.equals(newIndex.getRootExpression())) {
-            if (expectedKeyExpression.equals(oldIndex.getRootExpression())) {
+        // This shouldn't happen, as it would imply that the index is not defined on any record types
+        Verify.verifyNotNull(expectedKeyExpression, "Unable to create expected key expression for index %s", newIndex.getName());
+
+        if (!newIndex.getRootExpression().equals(expectedKeyExpression)) {
+            if (oldIndex.getRootExpression().equals(expectedKeyExpression)) {
                 throw new MetaDataException("index key expression changed",
                         LogMessageKeys.INDEX_NAME, newIndex.getName(),
                         LogMessageKeys.OLD_KEY_EXPRESSION, oldIndex.getRootExpression(),
@@ -698,7 +705,8 @@ public class MetaDataEvolutionValidator {
             } else {
                 throw new MetaDataException("index key expression does not match required",
                         LogMessageKeys.INDEX_NAME, newIndex.getName(),
-                        LogMessageKeys.OLD_KEY_EXPRESSION, expectedKeyExpression,
+                        LogMessageKeys.OLD_KEY_EXPRESSION, oldIndex.getRootExpression(),
+                        LogMessageKeys.REQUIRED_KEY_EXPRESSION, expectedKeyExpression,
                         LogMessageKeys.NEW_KEY_EXPRESSION, newIndex.getRootExpression());
             }
         }
