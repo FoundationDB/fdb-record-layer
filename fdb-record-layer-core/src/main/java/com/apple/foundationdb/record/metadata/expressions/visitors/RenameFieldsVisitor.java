@@ -95,6 +95,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         }
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Nonnull
     @Override
     public NestingKeyExpression visitExpression(@Nonnull final NestingKeyExpression nestingKeyExpression) {
@@ -153,6 +154,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         }
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Nonnull
     @Override
     public KeyWithValueExpression visitExpression(@Nonnull final KeyWithValueExpression keyWithValueExpression) {
@@ -202,6 +204,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         }
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Nonnull
     public GroupingKeyExpression visitExpression(@Nonnull final GroupingKeyExpression groupingKeyExpression) {
         final KeyExpression newWholeKey = groupingKeyExpression.getWholeKey().expand(this);
@@ -212,6 +215,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         }
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Nonnull
     public SplitKeyExpression visitExpression(@Nonnull final SplitKeyExpression splitKeyExpression) {
         // Note: "JOINED" is not a child expression, so we can't use rewriteChild here
@@ -234,6 +238,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         }
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Nullable
     private KeyExpression rewriteChild(@Nonnull final KeyExpressionWithChild keyExpressionWithChild) {
         final KeyExpression child = keyExpressionWithChild.getChild();
@@ -245,6 +250,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         }
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Nullable
     private List<KeyExpression> rewriteChildren(@Nonnull final KeyExpressionWithChildren keyExpressionWithChildren) {
         boolean anyChanged = false;
@@ -282,7 +288,9 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
      * for instances where a field is referenced and then create a new {@link KeyExpression} referencing
      * the new field where appropriate. This updated expression can then be used, for instance, to update an index
      * in response to a field change in the meta-data, or to validate that such a change has not resulted
-     * in any semantic differences.
+     * in any semantic differences. Note that if we are given the {@linkplain FieldRenames#identity() identity field renaming}
+     * or if none of the field renames apply to any referenced descriptors, then the original key expression
+     * can be returned unmodified.
      *
      * @param expression the original expression
      * @param fieldRenames a specification for how fields should be adjusted

@@ -44,6 +44,15 @@ import java.util.stream.Collectors;
  * taken from two different versions of the same meta-data in order to track the set of fields that were
  * renamed from one version to another. It can then be paired with the {@link RenameFieldsVisitor} in order
  * to rewrite any expressions so that they access the same data.
+ *
+ * <p>
+ * In this class (as elsewhere), it is assumed that two fields should be considered the same if they share
+ * the same field number. This is because Protobuf records only store the field number when data is serialized.
+ * So, data serialized with one descriptor can be deserialized with another descriptor even if the fields have
+ * changed. But in order for Record Layer {@link com.apple.foundationdb.record.metadata.expressions.KeyExpression}s
+ * to evaluate to the same values when evaluated against deserialized data, they must be rewritten to use
+ * the new names.
+ * </p>
  */
 public final class FieldRenames {
     @Nonnull
@@ -58,7 +67,7 @@ public final class FieldRenames {
 
     /**
      * Whether this contains only identity transformations. If this is {@code true}, then
-     * there are no field renames that we need to keep track of.
+     * there are no field renames that need to be adjusted.
      *
      * @return whether this {@link FieldRenames} contains only identity transformations
      */
@@ -67,10 +76,13 @@ public final class FieldRenames {
     }
 
     /**
-     * Get a set of fields that have changed names between two descriptors. If the {@link FieldRenames} has
-     * been prepared with the source and target descriptor pair given, then this will return a map
-     * containing every field name in {@code sourceDescriptor} where the equivalent field in
-     * {@code targetDescriptor} has a different name.
+     * Get a collection of fields that have changed names between two descriptors. If the given source and target
+     * descriptors were compared while constructing the {@link FieldRenames}, then this will return a map
+     * linking every field name in {@code sourceDescriptor} where the same field in
+     * {@code targetDescriptor} (as specified by the field number) has a different name. Any key expression
+     * written for the source descriptor can then be rewritten so it applies to the target descriptor
+     * by looking up the source field names in the map to get the target field name. Note that as the map
+     * only contains changed fields, if a field is missing, it can be assumed to be unchanged.
      *
      * @param sourceDescriptor a descriptor that is the source of renames
      * @param targetDescriptor a descriptor that is being targeted for renaming
@@ -103,7 +115,7 @@ public final class FieldRenames {
     }
 
     /**
-     * Access an identity instance of {@link FieldRenames} that contains no actually renamed fields.
+     * Returns an identity instance of {@link FieldRenames} that contains no actually renamed fields.
      * @return a {@link FieldRenames} that encodes no field renames
      */
     @Nonnull
@@ -117,7 +129,17 @@ public final class FieldRenames {
      * descriptors in order to find fields that have been renamed, and then call {@link Builder#build()}
      * to create a final immutable set of renames.
      *
+     * <p>
+     * This should be preferred to {@link #constructFor(Descriptors.Descriptor, Descriptors.Descriptor)} if
+     * the caller is already iterating through the type definitions or if the caller wants to combine multiple
+     * different correspondences between source and target descriptors into a single {@link FieldRenames}. For example, in the
+     * {@link com.apple.foundationdb.record.metadata.MetaDataEvolutionValidator}, all pairs of record types
+     * in the old and new record types must be compared, and the logic is already traversing the type
+     * definitions to perform additional validations.
+     * </p>
+     *
      * @return a new builder for registering {@link FieldRenames}
+     * @see com.apple.foundationdb.record.metadata.MetaDataEvolutionValidator
      */
     @Nonnull
     public static Builder newBuilder() {
@@ -127,9 +149,9 @@ public final class FieldRenames {
     /**
      * Create a {@link FieldRenames} that enumerates the fields that have been renamed between
      * a source and target descriptor. This will recursively traverse the fields defined in each
-     * type to produce a complete set of renames. Once this is built, this should be suitable
-     * for re-writing key expressions on {@code sourceDescriptor} onto {@code targetDescriptor}
-     * using a {@link RenameFieldsVisitor}.
+     * type to produce a complete set of renames. The returned {@link FieldRenames} should be suitable
+     * for rewriting key expressions that were originally written for the {@code sourceDescriptor} on
+     * the {@code targetDescriptor} using a {@link RenameFieldsVisitor}.
      *
      * <p>
      * Fields between the {@code sourceDescriptor} and {@code targetDescriptor} will be compared by
@@ -155,6 +177,7 @@ public final class FieldRenames {
         return builder.build();
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static void constructRenaming(@Nonnull Builder builder, @Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor, @Nonnull Set<NonnullPair<Descriptors.Descriptor, Descriptors.Descriptor>> seen) {
         if (sourceDescriptor == targetDescriptor) {
             // Identical source and target descriptors. Do not bother recursing as all fields will be the same
@@ -215,7 +238,8 @@ public final class FieldRenames {
          *
          * <p>
          * That is, this should identify a case where the field in the source and target descriptors
-         * have the same number but different names.
+         * have the same number but different names. It is the caller's responsibility to ensure this
+         * invariant holds.
          * </p>
          *
          * @param sourceDescriptor the source descriptor for the renamed field
