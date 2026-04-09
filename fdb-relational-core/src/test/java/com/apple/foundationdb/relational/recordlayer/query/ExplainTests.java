@@ -239,6 +239,28 @@ public class ExplainTests {
     }
 
     @Test
+    void failExplain() throws Exception {
+        final var defaultDebugger = Debugger.getDebugger();
+
+        try {
+            Debugger.setDebugger(null);
+            PlannerEventStatsCollector.setCollector(null);
+            org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
+            org.junit.jupiter.api.Assertions.assertNull(PlannerEventStatsCollector.getCollector());
+
+            try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+                executeInsert(ddl);
+                org.junit.jupiter.api.Assertions.assertThrows(SQLException.class,
+                        () -> ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM bla").execute());
+
+                org.junit.jupiter.api.Assertions.assertNull(PlannerEventStatsCollector.getCollector());
+            }
+        } finally {
+            Debugger.setDebugger(defaultDebugger);
+        }
+    }
+
+    @Test
     void explainWithContinuationSerializedPlanTest() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
