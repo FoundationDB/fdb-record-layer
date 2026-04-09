@@ -368,6 +368,8 @@ public class MessageHelpers {
                     // want to get the value of that field as a 'runtime' type, hence we get the raw message itself.
                     var fieldResult = messageFieldDescriptor.isRepeated() || !messageFieldDescriptor.getType().equals(Descriptors.FieldDescriptor.Type.MESSAGE) ?
                                       getFieldOnMessage(currentMessage, messageFieldDescriptor) : getFieldMessageOnMessage(currentMessage, messageFieldDescriptor);
+                    // If the last step in the field path is an array that is also nullable, then we need to unwrap the
+                    // value wrapper.
                     fieldResult = NullableArrayTypeUtils.unwrapIfArray(fieldResult, currentFieldType);
                     final var coercedObject =
                             coerceObject(promotionTrieForField, targetFieldType, targetDescriptorForField, currentFieldType, fieldResult);
@@ -408,6 +410,21 @@ public class MessageHelpers {
                 Verify.verify(targetDescriptor instanceof Descriptors.Descriptor);
                 return deepCopyMessageIfNeeded((Descriptors.Descriptor)targetDescriptor, (Message)current);
             }
+
+            // “Re-wrap” `List` values when the target is a nullable ARRAY. Such arrays are stored as a wrapper message
+            // { repeated <type> values = 1; }. Without this wrapping, when the evaluated value is a plain `List` (e.g.,
+            // from an array literal or from `unwrapIfArray()`), subsequently setting it on the protobuf builder would
+            // cause `setField()` to reject the `List<>` with a type mismatch error.
+            if (targetType.isNullable() && targetType.isArray()) {
+                Verify.verify(current instanceof List);
+                Verify.verify(targetDescriptor instanceof Descriptors.Descriptor);
+                final var wrapperDescriptor = (Descriptors.Descriptor)targetDescriptor;
+                final var valuesField = Verify.verifyNotNull(wrapperDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()));
+                final var wrapperBuilder = DynamicMessage.newBuilder(wrapperDescriptor);
+                wrapperBuilder.setField(valuesField, current);
+                return wrapperBuilder.build();
+            }
+
             return current;
         }
 
@@ -557,8 +574,12 @@ public class MessageHelpers {
     }
 
     private static boolean hasAnySuchField(@Nonnull final Message message, Descriptors.FieldDescriptor fieldDescriptor) {
+        // A repeated field represents an array and must be treated as always present by `coerceMessage()`, even when
+        // `fieldDescriptor.getRepeatedFieldCount()` is 0 (which is a valid state that represents the empty array []).
+        // (Note: A nullable array that is NULL is represented by the absence of the optional wrapper message field;
+        // this is handled by the else branch below.)
         if (fieldDescriptor.isRepeated()) {
-            return message.getRepeatedFieldCount(fieldDescriptor) > 0;
+            return true;
         } else {
             return message.hasField(fieldDescriptor);
         }
