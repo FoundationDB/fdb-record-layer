@@ -88,7 +88,7 @@ public class JDBCParameterizedQueryComparisonTest {
      * optionally {@link #assertEqual} to customize behavior per type.
      */
     enum TypeTestCase {
-        BIGINT("bigint", null, true, "BIGINT", new Object[]{10L, 20L, 30L}) {
+        BIGINT("bigint", null, true, "BIGINT", true, new Object[]{10L, 20L, 30L}) {
             @Override
             Object createValue(Connection conn) {
                 return 42L;
@@ -104,7 +104,7 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getLong(columnIndex);
             }
         },
-        INTEGER("integer", null, true, "INTEGER", new Object[]{10, 20, 30}) {
+        INTEGER("integer", null, true, "INTEGER", true, new Object[]{10, 20, 30}) {
             @Override
             Object createValue(Connection conn) {
                 return 42;
@@ -120,7 +120,7 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getInt(columnIndex);
             }
         },
-        DOUBLE("double", null, true, "DOUBLE", new Object[]{1.1, 2.2, 3.3}) {
+        DOUBLE("double", null, true, "DOUBLE", true, new Object[]{1.1, 2.2, 3.3}) {
             @Override
             Object createValue(Connection conn) {
                 return 3.14159;
@@ -136,7 +136,7 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getDouble(columnIndex);
             }
         },
-        FLOAT("float", null, true, "FLOAT", new Object[]{1.1f, 2.2f, 3.3f}) {
+        FLOAT("float", null, true, "FLOAT", false, new Object[]{1.1f, 2.2f, 3.3f}) {
             @Override
             Object createValue(Connection conn) {
                 return 2.718f;
@@ -158,7 +158,7 @@ public class JDBCParameterizedQueryComparisonTest {
                         ((Number) actual).floatValue(), 0.001f, message);
             }
         },
-        STRING("string", null, true, "STRING", new Object[]{"a", "b", "c"}) {
+        STRING("string", null, true, "STRING", true, new Object[]{"a", "b", "c"}) {
             @Override
             Object createValue(Connection conn) {
                 return "hello world";
@@ -174,7 +174,7 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getString(columnIndex);
             }
         },
-        BOOLEAN("boolean", null, true, "BOOLEAN", new Object[]{true, false, true}) {
+        BOOLEAN("boolean", null, true, "BOOLEAN", true, new Object[]{true, false, true}) {
             @Override
             Object createValue(Connection conn) {
                 return true;
@@ -190,7 +190,7 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getBoolean(columnIndex);
             }
         },
-        BYTES("bytes", null, true, null, null) {
+        BYTES("bytes", null, true, null, false, null) {
             @Override
             Object createValue(Connection conn) {
                 return new byte[]{1, 2, 3, 4, 5};
@@ -211,7 +211,7 @@ public class JDBCParameterizedQueryComparisonTest {
                 Assertions.assertArrayEquals((byte[]) expected, (byte[]) actual, message);
             }
         },
-        INTEGER_ARRAY("integer array", null, true, null, null) {
+        INTEGER_ARRAY("integer array", null, true, null, false, null) {
             @Override
             Object createValue(Connection conn) throws SQLException {
                 return conn.createArrayOf("INTEGER", new Object[]{10, 20, 30});
@@ -238,11 +238,7 @@ public class JDBCParameterizedQueryComparisonTest {
                 }
             }
         },
-        /**
-         * JDBC does not support createStruct (always returns {@code null}), so inserting with jdbc is not supported.
-         * See: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/4064">#4064</a>.
-         */
-        STRUCT("MyStruct", "CREATE TYPE AS STRUCT MyStruct (f0 bigint, f1 string)", false, null, null) {
+        STRUCT("MyStruct", "CREATE TYPE AS STRUCT MyStruct (f0 bigint, f1 string)", false, null, false, null) {
             @Override
             Object createValue(Connection conn) throws SQLException {
                 return conn.createStruct("MyStruct", new Object[]{100L, "test_value"});
@@ -284,16 +280,23 @@ public class JDBCParameterizedQueryComparisonTest {
         /** The SQL type name for use with {@code createArrayOf}, or {@code null} if this type cannot be an array element. */
         @Nullable
         private final String arrayTypeName;
+        /**
+         * Whether JDBC {@code createArrayOf} supports this type. {@code false} when {@code TypeConversion.toColumn}
+         * does not handle the JDBC type code (e.g. FLOAT, BINARY).
+         */
+        private final boolean jdbcArraySupported;
         /** Sample values for creating an array of this type, or {@code null} if arrays are not supported. */
         @Nullable
         private final Object[] sampleArrayElements;
 
         TypeTestCase(String columnDdl, @Nullable String extraTypeDdl, boolean jdbcSetterSupported,
-                     @Nullable String arrayTypeName, @Nullable Object[] sampleArrayElements) {
+                     @Nullable String arrayTypeName, boolean jdbcArraySupported,
+                     @Nullable Object[] sampleArrayElements) {
             this.columnDdl = columnDdl;
             this.extraTypeDdl = extraTypeDdl;
             this.jdbcSetterSupported = jdbcSetterSupported;
             this.arrayTypeName = arrayTypeName;
+            this.jdbcArraySupported = jdbcArraySupported;
             this.sampleArrayElements = sampleArrayElements;
         }
 
@@ -386,22 +389,21 @@ public class JDBCParameterizedQueryComparisonTest {
     @MethodSource("testCases")
     void testParameterizedInsertAndSelect(TypeTestCase testCase, boolean useTypedSetter,
                                           boolean insertWithJdbc, boolean readWithJdbc) throws Exception {
-        // JDBC insert requires createValue to succeed on JDBC connections and the JDBC setter to be supported
-        Assumptions.assumeTrue(!insertWithJdbc || testCase.jdbcSetterSupported,
-                "JDBC insert not supported for " + testCase);
+        if (insertWithJdbc || readWithJdbc) {
+            // JDBC does not support createStruct (always returns null), so inserting with jdbc is not supported.
+            // See: https://github.com/FoundationDB/fdb-record-layer/issues/4064
+            Assumptions.assumeFalse(testCase == TypeTestCase.STRUCT);
+        }
 
         createSchema(testCase);
 
         try (Connection insertConn = getConnection(insertWithJdbc)) {
             Object value = testCase.createValue(insertConn);
-            Assumptions.assumeTrue(value != null, "createValue returned null for " + testCase);
             insert(testCase, insertConn, value, useTypedSetter);
         }
 
         try (Connection readConn = getConnection(readWithJdbc)) {
             Object expectedValue = testCase.createValue(readConn);
-            Assumptions.assumeTrue(expectedValue != null,
-                    "createValue returned null for read-side comparison on " + testCase);
             readAndAssert(testCase, readConn, expectedValue,
                     testCase + " " + (useTypedSetter ? "typedSetter" : "setObject")
                             + " " + (insertWithJdbc ? "insertJdbc" : "insertEmbedded")
@@ -413,21 +415,20 @@ public class JDBCParameterizedQueryComparisonTest {
     @MethodSource("testCases")
     void testArrayOfTypeInsertAndSelect(TypeTestCase testCase, boolean useTypedSetter,
                                         boolean insertWithJdbc, boolean readWithJdbc) throws Exception {
-        Assumptions.assumeTrue(testCase.arrayTypeName != null,
-                testCase + " does not support array element type");
-        // JDBC insert requires the JDBC setter to be supported for the array type
-        Assumptions.assumeTrue(!insertWithJdbc || testCase.jdbcSetterSupported,
-                "JDBC insert not supported for " + testCase);
+        Assumptions.assumeFalse(testCase == TypeTestCase.STRUCT,
+                "createArrayOf does not support STRUCT in either implementation");
+        Assumptions.assumeFalse(testCase == TypeTestCase.INTEGER_ARRAY,
+                "array array is not supported by DDL");
 
         createArraySchema(testCase);
 
         try (Connection insertConn = getConnection(insertWithJdbc)) {
-            Array arrayValue = createArrayOfOrSkip(insertConn, testCase);
+            Array arrayValue = insertConn.createArrayOf(testCase.arrayTypeName, testCase.sampleArrayElements);
             insertArray(insertConn, arrayValue, useTypedSetter);
         }
 
         try (Connection readConn = getConnection(readWithJdbc)) {
-            Array expectedArray = createArrayOfOrSkip(readConn, testCase);
+            Array expectedArray = readConn.createArrayOf(testCase.arrayTypeName, testCase.sampleArrayElements);
             readAndAssertArray(readConn, expectedArray,
                     testCase + "_array " + (useTypedSetter ? "typedSetter" : "setObject")
                             + " " + (insertWithJdbc ? "insertJdbc" : "insertEmbedded")
@@ -435,25 +436,11 @@ public class JDBCParameterizedQueryComparisonTest {
         }
     }
 
-    /**
-     * Create an array via {@code createArrayOf}, skipping the test if the connection does not support
-     * creating arrays of this type (e.g. JDBC does not support FLOAT or BINARY in {@code TypeConversion.toColumn}).
-     */
-    private static Array createArrayOfOrSkip(Connection conn, TypeTestCase testCase) throws SQLException {
-        try {
-            Array array = conn.createArrayOf(testCase.arrayTypeName, testCase.sampleArrayElements);
-            Assumptions.assumeTrue(array != null, "createArrayOf returned null for " + testCase);
-            return array;
-        } catch (SQLException e) {
-            Assumptions.abort("createArrayOf not supported for " + testCase + ": " + e.getMessage());
-            throw e; // unreachable
-        }
-    }
-
     private void createArraySchema(TypeTestCase testCase) throws SQLException {
         try (RelationalConnection conn = getJdbcCatalogConnection()) {
             try (RelationalStatement stmt = conn.createStatement()) {
                 String createTemplate = "CREATE SCHEMA TEMPLATE \"" + templateName + "\" " +
+                        (testCase.extraTypeDdl != null ? testCase.extraTypeDdl + " " : "") +
                         "CREATE TABLE test_table (pk bigint, val " + testCase.columnDdl + " array, PRIMARY KEY(pk))";
                 stmt.executeUpdate(createTemplate);
                 stmt.executeUpdate("CREATE SCHEMA \"" + dbPath + "/" + SCHEMA_NAME +
