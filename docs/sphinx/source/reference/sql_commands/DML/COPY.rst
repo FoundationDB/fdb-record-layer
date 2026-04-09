@@ -33,7 +33,7 @@ Parameters
 
 ``PRESERVE INCARNATION``
     Export data without modifying the incarnation value in the store header.
-    This can be used this when copying within the same cluster.
+    This can be used when copying within the same cluster.
 
 ``INCREMENT INCARNATION``
     Export data with the incarnation value in the store header incremented by 1, if the incarnation is currently greater
