@@ -423,21 +423,22 @@ public class JDBCParameterizedQueryComparisonTest {
             Assumptions.assumeFalse(testCase == TypeTestCase.STRUCT);
         }
 
-        createSchema(testCase);
+        createSchema(testCase.columnDdl, testCase.extraTypeDdl);
 
         try (Connection insertConn = getConnection(insertWithJdbc)) {
-            Object value = testCase.createValue(insertConn);
-            Assertions.assertNotNull(value);
-            insert(testCase, insertConn, value, useTypedSetter);
+            Object insertValue = testCase.createValue(insertConn);
+            Assertions.assertNotNull(insertValue);
+            insert(insertConn, insertValue, useTypedSetter
+                    ? (statement, value) -> testCase.setTyped(statement, 2, value)
+                    : (statement, value) -> statement.setObject(2, value));
         }
 
         try (Connection readConn = getConnection(readWithJdbc)) {
             Object expectedValue = testCase.createValue(readConn);
             Assertions.assertNotNull(expectedValue);
-            readAndAssert(testCase, readConn, expectedValue,
-                    testCase + " " + (useTypedSetter ? "typedSetter" : "setObject")
-                            + " " + (insertWithJdbc ? "insertJdbc" : "insertEmbedded")
-                            + " -> " + (readWithJdbc ? "readJdbc" : "readEmbedded"));
+            readAndAssert(readConn, expectedValue,
+                    resultSet -> testCase.getTyped(resultSet, 1),
+                    testCase::assertEquals);
         }
     }
 
@@ -450,71 +451,41 @@ public class JDBCParameterizedQueryComparisonTest {
         Assumptions.assumeFalse(testCase == TypeTestCase.INTEGER_ARRAY,
                 "array array is not supported by DDL");
 
-        createArraySchema(testCase);
+        createSchema(testCase.columnDdl + " array", testCase.extraTypeDdl);
 
         try (Connection insertConn = getConnection(insertWithJdbc)) {
             Array arrayValue = insertConn.createArrayOf(testCase.arrayTypeName, testCase.sampleArrayElements);
-            insertArray(insertConn, arrayValue, useTypedSetter);
+            insert(insertConn, arrayValue, useTypedSetter
+                    ? (statement, value) -> statement.setArray(2, (Array) value)
+                    : (statement, value) -> statement.setObject(2, value));
         }
 
         try (Connection readConn = getConnection(readWithJdbc)) {
             Array expectedArray = readConn.createArrayOf(testCase.arrayTypeName, testCase.sampleArrayElements);
-            readAndAssertArray(readConn, expectedArray,
-                    testCase + "_array " + (useTypedSetter ? "typedSetter" : "setObject")
-                            + " " + (insertWithJdbc ? "insertJdbc" : "insertEmbedded")
-                            + " -> " + (readWithJdbc ? "readJdbc" : "readEmbedded"));
+            readAndAssert(readConn, expectedArray,
+                    resultSet -> resultSet.getArray(1),
+                    this::assertArrayEquals);
         }
     }
 
-    private void createArraySchema(@Nonnull TypeTestCase testCase) throws SQLException {
-        try (RelationalConnection conn = getJdbcCatalogConnection()) {
-            try (RelationalStatement stmt = conn.createStatement()) {
-                String createTemplate = "CREATE SCHEMA TEMPLATE \"" + templateName + "\" " +
-                        testCase.extraTypeDdl + " " +
-                        "CREATE TABLE test_table (pk bigint, val " + testCase.columnDdl + " array, PRIMARY KEY(pk))";
-                stmt.executeUpdate(createTemplate);
-                stmt.executeUpdate("CREATE SCHEMA \"" + dbPath + "/" + SCHEMA_NAME +
-                        "\" WITH TEMPLATE \"" + templateName + "\"");
-            }
-        }
-    }
-
-    private void insertArray(@Nonnull Connection conn, @Nonnull Array value, boolean useTypedSetter) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO test_table (pk, val) VALUES (?, ?)")) {
-            ps.setLong(1, PRIMARY_KEY);
-            if (useTypedSetter) {
-                ps.setArray(2, value);
+    private void assertArrayEquals(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
+        try {
+            List<Object> expectedElements = TypeTestCase.extractArrayElements(expected);
+            List<Object> actualElements = TypeTestCase.extractArrayElements(actual);
+            if (expectedElements.stream().allMatch(obj -> obj instanceof byte[])) {
+                // byte[] uses identity equality, so convert to ByteString for comparison
+                Assertions.assertEquals(asListOfByteStrings(expectedElements), asListOfByteStrings(actualElements), message);
             } else {
-                ps.setObject(2, value);
+                Assertions.assertEquals(expectedElements, actualElements, message);
             }
-            ps.executeUpdate();
-        }
-    }
-
-    private void readAndAssertArray(@Nonnull Connection conn, @Nonnull Array expectedArray, @Nonnull String description) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT val FROM test_table WHERE pk = ?")) {
-            ps.setLong(1, PRIMARY_KEY);
-            try (ResultSet rs = ps.executeQuery()) {
-                Assertions.assertTrue(rs.next(), "Expected row for: " + description);
-                Array actualArray = rs.getArray(1);
-                List<Object> expectedElements = TypeTestCase.extractArrayElements(expectedArray);
-                List<Object> actualElements = TypeTestCase.extractArrayElements(actualArray);
-                if (expectedElements.stream().allMatch(obj -> obj instanceof byte[])) {
-                    // If we have List<byte[]> assertEquals will fail unless they are the same, so convert to ByteString
-                    // first so we have an actual equals method
-                    Assertions.assertEquals(asListOfByteStrings(expectedElements), asListOfByteStrings(actualElements));
-                } else {
-                    Assertions.assertEquals(expectedElements, actualElements, description);
-                }
-            }
+        } catch (SQLException e) {
+            throw new AssertionError(message + ": failed to extract array", e);
         }
     }
 
     @Nonnull
-    private static List<ByteString> asListOfByteStrings(@Nonnull final List<Object> expectedElements) {
-        return expectedElements.stream().map(obj -> ByteString.copyFrom((byte[])obj)).collect(Collectors.toList());
+    private static List<ByteString> asListOfByteStrings(@Nonnull List<Object> elements) {
+        return elements.stream().map(obj -> ByteString.copyFrom((byte[])obj)).collect(Collectors.toList());
     }
 
     @Nonnull
@@ -535,12 +506,12 @@ public class JDBCParameterizedQueryComparisonTest {
         }
     }
 
-    private void createSchema(@Nonnull TypeTestCase testCase) throws SQLException {
+    private void createSchema(@Nonnull String columnDdl, @Nonnull String extraTypeDdl) throws SQLException {
         try (RelationalConnection conn = getJdbcCatalogConnection()) {
             try (RelationalStatement stmt = conn.createStatement()) {
                 String createTemplate = "CREATE SCHEMA TEMPLATE \"" + templateName + "\" " +
-                        testCase.extraTypeDdl + " " +
-                        "CREATE TABLE test_table (pk bigint, val " + testCase.columnDdl + ", PRIMARY KEY(pk))";
+                        extraTypeDdl + " " +
+                        "CREATE TABLE test_table (pk bigint, val " + columnDdl + ", PRIMARY KEY(pk))";
                 stmt.executeUpdate(createTemplate);
                 stmt.executeUpdate("CREATE SCHEMA \"" + dbPath + "/" + SCHEMA_NAME +
                         "\" WITH TEMPLATE \"" + templateName + "\"");
@@ -548,27 +519,41 @@ public class JDBCParameterizedQueryComparisonTest {
         }
     }
 
-    private void insert(@Nonnull TypeTestCase testCase, @Nonnull Connection conn, @Nonnull Object value, boolean useTypedSetter) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement(
+    @FunctionalInterface
+    interface ValueSetter {
+        void set(@Nonnull PreparedStatement statement, @Nonnull Object value) throws SQLException;
+    }
+
+    @FunctionalInterface
+    interface ValueReader {
+        @Nonnull
+        Object read(@Nonnull ResultSet resultSet) throws SQLException;
+    }
+
+    @FunctionalInterface
+    interface EqualityAssertion {
+        void assertEquals(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual);
+    }
+
+    private void insert(@Nonnull Connection conn, @Nonnull Object value,
+                        @Nonnull ValueSetter setter) throws SQLException {
+        try (PreparedStatement statement = conn.prepareStatement(
                 "INSERT INTO test_table (pk, val) VALUES (?, ?)")) {
-            ps.setLong(1, PRIMARY_KEY);
-            if (useTypedSetter) {
-                testCase.setTyped(ps, 2, value);
-            } else {
-                ps.setObject(2, value);
-            }
-            ps.executeUpdate();
+            statement.setLong(1, PRIMARY_KEY);
+            setter.set(statement, value);
+            statement.executeUpdate();
         }
     }
 
-    private void readAndAssert(@Nonnull TypeTestCase testCase, @Nonnull Connection conn, @Nonnull Object expectedValue, @Nonnull String description) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement(
+    private void readAndAssert(@Nonnull Connection conn, @Nonnull Object expectedValue,
+                               @Nonnull ValueReader reader, @Nonnull EqualityAssertion assertion) throws SQLException {
+        try (PreparedStatement statement = conn.prepareStatement(
                 "SELECT val FROM test_table WHERE pk = ?")) {
-            ps.setLong(1, PRIMARY_KEY);
-            try (ResultSet rs = ps.executeQuery()) {
-                Assertions.assertTrue(rs.next(), "Expected row for: " + description);
-                Object readValue = testCase.getTyped(rs, 1);
-                testCase.assertEquals(description, expectedValue, readValue);
+            statement.setLong(1, PRIMARY_KEY);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                Assertions.assertTrue(resultSet.next(), "Expected row");
+                Object readValue = reader.read(resultSet);
+                assertion.assertEquals("read value should match expected", expectedValue, readValue);
             }
         }
     }
