@@ -24,7 +24,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         id: setup-base
         uses: ./actions/setup-base-env
@@ -56,7 +56,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Calculate versions
@@ -79,7 +79,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
@@ -125,7 +125,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout HEAD sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: 'Download results'
@@ -141,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB

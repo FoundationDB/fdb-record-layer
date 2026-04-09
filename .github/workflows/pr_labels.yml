@@ -15,7 +15,7 @@ jobs:
       pull-requests: read
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
         with:
           sparse-checkout: build/release-notes-config.json
       - name: Check Labels
