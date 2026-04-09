@@ -129,7 +129,7 @@ public class JDBCParameterizedQueryComparisonTest {
             @Nonnull
             @Override
             Object createValue(@Nonnull Connection conn) {
-                return 3.14159;
+                return 3.141592653589793;
             }
 
             @Override
@@ -141,6 +141,12 @@ public class JDBCParameterizedQueryComparisonTest {
             @Override
             Object getTyped(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getDouble(columnIndex);
+            }
+
+            @Override
+            void assertEquals(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
+                Assertions.assertEquals(((Number)expected).doubleValue(),
+                        ((Number)actual).doubleValue(), 1e-10, message);
             }
         },
         FLOAT("float", "", "FLOAT", new Object[] {1.1f, 2.2f, 3.3f}) {
