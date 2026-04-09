@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
-import com.apple.foundationdb.record.metadata.IndexPredicate.QualifyRowNumberPredicate.Direction;
+import com.apple.foundationdb.record.metadata.IndexPredicate.RowNumberWindowPredicate.Direction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -63,7 +63,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for sliding window index maintainer using {@code QualifyRowNumber} predicate.
+ * Tests for sliding window index maintainer using {@code RowNumberWindow} predicate.
  *
  * <p>Records are created with {@link #rec(int, int, int)} and named by convention:
  * {@code rec<recNo>_<windowKeyValue>}. For example, {@code rec(1, 10, 100)} is called
@@ -77,14 +77,14 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     private static final String INDEX_NAME = "sliding_window_index";
 
     /**
-     * Creates a hook with: QualifyRowNumber(num_value_3_indexed, direction) <= windowSize.
+     * Creates a hook with: RowNumberWindow(num_value_3_indexed, direction) <= windowSize.
      * Index root expression = num_value_2.
      */
     @Nonnull
     private static RecordMetaDataHook hook(int windowSize, @Nonnull Direction direction) {
         final KeyExpression wholeKey = Key.Expressions.field("num_value_2");
-        final IndexPredicate.QualifyRowNumberPredicate predicate =
-                new IndexPredicate.QualifyRowNumberPredicate("num_value_3_indexed", direction, windowSize);
+        final IndexPredicate.RowNumberWindowPredicate predicate =
+                new IndexPredicate.RowNumberWindowPredicate("num_value_3_indexed", direction, windowSize);
         return md -> md.addIndex("MySimpleRecord",
                 new Index(INDEX_NAME, wholeKey, "value", IndexOptions.EMPTY_OPTIONS, predicate));
     }
@@ -518,6 +518,120 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // ===== deleteWhere tests =====
+    // The deleteWhere prefix is based on the index root expression (num_value_2),
+    // while the window key is a separate field (num_value_3_indexed).
+    // rec(recNo, numValue2, numValue3Indexed) — prefix matches on numValue2.
+
+    @Test
+    void deleteWhereRemovesMatchingFromWindowAndReelects() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook(3, Direction.DESC));
+
+            rec(1, 10, 100);  // window, num_value_2=10
+            rec(2, 10, 200);  // window, num_value_2=10
+            rec(3, 20, 300);  // window, num_value_2=20
+            rec(4, 30, 50);   // overflow, num_value_2=30
+            assertWindowContains(1, 2, 3);
+
+            // deleteWhere(prefix=Tuple(10)) removes records with num_value_2=10
+            // → rec1 and rec2 removed from window. rec3 stays. rec4 stays in overflow.
+            // 2 window slots freed → re-elect rec4 from overflow.
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+            maintainer.deleteWhere(context.ensureActive(), Tuple.from(10L)).join();
+
+            assertWindowContains(3, 4);
+            commit(context);
+        }
+    }
+
+    @Test
+    void deleteWhereRemovesOnlyOverflow() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook(2, Direction.DESC));
+
+            rec(1, 10, 200);  // window, num_value_2=10
+            rec(2, 20, 300);  // window, num_value_2=20
+            rec(3, 30, 50);   // overflow, num_value_2=30
+            rec(4, 30, 40);   // overflow, num_value_2=30
+            assertWindowContains(1, 2);
+
+            // deleteWhere(prefix=Tuple(30)) removes rec3,rec4 from overflow → window unchanged
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+            maintainer.deleteWhere(context.ensureActive(), Tuple.from(30L)).join();
+
+            assertWindowContains(1, 2);
+            commit(context);
+        }
+    }
+
+    @Test
+    void deleteWhereAllWindowReelectsMultiple() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook(2, Direction.DESC));
+
+            rec(1, 10, 300);  // window, num_value_2=10
+            rec(2, 10, 200);  // window, num_value_2=10
+            rec(3, 20, 100);  // overflow, num_value_2=20
+            rec(4, 30, 50);   // overflow, num_value_2=30
+            assertWindowContains(1, 2);
+
+            // deleteWhere(prefix=Tuple(10)) removes both window entries.
+            // Re-elects rec3(100) and rec4(50) from overflow.
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+            maintainer.deleteWhere(context.ensureActive(), Tuple.from(10L)).join();
+
+            assertWindowContains(3, 4);
+            commit(context);
+        }
+    }
+
+    @Test
+    void deleteWhereNoMatch() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook(3, Direction.DESC));
+
+            rec(1, 10, 100);
+            rec(2, 20, 200);
+            rec(3, 30, 300);
+            assertWindowContains(1, 2, 3);
+
+            // deleteWhere with a prefix matching no records → no-op
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+            maintainer.deleteWhere(context.ensureActive(), Tuple.from(999L)).join();
+
+            assertWindowContains(1, 2, 3);
+            commit(context);
+        }
+    }
+
+    @Test
+    void deleteWhereMixedWindowAndOverflow() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook(3, Direction.DESC));
+
+            rec(1, 10, 200);  // window, num_value_2=10
+            rec(2, 20, 300);  // window, num_value_2=20
+            rec(3, 10, 400);  // window, num_value_2=10
+            rec(4, 10, 50);   // overflow, num_value_2=10
+            rec(5, 20, 100);  // overflow, num_value_2=20
+            assertWindowContains(1, 2, 3);
+
+            // deleteWhere(prefix=Tuple(10)) removes rec1,rec3 from window and rec4 from overflow.
+            // 2 window slots freed → re-elect rec5(100) from overflow.
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+            maintainer.deleteWhere(context.ensureActive(), Tuple.from(10L)).join();
+
+            assertWindowContains(2, 5);
+            commit(context);
+        }
+    }
+
     // ===== Rebuild tests =====
 
     @Test
@@ -565,36 +679,36 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     // ===== Serialization tests =====
 
     @Test
-    void qualifyRowNumberProtoRoundTrip() {
-        final IndexPredicate.QualifyRowNumberPredicate original =
-                new IndexPredicate.QualifyRowNumberPredicate("score", Direction.DESC, 100);
+    void rowNumberWindowProtoRoundTrip() {
+        final IndexPredicate.RowNumberWindowPredicate original =
+                new IndexPredicate.RowNumberWindowPredicate("score", Direction.DESC, 100);
 
         final RecordMetaDataProto.Predicate proto = original.toProto();
-        assertTrue(proto.hasQualifyRowNumberPredicate());
-        assertEquals(100, proto.getQualifyRowNumberPredicate().getSize());
-        assertEquals("score", proto.getQualifyRowNumberPredicate().getFieldName());
-        assertEquals(RecordMetaDataProto.QualifyRowNumberPredicate.Direction.DESC,
-                proto.getQualifyRowNumberPredicate().getDirection());
+        assertTrue(proto.hasRowNumberWindowPredicate());
+        assertEquals(100, proto.getRowNumberWindowPredicate().getSize());
+        assertEquals("score", proto.getRowNumberWindowPredicate().getFieldPath(0));
+        assertEquals(RecordMetaDataProto.RowNumberWindowPredicate.Direction.DESC,
+                proto.getRowNumberWindowPredicate().getDirection());
 
         final IndexPredicate deserialized = IndexPredicate.fromProto(proto);
-        assertTrue(deserialized instanceof IndexPredicate.QualifyRowNumberPredicate);
-        final IndexPredicate.QualifyRowNumberPredicate deserializedP =
-                (IndexPredicate.QualifyRowNumberPredicate) deserialized;
-        assertEquals(original.getFieldName(), deserializedP.getFieldName());
+        assertTrue(deserialized instanceof IndexPredicate.RowNumberWindowPredicate);
+        final IndexPredicate.RowNumberWindowPredicate deserializedP =
+                (IndexPredicate.RowNumberWindowPredicate) deserialized;
+        assertEquals(original.getFieldPath(), deserializedP.getFieldPath());
         assertEquals(original.getDirection(), deserializedP.getDirection());
         assertEquals(original.getSize(), deserializedP.getSize());
         assertEquals(original, deserializedP);
     }
 
     @Test
-    void qualifyRowNumberProtoRoundTripAsc() {
-        final IndexPredicate.QualifyRowNumberPredicate original =
-                new IndexPredicate.QualifyRowNumberPredicate("timestamp", Direction.ASC, 50);
+    void rowNumberWindowProtoRoundTripAsc() {
+        final IndexPredicate.RowNumberWindowPredicate original =
+                new IndexPredicate.RowNumberWindowPredicate("timestamp", Direction.ASC, 50);
 
         final RecordMetaDataProto.Predicate proto = original.toProto();
-        assertTrue(proto.hasQualifyRowNumberPredicate());
-        assertEquals(RecordMetaDataProto.QualifyRowNumberPredicate.Direction.ASC,
-                proto.getQualifyRowNumberPredicate().getDirection());
+        assertTrue(proto.hasRowNumberWindowPredicate());
+        assertEquals(RecordMetaDataProto.RowNumberWindowPredicate.Direction.ASC,
+                proto.getRowNumberWindowPredicate().getDirection());
 
         final IndexPredicate deserialized = IndexPredicate.fromProto(proto);
         assertEquals(original, deserialized);
@@ -604,33 +718,33 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     void qualifyInAndIsValid() {
-        final IndexPredicate.QualifyRowNumberPredicate qualify =
-                new IndexPredicate.QualifyRowNumberPredicate("score", Direction.DESC, 10);
+        final IndexPredicate.RowNumberWindowPredicate qualify =
+                new IndexPredicate.RowNumberWindowPredicate("score", Direction.DESC, 10);
         final IndexPredicate.ConstantPredicate constant =
                 new IndexPredicate.ConstantPredicate(IndexPredicate.ConstantPredicate.ConstantValue.TRUE);
         final IndexPredicate and = new IndexPredicate.AndPredicate(java.util.List.of(qualify, constant));
 
         // Should not throw
-        IndexPredicate.validateQualifyPlacement(and);
+        IndexPredicate.validateRowNumberWindowPlacement(and);
     }
 
     @Test
     void qualifyUnderOrIsInvalid() {
-        final IndexPredicate.QualifyRowNumberPredicate qualify =
-                new IndexPredicate.QualifyRowNumberPredicate("score", Direction.DESC, 10);
+        final IndexPredicate.RowNumberWindowPredicate qualify =
+                new IndexPredicate.RowNumberWindowPredicate("score", Direction.DESC, 10);
         final IndexPredicate.ConstantPredicate constant =
                 new IndexPredicate.ConstantPredicate(IndexPredicate.ConstantPredicate.ConstantValue.TRUE);
         final IndexPredicate or = new IndexPredicate.OrPredicate(java.util.List.of(qualify, constant));
 
         org.junit.jupiter.api.Assertions.assertThrows(
                 com.apple.foundationdb.record.RecordCoreException.class,
-                () -> IndexPredicate.validateQualifyPlacement(or));
+                () -> IndexPredicate.validateRowNumberWindowPlacement(or));
     }
 
     @Test
     void qualifyUnderAndInsideOrIsInvalid() {
-        final IndexPredicate.QualifyRowNumberPredicate qualify =
-                new IndexPredicate.QualifyRowNumberPredicate("score", Direction.DESC, 10);
+        final IndexPredicate.RowNumberWindowPredicate qualify =
+                new IndexPredicate.RowNumberWindowPredicate("score", Direction.DESC, 10);
         final IndexPredicate.ConstantPredicate constant =
                 new IndexPredicate.ConstantPredicate(IndexPredicate.ConstantPredicate.ConstantValue.TRUE);
         // AND(qualify) inside OR
@@ -639,7 +753,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
         org.junit.jupiter.api.Assertions.assertThrows(
                 com.apple.foundationdb.record.RecordCoreException.class,
-                () -> IndexPredicate.validateQualifyPlacement(or));
+                () -> IndexPredicate.validateRowNumberWindowPlacement(or));
     }
 
     // ===== Vector index wrapping tests =====
@@ -662,8 +776,8 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         metaDataBuilder.getRecordType("VectorRecord")
                 .setPrimaryKey(Key.Expressions.concatenateFields("group_id", "rec_no"));
 
-        final IndexPredicate.QualifyRowNumberPredicate predicate =
-                new IndexPredicate.QualifyRowNumberPredicate("group_id", direction, windowSize);
+        final IndexPredicate.RowNumberWindowPredicate predicate =
+                new IndexPredicate.RowNumberWindowPredicate("group_id", direction, windowSize);
 
         final Map<String, String> options = new HashMap<>();
         options.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name());

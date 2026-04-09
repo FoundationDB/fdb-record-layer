@@ -72,6 +72,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.FormerIndex;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.JoinedRecordType;
@@ -86,6 +87,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowIndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHeartbeat;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -975,28 +977,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     public IndexMaintainer getIndexMaintainer(@Nonnull Index index) {
         final IndexMaintainerState maintainerState = new IndexMaintainerState(this, index, indexMaintenanceFilter);
-        final com.apple.foundationdb.record.metadata.IndexPredicate.QualifyRowNumberPredicate qualifyPredicate =
-                findQualifyRowNumberPredicate(index.getPredicate());
-        if (qualifyPredicate != null) {
+        final IndexPredicate.RowNumberWindowPredicate windowPredicate = findRowNumberWindowPredicate(index.getPredicate());
+        if (windowPredicate != null) {
             final IndexMaintainer delegate = indexMaintainerRegistry.getIndexMaintainer(maintainerState);
-            return new com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowIndexMaintainer(maintainerState, delegate);
+            return new SlidingWindowIndexMaintainer(maintainerState, delegate);
         }
         return indexMaintainerRegistry.getIndexMaintainer(maintainerState);
     }
 
     @Nullable
-    private static com.apple.foundationdb.record.metadata.IndexPredicate.QualifyRowNumberPredicate findQualifyRowNumberPredicate(
-            @Nullable com.apple.foundationdb.record.metadata.IndexPredicate predicate) {
+    private static IndexPredicate.RowNumberWindowPredicate findRowNumberWindowPredicate(@Nullable IndexPredicate predicate) {
         if (predicate == null) {
             return null;
         }
-        if (predicate instanceof com.apple.foundationdb.record.metadata.IndexPredicate.QualifyRowNumberPredicate) {
-            return (com.apple.foundationdb.record.metadata.IndexPredicate.QualifyRowNumberPredicate) predicate;
+        if (predicate instanceof IndexPredicate.RowNumberWindowPredicate) {
+            return (IndexPredicate.RowNumberWindowPredicate) predicate;
         }
-        if (predicate instanceof com.apple.foundationdb.record.metadata.IndexPredicate.AndPredicate) {
-            for (com.apple.foundationdb.record.metadata.IndexPredicate child :
-                    ((com.apple.foundationdb.record.metadata.IndexPredicate.AndPredicate) predicate).getChildren()) {
-                com.apple.foundationdb.record.metadata.IndexPredicate.QualifyRowNumberPredicate found = findQualifyRowNumberPredicate(child);
+        if (predicate instanceof IndexPredicate.AndPredicate) {
+            for (IndexPredicate child : ((IndexPredicate.AndPredicate) predicate).getChildren()) {
+                IndexPredicate.RowNumberWindowPredicate found = findRowNumberWindowPredicate(child);
                 if (found != null) {
                     return found;
                 }

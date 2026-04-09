@@ -56,8 +56,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -145,31 +143,31 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     public SlidingWindowIndexMaintainer(@Nonnull IndexMaintainerState state, @Nonnull IndexMaintainer delegate) {
         super(state);
         this.delegate = delegate;
-        final IndexPredicate.QualifyRowNumberPredicate predicate = getQualifyPredicate(state.index);
+        final IndexPredicate.RowNumberWindowPredicate predicate = getQualifyPredicate(state.index);
         this.windowKey = predicate.getWindowKey();
         this.windowKeyColumnSize = windowKey.getColumnSize();
         this.windowSize = predicate.getSize();
-        this.extremumType = predicate.getDirection() == IndexPredicate.QualifyRowNumberPredicate.Direction.ASC
+        this.extremumType = predicate.getDirection() == IndexPredicate.RowNumberWindowPredicate.Direction.ASC
                 ? Type.MIN : Type.MAX;
     }
 
     @Nonnull
-    protected static IndexPredicate.QualifyRowNumberPredicate getQualifyPredicate(@Nonnull Index index) {
+    protected static IndexPredicate.RowNumberWindowPredicate getQualifyPredicate(@Nonnull Index index) {
         IndexPredicate predicate = index.getPredicate();
         if (predicate != null) {
-            IndexPredicate.validateQualifyPlacement(predicate);
+            IndexPredicate.validateRowNumberWindowPlacement(predicate);
         }
-        if (predicate instanceof IndexPredicate.QualifyRowNumberPredicate) {
-            return (IndexPredicate.QualifyRowNumberPredicate) predicate;
+        if (predicate instanceof IndexPredicate.RowNumberWindowPredicate) {
+            return (IndexPredicate.RowNumberWindowPredicate) predicate;
         }
         if (predicate instanceof IndexPredicate.AndPredicate) {
             for (IndexPredicate child : ((IndexPredicate.AndPredicate) predicate).getChildren()) {
-                if (child instanceof IndexPredicate.QualifyRowNumberPredicate) {
-                    return (IndexPredicate.QualifyRowNumberPredicate) child;
+                if (child instanceof IndexPredicate.RowNumberWindowPredicate) {
+                    return (IndexPredicate.RowNumberWindowPredicate) child;
                 }
             }
         }
-        throw new MetaDataException("sliding window index requires a QualifyRowNumberPredicate",
+        throw new MetaDataException("sliding window index requires a RowNumberWindowPredicate",
                 LogMessageKeys.INDEX_NAME, index.getName());
     }
 
@@ -480,20 +478,127 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         });
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     @Override
-    public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
-        return delegate.deleteWhere(tr, prefix).thenApply(v -> {
-            final Subspace secondarySubspace = getSecondarySubspace();
-            state.context.clear(secondarySubspace.subspace(prefix).range());
-            return v;
+    public CompletableFuture<Void> deleteWhere(@Nonnull Transaction tr, @Nonnull Tuple prefix) {
+        final Subspace secondarySubspace = getSecondarySubspace();
+        final Subspace windowSubspace = secondarySubspace.subspace(WINDOW_SUBSPACE_KEY);
+        final Subspace overflowSubspace = secondarySubspace.subspace(OVERFLOW_SUBSPACE_KEY);
+        final Subspace metaSubspace = secondarySubspace.subspace(META_SUBSPACE_KEY);
+        final byte[] counterKey = metaSubspace.pack(COUNT_KEY);
+        final KeyExpression rootExpression = state.index.getRootExpression();
+
+        // The prefix is defined over the index root expression, but the secondary subspace
+        // is keyed by (windowValue, primaryKey). We must load each record and evaluate the
+        // index root expression to determine which entries match the prefix.
+        return scanAndRemoveMatching(tr, windowSubspace, rootExpression, prefix)
+                .thenCompose(removedFromWindow ->
+                        scanAndRemoveMatching(tr, overflowSubspace, rootExpression, prefix)
+                                .thenCompose(removedFromOverflow ->
+                                        delegate.deleteWhere(tr, prefix).thenCompose(v -> {
+                                            if (removedFromWindow == 0) {
+                                                return AsyncUtil.DONE;
+                                            }
+                                            return tr.get(counterKey).thenCompose(counterBytes -> {
+                                                final long count = counterBytes == null ? 0L : decodeLong(counterBytes);
+                                                final long newCount = Math.max(0, count - removedFromWindow);
+                                                tr.set(counterKey, encodeLong(newCount));
+
+                                                return reelectFromOverflow(tr, windowSubspace, overflowSubspace,
+                                                        counterKey, newCount, removedFromWindow);
+                                            });
+                                        })
+                                )
+                );
+    }
+
+    /**
+     * Scan all entries in a partition subspace, load each record, evaluate the index root
+     * expression, and clear entries whose index key starts with the given prefix.
+     * @return the number of entries removed
+     */
+    @SuppressWarnings("PMD.CloseResource")
+    @Nonnull
+    private CompletableFuture<Integer> scanAndRemoveMatching(@Nonnull Transaction tr,
+                                                              @Nonnull Subspace partitionSubspace,
+                                                              @Nonnull KeyExpression rootExpression,
+                                                              @Nonnull Tuple prefix) {
+        return tr.getRange(partitionSubspace.range())
+                .asList()
+                .thenCompose(entries -> {
+                    CompletableFuture<Integer> result = CompletableFuture.completedFuture(0);
+                    for (KeyValue kv : entries) {
+                        final byte[] keyBytes = kv.getKey();
+                        final Tuple primaryKey = Tuple.fromBytes(kv.getValue());
+                        result = result.thenCompose(count ->
+                                state.store.loadRecordAsync(primaryKey).thenApply(record -> {
+                                    if (record != null) {
+                                        final Key.Evaluated evaluated = rootExpression.evaluateSingleton(record);
+                                        final Tuple indexKey = evaluated.toTuple();
+                                        if (TupleHelpers.isPrefix(prefix, indexKey)) {
+                                            tr.clear(keyBytes);
+                                            return count + 1;
+                                        }
+                                    }
+                                    return count;
+                                })
+                        );
+                    }
+                    return result;
+                });
+    }
+
+    /**
+     * Promote up to {@code slotsToFill} best candidates from overflow into the window,
+     * adding each promoted record to the delegate index.
+     */
+    @SuppressWarnings("PMD.CloseResource")
+    @Nonnull
+    private CompletableFuture<Void> reelectFromOverflow(@Nonnull Transaction tr,
+                                                         @Nonnull Subspace windowSubspace,
+                                                         @Nonnull Subspace overflowSubspace,
+                                                         @Nonnull byte[] counterKey,
+                                                         long currentCount,
+                                                         int slotsToFill) {
+        if (slotsToFill <= 0) {
+            return AsyncUtil.DONE;
+        }
+
+        return extremumType.getBestInOverflow(overflowSubspace, tr).thenCompose(bestKV -> {
+            if (bestKV == null) {
+                // No more overflow candidates.
+                return AsyncUtil.DONE;
+            }
+
+            final Tuple bestEntryKey = overflowSubspace.unpack(bestKV.getKey());
+            final Tuple bestPrimaryKey = Tuple.fromBytes(bestKV.getValue());
+            final Tuple bestWindowTuple = TupleHelpers.subTuple(bestEntryKey, 0, windowKeyColumnSize);
+            final Tuple bestPKTuple = TupleHelpers.subTuple(bestEntryKey, windowKeyColumnSize, bestEntryKey.size());
+
+            // Move from overflow to window.
+            tr.clear(bestKV.getKey());
+            writePartitionEntry(tr, windowSubspace, bestWindowTuple, bestPKTuple);
+            final long newCount = currentCount + 1;
+            tr.set(counterKey, encodeLong(newCount));
+
+            // Add promoted record to delegate index.
+            return state.store.loadRecordAsync(bestPrimaryKey).thenCompose(promotedRecord -> {
+                CompletableFuture<Void> addFuture = AsyncUtil.DONE;
+                if (promotedRecord != null) {
+                    addFuture = delegate.update(null, promotedRecord);
+                }
+                return addFuture.thenCompose(vignore ->
+                        reelectFromOverflow(tr, windowSubspace, overflowSubspace,
+                                counterKey, newCount, slotsToFill - 1));
+            });
         });
     }
 
     private static byte[] encodeLong(long value) {
-        return ByteBuffer.allocate(Long.BYTES).order(ByteOrder.LITTLE_ENDIAN).putLong(value).array();
+        return Tuple.from(value).pack();
     }
 
     private static long decodeLong(byte[] bytes) {
-        return ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getLong();
+        return Tuple.fromBytes(bytes).getLong(0);
     }
 }

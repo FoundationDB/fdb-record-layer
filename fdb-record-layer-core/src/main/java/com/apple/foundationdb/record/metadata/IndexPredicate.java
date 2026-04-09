@@ -32,10 +32,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.annotations.VisibleForTesting;
@@ -47,6 +49,7 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -110,8 +113,8 @@ public abstract class IndexPredicate {
             return new NotPredicate(proto.getNotPredicate());
         } else if (proto.hasValuePredicate()) {
             return new ValuePredicate(proto.getValuePredicate());
-        } else if (proto.hasQualifyRowNumberPredicate()) {
-            return new QualifyRowNumberPredicate(proto.getQualifyRowNumberPredicate());
+        } else if (proto.hasRowNumberWindowPredicate()) {
+            return new RowNumberWindowPredicate(proto.getRowNumberWindowPredicate());
         } else {
             throw new RecordCoreException("attempt to deserialize unsupported predicate").addLogInfo(LogMessageKeys.VALUE, proto);
         }
@@ -135,10 +138,53 @@ public abstract class IndexPredicate {
         } else if (queryPredicate instanceof com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate) {
             return new OrPredicate((com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate)queryPredicate);
         } else if (queryPredicate instanceof com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate) {
-            return new ValuePredicate((com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate)queryPredicate);
+            final var valuePredicate = (com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate)queryPredicate;
+            final var maybeQualify = tryFromRowNumberPredicate(valuePredicate);
+            if (maybeQualify != null) {
+                return maybeQualify;
+            }
+            return new ValuePredicate(valuePredicate);
         } else {
             throw new RecordCoreException("attempt to construct index predicate PoJo from unsupported query predicate").addLogInfo(LogMessageKeys.VALUE, queryPredicate);
         }
+    }
+
+    /**
+     * Attempts to convert a {@link com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate}
+     * wrapping a {@link RowNumberValue} with a field ordering and a constant size comparison into
+     * a {@link RowNumberWindowPredicate}.
+     *
+     * <p>Expected pattern: {@code ROW_NUMBER() OVER (ORDER BY field ASC) <= size}.</p>
+     *
+     * @param valuePredicate the value predicate to inspect
+     * @return a {@link RowNumberWindowPredicate} if the pattern matches, or {@code null} otherwise
+     */
+    @javax.annotation.Nullable
+    private static RowNumberWindowPredicate tryFromRowNumberPredicate(
+            @Nonnull final com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate valuePredicate) {
+        if (!(valuePredicate.getValue() instanceof RowNumberValue)) {
+            return null;
+        }
+        final var rowNumberValue = (RowNumberValue)valuePredicate.getValue();
+        final var argumentValues = rowNumberValue.getArgumentValues();
+        if (argumentValues.size() != 1 || !(argumentValues.get(0) instanceof FieldValue)) {
+            return null;
+        }
+        final var fieldValue = (FieldValue)argumentValues.get(0);
+        final var fieldNames = fieldValue.getFieldPathNames();
+        if (fieldNames.isEmpty()) {
+            return null;
+        }
+        final var comparison = valuePredicate.getComparison();
+        if (comparison.getType() != Comparisons.Type.LESS_THAN_OR_EQUALS) {
+            return null;
+        }
+        final Object comparand = comparison.getComparand();
+        if (!(comparand instanceof Number)) {
+            return null;
+        }
+        final int size = ((Number)comparand).intValue();
+        return new RowNumberWindowPredicate(fieldNames, RowNumberWindowPredicate.Direction.ASC, size);
     }
 
     /**
@@ -158,6 +204,9 @@ public abstract class IndexPredicate {
             return StreamSupport.stream(predicate.getChildren().spliterator(), false).allMatch(IndexPredicate::isSupported);
         } else if (predicate instanceof com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate) {
             final var valuePredicate = (com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate)predicate;
+            if (tryFromRowNumberPredicate(valuePredicate) != null) {
+                return true;
+            }
             return IndexComparison.isSupported(valuePredicate.getComparison()) &&
                    valuePredicate.getValue() instanceof FieldValue &&
                    ((FieldValue)valuePredicate.getValue()).getFieldPathNamesMaybe().stream().allMatch(Optional::isPresent);
@@ -167,20 +216,20 @@ public abstract class IndexPredicate {
     }
 
     /**
-     * Validates that a {@link QualifyRowNumberPredicate} only appears on a pure conjunctive (AND-only) path
+     * Validates that a {@link RowNumberWindowPredicate} only appears on a pure conjunctive (AND-only) path
      * from the root. It must never appear under an {@link OrPredicate}.
      *
      * @param predicate the root predicate to validate
-     * @throws RecordCoreException if a {@link QualifyRowNumberPredicate} is found under a disjunction
+     * @throws RecordCoreException if a {@link RowNumberWindowPredicate} is found under a disjunction
      */
-    public static void validateQualifyPlacement(@Nonnull final IndexPredicate predicate) {
+    public static void validateRowNumberWindowPlacement(@Nonnull final IndexPredicate predicate) {
         if (!isValidInConjunctivePath(predicate)) {
-            throw new RecordCoreException("QualifyRowNumberPredicate must not appear under a disjunction (OR)");
+            throw new RecordCoreException("RowNumberWindowPredicate must not appear under a disjunction (OR)");
         }
     }
 
     private static boolean isValidInConjunctivePath(@Nonnull final IndexPredicate predicate) {
-        if (predicate instanceof QualifyRowNumberPredicate) {
+        if (predicate instanceof RowNumberWindowPredicate) {
             return true;
         }
         if (predicate instanceof ConstantPredicate || predicate instanceof ValuePredicate) {
@@ -193,16 +242,16 @@ public abstract class IndexPredicate {
         if (predicate instanceof OrPredicate) {
             // Under an OR, no QualifyRowNumber is allowed anywhere below
             return ((OrPredicate) predicate).getChildren().stream()
-                    .allMatch(IndexPredicate::hasNoQualify);
+                    .allMatch(IndexPredicate::hasNoRowNumberWindow);
         }
         if (predicate instanceof NotPredicate) {
-            return hasNoQualify(((NotPredicate) predicate).getValue());
+            return hasNoRowNumberWindow(((NotPredicate) predicate).getValue());
         }
         return true;
     }
 
-    private static boolean hasNoQualify(@Nonnull final IndexPredicate predicate) {
-        if (predicate instanceof QualifyRowNumberPredicate) {
+    private static boolean hasNoRowNumberWindow(@Nonnull final IndexPredicate predicate) {
+        if (predicate instanceof RowNumberWindowPredicate) {
             return false;
         }
         if (predicate instanceof ConstantPredicate || predicate instanceof ValuePredicate) {
@@ -210,14 +259,14 @@ public abstract class IndexPredicate {
         }
         if (predicate instanceof AndPredicate) {
             return ((AndPredicate) predicate).getChildren().stream()
-                    .allMatch(IndexPredicate::hasNoQualify);
+                    .allMatch(IndexPredicate::hasNoRowNumberWindow);
         }
         if (predicate instanceof OrPredicate) {
             return ((OrPredicate) predicate).getChildren().stream()
-                    .allMatch(IndexPredicate::hasNoQualify);
+                    .allMatch(IndexPredicate::hasNoRowNumberWindow);
         }
         if (predicate instanceof NotPredicate) {
-            return hasNoQualify(((NotPredicate) predicate).getValue());
+            return hasNoRowNumberWindow(((NotPredicate) predicate).getValue());
         }
         return true;
     }
@@ -540,8 +589,8 @@ public abstract class IndexPredicate {
     }
 
     /**
-     * A predicate that qualifies records based on their row number position when sorted by a field.
-     * Syntax: {@code QualifyRowNumber(fieldName, direction) <= size}.
+     * A predicate that qualifies records based on their row number position when sorted by a field path.
+     * Syntax: {@code QualifyRowNumber(fieldPath, direction) <= size}.
      *
      * <p>For example, {@code QualifyRowNumber(score, DESC) <= 100} keeps the 100 records with
      * the highest {@code score} values in the index.</p>
@@ -552,7 +601,7 @@ public abstract class IndexPredicate {
      * </ul>
      */
     @API(API.Status.EXPERIMENTAL)
-    public static class QualifyRowNumberPredicate extends IndexPredicate {
+    public static class RowNumberWindowPredicate extends IndexPredicate {
 
         /**
          * Sort direction for the qualifying field.
@@ -563,19 +612,23 @@ public abstract class IndexPredicate {
         }
 
         @Nonnull
-        private final String fieldName;
+        private final List<String> fieldPath;
         private final int size;
         @Nonnull
         private final Direction direction;
 
-        public QualifyRowNumberPredicate(@Nonnull final String fieldName, @Nonnull final Direction direction, int size) {
-            this.fieldName = fieldName;
+        public RowNumberWindowPredicate(@Nonnull final List<String> fieldPath, @Nonnull final Direction direction, int size) {
+            this.fieldPath = ImmutableList.copyOf(fieldPath);
             this.direction = direction;
             this.size = size;
         }
 
-        public QualifyRowNumberPredicate(@Nonnull final RecordMetaDataProto.QualifyRowNumberPredicate proto) {
-            this.fieldName = proto.getFieldName();
+        public RowNumberWindowPredicate(@Nonnull final String fieldName, @Nonnull final Direction direction, int size) {
+            this(ImmutableList.of(fieldName), direction, size);
+        }
+
+        public RowNumberWindowPredicate(@Nonnull final RecordMetaDataProto.RowNumberWindowPredicate proto) {
+            this.fieldPath = ImmutableList.copyOf(proto.getFieldPathList());
             this.size = proto.getSize();
             switch (proto.getDirection()) {
                 case ASC:
@@ -585,14 +638,25 @@ public abstract class IndexPredicate {
                     this.direction = Direction.DESC;
                     break;
                 default:
-                    throw new RecordCoreException("unknown QualifyRowNumber direction")
+                    throw new RecordCoreException("unknown RowNumberWindowPredicate direction")
                             .addLogInfo(LogMessageKeys.VALUE, proto.getDirection());
             }
         }
 
         @Nonnull
+        public List<String> getFieldPath() {
+            return fieldPath;
+        }
+
+        /**
+         * Returns the simple field name. Convenience method for single-element field paths.
+         * @return the first (and only) element of the field path
+         * @throws RecordCoreException if the field path has more than one element
+         */
+        @Nonnull
         public String getFieldName() {
-            return fieldName;
+            Verify.verify(fieldPath.size() == 1, "getFieldName() called on multi-element field path: %s", fieldPath);
+            return fieldPath.get(0);
         }
 
         public int getSize() {
@@ -606,7 +670,12 @@ public abstract class IndexPredicate {
 
         @Nonnull
         public KeyExpression getWindowKey() {
-            return Key.Expressions.field(fieldName);
+            // Build nested key expression from inside out: for path [a, b, c] → field(a).nest(field(b).nest(field(c)))
+            KeyExpression result = Key.Expressions.field(fieldPath.get(fieldPath.size() - 1));
+            for (int i = fieldPath.size() - 2; i >= 0; i--) {
+                result = Key.Expressions.field(fieldPath.get(i)).nest(result);
+            }
+            return result;
         }
 
         @Override
@@ -617,13 +686,13 @@ public abstract class IndexPredicate {
         @Nonnull
         @Override
         public RecordMetaDataProto.Predicate toProto() {
-            final RecordMetaDataProto.QualifyRowNumberPredicate.Direction protoDirection =
+            final RecordMetaDataProto.RowNumberWindowPredicate.Direction protoDirection =
                     direction == Direction.ASC
-                            ? RecordMetaDataProto.QualifyRowNumberPredicate.Direction.ASC
-                            : RecordMetaDataProto.QualifyRowNumberPredicate.Direction.DESC;
+                            ? RecordMetaDataProto.RowNumberWindowPredicate.Direction.ASC
+                            : RecordMetaDataProto.RowNumberWindowPredicate.Direction.DESC;
             return RecordMetaDataProto.Predicate.newBuilder()
-                    .setQualifyRowNumberPredicate(RecordMetaDataProto.QualifyRowNumberPredicate.newBuilder()
-                            .setFieldName(fieldName)
+                    .setRowNumberWindowPredicate(RecordMetaDataProto.RowNumberWindowPredicate.newBuilder()
+                            .addAllFieldPath(fieldPath)
                             .setSize(size)
                             .setDirection(protoDirection)
                             .build())
@@ -638,7 +707,7 @@ public abstract class IndexPredicate {
 
         @Override
         public String toString() {
-            return "QualifyRowNumber(" + fieldName + ", " + direction + ") <= " + size + " ";
+            return "QualifyRowNumber(" + String.join(".", fieldPath) + ", " + direction + ") <= " + size + " ";
         }
 
         @Override
@@ -649,13 +718,13 @@ public abstract class IndexPredicate {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            QualifyRowNumberPredicate that = (QualifyRowNumberPredicate) o;
-            return size == that.size && direction == that.direction && fieldName.equals(that.fieldName);
+            RowNumberWindowPredicate that = (RowNumberWindowPredicate) o;
+            return size == that.size && direction == that.direction && fieldPath.equals(that.fieldPath);
         }
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(fieldName, direction, size);
+            return Objects.hash(fieldPath, direction, size);
         }
     }
 }

@@ -315,8 +315,8 @@ message ValuePredicate {
   optional Comparison comparison = 2;
 }
 
-message QualifyRowNumberPredicate {
-  required string field_name = 1;
+message RowNumberWindowPredicate {
+  repeated string field_path = 1;
   required int32 size = 2;
   enum Direction {
     ASC = 1;
@@ -332,5 +332,5 @@ message Predicate {
   optional ConstantPredicate constant_predicate = 3;
   optional NotPredicate not_predicate = 4;
   optional ValuePredicate value_predicate = 5;
-  optional QualifyRowNumberPredicate qualify_row_number_predicate = 6;
+  optional RowNumberWindowPredicate row_number_window_predicate = 6;
 }
