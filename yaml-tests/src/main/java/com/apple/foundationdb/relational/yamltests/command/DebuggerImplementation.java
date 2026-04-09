@@ -53,7 +53,7 @@ public enum DebuggerImplementation {
 
     @Nonnull
     public Debugger newDebugger(@Nonnull YamlExecutionContext context) {
-        if (!allowedInCI && context.isInCI()) {
+        if (!allowedInCI && YamlExecutionContext.isInCI()) {
             throw new UnsupportedOperationException("somebody checked in a test with a debugger option");
         }
         return debuggerSupplier.get();
