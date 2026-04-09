@@ -91,7 +91,7 @@ public class JDBCParameterizedQueryComparisonTest {
      * optionally {@link #assertEqual} to customize behavior per type.
      */
     enum TypeTestCase {
-        BIGINT("bigint", null, true, "BIGINT", true, new Object[]{10L, 20L, 30L}) {
+        BIGINT("bigint", null, "BIGINT", new Object[] {10L, 20L, 30L}) {
             @Override
             Object createValue(Connection conn) {
                 return 42L;
@@ -99,7 +99,7 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Override
             void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
-                statement.setLong(parameterIndex, (Long) val);
+                statement.setLong(parameterIndex, (Long)val);
             }
 
             @Override
@@ -107,7 +107,7 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getLong(columnIndex);
             }
         },
-        INTEGER("integer", null, true, "INTEGER", true, new Object[]{10, 20, 30}) {
+        INTEGER("integer", null, "INTEGER", new Object[] {10, 20, 30}) {
             @Override
             Object createValue(Connection conn) {
                 return 42;
@@ -115,7 +115,7 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Override
             void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
-                statement.setInt(parameterIndex, (Integer) val);
+                statement.setInt(parameterIndex, (Integer)val);
             }
 
             @Override
@@ -123,7 +123,7 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getInt(columnIndex);
             }
         },
-        DOUBLE("double", null, true, "DOUBLE", true, new Object[]{1.1, 2.2, 3.3}) {
+        DOUBLE("double", null, "DOUBLE", new Object[] {1.1, 2.2, 3.3}) {
             @Override
             Object createValue(Connection conn) {
                 return 3.14159;
@@ -131,7 +131,7 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Override
             void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
-                statement.setDouble(parameterIndex, (Double) val);
+                statement.setDouble(parameterIndex, (Double)val);
             }
 
             @Override
@@ -139,7 +139,7 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getDouble(columnIndex);
             }
         },
-        FLOAT("float", null, true, "FLOAT", false, new Object[]{1.1f, 2.2f, 3.3f}) {
+        FLOAT("float", null, "FLOAT", new Object[] {1.1f, 2.2f, 3.3f}) {
             @Override
             Object createValue(Connection conn) {
                 return 2.718f;
@@ -147,7 +147,7 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Override
             void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
-                statement.setFloat(parameterIndex, (Float) val);
+                statement.setFloat(parameterIndex, (Float)val);
             }
 
             @Override
@@ -157,11 +157,11 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Override
             void assertEqual(String message, Object expected, Object actual) {
-                Assertions.assertEquals(((Number) expected).floatValue(),
-                        ((Number) actual).floatValue(), 0.001f, message);
+                Assertions.assertEquals(((Number)expected).floatValue(),
+                        ((Number)actual).floatValue(), 0.001f, message);
             }
         },
-        STRING("string", null, true, "STRING", true, new Object[]{"a", "b", "c"}) {
+        STRING("string", null, "STRING", new Object[] {"a", "b", "c"}) {
             @Override
             Object createValue(Connection conn) {
                 return "hello world";
@@ -169,7 +169,7 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Override
             void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
-                statement.setString(parameterIndex, (String) val);
+                statement.setString(parameterIndex, (String)val);
             }
 
             @Override
@@ -177,7 +177,7 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getString(columnIndex);
             }
         },
-        BOOLEAN("boolean", null, true, "BOOLEAN", true, new Object[]{true, false, true}) {
+        BOOLEAN("boolean", null, "BOOLEAN", new Object[] {true, false, true}) {
             @Override
             Object createValue(Connection conn) {
                 return true;
@@ -185,7 +185,7 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Override
             void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
-                statement.setBoolean(parameterIndex, (Boolean) val);
+                statement.setBoolean(parameterIndex, (Boolean)val);
             }
 
             @Override
@@ -193,15 +193,15 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getBoolean(columnIndex);
             }
         },
-        BYTES("bytes", null, true, "BINARY", false, new Object[] {new byte[]{1, 2, 3, 4, 5}, new byte[]{-1, 0, 1}}) {
+        BYTES("bytes", null, "BINARY", new Object[] {new byte[] {1, 2, 3, 4, 5}, new byte[] {-1, 0, 1}}) {
             @Override
             Object createValue(Connection conn) {
-                return new byte[]{1, 2, 3, 4, 5};
+                return new byte[] {1, 2, 3, 4, 5};
             }
 
             @Override
             void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
-                statement.setBytes(parameterIndex, (byte[]) val);
+                statement.setBytes(parameterIndex, (byte[])val);
             }
 
             @Override
@@ -211,18 +211,18 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Override
             void assertEqual(String message, Object expected, Object actual) {
-                Assertions.assertArrayEquals((byte[]) expected, (byte[]) actual, message);
+                Assertions.assertArrayEquals((byte[])expected, (byte[])actual, message);
             }
         },
-        INTEGER_ARRAY("integer array", null, true, null, false, null) {
+        INTEGER_ARRAY("integer array", null, null, null) {
             @Override
             Object createValue(Connection conn) throws SQLException {
-                return conn.createArrayOf("INTEGER", new Object[]{10, 20, 30});
+                return conn.createArrayOf("INTEGER", new Object[] {10, 20, 30});
             }
 
             @Override
             void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
-                statement.setArray(parameterIndex, (Array) val);
+                statement.setArray(parameterIndex, (Array)val);
             }
 
             @Override
@@ -241,10 +241,10 @@ public class JDBCParameterizedQueryComparisonTest {
                 }
             }
         },
-        STRUCT("MyStruct", "CREATE TYPE AS STRUCT MyStruct (f0 bigint, f1 string)", false, null, false, null) {
+        STRUCT("MyStruct", "CREATE TYPE AS STRUCT MyStruct (f0 bigint, f1 string)", null, null) {
             @Override
             Object createValue(Connection conn) throws SQLException {
-                return conn.createStruct("MyStruct", new Object[]{100L, "test_value"});
+                return conn.createStruct("MyStruct", new Object[] {100L, "test_value"});
             }
 
             @Override
@@ -261,8 +261,8 @@ public class JDBCParameterizedQueryComparisonTest {
             @Override
             void assertEqual(String message, Object expected, Object actual) {
                 try {
-                    RelationalStruct expStruct = (RelationalStruct) expected;
-                    RelationalStruct actStruct = (RelationalStruct) actual;
+                    RelationalStruct expStruct = (RelationalStruct)expected;
+                    RelationalStruct actStruct = (RelationalStruct)actual;
                     int expCount = expStruct.getMetaData().getColumnCount();
                     int actCount = actStruct.getMetaData().getColumnCount();
                     Assertions.assertEquals(expCount, actCount, message + " (field count)");
@@ -279,27 +279,24 @@ public class JDBCParameterizedQueryComparisonTest {
         private final String columnDdl;
         @Nullable
         private final String extraTypeDdl;
-        private final boolean jdbcSetterSupported;
-        /** The SQL type name for use with {@code createArrayOf}, or {@code null} if this type cannot be an array element. */
+        /**
+         * The SQL type name for use with {@code createArrayOf}, or {@code null} if this type cannot be an array
+         * element.
+         */
         @Nullable
         private final String arrayTypeName;
         /**
-         * Whether JDBC {@code createArrayOf} supports this type. {@code false} when {@code TypeConversion.toColumn}
-         * does not handle the JDBC type code (e.g. FLOAT, BINARY).
+         * Sample values for creating an array of this type, or {@code null} if arrays are not supported.
          */
-        private final boolean jdbcArraySupported;
-        /** Sample values for creating an array of this type, or {@code null} if arrays are not supported. */
         @Nullable
         private final Object[] sampleArrayElements;
 
-        TypeTestCase(String columnDdl, @Nullable String extraTypeDdl, boolean jdbcSetterSupported,
-                     @Nullable String arrayTypeName, boolean jdbcArraySupported,
+        TypeTestCase(String columnDdl, @Nullable String extraTypeDdl,
+                     @Nullable String arrayTypeName,
                      @Nullable Object[] sampleArrayElements) {
             this.columnDdl = columnDdl;
             this.extraTypeDdl = extraTypeDdl;
-            this.jdbcSetterSupported = jdbcSetterSupported;
             this.arrayTypeName = arrayTypeName;
-            this.jdbcArraySupported = jdbcArraySupported;
             this.sampleArrayElements = sampleArrayElements;
         }
 
@@ -323,13 +320,13 @@ public class JDBCParameterizedQueryComparisonTest {
         static List<Object> extractArrayElements(Object arrayObj) throws SQLException {
             List<Object> elements = new ArrayList<>();
             if (arrayObj instanceof RelationalArray) {
-                RelationalResultSet rs = ((RelationalArray) arrayObj).getResultSet();
+                RelationalResultSet rs = ((RelationalArray)arrayObj).getResultSet();
                 while (rs.next()) {
                     final Object obj = rs.getObject(2);
                     elements.add(obj); // column 2 is the value in ARRAY result sets
                 }
             } else if (arrayObj instanceof Array) {
-                Object[] arr = (Object[]) ((Array) arrayObj).getArray();
+                Object[] arr = (Object[])((Array)arrayObj).getArray();
                 Collections.addAll(elements, arr);
             } else {
                 throw new SQLException("Unexpected array type: " + arrayObj.getClass());
