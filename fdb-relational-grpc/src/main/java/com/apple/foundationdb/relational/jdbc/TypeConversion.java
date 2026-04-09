@@ -432,7 +432,14 @@ public class TypeConversion {
                 builder.setString((String)obj);
                 break;
             case Types.BINARY:
-                builder.setBinary((ByteString)obj);
+                if (obj instanceof ByteString) {
+                    builder.setBinary((ByteString)obj);
+                } else if (obj instanceof byte[]) {
+                    builder.setBinary(ByteString.copyFrom((byte[]) obj));
+                } else {
+                    throw new SQLException(obj.getClass().getCanonicalName() + " is not a valid BINARY object",
+                            ErrorCode.INVALID_BINARY_REPRESENTATION.getErrorCode());
+                }
                 break;
             case Types.FLOAT:
                 builder.setFloat((Float) obj);

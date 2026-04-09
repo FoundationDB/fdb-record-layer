@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.server.InProcessRelationalServer;
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.test.ParameterizedTestUtils;
+import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -39,6 +40,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.Array;
 import java.sql.Connection;
@@ -51,6 +53,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -190,7 +193,7 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getBoolean(columnIndex);
             }
         },
-        BYTES("bytes", null, true, null, false, null) {
+        BYTES("bytes", null, true, "BINARY", false, new Object[] {new byte[]{1, 2, 3, 4, 5}, new byte[]{-1, 0, 1}}) {
             @Override
             Object createValue(Connection conn) {
                 return new byte[]{1, 2, 3, 4, 5};
@@ -322,7 +325,8 @@ public class JDBCParameterizedQueryComparisonTest {
             if (arrayObj instanceof RelationalArray) {
                 RelationalResultSet rs = ((RelationalArray) arrayObj).getResultSet();
                 while (rs.next()) {
-                    elements.add(rs.getObject(2)); // column 2 is the value in ARRAY result sets
+                    final Object obj = rs.getObject(2);
+                    elements.add(obj); // column 2 is the value in ARRAY result sets
                 }
             } else if (arrayObj instanceof Array) {
                 Object[] arr = (Object[]) ((Array) arrayObj).getArray();
@@ -471,9 +475,20 @@ public class JDBCParameterizedQueryComparisonTest {
                 Array actualArray = rs.getArray(1);
                 List<Object> expectedElements = TypeTestCase.extractArrayElements(expectedArray);
                 List<Object> actualElements = TypeTestCase.extractArrayElements(actualArray);
-                Assertions.assertEquals(expectedElements, actualElements, description);
+                if (expectedElements.stream().allMatch(obj -> obj instanceof byte[])) {
+                    // If we have List<byte[]> assertEquals will fail unless they are the same, so convert to ByteString
+                    // first so we have an actual equals method
+                    Assertions.assertEquals(asListOfByteStrings(expectedElements), asListOfByteStrings(actualElements));
+                } else {
+                    Assertions.assertEquals(expectedElements, actualElements, description);
+                }
             }
         }
+    }
+
+    @Nonnull
+    private static List<ByteString> asListOfByteStrings(final List<Object> expectedElements) {
+        return expectedElements.stream().map(obj -> ByteString.copyFrom((byte[])obj)).collect(Collectors.toList());
     }
 
     private static RelationalConnection getJdbcCatalogConnection() throws SQLException {
