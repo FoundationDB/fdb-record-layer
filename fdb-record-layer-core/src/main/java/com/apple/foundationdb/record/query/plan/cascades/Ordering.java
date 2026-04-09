@@ -224,7 +224,7 @@ public class Ordering {
     }
 
     @Nonnull
-    private SetMultimap<Value, Binding> getFixedBindingMap() {
+    public SetMultimap<Value, Binding> getFixedBindingMap() {
         return fixedBindingMapSupplier.get();
     }
 

@@ -197,6 +197,9 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         final var testClass = context.getRequiredTestClass();
         final var testMethod = context.getRequiredTestMethod();
         if (testClass.getAnnotation(MaintainYamlTestConfig.class) != null) {
+            if (YamlExecutionContext.isInCI()) {
+                throw new UnsupportedOperationException("somebody checked in a test with a MaintainYamlTestConfig annotation");
+            }
             final var annotation = testClass.getAnnotation(MaintainYamlTestConfig.class);
             return provideInvocationContextsForMaintenance(annotation, testMethod.getName());
         }
@@ -210,6 +213,9 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                     .map(config -> new Context(config, annotation.reason(), annotation.value(),
                             includeMethodInDescriptions, testMethod.getName()));
         } else if (testMethod.getAnnotation(MaintainYamlTestConfig.class) != null) {
+            if (YamlExecutionContext.isInCI()) {
+                throw new UnsupportedOperationException("somebody checked in a test with a MaintainYamlTestConfig annotation");
+            }
             final var annotation =
                     testMethod.getAnnotation(MaintainYamlTestConfig.class);
             return provideInvocationContextsForMaintenance(annotation, testMethod.getName());

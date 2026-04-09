@@ -119,7 +119,7 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     @Nonnull
     public static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName, @Nonnull Quantifier fullScanQun) {
         return forEach(
-                new LogicalTypeFilterExpression(ImmutableSet.of(typeName),
+                LogicalTypeFilterExpression.of(ImmutableSet.of(typeName),
                         fullScanQun,
                         metaData.getPlannerType(typeName)));
     }

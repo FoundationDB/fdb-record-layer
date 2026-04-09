@@ -38,7 +38,7 @@ test_block:
             traversal order pre_order
             select id, parent, level from c1
       - supported_version: 4.7.3.0
-      - explain: "RUNION-DFS PREORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c19 AS LONG)] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c49 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
+      - explain: "RUNION-DFS PREORDER q0 { SCAN([IS T1, EQUALS promote(@c19 AS LONG)]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c49 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
       - result: [{ID: 250, PARENT: 50, LEVEL: 0},
                  {ID: 50, PARENT: 10, LEVEL: 1},
                  {ID: 10, PARENT: 1, LEVEL: 2},
@@ -51,7 +51,7 @@ test_block:
             traversal order post_order
             select id, parent, level from c1
       - supported_version: 4.7.3.0
-      - explain: "RUNION-DFS POSTORDER q0 { COVERING(CHILDIDX [EQUALS promote(@c19 AS LONG)] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c49 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
+      - explain: "RUNION-DFS POSTORDER q0 { SCAN([IS T1, EQUALS promote(@c19 AS LONG)]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT: KEY:[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c49 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
       - result: [{ID: 1, PARENT: -1, LEVEL: 3},
                  {ID: 10, PARENT: 1, LEVEL: 2},
                  {ID: 50, PARENT: 10, LEVEL: 1},
@@ -64,7 +64,7 @@ test_block:
             traversal order level_order
             select id, parent, level from c1
       - supported_version: 4.7.2.0
-      - explain: "RUNION q0, q1 { INITIAL { COVERING(CHILDIDX [EQUALS promote(@c19 AS LONG)] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT, q3.LEVEL + @c45 AS LEVEL) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
+      - explain: "RUNION q0, q1 { INITIAL { SCAN([IS T1, EQUALS promote(@c19 AS LONG)]) | MAP (_.ID AS ID, _.PARENT AS PARENT, @c11 AS LEVEL) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT, q3.LEVEL + @c45 AS LEVEL) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)"
       - result: [{ID: 250, PARENT: 50, LEVEL: 0},
                  {ID: 50, PARENT: 10, LEVEL: 1},
                  {ID: 10, PARENT: 1, LEVEL: 2},
