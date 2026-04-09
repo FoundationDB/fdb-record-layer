@@ -145,7 +145,6 @@ public final class PlanGenerator {
     }
 
     @Nonnull
-    @SuppressWarnings("try")
     private Plan<?> getPlanInternal(@Nonnull String query, @Nonnull KeyValueLogMessage message) throws RelationalException {
         try {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
@@ -179,7 +178,7 @@ public final class PlanGenerator {
                             planEquivalence,
                             () -> {
                                 final Plan<?> physicalPlan;
-                                try (var ignored = new PlannerEventStatsCollector.DefaultStatsCollectorController()) {
+                                try {
                                     physicalPlan = generatePhysicalPlan(astHashResult, validPlanHashModes, currentPlanHashMode);
                                 } catch (final RelationalException vE) {
                                     throw vE.toUncheckedWrappedException();
@@ -235,6 +234,7 @@ public final class PlanGenerator {
     }
 
     @Nonnull
+    @SuppressWarnings("try")
     private Plan<?> generatePhysicalPlanForCompilableStatement(@Nonnull AstNormalizer.NormalizationResult ast,
                                                                boolean caseSensitive,
                                                                @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) {
@@ -245,7 +245,7 @@ public final class PlanGenerator {
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
                 currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash);
         final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
-        try {
+        try (var ignored = new PlannerEventStatsCollector.DefaultStatsCollectorController()) {
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
                     new BaseVisitor(planGenerationContext, metadata, planContext.getDdlQueryFactory(),
                             planContext.getConstantActionFactory(), planContext.getDbUri(), caseSensitive)
