@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,14 +64,6 @@ import java.util.stream.Stream;
  * <p>The {@link InProcessRelationalServer} creates an {@code FRL} instance which registers both the
  * embedded driver (for {@code jdbc:embed:} URLs) and the gRPC service (for {@code jdbc:relational:}
  * URLs). This allows the test to use both connection types against the same backing database.</p>
- *
- * <p>The test is parameterized on the cartesian product of:
- * <ul>
- *   <li>{@link TypeTestCase} - the SQL type under test</li>
- *   <li>{@code useTypedSetter} - whether to use type-specific setters (e.g. {@code setLong}) or {@code setObject}</li>
- *   <li>{@code insertWithJdbc} - whether the insert goes through JDBC (gRPC) or the embedded driver</li>
- *   <li>{@code readWithJdbc} - whether the read-back goes through JDBC (gRPC) or the embedded driver</li>
- * </ul>
  */
 public class JDBCParameterizedQueryComparisonTest {
 
@@ -93,8 +85,8 @@ public class JDBCParameterizedQueryComparisonTest {
 
     /**
      * Enum defining each SQL type test case. The parameterized test iterates over all values.
-     * Subclasses override {@link #createValue}, {@link #setTyped}, {@link #readValue}, and
-     * optionally {@link #assertEqual} to customize behavior per type.
+     * Subclasses override {@link #createValue}, {@link #setTyped}, {@link #getTyped}, and
+     * optionally {@link #assertEquals} to customize behavior per type.
      */
     enum TypeTestCase {
         BIGINT("bigint", "", "BIGINT", new Object[] {10L, 20L, 30L}) {
@@ -111,7 +103,7 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Nonnull
             @Override
-            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
+            Object getTyped(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getLong(columnIndex);
             }
         },
@@ -129,7 +121,7 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Nonnull
             @Override
-            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
+            Object getTyped(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getInt(columnIndex);
             }
         },
@@ -147,7 +139,7 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Nonnull
             @Override
-            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
+            Object getTyped(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getDouble(columnIndex);
             }
         },
@@ -165,12 +157,12 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Nonnull
             @Override
-            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
+            Object getTyped(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getFloat(columnIndex);
             }
 
             @Override
-            void assertEqual(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
+            void assertEquals(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
                 Assertions.assertEquals(((Number)expected).floatValue(),
                         ((Number)actual).floatValue(), 0.001f, message);
             }
@@ -189,7 +181,7 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Nonnull
             @Override
-            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
+            Object getTyped(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getString(columnIndex);
             }
         },
@@ -207,7 +199,7 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Nonnull
             @Override
-            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
+            Object getTyped(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getBoolean(columnIndex);
             }
         },
@@ -225,12 +217,12 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Nonnull
             @Override
-            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
+            Object getTyped(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getBytes(columnIndex);
             }
 
             @Override
-            void assertEqual(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
+            void assertEquals(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
                 Assertions.assertArrayEquals((byte[])expected, (byte[])actual, message);
             }
         },
@@ -248,12 +240,12 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Nonnull
             @Override
-            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
+            Object getTyped(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getArray(columnIndex);
             }
 
             @Override
-            void assertEqual(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
+            void assertEquals(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
                 try {
                     List<Object> expectedElements = extractArrayElements(expected);
                     List<Object> actualElements = extractArrayElements(actual);
@@ -277,13 +269,13 @@ public class JDBCParameterizedQueryComparisonTest {
 
             @Nonnull
             @Override
-            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
+            Object getTyped(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 RelationalResultSet rrs = resultSet.unwrap(RelationalResultSet.class);
                 return rrs.getStruct(columnIndex);
             }
 
             @Override
-            void assertEqual(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
+            void assertEquals(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
                 try {
                     RelationalStruct expStruct = (RelationalStruct)expected;
                     RelationalStruct actStruct = (RelationalStruct)actual;
@@ -331,9 +323,9 @@ public class JDBCParameterizedQueryComparisonTest {
         abstract void setTyped(@Nonnull PreparedStatement statement, int parameterIndex, @Nonnull Object val) throws SQLException;
 
         @Nonnull
-        abstract Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException;
+        abstract Object getTyped(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException;
 
-        void assertEqual(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
+        void assertEquals(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
             Assertions.assertEquals(expected, actual, message);
         }
 
@@ -569,8 +561,8 @@ public class JDBCParameterizedQueryComparisonTest {
             ps.setLong(1, PRIMARY_KEY);
             try (ResultSet rs = ps.executeQuery()) {
                 Assertions.assertTrue(rs.next(), "Expected row for: " + description);
-                Object readValue = testCase.readValue(rs, 1);
-                testCase.assertEqual(description, expectedValue, readValue);
+                Object readValue = testCase.getTyped(rs, 1);
+                testCase.assertEquals(description, expectedValue, readValue);
             }
         }
     }
