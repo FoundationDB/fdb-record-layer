@@ -75,14 +75,20 @@ import java.util.stream.Stream;
  */
 public class JDBCParameterizedQueryComparisonTest {
 
+    @Nonnull
     private static final String SYS_DB_PATH = "/" + RelationalKeyspaceProvider.SYS;
+    @Nonnull
     private static final String SCHEMA_NAME = "test_schema";
     private static final long PRIMARY_KEY = 1;
 
+    @Nullable
     private static InProcessRelationalServer server;
+    @Nullable
     private static String serverName;
 
+    @Nullable
     private String dbPath;
+    @Nullable
     private String templateName;
 
     /**
@@ -91,147 +97,163 @@ public class JDBCParameterizedQueryComparisonTest {
      * optionally {@link #assertEqual} to customize behavior per type.
      */
     enum TypeTestCase {
-        BIGINT("bigint", null, "BIGINT", new Object[] {10L, 20L, 30L}) {
+        BIGINT("bigint", "", "BIGINT", new Object[] {10L, 20L, 30L}) {
+            @Nonnull
             @Override
-            Object createValue(Connection conn) {
+            Object createValue(@Nonnull Connection conn) {
                 return 42L;
             }
 
             @Override
-            void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
+            void setTyped(@Nonnull PreparedStatement statement, int parameterIndex, @Nonnull Object val) throws SQLException {
                 statement.setLong(parameterIndex, (Long)val);
             }
 
+            @Nonnull
             @Override
-            Object readValue(ResultSet resultSet, int columnIndex) throws SQLException {
+            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getLong(columnIndex);
             }
         },
-        INTEGER("integer", null, "INTEGER", new Object[] {10, 20, 30}) {
+        INTEGER("integer", "", "INTEGER", new Object[] {10, 20, 30}) {
+            @Nonnull
             @Override
-            Object createValue(Connection conn) {
+            Object createValue(@Nonnull Connection conn) {
                 return 42;
             }
 
             @Override
-            void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
+            void setTyped(@Nonnull PreparedStatement statement, int parameterIndex, @Nonnull Object val) throws SQLException {
                 statement.setInt(parameterIndex, (Integer)val);
             }
 
+            @Nonnull
             @Override
-            Object readValue(ResultSet resultSet, int columnIndex) throws SQLException {
+            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getInt(columnIndex);
             }
         },
-        DOUBLE("double", null, "DOUBLE", new Object[] {1.1, 2.2, 3.3}) {
+        DOUBLE("double", "", "DOUBLE", new Object[] {1.1, 2.2, 3.3}) {
+            @Nonnull
             @Override
-            Object createValue(Connection conn) {
+            Object createValue(@Nonnull Connection conn) {
                 return 3.14159;
             }
 
             @Override
-            void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
+            void setTyped(@Nonnull PreparedStatement statement, int parameterIndex, @Nonnull Object val) throws SQLException {
                 statement.setDouble(parameterIndex, (Double)val);
             }
 
+            @Nonnull
             @Override
-            Object readValue(ResultSet resultSet, int columnIndex) throws SQLException {
+            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getDouble(columnIndex);
             }
         },
-        FLOAT("float", null, "FLOAT", new Object[] {1.1f, 2.2f, 3.3f}) {
+        FLOAT("float", "", "FLOAT", new Object[] {1.1f, 2.2f, 3.3f}) {
+            @Nonnull
             @Override
-            Object createValue(Connection conn) {
+            Object createValue(@Nonnull Connection conn) {
                 return 2.718f;
             }
 
             @Override
-            void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
+            void setTyped(@Nonnull PreparedStatement statement, int parameterIndex, @Nonnull Object val) throws SQLException {
                 statement.setFloat(parameterIndex, (Float)val);
             }
 
+            @Nonnull
             @Override
-            Object readValue(ResultSet resultSet, int columnIndex) throws SQLException {
+            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getFloat(columnIndex);
             }
 
             @Override
-            void assertEqual(String message, Object expected, Object actual) {
+            void assertEqual(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
                 Assertions.assertEquals(((Number)expected).floatValue(),
                         ((Number)actual).floatValue(), 0.001f, message);
             }
         },
-        STRING("string", null, "STRING", new Object[] {"a", "b", "c"}) {
+        STRING("string", "", "STRING", new Object[] {"a", "b", "c"}) {
+            @Nonnull
             @Override
-            Object createValue(Connection conn) {
+            Object createValue(@Nonnull Connection conn) {
                 return "hello world";
             }
 
             @Override
-            void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
+            void setTyped(@Nonnull PreparedStatement statement, int parameterIndex, @Nonnull Object val) throws SQLException {
                 statement.setString(parameterIndex, (String)val);
             }
 
+            @Nonnull
             @Override
-            Object readValue(ResultSet resultSet, int columnIndex) throws SQLException {
+            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getString(columnIndex);
             }
         },
-        BOOLEAN("boolean", null, "BOOLEAN", new Object[] {true, false, true}) {
+        BOOLEAN("boolean", "", "BOOLEAN", new Object[] {true, false, true}) {
+            @Nonnull
             @Override
-            Object createValue(Connection conn) {
+            Object createValue(@Nonnull Connection conn) {
                 return true;
             }
 
             @Override
-            void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
+            void setTyped(@Nonnull PreparedStatement statement, int parameterIndex, @Nonnull Object val) throws SQLException {
                 statement.setBoolean(parameterIndex, (Boolean)val);
             }
 
+            @Nonnull
             @Override
-            Object readValue(ResultSet resultSet, int columnIndex) throws SQLException {
+            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getBoolean(columnIndex);
             }
         },
-        BYTES("bytes", null, "BINARY", new Object[] {new byte[] {1, 2, 3, 4, 5}, new byte[] {-1, 0, 1}}) {
+        BYTES("bytes", "", "BINARY", new Object[] {new byte[] {1, 2, 3, 4, 5}, new byte[] {-1, 0, 1}}) {
+            @Nonnull
             @Override
-            Object createValue(Connection conn) {
+            Object createValue(@Nonnull Connection conn) {
                 return new byte[] {1, 2, 3, 4, 5};
             }
 
             @Override
-            void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
+            void setTyped(@Nonnull PreparedStatement statement, int parameterIndex, @Nonnull Object val) throws SQLException {
                 statement.setBytes(parameterIndex, (byte[])val);
             }
 
+            @Nonnull
             @Override
-            Object readValue(ResultSet resultSet, int columnIndex) throws SQLException {
+            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getBytes(columnIndex);
             }
 
             @Override
-            void assertEqual(String message, Object expected, Object actual) {
+            void assertEqual(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
                 Assertions.assertArrayEquals((byte[])expected, (byte[])actual, message);
             }
         },
-        INTEGER_ARRAY("integer array", null, null, null) {
+        INTEGER_ARRAY("integer array", "", null, null) {
+            @Nullable
             @Override
-            Object createValue(Connection conn) throws SQLException {
+            Object createValue(@Nonnull Connection conn) throws SQLException {
                 return conn.createArrayOf("INTEGER", new Object[] {10, 20, 30});
             }
 
             @Override
-            void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
+            void setTyped(@Nonnull PreparedStatement statement, int parameterIndex, @Nonnull Object val) throws SQLException {
                 statement.setArray(parameterIndex, (Array)val);
             }
 
+            @Nonnull
             @Override
-            Object readValue(ResultSet resultSet, int columnIndex) throws SQLException {
+            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 return resultSet.getArray(columnIndex);
             }
 
             @Override
-            void assertEqual(String message, Object expected, Object actual) {
+            void assertEqual(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
                 try {
                     List<Object> expectedElements = extractArrayElements(expected);
                     List<Object> actualElements = extractArrayElements(actual);
@@ -242,24 +264,26 @@ public class JDBCParameterizedQueryComparisonTest {
             }
         },
         STRUCT("MyStruct", "CREATE TYPE AS STRUCT MyStruct (f0 bigint, f1 string)", null, null) {
+            @Nullable
             @Override
-            Object createValue(Connection conn) throws SQLException {
+            Object createValue(@Nonnull Connection conn) throws SQLException {
                 return conn.createStruct("MyStruct", new Object[] {100L, "test_value"});
             }
 
             @Override
-            void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException {
+            void setTyped(@Nonnull PreparedStatement statement, int parameterIndex, @Nonnull Object val) throws SQLException {
                 statement.setObject(parameterIndex, val);
             }
 
+            @Nonnull
             @Override
-            Object readValue(ResultSet resultSet, int columnIndex) throws SQLException {
+            Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
                 RelationalResultSet rrs = resultSet.unwrap(RelationalResultSet.class);
                 return rrs.getStruct(columnIndex);
             }
 
             @Override
-            void assertEqual(String message, Object expected, Object actual) {
+            void assertEqual(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
                 try {
                     RelationalStruct expStruct = (RelationalStruct)expected;
                     RelationalStruct actStruct = (RelationalStruct)actual;
@@ -276,8 +300,9 @@ public class JDBCParameterizedQueryComparisonTest {
             }
         };
 
+        @Nonnull
         private final String columnDdl;
-        @Nullable
+        @Nonnull
         private final String extraTypeDdl;
         /**
          * The SQL type name for use with {@code createArrayOf}, or {@code null} if this type cannot be an array
@@ -291,7 +316,7 @@ public class JDBCParameterizedQueryComparisonTest {
         @Nullable
         private final Object[] sampleArrayElements;
 
-        TypeTestCase(String columnDdl, @Nullable String extraTypeDdl,
+        TypeTestCase(@Nonnull String columnDdl, @Nonnull String extraTypeDdl,
                      @Nullable String arrayTypeName,
                      @Nullable Object[] sampleArrayElements) {
             this.columnDdl = columnDdl;
@@ -300,13 +325,15 @@ public class JDBCParameterizedQueryComparisonTest {
             this.sampleArrayElements = sampleArrayElements;
         }
 
-        abstract Object createValue(Connection conn) throws SQLException;
+        @Nullable
+        abstract Object createValue(@Nonnull Connection conn) throws SQLException;
 
-        abstract void setTyped(PreparedStatement statement, int parameterIndex, Object val) throws SQLException;
+        abstract void setTyped(@Nonnull PreparedStatement statement, int parameterIndex, @Nonnull Object val) throws SQLException;
 
-        abstract Object readValue(ResultSet resultSet, int columnIndex) throws SQLException;
+        @Nonnull
+        abstract Object readValue(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException;
 
-        void assertEqual(String message, Object expected, Object actual) {
+        void assertEqual(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
             Assertions.assertEquals(expected, actual, message);
         }
 
@@ -317,7 +344,8 @@ public class JDBCParameterizedQueryComparisonTest {
          * {@link JDBCArrayImpl#getResultSet()} throws {@code SQLFeatureNotSupportedException}.
          * See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/3665">#3665</a>
          */
-        static List<Object> extractArrayElements(Object arrayObj) throws SQLException {
+        @Nonnull
+        static List<Object> extractArrayElements(@Nonnull Object arrayObj) throws SQLException {
             List<Object> elements = new ArrayList<>();
             if (arrayObj instanceof RelationalArray) {
                 RelationalResultSet rs = ((RelationalArray)arrayObj).getResultSet();
@@ -378,6 +406,7 @@ public class JDBCParameterizedQueryComparisonTest {
         }
     }
 
+    @Nonnull
     static Stream<Arguments> testCases() {
         return ParameterizedTestUtils.cartesianProduct(
                 Arrays.stream(TypeTestCase.values()),
@@ -388,7 +417,7 @@ public class JDBCParameterizedQueryComparisonTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void testParameterizedInsertAndSelect(TypeTestCase testCase, boolean useTypedSetter,
+    void testParameterizedInsertAndSelect(@Nonnull TypeTestCase testCase, boolean useTypedSetter,
                                           boolean insertWithJdbc, boolean readWithJdbc) throws Exception {
         if (insertWithJdbc || readWithJdbc) {
             // JDBC does not support createStruct (always returns null), so inserting with jdbc is not supported.
@@ -400,11 +429,13 @@ public class JDBCParameterizedQueryComparisonTest {
 
         try (Connection insertConn = getConnection(insertWithJdbc)) {
             Object value = testCase.createValue(insertConn);
+            Assertions.assertNotNull(value);
             insert(testCase, insertConn, value, useTypedSetter);
         }
 
         try (Connection readConn = getConnection(readWithJdbc)) {
             Object expectedValue = testCase.createValue(readConn);
+            Assertions.assertNotNull(expectedValue);
             readAndAssert(testCase, readConn, expectedValue,
                     testCase + " " + (useTypedSetter ? "typedSetter" : "setObject")
                             + " " + (insertWithJdbc ? "insertJdbc" : "insertEmbedded")
@@ -414,7 +445,7 @@ public class JDBCParameterizedQueryComparisonTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void testArrayOfTypeInsertAndSelect(TypeTestCase testCase, boolean useTypedSetter,
+    void testArrayOfTypeInsertAndSelect(@Nonnull TypeTestCase testCase, boolean useTypedSetter,
                                         boolean insertWithJdbc, boolean readWithJdbc) throws Exception {
         Assumptions.assumeFalse(testCase == TypeTestCase.STRUCT,
                 "createArrayOf does not support STRUCT in either implementation");
@@ -437,11 +468,11 @@ public class JDBCParameterizedQueryComparisonTest {
         }
     }
 
-    private void createArraySchema(TypeTestCase testCase) throws SQLException {
+    private void createArraySchema(@Nonnull TypeTestCase testCase) throws SQLException {
         try (RelationalConnection conn = getJdbcCatalogConnection()) {
             try (RelationalStatement stmt = conn.createStatement()) {
                 String createTemplate = "CREATE SCHEMA TEMPLATE \"" + templateName + "\" " +
-                        (testCase.extraTypeDdl != null ? testCase.extraTypeDdl + " " : "") +
+                        testCase.extraTypeDdl + " " +
                         "CREATE TABLE test_table (pk bigint, val " + testCase.columnDdl + " array, PRIMARY KEY(pk))";
                 stmt.executeUpdate(createTemplate);
                 stmt.executeUpdate("CREATE SCHEMA \"" + dbPath + "/" + SCHEMA_NAME +
@@ -450,7 +481,7 @@ public class JDBCParameterizedQueryComparisonTest {
         }
     }
 
-    private void insertArray(Connection conn, Array value, boolean useTypedSetter) throws SQLException {
+    private void insertArray(@Nonnull Connection conn, @Nonnull Array value, boolean useTypedSetter) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
                 "INSERT INTO test_table (pk, val) VALUES (?, ?)")) {
             ps.setLong(1, PRIMARY_KEY);
@@ -463,7 +494,7 @@ public class JDBCParameterizedQueryComparisonTest {
         }
     }
 
-    private void readAndAssertArray(Connection conn, Array expectedArray, String description) throws SQLException {
+    private void readAndAssertArray(@Nonnull Connection conn, @Nonnull Array expectedArray, @Nonnull String description) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT val FROM test_table WHERE pk = ?")) {
             ps.setLong(1, PRIMARY_KEY);
@@ -484,16 +515,18 @@ public class JDBCParameterizedQueryComparisonTest {
     }
 
     @Nonnull
-    private static List<ByteString> asListOfByteStrings(final List<Object> expectedElements) {
+    private static List<ByteString> asListOfByteStrings(@Nonnull final List<Object> expectedElements) {
         return expectedElements.stream().map(obj -> ByteString.copyFrom((byte[])obj)).collect(Collectors.toList());
     }
 
+    @Nonnull
     private static RelationalConnection getJdbcCatalogConnection() throws SQLException {
         String uri = "jdbc:relational://" + SYS_DB_PATH + "?schema=" + RelationalKeyspaceProvider.CATALOG
                 + "&server=" + serverName;
         return DriverManager.getConnection(uri).unwrap(RelationalConnection.class);
     }
 
+    @Nonnull
     private Connection getConnection(boolean useJdbc) throws SQLException {
         if (useJdbc) {
             String uri = "jdbc:relational://" + dbPath + "?schema=" + SCHEMA_NAME
@@ -504,11 +537,11 @@ public class JDBCParameterizedQueryComparisonTest {
         }
     }
 
-    private void createSchema(TypeTestCase testCase) throws SQLException {
+    private void createSchema(@Nonnull TypeTestCase testCase) throws SQLException {
         try (RelationalConnection conn = getJdbcCatalogConnection()) {
             try (RelationalStatement stmt = conn.createStatement()) {
                 String createTemplate = "CREATE SCHEMA TEMPLATE \"" + templateName + "\" " +
-                        (testCase.extraTypeDdl != null ? testCase.extraTypeDdl + " " : "") +
+                        testCase.extraTypeDdl + " " +
                         "CREATE TABLE test_table (pk bigint, val " + testCase.columnDdl + ", PRIMARY KEY(pk))";
                 stmt.executeUpdate(createTemplate);
                 stmt.executeUpdate("CREATE SCHEMA \"" + dbPath + "/" + SCHEMA_NAME +
@@ -517,7 +550,7 @@ public class JDBCParameterizedQueryComparisonTest {
         }
     }
 
-    private void insert(TypeTestCase testCase, Connection conn, Object value, boolean useTypedSetter) throws SQLException {
+    private void insert(@Nonnull TypeTestCase testCase, @Nonnull Connection conn, @Nonnull Object value, boolean useTypedSetter) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
                 "INSERT INTO test_table (pk, val) VALUES (?, ?)")) {
             ps.setLong(1, PRIMARY_KEY);
@@ -530,7 +563,7 @@ public class JDBCParameterizedQueryComparisonTest {
         }
     }
 
-    private void readAndAssert(TypeTestCase testCase, Connection conn, Object expectedValue, String description) throws SQLException {
+    private void readAndAssert(@Nonnull TypeTestCase testCase, @Nonnull Connection conn, @Nonnull Object expectedValue, @Nonnull String description) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT val FROM test_table WHERE pk = ?")) {
             ps.setLong(1, PRIMARY_KEY);
