@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsCollector;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -197,9 +198,12 @@ public class ExplainTests {
     @Test
     void explainContainsEventStatsFromCache() throws Exception {
         final var defaultDebugger = Debugger.getDebugger();
+
         try {
             Debugger.setDebugger(null);
+            PlannerEventStatsCollector.setCollector(null);
             org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
+            org.junit.jupiter.api.Assertions.assertNull(PlannerEventStatsCollector.getCollector());
 
             try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
                 executeInsert(ddl);
@@ -226,6 +230,8 @@ public class ExplainTests {
                 org.junit.jupiter.api.Assertions.assertNotNull(metricCollector);
                 org.junit.jupiter.api.Assertions.assertTrue(metricCollector.hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
                 org.junit.jupiter.api.Assertions.assertEquals(1L, metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+
+                org.junit.jupiter.api.Assertions.assertNull(PlannerEventStatsCollector.getCollector());
             }
         } finally {
             Debugger.setDebugger(defaultDebugger);
