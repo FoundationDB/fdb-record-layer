@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.util.Assert;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.RemovalListener;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
@@ -38,6 +39,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -95,6 +97,10 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
     @Nonnull
     private final Cache<K, Cache<S, Cache<T, V>>> mainCache;
 
+    private final AtomicLong pendingPrimaryLruEvictions = new AtomicLong(0);
+    private final AtomicLong pendingSecondaryLruEvictions = new AtomicLong(0);
+    private final AtomicLong pendingTertiaryLruEvictions = new AtomicLong(0);
+
     private final int secondarySize;
     private final int tertiarySize;
 
@@ -133,6 +139,11 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
 
         final var mainCacheBuilder = Caffeine.newBuilder().recordStats().maximumSize(size);
         mainCacheBuilder.expireAfterAccess(ttl, ttlTimeUnit);
+        mainCacheBuilder.removalListener((RemovalListener<K, Cache<S, Cache<T, V>>>) (k, v, cause) -> {
+            if (cause == RemovalCause.SIZE) {
+                pendingPrimaryLruEvictions.incrementAndGet();
+            }
+        });
         if (executor != null) {
             mainCacheBuilder.executor(executor);
         }
@@ -162,12 +173,27 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                     @Nonnull final Function<V, V> valueWithEnvironmentDecorator,
                     @Nonnull final Function<Stream<V>, V> reductionFunction,
                     @Nonnull final Consumer<RelationalMetric.RelationalCount> registerCacheEvent) {
+        final long primaryEvictions = pendingPrimaryLruEvictions.getAndSet(0);
+        for (long i = 0; i < primaryEvictions; i++) {
+            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION);
+        }
+        final long secondaryEvictions = pendingSecondaryLruEvictions.getAndSet(0);
+        for (long i = 0; i < secondaryEvictions; i++) {
+            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION);
+        }
+        final long tertiaryEvictions = pendingTertiaryLruEvictions.getAndSet(0);
+        for (long i = 0; i < tertiaryEvictions; i++) {
+            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION);
+        }
         final var secondaryCache = mainCache.get(key, newKey -> {
             registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS);
             final var secondaryCacheBuilder = Caffeine.newBuilder()
                     .maximumSize(secondarySize)
                     .recordStats()
                     .removalListener((RemovalListener<S, Cache<T, V>>) (k, v, i) -> {
+                        if (i == RemovalCause.SIZE) {
+                            pendingSecondaryLruEvictions.incrementAndGet();
+                        }
                         final var value = mainCache.getIfPresent(key);
                         if (value != null && value.asMap().isEmpty()) {
                             mainCache.invalidate(key); // best effort
@@ -191,6 +217,9 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                     .maximumSize(tertiarySize)
                     .recordStats()
                     .removalListener((RemovalListener<T, V>) (k, v, i) -> {
+                        if (i == RemovalCause.SIZE) {
+                            pendingTertiaryLruEvictions.incrementAndGet();
+                        }
                         final var value = secondaryCache.getIfPresent(secondaryKey);
                         if (value != null && value.asMap().isEmpty()) {
                             secondaryCache.invalidate(secondaryKey); // best effort
