@@ -65,7 +65,7 @@ public class ExternalServer {
     private int httpPort;
     private final SemanticVersion version;
     private Process serverProcess;
-    @Nullable
+    @Nonnull
     private final String clusterFile;
 
     /**
@@ -74,7 +74,7 @@ public class ExternalServer {
      * @param serverJar the path to the jar to run
      */
     public ExternalServer(@Nonnull final File serverJar,
-                          @Nullable final String clusterFile) throws IOException {
+                          @Nonnull final String clusterFile) throws IOException {
         this.clusterFile = clusterFile;
 
         this.serverJar = serverJar;
