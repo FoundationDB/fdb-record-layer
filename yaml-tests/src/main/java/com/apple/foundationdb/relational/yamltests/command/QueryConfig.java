@@ -25,9 +25,9 @@ import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
 import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckExplainConfig;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
@@ -81,7 +81,12 @@ import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.r
  * </table>
  *
  * <p>Result directives must appear last (after all non-result directives). See {@code showcasing-tests.yamsql} for
- * examples of each directive.
+ * examples of each directive.</p>
+ * <p>Note: any queries that validate the plan string exactly ({@code explain}, not {@code explainContains}) will also
+ * validate the planner metrics, putting them in two corresponding files, with {@code ".metrics.binpb"} and
+ * {@code ".metrics.yaml"} instead of {@code ".yamsql"}. The {@code .binpb} file is used for the actual assertions, and
+ * {@code .yaml} file provides a human-readable version for comparing, and the test will fail if the number of tasks the
+ * planner does changes.</p>
  */
 @SuppressWarnings({"PMD.GuardLogStatement", "PMD.AvoidCatchingThrowable"})
 public abstract class QueryConfig {

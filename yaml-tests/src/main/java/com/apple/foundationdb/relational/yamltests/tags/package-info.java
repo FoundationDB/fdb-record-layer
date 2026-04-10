@@ -32,7 +32,7 @@
  *       {@link com.apple.foundationdb.relational.yamltests.command.QueryInterpreter QueryInterpreter}.</li>
  * </ol>
  *
- * <h3>Available tags</h3>
+ * <h3>Key tags</h3>
  * <table>
  *   <caption>Custom YAML tags</caption>
  *   <tr><th>Tag</th><th>Syntax</th><th>Context</th><th>Description</th></tr>
@@ -56,10 +56,12 @@
  *       <td>Reference column by 1-based position: {@code {!pos 1: value}}.</td></tr>
  *   <tr><td>{@code !current_version}</td><td>{@code !current_version}</td><td>Options</td>
  *       <td>Resolves to the current semantic version (for {@code supported_version}).</td></tr>
+ *   <tr><td colspan="4">To find others that may be missing from the above list, look for implementations of
+ *           {@link com.apple.foundationdb.relational.yamltests.tags.CustomTag}</td></tr>
  * </table>
  *
  * <p>To add a new tag, create a class implementing {@link com.apple.foundationdb.relational.yamltests.tags.CustomTag}
- * with {@code @AutoService(CustomTag.class)}. See existing tags in this package for examples.
+ * with {@code @AutoService(CustomTag.class)}, and update the list above. See existing tags in this package for examples.
  */
 
 package com.apple.foundationdb.relational.yamltests.tags;
