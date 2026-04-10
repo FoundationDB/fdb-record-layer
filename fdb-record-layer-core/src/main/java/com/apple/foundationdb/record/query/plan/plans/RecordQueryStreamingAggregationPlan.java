@@ -54,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisi
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -71,6 +72,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 
@@ -469,14 +471,18 @@ public class RecordQueryStreamingAggregationPlan extends AbstractRelationalExpre
                                                          @Nonnull final BiFunction<Value, Value, Value> resultValueFunction) {
         final var groupingKeyAlias = CorrelationIdentifier.uniqueId();
         final var aggregateAlias = CorrelationIdentifier.uniqueId();
+        // TODO: this is a temporary workaround for https://github.com/FoundationDB/fdb-record-layer/issues/3979, as
+        //       older versions of fdb-record-layer didn't correctly handle a null groupingKeyValue with continuations.
+        //       This can be removed in future versions once backwards compatibility is no longer needed.
+        final var nonNullGroupingKeyValue = Optional.ofNullable(groupingKeyValue).orElse(
+                RecordConstructorValue.ofColumns(ImmutableList.of()));
 
         final var referencedGroupingKeyValue =
                 groupingKeyValue == null
                 ? null
                 : ObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType());
         final var referencedAggregateValue = ObjectValue.of(aggregateAlias, aggregateValue.getResultType());
-
-        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias,
+        return new RecordQueryStreamingAggregationPlan(inner, nonNullGroupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias,
                 resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue), SerializationMode.TO_NEW);
     }
 

@@ -204,4 +204,27 @@ test_block:
       - supported_version: !current_version
       - explain: "ISCAN(I1 [EQUALS promote(@c11 AS LONG)]) ∪ ISCAN(I2 [EQUALS promote(@c15 AS LONG)]) COMPARE BY (recordType([_]), _.ID) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{!l 8}]
+---
+test_block:
+  name: group-by-tests-with-continuations
+  preset: single_repetition_ordered
+  options:
+    connection_options:
+      EXECUTION_SCANNED_ROWS_LIMIT: 6
+  tests:
+    -
+      - query: SELECT COUNT(*) from T1 where col1 = 20
+      - initialVersionLessThan: !current_version
+        # In these versions, the partial aggregation results were not serialized correctly within the continuation if
+        # the aggregate result is not grouped.
+      - result: []
+      - result: [{!l 2}]
+      - initialVersionAtLeast: !current_version
+      - result: []
+      - result: [{!l 8}]
+    -
+      - query: SELECT col1, COUNT(*) from T1 where col1 > 0 group by col1
+      - result: [{!l 10, !l 5}]
+      - result: []
+      - result: [{!l 20, !l 8}]
 ...
