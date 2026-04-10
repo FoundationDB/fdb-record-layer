@@ -590,6 +590,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
             final RunningStandardDeviation updatedStandardDeviation =
                     Objects.requireNonNull(updatedStandardDeviationsMap.get(toBeWritten));
 
+            Verify.verify(clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded > 0);
+
             primitives.writeDeferredTaskMaybe(transaction, random, clusterMetadata,
                             clusterMetadataWithDistance.getCentroid(), getAccessInfo(),
                             numPrimaryVectorsAdded, numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,

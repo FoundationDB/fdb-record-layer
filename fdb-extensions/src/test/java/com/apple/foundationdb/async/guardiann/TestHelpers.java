@@ -129,7 +129,7 @@ class TestHelpers {
                                                     @Nonnull final Guardiann guardiann,
                                                     final int numVectors,
                                                     final int batchSize) throws Exception {
-        return insertSIFT(db, guardiann, "/Users/nseemann/downloads/embeddings-unified-model-100k-1.0.0.fvecs",
+        return insertSIFT(db, guardiann, "/Users/nseemann/downloads/embeddings-unified-model-1m-1.0.0.fvecs",
                 numVectors, batchSize);
     }
 
@@ -328,7 +328,7 @@ class TestHelpers {
                 onReadListener.reset();
                 final long beginTs = System.nanoTime();
                 final List<? extends ResultEntry> results =
-                        db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, 30000,
+                        db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, 130000,
                                 true, queryVector).join());
                 final long endTs = System.nanoTime();
                 logger.info("retrieved result in elapsedTimeMs={}, reading readBytes={}",

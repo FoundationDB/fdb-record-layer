@@ -439,15 +439,16 @@ public class ReassignTask extends AbstractDeferredTask {
             }
         }
 
+        assignmentBuilder.putAll(targetClusterId, replicatedTopK.toUnsortedList());
+
         if (logger.isInfoEnabled()) {
-            logger.info("replication priority num={}. mean={}, standard deviation={}, numReplicated={}, numOccluded={}",
+            logger.info("replication priority num={}. mean={}, standard deviation={}, numReplicated={}, numOccluded={}, lowestReplicationPriority={}",
                     replicationPriorityStandardDeviation.getNumElements(),
                     replicationPriorityStandardDeviation.mean(),
                     replicationPriorityStandardDeviation.populationStandardDeviation(),
-                    numReplicated, numOccluded);
+                    numReplicated, numOccluded, replicatedTopK.worstElement()
+                            .map(VectorReference::getReplicationPriority).orElse(0.0d));
         }
-
-        assignmentBuilder.putAll(targetClusterId, replicatedTopK.toUnsortedList());
 
         return new ReassignmentResult(clusterIdMetadataMap, assignmentBuilder.build(), updatedStandardDeviationMap);
     }

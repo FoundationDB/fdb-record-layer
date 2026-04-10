@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.PriorityQueue;
 
 public class TopK<T> {
@@ -70,5 +71,13 @@ public class TopK<T> {
         }
 
         return ImmutableList.copyOf(array);
+    }
+
+    @Nonnull
+    public Optional<T> worstElement() {
+        if (queue.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(queue.peek());
     }
 }
