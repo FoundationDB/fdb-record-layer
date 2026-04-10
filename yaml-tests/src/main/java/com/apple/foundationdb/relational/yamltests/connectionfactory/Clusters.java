@@ -29,7 +29,8 @@ import java.util.stream.Collectors;
 
 /**
  * An ordered, immutable collection of cluster entries, each pairing a server (or driver) of type {@code T}
- * with the cluster file it is connected to. Must contain at least one entry.
+ * with the cluster file it is connected to. Each server (or driver) must be identical, except that it is pointing to a
+ * different cluster file. Must contain at least one entry.
  *
  * @param <T> the type of server or driver held by each entry
  */
