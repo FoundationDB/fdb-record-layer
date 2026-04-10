@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query.cache;
 
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.google.common.testing.FakeTicker;
 import org.apache.commons.lang3.tuple.Pair;
@@ -32,9 +33,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -366,15 +366,23 @@ public class MultiStageCacheTests {
 
     private static String readCache(@Nonnull MultiStageCache<String, String, String, String> cache, @Nonnull String key,
                                     @Nonnull String secondaryKey, @Nonnull String tertiaryKey) {
+        return readCache(cache, key, secondaryKey, tertiaryKey, new NoOpMetricCollector());
+    }
+
+    private static String readCache(@Nonnull MultiStageCache<String, String, String, String> cache,
+                                    @Nonnull String key, @Nonnull String secondaryKey,
+                                    @Nonnull String tertiaryKey,
+                                    @Nonnull MetricCollector metricCollector) {
         return cache.reduce(key, secondaryKey, tertiaryKey,
                 () -> NonnullPair.of(tertiaryKey, entries.get(key).get(secondaryKey).get(tertiaryKey)),
                 MultiStageCacheTests::fetchFromCache,
-                MultiStageCacheTests::pickFirst, e -> { });
+                MultiStageCacheTests::pickFirst,
+                metricCollector);
     }
 
     @Test
     void primaryCacheLruEvictionEmitsEvent() {
-        final List<RelationalMetric.RelationalCount> events = new ArrayList<>();
+        final var metricCollector = new CountMetricCollector();
         final MultiStageCache<String, String, String, String> testCache =
                 MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder()
                         .setSize(1) // capacity of 1 primary entry
@@ -389,23 +397,23 @@ public class MultiStageCacheTests {
                         .build();
 
         // fill the primary cache slot
-        readCacheWithEvents(testCache, "U.S.", "Animal", "river", events);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isZero();
+        readCache(testCache, "U.S.", "Animal", "river", metricCollector);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isZero();
 
         // overflow: inserting "E.U." evicts "U.S." via LRU (RemovalCause.SIZE)
         // the eviction fires asynchronously into pendingPrimaryLruEvictions
-        readCacheWithEvents(testCache, "E.U.", "Animal", "river", events);
+        readCache(testCache, "E.U.", "Animal", "river", metricCollector);
 
         // the next reduce() call drains the pending eviction and fires the event
-        readCacheWithEvents(testCache, "Japan", "Animal", "river", events);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isEqualTo(1);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isZero();
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isZero();
+        readCache(testCache, "Japan", "Animal", "river", metricCollector);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isEqualTo(1);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isZero();
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isZero();
     }
 
     @Test
     void secondaryCacheLruEvictionEmitsEvent() {
-        final List<RelationalMetric.RelationalCount> events = new ArrayList<>();
+        final var metricCollector = new CountMetricCollector();
         final MultiStageCache<String, String, String, String> testCache =
                 MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder()
                         .setSize(10)
@@ -420,22 +428,22 @@ public class MultiStageCacheTests {
                         .build();
 
         // fill the secondary cache slot under "U.S."
-        readCacheWithEvents(testCache, "U.S.", "Animal", "river", events);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isZero();
+        readCache(testCache, "U.S.", "Animal", "river", metricCollector);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isZero();
 
         // overflow: inserting "Landform" under "U.S." evicts "Animal" via LRU
-        readCacheWithEvents(testCache, "U.S.", "Landform", "river", events);
+        readCache(testCache, "U.S.", "Landform", "river", metricCollector);
 
         // next call drains the pending eviction
-        readCacheWithEvents(testCache, "U.S.", "Capital", "California", events);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isEqualTo(1);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isZero();
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isZero();
+        readCache(testCache, "U.S.", "Capital", "California", metricCollector);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isEqualTo(1);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isZero();
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isZero();
     }
 
     @Test
     void tertiaryCacheLruEvictionEmitsEvent() {
-        final List<RelationalMetric.RelationalCount> events = new ArrayList<>();
+        final var metricCollector = new CountMetricCollector();
         final MultiStageCache<String, String, String, String> testCache =
                 MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder()
                         .setSize(10)
@@ -450,22 +458,22 @@ public class MultiStageCacheTests {
                         .build();
 
         // fill the tertiary cache slot under "U.S." -> "Animal"
-        readCacheWithEvents(testCache, "U.S.", "Animal", "river", events);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isZero();
+        readCache(testCache, "U.S.", "Animal", "river", metricCollector);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isZero();
 
         // overflow: inserting "mountain" evicts "river" via LRU
-        readCacheWithEvents(testCache, "U.S.", "Animal", "mountain", events);
+        readCache(testCache, "U.S.", "Animal", "mountain", metricCollector);
 
         // next call drains the pending eviction
-        readCacheWithEvents(testCache, "U.S.", "Animal", "sea", events);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isEqualTo(1);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isZero();
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isZero();
+        readCache(testCache, "U.S.", "Animal", "sea", metricCollector);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isEqualTo(1);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isZero();
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isZero();
     }
 
     @Test
     void allCacheLayersLruEvictionEmitsEvents() {
-        final List<RelationalMetric.RelationalCount> events = new ArrayList<>();
+        final var metricCollector = new CountMetricCollector();
         final MultiStageCache<String, String, String, String> testCache =
                 MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder()
                         .setSize(1)          // capacity of 1 primary entry
@@ -480,48 +488,50 @@ public class MultiStageCacheTests {
                         .build();
 
         // fill all cache layers with a single entry: U.S. -> Animal -> river -> American Alligator
-        readCacheWithEvents(testCache, "U.S.", "Animal", "river", events);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isZero();
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isZero();
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isZero();
+        readCache(testCache, "U.S.", "Animal", "river", metricCollector);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isZero();
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isZero();
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isZero();
 
         // overflow secondary: inserting "Landform" under "U.S." evicts "Animal" via LRU (async, pending)
-        readCacheWithEvents(testCache, "U.S.", "Landform", "mountain", events);
+        readCache(testCache, "U.S.", "Landform", "mountain", metricCollector);
 
         // drains pending secondary eviction → SECONDARY_LRU_EVICTION fires
         // also overflows primary: inserting "E.U." evicts "U.S." via LRU (async, pending)
-        readCacheWithEvents(testCache, "E.U.", "Animal", "river", events);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isEqualTo(1);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isZero();
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isZero();
+        readCache(testCache, "E.U.", "Animal", "river", metricCollector);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isEqualTo(1);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isZero();
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isZero();
 
         // drains pending primary eviction → PRIMARY_LRU_EVICTION fires
         // also overflows tertiary: inserting "mountain" under E.U./Animal evicts "river" via LRU (async, pending)
-        readCacheWithEvents(testCache, "E.U.", "Animal", "mountain", events);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isEqualTo(1);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isEqualTo(1);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isZero();
+        readCache(testCache, "E.U.", "Animal", "mountain", metricCollector);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isEqualTo(1);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isEqualTo(1);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isZero();
 
         // drains pending tertiary eviction → TERTIARY_LRU_EVICTION fires
-        readCacheWithEvents(testCache, "E.U.", "Animal", "sea", events);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isEqualTo(1);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isEqualTo(1);
-        Assertions.assertThat(countEvents(events, RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isEqualTo(1);
+        readCache(testCache, "E.U.", "Animal", "sea", metricCollector);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION)).isEqualTo(1);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION)).isEqualTo(1);
+        Assertions.assertThat(metricCollector.countEvents(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION)).isEqualTo(1);
     }
 
-    private static void readCacheWithEvents(@Nonnull MultiStageCache<String, String, String, String> cache,
-                                              @Nonnull String key, @Nonnull String secondaryKey,
-                                              @Nonnull String tertiaryKey,
-                                              @Nonnull List<RelationalMetric.RelationalCount> events) {
-        cache.reduce(key, secondaryKey, tertiaryKey,
-                () -> NonnullPair.of(tertiaryKey, entries.get(key).get(secondaryKey).get(tertiaryKey)),
-                MultiStageCacheTests::fetchFromCache,
-                MultiStageCacheTests::pickFirst,
-                events::add);
-    }
+    private static class CountMetricCollector implements MetricCollector {
+        private final Map<RelationalMetric.RelationalCount, Long> counts = new EnumMap<>(RelationalMetric.RelationalCount.class);
 
-    private static long countEvents(@Nonnull List<RelationalMetric.RelationalCount> events,
-                                    @Nonnull RelationalMetric.RelationalCount event) {
-        return events.stream().filter(e -> e == event).count();
+        @Override
+        public void increment(@Nonnull final RelationalMetric.RelationalCount count) {
+            counts.merge(count, 1L, Long::sum);
+        }
+
+        @Override
+        public <T> T clock(@Nonnull final RelationalMetric.RelationalEvent event, final com.apple.foundationdb.relational.util.Supplier<T> supplier) throws com.apple.foundationdb.relational.api.exceptions.RelationalException {
+            return supplier.get();
+        }
+
+        public long countEvents(@Nonnull final RelationalMetric.RelationalCount count) {
+            return counts.getOrDefault(count, 0L);
+        }
     }
 }

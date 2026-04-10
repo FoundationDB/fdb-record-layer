@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query.cache;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.util.Assert;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -40,7 +41,6 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -172,21 +172,21 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                     @Nonnull final Supplier<NonnullPair<T, V>> tertiaryKeyValueSupplier,
                     @Nonnull final Function<V, V> valueWithEnvironmentDecorator,
                     @Nonnull final Function<Stream<V>, V> reductionFunction,
-                    @Nonnull final Consumer<RelationalMetric.RelationalCount> registerCacheEvent) {
+                    @Nonnull final MetricCollector metricCollector) {
         final long primaryEvictions = pendingPrimaryLruEvictions.getAndSet(0);
         for (long i = 0; i < primaryEvictions; i++) {
-            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION);
+            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION);
         }
         final long secondaryEvictions = pendingSecondaryLruEvictions.getAndSet(0);
         for (long i = 0; i < secondaryEvictions; i++) {
-            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION);
+            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION);
         }
         final long tertiaryEvictions = pendingTertiaryLruEvictions.getAndSet(0);
         for (long i = 0; i < tertiaryEvictions; i++) {
-            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION);
+            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION);
         }
         final var secondaryCache = mainCache.get(key, newKey -> {
-            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS);
+            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS);
             final var secondaryCacheBuilder = Caffeine.newBuilder()
                     .maximumSize(secondarySize)
                     .recordStats()
@@ -212,7 +212,7 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
         });
 
         final var tertiaryCache = secondaryCache.get(secondaryKey, newKey -> {
-            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS);
+            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS);
             final var tertiaryCacheBuilder = Caffeine.newBuilder()
                     .maximumSize(tertiarySize)
                     .recordStats()
@@ -239,10 +239,10 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
 
         final var result = reductionFunction.apply(tertiaryCache.asMap().entrySet().stream().filter(kvPair -> kvPair.getKey().equals(tertiaryKey)).map(Map.Entry::getValue));
         if (result != null) {
-            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT);
+            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT);
             return valueWithEnvironmentDecorator.apply(result);
         } else {
-            registerCacheEvent.accept(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS);
+            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS);
             final var keyValuePair = tertiaryKeyValueSupplier.get();
             tertiaryCache.put(keyValuePair.getKey(), keyValuePair.getValue());
             return keyValuePair.getValue();
