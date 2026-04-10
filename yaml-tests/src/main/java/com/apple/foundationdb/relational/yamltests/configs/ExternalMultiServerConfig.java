@@ -71,9 +71,9 @@ public class ExternalMultiServerConfig implements YamlTestConfig {
     @Override
     public String toString() {
         if (initialConnection == 0) {
-            return "MultiServer (" + servers0.primary().server().getVersion() + " then " + servers1.primary().server().getVersion() + ")";
+            return "MultiServer (" + servers0.primary().getVersion() + " then " + servers1.primary().getVersion() + ")";
         } else {
-            return "MultiServer (" + servers1.primary().server().getVersion() + " then " + servers0.primary().server().getVersion() + ")";
+            return "MultiServer (" + servers1.primary().getVersion() + " then " + servers0.primary().getVersion() + ")";
         }
     }
 

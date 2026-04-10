@@ -42,7 +42,7 @@ public class EmbeddedConfig implements YamlTestConfig {
     @Nonnull
     private final List<String> clusterFiles;
     @Nonnull
-    private Clusters<FRL> clusters = Clusters.empty();
+    private Clusters<Clusters.Entry<FRL>> clusters = Clusters.empty();
 
     public EmbeddedConfig(@Nonnull final String clusterFile) {
         this(List.of(clusterFile));
@@ -63,7 +63,7 @@ public class EmbeddedConfig implements YamlTestConfig {
                 .build();
         // The primary FRL registers its driver in DriverManager; additional ones do not
         final String registeredCluster = clusterFiles.get(0);
-        clusters = Clusters.fromClusterFiles(clusterFiles,
+        clusters = Clusters.fromClusterFilesAsEntries(clusterFiles,
                 clusterFile -> {
                     try {
                         return new FRL(options, clusterFile, Objects.equals(clusterFile, registeredCluster));
@@ -84,7 +84,7 @@ public class EmbeddedConfig implements YamlTestConfig {
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
-        return new EmbeddedYamlConnectionFactory(clusters.map(FRL::getDriver));
+        return new EmbeddedYamlConnectionFactory(clusters.map(e -> Clusters.mapEntry(e, FRL::getDriver)));
     }
 
     @Nonnull

@@ -130,8 +130,8 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                     }
                 });
                 externalServerGroups.add(group);
-                for (Clusters.Entry<ExternalServer> entry : group) {
-                    allExternalServers.add(entry.server());
+                for (ExternalServer server : group) {
+                    allExternalServers.add(server);
                 }
             }
             ExternalServer.startMultiple(allExternalServers);
@@ -196,8 +196,8 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                         }).filter(Objects::nonNull).findFirst();
         if (externalServerGroups != null) {
             for (Clusters<ExternalServer> group : externalServerGroups) {
-                for (Clusters.Entry<ExternalServer> entry : group) {
-                    stopServerSafely(entry);
+                for (ExternalServer server : group) {
+                    stopServerSafely(server);
                 }
             }
             externalServerGroups = null;
@@ -207,12 +207,12 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         }
     }
 
-    private static void stopServerSafely(final Clusters.Entry<ExternalServer> entry) {
+    private static void stopServerSafely(final ExternalServer server) {
         try {
-            entry.server().stop();
+            server.stop();
         } catch (Exception ex) {
             if (logger.isWarnEnabled()) {
-                logger.warn("Failed to stop server " + entry.server().getVersion() + " on " + entry.server().getPort());
+                logger.warn("Failed to stop server " + server.getVersion() + " on " + server.getPort());
             }
         }
     }

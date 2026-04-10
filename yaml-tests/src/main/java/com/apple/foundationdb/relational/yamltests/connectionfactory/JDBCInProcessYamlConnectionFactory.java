@@ -39,9 +39,9 @@ import java.util.Set;
 public class JDBCInProcessYamlConnectionFactory implements YamlConnectionFactory {
     private static final Logger LOG = LogManager.getLogger(JDBCInProcessYamlConnectionFactory.class);
     @Nonnull
-    private final Clusters<InProcessRelationalServer> clusters;
+    private final Clusters<Clusters.Entry<InProcessRelationalServer>> clusters;
 
-    public JDBCInProcessYamlConnectionFactory(@Nonnull Clusters<InProcessRelationalServer> clusters) {
+    public JDBCInProcessYamlConnectionFactory(@Nonnull Clusters<Clusters.Entry<InProcessRelationalServer>> clusters) {
         this.clusters = clusters;
     }
 

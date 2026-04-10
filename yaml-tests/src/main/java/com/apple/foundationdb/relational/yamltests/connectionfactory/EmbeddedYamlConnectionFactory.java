@@ -35,9 +35,9 @@ import java.util.Set;
 
 public class EmbeddedYamlConnectionFactory implements YamlConnectionFactory {
     @Nonnull
-    private final Clusters<RelationalDriver> clusters;
+    private final Clusters<Clusters.Entry<RelationalDriver>> clusters;
 
-    public EmbeddedYamlConnectionFactory(@Nonnull Clusters<RelationalDriver> clusters) {
+    public EmbeddedYamlConnectionFactory(@Nonnull Clusters<Clusters.Entry<RelationalDriver>> clusters) {
         this.clusters = clusters;
     }
 

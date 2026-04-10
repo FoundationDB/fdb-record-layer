@@ -59,7 +59,7 @@ public class JDBCMultiServerConfig extends JDBCInProcessConfig {
 
     @Override
     public String toString() {
-        final ExternalServer primaryExternal = externalServers.primary().server();
+        final ExternalServer primaryExternal = externalServers.primary();
         if (initialConnection == 0) {
             return "MultiServer (" + super.toString() + " then " + primaryExternal.getVersion() + ")";
         } else {

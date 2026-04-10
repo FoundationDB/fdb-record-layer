@@ -40,7 +40,7 @@ public class JDBCInProcessConfig implements YamlTestConfig {
     @Nonnull
     private final List<String> clusterFiles;
     @Nonnull
-    private Clusters<InProcessRelationalServer> clusters = Clusters.empty();
+    private Clusters<Clusters.Entry<InProcessRelationalServer>> clusters = Clusters.empty();
 
     public JDBCInProcessConfig(@Nonnull final List<String> clusterFiles) {
         this.clusterFiles = clusterFiles;
@@ -49,7 +49,7 @@ public class JDBCInProcessConfig implements YamlTestConfig {
     @Override
     @SuppressWarnings("PMD.CloseResource") // Servers are tracked in the list and closed in afterAll()
     public void beforeAll() throws Exception {
-        clusters = Clusters.fromClusterFiles(clusterFiles,
+        clusters = Clusters.fromClusterFilesAsEntries(clusterFiles,
                 clusterFile -> {
                     try {
                         return new InProcessRelationalServer(clusterFile).start();
@@ -73,7 +73,7 @@ public class JDBCInProcessConfig implements YamlTestConfig {
     }
 
     @Nonnull
-    protected Clusters<InProcessRelationalServer> getClusters() {
+    protected Clusters<Clusters.Entry<InProcessRelationalServer>> getClusters() {
         return clusters;
     }
 

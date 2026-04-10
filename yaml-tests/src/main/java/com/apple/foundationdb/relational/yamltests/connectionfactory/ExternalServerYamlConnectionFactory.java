@@ -47,8 +47,7 @@ public class ExternalServerYamlConnectionFactory implements YamlConnectionFactor
 
     @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
-        final Clusters.Entry<ExternalServer> entry = clusters.get(clusterIndex);
-        return createConnection(connectPath, entry.server(), entry.clusterFile());
+        return createConnection(connectPath, clusters.get(clusterIndex));
     }
 
     @Override
@@ -56,8 +55,7 @@ public class ExternalServerYamlConnectionFactory implements YamlConnectionFactor
         return clusters.size();
     }
 
-    private YamlConnection createConnection(@Nonnull URI connectPath, @Nonnull ExternalServer server,
-                                            @Nonnull String clusterFile) throws SQLException {
+    private YamlConnection createConnection(@Nonnull URI connectPath, @Nonnull ExternalServer server) throws SQLException {
         String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + server.getPort());
         if (LOG.isInfoEnabled()) {
             LOG.info(KeyValueLogMessage.of("Rewrote connection string for external server",
@@ -68,12 +66,12 @@ public class ExternalServerYamlConnectionFactory implements YamlConnectionFactor
 
         final Connection connection = DriverManager.getConnection(uriStr);
         server.validateConnectionVersion(connection);
-        return new SimpleYamlConnection(connection, server.getVersion(), clusterFile);
+        return new SimpleYamlConnection(connection, server.getVersion(), server.clusterFile());
     }
 
     @Override
     public Set<SemanticVersion> getVersionsUnderTest() {
-        return Set.of(clusters.primary().server().getVersion());
+        return Set.of(clusters.primary().getVersion());
     }
 
 }

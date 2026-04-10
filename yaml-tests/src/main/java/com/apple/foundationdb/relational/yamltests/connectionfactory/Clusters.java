@@ -34,43 +34,52 @@ import java.util.stream.Collectors;
  *
  * @param <T> the type of server or driver held by each entry
  */
-public class Clusters<T> implements Iterable<Clusters.Entry<T>> {
+public class Clusters<T extends Clusters.BoundToCluster> implements Iterable<T> {
     @Nonnull
-    private final List<Entry<T>> entries;
+    private final List<T> entries;
 
     /** Private constructor to support the static {@link Clusters#empty()}. */
     private Clusters() {
         this.entries = List.of();
     }
 
-    public Clusters(@Nonnull List<Entry<T>> entries) {
+    private Clusters(@Nonnull List<T> entries) {
         if (entries.isEmpty()) {
             throw new IllegalArgumentException("At least one cluster entry is required");
         }
         this.entries = List.copyOf(entries);
     }
 
-    public static <T> Clusters<T> empty() {
+    public static <T extends BoundToCluster> Clusters<T> empty() {
         return new Clusters<>();
     }
 
-    public static <T> Clusters<T> fromClusterFiles(List<String> clusterFiles, Function<String, T> toServer) {
+    public static <T extends BoundToCluster> Clusters<T> fromClusterFiles(List<String> clusterFiles, Function<String, T> toServer) {
         return new Clusters<>(clusterFiles.stream()
-                .map(clusterFile -> new Entry<>(toServer.apply(clusterFile), clusterFile))
+                .map(toServer)
                 .collect(Collectors.toList()));
     }
 
-    public <R> Clusters<R> map(Function<T, R> mapper) {
+    public static <V> Clusters<Clusters.Entry<V>> fromClusterFilesAsEntries(List<String> clusterFiles, Function<String, V> toServer) {
+        return fromClusterFiles(clusterFiles,
+                clusterFile -> new Clusters.Entry<>(toServer.apply(clusterFile), clusterFile));
+    }
+
+    public <R extends BoundToCluster> Clusters<R> map(Function<T, R> mapper) {
         return new Clusters<>(entries.stream()
-                .map(entry -> new Entry<>(mapper.apply(entry.server), entry.clusterFile))
+                .map(mapper)
                 .collect(Collectors.toList()));
+    }
+
+    public static <K, V> Entry<V> mapEntry(Clusters.Entry<K> existing, Function<K, V> mapper) {
+        return new Clusters.Entry<V>(mapper.apply(existing.server), existing.clusterFile);
     }
 
     /**
      * Returns the first (primary) entry.
      */
     @Nonnull
-    public Entry<T> primary() {
+    public T primary() {
         return entries.get(0);
     }
 
@@ -79,7 +88,7 @@ public class Clusters<T> implements Iterable<Clusters.Entry<T>> {
      */
     @Nonnull
     public List<String> clusterFiles() {
-        return entries.stream().map(Entry::clusterFile).collect(Collectors.toList());
+        return entries.stream().map(BoundToCluster::clusterFile).collect(Collectors.toList());
     }
 
     /**
@@ -97,7 +106,7 @@ public class Clusters<T> implements Iterable<Clusters.Entry<T>> {
      * @throws SQLException if the index is out of range
      */
     @Nonnull
-    public Entry<T> get(int clusterIndex) throws SQLException {
+    public T get(int clusterIndex) throws SQLException {
         if (clusterIndex < 0 || clusterIndex >= entries.size()) {
             throw new SQLException("Cluster index " + clusterIndex + " not available (only " +
                     entries.size() + " clusters configured)");
@@ -107,7 +116,7 @@ public class Clusters<T> implements Iterable<Clusters.Entry<T>> {
 
     @Override
     @Nonnull
-    public Iterator<Entry<T>> iterator() {
+    public Iterator<T> iterator() {
         return entries.iterator();
     }
 
@@ -116,7 +125,7 @@ public class Clusters<T> implements Iterable<Clusters.Entry<T>> {
      *
      * @param <T> the type of server or driver
      */
-    public static class Entry<T> {
+    public static class Entry<T> implements BoundToCluster {
         @Nonnull
         private final T server;
         @Nonnull
@@ -133,8 +142,17 @@ public class Clusters<T> implements Iterable<Clusters.Entry<T>> {
         }
 
         @Nonnull
+        @Override
         public String clusterFile() {
             return clusterFile;
         }
+    }
+
+    /**
+     * An interface for a server (or driver) and its associated cluster file.
+     */
+    public interface BoundToCluster {
+        @Nonnull
+        String clusterFile();
     }
 }
