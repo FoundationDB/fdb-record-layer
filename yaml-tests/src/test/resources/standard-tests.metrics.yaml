@@ -200,16 +200,16 @@ standard-tests:
 -   query: EXPLAIN select count(*) from (select * from (select * from (select * from
         T1  where ID = 5) as x) as y) as z;
     ref: standard-tests.yamsql:293
-    explain: SCAN([IS T1, EQUALS promote(@c22 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0)
+    explain: SCAN([IS T1, EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0)
     task_count: 593
-    task_total_time_ms: 56
+    task_total_time_ms: 43
     transform_count: 138
-    transform_time_ms: 21
+    transform_time_ms: 18
     transform_yield_count: 41
-    insert_time_ms: 2
-    insert_new_count: 67
+    insert_time_ms: 1
+    insert_new_count: 66
     insert_reused_count: 2
 -   query: EXPLAIN select * from (select * from (select * from (select * from T1  where
         ID > 10) as x) as y) as z;

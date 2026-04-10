@@ -423,7 +423,7 @@ test_block:
                 where t3.c1 = 1 and t3.c2 = m.maxA2
                 order by t3.c3 desc
       # Note: m can be planned as the outer of the nested loop join because its max cardinality is 1
-      - explain: "ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t3$c1_c2_c3 [EQUALS promote(@c25 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) }"
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t3$c1_c2_c3 [EQUALS promote(@c25 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) }"
       - result: [
           { id: 3004, c1: 1, c2: 13, c3: "b", aRef: 1004 }
         ]
@@ -441,7 +441,7 @@ test_block:
                 where t1.a1 = 1 and t1.a2 = m.maxA2
                 order by t1.id desc
       # Self-join.
-      - explain: "ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c25 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c25 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
       - result: [
           { id: 1004, a1: 1, a2: 13, a3: "b" },
         ]
@@ -451,7 +451,7 @@ test_block:
                 where a1 = 1 and a2 = maxA2
                 order by id desc
       # Self-join. Remove as many type aliases as possible
-      - explain: "ISCAN(t1$a1 [EQUALS promote(@c19 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c19 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3, q0._0._0 AS maxA2) }"
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c19 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c19 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3, q0._0._0 AS maxA2) }"
       - result: [
           { id: 1004, a1: 1, a2: 13, a3: "b", maxA2: 13 },
         ]
@@ -461,7 +461,7 @@ test_block:
                 where a.a1 = 1 and a.a2 = m.maxA2
                 order by a.id desc
       # The same self-join as above, but with aliases to clarify that the two legs reference two separate t1
-      - explain: "ISCAN(t1$a1 [EQUALS promote(@c29 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c29 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c29 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c29 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
       - result: [
           { id: 1004, a1: 1, a2: 13, a3: "b" },
         ]
@@ -471,7 +471,7 @@ test_block:
                 where a.a1 = 1 and a.a2 = m.maxA2
                 order by a.id desc
       # The same self-join as above, but with aliases to make that the two legs reference the same t1
-      - explain: "ISCAN(t1$a1 [EQUALS promote(@c27 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c27 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c27 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c27 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
       - result: [
           { id: 1004, a1: 1, a2: 13, a3: "b" },
         ]
@@ -481,7 +481,7 @@ test_block:
                 where t1.a1 = 1 and m.maxA2 = t1.a2
                 order by t1.id desc
       # This _should_ have the same plan as the previous few, as it represents the same join, though it reverses the order of the operands in the t1.a2 = maxA2 predicate
-      - explain: "ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) | ON EMPTY NULL | FILTER _._0._0 EQUALS q0.a2 AS q1 RETURN (q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }"
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c25 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | ON EMPTY NULL | FILTER _._0._0 EQUALS q0.a2 AS q0 RETURN (q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }"
       - result: [
           { id: 1004, a1: 1, a2: 13, a3: "b" },
         ]

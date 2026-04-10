@@ -151,19 +151,19 @@ test_block:
       - error: "42803"
     -
       - query: select MAX(x.col2) from (select col1,col2 from t1) as x;
-      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (max_l(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - result: [{!l 13}]
     -
       - query: select MIN(x.col2) from (select col1,col2 from t1) as x;
-      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (min_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (min_l(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - result: [{!l 1}]
     -
       - query: select COUNT(x.col2) from (select col1,col2 from t1) as x;
-      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{!l 13}]
     -
       - query: select AVG(x.col2) from (select col1,col2 from t1) as x;
-      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - result: [{7.0}]
     -
       - query: select x.col1 + 10 from (select col1 from t1) as x group by x.col1;
@@ -182,18 +182,18 @@ test_block:
       - result: [{!l 10}]
     -
       - query: select COUNT(*) from T1;
-      - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{!l 13}]
     -
       - query: select COUNT(col1) from T1;
-      - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{!l 13}]
     -
       - query: select x from t1 group by col1 as x, col2 as x;
       - error: "42702"
     -
       - query: SELECT COUNT(*) from T1 WHERE col1 = 20 or col2 = 5
-      - explain: "ISCAN(I1 [EQUALS promote(@c11 AS LONG)]) ∪ ISCAN(I2 [EQUALS promote(@c15 AS LONG)]) COMPARE BY (recordType([_]), _.ID) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c11 AS LONG) OR _.COL2 EQUALS promote(@c15 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{!l 9}]
     -
       # This used to be planned as a union with an unordered distinct by primary key on top of it, which led
@@ -202,7 +202,7 @@ test_block:
       # but without the state of the already seen primary keys, leading to it not being filtered.
       - query: SELECT COUNT(*) from T1 WHERE col1 = 20 or col2 = 10
       - supported_version: !current_version
-      - explain: "ISCAN(I1 [EQUALS promote(@c11 AS LONG)]) ∪ ISCAN(I2 [EQUALS promote(@c15 AS LONG)]) COMPARE BY (recordType([_]), _.ID) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c11 AS LONG) OR _.COL2 EQUALS promote(@c15 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{!l 8}]
 ---
 test_block:
