@@ -29,6 +29,13 @@ import "record_metadata_options.proto";
 // These two types have the same field definitions, so the only way to distinguish them
 // is to look at their name. This is to test cases where structural equality alone
 // doesn't give us enough insight into what is going on
+//
+// Note that the two types have separate indexes. This allows us to validate that
+// if we confuse the two, the indexes can point to anomalies. For example, we may
+// see data from one type in the other type's index, or we may query one type's
+// index to get data for the other type. In meta-data evolution tests, we can use
+// these to assert about whether indexes are accidentally swapped between the types
+// if, for instance, the fields in the union descriptor get mixed up
 
 message RecordOne {
   optional int64 rec_no = 1 [(field).primary_key = true];

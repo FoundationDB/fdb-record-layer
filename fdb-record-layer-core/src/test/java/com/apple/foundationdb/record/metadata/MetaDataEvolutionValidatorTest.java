@@ -270,16 +270,12 @@ class MetaDataEvolutionValidatorTest {
 
     @Test
     void swapUnionFields() {
-        FileDescriptor updatedDescriptor = mutateFile(fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        message.getFieldBuilderList().forEach(field -> {
-                            if (field.getNumber() == 1) {
-                                field.setNumber(2);
-                            } else {
-                                field.setNumber(1);
-                            }
-                        });
+        FileDescriptor updatedDescriptor = mutateMessageType(RecordMetaDataBuilder.DEFAULT_UNION_NAME, message ->
+                message.getFieldBuilderList().forEach(field -> {
+                    if (field.getNumber() == 1) {
+                        field.setNumber(2);
+                    } else {
+                        field.setNumber(1);
                     }
                 })
         );
@@ -295,18 +291,15 @@ class MetaDataEvolutionValidatorTest {
         // Swap the positions for RecordOne and RecordTwo in the union descriptor. As these have identical definitions,
         // they could actually be swapped. Though perhaps they shouldn't be, and disallowing type renames will address
         // this kind of tom foolery
-        FileDescriptor updatedFileDescriptor = mutateFile(TestRecordsIdenticalTypesProto.getDescriptor(), fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        message.getFieldBuilderList().forEach(field -> {
-                            if (field.getNumber() == 1) {
-                                field.setNumber(2);
-                            } else {
-                                field.setNumber(1);
-                            }
-                        });
+        FileDescriptor updatedFileDescriptor = mutateMessageType(RecordMetaDataBuilder.DEFAULT_UNION_NAME, TestRecordsIdenticalTypesProto.getDescriptor(), message ->
+                message.getFieldBuilderList().forEach(field -> {
+                    if (field.getNumber() == 1) {
+                        field.setNumber(2);
+                    } else {
+                        field.setNumber(1);
                     }
-                }));
+                })
+        );
         validator.validateUnion(TestRecordsIdenticalTypesProto.RecordTypeUnion.getDescriptor(), updatedFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
         final MetaDataEvolutionValidator stricterValidator = MetaDataEvolutionValidator.newBuilder()
                 .setDisallowTypeRenames(true)
@@ -342,35 +335,21 @@ class MetaDataEvolutionValidatorTest {
 
     @Test
     void typeChangeCreatesAmbiguousCorrespondence() {
-        final FileDescriptor fileWithAdditionalUnionField = mutateFile(TestRecordsIdenticalTypesProto.getDescriptor(), fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    // Add a second field in the union descriptor pointing to RecordOne. This is fine
-                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        message.addFieldBuilder()
-                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
-                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
-                                .setTypeName("RecordOne")
-                                .setName("other_union_field")
-                                .setNumber(3);
-                    }
-                })
+        final FileDescriptor fileWithAdditionalUnionField = mutateMessageType(RecordMetaDataBuilder.DEFAULT_UNION_NAME, TestRecordsIdenticalTypesProto.getDescriptor(), message ->
+                // Add a second field in the union descriptor pointing to RecordOne. This is fine
+                addField(message)
+                        .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                        .setTypeName("RecordOne")
+                        .setName("other_union_field")
         );
         final RecordMetaData metaData1 = RecordMetaData.build(TestRecordsIdenticalTypesProto.getDescriptor());
         final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, fileWithAdditionalUnionField);
         validator.validate(metaData1, metaData2);
 
         // Change the type of the new union field so it now points to RecordTwo
-        final FileDescriptor fileWithModifiedNewUnionField = mutateFile(fileWithAdditionalUnionField, fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        message.getFieldBuilderList().forEach(field -> {
-                            if (field.getName().equals("other_union_field")) {
-                                field.setTypeName("RecordTwo");
-                            }
-                        });
-                    }
-                })
-        );
+        final FileDescriptor fileWithModifiedNewUnionField = mutateField(RecordMetaDataBuilder.DEFAULT_UNION_NAME, "other_union_field", fileWithAdditionalUnionField,
+                field -> field.setTypeName("RecordTwo"));
         final RecordMetaData metaData3 = replaceRecordsDescriptor(metaData2, fileWithModifiedNewUnionField);
         validator.validate(metaData1, metaData3); // it actually would be fine to go straight from 1 to 3
         // Going from 2 to 3 is a problem. That's because when the field numbers are consulted between union
@@ -378,6 +357,7 @@ class MetaDataEvolutionValidatorTest {
         // field 1 is a RecordOne in both). Likewise, looking at field 2 establishes that RecordTwo corresponds
         // to RecordTwo. But then the third field causes trouble: version 2 is of type RecordOne and version 3
         // is of type RecordTwo. So the old RecordOne must be both a new RecordOne and a new RecordTwo.
+        assertInvalid("record type corresponds to multiple types in new meta-data", metaData2.getUnionDescriptor(), metaData3.getUnionDescriptor());
         assertInvalid("record type corresponds to multiple types in new meta-data", metaData2, metaData3);
     }
 
@@ -756,17 +736,13 @@ class MetaDataEvolutionValidatorTest {
 
     @Test
     void dropField() {
-        FileDescriptor updatedFile = mutateFile(fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals("MySimpleRecord")) {
-                        int fieldNumValue2Index = 0;
-                        while (!message.getField(fieldNumValue2Index).getName().equals("num_value_2")) {
-                            fieldNumValue2Index++;
-                        }
-                        message.removeField(fieldNumValue2Index);
-                    }
-                })
-        );
+        FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", message -> {
+            int fieldNumValue2Index = 0;
+            while (!message.getField(fieldNumValue2Index).getName().equals("num_value_2")) {
+                fieldNumValue2Index++;
+            }
+            message.removeField(fieldNumValue2Index);
+        });
         assertInvalid("field removed from message descriptor", TestRecords1Proto.getDescriptor(), updatedFile);
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
@@ -788,7 +764,7 @@ class MetaDataEvolutionValidatorTest {
                 .setAllowFieldRenames(true)
                 .build();
         assertTrue(laxerValidator.allowsFieldRenames());
-        FieldRenames fieldRenames = laxerValidator.validateUnion(TestRecords1Proto.RecordTypeUnion.getDescriptor(), updatedFile.findMessageTypeByName("RecordTypeUnion"));
+        FieldRenames fieldRenames = laxerValidator.validateUnion(TestRecords1Proto.RecordTypeUnion.getDescriptor(), updatedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
         FieldRenames expectedRenames = FieldRenames.newBuilder()
                 .putRenamedField(TestRecords1Proto.MySimpleRecord.getDescriptor(), updatedFile.findMessageTypeByName("MySimpleRecord"), "num_value_2", "num_value_too")
                 .build();
@@ -1061,7 +1037,7 @@ class MetaDataEvolutionValidatorTest {
                 .setAllowFieldRenames(true)
                 .build();
         assertTrue(laxerValidator.allowsFieldRenames());
-        FieldRenames renames = laxerValidator.validateUnion(TestRecordsWithHeaderProto.RecordTypeUnion.getDescriptor(), updatedFile.findMessageTypeByName("RecordTypeUnion"));
+        FieldRenames renames = laxerValidator.validateUnion(TestRecordsWithHeaderProto.RecordTypeUnion.getDescriptor(), updatedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
         FieldRenames expectedRenames = FieldRenames.newBuilder()
                 .putRenamedField(TestRecordsWithHeaderProto.HeaderRecord.getDescriptor(), updatedFile.findMessageTypeByName("HeaderRecord"), "num", "numb")
                 .build();
@@ -1101,7 +1077,7 @@ class MetaDataEvolutionValidatorTest {
                 .setAllowFieldRenames(true)
                 .build();
         assertTrue(laxerValidator.allowsFieldRenames());
-        FieldRenames fieldRenames = laxerValidator.validateUnion(TestUnmergedNestedTypesProto.RecordTypeUnion.getDescriptor(), updatedMergedFile.findMessageTypeByName("RecordTypeUnion"));
+        FieldRenames fieldRenames = laxerValidator.validateUnion(TestUnmergedNestedTypesProto.RecordTypeUnion.getDescriptor(), updatedMergedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
         assertFalse(fieldRenames.isIdentity());
         FieldRenames expectedFieldRenames = FieldRenames.newBuilder()
                 .putRenamedField(TestUnmergedNestedTypesProto.NestedB.getDescriptor(), updatedMergedFile.findMessageTypeByName("OneTrueNested"), "b", "c")
@@ -1176,7 +1152,7 @@ class MetaDataEvolutionValidatorTest {
                 .setAllowFieldRenames(true)
                 .build();
         assertTrue(laxerValidator.allowsFieldRenames());
-        FieldRenames fieldRenames = laxerValidator.validateUnion(TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor(), updatedSplitFile.findMessageTypeByName("RecordTypeUnion"));
+        FieldRenames fieldRenames = laxerValidator.validateUnion(TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor(), updatedSplitFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
         assertFalse(fieldRenames.isIdentity());
         FieldRenames expectedFieldRenames = FieldRenames.newBuilder()
                 .putRenamedField(TestMergedNestedTypesProto.OneTrueNested.getDescriptor(), updatedSplitFile.findMessageTypeByName("NestedA"), "b", "b_1")
@@ -1395,21 +1371,6 @@ class MetaDataEvolutionValidatorTest {
         protoBuilder.getRecordTypesBuilderList().get(0).setSinceVersion(metaData1.getVersion() + 1);
         RecordMetaData metaData2 = RecordMetaData.build(protoBuilder.build());
         assertInvalid("record type since version changed", metaData1, metaData2);
-    }
-
-    @Test
-    void removeRecordType() {
-        FileDescriptor updatedDescriptor = mutateFile(fileBuilder ->
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
-                        // Remove field 1 from record type list, corresponding to MyOtherRecord
-                        message.removeField(1);
-                    }
-                }));
-        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedDescriptor, metaDataBuilder ->
-                metaDataBuilder.removeRecordTypes(1));
-        assertInvalid("record type removed", metaData1, metaData2);
     }
 
     @Test

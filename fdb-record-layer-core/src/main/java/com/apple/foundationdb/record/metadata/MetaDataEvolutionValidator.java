@@ -353,9 +353,8 @@ public class MetaDataEvolutionValidator {
                 }
                 String existingName = renames.putIfAbsent(oldRecord.getName(), newRecord.getName());
                 if (existingName != null && !existingName.equals(newRecord.getName())) {
-                    // This is unlikely because of the validation done in validateUnion. However, it
-                    // is possible if multiple types in the old meta-data can be evolved to the same
-                    // type in the new meta-data
+                    // This should have already been caught in validateUnion which also looks for multiple
+                    // records mapping to the same new record, but it's easy enough to check here
                     throw new MetaDataException("record type corresponds to multiple types in new meta-data",
                             LogMessageKeys.OLD_RECORD_TYPE, oldRecord.getName(),
                             LogMessageKeys.NEW_RECORD_TYPE, newRecord.getName() + " & " + existingName);
