@@ -350,8 +350,26 @@ test_block:
                           {ID: 7, FNAME: "Charlotte"}]
     -
       # Join with both IN and NOT IN conditions
+      # Same as previous query, but the lhs and rhs of the first predicate have been flipped
       - query: select emp.id, fname from emp, dept where dept.id = emp.dept_id and dept.id in (1, 2) and emp.id not in (1, 5)
       - explain: "[IN arrayDistinct(promote(@c24 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT <,> -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c35 AS ARRAY(LONG)) AND q1.ID EQUALS _.DEPT_ID | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }"
+      - initialVersionLessThan: !current_version
+      # Older builds had a buggy plan which could result in extraneous data being returned
+      - unorderedResult: [{ID: 2, FNAME: "Thomas"},
+                          {ID: 2, FNAME: "Thomas"},
+                          {ID: 3, FNAME: "Emily"},
+                          {ID: 3, FNAME: "Emily"},
+                          {ID: 4, FNAME: "Amelia"},
+                          {ID: 4, FNAME: "Amelia"},
+                          {ID: 6, FNAME: "Chloe"},
+                          {ID: 6, FNAME: "Chloe"},
+                          {ID: 7, FNAME: "Charlotte"},
+                          {ID: 7, FNAME: "Charlotte"},
+                          {ID: 8, FNAME: "Megan"},
+                          {ID: 8, FNAME: "Megan"},
+                          {ID: 9, FNAME: "Harry"},
+                          {ID: 9, FNAME: "Harry"}]
+      - initialVersionAtLeast: !current_version
       - unorderedResult: [{ID: 2, FNAME: "Thomas"},
                           {ID: 3, FNAME: "Emily"},
                           {ID: 4, FNAME: "Amelia"},
