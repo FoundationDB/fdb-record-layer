@@ -29,8 +29,6 @@ import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.EmbeddedYamlConnectionFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -46,8 +44,8 @@ public class EmbeddedConfig implements YamlTestConfig {
     @Nonnull
     private Clusters<FRL> clusters = Clusters.empty();
 
-    public EmbeddedConfig(@Nullable final String clusterFile) {
-        this(Collections.singletonList(clusterFile));
+    public EmbeddedConfig(@Nonnull final String clusterFile) {
+        this(List.of(clusterFile));
     }
 
     public EmbeddedConfig(@Nonnull final List<String> clusterFiles) {

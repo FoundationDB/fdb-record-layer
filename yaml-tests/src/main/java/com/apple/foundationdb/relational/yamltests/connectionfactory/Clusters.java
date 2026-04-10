@@ -59,15 +59,6 @@ public class Clusters<T> implements Iterable<Clusters.Entry<T>> {
                 .collect(Collectors.toList()));
     }
 
-    /**
-     * Create a {@code Clusters} from a list of items that already carry their cluster file.
-     */
-    public static <T> Clusters<T> fromServers(@Nonnull List<T> items, @Nonnull Function<T, String> clusterFileExtractor) {
-        return new Clusters<>(items.stream()
-                .map(item -> new Entry<>(item, clusterFileExtractor.apply(item)))
-                .collect(Collectors.toList()));
-    }
-
     public <R> Clusters<R> map(Function<T, R> mapper) {
         return new Clusters<>(entries.stream()
                 .map(entry -> new Entry<>(mapper.apply(entry.server), entry.clusterFile))

@@ -77,7 +77,7 @@ public final class FDBTestEnvironment {
     public static List<String> allClusterFilesInRandomOrder() {
         final List<String> randomized = new ArrayList<>(clusterFiles);
         Collections.shuffle(randomized);
-        return List.copyOf(randomized);
+        return randomized;
     }
 
     public static String randomClusterFile() {

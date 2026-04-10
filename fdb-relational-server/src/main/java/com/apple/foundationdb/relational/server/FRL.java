@@ -79,7 +79,7 @@ import java.util.concurrent.TimeUnit;
 @API(API.Status.EXPERIMENTAL)
 public class FRL implements AutoCloseable {
     private final FdbConnection fdbDatabase;
-    private final RelationalDriver registeredDriver;
+    private final RelationalDriver driver;
     private boolean registeredJDBCEmbedDriver;
 
     public FRL() throws RelationalException {
@@ -118,7 +118,7 @@ public class FRL implements AutoCloseable {
                 .setStoreCatalog(storeCatalog).build();
 
         try {
-            this.registeredDriver = new EmbeddedRelationalDriver(RecordLayerEngine.makeEngine(
+            this.driver = new EmbeddedRelationalDriver(RecordLayerEngine.makeEngine(
                     rlConfig,
                     Collections.singletonList(fdbDb),
                     keySpace,
@@ -135,7 +135,7 @@ public class FRL implements AutoCloseable {
                             .build()));
 
             if (registerDriver) {
-                DriverManager.registerDriver(this.registeredDriver);
+                DriverManager.registerDriver(this.driver);
                 this.registeredJDBCEmbedDriver = true;
             }
         } catch (SQLException ve) {
@@ -144,7 +144,7 @@ public class FRL implements AutoCloseable {
     }
 
     public RelationalDriver getDriver() {
-        return registeredDriver;
+        return driver;
     }
 
     @SuppressWarnings("AbbreviationAsWordInName") // allow JDBCURI, though perhaps we should update this to make it clearer
@@ -214,7 +214,7 @@ public class FRL implements AutoCloseable {
     }
 
     private RelationalConnection connect(String database, String schema, Options options) throws SQLException {
-        return registeredDriver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options);
+        return driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options);
     }
 
     private Response executeInternal(@Nonnull RelationalConnection connection,
@@ -340,7 +340,7 @@ public class FRL implements AutoCloseable {
     }
 
     public TransactionalToken createTransactionalToken(String database, String schema, Options options) throws SQLException {
-        RelationalConnection transactionalConnection = registeredDriver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options);
+        RelationalConnection transactionalConnection = driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options);
         transactionalConnection.setAutoCommit(false);
         return new TransactionalToken(transactionalConnection);
     }
@@ -403,7 +403,7 @@ public class FRL implements AutoCloseable {
         }
         // We registered the Relational embed driver... cleanup.
         if (this.registeredJDBCEmbedDriver) {
-            DriverManager.deregisterDriver(registeredDriver);
+            DriverManager.deregisterDriver(driver);
         }
     }
 }

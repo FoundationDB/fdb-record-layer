@@ -32,6 +32,14 @@ import java.net.URI;
  * <pre>{@code
  * connect: { cluster: 1, uri: 0 }
  * }</pre>
+ * The uri component can be a few different things:
+ * <ul>
+ *     <li>An index, in which case {@code 0} is the catalog, and other positive numbers refer to the schemas created
+ *     automatically with the {@code schema_template:} block</li>
+ *     <li>A fully qualified uri such as {@code "jdbc:embed:/FRL/MCI_DB?schema=S1"} or
+ *     {@code "jdbc:embed:/__SYS?schema=CATALOG"}. The scheme should always be {@code jdbc:embed:}, and the framework
+ *     will update it to control whether it goes to the embedded connection, or one of the servers.</li>
+ * </ul>
  */
 public class ConnectionTarget {
     @Nonnull
