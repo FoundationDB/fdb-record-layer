@@ -198,6 +198,7 @@ public class ExplainTests {
     @Test
     void explainDoesNotContainEventStats() throws Exception {
         final var defaultDebugger = Debugger.getDebugger();
+        final var defaultStatsCollector = PlannerEventStatsCollector.getCollector();
         try {
             Debugger.setDebugger(null);
             PlannerEventStatsCollector.setCollector(new PlannerEventStatsCollector() {
@@ -240,13 +241,14 @@ public class ExplainTests {
             }
         } finally {
             Debugger.setDebugger(defaultDebugger);
+            PlannerEventStatsCollector.setCollector(defaultStatsCollector);
         }
     }
 
     @Test
     void explainContainsEventStatsFromCache() throws Exception {
         final var defaultDebugger = Debugger.getDebugger();
-
+        final var defaultStatsCollector = PlannerEventStatsCollector.getCollector();
         try {
             Debugger.setDebugger(null);
             PlannerEventStatsCollector.setCollector(null);
@@ -283,13 +285,14 @@ public class ExplainTests {
             }
         } finally {
             Debugger.setDebugger(defaultDebugger);
+            PlannerEventStatsCollector.setCollector(defaultStatsCollector);
         }
     }
 
     @Test
     void failExplain() throws Exception {
         final var defaultDebugger = Debugger.getDebugger();
-
+        final var defaultStatsCollector = PlannerEventStatsCollector.getCollector();
         try {
             Debugger.setDebugger(null);
             PlannerEventStatsCollector.setCollector(null);
@@ -305,6 +308,7 @@ public class ExplainTests {
             }
         } finally {
             Debugger.setDebugger(defaultDebugger);
+            PlannerEventStatsCollector.setCollector(defaultStatsCollector);
         }
     }
 
