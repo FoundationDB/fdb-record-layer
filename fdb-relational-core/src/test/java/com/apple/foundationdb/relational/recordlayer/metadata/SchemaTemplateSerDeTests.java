@@ -36,8 +36,6 @@ import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
-import com.apple.foundationdb.relational.api.metrics.MetricCollector;
-import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataDeserializer;
@@ -45,6 +43,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
+import com.apple.foundationdb.relational.recordlayer.query.cache.NoOpMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableMap;
@@ -1058,17 +1057,7 @@ public class SchemaTemplateSerDeTests {
         @Nonnull
         public PlanGenerator getPlanGenerator() throws RelationalException, SQLException {
 
-            final var metricCollector = new MetricCollector() {
-                @Override
-                public void increment(@Nonnull RelationalMetric.RelationalCount count) {
-                }
-
-                @Override
-                public <T> T clock(@Nonnull RelationalMetric.RelationalEvent event,
-                                   com.apple.foundationdb.relational.util.Supplier<T> supplier) throws RelationalException {
-                    return supplier.get();
-                }
-            };
+            final var metricCollector = new NoOpMetricCollector();
             final PlanContext ctx = PlanContext.Builder.create()
                     .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
                     .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)

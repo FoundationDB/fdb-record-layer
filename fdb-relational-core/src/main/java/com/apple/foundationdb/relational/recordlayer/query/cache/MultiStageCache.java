@@ -40,7 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -97,9 +97,9 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
     @Nonnull
     private final Cache<K, Cache<S, Cache<T, V>>> mainCache;
 
-    private final AtomicLong pendingPrimaryLruEvictions = new AtomicLong(0);
-    private final AtomicLong pendingSecondaryLruEvictions = new AtomicLong(0);
-    private final AtomicLong pendingTertiaryLruEvictions = new AtomicLong(0);
+    private final AtomicInteger pendingPrimaryLruEvictions = new AtomicInteger(0);
+    private final AtomicInteger pendingSecondaryLruEvictions = new AtomicInteger(0);
+    private final AtomicInteger pendingTertiaryLruEvictions = new AtomicInteger(0);
 
     private final int secondarySize;
     private final int tertiarySize;
@@ -173,18 +173,9 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                     @Nonnull final Function<V, V> valueWithEnvironmentDecorator,
                     @Nonnull final Function<Stream<V>, V> reductionFunction,
                     @Nonnull final MetricCollector metricCollector) {
-        final long primaryEvictions = pendingPrimaryLruEvictions.getAndSet(0);
-        for (long i = 0; i < primaryEvictions; i++) {
-            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION);
-        }
-        final long secondaryEvictions = pendingSecondaryLruEvictions.getAndSet(0);
-        for (long i = 0; i < secondaryEvictions; i++) {
-            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION);
-        }
-        final long tertiaryEvictions = pendingTertiaryLruEvictions.getAndSet(0);
-        for (long i = 0; i < tertiaryEvictions; i++) {
-            metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION);
-        }
+        metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION, pendingPrimaryLruEvictions.getAndSet(0));
+        metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION, pendingSecondaryLruEvictions.getAndSet(0));
+        metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION, pendingTertiaryLruEvictions.getAndSet(0));
         final var secondaryCache = mainCache.get(key, newKey -> {
             metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS);
             final var secondaryCacheBuilder = Caffeine.newBuilder()

@@ -518,11 +518,11 @@ public class MultiStageCacheTests {
     }
 
     private static class CountMetricCollector implements MetricCollector {
-        private final Map<RelationalMetric.RelationalCount, Long> counts = new EnumMap<>(RelationalMetric.RelationalCount.class);
+        private final Map<RelationalMetric.RelationalCount, Integer> counts = new EnumMap<>(RelationalMetric.RelationalCount.class);
 
         @Override
-        public void increment(@Nonnull final RelationalMetric.RelationalCount count) {
-            counts.merge(count, 1L, Long::sum);
+        public void increment(@Nonnull final RelationalMetric.RelationalCount count, final int val) {
+            counts.merge(count, val, Integer::sum);
         }
 
         @Override
@@ -530,8 +530,8 @@ public class MultiStageCacheTests {
             return supplier.get();
         }
 
-        public long countEvents(@Nonnull final RelationalMetric.RelationalCount count) {
-            return counts.getOrDefault(count, 0L);
+        public int countEvents(@Nonnull final RelationalMetric.RelationalCount count) {
+            return counts.getOrDefault(count, 0);
         }
     }
 }

@@ -33,7 +33,7 @@ import javax.annotation.Nonnull;
 public class NoOpMetricCollector implements MetricCollector {
 
     @Override
-    public void increment(@Nonnull final RelationalMetric.RelationalCount count) {
+    public void increment(@Nonnull final RelationalMetric.RelationalCount count, final int val) {
     }
 
     @Override
