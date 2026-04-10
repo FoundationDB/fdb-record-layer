@@ -83,7 +83,8 @@ public class TestRuleExecution {
     public static TestRuleExecution applyRule(@Nonnull PlanContext context,
                                               @Nonnull CascadesRule<? extends RelationalExpression> rule,
                                               @Nonnull Reference group,
-                                              @Nonnull final EvaluationContext evaluationContext) {
+                                              @Nonnull final EvaluationContext evaluationContext,
+                                              @Nonnull final PlannerPhase plannerPhase) {
         int matchesCount = 0;
         boolean hasYielded = false;
         for (RelationalExpression expression : group.getAllMemberExpressions()) {
@@ -94,7 +95,7 @@ public class TestRuleExecution {
                                             .put(ReferenceMatchers.getCurrentReferenceMatcher(), group)
                                             .build(),
                                     expression)
-                            .map(bindings -> new CascadesRuleCall(PlannerPhase.REWRITING, context, rule, group,
+                            .map(bindings -> new CascadesRuleCall(plannerPhase, context, rule, group,
                                     Traversal.withRoot(group), new ArrayDeque<>(), bindings, evaluationContext))
                             .iterator();
             while (ruleCalls.hasNext()) {
