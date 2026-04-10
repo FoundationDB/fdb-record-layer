@@ -16,6 +16,6 @@ runs:
       uses: gradle/actions/setup-gradle@0bdd871935719febd78681f197cd39af5b6e16a6
     - name: Setup Python
       id: setup-python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6.2.0
       with:
         python-version: '3.13'
