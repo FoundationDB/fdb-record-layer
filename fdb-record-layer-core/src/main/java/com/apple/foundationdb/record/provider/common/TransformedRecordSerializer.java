@@ -252,6 +252,10 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         }
 
         int decompressedLength = ByteBuffer.wrap(state.getData(), state.getOffset() + 1, 4).order(ByteOrder.BIG_ENDIAN).getInt();
+        if (decompressedLength < 0) {
+            throw new RecordSerializationException("invalid decompressed length")
+                    .addLogInfo("decompressedLength", decompressedLength);
+        }
         byte[] decompressed = new byte[decompressedLength];
 
         Inflater decompressor = new Inflater();

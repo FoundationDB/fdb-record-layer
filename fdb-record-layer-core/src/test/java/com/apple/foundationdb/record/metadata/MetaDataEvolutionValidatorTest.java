@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
+import com.apple.foundationdb.record.TestRecordsIdenticalTypesProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.evolution.TestHeaderAsGroupProto;
 import com.apple.foundationdb.record.evolution.TestMergedNestedTypesProto;
@@ -67,6 +68,7 @@ import java.util.stream.Collectors;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -286,6 +288,97 @@ class MetaDataEvolutionValidatorTest {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedDescriptor);
         assertInvalid("", metaData1, metaData2);
+    }
+
+    @Test
+    void swapUnionFieldsWithIdenticalTypes() {
+        // Swap the positions for RecordOne and RecordTwo in the union descriptor. As these have identical definitions,
+        // they could actually be swapped. Though perhaps they shouldn't be, and disallowing type renames will address
+        // this kind of tom foolery
+        FileDescriptor updatedFileDescriptor = mutateFile(TestRecordsIdenticalTypesProto.getDescriptor(), fileBuilder ->
+                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
+                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                        message.getFieldBuilderList().forEach(field -> {
+                            if (field.getNumber() == 1) {
+                                field.setNumber(2);
+                            } else {
+                                field.setNumber(1);
+                            }
+                        });
+                    }
+                }));
+        validator.validateUnion(TestRecordsIdenticalTypesProto.RecordTypeUnion.getDescriptor(), updatedFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
+        final MetaDataEvolutionValidator stricterValidator = MetaDataEvolutionValidator.newBuilder()
+                .setDisallowTypeRenames(true)
+                .build();
+        assertTrue(stricterValidator.disallowsTypeRenames());
+        stricterValidator.validateUnion(TestRecordsIdenticalTypesProto.RecordTypeUnion.getDescriptor(), updatedFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
+
+        final RecordMetaData metaData1 = RecordMetaData.build(TestRecordsIdenticalTypesProto.getDescriptor());
+
+        // Swap the types. The indexes are referencing the old index names, which means they are now pointing to data
+        // of the incorrect type. This is what results in the error message. Note the more straightforward error message
+        // from the stricter validator
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFileDescriptor);
+        assertInvalid("new index removes record type", metaData1, metaData2);
+        assertInvalid("record type name changed", stricterValidator, metaData1, metaData2);
+
+        // Update the names in the index definitions. The default validator now passes, though the stricter
+        // validator fails
+        final RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updatedFileDescriptor, metaDataBuilder -> {
+            metaDataBuilder.getIndexesBuilderList().forEach(index -> {
+                if (index.getRecordTypeList().equals(List.of("RecordOne"))) {
+                    index.clearRecordType();
+                    index.addRecordType("RecordTwo");
+                } else if (index.getRecordTypeList().equals(List.of("RecordTwo"))) {
+                    index.clearRecordType();
+                    index.addRecordType("RecordOne");
+                }
+            });
+        });
+        validator.validate(metaData1, metaData3);
+        assertInvalid("record type name changed", stricterValidator, metaData1, metaData3);
+    }
+
+    @Test
+    void typeChangeCreatesAmbiguousCorrespondence() {
+        final FileDescriptor fileWithAdditionalUnionField = mutateFile(TestRecordsIdenticalTypesProto.getDescriptor(), fileBuilder ->
+                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
+                    // Add a second field in the union descriptor pointing to RecordOne. This is fine
+                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                        message.addFieldBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                                .setTypeName("RecordOne")
+                                .setName("other_union_field")
+                                .setNumber(3);
+                    }
+                })
+        );
+        final RecordMetaData metaData1 = RecordMetaData.build(TestRecordsIdenticalTypesProto.getDescriptor());
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, fileWithAdditionalUnionField);
+        validator.validate(metaData1, metaData2);
+
+        // Change the type of the new union field so it now points to RecordTwo
+        final FileDescriptor fileWithModifiedNewUnionField = mutateFile(fileWithAdditionalUnionField, fileBuilder ->
+                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
+                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                        message.getFieldBuilderList().forEach(field -> {
+                            if (field.getName().equals("other_union_field")) {
+                                field.setTypeName("RecordTwo");
+                            }
+                        });
+                    }
+                })
+        );
+        final RecordMetaData metaData3 = replaceRecordsDescriptor(metaData2, fileWithModifiedNewUnionField);
+        validator.validate(metaData1, metaData3); // it actually would be fine to go straight from 1 to 3
+        // Going from 2 to 3 is a problem. That's because when the field numbers are consulted between union
+        // descriptor fields, we first establish that the old RecordOne corresponds to the new RecordOne (as
+        // field 1 is a RecordOne in both). Likewise, looking at field 2 establishes that RecordTwo corresponds
+        // to RecordTwo. But then the third field causes trouble: version 2 is of type RecordOne and version 3
+        // is of type RecordTwo. So the old RecordOne must be both a new RecordOne and a new RecordTwo.
+        assertInvalid("record type corresponds to multiple types in new meta-data", metaData2, metaData3);
     }
 
     /**
@@ -1295,6 +1388,31 @@ class MetaDataEvolutionValidatorTest {
     }
 
     @Test
+    void typeModifiesSinceVersion() {
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        RecordMetaDataProto.MetaData.Builder protoBuilder = metaData1.toProto().toBuilder();
+        protoBuilder.setVersion(metaData1.getVersion() + 1);
+        protoBuilder.getRecordTypesBuilderList().get(0).setSinceVersion(metaData1.getVersion() + 1);
+        RecordMetaData metaData2 = RecordMetaData.build(protoBuilder.build());
+        assertInvalid("record type since version changed", metaData1, metaData2);
+    }
+
+    @Test
+    void removeRecordType() {
+        FileDescriptor updatedDescriptor = mutateFile(fileBuilder ->
+                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
+                    if (message.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                        // Remove field 1 from record type list, corresponding to MyOtherRecord
+                        message.removeField(1);
+                    }
+                }));
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedDescriptor, metaDataBuilder ->
+                metaDataBuilder.removeRecordTypes(1));
+        assertInvalid("record type removed", metaData1, metaData2);
+    }
+
+    @Test
     void recordTypeKeyChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaDataProto.MetaData.Builder protoBuilder = metaData1.toProto().toBuilder()
@@ -1500,6 +1618,53 @@ class MetaDataEvolutionValidatorTest {
                 .build();
         assertTrue(laxerValidator.allowsOlderFormerIndexAddedVersions());
         laxerValidator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void removeIndexAndChangeAddedVersion() {
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(metaData1.toProto());
+        metaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
+        RecordMetaData metaData2 = metaDataBuilder.build();
+        validator.validate(metaData1, metaData2); // index correctly removed
+
+        // Modify the proto so that the added version is not correct
+        RecordMetaDataProto.MetaData.Builder protoBuilder = metaData2.toProto().toBuilder();
+        protoBuilder.getFormerIndexesBuilder(0).setAddedVersion(metaData2.getVersion());
+        RecordMetaData metaData3 = RecordMetaData.build(protoBuilder.build());
+        assertInvalid("former index added after old index", metaData1, metaData3);
+    }
+
+    @Test
+    void removeIndexAndChangeLastModifiedVersion() {
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+
+        // Step 1: Update the index definition in a way that updates the last modified version
+        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", index ->
+                // Mark the index as unique (and bump its last modified version
+                index.toBuilder()
+                        .addOptions(RecordMetaDataProto.Index.Option.newBuilder().setKey("unique").setValue("true"))
+                        .setLastModifiedVersion(index.getLastModifiedVersion() + 1)
+                        .build());
+        assertFalse(validator.allowsIndexRebuilds());
+        assertInvalid("last modified version of index changed", metaData1, metaData2);
+
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowIndexRebuilds(true)
+                .build();
+        assertTrue(laxerValidator.allowsIndexRebuilds());
+        laxerValidator.validate(metaData1, metaData2);
+
+        // Step 2: Modify the original meta-data to remove the index. This will insert a former index with
+        // the wrong last modified version into the meta-data
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(metaData1.toProto());
+        metaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
+        metaDataBuilder.setVersion(metaData2.getVersion() + 1);
+        RecordMetaData metaData3 = metaDataBuilder.build();
+        validator.validate(metaData1, metaData3);
+        assertInvalid("new former index has removed version that is not newer than the old meta-data version", metaData2, metaData3);
+        // This is why we can't allow this transformation: the former index is not found when updating from metaData2 to metaData3
+        assertThat(metaData3.getFormerIndexesSince(metaData2.getVersion()), empty());
     }
 
     /**

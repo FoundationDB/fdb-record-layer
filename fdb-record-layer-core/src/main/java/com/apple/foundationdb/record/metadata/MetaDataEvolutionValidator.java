@@ -353,7 +353,9 @@ public class MetaDataEvolutionValidator {
                 }
                 String existingName = renames.putIfAbsent(oldRecord.getName(), newRecord.getName());
                 if (existingName != null && !existingName.equals(newRecord.getName())) {
-                    // This shouldn't be possible because of the validation done in validateUnion, but it's easy enough to check here.
+                    // This is unlikely because of the validation done in validateUnion. However, it
+                    // is possible if multiple types in the old meta-data can be evolved to the same
+                    // type in the new meta-data
                     throw new MetaDataException("record type corresponds to multiple types in new meta-data",
                             LogMessageKeys.OLD_RECORD_TYPE, oldRecord.getName(),
                             LogMessageKeys.NEW_RECORD_TYPE, newRecord.getName() + " & " + existingName);
@@ -551,7 +553,7 @@ public class MetaDataEvolutionValidator {
         // that has some version of this index knows to remove it.
         if (newFormerIndex.getAddedVersion() > oldIndex.getAddedVersion()) {
             throw new MetaDataException("former index added after old index",
-                    LogMessageKeys.SUBSPACE_KEY,
+                    LogMessageKeys.SUBSPACE_KEY, subspaceKey,
                     LogMessageKeys.INDEX_NAME, oldIndex.getName(),
                     LogMessageKeys.OLD_VERSION, oldIndex.getAddedVersion(),
                     LogMessageKeys.NEW_VERSION, newFormerIndex.getAddedVersion());
