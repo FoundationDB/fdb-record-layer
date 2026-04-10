@@ -275,8 +275,7 @@ public class QueryExecutor {
             RelationalResultSet resultSet = (RelationalResultSet)result;
             List<RelationalResultSet> results = new ArrayList<>();
             final RelationalResultSetMetaData metadata = resultSet.getMetaData(); // The first metadata will be used for all
-
-            boolean hasResult = resultSet.next(); // Initialize result set value retrieval. Has only one row.
+            final boolean hasResult = resultSet.next(); // Initialize result set value retrieval. Has only one row.
             // Edge case: when there are no results at all, return the empty result set that is appropriate in this case
             if (!hasResult) {
                 return resultSet;
@@ -293,6 +292,12 @@ public class QueryExecutor {
                 try (var s2 = prepareContinuationStatement(connection, continuation, FORCED_MAX_ROWS)) {
                     resultSet = (RelationalResultSet)executeStatement(s2, true, queryString);
                     final boolean hasNext = resultSet.next(); // Initialize result set value retrieval. Has only one row.
+                    // If we don't have a result, this means a different limit was hit which would be included in the
+                    // test's expected results. Return the result set so far with the previous continuation.
+                    if (!hasNext && !resultSet.getContinuation().atEnd()) {
+                        return new AggregateResultSet(metadata, continuation, results.iterator());
+                    }
+
                     continuation = resultSet.getContinuation();
                     if (!continuation.atEnd()) {
                         results.add(resultSet);
