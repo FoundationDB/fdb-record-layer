@@ -20,7 +20,12 @@
 ---
 schema_template:
     create table emp(id bigint, fname string, lname string, dept_id bigint, primary key(id))
+    create index empDept as select dept_id from emp
+    create index empName as select lname, fname from emp order by lname, fname
+
     create table dept(id bigint, name string, primary key(id))
+    create index deptName as select name from dept
+
     create table project(id bigint, name string, dsc string, emp_id bigint, primary key(id))
     create table a(ida bigint, a1 bigint, a2 bigint, a3 bigint, primary key(ida))
     create table b(idb bigint, b1 bigint, b2 bigint, b3 bigint, primary key(idb))
@@ -62,6 +67,7 @@ setup:
     - query: INSERT INTO jud VALUES(1, 4, 5)
 ---
 test_block:
+  name: join-tests
   tests:
     -
       - query: select ida from a where exists (select ida from a where ida = 1);
@@ -137,13 +143,13 @@ test_block:
       # inner join version of previous
       - query: select fname, lname from emp inner join project on emp_id = emp.id inner join dept on dept_id = dept.id and dept.name = 'Sales';
       - supported_version: 4.9.1.0
-      - explain: "SCAN([IS DEPT]) | FILTER _.NAME EQUALS promote(@c30 AS STRING) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER q1.EMP_ID EQUALS _.ID AND _.DEPT_ID EQUALS q0.ID AS q2 RETURN q2 } AS q2 RETURN (q2.FNAME AS FNAME, q2.LNAME AS LNAME) }"
+      - explain: "ISCAN(DEPTNAME [EQUALS promote(@c30 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN q1 } AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME) }"
       - unorderedResult: [{"Daniel", "Miller"}]
 
     -
       # three-way join to find which departments' corresponding projects.
       - query: select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id;
-      - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS DEPT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q0.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.NAME AS _0, q0.NAME AS _1) }"
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }"
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -151,7 +157,7 @@ test_block:
       # inner join version of previous
       - query: select dept.name, project.name from emp inner join dept on emp.dept_id = dept.id inner join project on project.emp_id = emp.id;
       - supported_version: 4.9.1.0
-      - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS DEPT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q0.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.NAME AS _0, q0.NAME AS _1) }"
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }"
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -180,7 +186,7 @@ test_block:
       # inner join version of previous #3
       - query: select dept.name, project.name from emp inner join dept on emp.dept_id = dept.id inner join project on project.emp_id = emp.id;
       - supported_version: 4.9.1.0
-      - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS DEPT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q0.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.NAME AS _0, q0.NAME AS _1) }"
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }"
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -193,14 +199,14 @@ test_block:
     -
       # ambiguous sub select is fine if the top-level query does not specify column names
       - query: select * from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
-      - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS DEPT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q0.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.NAME AS _0, q0.NAME AS _1) }"
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }"
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
     -
       # ambiguous sub select is fine if the top-level query does not specify column names
       - query: select (*) from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
-      - explain: "SCAN([IS DEPT]) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q0.ID AND q1.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN ((q0.NAME AS _0, q1.NAME AS _1) AS _0) }"
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN ((q0.NAME AS _0, q1.NAME AS _1) AS _0) }"
       - unorderedResult: [{{"Engineering", "OLAP"}},
                           {{"Sales", "Feedback"}},
                           {{"Marketing", "SEO"}}]
@@ -212,7 +218,7 @@ test_block:
       # inner join version of previous
       - query: select dept.name, project.name from project inner join emp on emp.id = project.emp_id inner join dept on emp.dept_id = dept.id;
       - supported_version: 4.9.1.0
-      - explain: "SCAN([IS DEPT]) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP, EQUALS q1.EMP_ID]) | FILTER _.DEPT_ID EQUALS q0.ID AS q2 RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }"
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP, EQUALS q1.EMP_ID]) | FILTER _.DEPT_ID EQUALS q0.ID AS q2 RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }"
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
@@ -239,14 +245,14 @@ test_block:
     -
       # Three-way join with NOT IN - departments with projects, excluding specific departments
       - query: select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (1)
-      - explain: "SCAN([IS DEPT]) | FILTER NOT _.ID IN promote(@c41 AS ARRAY(LONG)) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q0.ID AND q1.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q0.ID AS ID, q0.NAME AS _1, q1.NAME AS _2) }"
+      - explain: "COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT _.ID IN promote(@c41 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN (q0.ID AS ID, q0.NAME AS _1, q1.NAME AS _2) }"
       - unorderedResult: [{ID: 2, "Sales", "Feedback"},
                           {ID: 3, "Marketing", "SEO"}]
     -
       # inner join version of previous
       - query: select dept.id, dept.name, project.name from emp inner join dept on emp.dept_id = dept.id and dept.id not in (1) inner join project on project.emp_id = emp.id
       - supported_version: 4.9.1.0
-      - explain: "SCAN([IS DEPT]) | FILTER NOT _.ID IN promote(@c32 AS ARRAY(LONG)) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q0.ID AND q1.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q0.ID AS ID, q0.NAME AS _1, q1.NAME AS _2) }"
+      - explain: "COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT _.ID IN promote(@c32 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN (q0.ID AS ID, q0.NAME AS _1, q1.NAME AS _2) }"
       - unorderedResult: [{ID: 2, "Sales", "Feedback"},
                           {ID: 3, "Marketing", "SEO"}]
     -
@@ -288,7 +294,7 @@ test_block:
     -
       # Join with multiple NOT IN conditions
       - query: select project.id, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (3) and project.id not in (3)
-      - explain: "SCAN([IS EMP]) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER NOT _.ID IN promote(@c37 AS ARRAY(LONG)) AND _.EMP_ID EQUALS q0.ID | FLATMAP q1 -> { SCAN([IS DEPT]) | FILTER NOT _.ID IN promote(@c37 AS ARRAY(LONG)) AND q0.DEPT_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.ID AS ID, q1.NAME AS NAME) }"
+      - explain: "COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT _.ID IN promote(@c37 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER NOT _.ID IN promote(@c37 AS ARRAY(LONG)) | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN (q1.ID AS ID, q1.NAME AS NAME) }"
       - unorderedResult: [{ID: 1, NAME: "OLAP"}]
     -
       # Join with IN - get specific employees in Engineering
@@ -303,7 +309,7 @@ test_block:
     -
       # Three-way join with IN - departments with projects, including only specific departments
       - query: select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1, 2)
-      - explain: "[IN arrayDistinct(promote(@c40 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q2.EMP_ID EQUALS _.ID AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME AS _1, q2.NAME AS _2) }"
+      - explain: "[IN arrayDistinct(promote(@c40 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q2.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME AS _1, q2.NAME AS _2) } }"
       - unorderedResult: [{ID: 1, "Engineering", "OLAP"},
                           {ID: 2, "Sales", "Feedback"}]
     -
@@ -336,6 +342,34 @@ test_block:
     -
       # Join with both IN and NOT IN conditions
       - query: select emp.id, fname from emp, dept where emp.dept_id = dept.id and dept.id in (1, 2) and emp.id not in (1, 5)
+      - explain: "[IN arrayDistinct(promote(@c24 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c35 AS ARRAY(LONG)) | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }"
+      - unorderedResult: [{ID: 2, FNAME: "Thomas"},
+                          {ID: 3, FNAME: "Emily"},
+                          {ID: 4, FNAME: "Amelia"},
+                          {ID: 6, FNAME: "Chloe"},
+                          {ID: 7, FNAME: "Charlotte"}]
+    -
+      # Join with both IN and NOT IN conditions
+      # Same as previous query, but the lhs and rhs of the first predicate have been flipped
+      - query: select emp.id, fname from emp, dept where dept.id = emp.dept_id and dept.id in (1, 2) and emp.id not in (1, 5)
+      - explain: "[IN arrayDistinct(promote(@c24 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT <,> -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c35 AS ARRAY(LONG)) AND q1.ID EQUALS _.DEPT_ID | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }"
+      - initialVersionLessThan: !current_version
+      # Older builds had a buggy plan which could result in extraneous data being returned
+      - unorderedResult: [{ID: 2, FNAME: "Thomas"},
+                          {ID: 2, FNAME: "Thomas"},
+                          {ID: 3, FNAME: "Emily"},
+                          {ID: 3, FNAME: "Emily"},
+                          {ID: 4, FNAME: "Amelia"},
+                          {ID: 4, FNAME: "Amelia"},
+                          {ID: 6, FNAME: "Chloe"},
+                          {ID: 6, FNAME: "Chloe"},
+                          {ID: 7, FNAME: "Charlotte"},
+                          {ID: 7, FNAME: "Charlotte"},
+                          {ID: 8, FNAME: "Megan"},
+                          {ID: 8, FNAME: "Megan"},
+                          {ID: 9, FNAME: "Harry"},
+                          {ID: 9, FNAME: "Harry"}]
+      - initialVersionAtLeast: !current_version
       - unorderedResult: [{ID: 2, FNAME: "Thomas"},
                           {ID: 3, FNAME: "Emily"},
                           {ID: 4, FNAME: "Amelia"},
@@ -344,6 +378,7 @@ test_block:
     -
       # Join with IN on non-existent values (should return empty)
       - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id in (10, 20, 30)
+      - explain: "SCAN([IS DEPT, EQUALS promote(@c22 AS LONG)]) | FLATMAP q0 -> { [IN arrayDistinct(promote(@c28 AS ARRAY(LONG)))] | INJOIN q1 -> { SCAN([IS EMP, EQUALS q1]) | FILTER _.DEPT_ID EQUALS q0.ID } AS q2 RETURN (q2.ID AS ID) }"
       - result: []
     -
       # inner join with using: select one field
@@ -364,13 +399,13 @@ test_block:
       # inner join with using: double join
       - query: select * from ja join jb using(c1) join jd using(c1);
       - supported_version: 4.10.4.0
-      - explain: "SCAN([IS JD]) | FLATMAP q0 -> { SCAN([IS JB]) | FLATMAP q1 -> { SCAN([IS JA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4 AS C4) }"
+      - explain: "SCAN([IS JD]) | FLATMAP q0 -> { SCAN([IS JB]) | FLATMAP q1 -> { SCAN([IS JA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4 AS C4) }"
       - result: [{c1: 1, c2: 2, c3: 3, c4: 4}]
     -
       # inner join with using: same additional column
       - query: select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join jud using(c1);
       - supported_version: 4.10.4.0
-      - explain: "SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }"
+      - explain: "SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS JUA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }"
       - result: [{!pos 1: 5, !pos 2: 5, !pos 3: 5}]
     -
       # inner join with using: ambiguity left
@@ -418,6 +453,35 @@ test_block:
       - query: select * from (select c11 as c1, c3 from (select c3 - 2 as c11, c3 from jub) as Z) as Y join (select c2 - 1 as c1, c5 from jua) as X using (c1);
       - supported_version: 4.10.4.0
       - result: [{c1: 1, c3: 3, c5: 5}]
+
+    -
+      # Query using the name indexes to join the emp and dept tables. Note that there are join and non-join predicates on dept.name
+      - query: select emp.fname, emp.lname from emp, dept where emp.lname > dept.name and dept.name = 'Sales' and emp.lname < 'W'
+      - explain: "ISCAN(DEPTNAME [EQUALS promote(@c26 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPNAME [[GREATER_THAN q0.NAME && LESS_THAN promote(@c32 AS STRING)]]) AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME) }"
+      - result: [
+           { FNAME: "Harry", LNAME: "Smith" },
+        ]
+
+    -
+      # Same query as above but with one comparison flipped. This should not result in a different result set
+      - query: select emp.fname, emp.lname from emp, dept where dept.name < emp.lname and dept.name = 'Sales' and emp.lname < 'W'
+      - explain: "ISCAN(EMPNAME [[LESS_THAN promote(@c32 AS STRING)]]) | FLATMAP q0 -> { COVERING(DEPTNAME [EQUALS promote(@c26 AS STRING)] -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER _.NAME LESS_THAN q0.LNAME | FETCH AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME) }"
+      - initialVersionLessThan: !current_version
+      # Prior to !current_version, we used to drop the "dept.name < emp.lname" predicate due to: https://github.com/FoundationDB/fdb-record-layer/pull/3965
+      - unorderedResult: [
+               { FNAME: "Thomas",    LNAME: "Johnson" },
+               { FNAME: "Emily",     LNAME: "Martinez" },
+               { FNAME: "Amelia",    LNAME: "Johnson" },
+               { FNAME: "Daniel",    LNAME: "Miller" },
+               { FNAME: "Chloe",     LNAME: "Jones" },
+               { FNAME: "Charlotte", LNAME: "Garcia" },
+               { FNAME: "Megan",     LNAME: "Miller" },
+               { FNAME: "Harry",     LNAME: "Smith" },
+        ]
+      - initialVersionAtLeast: !current_version
+      - result: [
+           { FNAME: "Harry", LNAME: "Smith" },
+        ]
 ---
 # All 3-way (or more) join queries from above, repeated with PLAN_RIGHT_DEEP enabled.
 test_block:
@@ -430,75 +494,75 @@ test_block:
     -
       # inner join version: two consecutive joins with filter on dept.name
       - query: select fname, lname from emp inner join project on emp_id = emp.id inner join dept on dept_id = dept.id and dept.name = 'Sales';
-      - explain: "SCAN([IS DEPT]) | FILTER _.NAME EQUALS promote(@c30 AS STRING) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER q1.EMP_ID EQUALS _.ID AND _.DEPT_ID EQUALS q0.ID AS q2 RETURN q2 } AS q2 RETURN (q2.FNAME AS FNAME, q2.LNAME AS LNAME) }"
+      - explain: "ISCAN(DEPTNAME [EQUALS promote(@c30 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN q1 } AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME) }"
       - unorderedResult: [{"Daniel", "Miller"}]
     -
       # three-way join to find which departments' corresponding projects
       - query: select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id;
-      - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS DEPT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q0.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.NAME AS _0, q0.NAME AS _1) }"
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN q2 } AS q2 RETURN (q0.NAME AS _0, q2.NAME AS _1) }"
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
     -
       # inner join version of three-way join
       - query: select dept.name, project.name from emp inner join dept on emp.dept_id = dept.id inner join project on project.emp_id = emp.id;
-      - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS DEPT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q0.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.NAME AS _0, q0.NAME AS _1) }"
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN q2 } AS q2 RETURN (q0.NAME AS _0, q2.NAME AS _1) }"
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
     -
       # ambiguous sub-select is fine if the top-level query does not specify column names (select *)
       - query: select * from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
-      - explain: "SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS DEPT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q0.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.NAME AS _0, q0.NAME AS _1) }"
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN q2 } AS q2 RETURN (q0.NAME AS _0, q2.NAME AS _1) }"
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
     -
       # ambiguous sub-select is fine if the top-level query does not specify column names (select (*))
       - query: select (*) from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
-      - explain: "SCAN([IS DEPT]) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q0.ID AND q1.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN ((q0.NAME AS _0, q1.NAME AS _1) AS _0) }"
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN q2 } AS q2 RETURN ((q0.NAME AS _0, q2.NAME AS _1) AS _0) }"
       - unorderedResult: [{{"Engineering", "OLAP"}},
                           {{"Sales", "Feedback"}},
                           {{"Marketing", "SEO"}}]
     -
       # inner join version: different table order
       - query: select dept.name, project.name from project inner join emp on emp.id = project.emp_id inner join dept on emp.dept_id = dept.id;
-      - explain: "SCAN([IS DEPT]) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP, EQUALS q1.EMP_ID]) | FILTER _.DEPT_ID EQUALS q0.ID AS q2 RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }"
+      - explain: "ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP, EQUALS q1.EMP_ID]) | FILTER _.DEPT_ID EQUALS q0.ID AS q2 RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }"
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
     -
       # three-way join with NOT IN on dept
       - query: select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (1)
-      - explain: "SCAN([IS DEPT]) | FILTER NOT _.ID IN promote(@c41 AS ARRAY(LONG)) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q0.ID AND q1.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q0.ID AS ID, q0.NAME AS _1, q1.NAME AS _2) }"
+      - explain: "COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT _.ID IN promote(@c41 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN q2 } AS q2 RETURN (q0.ID AS ID, q0.NAME AS _1, q2.NAME AS _2) }"
       - unorderedResult: [{ID: 2, "Sales", "Feedback"},
                           {ID: 3, "Marketing", "SEO"}]
     -
       # inner join version with NOT IN on dept
       - query: select dept.id, dept.name, project.name from emp inner join dept on emp.dept_id = dept.id and dept.id not in (1) inner join project on project.emp_id = emp.id
-      - explain: "SCAN([IS DEPT]) | FILTER NOT _.ID IN promote(@c32 AS ARRAY(LONG)) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q0.ID AND q1.EMP_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q0.ID AS ID, q0.NAME AS _1, q1.NAME AS _2) }"
+      - explain: "COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT _.ID IN promote(@c32 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN q2 } AS q2 RETURN (q0.ID AS ID, q0.NAME AS _1, q2.NAME AS _2) }"
       - unorderedResult: [{ID: 2, "Sales", "Feedback"},
                           {ID: 3, "Marketing", "SEO"}]
     -
       # three-way join with multiple NOT IN conditions
       - query: select project.id, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (3) and project.id not in (3)
-      - explain: "SCAN([IS EMP]) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER NOT _.ID IN promote(@c37 AS ARRAY(LONG)) AND _.EMP_ID EQUALS q0.ID | FLATMAP q1 -> { SCAN([IS DEPT]) | FILTER NOT _.ID IN promote(@c37 AS ARRAY(LONG)) AND q0.DEPT_ID EQUALS _.ID AS q2 RETURN q1 } AS q1 RETURN (q1.ID AS ID, q1.NAME AS NAME) }"
+      - explain: "COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT _.ID IN promote(@c37 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER NOT _.ID IN promote(@c37 AS ARRAY(LONG)) AND _.EMP_ID EQUALS q1.ID AS q2 RETURN q2 } AS q2 RETURN (q2.ID AS ID, q2.NAME AS NAME) }"
       - unorderedResult: [{ID: 1, NAME: "OLAP"}]
     -
       # three-way join with IN on dept
       - query: select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1, 2)
-      - explain: "[IN arrayDistinct(promote(@c40 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 -> { SCAN([IS EMP]) | FILTER _.DEPT_ID EQUALS q1.ID AND q2.EMP_ID EQUALS _.ID AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME AS _1, q2.NAME AS _2) }"
+      - explain: "[IN arrayDistinct(promote(@c40 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0]) } | FLATMAP q1 -> { ISCAN(EMPDEPT [EQUALS q1.ID]) | FLATMAP q2 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q2.ID AS q3 RETURN q3 } AS q3 RETURN (q1.ID AS ID, q1.NAME AS _1, q3.NAME AS _2) }"
       - unorderedResult: [{ID: 1, "Engineering", "OLAP"},
                           {ID: 2, "Sales", "Feedback"}]
     -
       # double join with USING
       - query: select * from ja join jb using(c1) join jd using(c1);
-      - explain: "SCAN([IS JD]) | FLATMAP q0 -> { SCAN([IS JB]) | FLATMAP q1 -> { SCAN([IS JA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4 AS C4) }"
+      - explain: "SCAN([IS JD]) | FLATMAP q0 -> { SCAN([IS JB]) | FLATMAP q1 -> { SCAN([IS JA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4 AS C4) }"
       - result: [{c1: 1, c2: 2, c3: 3, c4: 4}]
     -
       # double join with USING: extra column
       - query: select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join jud using(c1);
-      - explain: "SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }"
+      - explain: "SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS JUA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }"
       - result: [{!pos 1: 5, !pos 2: 5, !pos 3: 5}]
     -
       # double join with USING: right column already hidden

@@ -65,19 +65,32 @@ basic-sql-function-tests:
     insert_reused_count: 10
 -   query: EXPLAIN select * from f1(103, 'b') where col1 = 101
     ref: sql-functions.yamsql:83
-    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c7 AS STRING), EQUALS promote(@c12
-        AS LONG)] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
-        AS COL1, _.COL2 AS COL2)'
-    task_count: 1316
-    task_total_time_ms: 130
-    transform_count: 299
-    transform_time_ms: 36
-    transform_yield_count: 112
-    insert_time_ms: 5
-    insert_new_count: 189
-    insert_reused_count: 17
--   query: EXPLAIN select * from f1(103 + 1, 'b')
+    explain: 'COVERING(T1_IDX4 [EQUALS promote(@c13 AS LONG), EQUALS promote(@c8 AS
+        STRING)] -> [COL1: KEY:[0], COL2: KEY:[1], COL3: KEY:[2]]) | FILTER _.COL1
+        LESS_THAN promote(@c6 AS LONG) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)'
+    task_count: 1420
+    task_total_time_ms: 138
+    transform_count: 317
+    transform_time_ms: 35
+    transform_yield_count: 116
+    insert_time_ms: 4
+    insert_new_count: 205
+    insert_reused_count: 19
+-   query: EXPLAIN select * from f1(103, 'c') where col1 = 104
     ref: sql-functions.yamsql:87
+    explain: 'COVERING(T1_IDX4 [EQUALS promote(@c13 AS LONG), EQUALS promote(@c8 AS
+        STRING)] -> [COL1: KEY:[0], COL2: KEY:[1], COL3: KEY:[2]]) | FILTER _.COL1
+        LESS_THAN promote(@c6 AS LONG) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)'
+    task_count: 1420
+    task_total_time_ms: 138
+    transform_count: 317
+    transform_time_ms: 35
+    transform_yield_count: 116
+    insert_time_ms: 4
+    insert_new_count: 205
+    insert_reused_count: 19
+-   query: EXPLAIN select * from f1(103 + 1, 'b')
+    ref: sql-functions.yamsql:95
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c9 AS STRING), [LESS_THAN promote(@c5
         + @c7 AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
         AS COL1, _.COL2 AS COL2)'
@@ -91,7 +104,7 @@ basic-sql-function-tests:
     insert_reused_count: 10
 -   query: EXPLAIN select * from (select * from f1(103 + 1, 'b')) as x where col1
         < 105
-    ref: sql-functions.yamsql:91
+    ref: sql-functions.yamsql:99
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c13 AS STRING), [LESS_THAN promote(@c21
         AS LONG) && LESS_THAN promote(@c9 + @c11 AS LONG)]] -> [COL1: KEY:[1], COL2:
         KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)'
@@ -105,37 +118,39 @@ basic-sql-function-tests:
     insert_reused_count: 19
 -   query: EXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from
         f1(103, 'b') A, f1(103, 'b') B where A.col1 = B.col1
-    ref: sql-functions.yamsql:95
-    explain: ISCAN(T1_IDX1 [EQUALS promote(@c29 AS STRING), [LESS_THAN promote(@c27
-        AS LONG)]]) | FLATMAP q0 -> { ISCAN(T1_IDX1 [EQUALS promote(@c29 AS STRING),
-        EQUALS q0.COL1]) AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y, q0.COL2
-        AS Z) }
-    task_count: 2633
-    task_total_time_ms: 282
-    transform_count: 609
-    transform_time_ms: 113
-    transform_yield_count: 224
+    ref: sql-functions.yamsql:103
+    explain: 'ISCAN(T1_IDX1 [EQUALS promote(@c30 AS STRING), [LESS_THAN promote(@c28
+        AS LONG)]]) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(@c30 AS STRING),
+        EQUALS q0.COL1] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | FILTER
+        _.COL1 LESS_THAN promote(@c28 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS W,
+        q1.COL2 AS X, q0.COL1 AS Y, q0.COL2 AS Z) }'
+    task_count: 2731
+    task_total_time_ms: 265
+    transform_count: 627
+    transform_time_ms: 101
+    transform_yield_count: 228
     insert_time_ms: 6
-    insert_new_count: 416
+    insert_new_count: 430
     insert_reused_count: 14
 -   query: EXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from
         f1(a => 103, b => 'b') A, f1(a => 103, b => 'b') B where A.col1 = B.col1
-    ref: sql-functions.yamsql:99
-    explain: ISCAN(T1_IDX1 [EQUALS promote(@c33 AS STRING), [LESS_THAN promote(@c29
-        AS LONG)]]) | FLATMAP q0 -> { ISCAN(T1_IDX1 [EQUALS promote(@c33 AS STRING),
-        EQUALS q0.COL1]) AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y, q0.COL2
-        AS Z) }
-    task_count: 2633
-    task_total_time_ms: 210
-    transform_count: 609
-    transform_time_ms: 80
-    transform_yield_count: 224
+    ref: sql-functions.yamsql:107
+    explain: 'ISCAN(T1_IDX1 [EQUALS promote(@c34 AS STRING), [LESS_THAN promote(@c30
+        AS LONG)]]) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(@c34 AS STRING),
+        EQUALS q0.COL1] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | FILTER
+        _.COL1 LESS_THAN promote(@c30 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS W,
+        q1.COL2 AS X, q0.COL1 AS Y, q0.COL2 AS Z) }'
+    task_count: 2731
+    task_total_time_ms: 263
+    transform_count: 627
+    transform_time_ms: 95
+    transform_yield_count: 228
     insert_time_ms: 5
-    insert_new_count: 416
+    insert_new_count: 430
     insert_reused_count: 14
 -   query: EXPLAIN with x(y, z) as (select * from f1(b => 'b', a => 103)) select *
         from x
-    ref: sql-functions.yamsql:103
+    ref: sql-functions.yamsql:111
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c16 AS STRING), [LESS_THAN promote(@c20
         AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
         AS Y, _.COL2 AS Z)'
@@ -148,7 +163,7 @@ basic-sql-function-tests:
     insert_new_count: 151
     insert_reused_count: 10
 -   query: EXPLAIN with x(y, z) as (select * from f1(103, 'b')) select * from x
-    ref: sql-functions.yamsql:107
+    ref: sql-functions.yamsql:115
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c16 AS STRING), [LESS_THAN promote(@c14
         AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
         AS Y, _.COL2 AS Z)'
@@ -161,7 +176,7 @@ basic-sql-function-tests:
     insert_new_count: 151
     insert_reused_count: 10
 -   query: EXPLAIN select * from t2 where exists (select * from f2(t2.z))
-    ref: sql-functions.yamsql:111
+    ref: sql-functions.yamsql:119
     explain: ISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3
         AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }
     task_count: 1047
@@ -173,7 +188,7 @@ basic-sql-function-tests:
     insert_new_count: 148
     insert_reused_count: 5
 -   query: EXPLAIN select * from t2 where exists (select * from f2(k => t2.z))
-    ref: sql-functions.yamsql:115
+    ref: sql-functions.yamsql:123
     explain: ISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3
         AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }
     task_count: 1047
@@ -185,7 +200,7 @@ basic-sql-function-tests:
     insert_new_count: 148
     insert_reused_count: 5
 -   query: EXPLAIN select * from f3(103, 'b', 4)
-    ref: sql-functions.yamsql:119
+    ref: sql-functions.yamsql:127
     explain: ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(@c9
         AS LONG) | FLATMAP q0 -> { ISCAN(T1_IDX1 [EQUALS promote(@c7 AS STRING), [LESS_THAN
         promote(@c5 AS LONG)]]) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3
@@ -199,7 +214,7 @@ basic-sql-function-tests:
     insert_new_count: 488
     insert_reused_count: 22
 -   query: EXPLAIN select * from f3(103, 'b', 4)
-    ref: sql-functions.yamsql:123
+    ref: sql-functions.yamsql:131
     explain: ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(@c9
         AS LONG) | FLATMAP q0 -> { ISCAN(T1_IDX1 [EQUALS promote(@c7 AS STRING), [LESS_THAN
         promote(@c5 AS LONG)]]) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3
@@ -213,7 +228,7 @@ basic-sql-function-tests:
     insert_new_count: 488
     insert_reused_count: 22
 -   query: EXPLAIN select * from f4(103, 'b', 2, 2)
-    ref: sql-functions.yamsql:127
+    ref: sql-functions.yamsql:135
     explain: ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(@c9
         AS LONG) + promote(@c9 AS LONG) | FLATMAP q0 -> { ISCAN(T1_IDX1 [EQUALS promote(@c7
         AS STRING), [LESS_THAN promote(@c5 AS LONG)]]) AS q1 RETURN (q1.COL1 AS COL1,
@@ -227,7 +242,7 @@ basic-sql-function-tests:
     insert_new_count: 1304
     insert_reused_count: 87
 -   query: EXPLAIN select * from f4(a => 103, b => 'b', c => 2, d => 2)
-    ref: sql-functions.yamsql:131
+    ref: sql-functions.yamsql:139
     explain: ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(@c15
         AS LONG) + promote(@c15 AS LONG) | FLATMAP q0 -> { ISCAN(T1_IDX1 [EQUALS promote(@c11
         AS STRING), [LESS_THAN promote(@c7 AS LONG)]]) AS q1 RETURN (q1.COL1 AS COL1,
@@ -241,7 +256,7 @@ basic-sql-function-tests:
     insert_new_count: 1304
     insert_reused_count: 87
 -   query: EXPLAIN select * from f5();
-    ref: sql-functions.yamsql:135
+    ref: sql-functions.yamsql:143
     explain: 'COVERING(T1_IDX1 [EQUALS promote(''b'' AS STRING), [LESS_THAN promote(103
         AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
         AS COL1, _.COL2 AS COL2)'
@@ -254,7 +269,7 @@ basic-sql-function-tests:
     insert_new_count: 147
     insert_reused_count: 10
 -   query: EXPLAIN select * from f5(103);
-    ref: sql-functions.yamsql:139
+    ref: sql-functions.yamsql:147
     explain: 'COVERING(T1_IDX1 [EQUALS promote(''b'' AS STRING), [LESS_THAN promote(@c5
         AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
         AS COL1, _.COL2 AS COL2)'
@@ -267,7 +282,7 @@ basic-sql-function-tests:
     insert_new_count: 147
     insert_reused_count: 10
 -   query: EXPLAIN select * from f5(b => 'b');
-    ref: sql-functions.yamsql:143
+    ref: sql-functions.yamsql:151
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c7 AS STRING), [LESS_THAN promote(103
         AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
         AS COL1, _.COL2 AS COL2)'
@@ -280,32 +295,6 @@ basic-sql-function-tests:
     insert_new_count: 147
     insert_reused_count: 10
 -   query: EXPLAIN select * from f5(b => 'b', a => 103);
-    ref: sql-functions.yamsql:147
-    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c7 AS STRING), [LESS_THAN promote(@c11
-        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
-        AS COL1, _.COL2 AS COL2)'
-    task_count: 1172
-    task_total_time_ms: 103
-    transform_count: 261
-    transform_time_ms: 23
-    transform_yield_count: 98
-    insert_time_ms: 3
-    insert_new_count: 147
-    insert_reused_count: 10
--   query: EXPLAIN select * from f5(b => 'b', a => 102);
-    ref: sql-functions.yamsql:151
-    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c7 AS STRING), [LESS_THAN promote(@c11
-        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
-        AS COL1, _.COL2 AS COL2)'
-    task_count: 1172
-    task_total_time_ms: 103
-    transform_count: 261
-    transform_time_ms: 23
-    transform_yield_count: 98
-    insert_time_ms: 3
-    insert_new_count: 147
-    insert_reused_count: 10
--   query: EXPLAIN select * from f5(b => 'a', a => 102);
     ref: sql-functions.yamsql:155
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c7 AS STRING), [LESS_THAN promote(@c11
         AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
@@ -318,8 +307,34 @@ basic-sql-function-tests:
     insert_time_ms: 3
     insert_new_count: 147
     insert_reused_count: 10
--   query: EXPLAIN select * from f5(a => 102, b => 'a');
+-   query: EXPLAIN select * from f5(b => 'b', a => 102);
     ref: sql-functions.yamsql:159
+    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c7 AS STRING), [LESS_THAN promote(@c11
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
+    task_count: 1172
+    task_total_time_ms: 103
+    transform_count: 261
+    transform_time_ms: 23
+    transform_yield_count: 98
+    insert_time_ms: 3
+    insert_new_count: 147
+    insert_reused_count: 10
+-   query: EXPLAIN select * from f5(b => 'a', a => 102);
+    ref: sql-functions.yamsql:163
+    explain: 'COVERING(T1_IDX1 [EQUALS promote(@c7 AS STRING), [LESS_THAN promote(@c11
+        AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
+    task_count: 1172
+    task_total_time_ms: 103
+    transform_count: 261
+    transform_time_ms: 23
+    transform_yield_count: 98
+    insert_time_ms: 3
+    insert_new_count: 147
+    insert_reused_count: 10
+-   query: EXPLAIN select * from f5(a => 102, b => 'a');
+    ref: sql-functions.yamsql:167
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c11 AS STRING), [LESS_THAN promote(@c7
         AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
         AS COL1, _.COL2 AS COL2)'
@@ -332,7 +347,7 @@ basic-sql-function-tests:
     insert_new_count: 147
     insert_reused_count: 10
 -   query: EXPLAIN select * from f5(102);
-    ref: sql-functions.yamsql:163
+    ref: sql-functions.yamsql:171
     explain: 'COVERING(T1_IDX1 [EQUALS promote(''b'' AS STRING), [LESS_THAN promote(@c5
         AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
         AS COL1, _.COL2 AS COL2)'
@@ -345,7 +360,7 @@ basic-sql-function-tests:
     insert_new_count: 147
     insert_reused_count: 10
 -   query: EXPLAIN select * from f5(102, 'a');
-    ref: sql-functions.yamsql:167
+    ref: sql-functions.yamsql:175
     explain: 'COVERING(T1_IDX1 [EQUALS promote(@c7 AS STRING), [LESS_THAN promote(@c5
         AS LONG)]] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | MAP (_.COL1
         AS COL1, _.COL2 AS COL2)'
