@@ -1057,7 +1057,7 @@ public class SchemaTemplateSerDeTests {
         @Nonnull
         public PlanGenerator getPlanGenerator() throws RelationalException, SQLException {
 
-            final var metricCollector = new NoOpMetricCollector();
+            final var metricCollector = NoOpMetricCollector.INSTANCE;
             final PlanContext ctx = PlanContext.Builder.create()
                     .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
                     .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)

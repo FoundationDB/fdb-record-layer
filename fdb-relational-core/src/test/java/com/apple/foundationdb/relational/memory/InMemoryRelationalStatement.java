@@ -93,7 +93,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
     public boolean execute(String sql) throws SQLException {
         try {
             final var txn = inMemoryTransactionManager.createTransaction(Options.NONE);
-            final var metricCollector = new NoOpMetricCollector();
+            final var metricCollector = NoOpMetricCollector.INSTANCE;
             final PlanContext ctx = PlanContext.Builder.create()
                     .withConstantActionFactory(relationalConn.getConstantActionFactory())
                     .withDdlQueryFactory(relationalConn.getDdlQueryFactory())

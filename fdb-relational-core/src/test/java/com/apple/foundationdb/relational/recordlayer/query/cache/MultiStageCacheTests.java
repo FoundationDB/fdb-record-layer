@@ -366,7 +366,7 @@ public class MultiStageCacheTests {
 
     private static String readCache(@Nonnull MultiStageCache<String, String, String, String> cache, @Nonnull String key,
                                     @Nonnull String secondaryKey, @Nonnull String tertiaryKey) {
-        return readCache(cache, key, secondaryKey, tertiaryKey, new NoOpMetricCollector());
+        return readCache(cache, key, secondaryKey, tertiaryKey, NoOpMetricCollector.INSTANCE);
     }
 
     private static String readCache(@Nonnull MultiStageCache<String, String, String, String> cache,
