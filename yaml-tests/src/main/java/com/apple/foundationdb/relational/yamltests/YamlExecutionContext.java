@@ -105,11 +105,11 @@ public final class YamlExecutionContext {
     @Nonnull
     private final Map<YamlReference.YamlResource, Boolean> isDirty = new HashMap<>();
     /**
-     * Pending result-metadata corrections, buffered so they can be applied in descending line-number
-     * order (to avoid stale-offset corruption when multiple corrections target the same file).
+     * Pending corrections (explain and result-metadata), buffered so they can be applied in descending
+     * line-number order to avoid stale-offset corruption when multiple corrections target the same file.
      */
     @Nonnull
-    private final Map<YamlReference.YamlResource, List<PendingMetadataCorrection>> pendingMetadataCorrections = new HashMap<>();
+    private final Map<YamlReference.YamlResource, List<YamlCorrection>> pendingCorrections = new HashMap<>();
     @Nullable
     private ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> expectedMetricsMap;
     @Nonnull
@@ -199,19 +199,33 @@ public final class YamlExecutionContext {
         if (editedFileStream.get(reference.getResource()) == null) {
             return false;
         }
-        // Buffer the correction; it will be applied in descending line-number order in replaceFilesIfRequired()
-        // to avoid stale-offset corruption when multiple corrections target the same file.
         synchronized (this) {
-            pendingMetadataCorrections
+            pendingCorrections
                     .computeIfAbsent(reference.getResource(), k -> new ArrayList<>())
-                    .add(new PendingMetadataCorrection(reference, new ArrayList<>(actualColumns)));
+                    .add(new MetadataCorrection(reference, new ArrayList<>(actualColumns)));
             isDirty.put(reference.getResource(), true);
         }
         return true;
     }
 
-    private void applyPendingMetadataCorrections(@Nonnull final YamlReference.YamlResource resource) {
-        final List<PendingMetadataCorrection> corrections = pendingMetadataCorrections.get(resource);
+    public boolean correctExplain(@Nonnull final YamlReference reference, @Nonnull String actual) {
+        if (!shouldCorrectExplains()) {
+            return false;
+        }
+        if (editedFileStream.get(reference.getResource()) == null) {
+            return false;
+        }
+        synchronized (this) {
+            pendingCorrections
+                    .computeIfAbsent(reference.getResource(), k -> new ArrayList<>())
+                    .add(new ExplainCorrection(reference, actual));
+            isDirty.put(reference.getResource(), true);
+        }
+        return true;
+    }
+
+    private void applyPendingCorrections(@Nonnull final YamlReference.YamlResource resource) {
+        final List<YamlCorrection> corrections = pendingCorrections.get(resource);
         if (corrections == null || corrections.isEmpty()) {
             return;
         }
@@ -220,11 +234,65 @@ public final class YamlExecutionContext {
             return;
         }
         // Sort descending by line number so each edit only shifts lines that have already been processed.
-        corrections.sort(Comparator.comparingInt(c -> -c.reference.getLineNumber()));
-        for (final PendingMetadataCorrection correction : corrections) {
-            final int startIdx = correction.reference.getLineNumber() - 1; // 1-based → 0-based
+        corrections.sort(Comparator.comparingInt(c -> -c.getLineNumber()));
+        for (final YamlCorrection correction : corrections) {
+            correction.apply(lines);
+        }
+    }
+
+    /**
+     * Replaces a single {@code explain:} line in the YAMSQL source file.
+     */
+    public static final class ExplainCorrection implements YamlCorrection {
+        @Nonnull
+        private final YamlReference reference;
+        @Nonnull
+        private final String actual;
+
+        ExplainCorrection(@Nonnull final YamlReference reference, @Nonnull final String actual) {
+            this.reference = reference;
+            this.actual = actual;
+        }
+
+        @Override
+        public int getLineNumber() {
+            return reference.getLineNumber();
+        }
+
+        @Override
+        public void apply(@Nonnull final List<String> lines) {
+            final int idx = reference.getLineNumber() - 1;
+            if (idx >= 0 && idx < lines.size()) {
+                lines.set(idx, "      - explain: \"" + actual + "\"");
+            }
+        }
+    }
+
+    /**
+     * Replaces a {@code resultMetadata:} block in the YAMSQL source file with the actual column descriptors.
+     */
+    public static final class MetadataCorrection implements YamlCorrection {
+        @Nonnull
+        private final YamlReference reference;
+        @Nonnull
+        private final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns;
+
+        MetadataCorrection(@Nonnull final YamlReference reference,
+                           @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
+            this.reference = reference;
+            this.actualColumns = actualColumns;
+        }
+
+        @Override
+        public int getLineNumber() {
+            return reference.getLineNumber();
+        }
+
+        @Override
+        public void apply(@Nonnull final List<String> lines) {
+            final int startIdx = reference.getLineNumber() - 1; // 1-based → 0-based
             if (startIdx < 0 || startIdx >= lines.size()) {
-                continue;
+                return;
             }
             final String startLine = lines.get(startIdx);
 
@@ -239,8 +307,8 @@ public final class YamlExecutionContext {
             final String itemPrefix = " ".repeat(indent);
             final String childPrefix = " ".repeat(indent + 4);
             newLines.add(itemPrefix + "- resultMetadata:");
-            for (final CheckResultMetadataConfig.ColumnDescriptor col : correction.actualColumns) {
-                newLines.add(childPrefix + "- {name: " + col.name + ", type: " + col.typeName + "}");
+            for (final CheckResultMetadataConfig.ColumnDescriptor col : actualColumns) {
+                newLines.add(childPrefix + "- {" + col.name + ": " + col.typeName + "}");
             }
 
             // Find the end of the existing resultMetadata block
@@ -264,36 +332,6 @@ public final class YamlExecutionContext {
 
             lines.subList(startIdx, endIdx).clear();
             lines.addAll(startIdx, newLines);
-        }
-    }
-
-    /**
-     * A buffered result-metadata correction: the parse-time reference (line number) plus the actual
-     * column descriptors to write.
-     */
-    private static final class PendingMetadataCorrection {
-        @Nonnull
-        final YamlReference reference;
-        @Nonnull
-        final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns;
-
-        PendingMetadataCorrection(@Nonnull final YamlReference reference,
-                                  @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
-            this.reference = reference;
-            this.actualColumns = actualColumns;
-        }
-    }
-
-    public boolean correctExplain(@Nonnull final YamlReference reference, @Nonnull String actual) {
-        if (!shouldCorrectExplains()) {
-            return false;
-        }
-        try {
-            editedFileStream.get(reference.getResource()).set(reference.getLineNumber() - 1, "      - explain: \"" + actual + "\"");
-            isDirty.put(reference.getResource(), true);
-            return true;
-        } catch (Exception e) {
-            return false;
         }
     }
 
@@ -362,8 +400,8 @@ public final class YamlExecutionContext {
             if (filePathsWithResourceCount.getOrDefault(resource.getPath(), 0L) > 1) {
                 Assertions.fail("Found duplicate entries for writing to file: " + resource.getPath());
             }
-            // Apply buffered result-metadata corrections in descending line-number order before saving.
-            applyPendingMetadataCorrections(resource);
+            // Apply buffered corrections (explain + result-metadata) in descending line-number order before saving.
+            applyPendingCorrections(resource);
             saveYamlFile(resource);
         }
         if (!isDirtyMetrics) {
@@ -881,6 +919,10 @@ public final class YamlExecutionContext {
 
         public static <T1, T2> ContextOptions of(ContextOption<T1> prop1, T1 value1, ContextOption<T2> prop2, T2 value2) {
             return new ContextOptions(Map.of(prop1, value1, prop2, value2));
+        }
+
+        public static <T1, T2, T3> ContextOptions of(ContextOption<T1> prop1, T1 value1, ContextOption<T2> prop2, T2 value2, ContextOption<T3> prop3, T3 value3) {
+            return new ContextOptions(Map.of(prop1, value1, prop2, value2, prop3, value3));
         }
 
         public ContextOptions mergeFrom(ContextOptions other) {

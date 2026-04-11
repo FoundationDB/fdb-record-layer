@@ -72,30 +72,30 @@ test_block:
       - query: SELECT * FROM sq1(10)
       - setupReference: tvf_sq1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
-          - {name: B, type: STRING}
-          - {name: C, type: INTEGER}
+          - {ID: BIGINT}
+          - {A: BIGINT}
+          - {B: STRING}
+          - {C: INTEGER}
       - unorderedResult: [{ID: 1, A: 10, B: 'test1', C: 100}, {ID: 2, A: 20, B: 'test2', C: 200}, {ID: 3, A: 30, B: 'test3', C: 300}]
     -
       # Call tmpFunction1 with different parameter
       - query: SELECT * FROM tmpFunction1(20)
       - setupReference: tvf_tmpFunction1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
-          - {name: B, type: STRING}
-          - {name: C, type: INTEGER}
+          - {ID: BIGINT}
+          - {A: BIGINT}
+          - {B: STRING}
+          - {C: INTEGER}
       - unorderedResult: [{ID: 1, A: 10, B: 'test1', C: 100}, {ID: 2, A: 20, B: 'test2', C: 200}, {ID: 3, A: 30, B: 'test3', C: 300}, {ID: 4, A: 50, B: 'test4', C: 400}]
     -
       # Verify the function with multiple conditions filters correctly
       - query: SELECT * FROM tmpFunction2(10)
       - setupReference: tvf_tmpFunction2
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
-          - {name: B, type: STRING}
-          - {name: C, type: INTEGER}
+          - {ID: BIGINT}
+          - {A: BIGINT}
+          - {B: STRING}
+          - {C: INTEGER}
       - unorderedResult: [{ID: 2, A: 20, B: 'test2', C: 200}, {ID: 3, A: 30, B: 'test3', C: 300}]
     -
       # Test joining two temporary functions with WHERE condition
@@ -107,13 +107,13 @@ test_block:
       - setupReference: tvf_T1
       - setupReference: tvf_T2
       - resultMetadata:
-          - {name: X_ID, type: BIGINT}
-          - {name: A, type: BIGINT}
-          - {name: B, type: STRING}
-          - {name: C, type: INTEGER}
-          - {name: Y_ID, type: BIGINT}
-          - {name: COL1, type: BIGINT}
-          - {name: COL2, type: STRING}
+          - {X_ID: BIGINT}
+          - {A: BIGINT}
+          - {B: STRING}
+          - {C: INTEGER}
+          - {Y_ID: BIGINT}
+          - {COL1: BIGINT}
+          - {COL2: STRING}
       - unorderedResult: [
           {X_ID: 1, A: 10, B: 'test1', C: 100, Y_ID: 1, COL1: 100, COL2: 'data1'},
           {X_ID: 2, A: 20, B: 'test2', C: 200, Y_ID: 2, COL1: 200, COL2: 'data2'},
@@ -125,8 +125,8 @@ test_block:
       - setupReference: tvf_T1
       - setupReference: tvf_T2
       - resultMetadata:
-          - {name: A, type: BIGINT}
-          - {name: COL2, type: STRING}
+          - {A: BIGINT}
+          - {COL2: STRING}
       - unorderedResult: [
           {A: 10, COL2: 'data1'},
           {A: 20, COL2: 'data2'},
@@ -138,9 +138,9 @@ test_block:
       - setupReference: tvf_T1
       - setupReference: tvf_T2
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
-          - {name: COL1, type: BIGINT}
+          - {ID: BIGINT}
+          - {A: BIGINT}
+          - {COL1: BIGINT}
       - unorderedResult: [
           {ID: 2, A: 20, COL1: 200},
           {ID: 3, A: 30, COL1: 300}]
@@ -151,10 +151,10 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_Nodes
       - resultMetadata:
-          - {name: PARENT_ID, type: BIGINT}
-          - {name: PARENT_NAME, type: STRING}
-          - {name: CHILD_ID, type: BIGINT}
-          - {name: CHILD_NAME, type: STRING}
+          - {PARENT_ID: BIGINT}
+          - {PARENT_NAME: STRING}
+          - {CHILD_ID: BIGINT}
+          - {CHILD_NAME: STRING}
       - unorderedResult: [
           {PARENT_ID: 1, PARENT_NAME: 'root', CHILD_ID: 2, CHILD_NAME: 'child1'},
           {PARENT_ID: 1, PARENT_NAME: 'root', CHILD_ID: 3, CHILD_NAME: 'child2'},
@@ -167,8 +167,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_Nodes
       - resultMetadata:
-          - {name: PARENT_NAME, type: STRING}
-          - {name: CHILD_NAME, type: STRING}
+          - {PARENT_NAME: STRING}
+          - {CHILD_NAME: STRING}
       - unorderedResult: [
           {PARENT_NAME: 'root', CHILD_NAME: 'child1'},
           {PARENT_NAME: 'root', CHILD_NAME: 'child2'}]
@@ -179,8 +179,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_Nodes
       - resultMetadata:
-          - {name: GRANDPARENT, type: STRING}
-          - {name: GRANDCHILD, type: STRING}
+          - {GRANDPARENT: STRING}
+          - {GRANDCHILD: STRING}
       - unorderedResult: [
           {GRANDPARENT: 'root', GRANDCHILD: 'grandchild1'},
           {GRANDPARENT: 'root', GRANDCHILD: 'grandchild2'},
@@ -191,9 +191,9 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_sq1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
-          - {name: B, type: STRING}
+          - {ID: BIGINT}
+          - {A: BIGINT}
+          - {B: STRING}
       - unorderedResult: [
           {ID: 1, A: 10, B: 'test1'},
           {ID: 2, A: 20, B: 'test2'},
@@ -204,8 +204,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_tmpFunction2
       - resultMetadata:
-          - {name: A, type: BIGINT}
-          - {name: C, type: INTEGER}
+          - {A: BIGINT}
+          - {C: INTEGER}
       - unorderedResult: [{A: 30, C: 300}]
     -
       # Test multiple aliases of the same function in self-join
@@ -213,10 +213,10 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: ID1, type: BIGINT}
-          - {name: ID2, type: BIGINT}
-          - {name: A1, type: BIGINT}
-          - {name: A2, type: BIGINT}
+          - {ID1: BIGINT}
+          - {ID2: BIGINT}
+          - {A1: BIGINT}
+          - {A2: BIGINT}
       - unorderedResult: [
           {ID1: 1, ID2: 2, A1: 10, A2: 20},
           {ID1: 1, ID2: 3, A1: 10, A2: 30},
@@ -227,9 +227,9 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: DOUBLED_A, type: BIGINT}
-          - {name: ADJUSTED_C, type: INTEGER}
+          - {ID: BIGINT}
+          - {DOUBLED_A: BIGINT}
+          - {ADJUSTED_C: INTEGER}
       - unorderedResult: [
           {ID: 1, DOUBLED_A: 20, ADJUSTED_C: 0},
           {ID: 2, DOUBLED_A: 40, ADJUSTED_C: 100}]
@@ -239,7 +239,7 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: CATEGORY, type: INTEGER}
+          - {CATEGORY: INTEGER}
       - unorderedResult: [
           {CATEGORY: 1},
           {CATEGORY: 2},
@@ -250,9 +250,9 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
-          - {name: C, type: INTEGER}
+          - {ID: BIGINT}
+          - {A: BIGINT}
+          - {C: INTEGER}
       - unorderedResult: [{ID: 3, A: 30, C: 300}]
     -
       # Test aliasing with CASE expression
@@ -260,8 +260,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: CATEGORY, type: STRING}
+          - {ID: BIGINT}
+          - {CATEGORY: STRING}
       - unorderedResult: [
           {ID: 1, CATEGORY: 'low'},
           {ID: 2, CATEGORY: 'medium'},
@@ -273,8 +273,8 @@ test_block:
       - setupReference: tvf_sq1
       - setupReference: tvf_tmpFunction1
       - resultMetadata:
-          - {name: ID1, type: BIGINT}
-          - {name: ID2, type: BIGINT}
+          - {ID1: BIGINT}
+          - {ID2: BIGINT}
       - unorderedResult: [
           {ID1: 1, ID2: 1},
           {ID1: 2, ID2: 2},
@@ -285,8 +285,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: SUM_VAL, type: BIGINT}
+          - {ID: BIGINT}
+          - {SUM_VAL: BIGINT}
       - unorderedResult: [
           {ID: 2, SUM_VAL: 220},
           {ID: 3, SUM_VAL: 330}]
@@ -296,8 +296,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
+          - {ID: BIGINT}
+          - {A: BIGINT}
       - unorderedResult: [
           {ID: 2, A: 20},
           {ID: 3, A: 30}]
@@ -307,8 +307,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
+          - {ID: BIGINT}
+          - {A: BIGINT}
       - unorderedResult: [
           {ID: 1, A: 10},
           {ID: 2, A: 20},
@@ -319,9 +319,9 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
-          - {name: B, type: STRING}
+          - {ID: BIGINT}
+          - {A: BIGINT}
+          - {B: STRING}
       - unorderedResult: [
           {ID: 2, A: 20, B: 'test2'},
           {ID: 3, A: 30, B: 'test3'}]
@@ -332,8 +332,8 @@ test_block:
       - setupReference: tvf_T1
       - setupReference: tvf_T2
       - resultMetadata:
-          - {name: A, type: BIGINT}
-          - {name: COL2, type: STRING}
+          - {A: BIGINT}
+          - {COL2: STRING}
       - unorderedResult: [
           {A: 10, COL2: 'data1'},
           {A: 20, COL2: 'data2'},
@@ -344,8 +344,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_sq1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
+          - {ID: BIGINT}
+          - {A: BIGINT}
       - unorderedResult: [
           {ID: 1, A: 10},
           {ID: 2, A: 20}]
@@ -355,8 +355,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: ID1, type: BIGINT}
-          - {name: ID2, type: BIGINT}
+          - {ID1: BIGINT}
+          - {ID2: BIGINT}
       - unorderedResult: [
           {ID1: 1, ID2: 2},
           {ID1: 1, ID2: 3}]
@@ -366,8 +366,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
+          - {ID: BIGINT}
+          - {A: BIGINT}
       - unorderedResult: [
           {ID: 2, A: 20},
           {ID: 3, A: 30}]
@@ -377,8 +377,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: MAX_A, type: BIGINT}
-          - {name: MIN_A, type: BIGINT}
+          - {MAX_A: BIGINT}
+          - {MIN_A: BIGINT}
       - unorderedResult: [{MAX_A: 30, MIN_A: 10}]
     -
       # Test join between subqueries with aliases
@@ -387,8 +387,8 @@ test_block:
       - setupReference: tvf_T1
       - setupReference: tvf_T2
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: COL1, type: BIGINT}
+          - {ID: BIGINT}
+          - {COL1: BIGINT}
       - unorderedResult: [
           {ID: 1, COL1: 100},
           {ID: 2, COL1: 200}]
@@ -398,8 +398,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_tmpFunction2
       - resultMetadata:
-          - {name: A, type: BIGINT}
-          - {name: C, type: INTEGER}
+          - {A: BIGINT}
+          - {C: INTEGER}
       - unorderedResult: [
           {A: 20, C: 200},
           {A: 30, C: 300}]
@@ -409,8 +409,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
+          - {ID: BIGINT}
+          - {A: BIGINT}
       - unorderedResult: [
           {ID: 1, A: 10},
           {ID: 2, A: 20}]
@@ -420,9 +420,9 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
-          - {name: B, type: STRING}
+          - {ID: BIGINT}
+          - {A: BIGINT}
+          - {B: STRING}
       - unorderedResult: [{ID: 1, A: 10, B: 'test1'}]
     -
       # Test subquery with DISTINCT and alias
@@ -430,7 +430,7 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: A, type: BIGINT}
+          - {A: BIGINT}
       - unorderedResult: [
           {A: 10},
           {A: 20},
@@ -441,8 +441,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: SIZE, type: STRING}
+          - {ID: BIGINT}
+          - {SIZE: STRING}
       - unorderedResult: [
           {ID: 1, SIZE: 'small'},
           {ID: 2, SIZE: 'large'},
@@ -453,8 +453,8 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
+          - {ID: BIGINT}
+          - {A: BIGINT}
       - unorderedResult: [
           {ID: 1, A: 10},
           {ID: 2, A: 20}]
@@ -463,9 +463,9 @@ test_block:
       - query: SELECT v.id, v.a, v.b FROM view_t1_filtered AS v
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
-          - {name: B, type: STRING}
+          - {ID: BIGINT}
+          - {A: BIGINT}
+          - {B: STRING}
       - unorderedResult: [
           {ID: 1, A: 10, B: 'test1'},
           {ID: 2, A: 20, B: 'test2'},
@@ -475,8 +475,8 @@ test_block:
       - query: SELECT v.id, v.a FROM view_t1_filtered AS v WHERE v.c > 100
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
+          - {ID: BIGINT}
+          - {A: BIGINT}
       - unorderedResult: [
           {ID: 2, A: 20},
           {ID: 3, A: 30}]
@@ -485,18 +485,18 @@ test_block:
       - query: SELECT v.id, v.a, v.c FROM view_t1_filtered AS v WHERE v.a >= 20 AND v.c < 300
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
-          - {name: C, type: INTEGER}
+          - {ID: BIGINT}
+          - {A: BIGINT}
+          - {C: INTEGER}
       - unorderedResult: [{ID: 2, A: 20, C: 200}]
     -
       # Test aliasing joined view with column references
       - query: SELECT vj.t1_id, vj.a, vj.col2 FROM view_joined AS vj
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: T1_ID, type: BIGINT}
-          - {name: A, type: BIGINT}
-          - {name: COL2, type: STRING}
+          - {T1_ID: BIGINT}
+          - {A: BIGINT}
+          - {COL2: STRING}
       - unorderedResult: [
           {T1_ID: 1, A: 10, COL2: 'data1'},
           {T1_ID: 2, A: 20, COL2: 'data2'},
@@ -506,9 +506,9 @@ test_block:
       - query: SELECT vj.t1_id, vj.col1, vj.col2 FROM view_joined AS vj WHERE vj.a >= 20
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: T1_ID, type: BIGINT}
-          - {name: COL1, type: BIGINT}
-          - {name: COL2, type: STRING}
+          - {T1_ID: BIGINT}
+          - {COL1: BIGINT}
+          - {COL2: STRING}
       - unorderedResult: [
           {T1_ID: 2, COL1: 200, COL2: 'data2'},
           {T1_ID: 3, COL1: 300, COL2: 'data3'}]
@@ -517,10 +517,10 @@ test_block:
       - query: SELECT v1.id AS id1, v2.id AS id2, v1.a AS a1, v2.a AS a2 FROM view_t1_filtered AS v1, view_t1_filtered AS v2 WHERE v1.a < v2.a
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID1, type: BIGINT}
-          - {name: ID2, type: BIGINT}
-          - {name: A1, type: BIGINT}
-          - {name: A2, type: BIGINT}
+          - {ID1: BIGINT}
+          - {ID2: BIGINT}
+          - {A1: BIGINT}
+          - {A2: BIGINT}
       - unorderedResult: [
           {ID1: 1, ID2: 2, A1: 10, A2: 20},
           {ID1: 1, ID2: 3, A1: 10, A2: 30},
@@ -530,9 +530,9 @@ test_block:
       - query: SELECT vf.id, vf.a, vj.col2 FROM view_t1_filtered AS vf, view_joined AS vj WHERE vf.id = vj.t1_id
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
-          - {name: COL2, type: STRING}
+          - {ID: BIGINT}
+          - {A: BIGINT}
+          - {COL2: STRING}
       - unorderedResult: [
           {ID: 1, A: 10, COL2: 'data1'},
           {ID: 2, A: 20, COL2: 'data2'},
@@ -542,9 +542,9 @@ test_block:
       - query: SELECT v.id, v.a, t.col2 FROM view_t1_filtered AS v, table_t2 AS t WHERE v.c = t.col1
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
-          - {name: COL2, type: STRING}
+          - {ID: BIGINT}
+          - {A: BIGINT}
+          - {COL2: STRING}
       - unorderedResult: [
           {ID: 1, A: 10, COL2: 'data1'},
           {ID: 2, A: 20, COL2: 'data2'},
@@ -554,9 +554,9 @@ test_block:
       - query: SELECT v.id, v.a * 2 AS doubled_a, v.c - v.a AS diff FROM view_t1_filtered AS v WHERE v.a <= 20
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: DOUBLED_A, type: BIGINT}
-          - {name: DIFF, type: BIGINT}
+          - {ID: BIGINT}
+          - {DOUBLED_A: BIGINT}
+          - {DIFF: BIGINT}
       - unorderedResult: [
           {ID: 1, DOUBLED_A: 20, DIFF: 90},
           {ID: 2, DOUBLED_A: 40, DIFF: 180}]
@@ -565,8 +565,8 @@ test_block:
       - query: SELECT outer_v.id, outer_v.a FROM (SELECT v.id, v.a, v.c FROM view_t1_filtered AS v WHERE v.a >= 20) AS outer_v
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
+          - {ID: BIGINT}
+          - {A: BIGINT}
       - unorderedResult: [
           {ID: 2, A: 20},
           {ID: 3, A: 30}]
@@ -575,15 +575,15 @@ test_block:
       - query: SELECT sub.id FROM (SELECT v1.id, v1.a FROM view_t1_filtered AS v1, view_t1_filtered AS v2 WHERE v1.id = v2.id AND v1.a = 10) AS sub
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID, type: BIGINT}
+          - {ID: BIGINT}
       - unorderedResult: [{ID: 1}]
     -
       # Test view alias with CASE expression referencing alias
       - query: SELECT v.id, CASE WHEN v.a < 20 THEN 'low' WHEN v.a < 30 THEN 'medium' ELSE 'high' END AS category FROM view_t1_filtered AS v
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: CATEGORY, type: STRING}
+          - {ID: BIGINT}
+          - {CATEGORY: STRING}
       - unorderedResult: [
           {ID: 1, CATEGORY: 'low'},
           {ID: 2, CATEGORY: 'medium'},
@@ -593,8 +593,8 @@ test_block:
       - query: WITH cte AS (SELECT v.id, v.a, v.b FROM view_t1_filtered AS v WHERE v.a <= 20) SELECT c.id, c.b FROM cte AS c
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: B, type: STRING}
+          - {ID: BIGINT}
+          - {B: STRING}
       - unorderedResult: [
           {ID: 1, B: 'test1'},
           {ID: 2, B: 'test2'}]
@@ -603,8 +603,8 @@ test_block:
       - query: WITH cte1 AS (SELECT v1.id, v1.a FROM view_t1_filtered AS v1), cte2 AS (SELECT v2.t1_id, v2.col2 FROM view_joined AS v2) SELECT c1.id, c2.col2 FROM cte1 AS c1, cte2 AS c2 WHERE c1.id = c2.t1_id
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: COL2, type: STRING}
+          - {ID: BIGINT}
+          - {COL2: STRING}
       - unorderedResult: [
           {ID: 1, COL2: 'data1'},
           {ID: 2, COL2: 'data2'},
@@ -614,7 +614,7 @@ test_block:
       - query: SELECT DISTINCT v.c / 100 AS category FROM view_t1_filtered AS v
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: CATEGORY, type: INTEGER}
+          - {CATEGORY: INTEGER}
       - unorderedResult: [
           {CATEGORY: 1},
           {CATEGORY: 2},
@@ -625,9 +625,9 @@ test_block:
       - supported_version: 4.9.6.0
       - setupReference: tvf_T1
       - resultMetadata:
-          - {name: VIEW_ID, type: BIGINT}
-          - {name: VIEW_A, type: BIGINT}
-          - {name: FUNC_ID, type: BIGINT}
+          - {VIEW_ID: BIGINT}
+          - {VIEW_A: BIGINT}
+          - {FUNC_ID: BIGINT}
       - unorderedResult: [
           {VIEW_ID: 2, VIEW_A: 20, FUNC_ID: 2},
           {VIEW_ID: 3, VIEW_A: 30, FUNC_ID: 3}]
@@ -636,17 +636,17 @@ test_block:
       - query: SELECT v1.id, v2.col2, t.b FROM view_t1_filtered AS v1, view_joined AS v2, table_t1 AS t WHERE v1.id = v2.t1_id AND v1.id = t.id AND v1.a = 10
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: COL2, type: STRING}
-          - {name: B, type: STRING}
+          - {ID: BIGINT}
+          - {COL2: STRING}
+          - {B: STRING}
       - unorderedResult: [{ID: 1, COL2: 'data1', B: 'test1'}]
     -
       # Test view alias in EXISTS subquery
       - query: SELECT t.id, t.a FROM table_t1 AS t WHERE EXISTS (SELECT 1 FROM view_t1_filtered AS v WHERE v.id = t.id AND v.a <= 20)
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: A, type: BIGINT}
+          - {ID: BIGINT}
+          - {A: BIGINT}
       - unorderedResult: [
           {ID: 1, A: 10},
           {ID: 2, A: 20}]
@@ -655,8 +655,8 @@ test_block:
       - query: SELECT v.id, v.a + v.c AS sum_val FROM view_t1_filtered AS v WHERE v.a + v.c > 200
       - supported_version: 4.9.6.0
       - resultMetadata:
-          - {name: ID, type: BIGINT}
-          - {name: SUM_VAL, type: BIGINT}
+          - {ID: BIGINT}
+          - {SUM_VAL: BIGINT}
       - unorderedResult: [
           {ID: 2, SUM_VAL: 220},
           {ID: 3, SUM_VAL: 330}]

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2025-2035 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,12 +23,14 @@ package com.apple.foundationdb.relational.yamltests.command.queryconfigs;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
+import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opentest4j.AssertionFailedError;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -41,17 +43,16 @@ import java.util.Map;
  * QueryConfig associated with {@link QueryConfig#QUERY_CONFIG_RESULT_METADATA} that validates the column
  * metadata (column names and SQL type names) of a query's result set.
  * <p>
- *     The expected metadata is specified in the YAMSQL file as a list of column descriptors, each with optional
- *     {@code name} and {@code type} fields. Column names are compared case-insensitively. Either field may be
- *     omitted to skip checking that attribute for a given column.
+ *     The expected metadata is specified in the YAMSQL file as a list of column descriptors in
+ *     {@code {name: type}} format. Column names are compared case-insensitively.
  * </p>
  * <p>
  *     Example YAMSQL usage:
  *     <pre>
  *     - query: SELECT id, col1 FROM t1
  *       resultMetadata:
- *         - {name: ID, type: BIGINT}
- *         - {name: COL1, type: BIGINT}
+ *         - {ID: BIGINT}
+ *         - {COL1: BIGINT}
  *       result: [{!l 10, !l 20}]
  *     </pre>
  * </p>
@@ -59,6 +60,19 @@ import java.util.Map;
  *     When {@link YamlExecutionContext#OPTION_CORRECT_RESULT_METADATA} is set (i.e., running under
  *     {@link com.apple.foundationdb.relational.yamltests.configs.CorrectResultMetadata}), mismatches cause the
  *     YAMSQL source file to be updated with the actual column metadata rather than failing the test.
+ * </p>
+ * <p>
+ *     Two execution modes are supported:
+ *     <ul>
+ *         <li><b>Independent</b> (default): the query is re-executed with a fresh connection and the result set is
+ *         consumed. Used when {@code resultMetadata} precedes the first {@code result:} page.</li>
+ *         <li><b>Inline</b>: descriptors are extracted from a live {@link RelationalResultSet} that is already open
+ *         (and whose rows have not yet been consumed), then the result set is passed on to the sibling {@code result:}
+ *         config. Used when {@code resultMetadata} appears alongside a continuation {@code result:} page, e.g. for
+ *         mixed-version testing where the original query runs on server version 1 and
+ *         {@code EXECUTE CONTINUATION} runs on server version 2.  In that scenario the query cannot be re-executed
+ *         from scratch, so the metadata must be checked against the continuation result set directly.</li>
+ *     </ul>
  * </p>
  */
 @SuppressWarnings("PMD.GuardLogStatement")
@@ -75,6 +89,47 @@ public class CheckResultMetadataConfig extends QueryConfig {
         this.executionContext = executionContext;
     }
 
+    /**
+     * Extract column descriptors from result-set metadata without consuming any rows.
+     * This is a pure read of the schema; the result set remains positioned before the first row.
+     */
+    @Nonnull
+    public static List<ColumnDescriptor> extractDescriptors(@Nonnull final RelationalResultSetMetaData meta)
+            throws SQLException {
+        final int count = meta.getColumnCount();
+        final List<ColumnDescriptor> descriptors = new ArrayList<>(count);
+        for (int i = 1; i <= count; i++) {
+            descriptors.add(new ColumnDescriptor(meta.getColumnName(i), meta.getColumnTypeName(i)));
+        }
+        return descriptors;
+    }
+
+    /**
+     * Inline metadata check: compare the given descriptors (already extracted from a live result set) against the
+     * expected metadata declared in the YAMSQL file, without executing the query again.
+     * <p>
+     *     This is called by {@link com.apple.foundationdb.relational.yamltests.command.QueryExecutor} when
+     *     {@code resultMetadata} is paired with a continuation {@code result:} page.  The result set has not had
+     *     any rows consumed yet, so the sibling result config can still iterate over them.
+     * </p>
+     */
+    public void checkInline(@Nonnull final List<ColumnDescriptor> actualDescriptors,
+                            @Nonnull final String currentQuery,
+                            @Nonnull final String queryDescription,
+                            @Nonnull final YamlConnection connection) {
+        try {
+            checkDescriptorsInternal(actualDescriptors, queryDescription);
+        } catch (AssertionFailedError e) {
+            throw YamlExecutionContext.wrapContext(e,
+                    () -> "‼️Check result failed in config at " + getReference() + " against connection for versions " + connection.getVersions(),
+                    "config [" + QueryConfig.QUERY_CONFIG_RESULT_METADATA + ": " + getVal() + "] ", getReference());
+        } catch (Throwable e) {
+            throw YamlExecutionContext.wrapContext(e,
+                    () -> "‼️Failed to test config at " + getReference() + " against connection for versions " + connection.getVersions(),
+                    "config [" + QueryConfig.QUERY_CONFIG_RESULT_METADATA + ": " + getVal() + "] ", getReference());
+        }
+    }
+
     @Override
     @SuppressWarnings({"PMD.CloseResource", "unchecked", "PMD.EmptyWhileStmt"})
     protected void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
@@ -85,55 +140,63 @@ public class CheckResultMetadataConfig extends QueryConfig {
             return;
         }
         try (RelationalResultSet rs = (RelationalResultSet) actual) {
-            // Collect actual column metadata while the result set is open
-            final RelationalResultSetMetaData meta = rs.getMetaData();
-            final int actualColumnCount = meta.getColumnCount();
-            final List<ColumnDescriptor> actualDescriptors = new ArrayList<>(actualColumnCount);
-            for (int i = 1; i <= actualColumnCount; i++) {
-                actualDescriptors.add(new ColumnDescriptor(meta.getColumnName(i), meta.getColumnTypeName(i)));
-            }
-
-            // Slurp remaining rows to fully release any server-side cursor resources
+            // Read metadata before consuming rows (metadata is available from the open result set)
+            final List<ColumnDescriptor> actualDescriptors = extractDescriptors(rs.getMetaData());
+            // Exhaust the result set: getContinuation() requires the result set to be fully iterated
             // noinspection StatementWithEmptyBody
             while (rs.next()) {
-                // consume
             }
-
-            final Object val = getVal();
-            final List<Map<?, ?>> expectedColumns = val == null ? List.of() : (List<Map<?, ?>>) val;
-
-            if (executionContext.shouldCorrectResultMetadata()) {
-                if (!matchesExpected(expectedColumns, actualDescriptors)) {
-                    if (!executionContext.correctResultMetadata(getReference(), actualDescriptors)) {
-                        QueryCommand.reportTestFailure("‼️ Cannot correct resultMetadata at " + getReference());
-                    } else {
-                        logger.debug(() -> "⭐️ Successfully corrected resultMetadata at " + getReference());
-                    }
-                }
-                return;
-            }
-
-            logger.debug("⛳️ Checking result metadata for query '{}'", queryDescription);
-            if (!matchesExpected(expectedColumns, actualDescriptors)) {
-                final StringBuilder sb = new StringBuilder();
-                sb.append("‼️ result metadata mismatch at ").append(getReference()).append(":\n")
-                  .append("⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n")
-                  .append("↪ expected columns (").append(expectedColumns.size()).append("):\n");
-                for (Map<?, ?> col : expectedColumns) {
-                    sb.append("    name=").append(getField(col, "name"))
-                      .append(", type=").append(getField(col, "type")).append('\n');
-                }
-                sb.append("⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n")
-                  .append("↩ actual columns (").append(actualColumnCount).append("):\n");
-                for (ColumnDescriptor desc : actualDescriptors) {
-                    sb.append("    name=").append(desc.name)
-                      .append(", type=").append(desc.typeName).append('\n');
-                }
-                QueryCommand.reportTestFailure(sb.toString());
-            } else {
-                logger.debug("✅ result metadata matches!");
-            }
+            checkDescriptorsInternal(actualDescriptors, queryDescription);
         }
+    }
+
+    /**
+     * Core comparison and correction logic, shared between independent and inline execution modes.
+     * Expects descriptors already extracted; does not touch the result set.
+     */
+    @SuppressWarnings("unchecked")
+    private void checkDescriptorsInternal(@Nonnull final List<ColumnDescriptor> actualDescriptors,
+                                          @Nonnull final String queryDescription) {
+        final Object val = getVal();
+        final List<Map<?, ?>> expectedColumns = val == null ? List.of() : (List<Map<?, ?>>) val;
+
+        logger.debug("⛳️ Checking result metadata for query '{}'", queryDescription);
+        if (!matchesExpected(expectedColumns, actualDescriptors)) {
+            if (executionContext.shouldCorrectResultMetadata()) {
+                correctMetadata(actualDescriptors);
+            } else {
+                reportMetadataMismatch(expectedColumns, actualDescriptors);
+            }
+        } else {
+            logger.debug("✅ result metadata matches!");
+        }
+    }
+
+    private void correctMetadata(@Nonnull final List<ColumnDescriptor> actualDescriptors) {
+        if (!executionContext.correctResultMetadata(getReference(), actualDescriptors)) {
+            QueryCommand.reportTestFailure("‼️ Cannot correct resultMetadata at " + getReference());
+        } else {
+            logger.debug(() -> "⭐️ Successfully corrected resultMetadata at " + getReference());
+        }
+    }
+
+    private void reportMetadataMismatch(@Nonnull final List<Map<?, ?>> expectedColumns,
+                                        @Nonnull final List<ColumnDescriptor> actualDescriptors) {
+        final StringBuilder sb = new StringBuilder();
+        sb.append("‼️ result metadata mismatch at ").append(getReference()).append(":\n")
+          .append("⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n")
+          .append("↪ expected columns (").append(expectedColumns.size()).append("):\n");
+        for (Map<?, ?> col : expectedColumns) {
+            final Map.Entry<?, ?> entry = CustomYamlConstructor.LinedObject.unlineKeys(col).entrySet().iterator().next();
+            sb.append("    ").append(entry.getKey())
+              .append(": ").append(entry.getValue()).append('\n');
+        }
+        sb.append("⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n")
+          .append("↩ actual columns (").append(actualDescriptors.size()).append("):\n");
+        for (ColumnDescriptor desc : actualDescriptors) {
+            sb.append("    ").append(desc.name).append(": ").append(desc.typeName).append('\n');
+        }
+        QueryCommand.reportTestFailure(sb.toString());
     }
 
     private static boolean matchesExpected(@Nonnull final List<Map<?, ?>> expected,
@@ -142,11 +205,12 @@ public class CheckResultMetadataConfig extends QueryConfig {
             return false;
         }
         for (int i = 0; i < expected.size(); i++) {
-            final Map<?, ?> expectedCol = expected.get(i);
+            final Map<?, ?> expectedCol = CustomYamlConstructor.LinedObject.unlineKeys(expected.get(i));
             final ColumnDescriptor actualCol = actual.get(i);
-            final String expectedName = getField(expectedCol, "name");
-            final String expectedType = getField(expectedCol, "type");
-            if (expectedName != null && !expectedName.equalsIgnoreCase(actualCol.name)) {
+            final Map.Entry<?, ?> entry = expectedCol.entrySet().iterator().next();
+            final String expectedName = entry.getKey().toString();
+            final String expectedType = entry.getValue() == null ? null : entry.getValue().toString();
+            if (!expectedName.equalsIgnoreCase(actualCol.name)) {
                 return false;
             }
             if (expectedType != null && !expectedType.equalsIgnoreCase(actualCol.typeName)) {
@@ -154,24 +218,6 @@ public class CheckResultMetadataConfig extends QueryConfig {
             }
         }
         return true;
-    }
-
-    /**
-     * Extract a named field from a column descriptor map. Keys may be plain Strings or
-     * {@link CustomYamlConstructor.LinedObject}-wrapped Strings.
-     */
-    @Nullable
-    static String getField(@Nonnull final Map<?, ?> col, @Nonnull final String fieldName) {
-        for (Map.Entry<?, ?> entry : col.entrySet()) {
-            Object key = entry.getKey();
-            if (key instanceof CustomYamlConstructor.LinedObject) {
-                key = ((CustomYamlConstructor.LinedObject) key).getObject();
-            }
-            if (fieldName.equals(key)) {
-                return entry.getValue() == null ? null : entry.getValue().toString();
-            }
-        }
-        return null;
     }
 
     /**

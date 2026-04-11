@@ -1,9 +1,9 @@
 /*
- * CorrectResultMetadata.java
+ * CorrectExpectations.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,14 +25,17 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import javax.annotation.Nonnull;
 
 /**
- * A configuration that runs an underlying configuration, but heals {@code resultMetadata} blocks in YAMSQL files
- * where expected and actual column metadata differ.
+ * A configuration that corrects all expected values in YAML files: explains, planner metrics, and result metadata.
  * <p>
- *     See {@link YamlExecutionContext#OPTION_CORRECT_RESULT_METADATA}.
+ *     See {@link YamlExecutionContext#OPTION_CORRECT_EXPLAIN}, {@link YamlExecutionContext#OPTION_CORRECT_METRICS},
+ *     and {@link YamlExecutionContext#OPTION_CORRECT_RESULT_METADATA}.
  * </p>
  */
-public class CorrectResultMetadata extends ConfigWithOptions {
-    public CorrectResultMetadata(@Nonnull final YamlTestConfig underlying) {
-        super(underlying, YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_CORRECT_RESULT_METADATA, true));
+public class CorrectExpectations extends ConfigWithOptions {
+    public CorrectExpectations(@Nonnull final YamlTestConfig underlying) {
+        super(underlying, YamlExecutionContext.ContextOptions.of(
+                YamlExecutionContext.OPTION_CORRECT_EXPLAIN, true,
+                YamlExecutionContext.OPTION_CORRECT_METRICS, true,
+                YamlExecutionContext.OPTION_CORRECT_RESULT_METADATA, true));
     }
 }

@@ -72,13 +72,14 @@ public enum YamlTestConfigFilters {
         }
     },
     /**
-     * Used to correct both.
+     * Used to correct explains, metrics, and result metadata.
      */
-    CORRECT_EXPLAIN_AND_METRICS {
+    CORRECT_EXPECTATIONS {
         @Override
         boolean filter(final YamlTestConfig config) {
             return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_EXPLAIN, false) &&
-                    config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_METRICS, false);
+                    config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_METRICS, false) &&
+                    config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_RESULT_METADATA, false);
         }
     },
     /**

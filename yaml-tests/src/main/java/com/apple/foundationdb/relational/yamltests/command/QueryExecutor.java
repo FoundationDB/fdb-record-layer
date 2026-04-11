@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.yamltests.AggregateResultSet;
 import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Parameter;
+import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckResultMetadataConfig;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -102,16 +103,33 @@ public class QueryExecutor {
     @Nullable
     public Continuation execute(@Nonnull YamlConnection connection, @Nullable Continuation continuation,
                                 @Nonnull QueryConfig config, boolean checkCache, @Nullable Integer maxRows) throws RelationalException {
+        return execute(connection, continuation, config, checkCache, maxRows, null);
+    }
+
+    /**
+     * Execute the query, optionally checking column metadata inline before handing the result set to {@code config}.
+     * <p>
+     *     When {@code inlineMetadataConfig} is non-null, column descriptors are extracted from the result set
+     *     <em>before</em> any rows are consumed, and {@link CheckResultMetadataConfig#checkInline} is called.
+     *     The result set is then passed to {@code config} intact so it can validate the rows.  This is used for
+     *     continuation pages in mixed-version tests, where the query cannot be re-executed from scratch.
+     * </p>
+     * @param inlineMetadataConfig optional companion metadata config; {@code null} for no inline metadata check
+     */
+    @Nullable
+    public Continuation execute(@Nonnull YamlConnection connection, @Nullable Continuation continuation,
+                                @Nonnull QueryConfig config, boolean checkCache, @Nullable Integer maxRows,
+                                @Nullable CheckResultMetadataConfig inlineMetadataConfig) throws RelationalException {
         final var currentQuery = config.decorateQuery(query);
         if (continuation == null) {
             // no continuation - start the query execution from the beginning
-            return executeQuery(connection, config, currentQuery, checkCache, maxRows);
+            return executeQuery(connection, config, currentQuery, checkCache, maxRows, inlineMetadataConfig);
         } else if (checkBeginningContinuation(continuation, connection)) {
             // Continuation cannot be at beginning if it was returned from a query
             return ContinuationImpl.END;
         } else {
             // Have a continuation - continue
-            return executeContinuation(connection, continuation, config, currentQuery, maxRows);
+            return executeContinuation(connection, continuation, config, currentQuery, maxRows, inlineMetadataConfig);
         }
     }
 
@@ -157,7 +175,8 @@ public class QueryExecutor {
 
     @Nullable
     private Continuation executeQuery(@Nonnull YamlConnection connection, @Nonnull QueryConfig config,
-                                      @Nonnull String currentQuery, boolean checkCache, @Nullable Integer maxRows) throws RelationalException {
+                                      @Nonnull String currentQuery, boolean checkCache, @Nullable Integer maxRows,
+                                      @Nullable CheckResultMetadataConfig inlineMetadataConfig) throws RelationalException {
         Continuation continuationAfter = null;
         try {
             if (parameters == null) {
@@ -165,6 +184,7 @@ public class QueryExecutor {
                 continuationAfter = executeWithSetup(connection, singleConnection -> {
                     try (var s = singleConnection.createStatement()) {
                         final var queryResult = executeStatementAndCheckCacheIfNeeded(s, false, singleConnection, currentQuery, checkCache, maxRows);
+                        checkInlineMetadataIfPresent(inlineMetadataConfig, queryResult, currentQuery, singleConnection);
                         config.checkResult(currentQuery, queryResult, this.toString(), singleConnection, setup);
                         if (queryResult instanceof RelationalResultSet) {
                             return ((RelationalResultSet) queryResult).getContinuation();
@@ -178,6 +198,7 @@ public class QueryExecutor {
                     try (var s = singleConnection.prepareStatement(currentQuery)) {
                         setParametersInPreparedStatement(s);
                         final var queryResult = executeStatementAndCheckCacheIfNeeded(s, true, singleConnection, currentQuery, checkCache, maxRows);
+                        checkInlineMetadataIfPresent(inlineMetadataConfig, queryResult, currentQuery, singleConnection);
                         config.checkResult(currentQuery, queryResult, this.toString(), singleConnection, setup);
                         if (queryResult instanceof RelationalResultSet) {
                             return ((RelationalResultSet)queryResult).getContinuation();
@@ -211,7 +232,9 @@ public class QueryExecutor {
 
     @Nullable
     private Continuation executeContinuation(@Nonnull YamlConnection connection, @Nonnull Continuation continuation,
-                                             @Nonnull QueryConfig config, final @Nonnull String currentQuery, @Nullable Integer maxRows) {
+                                             @Nonnull QueryConfig config, final @Nonnull String currentQuery,
+                                             @Nullable Integer maxRows,
+                                             @Nullable CheckResultMetadataConfig inlineMetadataConfig) {
         Continuation continuationAfter = null;
         try {
             logger.debug("⏳ Executing continuation for query '{}'", this.toString());
@@ -220,6 +243,7 @@ public class QueryExecutor {
                 // We bypass checking for cache since the "EXECUTE CONTINUATION ..." statement does not need to be checked
                 // for caching.
                 final var queryResult = executeStatement(s, true, currentQuery);
+                checkInlineMetadataIfPresent(inlineMetadataConfig, queryResult, executeContinuationQuery, connection);
                 config.checkResult(executeContinuationQuery, queryResult, this.toString(), connection, setup);
                 if (queryResult instanceof RelationalResultSet) {
                     continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
@@ -230,6 +254,22 @@ public class QueryExecutor {
             config.checkError(sqle, query, connection);
         }
         return continuationAfter;
+    }
+
+    /**
+     * If a companion metadata config is present and the query produced a result set, extract the column descriptors
+     * and call {@link CheckResultMetadataConfig#checkInline} <em>before</em> any rows are consumed.
+     */
+    private static void checkInlineMetadataIfPresent(@Nullable CheckResultMetadataConfig inlineMetadataConfig,
+                                                     @Nonnull Object queryResult,
+                                                     @Nonnull String currentQuery,
+                                                     @Nonnull YamlConnection connection) throws SQLException {
+        if (inlineMetadataConfig == null || !(queryResult instanceof RelationalResultSet)) {
+            return;
+        }
+        final List<CheckResultMetadataConfig.ColumnDescriptor> descriptors =
+                CheckResultMetadataConfig.extractDescriptors(((RelationalResultSet) queryResult).getMetaData());
+        inlineMetadataConfig.checkInline(descriptors, currentQuery, currentQuery, connection);
     }
 
     private RelationalPreparedStatement prepareContinuationStatement(@Nonnull YamlConnection connection,
