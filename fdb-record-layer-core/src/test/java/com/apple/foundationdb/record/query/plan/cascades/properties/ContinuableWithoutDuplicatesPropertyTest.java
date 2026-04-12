@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
@@ -78,9 +79,9 @@ class ContinuableWithoutDuplicatesPropertyTest {
                 "DummyIndexB", IndexScanComparisons.byValue(), false);
         final var unionPlan = RecordQueryUnorderedUnionPlan.from(
                 ImmutableList.of(indexScanA, indexScanB));
-        final var unorderedDistinct = new RecordQueryUnorderedDistinctPlan(unionPlan, Key.Expressions.field("a_field"));
+        final var unorderedDistinctByPrimaryKey = new RecordQueryUnorderedPrimaryKeyDistinctPlan(unionPlan);
         final var filterPlan = new RecordQueryFilterPlan(
-                unorderedDistinct, Query.field("a_field").lessThan(50));
+                unorderedDistinctByPrimaryKey, Query.field("a_field").lessThan(50));
         final var mapPlan = new RecordQueryMapPlan(
                 Quantifier.physical(Reference.plannedOf(filterPlan)),
                 RecordConstructorValue.ofUnnamed(ImmutableList.of()));
@@ -108,5 +109,10 @@ class ContinuableWithoutDuplicatesPropertyTest {
         final var continuableWithoutDuplicates = continuableWithoutDuplicates().evaluate(mapPlan);
 
         assertThat(continuableWithoutDuplicates).isFalse();
+    }
+
+    @Test
+    void toStringReturnsSimpleClassName() {
+        assertThat(continuableWithoutDuplicates()).hasToString("ContinuableWithoutDuplicatesProperty");
     }
 }
