@@ -152,7 +152,8 @@ jobs:
           path: |
             ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/
       - name: Add Coverage Summary
-        uses: madrapps/jacoco-report@e4bbaf00a0b8920cb86a448ae3ec0fc6f6bfeacc
+        # v1.7.2
+        uses: madrapps/jacoco-report@50d3aff4548aa991e6753342d9ba291084e63848
         with:
           paths: |
             ${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml
