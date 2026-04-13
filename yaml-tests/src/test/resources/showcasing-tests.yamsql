@@ -193,7 +193,7 @@ test_block:
       # `explainContains` checks that the query plan contains the given substring,
       # rather than matching the entire plan string exactly (as `explain` does).
       - query: select * from t1 where id = 10;
-      - explainContains: "TFILTER T1"
+      - explainContains: "IS T1, EQUALS"
       - result: [{!l 10, !l 20}]
 
     # ------------------------------------------------------------------
