@@ -104,7 +104,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
             throw YamlExecutionContext.wrapContext(e,
                     () -> "‼️Check result failed in config at " + getReference() + " against connection for versions " + connection.getVersions(),
                     "config [" + QueryConfig.QUERY_CONFIG_RESULT_METADATA + ": " + getVal() + "] ", getReference());
-        } catch (Throwable e) {
+        } catch (RuntimeException e) {
             throw YamlExecutionContext.wrapContext(e,
                     () -> "‼️Failed to test config at " + getReference() + " against connection for versions " + connection.getVersions(),
                     "config [" + QueryConfig.QUERY_CONFIG_RESULT_METADATA + ": " + getVal() + "] ", getReference());
