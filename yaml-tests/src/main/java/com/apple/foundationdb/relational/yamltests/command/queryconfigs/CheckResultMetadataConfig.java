@@ -61,19 +61,6 @@ import java.util.Map;
  *     {@link com.apple.foundationdb.relational.yamltests.configs.CorrectResultMetadata}), mismatches cause the
  *     YAMSQL source file to be updated with the actual column metadata rather than failing the test.
  * </p>
- * <p>
- *     Two execution modes are supported:
- *     <ul>
- *         <li><b>Independent</b> (default): the query is re-executed with a fresh connection and the result set is
- *         consumed. Used when {@code resultMetadata} precedes the first {@code result:} page.</li>
- *         <li><b>Inline</b>: descriptors are extracted from a live {@link RelationalResultSet} that is already open
- *         (and whose rows have not yet been consumed), then the result set is passed on to the sibling {@code result:}
- *         config. Used when {@code resultMetadata} appears alongside a continuation {@code result:} page, e.g. for
- *         mixed-version testing where the original query runs on server version 1 and
- *         {@code EXECUTE CONTINUATION} runs on server version 2.  In that scenario the query cannot be re-executed
- *         from scratch, so the metadata must be checked against the continuation result set directly.</li>
- *     </ul>
- * </p>
  */
 @SuppressWarnings("PMD.GuardLogStatement")
 public class CheckResultMetadataConfig extends QueryConfig {
@@ -94,12 +81,12 @@ public class CheckResultMetadataConfig extends QueryConfig {
      * This is a pure read of the schema; the result set remains positioned before the first row.
      */
     @Nonnull
-    public static List<ColumnDescriptor> extractDescriptors(@Nonnull final RelationalResultSetMetaData meta)
+    public static List<ColumnDescriptor> extractDescriptors(@Nonnull final RelationalResultSetMetaData metaData)
             throws SQLException {
-        final int count = meta.getColumnCount();
+        final int count = metaData.getColumnCount();
         final List<ColumnDescriptor> descriptors = new ArrayList<>(count);
         for (int i = 1; i <= count; i++) {
-            descriptors.add(new ColumnDescriptor(meta.getColumnName(i), meta.getColumnTypeName(i)));
+            descriptors.add(new ColumnDescriptor(metaData.getColumnName(i), metaData.getColumnTypeName(i)));
         }
         return descriptors;
     }
@@ -107,14 +94,8 @@ public class CheckResultMetadataConfig extends QueryConfig {
     /**
      * Inline metadata check: compare the given descriptors (already extracted from a live result set) against the
      * expected metadata declared in the YAMSQL file, without executing the query again.
-     * <p>
-     *     This is called by {@link com.apple.foundationdb.relational.yamltests.command.QueryExecutor} when
-     *     {@code resultMetadata} is paired with a continuation {@code result:} page.  The result set has not had
-     *     any rows consumed yet, so the sibling result config can still iterate over them.
-     * </p>
      */
     public void checkInline(@Nonnull final List<ColumnDescriptor> actualDescriptors,
-                            @Nonnull final String currentQuery,
                             @Nonnull final String queryDescription,
                             @Nonnull final YamlConnection connection) {
         try {
@@ -131,7 +112,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
     }
 
     @Override
-    @SuppressWarnings({"PMD.CloseResource", "unchecked", "PMD.EmptyWhileStmt"})
+    @SuppressWarnings({"PMD.CloseResource", "PMD.EmptyWhileStmt"})
     protected void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
                                        @Nonnull final String queryDescription,
                                        @Nonnull final List<String> setups) throws SQLException {

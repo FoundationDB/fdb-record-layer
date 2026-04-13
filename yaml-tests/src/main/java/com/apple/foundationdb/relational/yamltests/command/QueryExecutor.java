@@ -107,14 +107,14 @@ public class QueryExecutor {
     }
 
     /**
-     * Execute the query, optionally checking column metadata inline before handing the result set to {@code config}.
+     * Executes the query and verifies the outcome against {@code config}, with an optional inline metadata check.
      * <p>
-     *     When {@code inlineMetadataConfig} is non-null, column descriptors are extracted from the result set
-     *     <em>before</em> any rows are consumed, and {@link CheckResultMetadataConfig#checkInline} is called.
-     *     The result set is then passed to {@code config} intact so it can validate the rows.  This is used for
-     *     continuation pages in mixed-version tests, where the query cannot be re-executed from scratch.
-     * </p>
-     * @param inlineMetadataConfig optional companion metadata config; {@code null} for no inline metadata check
+     * When {@code inlineMetadataConfig} is non-null, column metadata is read from the result set before any rows
+     * are consumed and validated via {@link CheckResultMetadataConfig#checkInline}. The result set is then passed
+     * to {@code config} intact for row validation. This is used when a {@code resultMetadata} config appears on a
+     * continuation page and the query cannot be re-executed from scratch.
+     *
+     * @param inlineMetadataConfig metadata config to check before rows are consumed, or {@code null} to skip
      */
     @Nullable
     public Continuation execute(@Nonnull YamlConnection connection, @Nullable Continuation continuation,
@@ -122,13 +122,13 @@ public class QueryExecutor {
                                 @Nullable CheckResultMetadataConfig inlineMetadataConfig) throws RelationalException {
         final var currentQuery = config.decorateQuery(query);
         if (continuation == null) {
-            // no continuation - start the query execution from the beginning
+            // No prior page — start a fresh query execution.
             return executeQuery(connection, config, currentQuery, checkCache, maxRows, inlineMetadataConfig);
         } else if (checkBeginningContinuation(continuation, connection)) {
-            // Continuation cannot be at beginning if it was returned from a query
+            // A valid continuation from a previous page is never at the beginning; treat as exhausted.
             return ContinuationImpl.END;
         } else {
-            // Have a continuation - continue
+            // Resume from the continuation returned by the previous page.
             return executeContinuation(connection, continuation, config, currentQuery, maxRows, inlineMetadataConfig);
         }
     }
@@ -269,7 +269,7 @@ public class QueryExecutor {
         }
         final List<CheckResultMetadataConfig.ColumnDescriptor> descriptors =
                 CheckResultMetadataConfig.extractDescriptors(((RelationalResultSet) queryResult).getMetaData());
-        inlineMetadataConfig.checkInline(descriptors, currentQuery, currentQuery, connection);
+        inlineMetadataConfig.checkInline(descriptors, currentQuery, connection);
     }
 
     private RelationalPreparedStatement prepareContinuationStatement(@Nonnull YamlConnection connection,

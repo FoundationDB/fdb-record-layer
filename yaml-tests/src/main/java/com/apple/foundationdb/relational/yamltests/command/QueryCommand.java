@@ -28,7 +28,8 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Environment;
 import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckResultMetadataConfig;
-import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
+import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
@@ -167,10 +168,9 @@ public final class QueryCommand extends Command {
         Integer maxRows = null;
         boolean exhausted = false;
         boolean errored = false;
-        // A resultMetadata config that was encountered while the query was already running (queryIsRunning=true).
-        // It will be checked inline alongside the next result config, sharing the same result set so that rows
-        // are not consumed before the result config can validate them.  This enables mixed-version testing where
-        // the continuation executes on a different server version and the query cannot be re-run from scratch.
+        // A resultMetadata config deferred because a continuation was already in progress when it was encountered.
+        // Re-executing the query is not possible at that point, so this config is held here and passed to the
+        // next result config, which checks the metadata against its live result set before consuming any rows.
         CheckResultMetadataConfig pendingInlineMetadata = null;
 
         final DebuggerImplementation debuggerImplementation =
@@ -205,14 +205,13 @@ public final class QueryCommand extends Command {
                         () -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows));
             } else if (QueryConfig.QUERY_CONFIG_RESULT_METADATA.equals(queryConfig.getConfigName())) {
                 if (queryIsRunning) {
-                    // Continuation page: buffer for inline check alongside the next result config.
-                    // The query cannot be re-executed (the original execution already produced a continuation
-                    // token that is in use), so we must read metadata from the live result set.
+                    // A continuation is in progress, so the query cannot be re-executed independently.
+                    // Defer this check to the next result config, which will validate the metadata
+                    // against its live result set before consuming any rows.
                     pendingInlineMetadata = (CheckResultMetadataConfig) queryConfig;
                 } else {
-                    // First page or standalone: execute the query independently to obtain metadata.
-                    final Integer finalMaxRows = maxRows;
-                    executor.execute(connection, null, queryConfig, checkCache, finalMaxRows);
+                    // No active continuation — run the query independently just to check its metadata.
+                    executor.execute(connection, null, queryConfig, checkCache, maxRows);
                 }
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfig.getConfigName())) {
                 Assert.that(!queryIsRunning, "Explain test should not be intermingled with query result tests");
