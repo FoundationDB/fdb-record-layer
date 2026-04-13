@@ -280,6 +280,10 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     }
 
     private class PipelineQueueEntry {
+        /**
+         * null if-and-only-if this is a sentinel indicating the end of the pipeline.
+         */
+        @Nullable
         final RecordCursor<V> innerCursor;
         final RecordCursorContinuation priorOuterContinuation;
         final RecordCursorResult<T> outerResult;
@@ -287,7 +291,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
         private volatile CompletableFuture<RecordCursorResult<V>> innerFuture;
 
-        public PipelineQueueEntry(RecordCursor<V> innerCursor,
+        public PipelineQueueEntry(@Nullable RecordCursor<V> innerCursor,
                                   RecordCursorContinuation priorOuterContinuation,
                                   RecordCursorResult<T> outerResult,
                                   byte[] outerCheckValue) {
