@@ -89,7 +89,7 @@ jobs:
           gradle_args: -PreleaseBuild=true -PpublishBuild=false
           report_name: ${{ matrix.subproject }}-test-reports
       - name: Publish Coverage Data
-        uses: actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: ${{ matrix.subproject }}-coverage-data
           path: |
@@ -133,7 +133,7 @@ jobs:
           gradle_args: -PreleaseBuild=true -PpublishBuild=false
           report_name: other-test-reports
       - name: Publish Coverage Data
-        uses: actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: other-coverage-data
           path: |
@@ -189,7 +189,7 @@ jobs:
           gradle_args: -PreleaseBuild=true -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }}
           report_name: mixed-mode-${{ matrix.version }}-test-reports
       - name: Publish Coverage Data
-        uses: actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: mixed-mode-${{ matrix.version }}-coverage-data
           path: |
@@ -218,7 +218,7 @@ jobs:
       # so that "mixed-mode-results" gets passed around correctly
       - name: Upload mixed mode results
         id: mixed_mode_results
-        uses: actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: mixed-mode-results
           path: mixed-mode-results.md
