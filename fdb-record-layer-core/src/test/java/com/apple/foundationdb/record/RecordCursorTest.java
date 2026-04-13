@@ -1397,6 +1397,44 @@ public class RecordCursorTest {
     }
 
     @Test
+    void closePipelineClosesAllInnerCursors() {
+        for (int i = 0; i < 200_000; i++) {
+            final int iteration = i;
+            CompletableFuture<Void> signal = new CompletableFuture<>();
+            List<RecordCursor<String>> createdCursors = Collections.synchronizedList(new ArrayList<>());
+            RecordCursor<String> cursor = RecordCursor.flatMapPipelined(
+                    outerContinuation -> RecordCursor.fromList(EXECUTOR,
+                            IntStream.range(0, iteration % 50 + 1).boxed().collect(Collectors.toList()),
+                            outerContinuation),
+                    (outerValue, innerContinuation) -> {
+                        RecordCursor<String> innerCursor = new LazyCursor<>(signal.thenApply(ignore ->
+                                RecordCursor.fromList(EXECUTOR,
+                                        IntStream.range(0, 3).mapToObj(j -> outerValue + ":" + j).collect(Collectors.toList()),
+                                        innerContinuation)));
+                        createdCursors.add(innerCursor);
+                        return innerCursor;
+                    },
+                    null,
+                    null,
+                    iteration % 9 + 2
+            );
+            CompletableFuture<? extends RecordCursorResult<?>> resultFuture = cursor.onNext();
+
+            signal.complete(null);
+            cursor.close();
+            try {
+                resultFuture.get(2, TimeUnit.SECONDS);
+            } catch (Exception ignored) {
+                // We don't care about the result; we care about cursor closure below
+            }
+            for (RecordCursor<String> innerCursor : createdCursors) {
+                assertTrue(innerCursor.isClosed(),
+                        "Inner cursor not closed on iteration " + iteration + " (created " + createdCursors.size() + " cursors)");
+            }
+        }
+    }
+
+    @Test
     void futureCursorTest() {
         CompletableFuture<Integer> future = new CompletableFuture<>();
         final RecordCursorContinuation continuation;

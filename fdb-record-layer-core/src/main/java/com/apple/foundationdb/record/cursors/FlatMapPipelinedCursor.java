@@ -285,7 +285,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         final RecordCursorResult<T> outerResult;
         final byte[] outerCheckValue;
 
-        private CompletableFuture<RecordCursorResult<V>> innerFuture;
+        private volatile CompletableFuture<RecordCursorResult<V>> innerFuture;
 
         public PipelineQueueEntry(RecordCursor<V> innerCursor,
                                   RecordCursorContinuation priorOuterContinuation,
@@ -310,13 +310,14 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         }
 
         public boolean doesNotHaveReturnableResult() {
+            final CompletableFuture<RecordCursorResult<V>> future = innerFuture;
             if (innerCursor == null ||       // Hit sentinel, so we have a returnable result
-                    innerFuture == null ||   // Inner future hasn't been started yet.
-                    !innerFuture.isDone()) { // No result yet. Don't know whether result will be returnable.
+                    future == null ||   // Inner future hasn't been started yet.
+                    !future.isDone()) { // No result yet. Don't know whether result will be returnable.
                 return false;
             }
 
-            final RecordCursorResult<V> innerResult = innerFuture.join();
+            final RecordCursorResult<V> innerResult = future.join();
             if (innerResult.hasNext()) {
                 return false; // a result with a value is returnable by the cursor
             } else { // inner cursor exhausted
@@ -327,7 +328,11 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         }
 
         public void close() {
-            if (innerFuture != null && innerFuture.cancel(false)) {
+            final CompletableFuture<RecordCursorResult<V>> future = innerFuture;
+            if (future != null) {
+                future.cancel(false);
+            }
+            if (innerCursor != null) {
                 innerCursor.close();
             }
         }
