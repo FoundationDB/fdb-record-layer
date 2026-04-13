@@ -96,12 +96,12 @@ public class RuleTestHelper {
 
     @Nonnull
     public static Quantifier baseT() {
-        return forEach(new LogicalTypeFilterExpression(ImmutableSet.of("T"), fuseQun(), TYPE_T));
+        return forEach(LogicalTypeFilterExpression.of(ImmutableSet.of("T"), fuseQun(), TYPE_T));
     }
 
     @Nonnull
     public static Quantifier baseTau() {
-        return forEach(new LogicalTypeFilterExpression(ImmutableSet.of("TAU"), fuseQun(), TYPE_TAU));
+        return forEach(LogicalTypeFilterExpression.of(ImmutableSet.of("TAU"), fuseQun(), TYPE_TAU));
     }
 
     @Nonnull

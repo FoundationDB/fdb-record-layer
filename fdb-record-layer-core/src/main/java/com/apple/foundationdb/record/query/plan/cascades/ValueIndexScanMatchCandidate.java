@@ -22,9 +22,11 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
+
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -294,6 +296,11 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                 targetAlias,
                 Iterables.concat(indexEntryToLogicalRecord.getLogicalKeyValues(),
                         indexEntryToLogicalRecord.getLogicalValueValues()));
+    }
+
+    @Override
+    public boolean isScopedToSingleType() {
+        return queriedRecordTypes.size() == 1 || hasAndOrderedByRecordTypeKey();
     }
 
     @Nonnull

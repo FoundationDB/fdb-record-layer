@@ -153,10 +153,9 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     }
 
     private List<Tuple> getPrimaryKeyBoundaries(@Nonnull FDBRecordStore store) {
-        TupleRange tupleRange = common.computeRecordsRange();
         store.getContext().getReadVersion(); // for instrumentation reasons
         List<Tuple> boundaries;
-        try (RecordCursor<Tuple> cursor = store.getPrimaryKeyBoundaries(tupleRange)) {
+        try (RecordCursor<Tuple> cursor = store.getPrimaryKeyBoundaries(null)) {
             boundaries = cursor.asList().join();
         }
 
@@ -164,25 +163,13 @@ public class IndexingMutuallyByRecords extends IndexingBase {
             boundaries = new ArrayList<>();
         }
 
-        // Add the two endpoints to the range
-        if (tupleRange == null) {
-            // Here: make sure that the boundaries cover everything
-            boundaries.add(0, null);
-            boundaries.add(null);
-        } else {
-            // Here: add the endpoints, unless they are already included
-            if (boundaries.isEmpty() || tupleRange.getLow() == null || tupleRange.getLow().compareTo(boundaries.get(0)) < 0) {
-                boundaries.add(0, tupleRange.getLow());
-            }
-            if (tupleRange.getHigh() == null || tupleRange.getHigh().compareTo(boundaries.get(boundaries.size() - 1)) > 0) {
-                boundaries.add(tupleRange.getHigh());
-            }
-        }
+        // Add the two endpoints to cover everything
+        boundaries.add(0, null);
+        boundaries.add(null);
 
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(KeyValueLogMessage.of("got boundaries",
                     LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
-                    LogMessageKeys.RANGE, tupleRange,
                     LogMessageKeys.KEY_COUNT, boundaries.size()));
         }
 
@@ -289,40 +276,9 @@ public class IndexingMutuallyByRecords extends IndexingBase {
 
     @Nonnull
     private CompletableFuture<Void> buildMultiTargetIndex() {
-        final TupleRange tupleRange = common.computeRecordsRange();
-        final byte[] rangeStart;
-        final byte[] rangeEnd;
-        if (tupleRange == null) {
-            rangeStart = rangeEnd = null;
-        } else {
-            final Range range = tupleRange.toRange();
-            rangeStart = range.begin;
-            rangeEnd = range.end;
-        }
-
-        final CompletableFuture<FDBRecordStore> maybePresetRangeFuture =
-                rangeStart == null ?
-                CompletableFuture.completedFuture(null) :
-                buildCommitRetryAsync((store, recordsScanned) -> {
-                    // Here: only records inside the defined records-range are relevant to the index. Hence, the completing range
-                    // can be preemptively marked as indexed.
-                    final List<Index> targetIndexes = common.getTargetIndexes();
-                    final List<IndexingRangeSet> targetRangeSets = targetIndexes.stream()
-                            .map(targetIndex -> IndexingRangeSet.forIndexBuild(store, targetIndex))
-                            .collect(Collectors.toList());
-                    return CompletableFuture.allOf(
-                                    insertRanges(targetRangeSets, null, rangeStart),
-                                    insertRanges(targetRangeSets, rangeEnd, null))
-                            .thenApply(ignore -> null);
-                }, null);
-
-        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex-wrapper",
-                LogMessageKeys.RANGE_START, rangeStart,
-                LogMessageKeys.RANGE_END, rangeEnd);
-
-        return maybePresetRangeFuture.thenCompose(ignore ->
-                iterateAllRanges(additionalLogMessageKeyValues,
-                        (store, recordsScanned) -> buildRangeOnly(store)));
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex-wrapper");
+        return iterateAllRanges(additionalLogMessageKeyValues,
+                        (store, recordsScanned) -> buildRangeOnly(store));
     }
 
     @Nonnull

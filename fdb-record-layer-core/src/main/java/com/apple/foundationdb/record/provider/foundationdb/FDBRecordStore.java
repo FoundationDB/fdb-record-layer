@@ -245,9 +245,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // The size of preload cache
     private static final int PRELOAD_CACHE_SIZE = 100;
 
-    @Nonnull
-    private static final CompletableFuture<IndexState> READY_READABLE = CompletableFuture.completedFuture(IndexState.READABLE);
-
     protected static final Object STORE_INFO_KEY = FDBRecordStoreKeyspace.STORE_INFO.key();
     protected static final Object RECORD_KEY = FDBRecordStoreKeyspace.RECORD.key();
     protected static final Object INDEX_KEY = FDBRecordStoreKeyspace.INDEX.key();
@@ -2868,35 +2865,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private void beginRecordStoreStateRead() {
-        // When the record store state is being updated multiple times, this function (and its implicit retry loop at
-        // the atomic reference level) will retry the update on the new record store state, so the operation always
-        // does what's expected (i.e., update the "in flight reads" value while leaving the record store state otherwise
-        // in tact).
-        recordStoreStateRef.updateAndGet(state -> {
-            state.beginRead();
-            return state;
-        });
+        recordStoreStateRef.get().beginRead();
     }
 
     private void endRecordStoreStateRead() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.endRead();
-            return state;
-        });
+        recordStoreStateRef.get().endRead();
     }
 
     private void beginRecordStoreStateWrite() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.beginWrite();
-            return state;
-        });
+        recordStoreStateRef.get().beginWrite();
     }
 
     private void endRecordStoreStateWrite() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.endWrite();
-            return state;
-        });
+        recordStoreStateRef.get().endWrite();
     }
 
     @Nonnull
@@ -4382,12 +4363,36 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
+    private CompletableFuture<Map<Index, IndexState>> rebuildIndexesGetDesiredIndexStates(
+            @Nonnull List<CompletableFuture<Void>> preWork,
+            @Nonnull Map<Index, CompletableFuture<IndexState>> newStates) {
+        final ConcurrentHashMap<Index, IndexState> desiredIndexStates = new ConcurrentHashMap<>();
+        // Combine pre-existing work and newStates resolution into a single list of futures
+        final List<CompletableFuture<Void>> allWork = new ArrayList<>(preWork);
+        for (Map.Entry<Index, CompletableFuture<IndexState>> entry : newStates.entrySet()) {
+            allWork.add(entry.getValue().thenAccept(state -> desiredIndexStates.put(entry.getKey(), state)));
+        }
+        return AsyncUtil.whenAll(allWork).thenApply(ignore -> desiredIndexStates);
+    }
+
     @Nonnull
     protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
                                                      @Nonnull Map<Index, CompletableFuture<IndexState>> newStates,
                                                      @Nonnull List<CompletableFuture<Void>> work,
                                                      @Nonnull RebuildIndexReason reason,
                                                      @Nullable Integer oldMetaDataVersion) {
+        // Finish any pre-existing work items and resolve desired index states (which may query index states) before
+        // rebuilding indexes (which writes index states)
+        return rebuildIndexesGetDesiredIndexStates(work, newStates).thenCompose(desiredIndexStates ->
+                rebuildIndexes(indexes, desiredIndexStates, reason, oldMetaDataVersion));
+    }
+
+    @Nonnull
+    protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
+                                                     @Nonnull Map<Index, IndexState> desiredIndexStates,
+                                                     @Nonnull RebuildIndexReason reason,
+                                                     @Nullable Integer oldMetaDataVersion) {
+        List<CompletableFuture<Void>> work = new ArrayList<>();
         Iterator<Map.Entry<Index, List<RecordType>>> indexIter = indexes.entrySet().iterator();
         return AsyncUtil.whileTrue(() -> {
             Iterator<CompletableFuture<Void>> workIter = work.iterator();
@@ -4403,11 +4408,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     Map.Entry<Index, List<RecordType>> indexItem = indexIter.next();
                     Index index = indexItem.getKey();
                     List<RecordType> recordTypes = indexItem.getValue();
+                    IndexState indexState = desiredIndexStates.getOrDefault(index, IndexState.READABLE);
                     final StringBuilder errMessageBuilder = new StringBuilder("unable to ");
                     final CompletableFuture<Void> rebuildOrMarkIndexSafely = MoreAsyncUtil.handleOnException(
-                            () -> newStates.getOrDefault(index, READY_READABLE).thenCompose(
-                                    indexState -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder)
-                            ),
+                            () -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder),
                             exception -> {
                                 // If there is any issue, simply mark the index as disabled without blocking checkVersion
                                 logExceptionAsWarn(KeyValueLogMessage.build(errMessageBuilder.toString(),
@@ -5052,7 +5056,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         context.clear(getSubspace().range(Tuple.from(INDEX_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
-        context.clear(getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        final String formerIndexName = formerIndex.getFormerName();
+        if (formerIndexName != null) {
+            // The index state space is currently keyed by the index name rather than the index subspace key.
+            // This will need to be adapted if we resolve: https://github.com/foundationdb/fdb-record-layer/issues/514
+            // Note that we set it to "readable" to clear it out
+            updateIndexState(formerIndexName, getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndexName)), IndexState.READABLE);
+        }
         context.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, formerIndex.getSubspaceTupleKey())));
         if (getTimer() != null) {
             getTimer().recordSinceNanoTime(FDBStoreTimer.Events.REMOVE_FORMER_INDEX, startTime);

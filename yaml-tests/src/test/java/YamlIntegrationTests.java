@@ -283,6 +283,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void rightDeepPlanTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("right-deep-plan-tests.yamsql");
+    }
+
+    @TestTemplate
     public void scenarioTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("scenario-tests.yamsql");
     }
@@ -427,5 +432,16 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void largeRecordFails(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("large-record-fails.yamsql");
+    }
+
+    @TestTemplate
+    public void recordTypeKeyTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("record-type-key-tests.yamsql");
+    }
+
+
+    @TestTemplate
+    public void filterIndexTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("filter-index.yamsql");
     }
 }
