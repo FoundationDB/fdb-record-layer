@@ -209,7 +209,7 @@ jobs:
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: 'Download results'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.0
         with:
           pattern: 'mixed-mode-*-test-reports'
       - name: Generate mixed mode results
@@ -270,7 +270,7 @@ jobs:
       # We want to do this before anything else, because if the later steps fail, we want to make sure that the full
       # change log includes all changes, even if they reference a release that was never actually published.
       - name: Download mixed mode results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.0
         with:
           name: mixed-mode-results
       - name: echo results
