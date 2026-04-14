@@ -246,7 +246,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
             Arguments.of(ImmutableMap.of(250L, 50L), ANY, List.of(250L, 50L, 10L, 1L)),
             Arguments.of(ImmutableMap.of(250L, 50L, 40L, 10L), LEVEL, List.of(250L, 40L, 50L, 10L, 10L, 1L, 1L)),
             Arguments.of(ImmutableMap.of(250L, 50L, 40L, 10L), PREORDER, List.of(250L, 50L, 10L, 1L, 40L, 10L, 1L)),
-            Arguments.of(ImmutableMap.of(250L, 50L, 40L, 10L), ANY, List.of(250L, 40L, 50L, 10L, 10L, 1L, 1L)),
+            Arguments.of(ImmutableMap.of(250L, 50L, 40L, 10L), ANY, List.of(250L, 50L, 10L, 1L, 40L, 10L, 1L)),
             Arguments.of(ImmutableMap.of(300L, 300L), LEVEL, List.of(300L)),
             Arguments.of(ImmutableMap.of(300L, 300L), PREORDER, List.of(300L)),
             Arguments.of(ImmutableMap.of(300L, 300L), ANY, List.of(300L))
