@@ -39,5 +39,5 @@ test_block:
   tests:
     -
       - query: SELECT * From table_a where "name" = 'bar'
-      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS STRING)])"
+      - explain: "ISCAN(I1 [EQUALS promote(@c7 AS STRING)])"
       - unorderedResult: [{1, 'bar'}]
