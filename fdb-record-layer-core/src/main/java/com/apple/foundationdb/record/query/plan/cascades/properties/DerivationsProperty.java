@@ -336,11 +336,16 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         @Nonnull
         @Override
         public Derivations visitExplodePlan(@Nonnull final RecordQueryExplodePlan explodePlan) {
-            final var collectionValue = explodePlan.getCollectionValue();
-            final var resultType = collectionValue.getResultType();
-            Verify.verify(resultType.isArray());
-            final var elementType = Objects.requireNonNull(((Type.Array)resultType).getElementType());
-            final var values = ImmutableList.<Value>of(new FirstOrDefaultValue(collectionValue, new ThrowsValue(elementType)));
+            // In the WITH ORDINALITY case, the plan produces a struct {_element, _ordinal}. The derivation uses a
+            // `QueriedValue` with this struct type.
+            final List<Value> values;
+            if (explodePlan.isWithOrdinality()) {
+                values = List.of(explodePlan.getResultValue());
+            } else {
+                final Value collectionValue = explodePlan.getCollectionValue();
+                final Type elementType = explodePlan.getElementType();
+                values = List.of(new FirstOrDefaultValue(collectionValue, new ThrowsValue(elementType)));
+            }
             return new Derivations(values, values);
         }
 

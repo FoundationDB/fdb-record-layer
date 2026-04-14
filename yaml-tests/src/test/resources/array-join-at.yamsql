@@ -1,0 +1,292 @@
+#
+# array-join-at.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2023-2030 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+  supported_version: !current_version
+---
+# Comprehensive integration tests for the PartiQL AT construct.
+schema_template:
+  CREATE TABLE T1 ("id" BIGINT, "arr1" INTEGER ARRAY NULL, "arr1_nn" INTEGER ARRAY NOT NULL, PRIMARY KEY ("id"))
+  CREATE TABLE T2 ("id" BIGINT, "arr1" INTEGER ARRAY,      "arr2"    INTEGER ARRAY,          PRIMARY KEY ("id"))
+  CREATE TYPE AS STRUCT S1 ("a" INTEGER, "b" STRING)
+  CREATE TABLE T3 ("id" BIGINT, "arr" S1 ARRAY, PRIMARY KEY ("id"))
+---
+setup:
+  steps:
+    - query: INSERT INTO T1 VALUES
+               (0, [], []),
+               (1, [101], [101]),
+               (2, [201, 202, 203], [201, 202, 203]),
+               (3, NULL, [301])
+    - query: INSERT INTO T2 VALUES (1, [110, 111], [120, 121]), (2, [210], [220]), (3, [], [])
+    - query: INSERT INTO T3 VALUES (1, [(10, 's11'), (11, 's12')]), (2, [(20, 's21')])
+---
+test_block:
+  name: array-join-at
+  preset: single_repetition_ordered
+  tests:
+    - # Normal unnesting (aka. array join) without AT on a nullable array.
+      - query: SELECT "id", "val" FROM T1, T1."arr1" AS "val" ORDER BY "id"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 AS q1 RETURN (q0.id AS id, q1 AS val) }"
+                                                # ^ Notice the absence of WITH ORDINALITY here.
+      - unorderedResult: [
+          {id: 1, val: 101},
+          {id: 2, val: 201},
+          {id: 2, val: 202},
+          {id: 2, val: 203}]
+    - # Unnesting with AT on a nullable array.
+      # Notice that the AT indexes are 1-based as per the SQL standard (Foundation § 4.10.2).
+      - query: SELECT "id", "val", "at" FROM T1, T1."arr1" AS "val" AT "at"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1 RETURN (q0.id AS id, q1._element AS val, q1._ordinal AS at) }"
+                                                # ^ Notice the WITH ORDINALITY here.
+      - unorderedResult: [
+          {id: 1, val: 101, at: 1},
+          {id: 2, val: 201, at: 1},
+          {id: 2, val: 202, at: 2},
+          {id: 2, val: 203, at: 3}]
+    -
+      # Unnesting with AT on a NOT NULL array.
+      - query: SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at"
+      - unorderedResult: [
+          {id: 1, val: 101, at: 1},
+          {id: 2, val: 201, at: 1},
+          {id: 2, val: 202, at: 2},
+          {id: 2, val: 203, at: 3},
+          {id: 3, val: 301, at: 1}]
+    -
+      # Leaving out the optional AS keyword in `T1."arr1" AS "val" AT "at"`.
+      - query: SELECT T1."id", "val", "at" FROM T1, T1."arr1" "val" AT "at"
+      - unorderedResult: [
+          {id: 1, val: 101, at: 1},
+          {id: 2, val: 201, at: 1},
+          {id: 2, val: 202, at: 2},
+          {id: 2, val: 203, at: 3}]
+    -
+      # With `SELECT *`, the star expansion includes both the AS field and the AT field.
+      - query: SELECT "id", "val", "at" FROM (SELECT * FROM T1, T1."arr1" AS "val" AT "at") AS subquery
+      - unorderedResult: [
+          {id: 1, val: 101, at: 1},
+          {id: 2, val: 201, at: 1},
+          {id: 2, val: 202, at: 2},
+          {id: 2, val: 203, at: 3}]
+    -
+      # It is allowed to leave out the AS alias completely, keeping only the AT part. This way the elements themselves
+      # cannot be accessed, only their indexes. Although this is not possible with pure PartiQL or with the UNNEST()
+      # construct in standard SQL, we do not prohibit this case.
+      - query: SELECT "id", "at" FROM T1, T1."arr1" AT "at"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1 RETURN (q0.id AS id, q1._ordinal AS at) }"
+      - unorderedResult: [
+          {id: 1, at: 1},
+          {id: 2, at: 1},
+          {id: 2, at: 2},
+          {id: 2, at: 3}]
+    -
+      # The table source item providing the array can also be a subquery.
+      - query: SELECT "subquery"."id" - 100 AS "id", "at", "val"
+                 FROM (SELECT "id" + 100 AS "id", "arr1" FROM T1) AS "subquery",
+                      "subquery"."arr1" AS "val" AT "at"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1 RETURN (q0.id + @c17 - @c17 AS id, q1._ordinal AS at, q1._element AS val) }"
+      - unorderedResult: [
+          {id: 1, at: 1, val: 101},
+          {id: 2, at: 1, val: 201},
+          {id: 2, at: 2, val: 202},
+          {id: 2, at: 3, val: 203}]
+    -
+      # The table source item providing the array can also be a VALUES record constructor.
+      - query: SELECT "values"."id", "val", "at"
+                 FROM VALUES (1, [101]), (2, [201, 202, 203]) AS "values" ("id", "arr"),
+                      "values"."arr" AS "val" AT "at"
+      - explain: "EXPLODE array((@c11 AS id, array(@c14) AS arr), (@c19 AS id, array(@c22, @c24, @c26) AS arr)) | FLATMAP q0 -> { EXPLODE q0.arr WITH ORDINALITY AS q1 RETURN (q0.id AS id, q1._element AS val, q1._ordinal AS at) }"
+      - unorderedResult: [
+          {id: 1, val: 101, at: 1},
+          {id: 2, val: 201, at: 1},
+          {id: 2, val: 202, at: 2},
+          {id: 2, val: 203, at: 3}]
+    -
+      # Unnesting with AT on specifically the NULL array (from T1) produces no rows.
+      - query: SELECT "id", "val", "at" FROM T1, T1."arr1" AS "val" AT "at" WHERE T1."id" = 3
+      - unorderedResult: []
+    -
+      # Unnesting with AT on specifically the NULL array (from VALUES) produces no rows.
+      - query: SELECT "id", "val", "at"
+                 FROM VALUES (1, CAST(NULL AS INTEGER ARRAY)) AS "values" ("id", "arr"),
+                      "values"."arr" AS "val" AT "at"
+      - unorderedResult: []
+    -
+      # Unnesting with AT on specifically the [] array (from VALUES) produces no rows.
+      - query: SELECT "id", "val", "at"
+                 FROM VALUES (1, CAST([] AS INTEGER ARRAY)) AS "values" ("id", "arr"),
+                      "values"."arr" AS "val" AT "at"
+      - unorderedResult: []
+    -
+      # The AT index is an INTEGER and can be used in arithmetic expressions.
+      - query: SELECT "id", "at" + 10 AS "at_plus_10" FROM T1, T1."arr1" AS "val" AT "at"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1 RETURN (q0.id AS id, q1._ordinal + @c5 AS at_plus_10) }"
+      - unorderedResult: [
+          {id: 1, at_plus_10: 11},
+          {id: 2, at_plus_10: 11},
+          {id: 2, at_plus_10: 12},
+          {id: 2, at_plus_10: 13}]
+    -
+      # Unnesting with AT and a WHERE filter on the array elements. Notice this does not affect the AT ordinals: an
+      # element’s ordinal is its 1-based position in the original array, not its rank among the filtered rows.
+      - query: SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at" WHERE "val" > 201
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1_nn WITH ORDINALITY | FILTER _._element GREATER_THAN promote(@c19 AS INT) AS q1 RETURN (q0.id AS id, q1._element AS val, q1._ordinal AS at) }"
+      - unorderedResult: [
+          {id: 2, val: 202, at: 2},
+          {id: 2, val: 203, at: 3},
+          {id: 3, val: 301, at: 1}]
+    -
+      # Unnesting with AT and a WHERE filter on the AT value.
+      - query: SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at" WHERE "at" + 1 = 3
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1_nn WITH ORDINALITY | FILTER _._ordinal + @c19 EQUALS promote(@c21 AS INT) AS q1 RETURN (q0.id AS id, q1._element AS val, q1._ordinal AS at) }"
+      - unorderedResult: [
+          {id: 2, val: 202, at: 2}]
+    -
+      # Applying AT to a normal table source item (that does not produce an array) is invalid.
+      - query: SELECT "id", "at" FROM T1 AT "at"
+      - error: "42809" # "AT clause requires an array-typed column, but 'T1' is a table"
+    -
+      # Unnesting two arrays from the same row, with AT on both, in a cross-product manner.
+      # Notice the ordinals are independent; each `at2` restarts at 1 for each element of the outer array.
+      - query: SELECT T2."id", "at1", "val1", "at2", "val2"
+                 FROM T2,
+                      T2."arr1" AS "val1" AT "at1",
+                      T2."arr2" AS "val2" AT "at2"
+      - explain: "SCAN([IS T2]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY | FLATMAP q1 -> { EXPLODE q0.arr2 WITH ORDINALITY AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q0.id AS id, q3._0._ordinal AS at1, q3._0._element AS val1, q3._1._ordinal AS at2, q3._1._element AS val2) }"
+      - unorderedResult: [
+          {id: 1, at1: 1, val1: 110, at2: 1, val2: 120},
+          {id: 1, at1: 1, val1: 110, at2: 2, val2: 121},
+          {id: 1, at1: 2, val1: 111, at2: 1, val2: 120},
+          {id: 1, at1: 2, val1: 111, at2: 2, val2: 121},
+          {id: 2, at1: 1, val1: 210, at2: 1, val2: 220}]
+    -
+      # Unnesting the same array twice from the same row, in a cross-product manner.
+      - query: SELECT T2."id", "val1", "at1", "val2", "at2"
+                 FROM T2, T2."arr1" AS "val1" AT "at1", T2."arr1" AS "val2" AT "at2"
+      - explain: "SCAN([IS T2]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY | FLATMAP q1 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q0.id AS id, q3._0._element AS val1, q3._0._ordinal AS at1, q3._1._element AS val2, q3._1._ordinal AS at2) }"
+      - unorderedResult: [
+          {id: 1, val1: 110, at1: 1, val2: 110, at2: 1},
+          {id: 1, val1: 110, at1: 1, val2: 111, at2: 2},
+          {id: 1, val1: 111, at1: 2, val2: 110, at2: 1},
+          {id: 1, val1: 111, at1: 2, val2: 111, at2: 2},
+          {id: 2, val1: 210, at1: 1, val2: 210, at2: 1}]
+    -
+      # Unnesting the same array twice, but with the same AS alias assigned both.
+      - query: SELECT T2."id", "val", "at1", "at2" FROM T2, T2."arr1" AS "val" AT "at1", T2."arr1" AS "val" AT "at2"
+      - error: "42702"  # "Ambiguous reference val"
+    -
+      # Unnesting the same array twice, but with the same AT alias on both.
+      - query: SELECT T2."id", "at", "val1", "val2" FROM T2, T2."arr1" AS "val1" AT "at", T2."arr1" AS "val2" AT "at"
+      - error: "42702"  # "Ambiguous reference at"
+    -
+      # An AT variable can be used within the subscript [] operator to access another array. This enables “parallel”
+      # unnesting of two arrays within the same row.
+      - query: SELECT "id", "at", "arr1_val", T1."arr1_nn"["at"] AS "arr1_nn_val" FROM T1, T1."arr1" AS "arr1_val" AT "at"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q1 RETURN (q0.id AS id, q1._ordinal AS at, q1._element AS arr1_val, q0.arr1_nn[q1._ordinal> AS arr1_nn_val) }"
+      - unorderedResult: [
+          {id: 1, at: 1, arr1_val: 101, arr1_nn_val: 101},
+          {id: 2, at: 1, arr1_val: 201, arr1_nn_val: 201},
+          {id: 2, at: 2, arr1_val: 202, arr1_nn_val: 202},
+          {id: 2, at: 3, arr1_val: 203, arr1_nn_val: 203}]
+    -
+      # Using the AS variable (but not the AT variable) from an outer EXPLODE inside a correlated lateral subquery.
+      - query: SELECT "id", "at", "val", "val2"
+                 FROM T1,
+                      T1."arr1" AS "val" AT "at",
+                      (SELECT "val2"
+                         FROM T1 AS "OtherT1",
+                              "OtherT1"."arr1_nn" AS "val2" AT "at2"
+                        WHERE "OtherT1"."id" = T1."id" 
+                          AND "val2" = "val"
+                      ) AS "subquery"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 WITH ORDINALITY | FLATMAP q1 -> { SCAN([IS T1, EQUALS q0.id]) | FLATMAP q2 -> { EXPLODE q2.arr1_nn WITH ORDINALITY | FILTER _._element EQUALS q1._element AS q3 RETURN q3 } AS q3 RETURN (q3 AS _0, q1 AS _1) } AS q5 RETURN (q0.id AS id, q5._1._ordinal AS at, q5._1._element AS val, q5._0._element AS val2) }"
+      - unorderedResult: [
+          {id: 1, at: 1, val: 101, val2: 101},
+          {id: 2, at: 1, val: 201, val2: 201},
+          {id: 2, at: 2, val: 202, val2: 202},
+          {id: 2, at: 3, val: 203, val2: 203}]
+    -
+      # Using the AT variable from an outer EXPLODE inside a correlated lateral subquery.
+      - query: SELECT "id", "val", "at", "val2", "at2"
+                 FROM T1,
+                      T1."arr1" AS "val" AT "at",
+                      (SELECT "val2", "at2" FROM T1 AS "OtherT1", "OtherT1"."arr1_nn" AS "val2" AT "at2" WHERE "OtherT1"."id" = T1."id" AND "at2" = "at") AS "subquery"
+      - unorderedResult: [
+          {id: 1, val: 101, at: 1, val2: 101, at2: 1},
+          {id: 2, val: 201, at: 1, val2: 201, at2: 1},
+          {id: 2, val: 202, at: 2, val2: 202, at2: 2},
+          {id: 2, val: 203, at: 3, val2: 203, at2: 3}]
+    -
+      # Struct array with AT. The alias "val" refers to struct S1, and its fields are accessed via qualified names.
+      - query: SELECT "id", "val"."a" AS "a", "val"."b" AS "b", "at"
+                 FROM T3, T3."arr" AS "val" AT "at"
+      - unorderedResult: [
+          {id: 1, a: 10, b: 's11', at: 1},
+          {id: 1, a: 11, b: 's12', at: 2},
+          {id: 2, a: 20, b: 's21', at: 1}]
+    -
+      # Struct array with AT, filtering on a struct field. The AT ordinal reflects the original array position.
+      - query: SELECT "id", "val"."a" AS "a", "at"
+                 FROM T3, T3."arr" AS "val" AT "at"
+                WHERE "val"."a" > 10
+      - unorderedResult: [
+          {id: 1, a: 11, at: 2},
+          {id: 2, a: 20, at: 1}]
+    -
+      # Mix of one array unnested with AT and another without. Only one EXPLODE node has WITH ORDINALITY.
+      - query: SELECT T2."id", "val1", "at1", "val2"
+                 FROM T2,
+                      T2."arr1" AS "val1" AT "at1",
+                      T2."arr2" AS "val2"
+      - explain: "SCAN([IS T2]) | FLATMAP q0 -> { EXPLODE q0.arr2 | FLATMAP q1 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q0.id AS id, q3._0._element AS val1, q3._0._ordinal AS at1, q3._1 AS val2) }"
+      - unorderedResult: [
+          {id: 1, val1: 110, at1: 1, val2: 120},
+          {id: 1, val1: 110, at1: 1, val2: 121},
+          {id: 1, val1: 111, at1: 2, val2: 120},
+          {id: 1, val1: 111, at1: 2, val2: 121},
+          {id: 2, val1: 210, at1: 1, val2: 220}]
+    -
+      # Applying AT to a common table expression is invalid (CTE is not an array).
+      - query: WITH "cte" AS (SELECT * FROM T1) SELECT "id" FROM "cte" AT "at"
+      - error: "42809"
+    -
+      # ORDER BY on the AT ordinal cannot be planned without and index.
+      - query: SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at" WHERE T1."id" = 2 ORDER BY "at" DESC
+      - error: "0AF00"
+    -
+      # STRING array with AT via VALUES. Verifies ordinals also work with non-integer element types.
+      - query: SELECT "val", "at"
+                 FROM VALUES (1, ['s12', 's12', 's13']) AS "values" ("id", "arr"),
+                      "values"."arr" AS "val" AT "at"
+      - unorderedResult: [
+          {val: 's12', at: 1},
+          {val: 's12', at: 2},
+          {val: 's13', at: 3}]
+    -
+      # CASE WHEN conditional expression on the AT ordinal.
+      - query: SELECT "id", "val", "at",
+                      CASE WHEN "at" = 1 THEN 'first' ELSE 'other' END AS "label"
+                 FROM T1, T1."arr1" AS "val" AT "at"
+      - unorderedResult: [
+          {id: 1, val: 101, at: 1, label: 'first'},
+          {id: 2, val: 201, at: 1, label: 'first'},
+          {id: 2, val: 202, at: 2, label: 'other'},
+          {id: 2, val: 203, at: 3, label: 'other'}]
+...

@@ -480,7 +480,7 @@ tableSource // done
     ;
 
 tableSourceItem // done
-    : tableName (AS? alias=uid)? (indexHint (',' indexHint)* )?                                             #atomTableItem // done
+    : tableName (AS? alias=uid)? (AT atAlias=uid)? (indexHint (',' indexHint)*)?                            #atomTableItem // done
     | '(' query ')' AS? alias=uid                                                                           #subqueryTableItem // done
     | VALUES recordConstructorForInlineTable (',' recordConstructorForInlineTable )* inlineTableDefinition? #inlineTableItem
     | tableFunction (AS? alias=uid)?                                                                        #tableValuedFunction
