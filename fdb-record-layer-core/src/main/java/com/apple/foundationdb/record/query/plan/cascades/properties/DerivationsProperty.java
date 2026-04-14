@@ -28,9 +28,11 @@ import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -41,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultStreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
@@ -104,6 +107,7 @@ import com.google.common.collect.Streams;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -336,11 +340,22 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         @Nonnull
         @Override
         public Derivations visitExplodePlan(@Nonnull final RecordQueryExplodePlan explodePlan) {
-            final var collectionValue = explodePlan.getCollectionValue();
-            final var resultType = collectionValue.getResultType();
-            Verify.verify(resultType.isArray());
-            final var elementType = Objects.requireNonNull(((Type.Array)resultType).getElementType());
-            final var values = ImmutableList.<Value>of(new FirstOrDefaultValue(collectionValue, new ThrowsValue(elementType)));
+            final Value collectionValue = explodePlan.getCollectionValue();
+            final Type elementType = explodePlan.getElementType();
+            // Use `FirstOrDefaultValue` as a representative for “some” element of the array.
+            final Value first = new FirstOrDefaultValue(collectionValue, new ThrowsValue(elementType));
+            final Value representative;
+            if (explodePlan.isWithOrdinality()) {
+                final Type ordinalType = Type.primitiveType(Type.TypeCode.INT, false);
+                representative = RecordConstructorValue.ofColumns(List.of(
+                        Column.of(Type.Record.Field.of(elementType, Optional.of(ExplodeExpression.ELEMENT_FIELD_NAME)),
+                                first),
+                        Column.of(Type.Record.Field.of(ordinalType, Optional.of(ExplodeExpression.ORDINAL_FIELD_NAME)),
+                                new ThrowsValue(ordinalType))));
+            } else {
+                representative = first;
+            }
+            final List<Value> values = List.of(representative);
             return new Derivations(values, values);
         }
 
