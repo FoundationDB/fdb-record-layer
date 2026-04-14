@@ -7,6 +7,28 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.10.17.0
+
+<h4> New Features </h4>
+
+*  Improve distinct union planning time - [PR #4056](https://github.com/FoundationDB/fdb-record-layer/pull/4056)
+<h4> Dependency Updates </h4>
+
+* Update JaCoCo from 0.8.5 to 0.8.14 - [PR #4055](https://github.com/FoundationDB/fdb-record-layer/pull/4055)
+
+
+**[Full Changelog (4.10.16.0...4.10.17.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.16.0...4.10.17.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.5.0`, ✅`4.10.6.0`, ✅`4.10.7.0`, ✅`4.10.8.0`, ✅`4.10.9.0`, ✅`4.10.10.0`, ✅`4.10.12.0`, ✅`4.10.13.0`, ✅`4.10.15.0`, ✅`4.10.16.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24145343967)
+
+
+
 ### 4.10.16.0
 
 <h4> New Features </h4>
