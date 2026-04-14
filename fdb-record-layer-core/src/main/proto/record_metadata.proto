@@ -316,7 +316,7 @@ message ValuePredicate {
 }
 
 message RowNumberWindowPredicate {
-  repeated string field_path = 1;
+  repeated string ordering_field = 1;
   required int32 size = 2;
   enum Direction {
     ASC = 1;

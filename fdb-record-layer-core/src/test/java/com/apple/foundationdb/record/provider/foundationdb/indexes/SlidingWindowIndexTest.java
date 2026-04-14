@@ -760,7 +760,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         final RecordMetaDataProto.Predicate proto = original.toProto();
         assertTrue(proto.hasRowNumberWindowPredicate());
         assertEquals(100, proto.getRowNumberWindowPredicate().getSize());
-        assertEquals("score", proto.getRowNumberWindowPredicate().getFieldPath(0));
+        assertEquals("score", proto.getRowNumberWindowPredicate().getOrderingField(0));
         assertEquals(RecordMetaDataProto.RowNumberWindowPredicate.Direction.DESC,
                 proto.getRowNumberWindowPredicate().getDirection());
 
@@ -768,7 +768,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         assertTrue(deserialized instanceof IndexPredicate.RowNumberWindowPredicate);
         final IndexPredicate.RowNumberWindowPredicate deserializedP =
                 (IndexPredicate.RowNumberWindowPredicate) deserialized;
-        assertEquals(original.getFieldPath(), deserializedP.getFieldPath());
+        assertEquals(original.getOrderingField(), deserializedP.getOrderingField());
         assertEquals(original.getDirection(), deserializedP.getDirection());
         assertEquals(original.getSize(), deserializedP.getSize());
         assertEquals(original, deserializedP);

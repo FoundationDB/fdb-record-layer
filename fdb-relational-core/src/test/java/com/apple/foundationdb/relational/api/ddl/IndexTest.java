@@ -331,7 +331,7 @@ public class IndexTest {
                                     .build())
                             .addChildren(Predicate.newBuilder()
                                     .setRowNumberWindowPredicate(RowNumberWindowPredicate.newBuilder()
-                                            .addFieldPath("C")
+                                            .addOrderingField("C")
                                             .setSize(10)
                                             .setDirection(RowNumberWindowPredicate.Direction.ASC)
                                             .build())
@@ -350,7 +350,7 @@ public class IndexTest {
         indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE, index -> {
             assertThat(index.getPredicate()).isEqualTo(Predicate.newBuilder()
                     .setRowNumberWindowPredicate(RowNumberWindowPredicate.newBuilder()
-                            .addFieldPath("SCORE")
+                            .addOrderingField("SCORE")
                             .setSize(50)
                             .setDirection(RowNumberWindowPredicate.Direction.ASC)
                             .build())

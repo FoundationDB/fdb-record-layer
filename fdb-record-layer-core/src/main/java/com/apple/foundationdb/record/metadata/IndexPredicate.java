@@ -628,16 +628,16 @@ public abstract class IndexPredicate {
         }
 
         @Nonnull
-        private final List<String> fieldPath;
+        private final List<String> orderingField;
         private final int size;
         @Nonnull
         private final Direction direction;
         @Nonnull
         private final List<List<String>> partitionFieldPaths;
 
-        public RowNumberWindowPredicate(@Nonnull final List<String> fieldPath, @Nonnull final Direction direction,
+        public RowNumberWindowPredicate(@Nonnull final List<String> orderingField, @Nonnull final Direction direction,
                                         int size, @Nonnull final List<List<String>> partitionFieldPaths) {
-            this.fieldPath = ImmutableList.copyOf(fieldPath);
+            this.orderingField = ImmutableList.copyOf(orderingField);
             this.direction = direction;
             this.size = size;
             this.partitionFieldPaths = partitionFieldPaths.stream()
@@ -645,8 +645,8 @@ public abstract class IndexPredicate {
                     .collect(ImmutableList.toImmutableList());
         }
 
-        public RowNumberWindowPredicate(@Nonnull final List<String> fieldPath, @Nonnull final Direction direction, int size) {
-            this(fieldPath, direction, size, ImmutableList.of());
+        public RowNumberWindowPredicate(@Nonnull final List<String> orderingField, @Nonnull final Direction direction, int size) {
+            this(orderingField, direction, size, ImmutableList.of());
         }
 
         public RowNumberWindowPredicate(@Nonnull final String fieldName, @Nonnull final Direction direction, int size) {
@@ -654,7 +654,7 @@ public abstract class IndexPredicate {
         }
 
         public RowNumberWindowPredicate(@Nonnull final RecordMetaDataProto.RowNumberWindowPredicate proto) {
-            this.fieldPath = ImmutableList.copyOf(proto.getFieldPathList());
+            this.orderingField = ImmutableList.copyOf(proto.getOrderingFieldList());
             this.size = proto.getSize();
             switch (proto.getDirection()) {
                 case ASC:
@@ -673,19 +673,19 @@ public abstract class IndexPredicate {
         }
 
         @Nonnull
-        public List<String> getFieldPath() {
-            return fieldPath;
+        public List<String> getOrderingField() {
+            return orderingField;
         }
 
         /**
-         * Returns the simple field name. Convenience method for single-element field paths.
-         * @return the first (and only) element of the field path
+         * Returns the simple field name. Convenience method for single-element ordering fields.
+         * @return the first (and only) element of the ordering field path
          * @throws RecordCoreException if the field path has more than one element
          */
         @Nonnull
         public String getFieldName() {
-            Verify.verify(fieldPath.size() == 1, "getFieldName() called on multi-element field path: %s", fieldPath);
-            return fieldPath.get(0);
+            Verify.verify(orderingField.size() == 1, "getFieldName() called on multi-element ordering field: %s", orderingField);
+            return orderingField.get(0);
         }
 
         public int getSize() {
@@ -703,8 +703,8 @@ public abstract class IndexPredicate {
         }
 
         @Nonnull
-        public KeyExpression getWindowKey() {
-            return fieldPathToKeyExpression(fieldPath);
+        public KeyExpression getOrderingKey() {
+            return fieldPathToKeyExpression(orderingField);
         }
 
         /**
@@ -751,7 +751,7 @@ public abstract class IndexPredicate {
                             : RecordMetaDataProto.RowNumberWindowPredicate.Direction.DESC;
             final RecordMetaDataProto.RowNumberWindowPredicate.Builder builder =
                     RecordMetaDataProto.RowNumberWindowPredicate.newBuilder()
-                            .addAllFieldPath(fieldPath)
+                            .addAllOrderingField(orderingField)
                             .setSize(size)
                             .setDirection(protoDirection);
             for (List<String> partitionPath : partitionFieldPaths) {
@@ -780,7 +780,7 @@ public abstract class IndexPredicate {
                         .collect(Collectors.joining(", ")));
                 sb.append(" ORDER BY ");
             }
-            sb.append(String.join(".", fieldPath));
+            sb.append(String.join(".", orderingField));
             sb.append(", ").append(direction).append(") <= ").append(size);
             return sb.toString();
         }
@@ -795,13 +795,13 @@ public abstract class IndexPredicate {
             }
             RowNumberWindowPredicate that = (RowNumberWindowPredicate) o;
             return size == that.size && direction == that.direction
-                    && fieldPath.equals(that.fieldPath)
+                    && orderingField.equals(that.orderingField)
                     && partitionFieldPaths.equals(that.partitionFieldPaths);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(fieldPath, direction, size, partitionFieldPaths);
+            return Objects.hash(orderingField, direction, size, partitionFieldPaths);
         }
 
         @Nonnull

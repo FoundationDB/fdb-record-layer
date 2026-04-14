@@ -64,20 +64,28 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * An index maintainer decorator that keeps only the top-N records based on a globally-scoped window key.
- * It wraps a delegate {@link IndexMaintainer} (which can be any index type, e.g. value, vector, etc.)
- * and applies sliding window semantics for mutations before delegating the actual index operations.
+ * An index maintainer decorator that keeps only the top-N records based on a window key,
+ * optionally grouped by a partition key. It wraps a delegate {@link IndexMaintainer}
+ * (which can be any index type, e.g. value, vector, etc.) and applies sliding window
+ * semantics for mutations before delegating the actual index operations.
  *
- * <p>The sliding window subspace contains two logical regions:</p>
+ * <p>The sliding window subspace is organized as {@code <partition...> / <region> / ...} where
+ * the partition prefix comes from the {@code PARTITION BY} clause in the
+ * {@link IndexPredicate.RowNumberWindowPredicate}. When there is no partition, the prefix is empty.</p>
+ *
+ * <p>Within each partition, there are two logical regions:</p>
  * <ul>
- *     <li>Entries: {@code [windowKey..., primaryKey...] → primaryKey packed} — all tracked records, sorted by window key</li>
- *     <li>Meta: {@code ["count"] → long}, {@code ["boundary"] → packed entry key} — window count and boundary pointer</li>
+ *     <li>Entries (key 0): {@code [windowKey..., primaryKey...] → primaryKey packed} — all tracked records, sorted by window key</li>
+ *     <li>Meta (key 1): {@code [3] → long} (window count), {@code [4] → packed entry key} (boundary pointer)</li>
  * </ul>
  *
- * <p>All entries live in a single sorted subspace. The boundary pointer marks the worst entry
- * currently in the window. Entries on the "good" side of the boundary are in the window (present
- * in the delegate index); entries on the "bad" side are overflow (not in the delegate).
- * Eviction and re-election shift the boundary pointer without moving data.</p>
+ * <p>All entries live in a single sorted subspace per partition. The boundary pointer marks the
+ * worst entry currently in the window. Entries on the "good" side of the boundary are in the
+ * window (present in the delegate index); entries on the "bad" side are overflow (not in the
+ * delegate). Eviction and re-election shift the boundary pointer without moving data.</p>
+ *
+ * <p>{@code deleteWhere} is only supported when the window is partitioned. It clears the entire
+ * partition group from the sliding window subspace and delegates to the inner index.</p>
  */
 @API(API.Status.EXPERIMENTAL)
 public class SlidingWindowIndexMaintainer extends IndexMaintainer {
@@ -169,13 +177,18 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         }
     }
 
+    /** Subspace key for the entries region within a partition. */
     private static final Tuple ENTRIES_SUBSPACE_KEY = Tuple.from(0);
+    /** Subspace key for the metadata region within a partition. */
     private static final Tuple META_SUBSPACE_KEY = Tuple.from(1);
-    private static final Tuple COUNT_KEY = Tuple.from("count");
-    private static final Tuple BOUNDARY_KEY = Tuple.from("boundary");
+    /** Meta key for the window count (long). */
+    private static final Tuple COUNT_KEY = Tuple.from(3);
+    /** Meta key for the boundary pointer (packed tuple of windowValue + primaryKey). */
+    private static final Tuple BOUNDARY_KEY = Tuple.from(4);
 
     @Nonnull
     private final IndexMaintainer delegate;
+    @Nonnull
     private final Type extremumType;
     private final int windowSize;
     @Nonnull
@@ -189,7 +202,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         super(state);
         this.delegate = delegate;
         final IndexPredicate.RowNumberWindowPredicate predicate = getQualifyPredicate(state.index);
-        this.windowKey = predicate.getWindowKey();
+        this.windowKey = predicate.getOrderingKey();
         this.windowKeyColumnSize = windowKey.getColumnSize();
         this.windowSize = predicate.getSize();
         this.extremumType = predicate.getDirection() == IndexPredicate.RowNumberWindowPredicate.Direction.ASC
@@ -245,6 +258,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         return delegate.scanUniquenessViolations(range, continuation, scanProperties);
     }
 
+    @Nonnull
     @Override
     public CompletableFuture<Void> clearUniquenessViolations() {
         return delegate.clearUniquenessViolations();
@@ -344,7 +358,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
 
     @Override
     public boolean isIdempotent() {
-        return false;
+        return delegate.isIdempotent();
     }
 
     @Nonnull
@@ -417,13 +431,12 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
             if (count < windowSize) {
                 // Window not full: add to delegate, update count, maybe update boundary
                 return delegate.update(null, savedRecord).thenCompose(vignore ->
-                        tr.get(boundaryMetaKey).thenApply(boundaryBytes -> {
+                        tr.get(boundaryMetaKey).thenAccept(boundaryBytes -> {
                             tr.set(counterKey, encodeLong(count + 1));
                             if (boundaryBytes == null || extremumType.isWorseOrEqual(entryKey,
                                     Tuple.fromBytes(boundaryBytes))) {
                                 tr.set(boundaryMetaKey, entryKey.pack());
                             }
-                            return null;
                         })
                 );
             } else {
@@ -455,13 +468,12 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                                 delegate.update(null, savedRecord).thenCompose(v3 ->
                                         // Find new boundary: the entry just inside the old boundary
                                         extremumType.getNewBoundaryAfterEviction(entriesSubspace, tr,
-                                                oldBoundaryPackedKey).thenApply(newBoundaryKV -> {
+                                                oldBoundaryPackedKey).thenAccept(newBoundaryKV -> {
                                             if (newBoundaryKV != null) {
                                                 final Tuple newBoundaryKey = entriesSubspace.unpack(
                                                         newBoundaryKV.getKey());
                                                 tr.set(boundaryMetaKey, newBoundaryKey.pack());
                                             }
-                                            return null;
                                         })
                                 )
                         );
