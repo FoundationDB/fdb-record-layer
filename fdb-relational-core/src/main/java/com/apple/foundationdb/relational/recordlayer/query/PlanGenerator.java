@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsCollector;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -233,6 +234,7 @@ public final class PlanGenerator {
     }
 
     @Nonnull
+    @SuppressWarnings("try")
     private Plan<?> generatePhysicalPlanForCompilableStatement(@Nonnull AstNormalizer.NormalizationResult ast,
                                                                boolean caseSensitive,
                                                                @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) {
@@ -244,7 +246,7 @@ public final class PlanGenerator {
                 currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash);
         planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
         final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
-        try {
+        try (var ignored = new PlannerEventStatsCollector.DefaultStatsCollectorController()) {
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
                     new BaseVisitor(planGenerationContext, metadata, planContext.getDdlQueryFactory(),
                             planContext.getConstantActionFactory(), planContext.getDbUri(), caseSensitive)
