@@ -332,12 +332,17 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         }
 
         public void close() {
-            final CompletableFuture<RecordCursorResult<V>> future = innerFuture;
+            CompletableFuture<RecordCursorResult<V>> future = innerFuture;
             if (future != null) {
                 future.cancel(false);
             }
             if (innerCursor != null) {
                 innerCursor.close();
+            }
+            // re-cancel future in case getNextInnerPipelineFuture is running at the same time
+            future = innerFuture;
+            if (future != null) {
+                future.cancel(false);
             }
         }
 
