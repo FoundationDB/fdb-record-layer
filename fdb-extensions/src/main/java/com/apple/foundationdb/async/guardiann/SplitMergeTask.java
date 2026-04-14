@@ -227,6 +227,10 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                                                 kMeans(neighborhoods, vectorReferences, nestedRandom, estimator));
                                             }, 10, executor)
                                     .thenApply(assignmentCandidates -> {
+                                        // TODO if the clusters are too lopsided and the vector references point to
+                                        //      some vector duplicates, try to collapse them into a black hole and
+                                        //      bounce back.
+
                                         final AssignmentCandidate split1to2Candidate =
                                                 Objects.requireNonNull(assignmentCandidates.get(0));
                                         final UpgradeResult upgradeResult1to2 =
@@ -428,7 +432,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                 assignmentMultimapBuilder.put(
                         primaryClusterId,
                         vectorReference.toPrimaryUnderreplicatedCopy());
-                // skip writing replicas as the new clusters do not "own" this vector anymore
+                // skip assigning replicas as the new clusters do not "own" this vector anymore
                 continue;
             }
 

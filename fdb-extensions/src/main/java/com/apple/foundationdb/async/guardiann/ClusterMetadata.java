@@ -43,10 +43,9 @@ class ClusterMetadata {
     @Nonnull
     private final EnumSet<State> states;
 
-    public ClusterMetadata(@Nonnull final UUID id,
-                           final int numPrimaryUnderreplicatedVectors, final int numReplicatedVectors,
-                           @Nonnull final RunningStandardDeviation runningStandardDeviation,
-                           final int stateCode) {
+    public ClusterMetadata(@Nonnull final UUID id, final int numPrimaryUnderreplicatedVectors,
+                           final int numReplicatedVectors,
+                           @Nonnull final RunningStandardDeviation runningStandardDeviation, final int stateCode) {
         this(id, numPrimaryUnderreplicatedVectors, numReplicatedVectors, runningStandardDeviation,
                 State.ofCode(stateCode));
     }
@@ -185,7 +184,8 @@ class ClusterMetadata {
 
     public enum State {
         SPLIT_MERGE(1),
-        REASSIGN(2);
+        REASSIGN(2),
+        COLLAPSE(4);
 
         private static final Map<Integer, State> BY_CODE =
                 Arrays.stream(values())

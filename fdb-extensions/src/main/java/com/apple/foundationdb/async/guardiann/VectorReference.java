@@ -22,12 +22,14 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.Lens;
 import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.UUID;
 
 class VectorReference {
     private static final Lens<VectorReference, RealVector> VECTOR_LENS =
@@ -37,16 +39,19 @@ class VectorReference {
     private final VectorId id;
     private final boolean isPrimaryCopy;
     private final boolean isUnderreplicated;
+    private final boolean isCollapsed;
     @Nonnull
     private final Transformed<RealVector> vector;
     private final double replicationPriority;
 
     public VectorReference(@Nonnull final VectorId id, final boolean isPrimaryCopy, final boolean isUnderreplicated,
-                           @Nonnull final Transformed<RealVector> vector, final double replicationPriority) {
+                           boolean isCollapsed, @Nonnull final Transformed<RealVector> vector,
+                           final double replicationPriority) {
         Preconditions.checkArgument(isPrimaryCopy || !isUnderreplicated);
         this.id = id;
         this.isPrimaryCopy = isPrimaryCopy;
         this.isUnderreplicated = isUnderreplicated;
+        this.isCollapsed = isCollapsed;
         this.vector = vector;
         this.replicationPriority = replicationPriority;
     }
@@ -64,6 +69,10 @@ class VectorReference {
         return isUnderreplicated;
     }
 
+    public boolean isCollapsed() {
+        return isCollapsed;
+    }
+
     @Nonnull
     public Transformed<RealVector> getVector() {
         return vector;
@@ -78,7 +87,7 @@ class VectorReference {
         if (getId() == newVectorId) {
             return this;
         }
-        return new VectorReference(newVectorId, isPrimaryCopy(), isUnderreplicated(),
+        return new VectorReference(newVectorId, isPrimaryCopy(), isUnderreplicated(), isCollapsed(),
                 getVector(), getReplicationPriority());
     }
 
@@ -87,7 +96,7 @@ class VectorReference {
         if (isPrimaryCopy() == isPrimaryCopy && isUnderreplicated() == isUnderreplicated) {
             return this;
         }
-        return new VectorReference(getId(), isPrimaryCopy, isUnderreplicated,
+        return new VectorReference(getId(), isPrimaryCopy, isUnderreplicated, isCollapsed(),
                 getVector(), isPrimaryCopy ? -1.0d : getReplicationPriority());
     }
 
@@ -96,7 +105,8 @@ class VectorReference {
         if (getVector() == newVector) {
             return this;
         }
-        return new VectorReference(getId(), isPrimaryCopy(), isUnderreplicated(), newVector, getReplicationPriority());
+        return new VectorReference(getId(), isPrimaryCopy(), isUnderreplicated(), isCollapsed(), newVector,
+                getReplicationPriority());
     }
 
     @Nonnull
@@ -106,12 +116,19 @@ class VectorReference {
 
     @Nonnull
     public VectorReference toReplicatedCopy(final double newReplicationScore) {
-        return new VectorReference(getId(), false, false, getVector(), newReplicationScore);
+        return new VectorReference(getId(), false, false, isCollapsed(), getVector(),
+                newReplicationScore);
     }
 
     @Nonnull
     public VectorReference toPrimaryUnderreplicatedCopy() {
         return withPrimaryCopy(true, true);
+    }
+
+    @Nonnull
+    public VectorReference toCollapsed(@Nonnull final UUID signature, @Nonnull final UUID vectorUuid) {
+        return new VectorReference(new VectorId(Tuple.from(signature), vectorUuid), isPrimaryCopy(),
+                isUnderreplicated(), true, getVector(), getReplicationPriority());
     }
 
     @Override
@@ -123,13 +140,15 @@ class VectorReference {
         return Objects.equals(getId(), that.getId()) &&
                 isPrimaryCopy() == that.isPrimaryCopy() &&
                 isUnderreplicated() == that.isUnderreplicated() &&
+                isCollapsed() == that.isCollapsed() &&
                 Objects.equals(getVector(), that.getVector()) &&
                 getReplicationPriority() == that.getReplicationPriority();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getId(), isPrimaryCopy(), isUnderreplicated(), getVector(), getReplicationPriority());
+        return Objects.hash(getId(), isPrimaryCopy(), isUnderreplicated(), isCollapsed(), getVector(),
+                getReplicationPriority());
     }
 
     @Override
@@ -137,6 +156,7 @@ class VectorReference {
         return "VR[" + getId() +
                 ", isPrimaryCopy=" + isPrimaryCopy() +
                 ", isUnderreplicated=" + isUnderreplicated() +
+                ", isCollapsed=" + isCollapsed() +
                 ", replicationPriority=" + getReplicationPriority() + "]";
     }
 

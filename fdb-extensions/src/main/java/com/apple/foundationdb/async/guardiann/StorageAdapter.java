@@ -62,24 +62,29 @@ class StorageAdapter {
     private static final long SUBSPACE_PREFIX_CLUSTER_METADATA = 0x02;
 
     /**
-     * Subspace for the vector entries.
+     * Subspace for vector references.
      */
     private static final long SUBSPACE_PREFIX_VECTOR_REFERENCES = 0x03;
 
     /**
-     * Subspace for the vector entries.
+     * Subspace for vector ids.
      */
-    private static final long SUBSPACE_PREFIX_VECTOR_METADATA = 0x04;
+    private static final long SUBSPACE_PREFIX_COLLAPSED_VECTOR_IDS = 0x04;
+
+    /**
+     * Subspace for vector metadata.
+     */
+    private static final long SUBSPACE_PREFIX_VECTOR_METADATA = 0x05;
 
     /**
      * Subspace for (mostly) statistical analysis (like finding a centroid, etc.). Contains samples of vectors.
      */
-    private static final long SUBSPACE_PREFIX_SAMPLES = 0x05;
+    private static final long SUBSPACE_PREFIX_SAMPLES = 0x06;
 
     /**
      * Subspace for outstanding tasks.
      */
-    private static final long SUBSPACE_PREFIX_TASKS = 0x06;
+    private static final long SUBSPACE_PREFIX_TASKS = 0x07;
 
     @Nonnull
     private final Config config;
@@ -98,6 +103,8 @@ class StorageAdapter {
     private final Supplier<Subspace> clusterMetadataSubspaceSupplier;
     @Nonnull
     private final Supplier<Subspace> vectorReferencesSubspaceSupplier;
+    @Nonnull
+    private final Supplier<Subspace> collapsedVectorIdsSubspaceSupplier;
     @Nonnull
     private final Supplier<Subspace> vectorMetadataSubspaceSupplier;
     @Nonnull
@@ -136,6 +143,8 @@ class StorageAdapter {
                 Suppliers.memoize(() -> subspace.subspace(Tuple.from(SUBSPACE_PREFIX_CLUSTER_METADATA)));
         this.vectorReferencesSubspaceSupplier =
                 Suppliers.memoize(() -> subspace.subspace(Tuple.from(SUBSPACE_PREFIX_VECTOR_REFERENCES)));
+        this.collapsedVectorIdsSubspaceSupplier =
+                Suppliers.memoize(() -> subspace.subspace(Tuple.from(SUBSPACE_PREFIX_COLLAPSED_VECTOR_IDS)));
         this.vectorMetadataSubspaceSupplier =
                 Suppliers.memoize(() -> subspace.subspace(Tuple.from(SUBSPACE_PREFIX_VECTOR_METADATA)));
         this.samplesSubspaceSupplier =
@@ -174,6 +183,11 @@ class StorageAdapter {
     @Nonnull
     public Subspace getVectorReferencesSubspace() {
         return vectorReferencesSubspaceSupplier.get();
+    }
+
+    @Nonnull
+    public Subspace getCollapsedVectorIdsSubspace() {
+        return collapsedVectorIdsSubspaceSupplier.get();
     }
 
     @Nonnull
@@ -344,10 +358,12 @@ class StorageAdapter {
 
         final boolean isPrimaryCopy = valueTuple.getBoolean(1);
         final boolean isUnderreplicated = valueTuple.getBoolean(2);
+        final boolean isCollapsed = valueTuple.getBoolean(3);
         final Transformed<RealVector> vector =
-                storageTransform.transform(StorageHelpers.vectorFromBytes(config, valueTuple.getBytes(3)));
-        final double replicationPriority = isPrimaryCopy ? -1 : valueTuple.getDouble(4);
-        return new VectorReference(vectorId, isPrimaryCopy, isUnderreplicated, vector, replicationPriority);
+                storageTransform.transform(StorageHelpers.vectorFromBytes(config, valueTuple.getBytes(4)));
+        final double replicationPriority = isPrimaryCopy ? -1 : valueTuple.getDouble(5);
+        return new VectorReference(vectorId, isPrimaryCopy, isUnderreplicated, isCollapsed,
+                vector, replicationPriority);
     }
 
     @Nonnull
@@ -356,8 +372,14 @@ class StorageAdapter {
         final VectorId vectorId = vectorReference.getId();
         final Transformed<RealVector> encodedVector = quantizer.encode(vectorReference.getVector());
         return Tuple.from(vectorId.getUuid(), vectorReference.isPrimaryCopy(),
-                vectorReference.isUnderreplicated(), encodedVector.getUnderlyingVector().getRawData(),
+                vectorReference.isUnderreplicated(), vectorReference.isCollapsed(),
+                encodedVector.getUnderlyingVector().getRawData(),
                 vectorReference.isPrimaryCopy() ? null : vectorReference.getReplicationPriority());
+    }
+
+    @Nonnull
+    static Tuple valueTupleFromCollapsedVectorId(@Nonnull final VectorId vectorId) {
+        return Tuple.from(vectorId.getUuid());
     }
 
     static double replicationPriority(final double distance, final double distanceToPrimaryCentroid,
@@ -389,12 +411,6 @@ class StorageAdapter {
             }
         }
         return false;
-    }
-
-    static double replicationPriorityOld(final double distance, final double distanceToPrimaryCentroid,
-                                         final int num, final double mean, final double standardDeviation) {
-        final double r = distanceToPrimaryCentroid / (distance + EPS);
-        return 1.0d * r;
     }
 
     @Nonnull

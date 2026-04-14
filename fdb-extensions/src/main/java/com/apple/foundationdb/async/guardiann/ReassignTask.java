@@ -1,5 +1,5 @@
 /*
- * SplitMergeTask.java
+ * ReassignTask.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -315,8 +315,8 @@ public class ReassignTask extends AbstractDeferredTask {
 
         final ImmutableListMultimap.Builder<UUID, ClusterMetadataWithDistance> invertedAssignmentsMapBuilder =
                 ImmutableListMultimap.builder();
-        // only considering primary copies here -- this will prune the replicated vectors
         for (final VectorReference vectorReference : vectorReferences) {
+            // only considering primary copies here
             if (!vectorReference.isPrimaryCopy()) {
                 continue;
             }

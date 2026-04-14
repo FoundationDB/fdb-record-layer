@@ -169,6 +169,11 @@ class Primitives {
     }
 
     @Nonnull
+    Subspace getCollapsedVectorIdsSubspace() {
+        return getStorageAdapter().getCollapsedVectorIdsSubspace();
+    }
+
+    @Nonnull
     Subspace getVectorMatadataSubspace() {
         return getStorageAdapter().getVectorMetadataSubspace();
     }
@@ -456,6 +461,17 @@ class Primitives {
 
         getOnWriteListener().onRangeDeleted(-1, range);
         transaction.clear(range);
+    }
+
+    void writeCollapsedVectorId(@Nonnull final Transaction transaction,
+                                @Nonnull final UUID signature,
+                                @Nonnull final VectorId vectorId) {
+        final Subspace collapsedVectorIdsSubspace = getCollapsedVectorIdsSubspace();
+        final byte[] key = collapsedVectorIdsSubspace.pack(Tuple.from(signature, vectorId.getPrimaryKey()));
+        final byte[] value = StorageAdapter.valueTupleFromCollapsedVectorId(vectorId).pack();
+
+        getOnWriteListener().onKeyValueWritten(-1, key, value);
+        transaction.set(key, value);
     }
 
     @Nonnull
@@ -759,9 +775,9 @@ class Primitives {
                                     }
                                     return vectorReference;
                                 }
-                                // both of them are replicated vector references -- take the one with the lower
-                                // replication score
-                                return oldVectorReference.getReplicationPriority() < vectorReference.getReplicationPriority()
+                                // both of them are replicated vector references -- take the one with the higher
+                                // replication priority
+                                return oldVectorReference.getReplicationPriority() > vectorReference.getReplicationPriority()
                                        ? oldVectorReference
                                        : vectorReference;
                             });

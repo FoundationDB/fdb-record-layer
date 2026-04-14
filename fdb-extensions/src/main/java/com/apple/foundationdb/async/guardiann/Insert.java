@@ -292,7 +292,8 @@ public class Insert {
                                             if (isPrimaryCluster) {
                                                 primitives.writeVectorReference(transaction, quantizer, clusterId,
                                                         new VectorReference(newVectorMetadata,
-                                                                true, false, transformedNewVector,
+                                                                true, false,
+                                                                false, transformedNewVector,
                                                                 -1.0d));
                                                 updatedStandardDeviation =
                                                         runningStandardDeviation.add(distance);
@@ -313,7 +314,8 @@ public class Insert {
 
                                                 primitives.writeVectorReference(transaction, quantizer, clusterId,
                                                         new VectorReference(newVectorMetadata,
-                                                                false, false, transformedNewVector,
+                                                                false, false,
+                                                                false, transformedNewVector,
                                                                 replicationPriority));
                                                 selectedReplicationClusters.add(replicationCandidate);
 

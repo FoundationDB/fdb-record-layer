@@ -161,8 +161,8 @@ public abstract class AbstractDeferredTask {
 
     @CanIgnoreReturnValue
     static <T> RunningStandardDeviation
-    updateRunningStandardDeviationsMap(@Nonnull final Map<T, RunningStandardDeviation> map,
-                                       @Nonnull final T key, final double distance) {
+            updateRunningStandardDeviationsMap(@Nonnull final Map<T, RunningStandardDeviation> map,
+                                               @Nonnull final T key, final double distance) {
         return map.compute(key, (ignoredKey, old) -> {
             if (old == null) {
                 return RunningStandardDeviation.of(distance);
@@ -174,7 +174,8 @@ public abstract class AbstractDeferredTask {
     public enum Kind {
         SPLIT_MERGE(0, SplitMergeTask::fromTuples),
         REASSIGN(1, ReassignTask::fromTuples),
-        BOUNCE_REASSIGN(2, BounceReassignTask::fromTuples);
+        BOUNCE_REASSIGN(2, BounceReassignTask::fromTuples),
+        COLLAPSE(3, CollapseTask::fromTuples);
 
         private static final Map<Integer, Kind> BY_CODE =
                 Arrays.stream(values())
