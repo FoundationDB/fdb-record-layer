@@ -342,6 +342,12 @@ public class TransformedRecordSerializerTest {
                 () -> deserialize(serializer, PRIMARY_KEY, serialized));
         assertThat(tooLargeException.getMessage(), containsString("decompressed record too large"));
         assertThat(tooLargeException.getLogInfo(), hasEntry(LogMessageKeys.EXPECTED.toString(), innerSize / 2));
+
+        updateSize(serialized, -1);
+        RecordSerializationException negativeLengthException = assertThrows(RecordSerializationException.class,
+                () -> deserialize(serializer, PRIMARY_KEY, serialized));
+        assertThat(negativeLengthException.getMessage(), containsString("invalid decompressed length"));
+        assertThat(negativeLengthException.getLogInfo(), hasEntry("decompressedLength", -1));
     }
 
     @Test
