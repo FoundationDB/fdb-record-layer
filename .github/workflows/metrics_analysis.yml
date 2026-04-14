@@ -51,7 +51,7 @@ jobs:
         fi
 
     - name: Comment on PR
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9.0.0
       continue-on-error: true
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -88,7 +88,7 @@ jobs:
           });
 
     - name: Add inline comments for outliers
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9.0.0
       if: steps.check-changes.outputs.SIGNIFICANT_CHANGES == 'true'
       continue-on-error: true
       with:

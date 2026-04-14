@@ -19,7 +19,7 @@ jobs:
         with:
           sparse-checkout: build/release-notes-config.json
       - name: Check Labels
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9.0.0
         with:
           script: |
             // Gather required labels from release notes configuration
