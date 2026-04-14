@@ -184,7 +184,23 @@ public abstract class IndexPredicate {
             return null;
         }
         final int size = ((Number)comparand).intValue();
-        return new RowNumberWindowPredicate(fieldNames, RowNumberWindowPredicate.Direction.ASC, size);
+
+        // Extract partition fields from the RowNumberValue's partitioning values
+        final var partitionValues = rowNumberValue.getPartitioningValues();
+        final ImmutableList.Builder<List<String>> partitionFieldPaths = ImmutableList.builder();
+        for (Value pv : partitionValues) {
+            if (!(pv instanceof FieldValue)) {
+                return null;
+            }
+            final var partFieldNames = ((FieldValue)pv).getFieldPathNames();
+            if (partFieldNames.isEmpty()) {
+                return null;
+            }
+            partitionFieldPaths.add(partFieldNames);
+        }
+
+        return new RowNumberWindowPredicate(fieldNames, RowNumberWindowPredicate.Direction.ASC, size,
+                partitionFieldPaths.build());
     }
 
     /**
@@ -616,15 +632,25 @@ public abstract class IndexPredicate {
         private final int size;
         @Nonnull
         private final Direction direction;
+        @Nonnull
+        private final List<List<String>> partitionFieldPaths;
 
-        public RowNumberWindowPredicate(@Nonnull final List<String> fieldPath, @Nonnull final Direction direction, int size) {
+        public RowNumberWindowPredicate(@Nonnull final List<String> fieldPath, @Nonnull final Direction direction,
+                                        int size, @Nonnull final List<List<String>> partitionFieldPaths) {
             this.fieldPath = ImmutableList.copyOf(fieldPath);
             this.direction = direction;
             this.size = size;
+            this.partitionFieldPaths = partitionFieldPaths.stream()
+                    .map(ImmutableList::copyOf)
+                    .collect(ImmutableList.toImmutableList());
+        }
+
+        public RowNumberWindowPredicate(@Nonnull final List<String> fieldPath, @Nonnull final Direction direction, int size) {
+            this(fieldPath, direction, size, ImmutableList.of());
         }
 
         public RowNumberWindowPredicate(@Nonnull final String fieldName, @Nonnull final Direction direction, int size) {
-            this(ImmutableList.of(fieldName), direction, size);
+            this(ImmutableList.of(fieldName), direction, size, ImmutableList.of());
         }
 
         public RowNumberWindowPredicate(@Nonnull final RecordMetaDataProto.RowNumberWindowPredicate proto) {
@@ -641,6 +667,9 @@ public abstract class IndexPredicate {
                     throw new RecordCoreException("unknown RowNumberWindowPredicate direction")
                             .addLogInfo(LogMessageKeys.VALUE, proto.getDirection());
             }
+            this.partitionFieldPaths = proto.getPartitionFieldsList().stream()
+                    .map(fp -> ImmutableList.copyOf(fp.getFieldList()))
+                    .collect(ImmutableList.toImmutableList());
         }
 
         @Nonnull
@@ -669,13 +698,43 @@ public abstract class IndexPredicate {
         }
 
         @Nonnull
+        public List<List<String>> getPartitionFieldPaths() {
+            return partitionFieldPaths;
+        }
+
+        @Nonnull
         public KeyExpression getWindowKey() {
-            // Build nested key expression from inside out: for path [a, b, c] → field(a).nest(field(b).nest(field(c)))
-            KeyExpression result = Key.Expressions.field(fieldPath.get(fieldPath.size() - 1));
-            for (int i = fieldPath.size() - 2; i >= 0; i--) {
-                result = Key.Expressions.field(fieldPath.get(i)).nest(result);
+            return fieldPathToKeyExpression(fieldPath);
+        }
+
+        /**
+         * Builds a {@link KeyExpression} for the partition key from the partition field paths.
+         * Returns {@code null} if there are no partition fields.
+         */
+        @javax.annotation.Nullable
+        public KeyExpression getPartitionKey() {
+            if (partitionFieldPaths.isEmpty()) {
+                return null;
+            }
+            if (partitionFieldPaths.size() == 1) {
+                return fieldPathToKeyExpression(partitionFieldPaths.get(0));
+            }
+            KeyExpression result = fieldPathToKeyExpression(partitionFieldPaths.get(0));
+            for (int i = 1; i < partitionFieldPaths.size(); i++) {
+                result = Key.Expressions.concat(result, fieldPathToKeyExpression(partitionFieldPaths.get(i)));
             }
             return result;
+        }
+
+        /**
+         * Returns the total number of columns in the partition key.
+         */
+        public int getPartitionKeyColumnSize() {
+            if (partitionFieldPaths.isEmpty()) {
+                return 0;
+            }
+            final KeyExpression pk = getPartitionKey();
+            return pk != null ? pk.getColumnSize() : 0;
         }
 
         @Override
@@ -690,12 +749,18 @@ public abstract class IndexPredicate {
                     direction == Direction.ASC
                             ? RecordMetaDataProto.RowNumberWindowPredicate.Direction.ASC
                             : RecordMetaDataProto.RowNumberWindowPredicate.Direction.DESC;
-            return RecordMetaDataProto.Predicate.newBuilder()
-                    .setRowNumberWindowPredicate(RecordMetaDataProto.RowNumberWindowPredicate.newBuilder()
+            final RecordMetaDataProto.RowNumberWindowPredicate.Builder builder =
+                    RecordMetaDataProto.RowNumberWindowPredicate.newBuilder()
                             .addAllFieldPath(fieldPath)
                             .setSize(size)
-                            .setDirection(protoDirection)
-                            .build())
+                            .setDirection(protoDirection);
+            for (List<String> partitionPath : partitionFieldPaths) {
+                builder.addPartitionFields(RecordMetaDataProto.FieldPath.newBuilder()
+                        .addAllField(partitionPath)
+                        .build());
+            }
+            return RecordMetaDataProto.Predicate.newBuilder()
+                    .setRowNumberWindowPredicate(builder.build())
                     .build();
         }
 
@@ -707,7 +772,17 @@ public abstract class IndexPredicate {
 
         @Override
         public String toString() {
-            return "QualifyRowNumber(" + String.join(".", fieldPath) + ", " + direction + ") <= " + size + " ";
+            final StringBuilder sb = new StringBuilder("QualifyRowNumber(");
+            if (!partitionFieldPaths.isEmpty()) {
+                sb.append("PARTITION BY ");
+                sb.append(partitionFieldPaths.stream()
+                        .map(fp -> String.join(".", fp))
+                        .collect(Collectors.joining(", ")));
+                sb.append(" ORDER BY ");
+            }
+            sb.append(String.join(".", fieldPath));
+            sb.append(", ").append(direction).append(") <= ").append(size);
+            return sb.toString();
         }
 
         @Override
@@ -719,12 +794,23 @@ public abstract class IndexPredicate {
                 return false;
             }
             RowNumberWindowPredicate that = (RowNumberWindowPredicate) o;
-            return size == that.size && direction == that.direction && fieldPath.equals(that.fieldPath);
+            return size == that.size && direction == that.direction
+                    && fieldPath.equals(that.fieldPath)
+                    && partitionFieldPaths.equals(that.partitionFieldPaths);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(fieldPath, direction, size);
+            return Objects.hash(fieldPath, direction, size, partitionFieldPaths);
+        }
+
+        @Nonnull
+        private static KeyExpression fieldPathToKeyExpression(@Nonnull List<String> path) {
+            KeyExpression result = Key.Expressions.field(path.get(path.size() - 1));
+            for (int i = path.size() - 2; i >= 0; i--) {
+                result = Key.Expressions.field(path.get(i)).nest(result);
+            }
+            return result;
         }
     }
 }

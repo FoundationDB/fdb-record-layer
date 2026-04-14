@@ -48,6 +48,7 @@ import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -519,48 +520,64 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     // ===== deleteWhere tests =====
-    // The deleteWhere prefix is based on the index root expression (num_value_2),
-    // while the window key is a separate field (num_value_3_indexed).
-    // rec(recNo, numValue2, numValue3Indexed) — prefix matches on numValue2.
+    // deleteWhere requires a partitioned sliding window. The partition prefix comes from
+    // the PARTITION BY clause in the RowNumberWindowPredicate. deleteWhere(prefix) clears
+    // the entire partition group from both the sliding window subspace and the delegate.
+
+    /**
+     * Hook with a partitioned window: PARTITION BY num_value_2, ORDER BY num_value_3_indexed.
+     * Each distinct num_value_2 value gets its own window of the given size.
+     * Index root expression = num_value_2.
+     */
+    @Nonnull
+    private static RecordMetaDataHook partitionedHook(int windowSize, @Nonnull Direction direction) {
+        final KeyExpression wholeKey = Key.Expressions.field("num_value_2");
+        final IndexPredicate.RowNumberWindowPredicate predicate =
+                new IndexPredicate.RowNumberWindowPredicate(
+                        ImmutableList.of("num_value_3_indexed"), direction, windowSize,
+                        ImmutableList.of(ImmutableList.of("num_value_2")));
+        return md -> md.addIndex("MySimpleRecord",
+                new Index(INDEX_NAME, wholeKey, "value", IndexOptions.EMPTY_OPTIONS, predicate));
+    }
 
     @Test
-    void deleteWhereRemovesMatchingFromWindowAndReelects() {
+    void deleteWhereClearsEntirePartition() {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook(3, Direction.DESC));
+            // Each num_value_2 partition gets its own window of size 3, DESC
+            openSimpleRecordStore(context, partitionedHook(3, Direction.DESC));
 
-            rec(1, 10, 100);  // window, num_value_2=10
-            rec(2, 10, 200);  // window, num_value_2=10
-            rec(3, 20, 300);  // window, num_value_2=20
-            rec(4, 30, 50);   // overflow, num_value_2=30
-            assertWindowContains(1, 2, 3);
+            // Partition 10: rec1, rec2 (window has room)
+            rec(1, 10, 100);
+            rec(2, 10, 200);
+            // Partition 20: rec3, rec4
+            rec(3, 20, 300);
+            rec(4, 20, 400);
+            assertWindowContains(1, 2, 3, 4);
 
-            // deleteWhere(prefix=Tuple(10)) removes records with num_value_2=10
-            // → rec1 and rec2 removed from window. rec3 stays. rec4 stays in overflow.
-            // 2 window slots freed → re-elect rec4 from overflow.
+            // deleteWhere(10) clears partition 10 entirely
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
             maintainer.deleteWhere(context.ensureActive(), Tuple.from(10L)).join();
 
+            // Only partition 20 remains
             assertWindowContains(3, 4);
             commit(context);
         }
     }
 
     @Test
-    void deleteWhereRemovesOnlyOverflow() {
+    void deleteWhereOnNonExistentPartition() {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook(2, Direction.DESC));
+            openSimpleRecordStore(context, partitionedHook(3, Direction.DESC));
 
-            rec(1, 10, 200);  // window, num_value_2=10
-            rec(2, 20, 300);  // window, num_value_2=20
-            rec(3, 30, 50);   // overflow, num_value_2=30
-            rec(4, 30, 40);   // overflow, num_value_2=30
+            rec(1, 10, 100);
+            rec(2, 20, 200);
             assertWindowContains(1, 2);
 
-            // deleteWhere(prefix=Tuple(30)) removes rec3,rec4 from overflow → window unchanged
+            // deleteWhere(999) — partition doesn't exist → no-op
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
-            maintainer.deleteWhere(context.ensureActive(), Tuple.from(30L)).join();
+            maintainer.deleteWhere(context.ensureActive(), Tuple.from(999L)).join();
 
             assertWindowContains(1, 2);
             commit(context);
@@ -568,66 +585,123 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void deleteWhereAllWindowReelectsMultiple() {
+    void deleteWherePartitionWithOverflow() {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook(2, Direction.DESC));
+            // Each partition gets a window of 2, DESC
+            openSimpleRecordStore(context, partitionedHook(2, Direction.DESC));
 
-            rec(1, 10, 300);  // window, num_value_2=10
-            rec(2, 10, 200);  // window, num_value_2=10
-            rec(3, 20, 100);  // overflow, num_value_2=20
-            rec(4, 30, 50);   // overflow, num_value_2=30
-            assertWindowContains(1, 2);
+            // Partition 10: rec1(100), rec2(200) in window; rec5(50) in overflow
+            rec(1, 10, 100);
+            rec(2, 10, 200);
+            rec(5, 10, 50);   // overflow for partition 10
 
-            // deleteWhere(prefix=Tuple(10)) removes both window entries.
-            // Re-elects rec3(100) and rec4(50) from overflow.
+            // Partition 20: rec3(300), rec4(400) in window
+            rec(3, 20, 300);
+            rec(4, 20, 400);
+            assertWindowContains(1, 2, 3, 4);
+
+            // deleteWhere(10) clears partition 10 — both window and overflow entries
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
             maintainer.deleteWhere(context.ensureActive(), Tuple.from(10L)).join();
 
+            // Only partition 20 remains
             assertWindowContains(3, 4);
             commit(context);
         }
     }
 
     @Test
-    void deleteWhereNoMatch() {
+    void deleteWherePreservesOtherPartitions() {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook(3, Direction.DESC));
+            openSimpleRecordStore(context, partitionedHook(2, Direction.DESC));
 
+            // Three partitions
             rec(1, 10, 100);
             rec(2, 20, 200);
             rec(3, 30, 300);
             assertWindowContains(1, 2, 3);
 
-            // deleteWhere with a prefix matching no records → no-op
+            // Delete partition 20
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
-            maintainer.deleteWhere(context.ensureActive(), Tuple.from(999L)).join();
+            maintainer.deleteWhere(context.ensureActive(), Tuple.from(20L)).join();
 
-            assertWindowContains(1, 2, 3);
+            // Partitions 10 and 30 remain
+            assertWindowContains(1, 3);
+
+            // Can still insert into other partitions
+            rec(5, 10, 500);
+            assertWindowContains(1, 3, 5);
+
             commit(context);
         }
     }
 
+    /**
+     * Hook with a two-column partition: PARTITION BY (str_value_indexed, num_value_2),
+     * ORDER BY num_value_3_indexed.
+     * Index root expression = concat(str_value_indexed, num_value_2).
+     */
+    @Nonnull
+    private static RecordMetaDataHook twoColumnPartitionHook(int windowSize, @Nonnull Direction direction) {
+        final KeyExpression wholeKey = Key.Expressions.concat(
+                Key.Expressions.field("str_value_indexed"),
+                Key.Expressions.field("num_value_2"));
+        final IndexPredicate.RowNumberWindowPredicate predicate =
+                new IndexPredicate.RowNumberWindowPredicate(
+                        ImmutableList.of("num_value_3_indexed"), direction, windowSize,
+                        ImmutableList.of(
+                                ImmutableList.of("str_value_indexed"),
+                                ImmutableList.of("num_value_2")));
+        return md -> md.addIndex("MySimpleRecord",
+                new Index(INDEX_NAME, wholeKey, "value", IndexOptions.EMPTY_OPTIONS, predicate));
+    }
+
+    private void recWithStr(int recNo, String strVal, int value2, int value3) {
+        recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setRecNo(recNo)
+                .setStrValueIndexed(strVal)
+                .setNumValue2(value2)
+                .setNumValue3Indexed(value3)
+                .setNumValueUnique(recNo)
+                .build());
+    }
+
     @Test
-    void deleteWhereMixedWindowAndOverflow() {
+    void twoColumnPartitionWindowAndDeleteWhere() {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook(3, Direction.DESC));
+            // Each (str_value_indexed, num_value_2) pair gets its own window of size 2, DESC
+            openSimpleRecordStore(context, twoColumnPartitionHook(2, Direction.DESC));
 
-            rec(1, 10, 200);  // window, num_value_2=10
-            rec(2, 20, 300);  // window, num_value_2=20
-            rec(3, 10, 400);  // window, num_value_2=10
-            rec(4, 10, 50);   // overflow, num_value_2=10
-            rec(5, 20, 100);  // overflow, num_value_2=20
-            assertWindowContains(1, 2, 3);
+            // Partition ("A", 10): rec1(v3=100), rec2(v3=200) — fills window
+            recWithStr(1, "A", 10, 100);
+            recWithStr(2, "A", 10, 200);
+            // Partition ("A", 20): rec3(v3=300)
+            recWithStr(3, "A", 20, 300);
+            // Partition ("B", 10): rec4(v3=400), rec5(v3=500) — fills window
+            recWithStr(4, "B", 10, 400);
+            recWithStr(5, "B", 10, 500);
+            // Partition ("A", 10): rec6(v3=50) — overflow (worse than rec1's 100 in DESC)
+            recWithStr(6, "A", 10, 50);
 
-            // deleteWhere(prefix=Tuple(10)) removes rec1,rec3 from window and rec4 from overflow.
-            // 2 window slots freed → re-elect rec5(100) from overflow.
+            assertWindowContains(1, 2, 3, 4, 5);
+
+            // deleteWhere with full partition prefix ("A", 10) — clears that partition only
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
-            maintainer.deleteWhere(context.ensureActive(), Tuple.from(10L)).join();
+            maintainer.deleteWhere(context.ensureActive(), Tuple.from("A", 10L)).join();
 
-            assertWindowContains(2, 5);
+            // Partition ("A", 10) gone — rec1, rec2, rec6 all removed
+            // Partitions ("A", 20) and ("B", 10) remain
+            assertWindowContains(3, 4, 5);
+
+            // deleteWhere with partial prefix ("A") — clears all partitions starting with "A"
+            maintainer.deleteWhere(context.ensureActive(), Tuple.from("A")).join();
+
+            // Only partition ("B", 10) remains
+            assertWindowContains(4, 5);
+
             commit(context);
         }
     }
@@ -722,7 +796,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                 new IndexPredicate.RowNumberWindowPredicate("score", Direction.DESC, 10);
         final IndexPredicate.ConstantPredicate constant =
                 new IndexPredicate.ConstantPredicate(IndexPredicate.ConstantPredicate.ConstantValue.TRUE);
-        final IndexPredicate and = new IndexPredicate.AndPredicate(java.util.List.of(qualify, constant));
+        final IndexPredicate and = new IndexPredicate.AndPredicate(ImmutableList.of(qualify, constant));
 
         // Should not throw
         IndexPredicate.validateRowNumberWindowPlacement(and);
@@ -734,7 +808,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                 new IndexPredicate.RowNumberWindowPredicate("score", Direction.DESC, 10);
         final IndexPredicate.ConstantPredicate constant =
                 new IndexPredicate.ConstantPredicate(IndexPredicate.ConstantPredicate.ConstantValue.TRUE);
-        final IndexPredicate or = new IndexPredicate.OrPredicate(java.util.List.of(qualify, constant));
+        final IndexPredicate or = new IndexPredicate.OrPredicate(ImmutableList.of(qualify, constant));
 
         org.junit.jupiter.api.Assertions.assertThrows(
                 com.apple.foundationdb.record.RecordCoreException.class,
@@ -748,8 +822,8 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         final IndexPredicate.ConstantPredicate constant =
                 new IndexPredicate.ConstantPredicate(IndexPredicate.ConstantPredicate.ConstantValue.TRUE);
         // AND(qualify) inside OR
-        final IndexPredicate andWithQualify = new IndexPredicate.AndPredicate(java.util.List.of(qualify));
-        final IndexPredicate or = new IndexPredicate.OrPredicate(java.util.List.of(andWithQualify, constant));
+        final IndexPredicate andWithQualify = new IndexPredicate.AndPredicate(ImmutableList.of(qualify));
+        final IndexPredicate or = new IndexPredicate.OrPredicate(ImmutableList.of(andWithQualify, constant));
 
         org.junit.jupiter.api.Assertions.assertThrows(
                 com.apple.foundationdb.record.RecordCoreException.class,

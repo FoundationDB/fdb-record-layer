@@ -323,6 +323,11 @@ message RowNumberWindowPredicate {
     DESC = 2;
   }
   required Direction direction = 3;
+  repeated FieldPath partition_fields = 4;
+}
+
+message FieldPath {
+  repeated string field = 1;
 }
 
 message Predicate {
