@@ -80,7 +80,7 @@ def emoji(result_word):
     else:
         raise Exception('Invalid result type: ' + result_word)
 
-def generate_markdown(version, results, header_size):
+def generate_markdown(results, header_size):
     sorted_keys = sorted(results.keys(), key=lambda raw: [int(part) for part in raw.split('.')])
 
     return header_size + " Mixed Mode Test Results\n\nMixed mode testing run against the following previous versions:\n\n" + \
@@ -93,7 +93,6 @@ def main(argv):
     parser.add_argument('--header-size', help='Markdown header level (e.g. # or ##)', default='####')
     parser.add_argument('--run-link', help='A link to the test run that generated the results')
     parser.add_argument('--output', required=True, help='Output to print the markdown to')
-    parser.add_argument('version', help='Version of the server that was tested')
     args = parser.parse_args(argv)
 
     if glob.has_magic(args.results_path):
@@ -101,7 +100,7 @@ def main(argv):
     else:
         results = get_results(args.results_path)
 
-    markdown = generate_markdown(args.version, results, args.header_size)
+    markdown = generate_markdown(results, args.header_size)
     if args.run_link is not None:
         markdown = markdown + "\n\n[See full test run](" + args.run_link +")\n"
     with open(args.output, mode='w') as fout:

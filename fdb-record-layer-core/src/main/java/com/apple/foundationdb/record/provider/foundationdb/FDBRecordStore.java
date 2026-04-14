@@ -245,9 +245,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // The size of preload cache
     private static final int PRELOAD_CACHE_SIZE = 100;
 
-    @Nonnull
-    private static final CompletableFuture<IndexState> READY_READABLE = CompletableFuture.completedFuture(IndexState.READABLE);
-
     protected static final Object STORE_INFO_KEY = FDBRecordStoreKeyspace.STORE_INFO.key();
     protected static final Object RECORD_KEY = FDBRecordStoreKeyspace.RECORD.key();
     protected static final Object INDEX_KEY = FDBRecordStoreKeyspace.INDEX.key();
@@ -2868,35 +2865,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private void beginRecordStoreStateRead() {
-        // When the record store state is being updated multiple times, this function (and its implicit retry loop at
-        // the atomic reference level) will retry the update on the new record store state, so the operation always
-        // does what's expected (i.e., update the "in flight reads" value while leaving the record store state otherwise
-        // in tact).
-        recordStoreStateRef.updateAndGet(state -> {
-            state.beginRead();
-            return state;
-        });
+        recordStoreStateRef.get().beginRead();
     }
 
     private void endRecordStoreStateRead() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.endRead();
-            return state;
-        });
+        recordStoreStateRef.get().endRead();
     }
 
     private void beginRecordStoreStateWrite() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.beginWrite();
-            return state;
-        });
+        recordStoreStateRef.get().beginWrite();
     }
 
     private void endRecordStoreStateWrite() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.endWrite();
-            return state;
-        });
+        recordStoreStateRef.get().endWrite();
     }
 
     @Nonnull
@@ -4382,12 +4363,36 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
+    private CompletableFuture<Map<Index, IndexState>> rebuildIndexesGetDesiredIndexStates(
+            @Nonnull List<CompletableFuture<Void>> preWork,
+            @Nonnull Map<Index, CompletableFuture<IndexState>> newStates) {
+        final ConcurrentHashMap<Index, IndexState> desiredIndexStates = new ConcurrentHashMap<>();
+        // Combine pre-existing work and newStates resolution into a single list of futures
+        final List<CompletableFuture<Void>> allWork = new ArrayList<>(preWork);
+        for (Map.Entry<Index, CompletableFuture<IndexState>> entry : newStates.entrySet()) {
+            allWork.add(entry.getValue().thenAccept(state -> desiredIndexStates.put(entry.getKey(), state)));
+        }
+        return AsyncUtil.whenAll(allWork).thenApply(ignore -> desiredIndexStates);
+    }
+
     @Nonnull
     protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
                                                      @Nonnull Map<Index, CompletableFuture<IndexState>> newStates,
                                                      @Nonnull List<CompletableFuture<Void>> work,
                                                      @Nonnull RebuildIndexReason reason,
                                                      @Nullable Integer oldMetaDataVersion) {
+        // Finish any pre-existing work items and resolve desired index states (which may query index states) before
+        // rebuilding indexes (which writes index states)
+        return rebuildIndexesGetDesiredIndexStates(work, newStates).thenCompose(desiredIndexStates ->
+                rebuildIndexes(indexes, desiredIndexStates, reason, oldMetaDataVersion));
+    }
+
+    @Nonnull
+    protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
+                                                     @Nonnull Map<Index, IndexState> desiredIndexStates,
+                                                     @Nonnull RebuildIndexReason reason,
+                                                     @Nullable Integer oldMetaDataVersion) {
+        List<CompletableFuture<Void>> work = new ArrayList<>();
         Iterator<Map.Entry<Index, List<RecordType>>> indexIter = indexes.entrySet().iterator();
         return AsyncUtil.whileTrue(() -> {
             Iterator<CompletableFuture<Void>> workIter = work.iterator();
@@ -4403,11 +4408,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     Map.Entry<Index, List<RecordType>> indexItem = indexIter.next();
                     Index index = indexItem.getKey();
                     List<RecordType> recordTypes = indexItem.getValue();
+                    IndexState indexState = desiredIndexStates.getOrDefault(index, IndexState.READABLE);
                     final StringBuilder errMessageBuilder = new StringBuilder("unable to ");
                     final CompletableFuture<Void> rebuildOrMarkIndexSafely = MoreAsyncUtil.handleOnException(
-                            () -> newStates.getOrDefault(index, READY_READABLE).thenCompose(
-                                    indexState -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder)
-                            ),
+                            () -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder),
                             exception -> {
                                 // If there is any issue, simply mark the index as disabled without blocking checkVersion
                                 logExceptionAsWarn(KeyValueLogMessage.build(errMessageBuilder.toString(),
@@ -5052,7 +5056,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         context.clear(getSubspace().range(Tuple.from(INDEX_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
-        context.clear(getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        final String formerIndexName = formerIndex.getFormerName();
+        if (formerIndexName != null) {
+            // The index state space is currently keyed by the index name rather than the index subspace key.
+            // This will need to be adapted if we resolve: https://github.com/foundationdb/fdb-record-layer/issues/514
+            // Note that we set it to "readable" to clear it out
+            updateIndexState(formerIndexName, getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndexName)), IndexState.READABLE);
+        }
         context.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, formerIndex.getSubspaceTupleKey())));
         if (getTimer() != null) {
             getTimer().recordSinceNanoTime(FDBStoreTimer.Events.REMOVE_FORMER_INDEX, startTime);
@@ -5794,6 +5804,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         /**
          * In the event that a store has been corrupted, and the header has been lost, this method can be used to open
+         * the store, and fill in the missing header; replaced by {@link #repairMissingHeader(int, FormatVersion, RepairMissingHeaderOptions)}.
+         *
+         * @param userVersion the user version to set in the store header
+         * @param minimumPossibleFormatVersion the minimum {@link FormatVersion} that this store could have possibly
+         * had. Notably, upgrading to {@link FormatVersion#SAVE_VERSION_WITH_RECORD} requires moving data, and upgrading
+         * to {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX} requires storing whether the store should have the unsplit
+         * suffix or not. It is probably possible for {@code repairMissingHeader} to determine what to do based on the
+         * rest of the data in the store, but to keep this simple, upgrading across those versions is not supported.
+         *
+         * @return a boolean indicating whether a repair needed to be done ({@code true}) or not ({@code false}) and
+         * the opened store.
+         */
+        @API(API.Status.DEPRECATED)
+        public CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(final int userVersion, FormatVersion minimumPossibleFormatVersion) {
+            return repairMissingHeader(userVersion, minimumPossibleFormatVersion, RepairMissingHeaderOptions.DEFAULT);
+        }
+
+        /**
+         * In the event that a store has been corrupted, and the header has been lost, this method can be used to open
          * the store, and fill in the missing header.
          * <p>
          * If it is possible that multiple different instances have a different idea of any of the versions
@@ -5807,6 +5836,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          *             Disable all indexes, since we cannot universally determine whether they have been added or
          *             changed since the store was last opened. In theory there are some situations where we could
          *             determine that the index can be marked readable for free, but this is not supported.
+         *             If {@code leavePotentiallyCorruptIndexesReadableReason} is not {@code null} they will not be
+         *             disabled.
+         *             This can be useful if you want to use the potentially corrupt indexes to discern information
+         *             about the corrupted records. See the parameter documentation for more information.
          *         </li>
          *         <li>
          *             Disable the {@link RecordMetaData#getRecordCountKey()} if there is one on the metadata, because
@@ -5843,12 +5876,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * to {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX} requires storing whether the store should have the unsplit
          * suffix or not. It is probably possible for {@code repairMissingHeader} to determine what to do based on the
          * rest of the data in the store, but to keep this simple, upgrading across those versions is not supported.
+         * @param repairMissingHeaderOptions options for how to do the repair
          *
          * @return a boolean indicating whether a repair needed to be done ({@code true}) or not ({@code false}) and
          * the opened store.
          */
-        @API(API.Status.INTERNAL)
-        public CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(final int userVersion, FormatVersion minimumPossibleFormatVersion) {
+        @API(API.Status.EXPERIMENTAL)
+        public CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(
+                final int userVersion, @Nonnull final FormatVersion minimumPossibleFormatVersion,
+                @Nonnull final RepairMissingHeaderOptions repairMissingHeaderOptions) {
             if (!formatVersion.isAtLeast(minimumPossibleFormatVersion)) {
                 throw new RecordCoreArgumentException("minimumPossibleFormatVersion is greater than the target formatVerson")
                         .addLogInfo(LogMessageKeys.FORMAT_VERSION, minimumPossibleFormatVersion)
@@ -5864,12 +5900,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             store.getStoreStateCache().get(store, StoreExistenceCheck.NONE)
                                     .thenCompose(storeStateCacheEntry ->
                                             repairMissingHeader(userVersion, store,
-                                                    storeStateCacheEntry.getRecordStoreState().getStoreHeader())));
+                                                    storeStateCacheEntry.getRecordStoreState().getStoreHeader(),
+                                                    repairMissingHeaderOptions)));
         }
 
-        private CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(final int userVersion,
-                                                                                     @Nonnull final FDBRecordStore store,
-                                                                                     @Nonnull final RecordMetaDataProto.DataStoreInfo existing) {
+        private CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(
+                final int userVersion,
+                @Nonnull final FDBRecordStore store,
+                @Nonnull final RecordMetaDataProto.DataStoreInfo existing,
+                @Nonnull final RepairMissingHeaderOptions repairMissingHeaderOptions) {
             if (!existing.equals(RecordMetaDataProto.DataStoreInfo.getDefaultInstance())) {
                 return store.checkVersion(userVersionChecker, StoreExistenceCheck.ERROR_IF_NOT_EXISTS)
                         .thenApply(checkVersionDidSomething -> NonnullPair.of(false, store));
@@ -5936,19 +5975,28 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // 2. If the index has never been modified, and it has an index state, we could leave it. But
             //    this would basically just allow WriteOnly indexes or ReadableUniquePending to stay, as we
             //    do not store anything for Readable indexes.
-            // 3. We could give the users an option to leave them as-is and use IndexScrubbing to repair the
-            //    indexes, but (at least right now) scrubbing can only repair value indexes.
+            // 3. Users can leave them readable and use IndexScrubbing to repair the indexes, but (at least right now)
+            //    scrubbing can only repair value indexes.
             // In the general case, we have no idea whether the index should be readable or not because:
             // 1. We don't store that the index should be readable, so it could be that the index was readable
             //    or that the store was on a metadata version that didn't have the index, or
             //    had an older version of the index. If it wasn't readable on the current version, then
             //    leaving the index would leave it in a corrupted state.
-            return bumpMetaDataVersionStamp.thenCompose(vignore -> AsyncUtil.whenAll(
+            return bumpMetaDataVersionStamp.thenCompose(vignore -> {
+                if (repairMissingHeaderOptions.isLeaveIndexesReadable()) {
+                    // Do not disable the indexes, but lock the store so that unaware code won't accidentally interact
+                    // with corrupt indexes
+                    return store.setStoreLockStateAsync(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
+                            repairMissingHeaderOptions.getLockReason());
+                } else {
+                    return AsyncUtil.whenAll(
                             recordMetaData.getAllIndexes().stream()
                                     .map(store::markIndexDisabled)
-                                    .collect(Collectors.toList()))
-                    .thenApply(ignored -> NonnullPair.of(true, store)));
+                                    .collect(Collectors.toList()));
+                }
+            }).thenApply(ignored -> NonnullPair.of(true, store));
         }
+
     }
 
 }

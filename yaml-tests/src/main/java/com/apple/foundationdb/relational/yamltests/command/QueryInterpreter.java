@@ -50,6 +50,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static com.apple.foundationdb.relational.yamltests.Matchers.constructRandomString;
 import static com.apple.foundationdb.relational.yamltests.Matchers.constructVectorFromString;
 
 /**
@@ -57,7 +58,7 @@ import static com.apple.foundationdb.relational.yamltests.Matchers.constructVect
  * {@link QueryCommand} command. The query in the framework is expected to be a valid query string based on the
  * Relational parser except that it can have parameter injection snippets.
  * <p>
- * A parameter injection snippet is a statement surrounded by `/{` and `}/` that can substitute anywhere in the query
+ * A parameter injection snippet is a statement surrounded by `!!` and `!!` that can substitute anywhere in the query
  * where a prepared statement parameter can be put. For example, lets take a simple query:
  * <pre>{@code
  *      SELECT * FROM foo WHERE foo.a > 10
@@ -65,7 +66,7 @@ import static com.apple.foundationdb.relational.yamltests.Matchers.constructVect
  * Here, 10 can be substituted for a parameter and hence qualify to be substituted by our parameter injection snippet,
  * as:
  * <pre>{@code
- *      SELECT * FROM foo WHERE foo.a > %% 10 %%
+ *      SELECT * FROM foo WHERE foo.a > !! 10 !!
  *}</pre>
  * QueryInterpreter interprets {@code /{10}/} as a singleton {@link PrimitiveParameter}. A mapping of {@link Parameter}s
  * in the given query helps to adapt the query to be executed as a simple statement or as a prepared statement, as required.
@@ -74,7 +75,7 @@ import static com.apple.foundationdb.relational.yamltests.Matchers.constructVect
  * can be an {@link UnboundParameter} that is not literal and needs to be "bound" using a {@link Random} generator to
  * take a literal value. An example of query with {@link UnboundParameter} is:
  * <pre>{@code
- *      SELECT * FROM foo WHERE foo.a > %% !r [2, 9] %%
+ *      SELECT * FROM foo WHERE foo.a > !! !r [2, 9] !!
  *}</pre>
  * Here, the parameter can randomly take different values between 2 and 9 in each binding.
  */
@@ -103,6 +104,7 @@ public final class QueryInterpreter {
         private static final Tag VECTOR16_TAG = new Tag("!v16");
         private static final Tag VECTOR32_TAG = new Tag("!v32");
         private static final Tag VECTOR64_TAG = new Tag("!v64");
+        private static final Tag RANDOM_STRING_TAG = new Tag("!randomStr");
 
         private QueryParameterYamlConstructor(LoaderOptions loaderOptions) {
             super(loaderOptions);
@@ -115,6 +117,7 @@ public final class QueryInterpreter {
             this.yamlConstructors.put(VECTOR16_TAG, new ConstructVector16());
             this.yamlConstructors.put(VECTOR32_TAG, new ConstructVector32());
             this.yamlConstructors.put(VECTOR64_TAG, new ConstructVector64());
+            this.yamlConstructors.put(RANDOM_STRING_TAG, new ConstructRandomString());
 
             final var longTag = new LongTag();
             this.yamlConstructors.put(longTag.getTag(), longTag.getConstruct());
@@ -124,7 +127,7 @@ public final class QueryInterpreter {
         public Parameter constructObject(Node node) {
             if (node.getTag().equals(RANDOM_TAG) || node.getTag().equals(ARRAY_GENERATOR_TAG) || node.getTag().equals(IN_LIST_TAG)
                     || node.getTag().equals(NULL_TAG) || node.getTag().equals(UUID_TAG) || node.getTag().equals(VECTOR16_TAG)
-                    || node.getTag().equals(VECTOR32_TAG) || node.getTag().equals(VECTOR64_TAG)) {
+                    || node.getTag().equals(VECTOR32_TAG) || node.getTag().equals(VECTOR64_TAG) || node.getTag().equals(RANDOM_STRING_TAG)) {
                 return (Parameter) super.constructObject(node);
             } else if (node instanceof SequenceNode) {
                 // simple list
@@ -158,6 +161,14 @@ public final class QueryInterpreter {
                     return new UnboundParameter.RandomSetParameter(values.stream().map(v -> constructObject(v.getKeyNode())).collect(Collectors.toList()));
                 }
                 return null;
+            }
+        }
+
+        private static class ConstructRandomString extends AbstractConstruct {
+
+            @Override
+            public Object construct(Node node) {
+                return new PrimitiveParameter(constructRandomString(Assert.castUnchecked(node, ScalarNode.class)));
             }
         }
 

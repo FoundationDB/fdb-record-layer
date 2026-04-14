@@ -725,6 +725,9 @@ public class TypeConversion {
                 case COMPRESS_WHEN_SERIALIZING:
                     builder.setCompressWhenSerializing((Boolean)entry.getValue());
                     break;
+                case PLAN_RIGHT_DEEP:
+                    builder.setPlanRightDeep((Boolean)entry.getValue());
+                    break;
                 default:
                     throw new SQLException("Cannot encode option in protobuf");
             }
@@ -841,6 +844,9 @@ public class TypeConversion {
         }
         if (protoOptions.hasCompressWhenSerializing()) {
             builder.withOption(Options.Name.COMPRESS_WHEN_SERIALIZING, protoOptions.getCompressWhenSerializing());
+        }
+        if (protoOptions.hasPlanRightDeep()) {
+            builder.withOption(Options.Name.PLAN_RIGHT_DEEP, protoOptions.getPlanRightDeep());
         }
         return builder.build();
     }

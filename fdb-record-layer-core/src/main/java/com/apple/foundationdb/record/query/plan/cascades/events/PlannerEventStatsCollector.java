@@ -119,4 +119,25 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
      */
     @Nonnull
     Optional<PlannerEventStatsMaps> getStatsMaps();
+
+    /**
+     * An {@link AutoCloseable} controller that ensures a {@link DefaultPlannerEventStatsCollector} is active for the
+     * duration of a try-with-resources block. On construction, it saves the currently installed collector and installs
+     * a new {@link DefaultPlannerEventStatsCollector} if none is already present. On {@link #close()}, it restores
+     * the previously saved collector, so that any collector set by the caller before entering the block is preserved.
+     */
+    class DefaultStatsCollectorController implements AutoCloseable {
+        @Nullable
+        final PlannerEventStatsCollector prevCollector;
+
+        public DefaultStatsCollectorController() {
+            prevCollector = PlannerEventStatsCollector.getCollector();
+            PlannerEventStatsCollector.enableDefaultStatsCollector();
+        }
+
+        @Override
+        public void close() {
+            PlannerEventStatsCollector.setCollector(prevCollector);
+        }
+    }
 }

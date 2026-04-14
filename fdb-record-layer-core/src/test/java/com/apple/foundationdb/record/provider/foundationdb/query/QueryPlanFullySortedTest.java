@@ -178,7 +178,12 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setSort(Key.Expressions.field("num_value_2"))
                 .build();
-        assertFalse(planQuery(planner, query).isStrictlySorted());
+        final var plan = planQuery(planner, query);
+        if (useCascadesPlanner) {
+            assertTrue(plan.isStrictlySorted());
+        } else {
+            assertFalse(plan.isStrictlySorted());
+        }
     }
 
     @DualPlannerTest

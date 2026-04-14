@@ -52,6 +52,7 @@ import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+import com.apple.test.BooleanSource;
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.FakeTicker;
 import org.apache.commons.lang3.tuple.Pair;
@@ -60,12 +61,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -408,19 +409,17 @@ public class RelationalPlanCacheTests {
         Map<Tuple, Map<PhysicalPlanEquivalence, String>> result = new HashMap<>();
         for (String key : cache.getStats().getAllKeys()) {
             for (QueryCacheKey secondaryKey : cache.getStats().getAllSecondaryKeys(key)) {
-                result.put(
-                        new Tuple(
-                                secondaryKey.getCanonicalQueryString(),
-                                key,
-                                secondaryKey.getSchemaTemplateVersion(),
-                                secondaryKey.getUserVersion(),
-                                secondaryKey.getPlannerConfiguration(),
-                                secondaryKey.getAuxiliaryMetadata()),
-                        cache.getStats().getAllTertiaryMappings(key, secondaryKey)
-                                .entrySet()
-                                .stream()
-                                .map(k -> new AbstractMap.SimpleEntry<>(k.getKey(), inferScanType(k.getValue())))
-                                .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue)));
+                final var resMap = result.computeIfAbsent(
+                        new Tuple(secondaryKey.getCanonicalQueryString(),
+                                    key,
+                                    secondaryKey.getSchemaTemplateVersion(),
+                                    secondaryKey.getUserVersion(),
+                                    secondaryKey.getPlannerConfiguration(),
+                                    secondaryKey.getAuxiliaryMetadata()),
+                        k -> new HashMap<>());
+                for (final var entry3 : cache.getStats().getAllTertiaryMappings(key, secondaryKey).entrySet()) {
+                    resMap.put(entry3.getKey(), inferScanType(entry3.getValue()));
+                }
             }
         }
 
@@ -948,5 +947,54 @@ public class RelationalPlanCacheTests {
         // this is needed because expiration is done passively for better performance.
         // cleanup causes expiration handling to kick in immediately resulting in deterministic behavior which is necessary for testing.
         cache.cleanUp();
+    }
+
+    @ParameterizedTest(name = "specifyInQuery={0}")
+    @BooleanSource
+    void testPlanningQueryWithAndWithoutPlanRightDeepOption(boolean specifyInQuery) throws Exception {
+        final var ticker = new FakeTicker();
+        final var cache = getCache(ticker);
+        final var rightDeepOption = Options.builder().withOption(Options.Name.PLAN_RIGHT_DEEP, true).build();
+
+        // When specifyInQuery=true, the option is embedded in the SQL; the Options parameter is left as none().
+        // When specifyInQuery=false, the option is passed as connection-level Options; the SQL is plain.
+        final String queryWithOption = specifyInQuery
+                ? "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979 OPTIONS (PLAN RIGHT DEEP)"
+                : "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979";
+        final Options optionsWithOption = specifyInQuery ? Options.none() : rightDeepOption;
+        final String expectedCononicalString = "SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ";
+
+        planQuery(cache, queryWithOption, "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), optionsWithOption, i1970);
+        shouldBe(cache, Map.of(
+                new Tuple(expectedCononicalString, "SCHEMA_TEMPLATE_1", 10, 100, configOf(Set.of(i1970, i1980), rightDeepOption), ""),
+                Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11), isNotNullInt(7), isNotNullInt(11))), i1970)));
+
+        // now run the plain query (no option either way)
+        planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), Options.none(), i1970);
+        shouldBe(cache, Map.of(
+                new Tuple(expectedCononicalString, "SCHEMA_TEMPLATE_1", 10, 100, configOf(Set.of(i1970, i1980), rightDeepOption), ""),
+                Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11), isNotNullInt(7), isNotNullInt(11))), i1970),
+                new Tuple(expectedCononicalString, "SCHEMA_TEMPLATE_1", 10, 100, configOf(Set.of(i1970, i1980)), ""),
+                Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11), isNotNullInt(7), isNotNullInt(11))), i1970)));
+
+        cache.cleanUp();
+    }
+
+    @Test
+    void testExplainReusesCachedPlan() throws Exception {
+        final var ticker = new FakeTicker();
+        final var cache = getCache(ticker);
+
+        planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, configOf(Set.of(i1970, i1980)), ""),
+                Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11), isNotNullInt(7), isNotNullInt(11))), i1970)));
+
+        planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, configOf(Set.of(i1970, i1980)), ""),
+                Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11), isNotNullInt(7), isNotNullInt(11))), i1970)));
+
+        planQuery(cache, "EXPLAIN SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, configOf(Set.of(i1970, i1980)), ""),
+                Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11), isNotNullInt(7), isNotNullInt(11))), i1970)));
     }
 }

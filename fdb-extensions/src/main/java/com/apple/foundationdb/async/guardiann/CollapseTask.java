@@ -364,7 +364,7 @@ public class CollapseTask extends AbstractDeferredTask {
         newStates.remove(ClusterMetadata.State.COLLAPSE);
 
         final ClusterMetadata newTargetClusterMetadata =
-                targetClusterMetadata.withNewVectors(0, numReplicatedVectorsAdded,
+                targetClusterMetadata.withNewVectors(numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
                         updatedStandardDeviation, newStates);
         primitives.writeClusterMetadata(transaction, newTargetClusterMetadata);
 

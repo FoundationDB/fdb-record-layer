@@ -283,6 +283,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void rightDeepPlanTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("right-deep-plan-tests.yamsql");
+    }
+
+    @TestTemplate
     public void scenarioTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("scenario-tests.yamsql");
     }
@@ -378,8 +383,13 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void uuidTest(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("uuid.yamsql");
+    public void uuidPreparedTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("uuid-prepared.yamsql");
+    }
+
+    @TestTemplate
+    public void uuidNonPreparedTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("uuid-non-prepared.yamsql");
     }
 
     /**
@@ -417,5 +427,26 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void simpleQueryWithDifferentDebuggersTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("simple-query-with-different-debuggers.yamsql");
+    }
+
+    @TestTemplate
+    public void largeRecord(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("large-record.yamsql");
+    }
+
+    @TestTemplate
+    public void largeRecordFails(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("large-record-fails.yamsql");
+    }
+
+    @TestTemplate
+    public void recordTypeKeyTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("record-type-key-tests.yamsql");
+    }
+
+
+    @TestTemplate
+    public void filterIndexTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("filter-index.yamsql");
     }
 }

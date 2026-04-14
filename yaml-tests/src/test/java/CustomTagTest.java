@@ -56,7 +56,8 @@ class CustomTagTest {
     static Stream<String> shouldPass() {
         return Stream.of(
                 "ignore-tag",
-                "pos-tag"
+                "pos-tag",
+                "randomStr-tag"
         );
     }
 
