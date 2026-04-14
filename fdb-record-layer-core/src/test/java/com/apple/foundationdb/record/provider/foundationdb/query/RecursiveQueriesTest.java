@@ -267,11 +267,11 @@ class RecursiveQueriesTest extends TempTableTestBase {
             Arguments.of(ImmutableMap.of(1L, -1L), LEVEL, List.of(1L, 10L, 20L, 40L, 50L, 70L, 100L, 210L, 250L)),
             Arguments.of(ImmutableMap.of(1L, -1L), PREORDER, List.of(1L, 10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L)),
             Arguments.of(ImmutableMap.of(1L, -1L), POSTORDER, List.of(40L, 250L, 50L, 70L, 10L, 100L, 210L, 20L, 1L)),
-            Arguments.of(ImmutableMap.of(1L, -1L), ANY, List.of(1L, 10L, 20L, 40L, 50L, 70L, 100L, 210L, 250L)),
+            Arguments.of(ImmutableMap.of(1L, -1L), ANY, List.of(1L, 10L, 40L, 50L, 250L, 70L, 20L, 100L, 210L)),
             Arguments.of(ImmutableMap.of(10L, 1L), LEVEL, List.of(10L, 40L, 50L, 70L, 250L)),
             Arguments.of(ImmutableMap.of(10L, 1L), PREORDER, List.of(10L, 40L, 50L, 250L, 70L)),
             Arguments.of(ImmutableMap.of(10L, 1L), POSTORDER, List.of(40L, 250L, 50L, 70L, 10L)),
-            Arguments.of(ImmutableMap.of(10L, 1L), ANY, List.of(10L, 40L, 50L, 70L, 250L))
+            Arguments.of(ImmutableMap.of(10L, 1L), ANY, List.of(10L, 40L, 50L, 250L, 70L))
         );
     }
 
@@ -1021,7 +1021,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
                         new Type.AnyRecord(false),
                         new AccessHints())));
 
-        qun = Quantifier.forEach(Reference.initialOf(new LogicalTypeFilterExpression(ImmutableSet.of("SimpleHierarchicalRecord"), qun, getHierarchyType())));
+        qun = Quantifier.forEach(Reference.initialOf(LogicalTypeFilterExpression.of(ImmutableSet.of("SimpleHierarchicalRecord"), qun, getHierarchyType())));
 
         final var predicate = queryPredicate.apply(qun, ttSelectQun);
 

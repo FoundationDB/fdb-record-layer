@@ -250,7 +250,7 @@ public class LogicalOperator {
         }
         final String storageName = type.getStorageName();
         Assert.thatUnchecked(storageName != null, "storage name for table access must not be null");
-        final var typeFilterExpression = new LogicalTypeFilterExpression(ImmutableSet.of(storageName), scanExpression, type);
+        final var typeFilterExpression = LogicalTypeFilterExpression.of(ImmutableSet.of(storageName), scanExpression, type);
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(typeFilterExpression));
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
         int colCount = 0;
