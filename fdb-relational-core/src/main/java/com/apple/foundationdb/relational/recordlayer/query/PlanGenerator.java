@@ -200,7 +200,7 @@ public final class PlanGenerator {
                                     return candidate;
                                 }
                             }),
-                            e -> planContext.getMetricsCollector().increment(e)
+                            planContext.getMetricsCollector()
                     )
             );
         } catch (UncheckedRelationalException uve) {
