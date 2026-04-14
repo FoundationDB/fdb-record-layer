@@ -38,7 +38,9 @@ public interface ParseTreeInfo {
         INSERT,
         UPDATE,
         DELETE,
-        CREATE
+        CREATE,
+        DESCRIBE_QUERY,
+        OTHER
     }
 
     @Nonnull

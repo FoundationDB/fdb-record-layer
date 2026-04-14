@@ -189,7 +189,7 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("EXPLAIN SELECT sum(c) FROM T1 WHERE a = 1"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasColumn("PLAN", "AISCAN(SUM_IDX [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)");
+                            .hasColumn("PLAN", "AISCAN(SUM_IDX [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)");
                 }
             }
         }
