@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,276 +20,271 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexComparison;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexPredicate.RowNumberWindowPredicate.Direction;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
+import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto;
+import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto.SlidingWindowVectorRecord;
+import com.apple.foundationdb.half.Half;
+import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableList;
+import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Tests for the interaction between sliding window semantics and base index predicates.
+ * Tests for the interaction between sliding window semantics and base index predicates,
+ * using an HNSW vector delegate.
  *
- * <p>These tests use an AND predicate combining a value predicate (e.g. {@code num_value_2 > threshold})
+ * <p>These tests use an AND predicate combining a value predicate (e.g. {@code score > threshold})
  * with a {@link IndexPredicate.RowNumberWindowPredicate}. Records that fail the value predicate
- * should be completely invisible to the sliding window: they should not occupy window slots,
- * not enter overflow, and not be candidates for re-election.</p>
- *
- * <p>Assertions verify complete index entries: both the index key ({@code num_value_2}) and the
- * primary key ({@code recNo}), not just presence/absence.</p>
+ * should be completely invisible to the sliding window.</p>
  */
 @Tag(Tags.RequiresFDB)
 class SlidingWindowWithPredicateTest extends FDBRecordStoreTestBase {
 
-    private static final String INDEX_NAME = "sw_predicate_index";
+    private static final String INDEX_NAME = "sw_predicate_vector_index";
+    private static final int VECTOR_DIMS = 4;
 
-    /**
-     * Creates a hook with the following configuration.
-     * <ul>
-     *   <li>Index root expression: {@code num_value_2}</li>
-     *   <li>Predicate: AND(num_value_2 > threshold, RowNumberWindow(num_value_3_indexed, direction) <= windowSize)</li>
-     * </ul>
-     */
-    @Nonnull
-    private static RecordMetaDataHook hook(int windowSize, @Nonnull Direction direction, int threshold) {
-        final KeyExpression wholeKey = Key.Expressions.field("num_value_2");
-        final IndexPredicate valuePredicate = new IndexPredicate.ValuePredicate(
-                List.of("num_value_2"),
-                IndexComparison.fromComparison(
-                        new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, threshold)));
-        final IndexPredicate.RowNumberWindowPredicate windowPredicate =
-                new IndexPredicate.RowNumberWindowPredicate("num_value_3_indexed", direction, windowSize);
-        final IndexPredicate andPredicate = new IndexPredicate.AndPredicate(List.of(valuePredicate, windowPredicate));
-        return md -> md.addIndex("MySimpleRecord",
-                new Index(INDEX_NAME, wholeKey, "value", IndexOptions.EMPTY_OPTIONS, andPredicate));
+    private static HalfRealVector makeVector(float... values) {
+        final Half[] components = new Half[values.length];
+        for (int i = 0; i < values.length; i++) {
+            components[i] = Half.valueOf(values[i]);
+        }
+        return new HalfRealVector(components);
     }
 
     /**
-     * rec(recNo, numValue2, numValue3Indexed).
-     * <ul>
-     *   <li>{@code numValue2} — the indexed value AND the value predicate field</li>
-     *   <li>{@code numValue3Indexed} — the window key (ranking field)</li>
-     * </ul>
+     * Opens a store with a sliding window HNSW index AND a value predicate on score.
+     * Predicate: AND(score > threshold, RowNumberWindow(relevance, direction) <= windowSize).
      */
-    private void rec(int recNo, int value2, int value3) {
-        recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+    private void openStore(@Nonnull FDBRecordContext context, int windowSize,
+                           @Nonnull Direction direction, int threshold) throws Exception {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestRecordsSlidingWindowVectorProto.getDescriptor());
+        metaDataBuilder.getRecordType("SlidingWindowVectorRecord")
+                .setPrimaryKey(Key.Expressions.field("rec_no"));
+
+        final IndexPredicate valuePredicate = new IndexPredicate.ValuePredicate(
+                List.of("score"),
+                IndexComparison.fromComparison(
+                        new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, (long) threshold)));
+        final IndexPredicate.RowNumberWindowPredicate windowPredicate =
+                new IndexPredicate.RowNumberWindowPredicate(
+                        ImmutableList.of("relevance"), direction, windowSize);
+        final IndexPredicate andPredicate = new IndexPredicate.AndPredicate(
+                List.of(valuePredicate, windowPredicate));
+
+        final Map<String, String> options = new HashMap<>();
+        options.put(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name());
+        options.put(IndexOptions.HNSW_NUM_DIMENSIONS, Integer.toString(VECTOR_DIMS));
+
+        metaDataBuilder.addIndex("SlidingWindowVectorRecord",
+                new Index(INDEX_NAME,
+                        new KeyWithValueExpression(Key.Expressions.field("vector_data"), 0),
+                        IndexTypes.VECTOR, options, andPredicate));
+
+        createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
+    }
+
+    private void rec(long recNo, long relevance, long score) {
+        float v = (float)(recNo % 100) / 100.0f;
+        final HalfRealVector vector = makeVector(v, 1.0f - v, v * 0.5f, 0.1f);
+        recordStore.saveRecord(SlidingWindowVectorRecord.newBuilder()
                 .setRecNo(recNo)
-                .setStrValueIndexed("s" + recNo)
-                .setNumValue2(value2)
-                .setNumValue3Indexed(value3)
-                .setNumValueUnique(recNo)
+                .setZone("z")
+                .setCategory("c")
+                .setRelevance(relevance)
+                .setScore(score)
+                .setVectorData(ByteString.copyFrom(vector.getRawData()))
                 .build());
     }
 
-    private void deleteRec(int recNo) {
-        recordStore.deleteRecord(Tuple.from((long) recNo));
+    private void deleteRec(long recNo) {
+        recordStore.deleteRecord(Tuple.from(recNo));
     }
 
-    /**
-     * Scans the index and returns a map of recNo → indexKey (num_value_2) for each entry.
-     * This verifies both the primary key and the indexed value.
-     */
     @Nonnull
-    private Map<Long, Long> scanIndexEntries() {
-        final List<IndexEntry> entries = recordStore
-                .scanIndex(recordStore.getRecordMetaData().getIndex(INDEX_NAME),
-                        IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+    private Set<Long> scanIndexRecNos() {
+        final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+        final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+        final HalfRealVector queryVector = makeVector(0.5f, 0.5f, 0.5f, 0.5f);
+        final VectorIndexScanBounds bounds = new VectorIndexScanBounds(
+                TupleRange.ALL,
+                Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
+                queryVector,
+                100,
+                VectorIndexScanOptions.empty());
+        return maintainer.scan(bounds, null, com.apple.foundationdb.record.ScanProperties.FORWARD_SCAN)
                 .asList()
-                .join();
-        return entries.stream().collect(Collectors.toMap(
-                e -> e.getPrimaryKey().getLong(0),   // recNo
-                e -> e.getKey().getLong(0)            // num_value_2 (index key)
-        ));
+                .join()
+                .stream()
+                .map(e -> e.getPrimaryKey().getLong(0))
+                .collect(Collectors.toSet());
     }
 
-    /**
-     * Asserts the index contains exactly the expected entries as {recNo → num_value_2} pairs.
-     */
-    private void assertIndexEntries(@Nonnull Map<Long, Long> expected) {
-        final Map<Long, Long> actual = scanIndexEntries();
+    private void assertWindowContains(long... expectedRecNos) {
+        final Set<Long> actual = scanIndexRecNos();
+        final Set<Long> expected = java.util.Arrays.stream(expectedRecNos)
+                .boxed()
+                .collect(Collectors.toSet());
         assertEquals(expected, actual,
-                "Index entries (recNo → num_value_2) should be " + expected + " but was " + actual);
+                "Window should contain recNos " + expected + " but was " + actual);
     }
 
     // ===== Records failing the value predicate should be invisible to the window =====
 
     @Test
-    void filteredRecordsDoNotOccupyWindowSlots() {
-        // Window size 2, DESC (keep highest num_value_3_indexed), filter: num_value_2 > 5
+    void filteredRecordsDoNotOccupyWindowSlots() throws Exception {
+        // Window size 2, DESC (keep highest relevance), filter: score > 5
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook(2, Direction.DESC, 5));
+            openStore(context, 2, Direction.DESC, 5);
 
-            // These pass the filter (num_value_2 > 5)
-            rec(1, 10, 100);  // window
-            rec(2, 20, 200);  // window
-            assertIndexEntries(Map.of(1L, 10L, 2L, 20L));
+            rec(1, 100, 10);  // passes (score=10 > 5)
+            rec(2, 200, 20);  // passes
+            assertWindowContains(1, 2);
 
-            // This does NOT pass the filter (num_value_2 = 3 <= 5) → completely invisible
-            rec(3, 3, 999);
-            // rec3 should NOT take a window slot even though its window key (999) is highest
-            assertIndexEntries(Map.of(1L, 10L, 2L, 20L));
-
+            rec(3, 999, 3);   // fails filter (score=3 <= 5) → invisible
+            assertWindowContains(1, 2);
             commit(context);
         }
     }
 
     @Test
-    void filteredRecordsDoNotEvictWindowEntries() {
-        // Window size 2, DESC, filter: num_value_2 > 5
+    void filteredRecordsDoNotEvictWindowEntries() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook(2, Direction.DESC, 5));
+            openStore(context, 2, Direction.DESC, 5);
 
-            rec(1, 10, 100);  // window
-            rec(2, 20, 200);  // window
-            assertIndexEntries(Map.of(1L, 10L, 2L, 20L));
+            rec(1, 100, 10);
+            rec(2, 200, 20);
+            assertWindowContains(1, 2);
 
-            // rec3 fails filter, should NOT cause eviction even though 999 > 100
-            rec(3, 2, 999);
-            assertIndexEntries(Map.of(1L, 10L, 2L, 20L));
+            rec(3, 999, 2);   // fails filter, should NOT evict even though 999 > 100
+            assertWindowContains(1, 2);
 
-            // rec4 passes filter and evicts rec1 (lowest window key in DESC)
-            rec(4, 30, 300);
-            assertIndexEntries(Map.of(2L, 20L, 4L, 30L));
-
+            rec(4, 300, 30);  // passes, evicts rec1 (lowest relevance in DESC)
+            assertWindowContains(2, 4);
             commit(context);
         }
     }
 
     @Test
-    void filteredRecordsDoNotEnterOverflow() {
-        // Window size 2, DESC, filter: num_value_2 > 5
+    void filteredRecordsDoNotEnterOverflow() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook(2, Direction.DESC, 5));
+            openStore(context, 2, Direction.DESC, 5);
 
-            rec(1, 10, 200);  // window
-            rec(2, 20, 300);  // window
+            rec(1, 200, 10);
+            rec(2, 300, 20);
+            rec(3, 50, 1);    // fails filter → not in overflow
 
-            // rec3 fails filter → should NOT go to overflow
-            rec(3, 1, 50);
+            assertWindowContains(1, 2);
 
-            assertIndexEntries(Map.of(1L, 10L, 2L, 20L));
-
-            // Delete rec1 → if rec3 were in overflow, it would be promoted (wrong)
-            deleteRec(1);
-            // Only rec2 should remain — no re-election from overflow
-            assertIndexEntries(Map.of(2L, 20L));
-
+            deleteRec(1);     // if rec3 were in overflow it would be promoted
+            assertWindowContains(2);
             commit(context);
         }
     }
 
     @Test
-    void onlyFilteredInRecordsFillWindow() {
-        // Window size 3, DESC, filter: num_value_2 > 5
+    void onlyFilteredInRecordsFillWindow() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook(3, Direction.DESC, 5));
+            openStore(context, 3, Direction.DESC, 5);
 
-            // Mix of passing and failing records
-            rec(1, 3, 100);   // fails filter
-            rec(2, 10, 200);  // passes → window
-            rec(3, 1, 300);   // fails filter
-            rec(4, 20, 400);  // passes → window
-            rec(5, 4, 500);   // fails filter
-            rec(6, 30, 600);  // passes → window (fills window to 3)
+            rec(1, 100, 3);   // fails
+            rec(2, 200, 10);  // passes → window
+            rec(3, 300, 1);   // fails
+            rec(4, 400, 20);  // passes → window
+            rec(5, 500, 4);   // fails
+            rec(6, 600, 30);  // passes → window (fills to 3)
 
-            // Only the 3 records that pass the filter should be in the window
-            assertIndexEntries(Map.of(2L, 10L, 4L, 20L, 6L, 30L));
-
+            assertWindowContains(2, 4, 6);
             commit(context);
         }
     }
 
     @Test
-    void evictionOnlyAmongFilteredRecords() {
-        // Window size 2, DESC, filter: num_value_2 > 5
+    void evictionOnlyAmongFilteredRecords() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook(2, Direction.DESC, 5));
+            openStore(context, 2, Direction.DESC, 5);
 
-            rec(1, 10, 100);  // passes → window
-            rec(2, 20, 200);  // passes → window (full)
+            rec(1, 100, 10);  // window
+            rec(2, 200, 20);  // window (full)
+            rec(3, 999, 2);   // fails → ignored
+            assertWindowContains(1, 2);
 
-            // Fails filter → ignored
-            rec(3, 2, 999);
-            assertIndexEntries(Map.of(1L, 10L, 2L, 20L));
+            rec(4, 300, 15);  // passes, evicts rec1
+            assertWindowContains(2, 4);
 
-            // Passes filter, evicts rec1 (lowest window key in DESC)
-            rec(4, 15, 300);
-            assertIndexEntries(Map.of(2L, 20L, 4L, 15L));
+            rec(5, 150, 25);  // passes but worse than boundary → overflow
+            assertWindowContains(2, 4);
 
-            // Passes filter but worse than worst in window (200) → overflow
-            rec(5, 25, 150);
-            assertIndexEntries(Map.of(2L, 20L, 4L, 15L));
-
-            // Delete rec4 → re-elect rec5 from overflow
-            deleteRec(4);
-            assertIndexEntries(Map.of(2L, 20L, 5L, 25L));
-
+            deleteRec(4);     // re-elect rec5
+            assertWindowContains(2, 5);
             commit(context);
         }
     }
 
     @Test
-    void reElectionOnlyConsidersFilteredRecords() {
-        // Window size 2, DESC, filter: num_value_2 > 5
+    void reElectionOnlyConsidersFilteredRecords() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook(2, Direction.DESC, 5));
+            openStore(context, 2, Direction.DESC, 5);
 
-            rec(1, 10, 300);  // passes → window
-            rec(2, 20, 200);  // passes → window (full)
-            rec(3, 15, 100);  // passes → overflow (100 < 200 in DESC)
+            rec(1, 300, 10);  // window
+            rec(2, 200, 20);  // window (full)
+            rec(3, 100, 15);  // passes → overflow
+            rec(4, 150, 3);   // fails → not in overflow
 
-            // rec4 fails filter → should NOT be in overflow for re-election
-            rec(4, 3, 150);
+            assertWindowContains(1, 2);
 
-            assertIndexEntries(Map.of(1L, 10L, 2L, 20L));
-
-            // Delete rec1 → should promote rec3 (not rec4 even though 150 > 100)
-            deleteRec(1);
-            assertIndexEntries(Map.of(2L, 20L, 3L, 15L));
-
+            deleteRec(1);     // should promote rec3 (not rec4)
+            assertWindowContains(2, 3);
             commit(context);
         }
     }
 
     @Test
-    void rebuildWithMixedFilteredRecords() {
-        final RecordMetaDataHook theHook = hook(2, Direction.DESC, 5);
+    void rebuildWithMixedFilteredRecords() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, theHook);
-            rec(1, 3, 500);   // fails filter
-            rec(2, 10, 200);  // passes
-            rec(3, 1, 400);   // fails filter
-            rec(4, 20, 300);  // passes
-            rec(5, 4, 600);   // fails filter
-            rec(6, 30, 100);  // passes (but worse window key for DESC)
+            openStore(context, 2, Direction.DESC, 5);
+            rec(1, 500, 3);   // fails
+            rec(2, 200, 10);  // passes
+            rec(3, 400, 1);   // fails
+            rec(4, 300, 20);  // passes
+            rec(5, 600, 4);   // fails
+            rec(6, 100, 30);  // passes (worst relevance for DESC)
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, theHook);
+            openStore(context, 2, Direction.DESC, 5);
             recordStore.rebuildAllIndexes().join();
-            // DESC window=2 among passing records {rec2(v2=10,v3=200), rec4(v2=20,v3=300), rec6(v2=30,v3=100)}:
-            // keeps highest v3 → {rec2, rec4}
-            assertIndexEntries(Map.of(2L, 10L, 4L, 20L));
+            // DESC window=2 among passing: {rec2(200), rec4(300), rec6(100)} → keeps {rec2, rec4}
+            assertWindowContains(2, 4);
             commit(context);
         }
     }

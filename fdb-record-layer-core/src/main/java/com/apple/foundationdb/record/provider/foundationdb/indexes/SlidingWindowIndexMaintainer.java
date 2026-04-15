@@ -68,9 +68,14 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * An index maintainer decorator that keeps only the top-N records based on a window key,
- * optionally grouped by a partition key. It wraps a delegate {@link IndexMaintainer}
- * (which can be any index type, e.g. value, vector, etc.) and applies sliding window
- * semantics for mutations before delegating the actual index operations.
+ * optionally grouped by a partition key. It wraps a vector (HNSW)
+ * {@link IndexMaintainer} and applies sliding window semantics for mutations before delegating
+ * the actual index operations. This bounds the size of the HNSW graph while maintaining search
+ * quality over a curated subset of vectors.
+ *
+ * <p>Currently, only vector indexes are supported as the delegate. This restriction is enforced
+ * by {@link SlidingWindowIndexMaintainerFactory#isSlidingWindowIndex(Index)} and validated by
+ * {@link SlidingWindowIndexMaintainerFactory}.</p>
  *
  * <p>The sliding window subspace is organized as {@code <partition...> / <region> / ...} where
  * the partition prefix comes from the {@code PARTITION BY} clause in the

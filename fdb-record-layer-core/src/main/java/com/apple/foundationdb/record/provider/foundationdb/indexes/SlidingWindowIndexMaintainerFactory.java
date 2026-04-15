@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
@@ -42,14 +43,20 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 
 /**
- * A decorator factory that wraps any {@link IndexMaintainerFactory}'s output with a
+ * A decorator factory that wraps the {@link VectorIndexMaintainerFactory}'s output with a
  * {@link SlidingWindowIndexMaintainer} when the index carries a
  * {@link IndexPredicate.RowNumberWindowPredicate}.
+ *
+ * <p>Currently, sliding window semantics are only supported on
+ * vector (HNSW) indexes. The sliding window limits the number of
+ * vectors maintained in the HNSW graph by evicting the worst entries and re-electing from
+ * overflow when entries are deleted. This is particularly useful for bounding the size of
+ * expensive HNSW structures while maintaining search quality over a curated subset.</p>
  *
  * <p>This factory does not register its own index types via {@link #getIndexTypes()} (it returns
  * an empty list). Instead, the {@link com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl}
  * detects a sliding window index using {@link #isSlidingWindowIndex(Index)} and wraps the
- * delegate factory with this one. All operations — validation, maintainer creation, and match
+ * vector index factory with this one. All operations — validation, maintainer creation, and match
  * candidate creation — are forwarded to the delegate after applying sliding-window-specific
  * logic where needed.</p>
  *
@@ -63,24 +70,24 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
     private final IndexMaintainerFactory delegateFactory;
 
     /**
-     * Creates a new sliding window factory wrapping the given delegate.
+     * Creates a new sliding window factory wrapping the given delegate vector index factory.
      *
-     * @param delegateFactory the underlying factory for the actual index type (value, vector, etc.)
+     * @param delegateFactory the underlying vector index factory
      */
     public SlidingWindowIndexMaintainerFactory(@Nonnull IndexMaintainerFactory delegateFactory) {
         this.delegateFactory = delegateFactory;
     }
 
     /**
-     * Checks whether the given index has a {@link IndexPredicate.RowNumberWindowPredicate}
-     * anywhere in its predicate tree (directly or inside an {@link IndexPredicate.AndPredicate}),
-     * indicating it should be wrapped with sliding window semantics.
+     * Checks whether the given index is a vector index with a
+     * {@link IndexPredicate.RowNumberWindowPredicate} in its predicate tree, indicating it
+     * should be wrapped with sliding window semantics. Only vector indexes are eligible for sliding window decoration.
      *
      * @param index the index to check
-     * @return {@code true} if the index should use sliding window wrapping
+     * @return {@code true} if the index is a vector index with a sliding window predicate
      */
     public static boolean isSlidingWindowIndex(@Nonnull Index index) {
-        return /*IndexTypes.VECTOR.equals(index.getType()) &&*/ findRowNumberWindowPredicate(index.getPredicate()) != null;
+        return IndexTypes.VECTOR.equals(index.getType()) && findRowNumberWindowPredicate(index.getPredicate()) != null;
     }
 
     /**
@@ -206,6 +213,9 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
             if (delegateRecordTypes.stream().anyMatch(RecordType::isSynthetic)) {
                 throw new MetaDataException("sliding window index is on synthetic record types",
                         LogMessageKeys.INDEX_NAME, index.getName());
+            }
+            if (!IndexTypes.VECTOR.equals(index.getType())) {
+                throw new MetaDataException("sliding window index can only be defined on vector indexes");
             }
             @Nullable final IndexPredicate predicate = index.getPredicate();
             if (predicate == null) {
