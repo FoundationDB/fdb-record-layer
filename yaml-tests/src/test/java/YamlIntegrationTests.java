@@ -56,6 +56,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.ADD_RESULT_METADATA)
     public void aggregateIndexTestsCountEmpty(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("aggregate-index-tests-count-empty.yamsql");
     }

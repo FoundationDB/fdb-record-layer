@@ -225,6 +225,9 @@ public final class YamlExecutionContext {
             final List<YamlCorrection> corrections = pendingCorrections
                     .computeIfAbsent(queryReference.getResource(), k -> new ArrayList<>());
             // Deduplicate: if a correction for this query line is already pending, skip.
+            // The query could run multiple times depending on repetition, and each of the run calls addResultMetadata independently.
+            // Since the YAML file is parsed only once at the start, all runs see the same parsed config with no resultMetadata yet,
+            // and all queue a correction. The deduplication check prevents all but the first correct from being added.
             final int lineNumber = queryReference.getLineNumber();
             final boolean alreadyPending = corrections.stream()
                     .anyMatch(c -> c instanceof AddMetadataCorrection && c.getLineNumber() == lineNumber);
