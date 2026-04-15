@@ -17,9 +17,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Happy-path: resultMetadata is checked on a continuation page (inline mode).
-# The first resultMetadata runs independently (before first result); the second is
-# checked inline against the live result set of the continuation page.
+# Happy-path: a single resultMetadata block covers all continuation pages.
+# It runs independently before the first result, then is checked inline against every
+# subsequent continuation page automatically (sticky behaviour).
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))
@@ -37,9 +37,6 @@ test_block:
           - {ID: BIGINT}
           - {COL1: BIGINT}
       - result: [{!l 1, !l 10}]
-      - resultMetadata:
-          - {ID: BIGINT}
-          - {COL1: BIGINT}
       - result: [{!l 2, !l 20}]
       - result: []
 ...

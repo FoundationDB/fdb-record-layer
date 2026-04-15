@@ -534,10 +534,8 @@ public class TypeConversion {
             return null;
         }
         var resultSetBuilder = ResultSet.newBuilder();
+        resultSetBuilder.setMetadata(toResultSetMetaData(relationalResultSet, relationalResultSet.getMetaData().getColumnCount()));
         while (relationalResultSet.next()) {
-            if (!resultSetBuilder.hasMetadata()) {
-                resultSetBuilder.setMetadata(toResultSetMetaData(relationalResultSet, relationalResultSet.getMetaData().getColumnCount()));
-            }
             resultSetBuilder.addRow(toStruct(relationalResultSet));
         }
         // Set the continuation after all the rows have been traversed

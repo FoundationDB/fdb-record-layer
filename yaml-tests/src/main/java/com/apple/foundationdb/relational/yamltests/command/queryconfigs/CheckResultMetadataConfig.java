@@ -20,8 +20,10 @@
 
 package com.apple.foundationdb.relational.yamltests.command.queryconfigs;
 
+import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
@@ -35,7 +37,9 @@ import org.opentest4j.AssertionFailedError;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -83,12 +87,44 @@ public class CheckResultMetadataConfig extends QueryConfig {
     @Nonnull
     public static List<ColumnDescriptor> extractDescriptors(@Nonnull final RelationalResultSetMetaData metaData)
             throws SQLException {
+        return extractDescriptors((StructMetaData) metaData);
+    }
+
+    @Nonnull
+    private static List<ColumnDescriptor> extractDescriptors(@Nonnull final StructMetaData metaData)
+            throws SQLException {
         final int count = metaData.getColumnCount();
         final List<ColumnDescriptor> descriptors = new ArrayList<>(count);
         for (int i = 1; i <= count; i++) {
-            descriptors.add(new ColumnDescriptor(metaData.getColumnName(i), metaData.getColumnTypeName(i)));
+            final int type = metaData.getColumnType(i);
+            if (type == Types.STRUCT) {
+                descriptors.add(new ColumnDescriptor(metaData.getColumnName(i),
+                        extractDescriptors(metaData.getStructMetaData(i))));
+            } else if (type == Types.ARRAY) {
+                final ArrayMetaData arrayMeta = metaData.getArrayMetaData(i);
+                if (arrayMeta.getElementType() == Types.STRUCT) {
+                    descriptors.add(ColumnDescriptor.forArrayOfStruct(metaData.getColumnName(i),
+                            extractDescriptors(arrayMeta.getElementStructMetaData())));
+                } else {
+                    descriptors.add(new ColumnDescriptor(metaData.getColumnName(i),
+                            buildArrayTypeName(arrayMeta)));
+                }
+            } else {
+                descriptors.add(new ColumnDescriptor(metaData.getColumnName(i), metaData.getColumnTypeName(i)));
+            }
         }
         return descriptors;
+    }
+
+    @Nonnull
+    private static String buildArrayTypeName(@Nonnull final ArrayMetaData arrayMeta) throws SQLException {
+        final String elementTypeName;
+        if (arrayMeta.getElementType() == Types.ARRAY) {
+            elementTypeName = buildArrayTypeName(arrayMeta.getElementArrayMetaData());
+        } else {
+            elementTypeName = arrayMeta.getElementTypeName();
+        }
+        return "ARRAY(" + elementTypeName + ")";
     }
 
     /**
@@ -142,6 +178,25 @@ public class CheckResultMetadataConfig extends QueryConfig {
         final List<Map<?, ?>> expectedColumns = val == null ? List.of() : (List<Map<?, ?>>) val;
 
         logger.debug("⛳️ Checking result metadata for query '{}'", queryDescription);
+
+        // If the server returned no column metadata (e.g. an older server that omits metadata for empty result
+        // sets), we cannot perform the check — skip with a warning rather than reporting a false mismatch.
+        // A valid SELECT always produces ≥ 1 column descriptor; empty actual metadata means a driver limitation.
+        // TODO: remove this workaround once all external server versions in multi-server test configs are updated
+        //       to a version that includes the TypeConversion.toProtobuf() fix (metadata always set before row
+        //       iteration, so empty result sets also carry column metadata).
+        if (actualDescriptors.isEmpty() && (val == null || !((List<?>) val).isEmpty())) {
+            logger.warn("⚠️ resultMetadata check skipped at {}: server returned no column metadata (possibly an older server version)", getReference());
+            return;
+        }
+
+        // Synthetic config (val == null) injected when OPTION_ADD_RESULT_METADATA is set:
+        // write the actual metadata to the file without comparing.
+        if (val == null && executionContext.shouldAddResultMetadata()) {
+            addResultMetadata(actualDescriptors);
+            return;
+        }
+
         if (!matchesExpected(expectedColumns, actualDescriptors)) {
             if (executionContext.shouldCorrectResultMetadata()) {
                 correctMetadata(actualDescriptors);
@@ -150,6 +205,14 @@ public class CheckResultMetadataConfig extends QueryConfig {
             }
         } else {
             logger.debug("✅ result metadata matches!");
+        }
+    }
+
+    private void addResultMetadata(@Nonnull final List<ColumnDescriptor> actualDescriptors) {
+        if (!executionContext.addResultMetadata(getReference(), actualDescriptors)) {
+            QueryCommand.reportTestFailure("‼️ Cannot add resultMetadata at " + getReference());
+        } else {
+            logger.debug(() -> "⭐️ Successfully added resultMetadata at " + getReference());
         }
     }
 
@@ -175,9 +238,20 @@ public class CheckResultMetadataConfig extends QueryConfig {
         sb.append("⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n")
           .append("↩ actual columns (").append(actualDescriptors.size()).append("):\n");
         for (ColumnDescriptor desc : actualDescriptors) {
-            sb.append("    ").append(desc.name).append(": ").append(desc.typeName).append('\n');
+            appendDescriptorToMessage(sb, desc, "    ");
         }
         QueryCommand.reportTestFailure(sb.toString());
+    }
+
+    private static void appendDescriptorToMessage(@Nonnull final StringBuilder sb,
+                                                   @Nonnull final ColumnDescriptor desc,
+                                                   @Nonnull final String prefix) {
+        sb.append(prefix).append(desc.name).append(": ").append(desc.typeName).append('\n');
+        if (desc.fields != null) {
+            for (final ColumnDescriptor field : desc.fields) {
+                appendDescriptorToMessage(sb, field, prefix + "    ");
+            }
+        }
     }
 
     private static boolean matchesExpected(@Nonnull final List<Map<?, ?>> expected,
@@ -190,29 +264,101 @@ public class CheckResultMetadataConfig extends QueryConfig {
             final ColumnDescriptor actualCol = actual.get(i);
             final Map.Entry<?, ?> entry = expectedCol.entrySet().iterator().next();
             final String expectedName = entry.getKey().toString();
-            final String expectedType = entry.getValue() == null ? null : entry.getValue().toString();
             if (!expectedName.equalsIgnoreCase(actualCol.name)) {
                 return false;
             }
-            if (expectedType != null && !expectedType.equalsIgnoreCase(actualCol.typeName)) {
-                return false;
+            if (entry.getValue() instanceof List) {
+                // struct or array-of-struct column: value is a list
+                @SuppressWarnings("unchecked")
+                final List<Map<?, ?>> valueList = (List<Map<?, ?>>) entry.getValue();
+                // Distinguish array-of-struct from plain struct by checking if the sole list item
+                // is {array: [field descriptors]} rather than a field descriptor itself.
+                if (!valueList.isEmpty()) {
+                    final Map<?, ?> firstItem = CustomYamlConstructor.LinedObject.unlineKeys(valueList.get(0));
+                    final Map.Entry<?, ?> firstEntry = firstItem.entrySet().iterator().next();
+                    if ("array".equalsIgnoreCase(firstEntry.getKey().toString())
+                            && firstEntry.getValue() instanceof List) {
+                        // array-of-struct
+                        if (!actualCol.isArray || actualCol.fields == null) {
+                            return false;
+                        }
+                        @SuppressWarnings("unchecked")
+                        final List<Map<?, ?>> elementFields = (List<Map<?, ?>>) firstEntry.getValue();
+                        if (!matchesExpected(elementFields, actualCol.fields)) {
+                            return false;
+                        }
+                        continue;
+                    }
+                }
+                // plain struct
+                if (actualCol.fields == null || actualCol.isArray) {
+                    return false;
+                }
+                if (!matchesExpected(valueList, actualCol.fields)) {
+                    return false;
+                }
+            } else {
+                // scalar column: value is a type name string (or null to skip type check)
+                final String expectedType = entry.getValue() == null ? null : entry.getValue().toString();
+                if (expectedType != null && !expectedType.equalsIgnoreCase(actualCol.typeName)) {
+                    return false;
+                }
             }
         }
         return true;
     }
 
     /**
-     * Descriptor for a single result-set column, capturing its name and SQL type name as reported by the driver.
+     * Descriptor for a single result-set column, capturing its name, SQL type name, and (for struct
+     * and array-of-struct columns) the nested field descriptors.
      */
     public static final class ColumnDescriptor {
         @Nonnull
         public final String name;
+        /**
+         * SQL type name: e.g. {@code "BIGINT"}, {@code "STRUCT"}, {@code "ARRAY(INTEGER)"},
+         * {@code "ARRAY(STRUCT)"}.
+         */
         @Nonnull
         public final String typeName;
+        /**
+         * Non-null for struct and array-of-struct columns; contains the struct's field descriptors
+         * (or the element struct's field descriptors when {@link #isArray} is {@code true}).
+         */
+        @Nullable
+        public final List<ColumnDescriptor> fields;
+        /**
+         * {@code true} when this column is an array whose element type is a struct;
+         * {@code false} for plain struct columns and all scalar/array-of-scalar columns.
+         */
+        public final boolean isArray;
 
         ColumnDescriptor(@Nonnull final String name, @Nonnull final String typeName) {
             this.name = name;
             this.typeName = typeName;
+            this.fields = null;
+            this.isArray = false;
+        }
+
+        ColumnDescriptor(@Nonnull final String name, @Nonnull final List<ColumnDescriptor> fields) {
+            this.name = name;
+            this.typeName = "STRUCT";
+            this.fields = Collections.unmodifiableList(fields);
+            this.isArray = false;
+        }
+
+        static ColumnDescriptor forArrayOfStruct(@Nonnull final String name,
+                                                  @Nonnull final List<ColumnDescriptor> elementStructFields) {
+            return new ColumnDescriptor(name, elementStructFields, true);
+        }
+
+        private ColumnDescriptor(@Nonnull final String name,
+                                  @Nonnull final List<ColumnDescriptor> elementStructFields,
+                                  final boolean isArray) {
+            this.name = name;
+            this.typeName = "ARRAY(STRUCT)";
+            this.fields = Collections.unmodifiableList(elementStructFields);
+            this.isArray = true;
         }
     }
 }

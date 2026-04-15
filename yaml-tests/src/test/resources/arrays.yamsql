@@ -41,7 +41,7 @@ test_block:
       - query: SELECT * FROM A
       - resultMetadata:
           - {PK: INTEGER}
-          - {X: ARRAY}
+          - {X: ARRAY(INTEGER)}
       - result: [{1, [1, 2, 3]}, {2, [2, 3, 4]}, {3, [3, 4, 5]}]
     -
       - query: INSERT INTO B VALUES (1, ['a', 'b', 'c']), (2, ['b', 'c', 'd']), (3, ['c', 'd', 'e'])
@@ -52,7 +52,7 @@ test_block:
     -
       - query: select x from c
       - resultMetadata:
-          - {X: ARRAY}
+          - {X: ARRAY(DOUBLE)}
       - result: [{[1.1, 2.1, 3.1]}, {[2.1, 3.1, 4.1]}, {[3.1, 4.1, 5.1]}]
     -
       - query: INSERT INTO D VALUES (1, [(1), (2), (3)]), (2, [(2), (3), (4)]), (3, [(3), (4), (5)])
@@ -74,13 +74,15 @@ test_block:
       # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
       - query: UPDATE A SET X = [11, 12, 13] WHERE PK = 1 RETURNING "new".X
       - resultMetadata:
-          - {X: ARRAY}
+          - {X: ARRAY(INTEGER)}
       - result: [{[11, 12, 13]}]
     -
       # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
       - query: UPDATE D SET X = [(11), (12), (13)] WHERE PK = 1 RETURNING "new".X
       - resultMetadata:
-          - {X: ARRAY}
+          - X:
+            - array:
+              - {F: INTEGER}
       - result: [{[{F: 11}, {F: 12}, {F: 13}]}]
     -
       - query: select X[3] from A where PK = 1
@@ -145,6 +147,8 @@ test_block:
       # empty result
       - query: select X[1] AS F FROM G where pk = 42
       - supported_version: 4.5.13.0
+      - resultMetadata:
+          - {F: STRING}
       - result: []
     -
       # subscript from empty array

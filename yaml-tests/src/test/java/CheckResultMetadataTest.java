@@ -90,14 +90,19 @@ public class CheckResultMetadataTest {
      */
     static Stream<String> shouldFail() {
         return Stream.of(
-                "wrong-column-name",                    // expected "WRONG", actual "ID"
-                "wrong-column-type",                    // expected INTEGER, actual BIGINT
-                "missing-column",                       // expected 1 column, actual 2
-                "extra-column",                         // expected 2 columns, actual 1
-                "wrong-column-order",                   // columns listed in reversed order
-                "wrong-nested-struct-name",             // struct column name wrong
-                "wrong-nested-struct-type",             // struct column typed as BIGINT
-                "wrong-metadata-on-continuation-page"   // inline check on continuation page fails
+                "wrong-column-name",                      // expected "WRONG", actual "ID"
+                "wrong-column-type",                      // expected INTEGER, actual BIGINT
+                "missing-column",                         // expected 1 column, actual 2
+                "extra-column",                           // expected 2 columns, actual 1
+                "wrong-column-order",                     // columns listed in reversed order
+                "wrong-nested-struct-name",               // struct column name wrong
+                "wrong-nested-struct-type",               // struct column typed as BIGINT
+                "wrong-metadata-on-continuation-page",   // inline check on continuation page fails
+                "wrong-array-element-type",               // expected ARRAY(BIGINT), actual ARRAY(INTEGER)
+                "wrong-struct-field-name",                // nested struct field name wrong
+                "wrong-struct-field-type",                // nested struct field type wrong
+                "wrong-array-of-struct-field-name",       // array-of-struct element field name wrong
+                "wrong-array-of-struct-field-type"        // array-of-struct element field type wrong
         );
     }
 
@@ -118,8 +123,11 @@ public class CheckResultMetadataTest {
         return Stream.of(
                 "single-column",                   // one BIGINT column
                 "multiple-columns",                // two columns, also exercises case-insensitive name match
-                "nested-struct-column",            // struct column reported as STRUCT type
-                "metadata-on-continuation-page"   // inline check on continuation page
+                "nested-struct-column",            // struct column with nested field descriptors
+                "metadata-on-continuation-page",  // single metadata block covers all continuation pages
+                "empty-result-set",                // metadata check passes even with zero rows
+                "array-column",                    // integer array column reported as ARRAY(INTEGER)
+                "array-of-struct-column"           // array-of-struct with nested element field descriptors
         );
     }
 

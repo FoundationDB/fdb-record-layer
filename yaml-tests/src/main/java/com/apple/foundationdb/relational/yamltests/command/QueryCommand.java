@@ -41,6 +41,7 @@ import org.opentest4j.TestAbortedException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -92,7 +93,7 @@ public final class QueryCommand extends Command {
             final var queryString = Matchers.notNull(Matchers.string(queryCommand.getValue(), "query string"), "query string");
             final var queryInterpreter = QueryInterpreter.withQueryString(reference, queryString, executionContext);
             final List<?> queryConfigsWithValueList = Matchers.arrayList(object).stream().skip(1).collect(Collectors.toList());
-            final var configs = queryConfigsWithValueList.isEmpty() ?
+            List<QueryConfig> configs = queryConfigsWithValueList.isEmpty() ?
                     List.of(QueryConfig.getNoCheckConfig(reference)) :
                     QueryConfig.parseConfigs(blockName, reference, queryConfigsWithValueList, executionContext);
 
@@ -104,6 +105,31 @@ public final class QueryCommand extends Command {
                         ((QueryConfig.SkipConfig)skipConfigs.get(0)).getMessage(),
                         queryInterpreter.getQuery());
             }
+
+            // When OPTION_ADD_RESULT_METADATA is set, inject a synthetic resultMetadata config for queries
+            // that have a result/unorderedResult config but no resultMetadata block yet.
+            // Only inject for result-returning queries (those with result: or unorderedResult:) to avoid
+            // re-executing INSERT/UPDATE/DELETE statements that have no result config.
+            // Insert it before the first result/unorderedResult config so it runs while queryIsRunning is
+            // false (independent query execution), matching the expected ordering in YAMSQL files.
+            if (executionContext.shouldAddResultMetadata()
+                    && configs.stream().noneMatch(c -> QueryConfig.QUERY_CONFIG_RESULT_METADATA.equals(c.getConfigName()))
+                    && configs.stream().anyMatch(c -> QueryConfig.QUERY_CONFIG_RESULT.equals(c.getConfigName())
+                            || QueryConfig.QUERY_CONFIG_UNORDERED_RESULT.equals(c.getConfigName()))) {
+                final List<QueryConfig> mutableConfigs = new ArrayList<>(configs);
+                int insertIdx = mutableConfigs.size();
+                for (int i = 0; i < mutableConfigs.size(); i++) {
+                    final String name = mutableConfigs.get(i).getConfigName();
+                    if (QueryConfig.QUERY_CONFIG_RESULT.equals(name) || QueryConfig.QUERY_CONFIG_UNORDERED_RESULT.equals(name)) {
+                        insertIdx = i;
+                        break;
+                    }
+                }
+                mutableConfigs.add(insertIdx, new CheckResultMetadataConfig(
+                        QueryConfig.QUERY_CONFIG_RESULT_METADATA, null, reference, executionContext));
+                configs = mutableConfigs;
+            }
+
             final boolean hasDebuggerConfig =
                     configs.stream()
                             .anyMatch(config -> Objects.equals(config.getConfigName(), QueryConfig.QUERY_CONFIG_DEBUGGER));
@@ -168,10 +194,12 @@ public final class QueryCommand extends Command {
         Integer maxRows = null;
         boolean exhausted = false;
         boolean errored = false;
-        // A resultMetadata config deferred because a continuation was already in progress when it was encountered.
-        // Re-executing the query is not possible at that point, so this config is held here and passed to the
-        // next result config, which checks the metadata against its live result set before consuming any rows.
-        CheckResultMetadataConfig pendingInlineMetadata = null;
+        // The most recently seen resultMetadata config, sticky across all continuation pages.
+        // When encountered before the query starts, it is run independently (fresh query) and then kept here
+        // so that every subsequent continuation page also receives an inline metadata check.
+        // When encountered while a continuation is in progress, it is deferred inline from that page onward.
+        // Passed only to continuation pages (continuation != null) so the first page is not double-checked.
+        CheckResultMetadataConfig stickyMetadata = null;
 
         final DebuggerImplementation debuggerImplementation =
                 queryConfigs.stream()
@@ -204,15 +232,15 @@ public final class QueryCommand extends Command {
                 runWithDebugger(executionContext, debuggerImplementation,
                         () -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows));
             } else if (QueryConfig.QUERY_CONFIG_RESULT_METADATA.equals(queryConfig.getConfigName())) {
-                if (queryIsRunning) {
-                    // A continuation is in progress, so the query cannot be re-executed independently.
-                    // Defer this check to the next result config, which will validate the metadata
-                    // against its live result set before consuming any rows.
-                    pendingInlineMetadata = (CheckResultMetadataConfig) queryConfig;
-                } else {
-                    // No active continuation — run the query independently just to check its metadata.
+                stickyMetadata = (CheckResultMetadataConfig) queryConfig;
+                if (!queryIsRunning) {
+                    // No active continuation — run the query independently to check its metadata.
+                    // The same config is kept as stickyMetadata so it is also checked inline on
+                    // every subsequent continuation page.
                     executor.execute(connection, null, queryConfig, checkCache, maxRows);
                 }
+                // If queryIsRunning: the continuation page cannot be re-executed, so stickyMetadata
+                // will be checked inline when the next (and all later) result pages are fetched.
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfig.getConfigName())) {
                 Assert.that(!queryIsRunning, "Explain test should not be intermingled with query result tests");
                 // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
@@ -248,8 +276,9 @@ public final class QueryCommand extends Command {
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
                             queryConfig.getReference(), queryConfig.getValueString()));
                 }
-                continuation = executor.execute(connection, continuation, queryConfig, checkCache, maxRows, pendingInlineMetadata);
-                pendingInlineMetadata = null;
+                continuation = executor.execute(connection, continuation, queryConfig, checkCache, maxRows,
+                        continuation != null ? stickyMetadata : null);
+                // stickyMetadata is intentionally not cleared: it applies to all remaining continuation pages.
                 if (continuation == null || continuation.atEnd()) {
                     queryIsRunning = false;
                     exhausted = true;

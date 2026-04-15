@@ -93,6 +93,7 @@ public final class YamlExecutionContext {
     public static final ContextOption<Boolean> OPTION_CORRECT_EXPLAIN = new ContextOption<>("optionCorrectExplain");
     public static final ContextOption<Boolean> OPTION_CORRECT_METRICS = new ContextOption<>("optionCorrectMetrics");
     public static final ContextOption<Boolean> OPTION_CORRECT_RESULT_METADATA = new ContextOption<>("optionCorrectResultMetadata");
+    public static final ContextOption<Boolean> OPTION_ADD_RESULT_METADATA = new ContextOption<>("optionAddResultMetadata");
     public static final ContextOption<Boolean> OPTION_SHOW_PLAN_ON_DIFF = new ContextOption<>("optionShowPlanOnDiff");
 
     private static final URI SYSTEM_CATALOG_ADDRESS = URI.create("jdbc:embed:/__SYS?schema=CATALOG");
@@ -138,13 +139,13 @@ public final class YamlExecutionContext {
         this.connectionFactory = factory;
         this.topLevelResource = topLevelResource;
         this.additionalOptions = additionalOptions;
+        if (isInCI() && (shouldCorrectExplains() || shouldCorrectMetrics() || shouldCorrectResultMetadata())) {
+            logger.error("‼️ Explain, planner metrics, and/or result metadata cannot be modified during nightly runs.");
+            Assertions.fail("‼️ Explain, planner metrics, or result metadata cannot be modified during nightly runs. " +
+                    "Make sure maintenance annotations have not been checked in.");
+        }
         if (isNightly()) {
             logger.info("ℹ️ Running in the NIGHTLY context.");
-            if (shouldCorrectExplains() || shouldCorrectMetrics() || shouldCorrectResultMetadata()) {
-                logger.error("‼️ Explain, planner metrics, and/or result metadata cannot be modified during nightly runs.");
-                Assertions.fail("‼️ Explain, planner metrics, or result metadata cannot be modified during nightly runs. " +
-                        "Make sure maintenance annotations have not been checked in.");
-            }
             logger.info("ℹ️ Number of threads to be used for parallel execution " + getNumThreads());
             getNightlyRepetition().ifPresent(rep -> logger.info("ℹ️ Running with high repetition value set to " + rep));
         }
@@ -154,7 +155,7 @@ public final class YamlExecutionContext {
         if (registeredResources.contains(resource)) {
             throw new RuntimeException("The resource " + resource + " is already registered.");
         }
-        if (shouldCorrectExplains() || shouldCorrectResultMetadata()) {
+        if (shouldCorrectExplains() || shouldCorrectResultMetadata() || shouldAddResultMetadata()) {
             this.editedFileStream.put(resource, loadYamlResource(resource));
         }
         if (this.expectedMetricsMap == null) {
@@ -191,6 +192,10 @@ public final class YamlExecutionContext {
         return additionalOptions.getOrDefault(OPTION_CORRECT_RESULT_METADATA, false);
     }
 
+    public boolean shouldAddResultMetadata() {
+        return additionalOptions.getOrDefault(OPTION_ADD_RESULT_METADATA, false);
+    }
+
     public boolean correctResultMetadata(@Nonnull final YamlReference reference,
                                          @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
         if (!shouldCorrectResultMetadata()) {
@@ -204,6 +209,29 @@ public final class YamlExecutionContext {
                     .computeIfAbsent(reference.getResource(), k -> new ArrayList<>())
                     .add(new MetadataCorrection(reference, new ArrayList<>(actualColumns)));
             isDirty.put(reference.getResource(), true);
+        }
+        return true;
+    }
+
+    public boolean addResultMetadata(@Nonnull final YamlReference queryReference,
+                                     @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
+        if (!shouldAddResultMetadata()) {
+            return false;
+        }
+        if (editedFileStream.get(queryReference.getResource()) == null) {
+            return false;
+        }
+        synchronized (this) {
+            final List<YamlCorrection> corrections = pendingCorrections
+                    .computeIfAbsent(queryReference.getResource(), k -> new ArrayList<>());
+            // Deduplicate: if a correction for this query line is already pending, skip.
+            final int lineNumber = queryReference.getLineNumber();
+            final boolean alreadyPending = corrections.stream()
+                    .anyMatch(c -> c instanceof AddMetadataCorrection && c.getLineNumber() == lineNumber);
+            if (!alreadyPending) {
+                corrections.add(new AddMetadataCorrection(queryReference, new ArrayList<>(actualColumns)));
+                isDirty.put(queryReference.getResource(), true);
+            }
         }
         return true;
     }
@@ -308,7 +336,7 @@ public final class YamlExecutionContext {
             final String childPrefix = " ".repeat(indent + 4);
             newLines.add(itemPrefix + "- resultMetadata:");
             for (final CheckResultMetadataConfig.ColumnDescriptor col : actualColumns) {
-                newLines.add(childPrefix + "- {" + col.name + ": " + col.typeName + "}");
+                appendDescriptorLines(newLines, col, childPrefix);
             }
 
             // Find the end of the existing resultMetadata block
@@ -332,6 +360,101 @@ public final class YamlExecutionContext {
 
             lines.subList(startIdx, endIdx).clear();
             lines.addAll(startIdx, newLines);
+        }
+    }
+
+    /**
+     * Appends YAML lines for a single {@link CheckResultMetadataConfig.ColumnDescriptor} at the given indentation prefix.
+     * Scalar columns produce a single {@code - {name: type}} line.
+     * Struct columns produce a {@code - name:} header line followed by recursively indented field lines.
+     */
+    static void appendDescriptorLines(@Nonnull final List<String> lines,
+                                      @Nonnull final CheckResultMetadataConfig.ColumnDescriptor col,
+                                      @Nonnull final String prefix) {
+        if (col.isArray && col.fields != null) {
+            // array-of-struct: - name:\n  - array:\n    - {field: type}...
+            lines.add(prefix + "- " + col.name + ":");
+            final String arrayPrefix = prefix + "  ";
+            lines.add(arrayPrefix + "- array:");
+            final String fieldPrefix = arrayPrefix + "  ";
+            for (final CheckResultMetadataConfig.ColumnDescriptor field : col.fields) {
+                appendDescriptorLines(lines, field, fieldPrefix);
+            }
+        } else if (col.fields != null) {
+            // struct column: - name:\n  - {field: type}...
+            lines.add(prefix + "- " + col.name + ":");
+            final String fieldPrefix = prefix + "  ";
+            for (final CheckResultMetadataConfig.ColumnDescriptor field : col.fields) {
+                appendDescriptorLines(lines, field, fieldPrefix);
+            }
+        } else {
+            // scalar (including array-of-scalar): - {name: type}
+            lines.add(prefix + "- {" + col.name + ": " + col.typeName + "}");
+        }
+    }
+
+    /**
+     * Inserts a new {@code resultMetadata:} block into the YAMSQL source file immediately after the {@code query:} line.
+     * Used when {@link #OPTION_ADD_RESULT_METADATA} is set and the query had no {@code resultMetadata:} block.
+     */
+    public static final class AddMetadataCorrection implements YamlCorrection {
+        @Nonnull
+        private final YamlReference queryReference;
+        @Nonnull
+        private final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns;
+
+        AddMetadataCorrection(@Nonnull final YamlReference queryReference,
+                              @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
+            this.queryReference = queryReference;
+            this.actualColumns = actualColumns;
+        }
+
+        @Override
+        public int getLineNumber() {
+            return queryReference.getLineNumber();
+        }
+
+        @Override
+        public void apply(@Nonnull final List<String> lines) {
+            final int queryLineIdx = queryReference.getLineNumber() - 1; // 1-based → 0-based
+            if (queryLineIdx < 0 || queryLineIdx >= lines.size()) {
+                return;
+            }
+            final String queryLine = lines.get(queryLineIdx);
+
+            // Determine indentation from the "- query:" line
+            int indent = 0;
+            while (indent < queryLine.length() && queryLine.charAt(indent) == ' ') {
+                indent++;
+            }
+
+            // Build the resultMetadata block lines
+            final List<String> newLines = new ArrayList<>();
+            final String itemPrefix = " ".repeat(indent);
+            final String childPrefix = " ".repeat(indent + 4);
+            newLines.add(itemPrefix + "- resultMetadata:");
+            for (final CheckResultMetadataConfig.ColumnDescriptor col : actualColumns) {
+                appendDescriptorLines(newLines, col, childPrefix);
+            }
+
+            // Insert just before the first result:/unorderedResult: config at the same indentation level,
+            // so that explain:/planHash: lines that follow the query line are not displaced.
+            // Fall back to inserting right after the query line if no result config is found.
+            final String resultPrefix = itemPrefix + "- result:";
+            final String unorderedResultPrefix = itemPrefix + "- unorderedResult:";
+            int insertIdx = queryLineIdx + 1;
+            for (int i = queryLineIdx + 1; i < lines.size(); i++) {
+                final String line = lines.get(i);
+                if (line.startsWith(resultPrefix) || line.startsWith(unorderedResultPrefix)) {
+                    insertIdx = i;
+                    break;
+                }
+                // Stop if we've moved to the next test item (a line starting a new "- " at a lower indentation)
+                if (indent > 0 && line.length() >= indent && !line.startsWith(itemPrefix)) {
+                    break;
+                }
+            }
+            lines.addAll(insertIdx, newLines);
         }
     }
 

@@ -1,5 +1,5 @@
 #
-# nested-struct-column.yamsql
+# array-column.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -17,24 +17,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Happy-path: a struct column's resultMetadata lists its field names and types recursively.
+# Happy-path: an integer array column is reported as ARRAY(INTEGER).
 ---
 schema_template:
-    CREATE TYPE AS STRUCT point(x bigint, y bigint)
-    CREATE TABLE t1(id bigint, pt point, primary key(id))
+    create table t1(pk integer, x integer array, primary key(pk))
 ---
 setup:
   steps:
-    - query: INSERT INTO t1 VALUES (1, (10, 20))
+    - query: INSERT INTO t1 VALUES (1, [10, 20, 30])
 ---
 test_block:
   tests:
     -
-      - query: SELECT id, pt FROM t1
+      - query: SELECT pk, x FROM t1
       - resultMetadata:
-          - {ID: BIGINT}
-          - PT:
-            - {X: BIGINT}
-            - {Y: BIGINT}
-      - result: [{ID: 1, PT: {X: 10, Y: 20}}]
+          - {PK: INTEGER}
+          - {X: ARRAY(INTEGER)}
+      - result: [{1, [10, 20, 30]}]
 ...

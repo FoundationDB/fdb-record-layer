@@ -1,5 +1,5 @@
 #
-# nested-struct-column.yamsql
+# wrong-struct-field-type.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -17,7 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Happy-path: a struct column's resultMetadata lists its field names and types recursively.
+# Failure: struct field X is expected as INTEGER but actual type is BIGINT.
 ---
 schema_template:
     CREATE TYPE AS STRUCT point(x bigint, y bigint)
@@ -34,7 +34,7 @@ test_block:
       - resultMetadata:
           - {ID: BIGINT}
           - PT:
-            - {X: BIGINT}
+            - {X: INTEGER}
             - {Y: BIGINT}
       - result: [{ID: 1, PT: {X: 10, Y: 20}}]
 ...

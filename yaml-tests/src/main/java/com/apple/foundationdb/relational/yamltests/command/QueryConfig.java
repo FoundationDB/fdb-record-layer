@@ -396,7 +396,9 @@ public abstract class QueryConfig {
                 if (requireResults && !resultOrVersionConfig) {
                     throw new IllegalArgumentException("Only result configurations can follow first result or version specification config");
                 }
-                requireResults |= resultOrVersionConfig;
+                // resultMetadata is allowed anywhere (before or after result configs) but does not itself
+                // trigger the ordering constraint — non-result configs such as explain may follow it.
+                requireResults |= (resultOrVersionConfig && !QUERY_CONFIG_RESULT_METADATA.equals(key));
                 configs.add(parseConfig(blockName, key, value, reference, executionContext));
             } catch (Exception e) {
                 throw YamlExecutionContext.wrapContext(e, () -> "‼️ Error parsing the query config at " + reference, "config", reference);

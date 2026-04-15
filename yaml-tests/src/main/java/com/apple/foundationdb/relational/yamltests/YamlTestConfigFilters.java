@@ -99,6 +99,15 @@ public enum YamlTestConfigFilters {
         boolean filter(final YamlTestConfig config) {
             return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_RESULT_METADATA, false);
         }
+    },
+    /**
+     * Used to add {@code resultMetadata} blocks to queries that don't yet have one.
+     */
+    ADD_RESULT_METADATA {
+        @Override
+        boolean filter(final YamlTestConfig config) {
+            return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_ADD_RESULT_METADATA, false);
+        }
     };
 
     /**

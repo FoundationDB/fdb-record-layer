@@ -41,6 +41,18 @@ test_block:
       - result: [{0}]
     -
       - query: select count(*) from t1 group by col2
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
       - explain: "AISCAN(MV2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)"
       - result: []
     -
@@ -54,10 +66,52 @@ test_block:
       - result: [{0}]
     -
       - query: select count(col1) from t1 group by col2
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
       - explain: "AISCAN(MV4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)"
       - result: []
     -
       - query: select * from t2
+      - resultMetadata:
+          - {ID: BIGINT}
+          - {COL1: BIGINT}
+          - {COL2: BIGINT}
+          - {COL3: BIGINT}
+      - resultMetadata:
+          - {ID: BIGINT}
+          - {COL1: BIGINT}
+          - {COL2: BIGINT}
+          - {COL3: BIGINT}
+      - resultMetadata:
+          - {ID: BIGINT}
+          - {COL1: BIGINT}
+          - {COL2: BIGINT}
+          - {COL3: BIGINT}
+      - resultMetadata:
+          - {ID: BIGINT}
+          - {COL1: BIGINT}
+          - {COL2: BIGINT}
+          - {COL3: BIGINT}
+      - resultMetadata:
+          - {ID: BIGINT}
+          - {COL1: BIGINT}
+          - {COL2: BIGINT}
+          - {COL3: BIGINT}
+      - resultMetadata:
+          - {ID: BIGINT}
+          - {COL1: BIGINT}
+          - {COL2: BIGINT}
+          - {COL3: BIGINT}
       - result: []
     -
       - query: select count(*) from t2
@@ -67,6 +121,18 @@ test_block:
       - result: [{0}]
     -
       - query: select count(*) from t2 group by col2
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
       - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)"
       - result: []
     -
@@ -77,6 +143,18 @@ test_block:
       - result: [{0}]
     -
       - query: select count(col1) from t2 group by col2
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
+      - resultMetadata:
+          - {_0: BIGINT}
       - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)"
       - result: []
 ...
