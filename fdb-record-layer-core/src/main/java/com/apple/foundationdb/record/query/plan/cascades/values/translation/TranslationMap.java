@@ -49,11 +49,6 @@ public interface TranslationMap {
     Optional<CorrelationIdentifier> getTargetMaybe(@Nonnull CorrelationIdentifier sourceAlias);
 
     @Nonnull
-    default CorrelationIdentifier getTarget(@Nonnull CorrelationIdentifier sourceAlias) {
-        return getTargetMaybe(sourceAlias).orElseThrow(() -> new RecordCoreException("cannot find target for: " + sourceAlias));
-    }
-
-    @Nonnull
     Value applyTranslationFunction(@Nonnull CorrelationIdentifier sourceAlias,
                                    @Nonnull LeafValue leafValue);
 
