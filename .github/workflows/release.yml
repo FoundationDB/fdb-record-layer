@@ -289,19 +289,19 @@ jobs:
           --version ${{ steps.get_new_version.outputs.version }}
         env:
           GH_TOKEN: ${{ github.token }}
-      # We move the tag to after the release notes are updated so that later steps (i.e. sphinx) will pick up the udpated
+      # We move the tag to after the release notes are updated so that later steps (i.e. sphinx) will pick up the updated
       # release notes
       - name: Move tag to HEAD
         shell: bash
         run: git tag -m "Release ${{ steps.get_new_version.outputs.version }}" -f "${{ steps.get_new_version.outputs.version }}"
-  
-      # push the changes to gradle.properties, the release notes, and the tag as one operation, so if it fails,
-      # it will be as if the release never did anything
-      - name: Push Version Update
+      # Push the tag now before publishing. That way, even if publishing fails or if merging the latest changes into the
+      # base branch fails, we should at least have the tag and can recover manually
+      - name: Push tag
         shell: bash
-        run: git push origin HEAD "${{ steps.get_new_version.outputs.version }}"
-  
+        run: git push origin "${{ steps.get_new_version.outputs.version }}"
+
       - name: Publish Artifacts
+        id: publish_artifacts
         uses: ./actions/run-gradle
         with:
           gradle_command: publish closeAndReleaseStagingRepositories -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
@@ -322,10 +322,26 @@ jobs:
       - name: Commit YAML updates
         shell: bash
         run: python ./build/commit_yamsql_updates.py "${{ steps.get_new_version.outputs.version }}"
-      - name: Push Updates
+
+      # Push updates back to origin.
+      # We want to do this regardless of whether publishing actually succeeds or fails, as the
+      # publishing process itself can fail non-atomically. If that happens, we still want to update
+      # the gradle.properties version, the release notes, etc.
+      #
+      # We pull updates before doing this as there may be concurrent PRs. This can introduce
+      # non-linearities into the history, but comparing tags should still correctly
+      # identify all commits that are present in one version but absent in another
+      - name: Push updates
         id: push_updates
+        if: steps.publish_artifacts.outcome != 'cancelled'
         shell: bash
-        run: git push origin
+        run: |
+            # Remove the leading "refs/heads/" from the branch name stored in the GITHUB_REF environment variable
+            branch_name="${GITHUB_REF##*/}"
+            echo "Fetching and merging latest updates from branch ${branch_name} into HEAD..."
+            git fetch origin "${branch_name}"
+            git merge --no-edit "origin/${branch_name}"
+            git push origin HEAD
         # Continue the build (including downstream steps). If the push fails, we'll create a PR
         continue-on-error: true
       - name: Create Merge PR if conflict

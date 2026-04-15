@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -64,8 +65,6 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCatalog;
 import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
-import com.google.common.base.Suppliers;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
@@ -75,15 +74,15 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 /**
  * Query plan for COPY command operations (export and import).
  */
 @API(API.Status.EXPERIMENTAL)
 public final class CopyPlan extends QueryPlan {
+
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Copy-Plan");
 
     private enum CopyType {
         EXPORT(Type.Record.fromFields(List.of(
@@ -114,8 +113,7 @@ public final class CopyPlan extends QueryPlan {
     private final QueryExecutionContext queryExecutionContext;
     @Nullable
     private final byte[] continuation;
-    @Nonnull
-    private final Supplier<Integer> planHashSupplier;
+
 
     /**
      * Creates a COPY export plan.
@@ -161,7 +159,6 @@ public final class CopyPlan extends QueryPlan {
         this.path = path;
         this.queryExecutionContext = queryExecutionContext;
         this.continuation = continuation == null ? null : Arrays.copyOf(continuation, continuation.length);
-        this.planHashSupplier = Suppliers.memoize(() -> Objects.hash(copyType, path))::get;
     }
 
     @Override
@@ -232,7 +229,7 @@ public final class CopyPlan extends QueryPlan {
                     (continuation, reason) -> {
                         final ContinuationBuilder builder = ContinuationImpl.copyOf(continuation).asBuilder()
                                 .withBindingHash(queryExecutionContext.getParameterHash())
-                                .withPlanHash(planHashSupplier.get())
+                                .withPlanHash(getPlanHash())
                                 .withReason(reason);
                         if (!continuation.atEnd()) {
                             builder.withCopyPlan(com.apple.foundationdb.relational.continuation.CopyPlan.newBuilder()
@@ -559,7 +556,7 @@ public final class CopyPlan extends QueryPlan {
 
     @Nonnull
     public Integer getPlanHash() {
-        return planHashSupplier.get();
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, copyType, path);
     }
 
     private static NonnullPair<URI, String> getDatabaseAndSchema(@Nonnull final KeySpacePath dataPath) throws RelationalException {
