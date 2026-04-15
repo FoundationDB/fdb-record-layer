@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord
 import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
@@ -519,6 +520,107 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // ===== Record update (same primary key) tests =====
+
+    @Test
+    void updateRecordWithBetterWindowKey() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook(2, Direction.DESC));
+
+            rec(1, 10, 100);
+            rec(2, 20, 200);
+            assertWindowContains(1, 2);
+
+            // Update rec1: window key 100 → 300 (better for DESC). Both old and new pass.
+            // Old (100) is removed from window, new (300) is inserted.
+            rec(1, 10, 300);
+            assertWindowContains(1, 2);
+
+            commit(context);
+        }
+    }
+
+    @Test
+    void updateRecordFromWindowToOverflow() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook(2, Direction.DESC));
+
+            rec(1, 10, 200);
+            rec(2, 20, 300);
+            rec(3, 30, 100);  // overflow
+            assertWindowContains(1, 2);
+
+            // Update rec1: window key 200 → 50 (worse for DESC).
+            // rec1 leaves window, rec3 (best overflow, 100) should be re-elected.
+            rec(1, 10, 50);
+            assertWindowContains(2, 3);
+
+            commit(context);
+        }
+    }
+
+    @Test
+    void updateRecordFromOverflowToWindow() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook(2, Direction.DESC));
+
+            rec(1, 10, 200);
+            rec(2, 20, 300);
+            rec(3, 30, 50);   // overflow (50 < 200 in DESC)
+            assertWindowContains(1, 2);
+
+            // Update rec3: window key 50 → 400 (better than worst in window, 200).
+            // rec3 should enter window, evicting rec1 (worst).
+            rec(3, 30, 400);
+            assertWindowContains(2, 3);
+
+            commit(context);
+        }
+    }
+
+    @Test
+    void updateRecordSameWindowKey() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook(3, Direction.DESC));
+
+            rec(1, 10, 100);
+            rec(2, 20, 200);
+            rec(3, 30, 300);
+            assertWindowContains(1, 2, 3);
+
+            // Update rec2 with different index key but same window key.
+            // The record should stay in the window.
+            rec(2, 99, 200);
+            assertWindowContains(1, 2, 3);
+
+            commit(context);
+        }
+    }
+
+    @Test
+    void updateRecordMultipleTimesDesc() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook(2, Direction.DESC));
+
+            rec(1, 10, 100);
+            rec(2, 20, 200);
+            rec(3, 30, 50);   // overflow
+            assertWindowContains(1, 2);
+
+            // Update rec3 repeatedly, each time with a higher window key
+            rec(3, 30, 150);  // update: old(50) removed from overflow, new(150) > boundary(100) → evicts rec1
+            assertWindowContains(2, 3);
+
+            rec(3, 30, 250);  // update: old(150) removed from window, new(250) re-enters window
+            assertWindowContains(2, 3);
+
+            rec(3, 30, 350);  // update: old(250) removed from window, new(350) re-enters window
+            assertWindowContains(2, 3);
+
+            commit(context);
+        }
+    }
+
     // ===== deleteWhere tests =====
     // deleteWhere requires a partitioned sliding window. The partition prefix comes from
     // the PARTITION BY clause in the RowNumberWindowPredicate. deleteWhere(prefix) clears
@@ -702,6 +804,134 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             // Only partition ("B", 10) remains
             assertWindowContains(4, 5);
 
+            commit(context);
+        }
+    }
+
+    // ===== updateWhileWriteOnly tests =====
+
+    /**
+     * Reads the sliding window count from the meta subspace.
+     * Layout: swSubspace / partition / META(1) / COUNT(3) → long.
+     * For non-partitioned windows, partition is empty.
+     */
+    private long readWindowCount() {
+        final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+        final Subspace swSubspace = recordStore.indexSlidingWindowSubspace(index);
+        // Non-partitioned: partition is empty tuple
+        final Subspace metaSubspace = swSubspace.subspace(Tuple.from()).subspace(Tuple.from(1));
+        final byte[] counterKey = metaSubspace.pack(Tuple.from(3));
+        final byte[] counterBytes = recordStore.ensureContextActive().get(counterKey).join();
+        if (counterBytes == null) {
+            return 0L;
+        }
+        return Tuple.fromBytes(counterBytes).getLong(0);
+    }
+
+    @Test
+    void updateWhileWriteOnlyInsertNewRecord() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook(3, Direction.DESC));
+
+            rec(1, 10, 100);
+            rec(2, 20, 200);
+            assertWindowContains(1, 2);
+            assertEquals(2, readWindowCount());
+
+            // Simulate write-only insert of a new record that doesn't exist yet.
+            final var newRecord = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(3).setStrValueIndexed("s3").setNumValue2(30)
+                    .setNumValue3Indexed(300).setNumValueUnique(3).build();
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+            maintainer.updateWhileWriteOnly(null, recordStore.saveRecord(newRecord)).join();
+
+            assertWindowContains(1, 2, 3);
+            assertEquals(3, readWindowCount());
+            commit(context);
+        }
+    }
+
+    @Test
+    void updateWhileWriteOnlyInsertExistingRecord() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook(3, Direction.DESC));
+
+            rec(1, 10, 100);
+            rec(2, 20, 200);
+            assertWindowContains(1, 2);
+            assertEquals(2, readWindowCount());
+
+            // rec2 already exists in the window. updateWhileWriteOnly(null, rec2) should
+            // first remove it (correcting potential double-count), then re-insert.
+            // Counter should stay at 2.
+            final var rec2Again = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(2).setStrValueIndexed("s2").setNumValue2(20)
+                    .setNumValue3Indexed(200).setNumValueUnique(2).build();
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+            maintainer.updateWhileWriteOnly(null, recordStore.saveRecord(rec2Again)).join();
+
+            assertWindowContains(1, 2);
+            assertEquals(2, readWindowCount());
+            commit(context);
+        }
+    }
+
+    @Test
+    void updateWhileWriteOnlyUpdateExistingRecord() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook(3, Direction.DESC));
+
+            rec(1, 10, 100);
+            rec(2, 20, 200);
+            rec(3, 30, 300);
+            assertWindowContains(1, 2, 3);
+            assertEquals(3, readWindowCount());
+
+            // Update rec2 with a new window key via updateWhileWriteOnly(old, new).
+            // old exists in the window. Should remove old, remove new (idempotency correction),
+            // then insert new. Counter stays at 3.
+            final var oldRec2 = recordStore.loadRecord(Tuple.from(2L));
+            final var newRec2 = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(2).setStrValueIndexed("s2").setNumValue2(20)
+                    .setNumValue3Indexed(250).setNumValueUnique(2).build();
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+            maintainer.updateWhileWriteOnly(oldRec2, recordStore.saveRecord(newRec2)).join();
+
+            assertWindowContains(1, 2, 3);
+            assertEquals(3, readWindowCount());
+            commit(context);
+        }
+    }
+
+    @Test
+    void updateWhileWriteOnlyUpdateNonExistingOldRecord() {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook(3, Direction.DESC));
+
+            rec(1, 10, 100);
+            rec(2, 20, 200);
+            assertWindowContains(1, 2);
+            assertEquals(2, readWindowCount());
+
+            // old record (rec5) doesn't exist in the window. new record (rec5) is new.
+            // updateWhileWriteOnly should: remove new (no-op), then process update(old=rec5, new=rec5).
+            // Since old rec5 isn't tracked, delete is no-op; insert adds rec5. Counter → 3.
+            final var oldRec5 = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(5).setStrValueIndexed("s5").setNumValue2(50)
+                    .setNumValue3Indexed(500).setNumValueUnique(5).build();
+            final var savedOld = recordStore.saveRecord(oldRec5);
+            final var newRec5 = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(5).setStrValueIndexed("s5").setNumValue2(50)
+                    .setNumValue3Indexed(500).setNumValueUnique(5).build();
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+            maintainer.updateWhileWriteOnly(savedOld, recordStore.saveRecord(newRec5)).join();
+
+            assertWindowContains(1, 2, 5);
+            assertEquals(3, readWindowCount());
             commit(context);
         }
     }

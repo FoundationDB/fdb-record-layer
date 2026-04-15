@@ -134,7 +134,7 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
             if (!filteredIndexPredicate.isTautology()) {
                 final var valueRangesMaybe = IndexPredicateExpansion.dnfPredicateToRanges(filteredIndexPredicate);
                 final var predicateExpansionBuilder = GraphExpansion.builder();
-                final var result = Simplification.optimize(filteredIndexPredicate,
+                Simplification.optimize(filteredIndexPredicate,
                         EvaluationContext.EMPTY,
                         AliasMap.emptyMap(),
                         ImmutableSet.of(),

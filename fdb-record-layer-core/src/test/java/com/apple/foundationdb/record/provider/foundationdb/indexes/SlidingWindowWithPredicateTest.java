@@ -64,7 +64,7 @@ class SlidingWindowWithPredicateTest extends FDBRecordStoreTestBase {
     private static final String INDEX_NAME = "sw_predicate_index";
 
     /**
-     * Creates a hook with:
+     * Creates a hook with the following configuration.
      * <ul>
      *   <li>Index root expression: {@code num_value_2}</li>
      *   <li>Predicate: AND(num_value_2 > threshold, RowNumberWindow(num_value_3_indexed, direction) <= windowSize)</li>

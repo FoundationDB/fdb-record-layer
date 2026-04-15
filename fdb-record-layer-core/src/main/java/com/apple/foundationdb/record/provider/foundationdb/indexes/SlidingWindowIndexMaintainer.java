@@ -29,9 +29,11 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.locking.LockIdentifier;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
@@ -44,6 +46,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
@@ -137,7 +140,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                                                              @Nonnull byte[] boundaryPackedKey) {
             if (this == MIN) {
                 // Overflow is after boundary: scan forward starting just after boundary
-                final byte[] begin = afterKey(boundaryPackedKey);
+                final byte[] begin = ByteArrayUtil.keyAfter(boundaryPackedKey);
                 final byte[] end = entriesSubspace.range().end;
                 return tr.getRange(begin, end, 1, false)
                         .asList()
@@ -168,7 +171,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                         .thenApply(entries -> entries.isEmpty() ? null : entries.get(0));
             } else {
                 // Window is on the right; new boundary = entry just after old boundary
-                final byte[] begin = afterKey(oldBoundaryPackedKey);
+                final byte[] begin = ByteArrayUtil.keyAfter(oldBoundaryPackedKey);
                 final byte[] end = entriesSubspace.range().end;
                 return tr.getRange(begin, end, 1, false)
                         .asList()
@@ -214,9 +217,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     @Nonnull
     protected static IndexPredicate.RowNumberWindowPredicate getQualifyPredicate(@Nonnull Index index) {
         IndexPredicate predicate = index.getPredicate();
-        if (predicate != null) {
-            IndexPredicate.validateRowNumberWindowPlacement(predicate);
-        }
         if (predicate instanceof IndexPredicate.RowNumberWindowPredicate) {
             return (IndexPredicate.RowNumberWindowPredicate)predicate;
         }
@@ -314,9 +314,11 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         if (!delegate.canDeleteWhere(matcher, evaluated)) {
             return false;
         }
-        // Only support deleteWhere if the sliding window is partitioned and the prefix
-        // covers the partition columns.
-        return partitionKeyColumnSize > 0 && evaluated.size() <= partitionKeyColumnSize;
+        if (partitionKey == null) {
+            return false;
+        }
+        final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(partitionKey);
+        return StandardIndexMaintainer.canDeleteWhere(state, match, evaluated);
     }
 
     @Nonnull
@@ -354,8 +356,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         return delegate.getIndexScrubbingTools(type);
     }
 
-    // ===== Sliding window mutation logic =====
-
     @Override
     public boolean isIdempotent() {
         return delegate.isIdempotent();
@@ -365,29 +365,43 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     @Override
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                               @Nullable FDBIndexableRecord<M> newRecord) {
-        CompletableFuture<Void> future = AsyncUtil.DONE;
-        if (oldRecord != null && passesBaseFilter(oldRecord)) {
-            future = future.thenCompose(vignore -> handleDelete(oldRecord));
-        }
-        if (newRecord != null && passesBaseFilter(newRecord)) {
-            final CompletableFuture<Void> prev = future;
-            future = prev.thenCompose(vignore -> handleInsert(newRecord));
-        }
-        return future;
-    }
-
-    private <M extends Message> boolean passesBaseFilter(@Nonnull FDBIndexableRecord<M> record) {
-        final IndexPredicate predicate = state.index.getPredicate();
-        if (predicate == null) {
-            return true;
-        }
-        return predicate.shouldIndexThisRecord(state.store, record);
+        final Subspace swSubspace = getSlidingWindowSubspace();
+        return state.context.doWithWriteLock(new LockIdentifier(swSubspace), () -> {
+            CompletableFuture<Void> future = AsyncUtil.DONE;
+            if (oldRecord != null && IndexMaintenanceUtils.getFilterTypeForRecord(state, oldRecord) == IndexMaintenanceFilter.IndexValues.ALL) {
+                future = future.thenCompose(vignore -> handleDelete(oldRecord));
+            }
+            if (newRecord != null && IndexMaintenanceUtils.getFilterTypeForRecord(state, newRecord) == IndexMaintenanceFilter.IndexValues.ALL) {
+                final CompletableFuture<Void> prev = future;
+                future = prev.thenCompose(vignore -> handleInsert(newRecord));
+            }
+            return future;
+        });
     }
 
     @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                             @Nullable FDBIndexableRecord<M> newRecord) {
+        // During a write-only index build, the sliding window cannot rely on the normal
+        // update(old, new) contract because the indexer may have already processed newRecord
+        // in an earlier range scan. If we blindly call update(null, newRecord), the window
+        // counter would be incremented a second time, leading to an inflated count and
+        // incorrect eviction/re-election behavior.
+        //
+        // The standard index maintainer (StandardIndexMaintainer.updateWriteOnlyByRecords)
+        // handles this by checking the range set to see if the record's primary key has
+        // already been built. The sliding window takes a simpler approach: preemptively
+        // delete newRecord from the window (if it exists) before applying the full
+        // update(old, new). This is safe because:
+        //  - If newRecord was NOT previously indexed, the delete is a no-op (the entry
+        //    simply isn't found in the entries subspace).
+        //  - If newRecord WAS previously indexed, the delete removes it from the window
+        //    and decrements the counter, so the subsequent insert does not double-count.
+        //
+        // The net effect is that after this method completes, newRecord is indexed exactly
+        // once with its current values, and the counter accurately reflects the window size.
+        update(newRecord, null);
         return update(oldRecord, newRecord);
     }
 
@@ -443,8 +457,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                 // Window full: read boundary to compare
                 return tr.get(boundaryMetaKey).thenCompose(boundaryBytes -> {
                     if (boundaryBytes == null) {
-                        // Shouldn't happen if count >= windowSize, but handle gracefully
-                        return AsyncUtil.DONE;
+                        throw new RecordCoreException("sliding window boundary is missing but count >= windowSize, possible corruption")
+                                .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
                     }
                     final Tuple boundaryEntryKey = Tuple.fromBytes(boundaryBytes);
                     final Tuple boundaryWindowTuple = TupleHelpers.subTuple(boundaryEntryKey, 0, windowKeyColumnSize);
@@ -469,12 +483,12 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                                         // Find new boundary: the entry just inside the old boundary
                                         extremumType.getNewBoundaryAfterEviction(entriesSubspace, tr,
                                                 oldBoundaryPackedKey).thenAccept(newBoundaryKV -> {
-                                            if (newBoundaryKV != null) {
-                                                final Tuple newBoundaryKey = entriesSubspace.unpack(
-                                                        newBoundaryKV.getKey());
-                                                tr.set(boundaryMetaKey, newBoundaryKey.pack());
-                                            }
-                                        })
+                                                    if (newBoundaryKV != null) {
+                                                        final Tuple newBoundaryKey = entriesSubspace.unpack(
+                                                                newBoundaryKV.getKey());
+                                                        tr.set(boundaryMetaKey, newBoundaryKey.pack());
+                                                    }
+                                                })
                                 )
                         );
                     });
@@ -516,8 +530,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
 
             return tr.get(boundaryMetaKey).thenCompose(boundaryBytes -> {
                 if (boundaryBytes == null) {
-                    // No boundary → window was empty or corrupted, just clean up
-                    return AsyncUtil.DONE;
+                    throw new RecordCoreException("sliding window boundary is missing but entry exists, possible corruption")
+                            .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
                 }
                 final Tuple boundaryEntryKey = Tuple.fromBytes(boundaryBytes);
 
@@ -538,15 +552,15 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                         if (entryKey.equals(boundaryEntryKey)) {
                             updatedBoundaryFuture = extremumType.getNewBoundaryAfterEviction(
                                     entriesSubspace, tr, packedEntryKey).thenApply(newBoundaryKV -> {
-                                if (newBoundaryKV != null) {
-                                    final Tuple newBKey = entriesSubspace.unpack(newBoundaryKV.getKey());
-                                    tr.set(boundaryMetaKey, newBKey.pack());
-                                    return newBoundaryKV.getKey();
-                                } else {
-                                    tr.clear(boundaryMetaKey);
-                                    return null;
-                                }
-                            });
+                                        if (newBoundaryKV != null) {
+                                            final Tuple newBKey = entriesSubspace.unpack(newBoundaryKV.getKey());
+                                            tr.set(boundaryMetaKey, newBKey.pack());
+                                            return newBoundaryKV.getKey();
+                                        } else {
+                                            tr.clear(boundaryMetaKey);
+                                            return null;
+                                        }
+                                    });
                         } else {
                             updatedBoundaryFuture = CompletableFuture.completedFuture(
                                     entriesSubspace.pack(boundaryEntryKey));
@@ -560,23 +574,23 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                             }
                             return extremumType.getBestInOverflow(entriesSubspace, tr,
                                     currentBoundaryPacked).thenCompose(bestKV -> {
-                                if (bestKV == null) {
-                                    return AsyncUtil.DONE;
-                                }
-                                // Promote: update boundary to include overflow entry, add to delegate
-                                final Tuple bestEntryKey = entriesSubspace.unpack(bestKV.getKey());
-                                final Tuple bestPrimaryKey = Tuple.fromBytes(bestKV.getValue());
-                                tr.set(boundaryMetaKey, bestEntryKey.pack());
-                                tr.set(counterKey, encodeLong(newCount + 1));
-
-                                return state.store.loadRecordAsync(bestPrimaryKey).thenCompose(
-                                        promotedRecord -> {
-                                            if (promotedRecord != null) {
-                                                return delegate.update(null, promotedRecord);
-                                            }
+                                        if (bestKV == null) {
                                             return AsyncUtil.DONE;
-                                        });
-                            });
+                                        }
+                                        // Promote: update boundary to include overflow entry, add to delegate
+                                        final Tuple bestEntryKey = entriesSubspace.unpack(bestKV.getKey());
+                                        final Tuple bestPrimaryKey = Tuple.fromBytes(bestKV.getValue());
+                                        tr.set(boundaryMetaKey, bestEntryKey.pack());
+                                        tr.set(counterKey, encodeLong(newCount + 1));
+
+                                        return state.store.loadRecordAsync(bestPrimaryKey).thenCompose(
+                                                promotedRecord -> {
+                                                    if (promotedRecord != null) {
+                                                        return delegate.update(null, promotedRecord);
+                                                    }
+                                                    return AsyncUtil.DONE;
+                                                });
+                                    });
                         });
                     });
                 });
@@ -587,7 +601,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     @Override
     public CompletableFuture<Void> deleteWhere(@Nonnull Transaction tr, @Nonnull Tuple prefix) {
         // deleteWhere is only supported when the sliding window has a partition prefix
-        // (validated by canDeleteWhere). The given prefix must fit within the partition columns.
+        // (validated by canDeleteWhere). The given prefix must be an actual prefix of the partitioning key.
         Verify.verify(partitionKeyColumnSize >= prefix.size(),
                 "deleteWhere prefix size %s exceeds partition key column size %s",
                 prefix.size(), partitionKeyColumnSize);
@@ -603,16 +617,5 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
 
     private static long decodeLong(byte[] bytes) {
         return Tuple.fromBytes(bytes).getLong(0);
-    }
-
-    /**
-     * Returns a byte array that is the first key strictly greater than the given key.
-     * Used for exclusive range starts in FDB's getRange(begin, end) API.
-     */
-    private static byte[] afterKey(byte[] key) {
-        final byte[] result = new byte[key.length + 1];
-        System.arraycopy(key, 0, result, 0, key.length);
-        result[key.length] = 0x00;
-        return result;
     }
 }
