@@ -606,9 +606,9 @@ public class Ordering {
                 if (comparison instanceof Comparisons.ValueComparison) {
                     final var valueComparison = (Comparisons.ValueComparison)comparison;
                     if (translationMap.containsKey(valueComparison.getValue())) {
-                        translationMap.get(valueComparison.getValue()).stream()
+                        translationMap.get(valueComparison.getValue()).stream().findFirst()
                                 .map(value -> new Comparisons.ValueComparison(valueComparison.getType(), Objects.requireNonNull(value)))
-                                .forEach(translatedValueComparison -> translatedBindingsBuilder.add(Binding.fixed(translatedValueComparison)));
+                                .ifPresent(translatedValueComparison -> translatedBindingsBuilder.add(Binding.fixed(translatedValueComparison)));
                     }
                 } else {
                     translatedBindingsBuilder.add(binding);
