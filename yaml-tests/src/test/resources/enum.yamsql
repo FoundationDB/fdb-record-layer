@@ -70,12 +70,12 @@ test_block:
   tests:
     -
       - query: SELECT * From TABLE_A where "mood" = 'CONFUSED'
-      - explain: "SCAN([IS TABLE_A]) | FILTER _.mood EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
+      - explain: "SCAN([IS TABLE_A]) | FILTER _.mood EQUALS promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {11, 'plugh', 'CONFUSED'}]
     -
       - query: SELECT * From TABLE_A where "mood" > 'INDIFFERENT'
-      - explain: "SCAN([IS TABLE_A]) | FILTER _.mood GREATER_THAN promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
+      - explain: "SCAN([IS TABLE_A]) | FILTER _.mood GREATER_THAN promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {4, 'qux', 'ANGRY'},
                           {7, 'grault', 'ANXIOUS'},
@@ -84,7 +84,7 @@ test_block:
                           {13, 'thud', 'SAD'}]
     -
       - query: SELECT * From TABLE_A where "mood" >= 'INDIFFERENT'
-      - explain: "SCAN([IS TABLE_A]) | FILTER _.mood GREATER_THAN_OR_EQUALS promote(@c9 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
+      - explain: "SCAN([IS TABLE_A]) | FILTER _.mood GREATER_THAN_OR_EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
                           {4, 'qux', 'ANGRY'},
                           {7, 'grault', 'ANXIOUS'},
@@ -154,7 +154,7 @@ test_block:
 
     -
       - query: SELECT * From TABLE_B where "mood" = 'CONFUSED'
-      - explain: "ISCAN(B$MOOD [EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)])"
+      - explain: "ISCAN(B$MOOD [EQUALS promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)])"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
       - maxRows: 0
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
@@ -168,7 +168,7 @@ test_block:
                           {11, 'plugh', 'CONFUSED'}]
     -
       - query: SELECT * From TABLE_B where "mood" > 'INDIFFERENT'
-      - explain: "ISCAN(B$MOOD [[GREATER_THAN promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)]])"
+      - explain: "ISCAN(B$MOOD [[GREATER_THAN promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)]])"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
       - maxRows: 0
       - unorderedResult: [{2, 'bar', 'CONFUSED'},
@@ -190,7 +190,7 @@ test_block:
                           {13, 'thud', 'SAD'}]
     -
       - query: SELECT * From TABLE_A where "mood" != 'INDIFFERENT'
-      - explain: "SCAN([IS TABLE_A]) | FILTER _.mood NOT_EQUALS promote(@c9 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
+      - explain: "SCAN([IS TABLE_A]) | FILTER _.mood NOT_EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)"
       - unorderedResult: [{1, 'foo', 'HAPPY'},
                           {2, 'bar', 'CONFUSED'},
                           {3, 'baz', 'JOYFUL'},

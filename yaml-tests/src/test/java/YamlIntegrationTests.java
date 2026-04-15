@@ -56,7 +56,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.ADD_RESULT_METADATA)
     public void aggregateIndexTestsCountEmpty(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("aggregate-index-tests-count-empty.yamsql");
     }
@@ -384,8 +383,13 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void uuidTest(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("uuid.yamsql");
+    public void uuidPreparedTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("uuid-prepared.yamsql");
+    }
+
+    @TestTemplate
+    public void uuidNonPreparedTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("uuid-non-prepared.yamsql");
     }
 
     /**
