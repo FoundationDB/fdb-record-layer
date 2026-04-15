@@ -586,41 +586,41 @@ test_block:
     -
       # Filter on a uses the leading key of the permuted max index
       - query: select ek.k, b, max(d) from t6, (select k from t6.c) as ek where a = 1 group by a, ek.k, b
-      - explain: "AISCAN(MV20 [EQUALS promote(@c28 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
       - result: [{k: 'p', b: 10, _2: 150},
                  {k: 'q', b: 10, _2: 150},
                  {k: 'r', b: 10, _2: 100}]
     -
       - query: select ek.k, b, max(d) from t6, (select k from t6.c) as ek where a = 2 group by ek.k, b
-      - explain: "AISCAN(MV20 [EQUALS promote(@c28 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
       - result: [{k: 'p', b: 10, _2:  50},
                  {k: 'q', b: 10, _2:  50},
                  {k: 'q', b: 20, _2: 400},
                  {k: 'r', b: 20, _2: 400}]
     -
       - query: select ek.k, b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by a, ek.k, b
-      - explain: "AISCAN(MV20 [EQUALS promote(@c32 AS LONG), EQUALS promote(@c25 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - explain: "AISCAN(MV20 [EQUALS promote(@c31 AS LONG), EQUALS promote(@c24 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
       - result: [{k: 'q', b: 10, _2:  50},
                  {k: 'q', b: 20, _2: 400}]
     -
       - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b
-      - explain: "AISCAN(MV20 [EQUALS promote(@c28 AS LONG), EQUALS promote(@c21 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
+      - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
       - result: [{b: 10, _1:  50},
                   {b: 20, _1: 400}]
     -
       - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b order by max(d)
-      - explain: "AISCAN(MV20 [EQUALS promote(@c28 AS LONG), EQUALS promote(@c21 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
+      - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
       - result: [{b: 10, _1:  50},
                   {b: 20, _1: 400}]
     -
       - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b order by max(d) desc
-      - explain: "AISCAN(MV20 [EQUALS promote(@c28 AS LONG), EQUALS promote(@c21 AS STRING)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
+      - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
       - result: [{b: 20, _1: 400},
                   {b: 10, _1:  50}]
     -
       # HAVING on the aggregate — keep only groups where max(d) > 100
       - query: select a, ek.k, b, max(d) from t6, (select k from t6.c) as ek group by a, ek.k, b having max(d) > 100
-      - explain: "AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN promote(@c42 AS LONG) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
+      - explain: "AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN promote(@c41 AS LONG) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
       - result: [{a: 1, k: 'p', b: 10, _3: 150},
                  {a: 1, k: 'q', b: 10, _3: 150},
                  {a: 2, k: 'q', b: 20, _3: 400},
@@ -628,13 +628,13 @@ test_block:
     -
       # WHERE on outer + HAVING on aggregate
       - query: select ek.k, b, max(d) from t6, (select k from t6.c) as ek where a = 1 group by a, ek.k, b having max(d) >= 150
-      - explain: "AISCAN(MV20 [EQUALS promote(@c28 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS promote(@c45 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS promote(@c44 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
       - result: [{k: 'p', b: 10, _2: 150},
                  {k: 'q', b: 10, _2: 150}]
     -
       # Inner select predicate + HAVING
       - query: select a, ek.k, b, max(d) from t6, (select k from t6.c where k = 'q') as ek group by a, ek.k, b having a = 1 and max(d) > 100
-      - explain: "AISCAN(MV20 [EQUALS promote(@c43 AS LONG), EQUALS promote(@c27 AS STRING), [GREATER_THAN promote(@c50 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
+      - explain: "AISCAN(MV20 [EQUALS promote(@c42 AS LONG), EQUALS promote(@c26 AS STRING), [GREATER_THAN promote(@c49 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
       - result: [{a: 1, k: 'q', b: 10, _3: 150}]
 ---
 transaction_setups:
@@ -684,20 +684,20 @@ test_block:
       # Inner select predicate via Temp function
       - query: select ek.k, b, max(d) from "t6v", (select k from "t6v".c where k = 'q') as ek group by ek.k, b
       - setupReference: t6_a2
-      - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c25 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c24 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
       - result: [{k: 'q', b: 10, _2:  50},
                  {k: 'q', b: 20, _2: 400}]
     -
       # Temp function pre-filters a=1, HAVING on aggregate
       - query: select ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek group by ek.k, b having max(d) >= 150
       - setupReference: t6_a1
-      - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS promote(@c39 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS promote(@c38 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
       - result: [{k: 'p', b: 10, _2: 150},
                  {k: 'q', b: 10, _2: 150}]
     -
       # Temp function no predicate, inner select predicate + HAVING
       - query: select a, ek.k, b, max(d) from "t6v", (select k from "t6v".c where k = 'q') as ek group by a, ek.k, b having max(d) > 100
       - setupReference: t6_a2
-      - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c27 AS STRING), [GREATER_THAN promote(@c46 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
+      - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c26 AS STRING), [GREATER_THAN promote(@c45 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
       - result: [{a: 2, k: 'q', b: 20, _3: 400}]
 ...
