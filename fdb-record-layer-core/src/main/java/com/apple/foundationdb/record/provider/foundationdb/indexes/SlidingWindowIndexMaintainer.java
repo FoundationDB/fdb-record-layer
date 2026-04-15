@@ -355,13 +355,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
-    @Nullable
-    public IndexScrubbingTools<?> getIndexScrubbingTools(IndexScrubbingTools.ScrubbingType type) {
-        return delegate.getIndexScrubbingTools(type);
-    }
-
-    @Override
     public boolean isIdempotent() {
         return delegate.isIdempotent();
     }
@@ -373,12 +366,24 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final Subspace swSubspace = getSlidingWindowSubspace();
         return state.context.doWithWriteLock(new LockIdentifier(swSubspace), () -> {
             CompletableFuture<Void> future = AsyncUtil.DONE;
-            if (oldRecord != null && IndexMaintenanceUtils.getFilterTypeForRecord(state, oldRecord) == IndexMaintenanceFilter.IndexValues.ALL) {
-                future = future.thenCompose(vignore -> handleDelete(oldRecord));
+
+            if (oldRecord != null) {
+                final var filteringType = IndexMaintenanceUtils.getFilterTypeForRecord(state, oldRecord);
+                if (filteringType == IndexMaintenanceFilter.IndexValues.SOME) {
+                    throw new RecordCoreException("filtering type SOME is not supported")
+                            .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
+                } else if (filteringType == IndexMaintenanceFilter.IndexValues.ALL) {
+                    future = future.thenCompose(vignore -> handleDelete(oldRecord));
+                }
             }
-            if (newRecord != null && IndexMaintenanceUtils.getFilterTypeForRecord(state, newRecord) == IndexMaintenanceFilter.IndexValues.ALL) {
-                final CompletableFuture<Void> prev = future;
-                future = prev.thenCompose(vignore -> handleInsert(newRecord));
+            if (newRecord != null) {
+                final var filteringType = IndexMaintenanceUtils.getFilterTypeForRecord(state, newRecord);
+                if (filteringType == IndexMaintenanceFilter.IndexValues.SOME) {
+                    throw new RecordCoreException("filtering type SOME is not supported")
+                            .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
+                } else if (filteringType == IndexMaintenanceFilter.IndexValues.ALL) {
+                    future = future.thenCompose(vignore -> handleInsert(newRecord));
+                }
             }
             return future;
         });

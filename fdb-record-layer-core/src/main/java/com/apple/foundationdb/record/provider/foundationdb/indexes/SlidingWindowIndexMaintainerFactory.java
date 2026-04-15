@@ -205,7 +205,9 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
             final RecordMetaData metaData = metaDataValidator.getRecordMetaData();
             final Collection<RecordType> delegateRecordTypes = metaData.recordTypesForIndex(index);
 
-            Verify.verify(!delegateRecordTypes.isEmpty());
+            if (delegateRecordTypes.isEmpty()) {
+                throw new MetaDataException("sliding window index delegate is defined on an empty set of types");
+            }
             if (delegateRecordTypes.size() != 1) {
                 throw new MetaDataException("sliding window index delegate has multiple types",
                         LogMessageKeys.INDEX_NAME, index.getName());

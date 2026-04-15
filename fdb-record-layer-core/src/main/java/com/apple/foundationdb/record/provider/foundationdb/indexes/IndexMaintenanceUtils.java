@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -29,6 +30,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 
+@API(API.Status.INTERNAL)
 public class IndexMaintenanceUtils {
 
     @Nonnull
