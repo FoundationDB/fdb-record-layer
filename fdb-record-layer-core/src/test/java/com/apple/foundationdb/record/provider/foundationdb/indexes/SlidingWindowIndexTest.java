@@ -20,11 +20,17 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexPredicate.RowNumberWindowPredicate.Direction;
@@ -35,8 +41,10 @@ import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto.SlidingWindowVectorRecord;
@@ -1060,6 +1068,161 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                             com.apple.foundationdb.record.query.expressions.Query.field("zone")
                                     .equalsValue("A"));
             assertTrue(maintainer.canDeleteWhere(matcher, Key.Evaluated.scalar("A")));
+            commit(context);
+        }
+    }
+
+    @Test
+    void delegateEvaluateRecordFunction() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+            final var rec = recordStore.loadRecord(Tuple.from(1L));
+            assertNotNull(rec);
+
+            assertThrows(RecordCoreException.class, () ->
+                    maintainer.evaluateRecordFunction(EvaluationContext.EMPTY,
+                            new IndexRecordFunction<>("test",
+                                    Key.Expressions.field("rec_no").groupBy(Key.Expressions.empty()),
+                                    index.getName()),
+                            rec).join());
+            commit(context);
+        }
+    }
+
+    @Test
+    void delegateEvaluateAggregateFunction() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            assertThrows(RecordCoreException.class, () ->
+                    maintainer.evaluateAggregateFunction(
+                            new IndexAggregateFunction("test",
+                                    Key.Expressions.field("rec_no"), index.getName()),
+                            TupleRange.ALL,
+                            IsolationLevel.SERIALIZABLE).join());
+            commit(context);
+        }
+    }
+
+    @Test
+    void delegateScanUniquenessViolations() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            final List<IndexEntry> violations = maintainer.scanUniquenessViolations(
+                    TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().join();
+            assertTrue(violations.isEmpty());
+            commit(context);
+        }
+    }
+
+    @Test
+    void delegateClearUniquenessViolations() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            // Should complete without error (no-op on non-unique index)
+            maintainer.clearUniquenessViolations().join();
+            commit(context);
+        }
+    }
+
+    @Test
+    void delegateValidateEntries() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            final List<InvalidIndexEntry> invalid =
+                    maintainer.validateEntries(null, ScanProperties.FORWARD_SCAN).asList().join();
+            assertTrue(invalid.isEmpty());
+            commit(context);
+        }
+    }
+
+    @Test
+    void delegatePerformOperation() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            assertThrows(RecordCoreException.class, () ->
+                    maintainer.performOperation(new IndexOperation() { }).join());
+            commit(context);
+        }
+    }
+
+    @Test
+    void delegateScanWithScanType() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+            rec(2, 200);
+
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            assertThrows(IllegalStateException.class, () ->
+                    maintainer.scan(
+                    IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                    .asList().join());
+            commit(context);
+        }
+    }
+
+    @Test
+    void delegateScanRemoteFetch() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+            final HalfRealVector queryVector = makeVector(0.5f, 0.5f, 0.5f, 0.5f);
+            final VectorIndexScanBounds bounds = new VectorIndexScanBounds(
+                    TupleRange.ALL,
+                    Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
+                    queryVector, 100, VectorIndexScanOptions.empty());
+
+            assertThrows(Exception.class, () ->
+                    maintainer.scanRemoteFetch(bounds, null, ScanProperties.FORWARD_SCAN, 1)
+                            .asList().join());
+            commit(context);
+        }
+    }
+
+    @Test
+    void delegateMergeIndex() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            // mergeIndex is a no-op on StandardIndexMaintainer — should complete without error
+            maintainer.mergeIndex().join();
             commit(context);
         }
     }
