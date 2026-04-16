@@ -649,7 +649,7 @@ test_block:
   name: agg-index-tests-t6-tvf
   options:
     connection_lifecycle: test
-    supported_version: !current_version
+    supported_version: 4.10.20.0
   tests:
     -
       # Full scan via TVF with no predicate
