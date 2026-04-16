@@ -16,7 +16,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+---
+options:
+  supported_version: !current_version
 ---
 schema_template:
     create table A(a1 string, primary key(a1))
@@ -72,7 +74,6 @@ setup:
         ;
 ---
 test_block:
-  supported_version: !current_version
   tests:
     -
       - query: select * from B WHERE B2 LIKE 'X'
@@ -100,7 +101,6 @@ test_block:
       - result: [{2, 'Z'}, {4, 'Z'}]
 ---
 test_block:
-  supported_version: !current_version
   tests:
     -
       - query: select * from A WHERE A1 LIKE 'A'
@@ -375,7 +375,6 @@ test_block:
         ]
 ---
 test_block:
-  supported_version: !current_version
   tests:
     -
       - query: select * from A WHERE A1 LIKE '|_|_%' ESCAPE '|'
