@@ -358,7 +358,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
             this.name = name;
             this.typeName = "ARRAY(STRUCT)";
             this.fields = Collections.unmodifiableList(elementStructFields);
-            this.isArray = true;
+            this.isArray = isArray;
         }
     }
 }
