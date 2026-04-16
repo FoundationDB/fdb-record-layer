@@ -44,6 +44,9 @@ schema_template:
     create index mv17 as select a, b, min(x), c, d, e from t5 group by a, b, c, d, e order by a, b, min(x), c, d, e
     create index mv18 as select a, b, c, max(x), d, e from t5 group by a, b, c, d, e order by a, b, c, max(x), d, e
     create index mv19 as select a, b, c, min(x), d, e from t5 group by a, b, c, d, e order by a, b, c, min(x), d, e
+    create type as struct t6_item(k string)
+    create table t6(id bigint, a bigint, b bigint, c t6_item array, d bigint, primary key(id))
+    create index mv20 as select a, ek.k, b, max(d) from t6, (select k from t6.c) as ek group by a, ek.k, b order by a, ek.k, max(d), b
 ---
 setup:
   steps:
@@ -108,6 +111,11 @@ setup:
                (16, 0, 'bar', 0, 1, 'e1', 11),
                (17, 0, 'bar', 0, 1, 'e2', 0),
                (18, 0, 'bar', 0, 1, 'e2', 11)
+    - query: INSERT INTO t6
+        VALUES (1, 1, 10, [('p'), ('q'), ('r')], 100),
+               (2, 1, 10, [('p'), ('q')], 150),
+               (3, 2, 10, [('p'), ('q')], 50),
+               (4, 2, 20, [('q'), ('r')], 400)
 ---
 test_block:
   name: agg-index-tests
@@ -564,4 +572,132 @@ test_block:
                    {b: "foo", c: 0, d: 2, e: "e1", _4:  2},
                    {b: "foo", c: 0, d: 2, e: "e2", _4:  3},
                 ]
+    -
+      # Permuted max index with fan-out grouping element over nested repeated field (t6/mv20)
+      - query: select a, ek.k, b, max(d) from t6, (select k from t6.c) as ek group by a, ek.k, b
+      - explain: "AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
+      - result: [{a: 1, k: 'p', b: 10, _3: 150},
+                 {a: 1, k: 'q', b: 10, _3: 150},
+                 {a: 1, k: 'r', b: 10, _3: 100},
+                 {a: 2, k: 'p', b: 10, _3:  50},
+                 {a: 2, k: 'q', b: 10, _3:  50},
+                 {a: 2, k: 'q', b: 20, _3: 400},
+                 {a: 2, k: 'r', b: 20, _3: 400}]
+    -
+      # Filter on a uses the leading key of the permuted max index
+      - query: select ek.k, b, max(d) from t6, (select k from t6.c) as ek where a = 1 group by a, ek.k, b
+      - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - result: [{k: 'p', b: 10, _2: 150},
+                 {k: 'q', b: 10, _2: 150},
+                 {k: 'r', b: 10, _2: 100}]
+    -
+      - query: select ek.k, b, max(d) from t6, (select k from t6.c) as ek where a = 2 group by ek.k, b
+      - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - result: [{k: 'p', b: 10, _2:  50},
+                 {k: 'q', b: 10, _2:  50},
+                 {k: 'q', b: 20, _2: 400},
+                 {k: 'r', b: 20, _2: 400}]
+    -
+      - query: select ek.k, b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by a, ek.k, b
+      - explain: "AISCAN(MV20 [EQUALS promote(@c31 AS LONG), EQUALS promote(@c24 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - result: [{k: 'q', b: 10, _2:  50},
+                 {k: 'q', b: 20, _2: 400}]
+    -
+      - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b
+      - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
+      - result: [{b: 10, _1:  50},
+                  {b: 20, _1: 400}]
+    -
+      - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b order by max(d)
+      - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
+      - result: [{b: 10, _1:  50},
+                  {b: 20, _1: 400}]
+    -
+      - query: select b, max(d) from t6, (select k from t6.c where k = 'q') as ek where a = 2 group by b order by max(d) desc
+      - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS B, _._3 AS _1)"
+      - result: [{b: 20, _1: 400},
+                  {b: 10, _1:  50}]
+    -
+      # HAVING on the aggregate — keep only groups where max(d) > 100
+      - query: select a, ek.k, b, max(d) from t6, (select k from t6.c) as ek group by a, ek.k, b having max(d) > 100
+      - explain: "AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN promote(@c41 AS LONG) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
+      - result: [{a: 1, k: 'p', b: 10, _3: 150},
+                 {a: 1, k: 'q', b: 10, _3: 150},
+                 {a: 2, k: 'q', b: 20, _3: 400},
+                 {a: 2, k: 'r', b: 20, _3: 400}]
+    -
+      # WHERE on outer + HAVING on aggregate
+      - query: select ek.k, b, max(d) from t6, (select k from t6.c) as ek where a = 1 group by a, ek.k, b having max(d) >= 150
+      - explain: "AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS promote(@c44 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - result: [{k: 'p', b: 10, _2: 150},
+                 {k: 'q', b: 10, _2: 150}]
+    -
+      # Inner select predicate + HAVING
+      - query: select a, ek.k, b, max(d) from t6, (select k from t6.c where k = 'q') as ek group by a, ek.k, b having a = 1 and max(d) > 100
+      - explain: "AISCAN(MV20 [EQUALS promote(@c42 AS LONG), EQUALS promote(@c26 AS STRING), [GREATER_THAN promote(@c49 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
+      - result: [{a: 1, k: 'q', b: 10, _3: 150}]
+---
+transaction_setups:
+  t6_all: create temporary function "t6v" () on commit drop function AS
+    SELECT * FROM t6
+  t6_a1: create temporary function "t6v" () on commit drop function AS
+    SELECT * FROM t6 WHERE a = 1
+  t6_a2: create temporary function "t6v" () on commit drop function AS
+    SELECT * FROM t6 WHERE a = 2
+---
+test_block:
+  name: agg-index-tests-t6-tvf
+  options:
+    connection_lifecycle: test
+    supported_version: !current_version
+  tests:
+    -
+      # Full scan via TVF with no predicate
+      - query: select a, ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek group by a, ek.k, b
+      - setupReference: t6_all
+      - explain: "AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
+      - result: [{a: 1, k: 'p', b: 10, _3: 150},
+                 {a: 1, k: 'q', b: 10, _3: 150},
+                 {a: 1, k: 'r', b: 10, _3: 100},
+                 {a: 2, k: 'p', b: 10, _3:  50},
+                 {a: 2, k: 'q', b: 10, _3:  50},
+                 {a: 2, k: 'q', b: 20, _3: 400},
+                 {a: 2, k: 'r', b: 20, _3: 400}]
+    -
+      # TVF pre-filters to a=1, no WHERE in query
+      - query: select ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek group by ek.k, b
+      - setupReference: t6_a1
+      - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - result: [{k: 'p', b: 10, _2: 150},
+                 {k: 'q', b: 10, _2: 150},
+                 {k: 'r', b: 10, _2: 100}]
+    -
+      # TVF pre-filters to a=2, no WHERE in query
+      - query: select ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek group by ek.k, b
+      - setupReference: t6_a2
+      - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - result: [{k: 'p', b: 10, _2:  50},
+                 {k: 'q', b: 10, _2:  50},
+                 {k: 'q', b: 20, _2: 400},
+                 {k: 'r', b: 20, _2: 400}]
+    -
+      # Inner select predicate via Temp function
+      - query: select ek.k, b, max(d) from "t6v", (select k from "t6v".c where k = 'q') as ek group by ek.k, b
+      - setupReference: t6_a2
+      - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c24 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - result: [{k: 'q', b: 10, _2:  50},
+                 {k: 'q', b: 20, _2: 400}]
+    -
+      # Temp function pre-filters a=1, HAVING on aggregate
+      - query: select ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek group by ek.k, b having max(d) >= 150
+      - setupReference: t6_a1
+      - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS promote(@c38 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)"
+      - result: [{k: 'p', b: 10, _2: 150},
+                 {k: 'q', b: 10, _2: 150}]
+    -
+      # Temp function no predicate, inner select predicate + HAVING
+      - query: select a, ek.k, b, max(d) from "t6v", (select k from "t6v".c where k = 'q') as ek group by a, ek.k, b having max(d) > 100
+      - setupReference: t6_a2
+      - explain: "AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c26 AS STRING), [GREATER_THAN promote(@c45 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)"
+      - result: [{a: 2, k: 'q', b: 20, _3: 400}]
 ...
