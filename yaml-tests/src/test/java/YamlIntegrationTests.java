@@ -318,6 +318,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void slidingWindowSemanticSearchTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("sliding-window-semantic-search.yamsql");
+    }
+
+    @TestTemplate
     public void sparseIndex(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("sparse-index-tests.yamsql");
     }

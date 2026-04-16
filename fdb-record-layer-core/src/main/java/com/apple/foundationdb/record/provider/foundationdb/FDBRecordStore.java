@@ -255,6 +255,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected static final Object INDEX_UNIQUENESS_VIOLATIONS_KEY = FDBRecordStoreKeyspace.INDEX_UNIQUENESS_VIOLATIONS_SPACE.key();
     protected static final Object RECORD_VERSION_KEY = FDBRecordStoreKeyspace.RECORD_VERSION_SPACE.key();
     protected static final Object INDEX_BUILD_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.key();
+    protected static final Object INDEX_SLIDING_WINDOW_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_SLIDING_WINDOW_SPACE.key();
 
     @SuppressWarnings("squid:S2386")
     @SpotBugsSuppressWarnings("MS_MUTABLE_ARRAY")
@@ -930,6 +931,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
+     * Subspace for sliding window index bookkeeping (window, overflow, and count partitions).
+     * Separate from the secondary subspace to avoid collisions with delegate index types
+     * that also use the secondary subspace (e.g. rank, permuted min/max, text).
+     * @param index the index to retrieve the sliding window subspace for
+     * @return the sliding window subspace for the given index
+     */
+    @Nonnull
+    public Subspace indexSlidingWindowSubspace(@Nonnull Index index) {
+        return getSubspace().subspace(Tuple.from(INDEX_SLIDING_WINDOW_SPACE_KEY, index.getSubspaceTupleKey()));
+    }
+
+    /**
      * Subspace for index in which to place a {@link com.apple.foundationdb.async.RangeSet RangeSet}.
      * This is used for determining how much progress has been made on building the index in the
      * case that one is building the index offline.
@@ -971,7 +984,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     @Override
     public IndexMaintainer getIndexMaintainer(@Nonnull Index index) {
-        return indexMaintainerRegistry.getIndexMaintainer(new IndexMaintainerState(this, index, indexMaintenanceFilter));
+        final IndexMaintainerState maintainerState = new IndexMaintainerState(this, index, indexMaintenanceFilter);
+        return indexMaintainerRegistry.getIndexMaintainer(maintainerState);
     }
 
     @Nonnull
@@ -2978,6 +2992,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Note that index states are *not* cleared, as rebuilding the indexes resets each state
         context.clear(getSubspace().range(Tuple.from(INDEX_KEY)));
         context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY)));
+        context.clear(getSubspace().range(Tuple.from(INDEX_SLIDING_WINDOW_SPACE_KEY)));
         context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY)));
         context.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY)));
         List<CompletableFuture<Void>> work = new LinkedList<>();
@@ -5055,6 +5070,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // It also won't clear some of the secondary state from TimeWindowLeaderboard indexes.
         context.clear(getSubspace().range(Tuple.from(INDEX_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        context.clear(getSubspace().range(Tuple.from(INDEX_SLIDING_WINDOW_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
         final String formerIndexName = formerIndex.getFormerName();
         if (formerIndexName != null) {

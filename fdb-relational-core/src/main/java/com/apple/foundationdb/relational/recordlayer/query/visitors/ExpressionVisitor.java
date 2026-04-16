@@ -299,7 +299,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final Expressions partitions = partitionClause == null ? Expressions.empty() : getDelegate().visitPartitionClause(partitionClause);
 
         @Nullable final var orderByClause = ctx.windowSpec().orderByClause();
-        final List<OrderByExpression> orderByExpressions = orderByClause == null ? ImmutableList.of() : visitOrderByClause(orderByClause);
+        // Parse ORDER BY expressions directly — the isTopLevel() check in visitOrderByClause
+        // is for query-level ORDER BY and does not apply inside OVER clauses.
+        final List<OrderByExpression> orderByExpressions = orderByClause == null ? ImmutableList.of()
+                : orderByClause.orderByExpression().stream().map(this::visitOrderByExpression)
+                        .collect(ImmutableList.toImmutableList());
 
         @Nullable final var windowOptionsClause = ctx.windowSpec().windowOptionsClause();
         final Expressions windowOptions = windowOptionsClause == null ? Expressions.empty() : getDelegate().visitWindowOptionsClause(windowOptionsClause);
