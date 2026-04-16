@@ -16,7 +16,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+---
+options:
+  supported_version: !current_version
 ---
 schema_template:
     create table A(a1 string, primary key(a1))
@@ -72,8 +74,6 @@ setup:
         ;
 ---
 test_block:
-  # TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
-  preset: single_repetition_parallelized
   tests:
     -
       - query: select * from B WHERE B2 LIKE 'X'
@@ -101,8 +101,6 @@ test_block:
       - result: [{2, 'Z'}, {4, 'Z'}]
 ---
 test_block:
-  # TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
-  preset: single_repetition_parallelized
   tests:
     -
       - query: select * from A WHERE A1 LIKE 'A'
@@ -376,11 +374,7 @@ test_block:
       - result: [
         ]
 ---
-# TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
 test_block:
-  options:
-    repetition: 1
-    check_cache: false
   tests:
     -
       - query: select * from A WHERE A1 LIKE '|_|_%' ESCAPE '|'
