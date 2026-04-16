@@ -599,10 +599,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         } else {
             escapeValue = new LiteralValue<>(null);
         }
-        final var pattern = Assert.notNullUnchecked(getDelegate().normalizeString(ctx.pattern.getText()));
-        final var patternValueBinding = getDelegate().getPlanGenerationContext().processQueryLiteral(
-                Type.primitiveType(Type.TypeCode.STRING), pattern, ctx.pattern.getTokenIndex());
-        final var patternFunction = getDelegate().resolveFunction("__pattern_for_like", Expression.ofUnnamed(patternValueBinding),
+        final var patternValueBinding = Assert.castUnchecked(ctx.pattern.accept(this), Expression.class);
+        final var patternFunction = getDelegate().resolveFunction("__pattern_for_like", patternValueBinding,
                 Expression.ofUnnamed(escapeValue));
         final var likeFunction = getDelegate().resolveFunction(ctx.LIKE().getText(), operand, patternFunction);
         if (ctx.NOT() != null) {

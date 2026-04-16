@@ -72,8 +72,7 @@ setup:
         ;
 ---
 test_block:
-  # TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
-  preset: single_repetition_parallelized
+  supported_version: !current_version
   tests:
     -
       - query: select * from B WHERE B2 LIKE 'X'
@@ -101,8 +100,7 @@ test_block:
       - result: [{2, 'Z'}, {4, 'Z'}]
 ---
 test_block:
-  # TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
-  preset: single_repetition_parallelized
+  supported_version: !current_version
   tests:
     -
       - query: select * from A WHERE A1 LIKE 'A'
@@ -376,11 +374,8 @@ test_block:
       - result: [
         ]
 ---
-# TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
 test_block:
-  options:
-    repetition: 1
-    check_cache: false
+  supported_version: !current_version
   tests:
     -
       - query: select * from A WHERE A1 LIKE '|_|_%' ESCAPE '|'

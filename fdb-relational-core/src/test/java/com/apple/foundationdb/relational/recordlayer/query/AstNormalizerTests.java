@@ -1426,6 +1426,18 @@ public class AstNormalizerTests {
     }
 
     @Test
+    void likePatternConstantIsStripped() throws RelationalException {
+        // Verify that the LIKE pattern constant is stripped and replaced with a placeholder,
+        // so queries with different LIKE patterns share the same canonical representation.
+        validate(List.of(
+                        "select * from t1 where col1 like 'hello%'",
+                        "select * from t1 where col1 like 'world%'"),
+                "select * from \"T1\" where \"COL1\" like ? ",
+                List.of(Map.of(constantId(7), "hello%"),
+                        Map.of(constantId(7), "world%")));
+    }
+
+    @Test
     void windowFunctionOptionsAreNotStripped() throws Exception {
         // Test that EF_SEARCH option in window function is preserved during normalization
         validate("select * from t1 qualify row_number() over (partition by zone order by distance OPTIONS EF_SEARCH = 100) < 10",
