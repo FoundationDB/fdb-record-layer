@@ -34,7 +34,7 @@ test_block:
       - resultMetadata:
           - {PK: INTEGER}
           - PTS:
-            - array:
+            - "!array":
               - {X: INTEGER}
               - {Y: BIGINT}
       - result: [{1, [{X: 10, Y: 20}]}]

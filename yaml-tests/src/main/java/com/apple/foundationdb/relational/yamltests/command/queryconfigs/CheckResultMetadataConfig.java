@@ -276,7 +276,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
                 if (!valueList.isEmpty()) {
                     final Map<?, ?> firstItem = CustomYamlConstructor.LinedObject.unlineKeys(valueList.get(0));
                     final Map.Entry<?, ?> firstEntry = firstItem.entrySet().iterator().next();
-                    if ("array".equalsIgnoreCase(firstEntry.getKey().toString())
+                    if ("!array".equalsIgnoreCase(firstEntry.getKey().toString())
                             && firstEntry.getValue() instanceof List) {
                         // array-of-struct
                         if (!actualCol.isArray || actualCol.fields == null) {

@@ -81,7 +81,7 @@ test_block:
       - query: UPDATE D SET X = [(11), (12), (13)] WHERE PK = 1 RETURNING "new".X
       - resultMetadata:
           - X:
-            - array:
+            - "!array":
               - {F: INTEGER}
       - result: [{[{F: 11}, {F: 12}, {F: 13}]}]
     -

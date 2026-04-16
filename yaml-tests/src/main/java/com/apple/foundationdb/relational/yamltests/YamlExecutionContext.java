@@ -375,10 +375,10 @@ public final class YamlExecutionContext {
                                       @Nonnull final CheckResultMetadataConfig.ColumnDescriptor col,
                                       @Nonnull final String prefix) {
         if (col.isArray && col.fields != null) {
-            // array-of-struct: - name:\n  - array:\n    - {field: type}...
+            // array-of-struct: - name:\n  - "!array":\n    - {field: type}...
             lines.add(prefix + "- " + col.name + ":");
             final String arrayPrefix = prefix + "  ";
-            lines.add(arrayPrefix + "- array:");
+            lines.add(arrayPrefix + "- \"!array\":");
             final String fieldPrefix = arrayPrefix + "  ";
             for (final CheckResultMetadataConfig.ColumnDescriptor field : col.fields) {
                 appendDescriptorLines(lines, field, fieldPrefix);
