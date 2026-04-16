@@ -822,7 +822,7 @@ public class RelationalPlanCacheTests {
                 "SELECT * FROM SCI_FI_BOOKS_OF_80S()", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), i1980);
 
         shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"SCI_FI_BOOKS_OF_80S\" ( ) ", "SCHEMA_TEMPLATE_1", 10, 100, configOf(Set.of(i1970, i1980, i1990)), "CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS\" ( ) " +
-                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'SCIFI' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE ? ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"SCI_FI_BOOKS\" ( ) WHERE \"YEAR\" > ? AND \"YEAR\" < ? "),
                 Map.of(ppe(cons(
                         cons(c1980Cp0(20, "SCI_FI_BOOKS_OF_80S"), c1980Cp0(24, "SCI_FI_BOOKS_OF_80S")),
@@ -849,8 +849,8 @@ public class RelationalPlanCacheTests {
                 "SELECT * FROM SCI_FI_BOOKS_OF_80S()", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), i1980);
 
         shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"SCI_FI_BOOKS_OF_80S\" ( ) ", "SCHEMA_TEMPLATE_1", 10, 100, configOf(Set.of(i1970, i1980, i1990)), "CREATE TEMPORARY FUNCTION \"OTHER_BOOKS\" ( ) " +
-                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'OTHER' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS\" ( ) " +
-                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'SCIFI' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE ? ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE ? ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"SCI_FI_BOOKS\" ( ) WHERE \"YEAR\" > ? AND \"YEAR\" < ? "),
                 Map.of(ppe(cons(
                         cons(c1980Cp0(20, "SCI_FI_BOOKS_OF_80S"), c1980Cp0(24, "SCI_FI_BOOKS_OF_80S")),
@@ -875,7 +875,7 @@ public class RelationalPlanCacheTests {
 
         shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"SCI_FI_BOOKS_OF_80S\" ( ) , \"SCI_FI_BOOKS_OF_80S\" ( ) ", "SCHEMA_TEMPLATE_1", 10, 100, configOf(Set.of(i1970, i1980, i1990)),
                         "CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS\" ( ) " +
-                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'SCIFI' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE ? ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"SCI_FI_BOOKS\" ( ) WHERE \"YEAR\" > ? AND \"YEAR\" < ? "),
                 Map.of(ppe(cons(
                         cons(cons(c1980Cp0(20, "SCI_FI_BOOKS_OF_80S"), c1980Cp0(24, "SCI_FI_BOOKS_OF_80S")), cons(c1980Cp0(20, "SCI_FI_BOOKS_OF_80S"), c1980Cp0(24, "SCI_FI_BOOKS_OF_80S"))),
@@ -901,8 +901,8 @@ public class RelationalPlanCacheTests {
 
         shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"SCI_FI_BOOKS_OF_80S\" ( ) AS \"A\" , \"OTHER_BOOKS\" ( ) AS \"B\" WHERE \"A\" . \"YEAR\" > ? AND \"A\" . \"TITLE\" = ? ",
                         "SCHEMA_TEMPLATE_1", 10, 100, configOf(Set.of(i1970, i1980, i1990)), "CREATE TEMPORARY FUNCTION \"OTHER_BOOKS\" ( ) " +
-                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'OTHER' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS\" ( ) " +
-                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'SCIFI' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE ? ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE ? ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"SCI_FI_BOOKS\" ( ) WHERE \"YEAR\" > ? AND \"YEAR\" < ? "),
                 Map.of(ppe(cons(
                         cons(c1980Cp0(20, "SCI_FI_BOOKS_OF_80S"), c1980Cp0(24, "SCI_FI_BOOKS_OF_80S"), c1980Cp0(19)),

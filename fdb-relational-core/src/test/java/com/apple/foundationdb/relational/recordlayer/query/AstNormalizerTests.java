@@ -1396,12 +1396,12 @@ public class AstNormalizerTests {
 
     @Test
     void parseCopyExport() throws Exception {
-        validate(List.of("copy /test/foo/bar",
-                        "  copy   /test/foo/bar  "),
+        validate(List.of("copy /test/foo/bar preserve incarnation",
+                        "  copy   /test/foo/bar   preserve   incarnation  "),
                 PreparedParams.empty(),
                 // the canonical representation isn't super important because we're not caching, but it is part of the
                 // standard validate helper method
-                "copy \"/TEST/FOO/BAR\" ",
+                "copy \"/TEST/FOO/BAR\" preserve incarnation ",
                 List.of(Map.of(), Map.of()),
                 null,
                 -1,
@@ -1423,6 +1423,18 @@ public class AstNormalizerTests {
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_ADMIN_STATEMENT,
                         AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION));
+    }
+
+    @Test
+    void likePatternConstantIsStripped() throws RelationalException {
+        // Verify that the LIKE pattern constant is stripped and replaced with a placeholder,
+        // so queries with different LIKE patterns share the same canonical representation.
+        validate(List.of(
+                        "select * from t1 where col1 like 'hello%'",
+                        "select * from t1 where col1 like 'world%'"),
+                "select * from \"T1\" where \"COL1\" like ? ",
+                List.of(Map.of(constantId(7), "hello%"),
+                        Map.of(constantId(7), "world%")));
     }
 
     @Test

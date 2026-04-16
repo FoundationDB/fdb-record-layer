@@ -577,4 +577,15 @@ public class DelegatingVisitorTest {
         final QueryPlan queryPlan = delegating.visitCopyExportStatement(context);
         Assertions.assertThat(queryPlan).isSameAs(mockPlan);
     }
+
+    @Test
+    void visitIncarnationOption() {
+        final TypedVisitor baseVisitor = Mockito.mock(TypedVisitor.class);
+        final DelegatingVisitor<TypedVisitor> delegating = new DelegatingVisitor<>(baseVisitor);
+        final RelationalParser.IncarnationOptionContext context = new RelationalParser.IncarnationOptionContext(null, -1);
+        final Object mockResult = new Object();
+        Mockito.when(baseVisitor.visitIncarnationOption(context)).thenReturn(mockResult);
+        final Object result = delegating.visitIncarnationOption(context);
+        Assertions.assertThat(result).isSameAs(mockResult);
+    }
 }

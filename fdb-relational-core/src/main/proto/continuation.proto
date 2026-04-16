@@ -102,4 +102,6 @@ message CompiledStatement {
 message CopyPlan {
   // The path being exported
   optional string path = 1;
+  // Whether to increment the incarnation in store info during export
+  optional bool increment_incarnation = 2;
 }
