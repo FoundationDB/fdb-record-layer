@@ -479,28 +479,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                     }
 
                     // New entry is better: evict boundary from delegate, add new to delegate
-                    final Tuple boundaryPrimaryKey = TupleHelpers.subTuple(boundaryEntryKey,
-                            windowKeyColumnSize, boundaryEntryKey.size());
-                    final byte[] oldBoundaryPackedKey = entriesSubspace.pack(boundaryEntryKey);
-
-                    return state.store.loadRecordAsync(boundaryPrimaryKey).thenCompose(evictedRecord -> {
-                        CompletableFuture<Void> removeFuture = (evictedRecord != null)
-                                                               ? delegate.update(evictedRecord, null) : AsyncUtil.DONE;
-
-                        return removeFuture.thenCompose(v2 ->
-                                delegate.update(null, savedRecord).thenCompose(v3 ->
-                                        // Find new boundary: the entry just inside the old boundary
-                                        extremumType.getNewBoundaryAfterEviction(entriesSubspace, tr,
-                                                oldBoundaryPackedKey).thenAccept(newBoundaryKV -> {
-                                                    if (newBoundaryKV != null) {
-                                                        final Tuple newBoundaryKey = entriesSubspace.unpack(
-                                                                newBoundaryKV.getKey());
-                                                        tr.set(boundaryMetaKey, newBoundaryKey.pack());
-                                                    }
-                                                })
-                                )
-                        );
-                    });
+                    return evictBoundaryAndReplace(savedRecord, entryKey, entriesSubspace, tr,
+                            boundaryEntryKey, boundaryMetaKey);
                 });
             }
         });
@@ -555,56 +535,111 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                     final long newCount = Math.max(0, count - 1);
                     tr.set(counterKey, encodeLong(newCount));
 
-                    return delegate.update(savedRecord, null).thenCompose(vignore -> {
-                        // If we deleted the boundary itself, find the new boundary (entry just inside)
-                        CompletableFuture<byte[]> updatedBoundaryFuture;
-                        if (entryKey.equals(boundaryEntryKey)) {
-                            updatedBoundaryFuture = extremumType.getNewBoundaryAfterEviction(
-                                    entriesSubspace, tr, packedEntryKey).thenApply(newBoundaryKV -> {
-                                        if (newBoundaryKV != null) {
-                                            final Tuple newBKey = entriesSubspace.unpack(newBoundaryKV.getKey());
-                                            tr.set(boundaryMetaKey, newBKey.pack());
-                                            return newBoundaryKV.getKey();
-                                        } else {
-                                            tr.clear(boundaryMetaKey);
-                                            return null;
-                                        }
-                                    });
-                        } else {
-                            updatedBoundaryFuture = CompletableFuture.completedFuture(
-                                    entriesSubspace.pack(boundaryEntryKey));
-                        }
-
-                        // Re-elect: find best overflow entry
-                        return updatedBoundaryFuture.thenCompose(currentBoundaryPacked -> {
-                            if (currentBoundaryPacked == null) {
-                                // No boundary → no entries left
-                                return AsyncUtil.DONE;
-                            }
-                            return extremumType.getBestInOverflow(entriesSubspace, tr,
-                                    currentBoundaryPacked).thenCompose(bestKV -> {
-                                        if (bestKV == null) {
-                                            return AsyncUtil.DONE;
-                                        }
-                                        // Promote: update boundary to include overflow entry, add to delegate
-                                        final Tuple bestEntryKey = entriesSubspace.unpack(bestKV.getKey());
-                                        final Tuple bestPrimaryKey = Tuple.fromBytes(bestKV.getValue());
-                                        tr.set(boundaryMetaKey, bestEntryKey.pack());
-                                        tr.set(counterKey, encodeLong(newCount + 1));
-
-                                        return state.store.loadRecordAsync(bestPrimaryKey).thenCompose(
-                                                promotedRecord -> {
-                                                    if (promotedRecord != null) {
-                                                        return delegate.update(null, promotedRecord);
-                                                    }
-                                                    return AsyncUtil.DONE;
-                                                });
-                                    });
-                        });
-                    });
+                    return delegate.update(savedRecord, null)
+                            .thenCompose(vignore -> updateBoundaryAfterDelete(
+                                    entriesSubspace, tr, entryKey, boundaryEntryKey,
+                                    boundaryMetaKey, packedEntryKey))
+                            .thenCompose(currentBoundaryPacked -> reElectFromOverflow(
+                                    entriesSubspace, tr, currentBoundaryPacked,
+                                    boundaryMetaKey, counterKey, newCount));
                 });
             });
         });
+    }
+
+    /**
+     * Evicts the current boundary entry from the delegate, inserts the new record into the delegate,
+     * and updates the boundary pointer. If the evicted boundary was the only window entry
+     * (window size 1), the new entry itself becomes the boundary.
+     */
+    @Nonnull
+    private <M extends Message> CompletableFuture<Void> evictBoundaryAndReplace(
+            @Nonnull FDBIndexableRecord<M> newRecord,
+            @Nonnull Tuple newEntryKey,
+            @Nonnull Subspace entriesSubspace,
+            @Nonnull Transaction tr,
+            @Nonnull Tuple boundaryEntryKey,
+            @Nonnull byte[] boundaryMetaKey) {
+        final Tuple boundaryPrimaryKey = TupleHelpers.subTuple(boundaryEntryKey,
+                windowKeyColumnSize, boundaryEntryKey.size());
+        final byte[] oldBoundaryPackedKey = entriesSubspace.pack(boundaryEntryKey);
+
+        return state.store.loadRecordAsync(boundaryPrimaryKey)
+                .thenCompose(evictedRecord -> evictedRecord != null
+                        ? delegate.update(evictedRecord, null) : AsyncUtil.DONE)
+                .thenCompose(v -> delegate.update(null, newRecord))
+                .thenCompose(v -> extremumType.getNewBoundaryAfterEviction(entriesSubspace, tr,
+                        oldBoundaryPackedKey))
+                .thenAccept(newBoundaryKV -> {
+                    if (newBoundaryKV != null) {
+                        final Tuple newBoundaryKey = entriesSubspace.unpack(newBoundaryKV.getKey());
+                        tr.set(boundaryMetaKey, newBoundaryKey.pack());
+                    } else {
+                        // No inward entry found — the new entry is the only one in the window
+                        tr.set(boundaryMetaKey, newEntryKey.pack());
+                    }
+                });
+    }
+
+    /**
+     * After deleting a window entry, determines the new boundary pointer.
+     * If the deleted entry was the boundary itself, scans for the next inward entry;
+     * otherwise returns the existing boundary's packed key.
+     *
+     * @return the packed key of the current boundary, or {@code null} if no entries remain
+     */
+    @Nonnull
+    private CompletableFuture<byte[]> updateBoundaryAfterDelete(
+            @Nonnull Subspace entriesSubspace,
+            @Nonnull Transaction tr,
+            @Nonnull Tuple entryKey,
+            @Nonnull Tuple boundaryEntryKey,
+            @Nonnull byte[] boundaryMetaKey,
+            @Nonnull byte[] packedEntryKey) {
+        if (!entryKey.equals(boundaryEntryKey)) {
+            return CompletableFuture.completedFuture(entriesSubspace.pack(boundaryEntryKey));
+        }
+        return extremumType.getNewBoundaryAfterEviction(entriesSubspace, tr, packedEntryKey)
+                .thenApply(newBoundaryKV -> {
+                    if (newBoundaryKV != null) {
+                        final Tuple newBKey = entriesSubspace.unpack(newBoundaryKV.getKey());
+                        tr.set(boundaryMetaKey, newBKey.pack());
+                        return newBoundaryKV.getKey();
+                    } else {
+                        tr.clear(boundaryMetaKey);
+                        return null;
+                    }
+                });
+    }
+
+    /**
+     * Promotes the best overflow entry into the window by adding it to the delegate index
+     * and updating the boundary pointer.
+     */
+    @Nonnull
+    private CompletableFuture<Void> reElectFromOverflow(
+            @Nonnull Subspace entriesSubspace,
+            @Nonnull Transaction tr,
+            @Nullable byte[] currentBoundaryPacked,
+            @Nonnull byte[] boundaryMetaKey,
+            @Nonnull byte[] counterKey,
+            long newCount) {
+        if (currentBoundaryPacked == null) {
+            return AsyncUtil.DONE;
+        }
+        return extremumType.getBestInOverflow(entriesSubspace, tr, currentBoundaryPacked)
+                .thenCompose(bestKV -> {
+                    if (bestKV == null) {
+                        return AsyncUtil.DONE;
+                    }
+                    final Tuple bestEntryKey = entriesSubspace.unpack(bestKV.getKey());
+                    final Tuple bestPrimaryKey = Tuple.fromBytes(bestKV.getValue());
+                    tr.set(boundaryMetaKey, bestEntryKey.pack());
+                    tr.set(counterKey, encodeLong(newCount + 1));
+                    return state.store.loadRecordAsync(bestPrimaryKey)
+                            .thenCompose(promotedRecord -> promotedRecord != null
+                                    ? delegate.update(null, promotedRecord) : AsyncUtil.DONE);
+                });
     }
 
     @Override

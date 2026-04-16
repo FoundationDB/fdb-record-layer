@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexPredicate.RowNumberWindowPredicate.Direction;
+import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
@@ -58,6 +59,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -508,6 +512,29 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void windowSizeOneEvictionSetsBoundaryToNewEntry() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 1, Direction.DESC);
+            rec(1, 100);
+            assertWindowContains(1);
+            assertEquals(1, readWindowCount());
+
+            // Evicts rec1 — getNewBoundaryAfterEviction returns null (no inward entry),
+            // so the new entry (rec2) itself becomes the boundary.
+            rec(2, 200);
+            assertWindowContains(2);
+            assertEquals(1, readWindowCount());
+
+            // Verify boundary was correctly set: rec3(50) is worse than rec2(200)
+            // for DESC, so it should go to overflow, not evict.
+            rec(3, 50);
+            assertWindowContains(2);
+            assertEquals(1, readWindowCount());
+            commit(context);
+        }
+    }
+
+    @Test
     void duplicateWindowKeyValues() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
@@ -910,5 +937,130 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         org.junit.jupiter.api.Assertions.assertThrows(
                 com.apple.foundationdb.record.RecordCoreException.class,
                 () -> IndexPredicate.validateRowNumberWindowPlacement(or));
+    }
+
+    // ===== RowNumberWindowPredicate unit tests =====
+
+    @Test
+    void rowNumberWindowPredicateToString() {
+        final IndexPredicate.RowNumberWindowPredicate simple =
+                new IndexPredicate.RowNumberWindowPredicate("score", Direction.DESC, 100);
+        assertEquals("QualifyRowNumber(score, DESC) <= 100", simple.toString());
+
+        final IndexPredicate.RowNumberWindowPredicate partitioned =
+                new IndexPredicate.RowNumberWindowPredicate(
+                        ImmutableList.of("score"), Direction.ASC, 50,
+                        ImmutableList.of(ImmutableList.of("zone"), ImmutableList.of("category")));
+        assertEquals("QualifyRowNumber(PARTITION BY zone, category ORDER BY score, ASC) <= 50",
+                partitioned.toString());
+    }
+
+    @Test
+    void rowNumberWindowPredicateGetFieldName() {
+        final IndexPredicate.RowNumberWindowPredicate pred =
+                new IndexPredicate.RowNumberWindowPredicate("score", Direction.DESC, 100);
+        assertEquals("score", pred.getFieldName());
+    }
+
+    @Test
+    void rowNumberWindowPredicateGetFieldNameMultiElement() {
+        final IndexPredicate.RowNumberWindowPredicate pred =
+                new IndexPredicate.RowNumberWindowPredicate(
+                        ImmutableList.of("nested", "score"), Direction.ASC, 10);
+        assertThrows(com.google.common.base.VerifyException.class, pred::getFieldName);
+    }
+
+    @Test
+    void rowNumberWindowPredicateHashCode() {
+        final IndexPredicate.RowNumberWindowPredicate a =
+                new IndexPredicate.RowNumberWindowPredicate("score", Direction.DESC, 100);
+        final IndexPredicate.RowNumberWindowPredicate b =
+                new IndexPredicate.RowNumberWindowPredicate("score", Direction.DESC, 100);
+        final IndexPredicate.RowNumberWindowPredicate c =
+                new IndexPredicate.RowNumberWindowPredicate("score", Direction.ASC, 100);
+        assertEquals(a.hashCode(), b.hashCode());
+        assertEquals(a, b);
+        assertFalse(a.equals(c));
+    }
+
+    // ===== Factory tests =====
+
+    @Test
+    void factoryGetIndexTypesIsEmpty() {
+        final SlidingWindowIndexMaintainerFactory factory =
+                new SlidingWindowIndexMaintainerFactory(new VectorIndexMaintainerFactory());
+        assertFalse(factory.getIndexTypes().iterator().hasNext());
+    }
+
+    // ===== Delegate method coverage tests =====
+
+    @Test
+    void delegateMethodsScan() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC);
+            rec(1, 100);
+            rec(2, 200);
+
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            // scan(IndexScanType, TupleRange, continuation, ScanProperties) is used by scanIndexRecNos
+            assertWindowContains(1, 2);
+
+            // canDeleteWhere — no partition key → should return false
+            final com.apple.foundationdb.record.query.QueryToKeyMatcher matcher =
+                    new com.apple.foundationdb.record.query.QueryToKeyMatcher(
+                            com.apple.foundationdb.record.query.expressions.Query.field("zone")
+                                    .equalsValue("A"));
+            assertFalse(maintainer.canDeleteWhere(matcher, Key.Evaluated.scalar("A")));
+
+            // canEvaluateRecordFunction
+            assertFalse(maintainer.canEvaluateRecordFunction(
+                    new IndexRecordFunction<>("test",
+                            Key.Expressions.field("rec_no").groupBy(Key.Expressions.empty()),
+                            index.getName())));
+
+            // canEvaluateAggregateFunction
+            assertFalse(maintainer.canEvaluateAggregateFunction(
+                    new com.apple.foundationdb.record.metadata.IndexAggregateFunction(
+                            "test", Key.Expressions.field("rec_no"), index.getName())));
+
+            // evaluateIndex
+            final var rec = recordStore.loadRecord(Tuple.from(1L));
+            assertNotNull(rec);
+            final List<com.apple.foundationdb.record.IndexEntry> entries = maintainer.evaluateIndex(rec);
+            assertNotNull(entries);
+
+            // filteredIndexEntries
+            final List<com.apple.foundationdb.record.IndexEntry> filtered =
+                    maintainer.filteredIndexEntries(recordStore.loadRecord(Tuple.from(1L)));
+            assertNotNull(filtered);
+
+            // addedRangeWithKey
+            maintainer.addedRangeWithKey(Tuple.from(1L)).join();
+
+            // isIdempotent (delegate forwards)
+            maintainer.isIdempotent();
+
+            commit(context);
+        }
+    }
+
+    @Test
+    void canDeleteWhereWithPartition() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 3, Direction.DESC, ImmutableList.of(ImmutableList.of("zone")));
+            rec(1, "A", "c", 100, 0, uniqueVector(1));
+
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
+
+            final com.apple.foundationdb.record.query.QueryToKeyMatcher matcher =
+                    new com.apple.foundationdb.record.query.QueryToKeyMatcher(
+                            com.apple.foundationdb.record.query.expressions.Query.field("zone")
+                                    .equalsValue("A"));
+            assertTrue(maintainer.canDeleteWhere(matcher, Key.Evaluated.scalar("A")));
+            commit(context);
+        }
     }
 }
