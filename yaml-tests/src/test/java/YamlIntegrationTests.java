@@ -444,7 +444,6 @@ public class YamlIntegrationTests {
         runner.runYamsql("record-type-key-tests.yamsql");
     }
 
-
     @TestTemplate
     public void filterIndexTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("filter-index.yamsql");
