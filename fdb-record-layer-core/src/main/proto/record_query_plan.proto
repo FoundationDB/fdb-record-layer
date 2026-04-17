@@ -1256,6 +1256,24 @@ message PBinaryRelOpValue {
       NOT_DISTINCT_FROM_VEC_NULL = 512;
       NOT_DISTINCT_FROM_NULL_VEC = 513;
       NOT_DISTINCT_FROM_VEC_VEC = 514;
+
+      EQ_ARRAY_ARRAY = 515;
+      NEQ_ARRAY_ARRAY = 516;
+      IS_DISTINCT_FROM_ARRAY_ARRAY = 517;
+      NOT_DISTINCT_FROM_ARRAY_ARRAY = 518;
+
+      EQ_NULL_NONE = 519;
+      EQ_NONE_NULL = 520;
+      EQ_NONE_NONE = 521;
+      NEQ_NULL_NONE = 522;
+      NEQ_NONE_NULL = 523;
+      NEQ_NONE_NONE = 524;
+      IS_DISTINCT_FROM_NULL_NONE = 525;
+      IS_DISTINCT_FROM_NONE_NULL = 526;
+      IS_DISTINCT_FROM_NONE_NONE = 527;
+      NOT_DISTINCT_FROM_NULL_NONE = 528;
+      NOT_DISTINCT_FROM_NONE_NULL = 529;
+      NOT_DISTINCT_FROM_NONE_NONE = 530;
   }
   optional PRelOpValue super = 1;
   optional PBinaryPhysicalOperator operator = 2;
@@ -1305,6 +1323,11 @@ message PUnaryRelOpValue {
 
       IS_NULL_VERSION = 25;
       IS_NOT_NULL_VERSION = 26;
+
+      IS_NULL_ARRAY = 27;
+      IS_NOT_NULL_ARRAY = 28;
+      IS_NULL_NONE = 29;
+      IS_NOT_NULL_NONE = 30;
   }
   optional PRelOpValue super = 1;
   optional PUnaryPhysicalOperator operator = 2;
