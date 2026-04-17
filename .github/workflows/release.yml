@@ -337,7 +337,7 @@ jobs:
         shell: bash
         run: |
             # Remove the leading "refs/heads/" from the branch name stored in the GITHUB_REF environment variable
-            local branch_name="${GITHUB_REF##*/}"
+            branch_name="${GITHUB_REF##*/}"
             echo "Fetching and merging latest updates from branch ${branch_name} into HEAD..."
             git fetch origin "${branch_name}"
             git merge --no-edit "origin/${branch_name}"
