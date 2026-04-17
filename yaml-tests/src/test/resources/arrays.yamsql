@@ -39,9 +39,7 @@ test_block:
       - count: 3
     -
       - query: SELECT * FROM A
-      - resultMetadata:
-          - {PK: INTEGER}
-          - {X: ARRAY(INTEGER)}
+      - resultMetadata: [{PK: INTEGER}, {X: ARRAY(INTEGER)}]
       - result: [{1, [1, 2, 3]}, {2, [2, 3, 4]}, {3, [3, 4, 5]}]
     -
       - query: INSERT INTO B VALUES (1, ['a', 'b', 'c']), (2, ['b', 'c', 'd']), (3, ['c', 'd', 'e'])
@@ -51,8 +49,7 @@ test_block:
       - count: 3
     -
       - query: select x from c
-      - resultMetadata:
-          - {X: ARRAY(DOUBLE)}
+      - resultMetadata: [{X: ARRAY(DOUBLE)}]
       - result: [{[1.1, 2.1, 3.1]}, {[2.1, 3.1, 4.1]}, {[3.1, 4.1, 5.1]}]
     -
       - query: INSERT INTO D VALUES (1, [(1), (2), (3)]), (2, [(2), (3), (4)]), (3, [(3), (4), (5)])
@@ -73,88 +70,73 @@ test_block:
     -
       # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
       - query: UPDATE A SET X = [11, 12, 13] WHERE PK = 1 RETURNING "new".X
-      - resultMetadata:
-          - {X: ARRAY(INTEGER)}
+      - resultMetadata: [{X: ARRAY(INTEGER)}]
       - result: [{[11, 12, 13]}]
     -
       # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
       - query: UPDATE D SET X = [(11), (12), (13)] WHERE PK = 1 RETURNING "new".X
-      - resultMetadata:
-          - X:
-            - "!array":
-              - {F: INTEGER}
+      - resultMetadata: [{X: {"!array": [{F: INTEGER}]}}]
       - result: [{[{F: 11}, {F: 12}, {F: 13}]}]
     -
       - query: select X[3] from A where PK = 1
       - supported_version: 4.5.13.0
-      - resultMetadata:
-          - {_0: INTEGER}
+      - resultMetadata: [{_0: INTEGER}]
       - result: [{13}]
     -
       - query: select X[2+1] from A where PK = 1
       - supported_version: 4.5.13.0
-      - resultMetadata:
-          - {_0: INTEGER}
+      - resultMetadata: [{_0: INTEGER}]
       - result: [{13}]
     -
       - query: select X[2+1] + X[4-1] from A where PK = 1
       - supported_version: 4.5.13.0
-      - resultMetadata:
-          - {_0: INTEGER}
+      - resultMetadata: [{_0: INTEGER}]
       - result: [{26}]
     -
       - query: select pk FROM A WHERE X[1] + 0 between 0 + X[1+0] and X[1-0] - 0
       - supported_version: 4.5.13.0
-      - resultMetadata:
-          - {PK: INTEGER}
+      - resultMetadata: [{PK: INTEGER}]
       - result: [{PK: 1}, {PK: 2}, {PK: 3}]
     -
       # high-order subscript indexes are supported
       - query: select pk FROM A WHERE X[X[1] - X[1] + 1] between 0 + X[1+0] and X[1-0] - 0
       - supported_version: 4.5.13.0
-      - resultMetadata:
-          - {PK: INTEGER}
+      - resultMetadata: [{PK: INTEGER}]
       - result: [{PK: 1}, {PK: 2}, {PK: 3}]
     -
       # out of bound
       - query: select X[100000] AS ERR FROM A WHERE pk = 1
       - supported_version: 4.5.13.0
-      - resultMetadata:
-          - {ERR: INTEGER}
+      - resultMetadata: [{ERR: INTEGER}]
       - result: [{ERR: !null _}]
     -
       # out of bound
       - query: select X[-1] AS ERR FROM A WHERE pk = 1
       - supported_version: 4.5.13.0
-      - resultMetadata:
-          - {ERR: INTEGER}
+      - resultMetadata: [{ERR: INTEGER}]
       - result: [{ERR: !null _}]
     -
       # out of bound
       - query: select X[0] AS ERR FROM A WHERE pk = 1
       - supported_version: 4.5.13.0
-      - resultMetadata:
-          - {ERR: INTEGER}
+      - resultMetadata: [{ERR: INTEGER}]
       - result: [{ERR: !null _}]
     -
       # empty array
       - query: select X[1] AS ERR FROM G where pk = 1
       - supported_version: 4.5.13.0
-      - resultMetadata:
-          - {ERR: STRING}
+      - resultMetadata: [{ERR: STRING}]
       - result: [{ERR: !null _}]
     -
       # empty result
       - query: select X[1] AS F FROM G where pk = 42
       - supported_version: 4.5.13.0
-      - resultMetadata:
-          - {F: STRING}
+      - resultMetadata: [{F: STRING}]
       - result: []
     -
       # subscript from empty array
       - query: select cast([] as string array)[0] AS ERR FROM F where pk = 1;
       - supported_version: 4.7.3.0
-      - resultMetadata:
-          - {ERR: STRING}
+      - resultMetadata: [{ERR: STRING}]
       - result: [{ERR: !null _}]
 ...

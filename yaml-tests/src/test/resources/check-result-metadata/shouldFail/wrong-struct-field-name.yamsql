@@ -31,10 +31,6 @@ test_block:
   tests:
     -
       - query: SELECT id, pt FROM t1
-      - resultMetadata:
-          - {ID: BIGINT}
-          - PT:
-            - {WRONG_X: BIGINT}
-            - {Y: BIGINT}
+      - resultMetadata: [{ID: BIGINT}, {PT: [{WRONG_X: BIGINT}, {Y: BIGINT}]}]
       - result: [{ID: 1, PT: {X: 10, Y: 20}}]
 ...

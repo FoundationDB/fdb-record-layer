@@ -32,9 +32,7 @@ test_block:
       - query: SELECT id, col1 FROM t1
       - maxRows: 1
       - result: [{!l 1, !l 10}]
-      - resultMetadata:
-          - {WRONG: BIGINT}
-          - {COL1: BIGINT}
+      - resultMetadata: [{WRONG: BIGINT}, {COL1: BIGINT}]
       - result: [{!l 2, !l 20}]
       - result: []
 ...

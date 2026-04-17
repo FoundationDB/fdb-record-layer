@@ -336,11 +336,9 @@ public final class YamlExecutionContext {
             // Build replacement lines
             final List<String> newLines = new ArrayList<>();
             final String itemPrefix = " ".repeat(indent);
-            final String childPrefix = " ".repeat(indent + 4);
-            newLines.add(itemPrefix + "- resultMetadata:");
-            for (final CheckResultMetadataConfig.ColumnDescriptor col : actualColumns) {
-                appendDescriptorLines(newLines, col, childPrefix);
-            }
+            final String cols = actualColumns.stream().map(YamlExecutionContext::buildInlineDescriptor)
+                    .collect(Collectors.joining(", "));
+            newLines.add(itemPrefix + "- resultMetadata: [" + cols + "]");
 
             // Find the end of the existing resultMetadata block
             int endIdx = startIdx + 1;
@@ -367,32 +365,24 @@ public final class YamlExecutionContext {
     }
 
     /**
-     * Appends YAML lines for a single {@link CheckResultMetadataConfig.ColumnDescriptor} at the given indentation prefix.
-     * Scalar columns produce a single {@code - {name: type}} line.
-     * Struct columns produce a {@code - name:} header line followed by recursively indented field lines.
+     * Builds a single-line inline YAML representation for a {@link CheckResultMetadataConfig.ColumnDescriptor}.
+     * <ul>
+     *   <li>Scalar column: {@code {NAME: TYPE}}</li>
+     *   <li>Struct column: {@code {NAME: [{FIELD: TYPE}, ...]}}</li>
+     *   <li>Array-of-struct column: {@code {NAME: {"!array": [{FIELD: TYPE}, ...]}}}</li>
+     * </ul>
      */
-    static void appendDescriptorLines(@Nonnull final List<String> lines,
-                                      @Nonnull final CheckResultMetadataConfig.ColumnDescriptor col,
-                                      @Nonnull final String prefix) {
+    static String buildInlineDescriptor(@Nonnull final CheckResultMetadataConfig.ColumnDescriptor col) {
         if (col.isArray && col.fields != null) {
-            // array-of-struct: - name:\n  - "!array":\n    - {field: type}...
-            lines.add(prefix + "- " + col.name + ":");
-            final String arrayPrefix = prefix + "  ";
-            lines.add(arrayPrefix + "- \"!array\":");
-            final String fieldPrefix = arrayPrefix + "  ";
-            for (final CheckResultMetadataConfig.ColumnDescriptor field : col.fields) {
-                appendDescriptorLines(lines, field, fieldPrefix);
-            }
+            final String fields = col.fields.stream().map(YamlExecutionContext::buildInlineDescriptor)
+                    .collect(Collectors.joining(", "));
+            return "{" + col.name + ": {\"!array\": [" + fields + "]}}";
         } else if (col.fields != null) {
-            // struct column: - name:\n  - {field: type}...
-            lines.add(prefix + "- " + col.name + ":");
-            final String fieldPrefix = prefix + "  ";
-            for (final CheckResultMetadataConfig.ColumnDescriptor field : col.fields) {
-                appendDescriptorLines(lines, field, fieldPrefix);
-            }
+            final String fields = col.fields.stream().map(YamlExecutionContext::buildInlineDescriptor)
+                    .collect(Collectors.joining(", "));
+            return "{" + col.name + ": [" + fields + "]}";
         } else {
-            // scalar (including array-of-scalar): - {name: type}
-            lines.add(prefix + "- {" + col.name + ": " + col.typeName + "}");
+            return "{" + col.name + ": " + col.typeName + "}";
         }
     }
 
@@ -434,11 +424,9 @@ public final class YamlExecutionContext {
             // Build the resultMetadata block lines
             final List<String> newLines = new ArrayList<>();
             final String itemPrefix = " ".repeat(indent);
-            final String childPrefix = " ".repeat(indent + 4);
-            newLines.add(itemPrefix + "- resultMetadata:");
-            for (final CheckResultMetadataConfig.ColumnDescriptor col : actualColumns) {
-                appendDescriptorLines(newLines, col, childPrefix);
-            }
+            final String cols = actualColumns.stream().map(YamlExecutionContext::buildInlineDescriptor)
+                    .collect(Collectors.joining(", "));
+            newLines.add(itemPrefix + "- resultMetadata: [" + cols + "]");
 
             // Insert just before the first result:/unorderedResult: config at the same indentation level,
             // so that explain:/planHash: lines that follow the query line are not displaced.

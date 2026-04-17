@@ -30,8 +30,6 @@ test_block:
   tests:
     -
       - query: SELECT id FROM t1
-      - resultMetadata:
-          - {ID: BIGINT}
-          - {COL1: BIGINT}
+      - resultMetadata: [{ID: BIGINT}, {COL1: BIGINT}]
       - result: [{!l 1}]
 ...

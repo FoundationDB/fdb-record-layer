@@ -31,11 +31,6 @@ test_block:
   tests:
     -
       - query: SELECT pk, pts FROM t1
-      - resultMetadata:
-          - {PK: INTEGER}
-          - PTS:
-            - "!array":
-              - {X: INTEGER}
-              - {Y: BIGINT}
+      - resultMetadata: [{PK: INTEGER}, {PTS: {"!array": [{X: INTEGER}, {Y: BIGINT}]}}]
       - result: [{1, [{X: 10, Y: 20}]}]
 ...

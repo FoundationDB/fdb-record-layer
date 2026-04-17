@@ -267,33 +267,29 @@ public class CheckResultMetadataConfig extends QueryConfig {
             if (!expectedName.equalsIgnoreCase(actualCol.name)) {
                 return false;
             }
-            if (entry.getValue() instanceof List) {
-                // struct or array-of-struct column: value is a list
-                @SuppressWarnings("unchecked")
-                final List<Map<?, ?>> valueList = (List<Map<?, ?>>) entry.getValue();
-                // Distinguish array-of-struct from plain struct by checking if the sole list item
-                // is {array: [field descriptors]} rather than a field descriptor itself.
-                if (!valueList.isEmpty()) {
-                    final Map<?, ?> firstItem = CustomYamlConstructor.LinedObject.unlineKeys(valueList.get(0));
-                    final Map.Entry<?, ?> firstEntry = firstItem.entrySet().iterator().next();
-                    if ("!array".equalsIgnoreCase(firstEntry.getKey().toString())
-                            && firstEntry.getValue() instanceof List) {
-                        // array-of-struct
-                        if (!actualCol.isArray || actualCol.fields == null) {
-                            return false;
-                        }
-                        @SuppressWarnings("unchecked")
-                        final List<Map<?, ?>> elementFields = (List<Map<?, ?>>) firstEntry.getValue();
-                        if (!matchesExpected(elementFields, actualCol.fields)) {
-                            return false;
-                        }
-                        continue;
-                    }
+            if (entry.getValue() instanceof Map) {
+                // array-of-struct: value is {"!array": [{field: type}, ...]}
+                final Map<?, ?> arrayMap = CustomYamlConstructor.LinedObject.unlineKeys((Map<?, ?>) entry.getValue());
+                final Map.Entry<?, ?> arrayEntry = arrayMap.entrySet().iterator().next();
+                if (!"!array".equalsIgnoreCase(arrayEntry.getKey().toString())
+                        || !(arrayEntry.getValue() instanceof List)) {
+                    return false;
                 }
-                // plain struct
+                if (!actualCol.isArray || actualCol.fields == null) {
+                    return false;
+                }
+                @SuppressWarnings("unchecked")
+                final List<Map<?, ?>> elementFields = (List<Map<?, ?>>) arrayEntry.getValue();
+                if (!matchesExpected(elementFields, actualCol.fields)) {
+                    return false;
+                }
+            } else if (entry.getValue() instanceof List) {
+                // plain struct column: value is [{field: type}, ...]
                 if (actualCol.fields == null || actualCol.isArray) {
                     return false;
                 }
+                @SuppressWarnings("unchecked")
+                final List<Map<?, ?>> valueList = (List<Map<?, ?>>) entry.getValue();
                 if (!matchesExpected(valueList, actualCol.fields)) {
                     return false;
                 }
