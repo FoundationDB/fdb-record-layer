@@ -1,109 +1,109 @@
-unnamed-3:
+unnamed-4:
 -   query: EXPLAIN select * from C WHERE C2 LIKE '%'
-    ref: like.yamsql:157
-    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8
+    ref: like.yamsql:154
+    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 9
+    task_total_time_ms: 60
     transform_count: 77
-    transform_time_ms: 3
+    transform_time_ms: 29
     transform_yield_count: 29
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 35
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'a%'
-    ref: like.yamsql:181
-    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8
+    ref: like.yamsql:178
+    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 21
+    task_total_time_ms: 60
     transform_count: 77
-    transform_time_ms: 6
+    transform_time_ms: 29
     transform_yield_count: 29
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 35
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ap%'
-    ref: like.yamsql:193
-    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8
+    ref: like.yamsql:190
+    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 11
+    task_total_time_ms: 60
     transform_count: 77
-    transform_time_ms: 4
+    transform_time_ms: 29
     transform_yield_count: 29
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 35
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'a%l%'
-    ref: like.yamsql:202
-    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8
+    ref: like.yamsql:199
+    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 8
+    task_total_time_ms: 60
     transform_count: 77
-    transform_time_ms: 3
+    transform_time_ms: 29
     transform_yield_count: 29
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 35
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca%'
-    ref: like.yamsql:280
-    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8
+    ref: like.yamsql:278
+    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 13
+    task_total_time_ms: 60
     transform_count: 77
-    transform_time_ms: 5
+    transform_time_ms: 29
     transform_yield_count: 29
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 35
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca_al'
-    ref: like.yamsql:293
-    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8
+    ref: like.yamsql:291
+    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 8
+    task_total_time_ms: 60
     transform_count: 77
-    transform_time_ms: 2
+    transform_time_ms: 29
     transform_yield_count: 29
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 35
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca%al'
-    ref: like.yamsql:302
-    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8
+    ref: like.yamsql:300
+    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 9
+    task_total_time_ms: 60
     transform_count: 77
-    transform_time_ms: 3
+    transform_time_ms: 29
     transform_yield_count: 29
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 35
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca_al%'
-    ref: like.yamsql:310
-    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8
+    ref: like.yamsql:308
+    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 21
+    task_total_time_ms: 60
     transform_count: 77
-    transform_time_ms: 7
+    transform_time_ms: 29
     transform_yield_count: 29
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 35
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca%al%'
-    ref: like.yamsql:318
-    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c8
+    ref: like.yamsql:316
+    explain: 'COVERING(C2 <,> -> [C1: KEY:[2], C2: KEY:[0]]) | FILTER _.C2 LIKE @c7
         ESCAPE ''null'' | FETCH'
     task_count: 314
-    task_total_time_ms: 21
+    task_total_time_ms: 60
     transform_count: 77
-    transform_time_ms: 7
+    transform_time_ms: 29
     transform_yield_count: 29
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 35
     insert_reused_count: 5

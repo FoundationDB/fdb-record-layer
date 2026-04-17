@@ -19,22 +19,46 @@
 
 ---
 schema_template:
-    create table A(pk integer, x integer array, primary key(pk))
-    create table B(pk integer, x string array, primary key(pk))
-    create table C(pk integer, x double array, primary key(pk))
-    create type as struct S(f integer)
-    create table D(pk integer, x S array, primary key(pk))
-    create type as struct T(x integer, y double)
-    create table E(pk integer, x T array, primary key(pk))
-    create type as struct U(x integer, y double, z integer array)
-    create table F(pk integer, x U array, primary key(pk))
-    create table G(pk integer, x string array, primary key(pk))
+    CREATE TABLE A_NOT_NULL (pk INTEGER, x INTEGER ARRAY NOT NULL, PRIMARY KEY (pk))
+    CREATE TABLE A_NULL (pk INTEGER, x INTEGER ARRAY NULL, PRIMARY KEY (pk))
+    CREATE TABLE A (pk INTEGER, x INTEGER ARRAY, PRIMARY KEY (pk))
+    CREATE TABLE B (pk INTEGER, x STRING ARRAY, PRIMARY KEY (pk))
+    CREATE TABLE C (pk INTEGER, x DOUBLE ARRAY, PRIMARY KEY (pk))
+    CREATE TYPE AS STRUCT S (f INTEGER)
+    CREATE TABLE D (pk INTEGER, x S ARRAY, PRIMARY KEY (pk))
+    CREATE TYPE AS STRUCT T (x INTEGER, y DOUBLE)
+    CREATE TABLE E (pk INTEGER, x T ARRAY, PRIMARY KEY (pk))
+    CREATE TYPE AS STRUCT U (x INTEGER, y DOUBLE, z INTEGER ARRAY)
+    CREATE TABLE F (pk INTEGER, x U ARRAY, PRIMARY KEY (pk))
+    CREATE TABLE G (pk INTEGER, x STRING ARRAY, PRIMARY KEY (pk))
 ---
 test_block:
   name: arrays-tests
   preset: single_repetition_ordered
   tests:
     -
+      # Attempting to insert a NULL value into a not-nullable ARRAY column.
+      - query: INSERT INTO A_NOT_NULL VALUES (0, NULL)
+      - supported_version: !current_version
+      - error: "XX000"
+    -
+      # INSERT + basic SELECT for a not-nullable INTEGER ARRAY.
+      - query: INSERT INTO A_NOT_NULL VALUES (0, []), (1, [1]), (2, [1, 2])
+      - count: 3
+    -
+      - query: SELECT * FROM A_NOT_NULL
+      - result: [{0, []}, {1, [1]}, {2, [1, 2]}]
+    -
+      # INSERT + basic SELECT for a nullable INTEGER ARRAY, including a NULL array value.
+      - query: INSERT INTO A_NULL VALUES (-1, NULL), (0, []), (1, [1]), (2, [1, 2])
+      - supported_version: !current_version
+      - count: 4
+    -
+      - query: SELECT * FROM A_NULL
+      - supported_version: !current_version
+      - result: [{-1, !null _}, {0, []}, {1, [1]}, {2, [1, 2]}]
+    -
+      # INSERT + basic SELECT for a nullable INTEGER ARRAY.
       - query: INSERT INTO A VALUES (1, [1, 2, 3]), (2, [2, 3, 4]), (3, [3, 4, 5])
       - count: 3
     -
@@ -42,9 +66,30 @@ test_block:
       - resultMetadata: [{PK: INTEGER}, {X: ARRAY(INTEGER)}]
       - result: [{1, [1, 2, 3]}, {2, [2, 3, 4]}, {3, [3, 4, 5]}]
     -
+      # INSERT NULL for a nullable INTEGER ARRAY.
+      - query: INSERT INTO A VALUES (-1, NULL)
+      - supported_version: !current_version
+      - count: 1
+    -
+      # INSERT empty array for a nullable INTEGER ARRAY.
+      - query: INSERT INTO A VALUES (0, [])
+      - supported_version: !current_version
+      - count: 1
+    -
+      - query: SELECT * FROM A
+      - supported_version: !current_version
+      - result: [{-1, !null _}, {0, []}, {1, [1, 2, 3]}, {2, [2, 3, 4]}, {3, [3, 4, 5]}]
+    -
+      # INSERT for a nullable STRING ARRAY.
       - query: INSERT INTO B VALUES (1, ['a', 'b', 'c']), (2, ['b', 'c', 'd']), (3, ['c', 'd', 'e'])
       - count: 3
     -
+      # INSERT NULL for a nullable STRING ARRAY.
+      - query: INSERT INTO B VALUES (0, NULL)
+      - supported_version: !current_version
+      - count: 1
+    -
+      # INSERT + basic SELECT for a nullable DOUBLE ARRAY.
       - query: INSERT INTO C VALUES (1, [1.1, 2.1, 3.1]), (2, [2.1, 3.1, 4.1]), (3, [3.1, 4.1, 5.1])
       - count: 3
     -
@@ -52,31 +97,89 @@ test_block:
       - resultMetadata: [{X: ARRAY(DOUBLE)}]
       - result: [{[1.1, 2.1, 3.1]}, {[2.1, 3.1, 4.1]}, {[3.1, 4.1, 5.1]}]
     -
+      # INSERT NULL for a nullable DOUBLE ARRAY.
+      - query: INSERT INTO C VALUES (0, NULL)
+      - supported_version: !current_version
+      - count: 1
+    -
+      - query: select x from c
+      - supported_version: !current_version
+      - result: [{!null _}, {[1.1, 2.1, 3.1]}, {[2.1, 3.1, 4.1]}, {[3.1, 4.1, 5.1]}]
+    -
+      # INSERT for an ARRAY of a 1-element STRUCT type.
       - query: INSERT INTO D VALUES (1, [(1), (2), (3)]), (2, [(2), (3), (4)]), (3, [(3), (4), (5)])
       - count: 3
     -
+      # INSERT NULL for an ARRAY of a 1-element STRUCT type.
+      - query: INSERT INTO D VALUES (0, NULL)
+      - supported_version: !current_version
+      - count: 1
+    -
+      # INSERT for an ARRAY of a multi-element STRUCT type.
       - query: INSERT INTO E VALUES (1, [(1, 1.0), (2, 2.0), (3, 3.0)]), (2, [(2, 2.0), (3, 3.0), (4, 4.0)]), (3, [(3, 3.0), (4, 4.0), (5, 5.0)])
       - count: 3
     -
+      # INSERT NULL for an ARRAY of a multi-element STRUCT type.
+      - query: INSERT INTO E VALUES (0, NULL)
+      - supported_version: !current_version
+      - count: 1
+    -
+      # INSERT for an ARRAY of a multi-element STRUCT type featuring an INTEGER ARRAY member.
       - query: INSERT INTO F VALUES
               (1, [(1, 1.0, [1, 1, 1]), (2, 2.0, [1, 1, 1]), (3, 3.0, [1, 1, 1])]),
               (2, [(2, 2.0, [1, 1, 1]), (3, 3.0, [1, 1, 1]), (4, 4.0, [1, 1, 1])]),
               (3, [(3, 3.0, [1, 1, 1]), (4, 4.0, [1, 1, 1]), (5, 5.0, [1, 1, 1])])
       - count: 3
     -
+      # INSERT NULL for an ARRAY of a multi-element STRUCT type featuring an INTEGER ARRAY member.
+      - query: INSERT INTO F VALUES (0, NULL)
+      - supported_version: !current_version
+      - count: 1
+    -
+      # INSERT for a nullable STRING ARRAY using the untyped empty array literal [].
       - query: INSERT INTO G VALUES (1, [])
       - supported_version: 4.5.13.0
       - count: 1
     -
-      # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
+      # INSERT NULL for a nullable STRING ARRAY.
+      - query: INSERT INTO G VALUES (0, NULL)
+      - supported_version: !current_version
+      - count: 1
+    -
+      # UPDATE for a not-nullable INTEGER ARRAY.
+      # Note: `"new"` should not be quoted here and below! TODO [Post] Fix identifiers case-sensitivity matching in plan generator
+      - query: UPDATE A_NOT_NULL SET X = [11, 12, 13] WHERE PK = 1 RETURNING "new".X
+      - supported_version: !current_version
+      - result: [{[11, 12, 13]}]
+    -
+      # UPDATE for a nullable INTEGER ARRAY.
       - query: UPDATE A SET X = [11, 12, 13] WHERE PK = 1 RETURNING "new".X
       - resultMetadata: [{X: ARRAY(INTEGER)}]
       - result: [{[11, 12, 13]}]
     -
-      # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
       - query: UPDATE D SET X = [(11), (12), (13)] WHERE PK = 1 RETURNING "new".X
       - resultMetadata: [{X: {"!array": [{F: INTEGER}]}}]
       - result: [{[{F: 11}, {F: 12}, {F: 13}]}]
+    -
+      # UPDATE nullable array to empty array.
+      - query: UPDATE A SET X = CAST([] AS INTEGER ARRAY) WHERE PK = 0 RETURNING "new".X
+      - supported_version: !current_version
+      - result: [{[]}]
+    -
+      # UPDATE nullable array to NULL.
+      - query: UPDATE A SET X = NULL WHERE PK = -1 RETURNING "new".X
+      - supported_version: !current_version
+      - result: [{!null _}]
+    -
+      # UPDATE NOT NULL array to empty array.
+      - query: UPDATE A_NOT_NULL SET X = CAST([] AS INTEGER ARRAY) WHERE PK = 1 RETURNING "new".X
+      - supported_version: !current_version
+      - result: [{[]}]
+    -
+      # UPDATE explicitly-nullable column from NULL to non-null array.
+      - query: UPDATE A_NULL SET X = [99] WHERE PK = -1 RETURNING "new".X
+      - supported_version: !current_version
+      - result: [{[99]}]
     -
       - query: select X[3] from A where PK = 1
       - supported_version: 4.5.13.0
