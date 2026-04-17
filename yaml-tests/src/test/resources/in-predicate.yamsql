@@ -23,7 +23,7 @@ schema_template:
     create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
     create index f1 as select f.sa, f.sb from ta order by f.sa, f.sb
     create table array_table(id bigint, fruits string array, numbers bigint array, fruit_records fruit_type array, primary key(id))
-    create index fruits as select fruits from array_table
+    create index fruits as select "fruit" from array_table as t, t.fruits as "fruit"
 ---
 setup:
   steps:
