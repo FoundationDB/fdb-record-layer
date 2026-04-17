@@ -98,8 +98,8 @@ public class CheckResultMetadataConfig extends QueryConfig {
         for (int i = 1; i <= count; i++) {
             final int type = metaData.getColumnType(i);
             if (type == Types.STRUCT) {
-                descriptors.add(new ColumnDescriptor(metaData.getColumnName(i),
-                        extractDescriptors(metaData.getStructMetaData(i))));
+                descriptors.add(new ColumnDescriptor(metaData.getColumnName(i), "STRUCT",
+                        extractDescriptors(metaData.getStructMetaData(i)), false));
             } else if (type == Types.ARRAY) {
                 final ArrayMetaData arrayMeta = metaData.getArrayMetaData(i);
                 if (arrayMeta.getElementType() == Types.STRUCT) {
@@ -175,16 +175,14 @@ public class CheckResultMetadataConfig extends QueryConfig {
     private void checkDescriptorsInternal(@Nonnull final List<ColumnDescriptor> actualDescriptors,
                                           @Nonnull final String queryDescription) {
         final Object val = getVal();
-        final List<Map<?, ?>> expectedColumns = val == null ? List.of() : (List<Map<?, ?>>) val;
-
         logger.debug("⛳️ Checking result metadata for query '{}'", queryDescription);
 
         // If the server returned no column metadata (e.g. an older server that omits metadata for empty result
         // sets), we cannot perform the check — skip with a warning rather than reporting a false mismatch.
         // A valid SELECT always produces ≥ 1 column descriptor; empty actual metadata means a driver limitation.
-        // TODO: remove this workaround once all external server versions in multi-server test configs are updated
-        //       to a version that includes the TypeConversion.toProtobuf() fix (metadata always set before row
-        //       iteration, so empty result sets also carry column metadata).
+        // remove this workaround once all external server versions in multi-server test configs are updated
+        // to a version that includes the TypeConversion.toProtobuf() fix (metadata always set before row
+        // iteration, so empty result sets also carry column metadata).
         if (actualDescriptors.isEmpty() && (val == null || !((List<?>) val).isEmpty())) {
             logger.warn("⚠️ resultMetadata check skipped at {}: server returned no column metadata (possibly an older server version)", getReference());
             return;
@@ -196,6 +194,8 @@ public class CheckResultMetadataConfig extends QueryConfig {
             addResultMetadata(actualDescriptors);
             return;
         }
+
+        final List<Map<?, ?>> expectedColumns = val == null ? List.of() : (List<Map<?, ?>>) val;
 
         if (!matchesExpected(expectedColumns, actualDescriptors)) {
             if (executionContext.shouldCorrectResultMetadata()) {
@@ -329,6 +329,13 @@ public class CheckResultMetadataConfig extends QueryConfig {
          */
         public final boolean isArray;
 
+        ColumnDescriptor(@Nonnull final String name, @Nonnull final String typeName, @Nonnull final List<ColumnDescriptor> fields, boolean isArray) {
+            this.name = name;
+            this.typeName = typeName;
+            this.fields = Collections.unmodifiableList(fields);
+            this.isArray = isArray;
+        }
+
         ColumnDescriptor(@Nonnull final String name, @Nonnull final String typeName) {
             this.name = name;
             this.typeName = typeName;
@@ -336,25 +343,9 @@ public class CheckResultMetadataConfig extends QueryConfig {
             this.isArray = false;
         }
 
-        ColumnDescriptor(@Nonnull final String name, @Nonnull final List<ColumnDescriptor> fields) {
-            this.name = name;
-            this.typeName = "STRUCT";
-            this.fields = Collections.unmodifiableList(fields);
-            this.isArray = false;
-        }
-
         static ColumnDescriptor forArrayOfStruct(@Nonnull final String name,
                                                   @Nonnull final List<ColumnDescriptor> elementStructFields) {
-            return new ColumnDescriptor(name, elementStructFields, true);
-        }
-
-        private ColumnDescriptor(@Nonnull final String name,
-                                  @Nonnull final List<ColumnDescriptor> elementStructFields,
-                                  final boolean isArray) {
-            this.name = name;
-            this.typeName = "ARRAY(STRUCT)";
-            this.fields = Collections.unmodifiableList(elementStructFields);
-            this.isArray = isArray;
+            return new ColumnDescriptor(name, "ARRAY(STRUCT)", elementStructFields, true);
         }
     }
 }
