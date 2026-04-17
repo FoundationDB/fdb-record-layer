@@ -1,0 +1,171 @@
+#
+# arrays.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+  supported_version: !current_version
+---
+# Assorted tests for ARRAY unnesting (aka. "array joins"), with and without indexes.
+#
+# Test tables:
+# `T1` — A simple, unindexed table containing a STRING ARRAY.
+# `T1_indexed` — Same table as T1, but indexed with a materialized-view-style INDEX…AS SELECT that unnests the array.
+# `T2` — Same table as T1/T2, with an analogous index, but defined using a VIEW and the INDEX…ON syntax.
+# `T3` — A table containing an ARRAY of STRUCT.
+# `restaurant` — The example table and index from the SQL reference (`Indexes.rst`, "Indexes on nested fields").
+schema_template:
+  CREATE TABLE T1 ("id" BIGINT, "items" STRING ARRAY, PRIMARY KEY ("id"))
+
+  CREATE TABLE "T1_indexed" ("id" BIGINT, "items" STRING ARRAY, PRIMARY KEY ("id"))
+  CREATE INDEX "T1_indexed_index" AS
+    SELECT SQ."item"
+      FROM "T1_indexed" AS "row",
+           (SELECT "item" FROM "row"."items" AS "item") AS SQ
+     ORDER BY SQ."item"
+
+  CREATE TABLE "T2" ("id" BIGINT, "items" STRING ARRAY, PRIMARY KEY ("id"))
+  CREATE VIEW "T2_view" AS SELECT SQ."item" FROM "T2" AS "row", (SELECT "item" FROM "row"."items" AS "item") AS SQ
+  CREATE INDEX "T2_view_index" ON "T2_view" ("item")
+
+  CREATE TYPE AS STRUCT "Struct" ("integer" INTEGER)
+  CREATE TABLE T3 ("id" BIGINT, "structs" "Struct" ARRAY, "integers" INTEGER ARRAY, PRIMARY KEY ("id"))
+
+  CREATE TYPE AS STRUCT "restaurant_review" ("reviewer" STRING, "rating" BIGINT)
+  CREATE TABLE "restaurant" ("rest_no" BIGINT, "name" STRING, "reviews" "restaurant_review" ARRAY, PRIMARY KEY ("rest_no"))
+  CREATE INDEX "mv" AS SELECT SQ."rating" FROM "restaurant" AS RR, (SELECT "rating" FROM RR."reviews") SQ
+---
+setup:
+  steps:
+    - query: INSERT INTO T1
+             VALUES (1, ['a', 'b', 'c']),
+                    (2, ['d', 'e']),
+                    (3, ['a', 'd', 'f'])
+    - query: INSERT INTO "T1_indexed"
+             VALUES (1, ['a', 'b', 'c']),
+                    (2, ['d', 'e']),
+                    (3, ['a', 'd', 'f'])
+    - query: INSERT INTO "T2"
+             VALUES (1, ['a', 'b', 'c']),
+                    (2, ['d', 'e']),
+                    (3, ['a', 'd', 'f'])
+    - query: INSERT INTO T3
+             VALUES (1, [(101), (102)], [101, 102]),
+                    (2, [(201), (202)], [201, 202])
+    - query: INSERT INTO "restaurant"
+             VALUES (1, 'Pizza Place', [('Alice', 5), ('Bob', 3)]),
+                    (2, 'Burger Barn', [('Carol', 4)]),
+                    (3, 'Taco Town', [('Dave', 2), ('Eve', 4), ('Frank', 5)])
+---
+test_block:
+  tests:
+    -
+      # Selecting the entire array (on an unindexed table) is allowed; no implicit unnesting/fanout happens.
+      - query: SELECT "id", "items" FROM T1
+      - explain: "SCAN([IS T1])"
+      - unorderedResult: [
+          {id: 1, ['a', 'b', 'c']},
+          {id: 2, ['d', 'e']},
+          {id: 3, ['a', 'd', 'f']}]
+    -
+      # Same query as above, but on the indexed table.
+      - query: SELECT "id", "items" FROM "T1_indexed"
+      - explain: "SCAN([IS T1_indexed])"
+      - unorderedResult: [
+          {id: 1, items: ['a', 'b', 'c']},
+          {id: 2, items: ['d', 'e']},
+          {id: 3, items: ['a', 'd', 'f']}]
+    -
+      # Selecting the array only: no unnesting/fanout happens.
+      - query: SELECT "items" FROM "T1_indexed"
+      - explain: "SCAN([IS T1_indexed]) | MAP (_.items AS items)"
+      - unorderedResult: [
+          {items: ['a', 'b', 'c']},
+          {items: ['d', 'e']},
+          {items: ['a', 'd', 'f']}]
+    -
+      # ORDER BY on the array is not possible without an index.
+      - query: SELECT "items" FROM T1 ORDER BY "items"
+      - error: "0AF00"  # "Cascades planner could not plan query"
+    -
+      # Likewise on the `T1_indexed` table; the `T1_index` does not match.
+      - query: SELECT "items" FROM "T1_indexed" ORDER BY "items"
+      - error: "0AF00"  # "Cascades planner could not plan query"
+    -
+      # Unnesting the array using PartiQL-style unnesting.
+      - query: SELECT "id", "item" FROM "T1_indexed" AS "row", "row"."items" AS "item"
+      - explain: "SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN (q0.id AS id, q1 AS item) }"
+      - unorderedResult: [
+          {id: 1, item: 'a'},
+          {id: 1, item: 'b'},
+          {id: 1, item: 'c'},
+          {id: 2, item: 'd'},
+          {id: 2, item: 'e'},
+          {id: 3, item: 'a'},
+          {id: 3, item: 'd'},
+          {id: 3, item: 'f'}]
+    -
+      # Unnesting the array using a lateral/correlated subquery.
+      # Notice the difference to PartiQL-style unnesting, where "item" binds directly to an array item.
+      # Here the subquery packs each array item into a tuple, produces a stream of tuples, and binds SQ to each tuple.
+      # The planner is able to produce the same EXPLODE plan as for PartiQL-style unnesting.
+      - query: SELECT "id", SQ."item" FROM "T1_indexed" AS "row", (SELECT "item" FROM "row"."items" AS "item") AS SQ
+      - explain: "SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN (q0.id AS id, q1 AS item) }"
+      - unorderedResult: [
+          {id: 1, item: 'a'},
+          {id: 1, item: 'b'},
+          {id: 1, item: 'c'},
+          {id: 2, item: 'd'},
+          {id: 2, item: 'e'},
+          {id: 3, item: 'a'},
+          {id: 3, item: 'd'},
+          {id: 3, item: 'f'}]
+    -
+      # Same query but with an added `ORDER BY "item"`.
+      # TODO Issue #3896: The `T1_index` is not leveraged here.
+      - query: SELECT SQ."item" FROM "T1_indexed" AS "row", (SELECT "item" FROM "row"."items" AS "item") AS SQ ORDER BY SQ."item"
+      - error: "0AF00"  # "Cascades planner could not plan query"
+    -
+      # Same ORDER BY on the array, but on the view-indexed table.
+      - query: SELECT "items" FROM "T2" ORDER BY "items"
+      - error: "0AF00"  # "Cascades planner could not plan query"
+    -
+      # Example query from the SQL reference (`Indexes.rst`, section "Indexes on nested fields").
+      - query: SELECT SQ."rating" FROM "restaurant" AS RR, (SELECT "rating" FROM RR."reviews") SQ
+      - unorderedResult: [{5}, {3}, {4}, {2}, {4}, {5}]
+    -
+      # Unnesting an ARRAY of STRUCT (as opposed to an ARRAY of scalar values) and extracting the scalar integer value therein.
+      - query: SELECT "id", "struct"."integer" FROM T3, T3."structs" AS "struct"
+      - unorderedResult: [{1, 101}, {1, 102}, {2, 201}, {2, 202}]
+    -
+      # Unnesting an ARRAY of scalars (integers) directly.
+      # TODO Issue #4102: The `"integer".*` star expansion should not be permitted here.
+      - query: SELECT "id", "integer".* FROM T3, T3."integers" AS "integer"
+      - unorderedResult: [{1, 101}, {1, 102}, {2, 201}, {2, 202}]
+    -
+      # Unnest the ARRAY of integers via a subquery and wrap each integer into a tuple with a `( … )` expression.
+      # Note: As an alternative to the `AS "wrapped_int"` we might write `AS SQ ("wrapped_int")`, but this is not
+      #       possible currently, as the SQL `AS table-alias ( column-alias … )` notation is not yet supported.
+      - query: SELECT "id", SQ.* FROM T3, (SELECT ("integer") AS "wrapped_int" FROM T3."integers" AS "integer") AS SQ
+      - unorderedResult: [{1, wrapped_int: {101}}, {1, wrapped_int: {102}}, {2, wrapped_int: {201}}, {2, wrapped_int: {202}}]
+    -
+      # Similar wrapping as in the previous query, but here we don’t even bind an "integer" variable to the unnested
+      # integer; instead we refer to it using a nested star (*) expression.
+      - query: SELECT "id", SQ.* FROM T3, (SELECT (*) AS "wrapped_int" FROM T3."integers") AS SQ
+      - unorderedResult: [{1, wrapped_int: {101}}, {1, wrapped_int: {102}}, {2, wrapped_int: {201}}, {2, wrapped_int: {202}}]
+...
