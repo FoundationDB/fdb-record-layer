@@ -42,9 +42,11 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.WithMetadata;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
+import com.apple.foundationdb.relational.recordlayer.metadata.StructTypeValidator;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ZeroCopyByteString;
 
@@ -55,8 +57,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -97,6 +102,9 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     @Nonnull
     private final ImmutableList.Builder<QueryPredicate> equalityConstraints;
+
+    @Nonnull
+    private final Map<String, DataType.StructType> dynamicStructDefinitions;
 
     private void startStructLiteral() {
         literalsBuilder.startStructLiteral();
@@ -282,6 +290,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         forExplain = false;
         continuation = null;
         equalityConstraints = ImmutableList.builder();
+        dynamicStructDefinitions = new HashMap<>();
     }
 
     @Nonnull
@@ -492,5 +501,41 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
             }
         }
         return Type.fromObject(object);
+    }
+
+    /**
+     * Registers or validates a dynamic struct definition created within the query.
+     * If this is the first time seeing this struct name, registers it.
+     * If the struct name was already registered, validates that the new definition matches the previous one.
+     *
+     * @param structName The name of the struct type
+     * @param structType The struct type definition
+     * @throws com.apple.foundationdb.relational.api.exceptions.RelationalException if a struct with this name
+     *         already exists with an incompatible signature
+     */
+    public void registerOrValidateDynamicStruct(@Nonnull String structName, @Nonnull DataType.StructType structType) {
+        final var normalizedName = structName.toUpperCase(Locale.ROOT);
+        final var existing = dynamicStructDefinitions.get(normalizedName);
+
+        if (existing == null) {
+            // First time seeing this struct name, register it
+            dynamicStructDefinitions.put(normalizedName, structType);
+        } else {
+            // Struct name already exists, validate compatibility using centralized validator
+            // This now correctly ignores nullability and recursively validates nested structs
+            StructTypeValidator.validateStructTypesCompatible(existing, structType, structName, true);
+        }
+    }
+
+    /**
+     * Gets a previously registered dynamic struct type by name.
+     *
+     * @param structName The name of the struct type
+     * @return The struct type if it was previously registered, empty otherwise
+     */
+    @Nonnull
+    public Optional<DataType.StructType> getDynamicStructType(@Nonnull String structName) {
+        final var normalizedName = structName.toUpperCase(Locale.ROOT);
+        return Optional.ofNullable(dynamicStructDefinitions.get(normalizedName));
     }
 }
