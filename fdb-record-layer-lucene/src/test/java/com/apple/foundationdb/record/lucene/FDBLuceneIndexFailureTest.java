@@ -407,8 +407,7 @@ public class FDBLuceneIndexFailureTest extends FDBLuceneTestBase {
                     5);
             // this should fail with injected exception
             recordStore.saveRecord(createComplexDocument(1000L , ENGINEER_JOKE, docGroupFieldValue, 2));
-            assertThrows(LuceneConcurrency.AsyncToSyncTimeoutException.class,
-                    () -> context.commit());
+            assertThrows(LuceneConcurrency.AsyncToSyncTimeoutException.class, () -> context.commit());
         }
     }
 

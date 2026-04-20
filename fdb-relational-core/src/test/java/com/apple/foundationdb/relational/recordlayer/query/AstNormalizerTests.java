@@ -1,5 +1,5 @@
 /*
- * QueryHashingTests.java
+ * AstNormalizerTests.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -258,7 +259,7 @@ public class AstNormalizerTests {
         for (int i = 0; i < queries.size(); i++) {
             final var query = queries.get(i);
             final var expectedParameters = expectedParametersList.get(i);
-            final var hashResults = AstNormalizer.normalizeAst(schemaTemplates.get(i), QueryParser.parse(query).getRootContext(),
+            final var hashResults = AstNormalizer.normalizeAst(schemaTemplates.get(i), QueryParser.parse(query),
                     PreparedParams.copyOf(preparedParameters), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query);
             Assertions.assertThat(hashResults.getQueryCacheKey().getCanonicalQueryString()).isEqualTo(expectedCanonicalRepresentation);
             Assertions.assertThat(hashResults.getQueryCacheKey().getAuxiliaryMetadata()).isEqualTo(auxiliaryMetadata);
@@ -282,9 +283,9 @@ public class AstNormalizerTests {
             }
             // verify that all queries share exactly the same hash code.
             if (queryHash == null) {
-                queryHash = hashResults.getQueryCacheKey().getHash();
+                queryHash = hashResults.getQueryCacheKey().hashCode();
             } else {
-                Assertions.assertThat(queryHash).isEqualTo(hashResults.getQueryCacheKey().getHash());
+                Assertions.assertThat(queryHash).isEqualTo(hashResults.getQueryCacheKey().hashCode());
             }
             // verify that all queries are Object.equals == true
             if (queryCacheKey == null) {
@@ -308,7 +309,7 @@ public class AstNormalizerTests {
 
     private static void shouldFail(@Nonnull final String query, @Nonnull final String errorMessage) {
         try {
-            AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query).getRootContext(),
+            AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query),
                     PreparedParams.empty(), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query);
             Assertions.fail(String.format(Locale.ROOT, "expected %s to fail with %s, but it succeeded!", query, errorMessage));
         } catch (RelationalException | UncheckedRelationalException e) {
@@ -332,11 +333,11 @@ public class AstNormalizerTests {
                                             @Nonnull final String query2,
                                             @Nonnull PreparedParams preparedParams2) throws RelationalException {
 
-        final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1).getRootContext(),
+        final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1),
                 PreparedParams.copyOf(preparedParams1), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
-        final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2).getRootContext(),
+        final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2),
                 PreparedParams.copyOf(preparedParams2), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2);
-        Assertions.assertThat(result1.getQueryCacheKey().getHash()).isNotEqualTo(result2.getQueryCacheKey().getHash());
+        Assertions.assertThat(result1.getQueryCacheKey().hashCode()).isNotEqualTo(result2.getQueryCacheKey().hashCode());
     }
 
     private static void validateNotEqual(@Nonnull final String query1,
@@ -347,9 +348,9 @@ public class AstNormalizerTests {
     private static void validateNotEqual(@Nonnull final String query1,
                                          @Nonnull final String query2,
                                          @Nonnull PreparedParams preparedParams) throws RelationalException {
-        final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1).getRootContext(),
+        final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1),
                 PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
-        final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2).getRootContext(),
+        final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2),
                 PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2);
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
@@ -359,9 +360,9 @@ public class AstNormalizerTests {
                                          @Nonnull final String query2,
                                          @Nonnull final RecordLayerSchemaTemplate schemaTemplate2,
                                          @Nonnull PreparedParams preparedParams) throws RelationalException {
-        final var result1 = AstNormalizer.normalizeAst(schemaTemplate1, QueryParser.parse(query1).getRootContext(),
+        final var result1 = AstNormalizer.normalizeAst(schemaTemplate1, QueryParser.parse(query1),
                 PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
-        final var result2 = AstNormalizer.normalizeAst(schemaTemplate2, QueryParser.parse(query2).getRootContext(),
+        final var result2 = AstNormalizer.normalizeAst(schemaTemplate2, QueryParser.parse(query2),
                 PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2);
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
@@ -393,7 +394,7 @@ public class AstNormalizerTests {
                                                                         boolean isTemporary) throws RelationalException {
         final String canonicalFunctionDdl;
         if (isTemporary) {
-            final var normalizer = AstNormalizer.normalizeAst(schemaTemplate, QueryParser.parse(functionDdl).getRootContext(), PreparedParams.empty(),
+            final var normalizer = AstNormalizer.normalizeAst(schemaTemplate, QueryParser.parse(functionDdl), PreparedParams.empty(),
                     0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, functionDdl);
             canonicalFunctionDdl = normalizer.getQueryCacheKey().getCanonicalQueryString();
         } else {
@@ -642,11 +643,11 @@ public class AstNormalizerTests {
     void parseUtilityStatementCorrectCachingFlags() throws Exception {
         validate(List.of("explain select * from t1 where col1 > 42", "  explain select  \t * from    t1 \n\n where col1 > 42   \n\n"),
                 PreparedParams.empty(),
-                "explain select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
-                List.of(Map.of(constantId(8), 42), Map.of(constantId(8), 42)),
+                "select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UTILITY_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT));
     }
 
     @Test
@@ -709,6 +710,55 @@ public class AstNormalizerTests {
                 -1,
                 EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UPDATE_STATEMENT, AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION),
                 Map.of(Options.Name.DRY_RUN, true, Options.Name.LOG_QUERY, true));
+    }
+
+    @Test
+    void parseDqlStatementWithoutPlanRightDeepSetsItToFalse() throws Exception {
+        validate(List.of("select * from t1 where col1 > 42"),
+                PreparedParams.empty(),
+                "select * from \"T1\" where \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.PLAN_RIGHT_DEEP, false));
+    }
+
+    @Test
+    void parseDqlStatementWithPlanRightDeepSetsItToTrue() throws Exception {
+        validate(List.of("select * from t1 where col1 > 42 options (plan right deep)",
+                         "  select * from t1   where   col1 > 42 options (  plan   right  deep     )"),
+                PreparedParams.empty(),
+                "select * from \"T1\" where \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.PLAN_RIGHT_DEEP, true));
+    }
+
+    @Test
+    void parseUpdateStatementWithoutPlanRightDeepSetsItToFalse() throws Exception {
+        validate(List.of("update A set A2 = 52 where A1 > 2"),
+                PreparedParams.empty(),
+                "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
+                List.of(Map.of(constantId(5), 52, constantId(9), 2)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UPDATE_STATEMENT),
+                Map.of(Options.Name.PLAN_RIGHT_DEEP, false));
+    }
+
+    @Test
+    void parseUpdateStatementWithPlanRightDeepSetsItToTrue() throws Exception {
+        validate(List.of("update A set A2 = 52 where A1 > 2 OPTIONS(PLAN RIGHT DEEP)"),
+                PreparedParams.empty(),
+                "update \"A\" set \"A2\" = ? where \"A1\" > ? ",
+                List.of(Map.of(constantId(5), 52, constantId(9), 2)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UPDATE_STATEMENT),
+                Map.of(Options.Name.PLAN_RIGHT_DEEP, true));
     }
 
     @Test
@@ -1042,12 +1092,12 @@ public class AstNormalizerTests {
     void parseUtilityStatementCorrectCachingFlagsWithPreparedParameters() throws Exception {
         validate(List.of("explain select * from t1 where col1 > ?namedParam1 and col2   > ?", "  explain select  \t * from    t1 \n\n where col1 > ?namedParam1 and   col2 > ?   \n\n"),
                 PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
-                "explain select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
-                List.of(Map.of(constantId(8), 43, constantId(12), 42),
-                        Map.of(constantId(8), 43, constantId(12), 42)),
+                "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
+                List.of(Map.of(constantId(7), 43, constantId(11), 42),
+                        Map.of(constantId(7), 43, constantId(11), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UTILITY_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT));
     }
 
     @Test
@@ -1346,12 +1396,12 @@ public class AstNormalizerTests {
 
     @Test
     void parseCopyExport() throws Exception {
-        validate(List.of("copy /test/foo/bar",
-                        "  copy   /test/foo/bar  "),
+        validate(List.of("copy /test/foo/bar preserve incarnation",
+                        "  copy   /test/foo/bar   preserve   incarnation  "),
                 PreparedParams.empty(),
                 // the canonical representation isn't super important because we're not caching, but it is part of the
                 // standard validate helper method
-                "copy \"/TEST/FOO/BAR\" ",
+                "copy \"/TEST/FOO/BAR\" preserve incarnation ",
                 List.of(Map.of(), Map.of()),
                 null,
                 -1,
@@ -1376,6 +1426,18 @@ public class AstNormalizerTests {
     }
 
     @Test
+    void likePatternConstantIsStripped() throws RelationalException {
+        // Verify that the LIKE pattern constant is stripped and replaced with a placeholder,
+        // so queries with different LIKE patterns share the same canonical representation.
+        validate(List.of(
+                        "select * from t1 where col1 like 'hello%'",
+                        "select * from t1 where col1 like 'world%'"),
+                "select * from \"T1\" where \"COL1\" like ? ",
+                List.of(Map.of(constantId(7), "hello%"),
+                        Map.of(constantId(7), "world%")));
+    }
+
+    @Test
     void windowFunctionOptionsAreNotStripped() throws Exception {
         // Test that EF_SEARCH option in window function is preserved during normalization
         validate("select * from t1 qualify row_number() over (partition by zone order by distance OPTIONS EF_SEARCH = 100) < 10",
@@ -1386,7 +1448,7 @@ public class AstNormalizerTests {
     @Nonnull
     private String normalizeQuery(@Nonnull final String functionDdl) throws RelationalException {
         final var normalizer = AstNormalizer.normalizeAst(fakeSchemaTemplate,
-                QueryParser.parse(functionDdl).getRootContext(), PreparedParams.empty(),
+                QueryParser.parse(functionDdl), PreparedParams.empty(),
                 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, functionDdl);
         return normalizer.getQueryCacheKey().getCanonicalQueryString();
     }
@@ -1395,5 +1457,47 @@ public class AstNormalizerTests {
     void indexHintIsPartOfTheCanonicalQueryString() throws RelationalException {
         validate("select * from t1 use index (i1)",
                 "select * from \"T1\" use index ( \"I1\" ) ");
+    }
+
+    @Test
+    void explainAndNonExplainProduceSameCanonicalQueryString() throws RelationalException {
+        final var selQ = "select * from t1 where c1 > 42";
+        final var expQ = "explain select * from t1 where c1 > 42";
+
+        final var selPT = QueryParser.parse(selQ);
+        final var expPT = QueryParser.parse(expQ);
+
+        final var selRes = AstNormalizer.normalizeAst(fakeSchemaTemplate, selPT, PreparedParams.empty(), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, selQ);
+        final var expRes = AstNormalizer.normalizeAst(fakeSchemaTemplate, expPT, PreparedParams.empty(), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, expQ);
+
+        // compare NormalizationResult
+        Assertions.assertThat(expRes.getQueryCacheKey().getCanonicalQueryString())
+                .as("NormalizationResult canonical query string differs between explain and non-explain")
+                .isEqualTo(selRes.getQueryCacheKey().getCanonicalQueryString());
+        Assertions.assertThat(expRes.getQueryCacheKey().hashCode())
+                .as("NormalizationResult query cache key hash differs between explain and non-explain")
+                .isEqualTo(selRes.getQueryCacheKey().hashCode());
+        Assertions.assertThat(expRes.getQueryCachingFlags())
+                .as("NormalizationResult query caching flags differ between explain and non-explain")
+                .isEqualTo(selRes.getQueryCachingFlags());
+    }
+
+    @Test
+    void visitFullDescribeStatementThrows() throws ReflectiveOperationException {
+        final var constructor = AstNormalizer.class.getDeclaredConstructor(
+                PreparedParams.class, boolean.class, PlanHashable.PlanHashMode.class, boolean.class);
+        constructor.setAccessible(true);
+        final AstNormalizer normalizer = constructor.newInstance(PreparedParams.empty(), false, PlanHashable.PlanHashMode.VC0, false);
+
+        Assertions.assertThatThrownBy(() -> normalizer.visitFullDescribeStatement(new RelationalParser.FullDescribeStatementContext(null, -1)))
+                .isInstanceOf(UncheckedRelationalException.class)
+                .hasMessageContaining("Explain/Describe statement should not appear at the parser level");
+    }
+
+    @Test
+    void queryCacheKeyToString() {
+        final var key = QueryCacheKey.of("select ? from testTable", plannerConfiguration, "someAuxiliaryMetadata", 3, 7);
+        final var expected = "(3 || someAuxiliaryMetadata)||select ? from testTable||" + key.hashCode();
+        Assertions.assertThat(key).hasToString(expected);
     }
 }

@@ -23,13 +23,16 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.TupleFieldsProto;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.Internal;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Set;
 import java.util.UUID;
 
@@ -275,6 +278,25 @@ public class TupleFieldsHelper {
     @Nonnull
     public static TupleFieldsProto.NullableBytes toProto(@Nonnull ByteString value) {
         return TupleFieldsProto.NullableBytes.newBuilder().setValue(value) .build();
+    }
+
+    @Nullable
+    public static Object tupleValueToRuntimeValue(@Nullable final Object valueFromTuple,
+                                                  @Nonnull final Type expectedResultType) {
+        if (valueFromTuple == null) {
+            return null;
+        }
+
+        switch (expectedResultType.getTypeCode()) {
+            case INT:
+                return ((Long)valueFromTuple).intValue();
+            case BYTES:
+                return ZeroCopyByteString.wrap((byte[])valueFromTuple);
+            case ENUM:
+                return (Internal.EnumLite)() -> ((Long)valueFromTuple).intValue();
+            default:
+                return valueFromTuple;
+        }
     }
 
     private TupleFieldsHelper() {

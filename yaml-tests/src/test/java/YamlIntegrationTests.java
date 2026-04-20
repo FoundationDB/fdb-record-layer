@@ -71,6 +71,16 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    void arrays_cardinality(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("arrays_cardinality.yamsql");
+    }
+
+    @TestTemplate
+    void arraysOperators(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("arrays-operators.yamsql");
+    }
+
+    @TestTemplate
     public void betweenTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("between.yamsql");
     }
@@ -283,6 +293,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void rightDeepPlanTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("right-deep-plan-tests.yamsql");
+    }
+
+    @TestTemplate
     public void scenarioTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("scenario-tests.yamsql");
     }
@@ -310,6 +325,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void setupWithConnectionOptionsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("setup-with-connection-options.yamsql");
+    }
+
+    @TestTemplate
+    public void slidingWindowSemanticSearchTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("sliding-window-semantic-search.yamsql");
     }
 
     @TestTemplate
@@ -378,8 +398,13 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void uuidTest(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("uuid.yamsql");
+    public void uuidPreparedTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("uuid-prepared.yamsql");
+    }
+
+    @TestTemplate
+    public void uuidNonPreparedTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("uuid-non-prepared.yamsql");
     }
 
     /**
@@ -427,5 +452,15 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void largeRecordFails(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("large-record-fails.yamsql");
+    }
+
+    @TestTemplate
+    public void recordTypeKeyTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("record-type-key-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void filterIndexTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("filter-index.yamsql");
     }
 }

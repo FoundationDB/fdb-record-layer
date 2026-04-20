@@ -21,11 +21,15 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProto.MetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataInKeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataInKeySpacePathUtil;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DataNotAtLeafException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -35,15 +39,21 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.RecordCoreIl
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.Schema;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.copy.CatalogInfo;
 import com.apple.foundationdb.relational.copy.CopyData;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationBuilder;
@@ -53,25 +63,27 @@ import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCatalog;
 import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
-import com.google.common.base.Suppliers;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 /**
  * Query plan for COPY command operations (export and import).
  */
 @API(API.Status.EXPERIMENTAL)
 public final class CopyPlan extends QueryPlan {
+
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Copy-Plan");
 
     private enum CopyType {
         EXPORT(Type.Record.fromFields(List.of(
@@ -98,24 +110,28 @@ public final class CopyPlan extends QueryPlan {
     @Nonnull
     private final String path;
 
+    private final boolean incrementIncarnation;
+
     @Nonnull
     private final QueryExecutionContext queryExecutionContext;
     @Nullable
     private final byte[] continuation;
-    @Nonnull
-    private final Supplier<Integer> planHashSupplier;
+
 
     /**
      * Creates a COPY export plan.
      *
      * @param path the KeySpace path to export from (e.g., "/FRL/MY_DATABASE")
+     * @param queryExecutionContext the query execution context
+     * @param incrementIncarnation whether to increment the incarnation in store info during export
      *
      * @return a CopyPlan for exporting data
      */
     @Nonnull
     public static CopyPlan getCopyExportAction(@Nonnull String path,
-                                               @Nonnull QueryExecutionContext queryExecutionContext) {
-        return new CopyPlan(CopyType.EXPORT, path, queryExecutionContext, null);
+                                               @Nonnull QueryExecutionContext queryExecutionContext,
+                                               boolean incrementIncarnation) {
+        return new CopyPlan(CopyType.EXPORT, path, incrementIncarnation, queryExecutionContext, null);
     }
 
     /**
@@ -128,7 +144,7 @@ public final class CopyPlan extends QueryPlan {
     @Nonnull
     public static CopyPlan getCopyImportAction(@Nonnull String path,
                                                @Nonnull QueryExecutionContext queryExecutionContext) {
-        return new CopyPlan(CopyType.IMPORT, path, queryExecutionContext, null);
+        return new CopyPlan(CopyType.IMPORT, path, false, queryExecutionContext, null);
     }
 
     public static CopyPlan fromContinuation(@Nonnull final com.apple.foundationdb.relational.continuation.CopyPlan protobuf,
@@ -136,20 +152,22 @@ public final class CopyPlan extends QueryPlan {
                                             @Nonnull final MutablePlanGenerationContext planGenerationContext) {
         return new CopyPlan(CopyType.EXPORT,
                 protobuf.getPath(),
+                protobuf.getIncrementIncarnation(),
                 planGenerationContext,
                 continuation);
     }
 
     private CopyPlan(@Nonnull CopyType copyType,
                      @Nonnull String path,
+                     boolean incrementIncarnation,
                      @Nonnull QueryExecutionContext queryExecutionContext,
                      @Nullable byte[] continuation) {
         super("COPY " + copyType.name() + " " + path);
         this.copyType = copyType;
         this.path = path;
+        this.incrementIncarnation = incrementIncarnation;
         this.queryExecutionContext = queryExecutionContext;
         this.continuation = continuation == null ? null : Arrays.copyOf(continuation, continuation.length);
-        this.planHashSupplier = Suppliers.memoize(() -> Objects.hash(copyType, path))::get;
     }
 
     @Override
@@ -199,14 +217,14 @@ public final class CopyPlan extends QueryPlan {
             RecordCursor<DataInKeySpacePath> cursor =
                     keySpacePath.exportAllData(fdbContext, continuation, scanProperties);
 
+            // Track which paths we've already checked for schemas
+            // Maps path -> SchemaTemplateInfo (or null if path has no schema)
+            final Map<KeySpacePath, CatalogInfo> pathSchemaCache = new HashMap<>();
+            final StoreCatalog storeCatalog = getEmbeddedRelationalConnection(context).getBackingCatalog();
+
             // Transform DataInKeySpacePath to Row with serialized bytes
-            RecordLayerIterator<DataInKeySpacePath> iterator = RecordLayerIterator.create(cursor, data -> {
-                if (data == null) {
-                    return null;
-                }
-                byte[] bytes = CopyData.newBuilder().setData(serializer.serialize(data)).build().toByteArray();
-                return new ArrayRow(new Object[] { bytes });
-            });
+            RecordLayerIterator<DataInKeySpacePath> iterator = RecordLayerIterator.create(cursor,
+                    data -> convertDataToRow(context, data, serializer, pathSchemaCache, storeCatalog, incrementIncarnation));
 
             // Build metadata for single BYTES column
             DataType.StructType structType = DataType.StructType.from("COPY_EXPORT", List.of(
@@ -220,11 +238,12 @@ public final class CopyPlan extends QueryPlan {
                     (continuation, reason) -> {
                         final ContinuationBuilder builder = ContinuationImpl.copyOf(continuation).asBuilder()
                                 .withBindingHash(queryExecutionContext.getParameterHash())
-                                .withPlanHash(planHashSupplier.get())
+                                .withPlanHash(getPlanHash())
                                 .withReason(reason);
                         if (!continuation.atEnd()) {
                             builder.withCopyPlan(com.apple.foundationdb.relational.continuation.CopyPlan.newBuilder()
                                     .setPath(path)
+                                    .setIncrementIncarnation(incrementIncarnation)
                                     .build());
                         }
                         return builder.build();
@@ -235,6 +254,54 @@ public final class CopyPlan extends QueryPlan {
             throw new RelationalException("Failed to execute COPY export",
                     ErrorCode.INTERNAL_ERROR, e);
         }
+    }
+
+    @Nullable
+    private static ArrayRow convertDataToRow(@Nonnull final ExecutionContext context,
+                                             @Nullable final DataInKeySpacePath data,
+                                             @Nonnull final KeySpacePathSerializer serializer,
+                                             @Nonnull final Map<KeySpacePath, CatalogInfo> pathSchemaCache,
+                                             @Nonnull final StoreCatalog storeCatalog,
+                                             final boolean incrementIncarnation) {
+        if (data == null) {
+            return null;
+        }
+
+        final DataInKeySpacePath effectiveData;
+        if (incrementIncarnation) {
+            try {
+                effectiveData = DataInKeySpacePathUtil.bumpIncarnationIfStoreInfo(data);
+            } catch (Exception e) {
+                throw new UncheckedRelationalException(new RelationalException(
+                        "Error incrementing incarnation in store info",
+                        ErrorCode.COPY_SERIALIZATION_ERROR, e));
+            }
+        } else {
+            effectiveData = data;
+        }
+
+        CopyData.Builder copyDataBuilder = CopyData.newBuilder()
+                .setData(serializer.serialize(effectiveData));
+
+        // Try to extract schema information from the path
+        try {
+            final CatalogInfo schemaTemplateInfo =
+                    exportCatalogInfo(data.getPath(), pathSchemaCache, storeCatalog, context.transaction);
+            if (schemaTemplateInfo != null) {
+                copyDataBuilder.setCatalogInfo(schemaTemplateInfo);
+            }
+        } catch (Exception e) {
+            throw new UncheckedRelationalException(new RelationalException(
+                    "Error extracting schema metadata information from catalog for data being exported",
+                    ErrorCode.COPY_SERIALIZATION_ERROR, e)
+                    .addContext("path", data.getPath()));
+        }
+
+        return new ArrayRow(new Object[] {copyDataBuilder.build().toByteArray()});
+    }
+
+    private static EmbeddedRelationalConnection getEmbeddedRelationalConnection(final @Nonnull ExecutionContext context) throws SQLException {
+        return context.connection.unwrap(EmbeddedRelationalConnection.class);
     }
 
     @SuppressWarnings("PMD.CloseResource") // Connection not owned by this method
@@ -254,12 +321,25 @@ public final class CopyPlan extends QueryPlan {
             final List<Object> dataArray = getDataForImport();
             KeySpacePathSerializer serializer = new KeySpacePathSerializer(keySpacePath);
 
+            // Access catalog for schema operations
+            final StoreCatalog storeCatalog = getEmbeddedRelationalConnection(context).getBackingCatalog();
+
             // Import each element
             int importCount = 0;
             for (Object element : dataArray) {
                 final byte[] rawBytes = convertToBytes(element);
-                final DataInKeySpacePath dataInKeySpacePath = deserializeData(serializer, rawBytes);
+                final CopyData proto = CopyData.parseFrom(rawBytes);
+
+                // Deserialize and import the data
+                final DataInKeySpacePath dataInKeySpacePath = deserializeData(serializer, proto);
                 importCount = importData(keySpacePath, fdbContext, dataInKeySpacePath, importCount);
+
+                // Handle schema template if present
+                if (proto.hasCatalogInfo()) {
+                    importCatalogInfo(proto.getCatalogInfo(), storeCatalog, context.transaction,
+                            dataInKeySpacePath.getPath());
+                }
+
             }
 
             // Return result set with single row containing count
@@ -271,6 +351,128 @@ public final class CopyPlan extends QueryPlan {
             throw e;
         } catch (Exception e) {
             throw new RelationalException("Failed to execute COPY import",
+                    ErrorCode.INTERNAL_ERROR, e);
+        }
+    }
+
+
+    /**
+     * Extracts schema template information from a KeySpacePath if it represents a schema.
+     * Uses a cache to avoid re-checking paths that have already been processed.
+     *
+     * @param dataPath the path from which to extract schema information
+     * @param pathSchemaCache cache mapping paths to their schema info (null if no schema)
+     * @param storeCatalog the catalog to load schemas from
+     * @param transaction the transaction to use for loading
+     * @return CatalogInfo if this is a new schema, null otherwise
+     */
+    @Nullable
+    private static CatalogInfo exportCatalogInfo(@Nonnull KeySpacePath dataPath,
+                                                 @Nonnull Map<KeySpacePath, CatalogInfo> pathSchemaCache,
+                                                 @Nonnull StoreCatalog storeCatalog,
+                                                 @Nonnull Transaction transaction) throws RelationalException {
+        // HollowStoreCatalog doesn't actually store any schema information to be copied
+        if (storeCatalog instanceof HollowStoreCatalog) {
+            return null;
+        }
+        // Check if we've already processed this path
+        if (pathSchemaCache.containsKey(dataPath)) {
+            return null;
+        }
+
+        final NonnullPair<URI, String> databaseAndSchema = getDatabaseAndSchema(dataPath);
+
+        // Load the schema from the catalog
+        if (!storeCatalog.doesSchemaExist(transaction, databaseAndSchema.getLeft(), databaseAndSchema.getRight())) {
+            pathSchemaCache.put(dataPath, null);
+            return null;
+        }
+        final Schema schema = storeCatalog.loadSchema(transaction, databaseAndSchema.getLeft(), databaseAndSchema.getRight());
+        final SchemaTemplate schemaTemplate = schema.getSchemaTemplate();
+
+        // Serialize the schema template
+        final RecordLayerSchemaTemplate recordLayerSchemaTemplate =
+                schemaTemplate.unwrap(RecordLayerSchemaTemplate.class);
+        final RecordMetaData recordMetaData = recordLayerSchemaTemplate.toRecordMetadata();
+
+        final CatalogInfo catalogInfo = CatalogInfo.newBuilder()
+                .setTemplateName(schemaTemplate.getName())
+                .setTemplateVersion(schemaTemplate.getVersion())
+                .setTemplateMetadata(recordMetaData.toProto().toByteString())
+                .build();
+
+        // Cache the result and return
+        pathSchemaCache.put(dataPath, catalogInfo);
+        return catalogInfo;
+    }
+
+    /**
+     * Handles importing information that needs to be added to the catalog.
+     * Creates database and schema if they don't exist, or verifies they match if they do.
+     *
+     * @param catalogInfo the catalog information from export
+     * @param storeCatalog the catalog to use for database/schema operations
+     * @param transaction the transaction to use
+     * @param dataPath the path for entry being imported
+     */
+    private static void importCatalogInfo(@Nonnull CatalogInfo catalogInfo,
+                                          @Nonnull StoreCatalog storeCatalog,
+                                          @Nonnull Transaction transaction,
+                                          @Nonnull KeySpacePath dataPath) throws RelationalException {
+        // Extract destination database and schema from the import path
+        final String templateName = catalogInfo.getTemplateName();
+        final int templateVersion = catalogInfo.getTemplateVersion();
+
+        final NonnullPair<URI, String> databaseAndSchema = getDatabaseAndSchema(dataPath);
+        final URI databaseUri = databaseAndSchema.getLeft();
+        final String schemaName = databaseAndSchema.getRight();
+
+        try {
+            if (!storeCatalog.doesDatabaseExist(transaction, databaseUri)) {
+                storeCatalog.createDatabase(transaction, databaseUri);
+            }
+
+            if (storeCatalog.doesSchemaExist(transaction, databaseUri, schemaName)) {
+                // Schema exists, verify the template matches
+                final Schema existingSchema = storeCatalog.loadSchema(transaction, databaseUri, schemaName);
+                final SchemaTemplate existingTemplate = existingSchema.getSchemaTemplate();
+
+                if (!existingTemplate.getName().equals(templateName)) {
+                    throw new RelationalException(
+                            "Schema " + databaseUri.getPath() + "/" + schemaName +
+                                    " exists but uses different template: expected " + templateName +
+                                    ", found " + existingTemplate.getName(),
+                            ErrorCode.INVALID_SCHEMA_TEMPLATE);
+                }
+
+                if (existingTemplate.getVersion() != templateVersion) {
+                    throw new RelationalException(
+                            "Schema " + databaseUri.getPath() + "/" + schemaName +
+                                    " exists but uses different template version: expected " + templateVersion +
+                                    ", found " + existingTemplate.getVersion(),
+                            ErrorCode.INVALID_SCHEMA_TEMPLATE);
+                }
+            } else {
+                // Schema doesn't exist, create it from the template
+                final SchemaTemplateCatalog templateCatalog = storeCatalog.getSchemaTemplateCatalog();
+                if (!templateCatalog.doesSchemaTemplateExist(transaction, templateName, templateVersion)) {
+                    final RecordMetaData recordMetaData = RecordMetaData.newBuilder()
+                            .setRecords(MetaData.parseFrom(catalogInfo.getTemplateMetadata()))
+                            .getRecordMetaData();
+                    final SchemaTemplate newTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(
+                            recordMetaData, templateName, templateVersion);
+                    templateCatalog.createTemplate(transaction, newTemplate);
+                }
+
+                // Load the template and create a schema from it
+                final SchemaTemplate template = templateCatalog.loadSchemaTemplate(transaction, templateName, templateVersion);
+                final Schema newSchema = template.generateSchema(databaseUri.getPath(), schemaName);
+                storeCatalog.saveSchema(transaction, newSchema, false);
+            }
+        } catch (RelationalException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RelationalException("Failed to handle schema template during import",
                     ErrorCode.INTERNAL_ERROR, e);
         }
     }
@@ -316,10 +518,9 @@ public final class CopyPlan extends QueryPlan {
 
     @Nonnull
     private static DataInKeySpacePath deserializeData(@Nonnull final KeySpacePathSerializer serializer,
-                                                      @Nonnull final byte[] byteString) throws RelationalException {
+                                                      @Nonnull final CopyData proto) throws RelationalException {
         DataInKeySpacePath dataInKeySpacePath;
         try {
-            final CopyData proto = CopyData.parseFrom(byteString);
             if (!proto.hasData()) {
                 throw new RelationalException("Copy bytes have no data",
                         ErrorCode.COPY_SERIALIZATION_ERROR);
@@ -362,13 +563,13 @@ public final class CopyPlan extends QueryPlan {
         if (queryExecutionContext == this.queryExecutionContext) {
             return this;
         }
-        return new CopyPlan(copyType, path, queryExecutionContext, continuation);
+        return new CopyPlan(copyType, path, incrementIncarnation, queryExecutionContext, continuation);
     }
 
     @Nonnull
     @Override
     public String explain() {
-        return "CopyPlan(" + copyType + ", path=" + path + ")";
+        return "CopyPlan(" + copyType + ", path=" + path + ", incrementIncarnation=" + incrementIncarnation + ")";
     }
 
     @Nonnull
@@ -379,7 +580,24 @@ public final class CopyPlan extends QueryPlan {
 
     @Nonnull
     public Integer getPlanHash() {
-        return planHashSupplier.get();
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, 
+                copyType, path, incrementIncarnation);
+    }
+
+    private static NonnullPair<URI, String> getDatabaseAndSchema(@Nonnull final KeySpacePath dataPath) throws RelationalException {
+        // toPathString doesn't add the '/' at the beginning unless the root is null, but SemanticAnalyzer expects
+        // a / at the beginning
+        String pathString = KeySpaceUtils.toPathString(dataPath);
+        if (!pathString.startsWith("/")) {
+            pathString = "/" + pathString;
+        }
+        final NonnullPair<Optional<URI>, String> uri = SemanticAnalyzer.parseSchemaURI(pathString);
+        final Optional<URI> database = uri.getLeft();
+        if (database.isEmpty()) {
+            throw new RelationalException("Invalid COPY path: " + pathString, ErrorCode.INVALID_PATH);
+        }
+
+        return NonnullPair.of(database.get(), uri.getRight());
     }
 
     @Nonnull

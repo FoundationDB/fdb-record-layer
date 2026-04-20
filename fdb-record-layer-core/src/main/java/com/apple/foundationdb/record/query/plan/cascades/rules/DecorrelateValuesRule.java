@@ -73,7 +73,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *
  * <pre>{@code
  * CREATE FUNCTION foo(x bigint, y string)
- *    AS SELECT c, b FROM T WHERE a = x AND b = y;
+ *    AS SELECT c, d FROM T WHERE a = x AND b = y;
  * SELECT d FROM foo(42, 'hello') WHERE c IS NULL
  * }</pre>
  *

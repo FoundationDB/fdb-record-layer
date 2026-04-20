@@ -247,11 +247,11 @@ public class JoinWithLimitTest {
             preparedStatement.setBytes("param", continuation.serialize());
             try (final var resultSet = preparedStatement.executeQuery()) {
                 Assertions.assertThat(resultSet.next()).isTrue();
-                Assertions.assertThat(resultSet.getLong("rpk")).isEqualTo(1L);
-                Assertions.assertThat(resultSet.getLong("sa")).isEqualTo(20L);
-                Assertions.assertThat(resultSet.next()).isTrue();
                 Assertions.assertThat(resultSet.getLong("rpk")).isEqualTo(2L);
                 Assertions.assertThat(resultSet.getLong("sa")).isEqualTo(10L);
+                Assertions.assertThat(resultSet.next()).isTrue();
+                Assertions.assertThat(resultSet.getLong("rpk")).isEqualTo(1L);
+                Assertions.assertThat(resultSet.getLong("sa")).isEqualTo(20L);
                 continuation = resultSet.getContinuation();
             }
         }
