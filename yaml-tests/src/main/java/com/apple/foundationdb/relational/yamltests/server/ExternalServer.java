@@ -129,6 +129,7 @@ public class ExternalServer implements Clusters.BoundToCluster {
         return version;
     }
 
+    @Nonnull
     @Override
     public String clusterFile() {
         return clusterFile;

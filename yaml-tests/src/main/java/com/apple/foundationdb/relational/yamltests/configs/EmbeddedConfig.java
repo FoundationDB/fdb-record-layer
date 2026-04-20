@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.configs;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.server.FRL;
@@ -44,6 +45,7 @@ public class EmbeddedConfig implements YamlTestConfig {
     @Nonnull
     private Clusters<Clusters.Entry<FRL>> clusters = Clusters.empty();
 
+    @API(API.Status.DEPRECATED)
     public EmbeddedConfig(@Nonnull final String clusterFile) {
         this(List.of(clusterFile));
     }
@@ -62,6 +64,8 @@ public class EmbeddedConfig implements YamlTestConfig {
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 10)
                 .build();
         // The primary FRL registers its driver in DriverManager; additional ones do not
+        // We register the primary one to make sure that everything works the same if it is registered vs not, to
+        // the extent that is validated in the yaml test framework.
         final String registeredCluster = clusterFiles.get(0);
         clusters = Clusters.fromClusterFilesAsEntries(clusterFiles,
                 clusterFile -> {

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.yamltests.configs.CorrectExplains;
 import com.apple.foundationdb.relational.yamltests.configs.CorrectExplainsAndMetrics;
 import com.apple.foundationdb.relational.yamltests.configs.CorrectMetrics;
@@ -85,6 +86,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
      * handle complex test hierarchies. In the record layer we maintain the full hierarchy in the output, so this is not
      * necessary, but if integrating some other tools this might be necessary.
      */
+    @API(API.Status.DEPRECATED)
     public YamlTestExtension(@Nonnull final String clusterFile, final boolean includeMethodInDescriptions) {
         this(List.of(clusterFile), includeMethodInDescriptions);
     }

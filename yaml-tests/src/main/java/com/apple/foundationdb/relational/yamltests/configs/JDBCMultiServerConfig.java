@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.ExternalServerYamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -59,11 +60,11 @@ public class JDBCMultiServerConfig extends JDBCInProcessConfig {
 
     @Override
     public String toString() {
-        final ExternalServer primaryExternal = externalServers.primary();
+        final SemanticVersion externalVersion = externalServers.getInfo(ExternalServer::getVersion);
         if (initialConnection == 0) {
-            return "MultiServer (" + super.toString() + " then " + primaryExternal.getVersion() + ")";
+            return "MultiServer (" + super.toString() + " then " + externalVersion + ")";
         } else {
-            return "MultiServer (" + primaryExternal.getVersion() + " then " + super.toString() + ")";
+            return "MultiServer (" + externalVersion + " then " + super.toString() + ")";
         }
     }
 }

@@ -35,6 +35,7 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -47,7 +48,7 @@ public class SupportedVersionTest {
 
     private static final SemanticVersion VERSION = SemanticVersion.parse("3.0.18.0");
     private static final String CLUSTER_FILE = FDBTestEnvironment.randomClusterFile();
-    private static final EmbeddedConfig config = new EmbeddedConfig(CLUSTER_FILE);
+    private static final EmbeddedConfig config = new EmbeddedConfig(List.of(CLUSTER_FILE));
 
     @BeforeAll
     static void beforeAll() throws Exception {

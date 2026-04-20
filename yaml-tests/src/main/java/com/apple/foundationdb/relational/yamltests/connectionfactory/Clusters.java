@@ -76,11 +76,15 @@ public class Clusters<T extends Clusters.BoundToCluster> implements Iterable<T> 
     }
 
     /**
-     * Returns the first (primary) entry.
+     * Return a piece of information about the underlying connections.
+     * @param getter a function to extract information that should be the same for all clusters (since they are identical)
+     * @param <R> the type of the extracted information.
+     * @return the information
      */
-    @Nonnull
-    public T primary() {
-        return entries.get(0);
+    public <R> R getInfo(Function<T, R> getter) {
+        return entries.stream().map(getter)
+                .findFirst()
+                .orElseThrow(() -> new IndexOutOfBoundsException("No Clusters found"));
     }
 
     /**

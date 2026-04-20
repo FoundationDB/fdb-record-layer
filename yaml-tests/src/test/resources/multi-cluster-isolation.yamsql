@@ -55,7 +55,6 @@ setup:
 # Verify cluster 1 does not have the database
 test_block:
   connect: { cluster: 1, uri: "jdbc:embed:/__SYS?schema=CATALOG" }
-  preset: single_repetition_ordered
   tests:
     -
       - query: select count(*) from "DATABASES" where database_id = '/FRL/MCI_DB'
@@ -80,7 +79,6 @@ setup:
 # Verify cluster 1 has only its own data
 test_block:
   connect: { cluster: 1, uri: "jdbc:embed:/FRL/MCI_DB?schema=S1" }
-  preset: single_repetition_ordered
   tests:
     -
       - query: select * from T1

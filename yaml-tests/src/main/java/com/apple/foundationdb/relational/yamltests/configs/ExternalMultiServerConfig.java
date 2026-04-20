@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.ExternalServerYamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -70,10 +71,12 @@ public class ExternalMultiServerConfig implements YamlTestConfig {
 
     @Override
     public String toString() {
+        final SemanticVersion version0 = servers0.getInfo(ExternalServer::getVersion);
+        final SemanticVersion version1 = servers1.getInfo(ExternalServer::getVersion);
         if (initialConnection == 0) {
-            return "MultiServer (" + servers0.primary().getVersion() + " then " + servers1.primary().getVersion() + ")";
+            return "MultiServer (" + version0 + " then " + version1 + ")";
         } else {
-            return "MultiServer (" + servers1.primary().getVersion() + " then " + servers0.primary().getVersion() + ")";
+            return "MultiServer (" + version1 + " then " + version0 + ")";
         }
     }
 

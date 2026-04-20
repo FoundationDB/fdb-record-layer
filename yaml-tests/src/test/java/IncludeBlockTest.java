@@ -18,25 +18,17 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
-import com.apple.foundationdb.relational.yamltests.YamlConnection;
-import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
-import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import java.net.URI;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.Set;
+import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -46,10 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class IncludeBlockTest {
 
-    private static final SemanticVersion VERSION = SemanticVersion.parse("4.4.8.0");
-    private static final YamlTestConfig config = new EmbeddedConfig(FDBTestEnvironment.randomClusterFile());
+    private static final YamlTestConfig config = new EmbeddedConfig(List.of(FDBTestEnvironment.randomClusterFile()));
     private static final boolean CORRECT_METRICS = false;
-    private static final String CLUSTER_FILE = FDBTestEnvironment.randomClusterFile();
 
     @BeforeAll
     static void beforeAll() throws Exception {
@@ -68,21 +58,7 @@ public class IncludeBlockTest {
         } else {
             options = YamlExecutionContext.ContextOptions.EMPTY_OPTIONS;
         }
-        new YamlRunner(fileName, createConnectionFactory(), options).run();
-    }
-
-    YamlConnectionFactory createConnectionFactory() {
-        return new YamlConnectionFactory() {
-            @Override
-            public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
-                return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), VERSION, CLUSTER_FILE);
-            }
-
-            @Override
-            public Set<SemanticVersion> getVersionsUnderTest() {
-                return Set.of(VERSION);
-            }
-        };
+        new YamlRunner(fileName, config.createConnectionFactory(), options).run();
     }
 
     // yamsql files that works if they are rightly included in their parent yamsql file (that is, the parent file has

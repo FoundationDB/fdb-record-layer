@@ -286,33 +286,25 @@ public final class YamlExecutionContext {
     }
 
     /**
-     * Infers the URI of the database to which a block should connect to.
-     * <br>
-     * A block can declare a connection in multiple ways:
-     * 1. no explicit declaration: Try to connect to the only registered connection URI in the local {@link YamlReference.YamlResource}.
-     *    If not, try to connect to the only connection across all parent resources.
-     *    A URI can be registered by defining a "schema_template" block before that, which sets up the database and schema for a provided schema template.
-     * 2. Parameter 0: connects to the system tables (catalog).
-     * 3. Parameter One-based Number: connects to the registered connection URI, number denotes the sequence of definitions in the local YamlResource.
-     *    To access parent connection URIs, this number should be prepended by `(global)` tag.
-     * 4. Parameter String: connects to the defined String
-     *
-     * @param connectObject can be {@code null}, an {@link Integer} value or a {@link String}.
-     *
-     * @return a valid connection URI
-     */
-    public URI inferConnectionURI(@Nonnull final YamlReference.YamlResource resource, @Nullable Object connectObject) {
-        return inferConnectionTarget(resource, connectObject).getUri();
-    }
-
-    /**
      * Infers the connection target (URI and cluster index) for a block.
      * <br>
-     * Supports all the forms of {@link #inferConnectionURI}, plus a map form for specifying the cluster:
+     * <ul>
+     *   <li>no explicit declaration: Try to connect to the only registered connection URI in the local {@link YamlReference.YamlResource}.
+     *    If not, try to connect to the only connection across all parent resources.
+     *    A URI can be registered by defining a "schema_template" block before that, which sets up the database and schema for a provided schema template.
+     *    </li>
+     *    <li>Parameter 0: connects to the system tables (catalog). </li>
+     *    <li>Parameter One-based Number: connects to the registered connection URI, number denotes the sequence of definitions in the local YamlResource.
+     *    To access parent connection URIs, this number should be prepended by `(global)` tag.
+     *    </li>
+     *    <li>Parameter String: connects to the defined String</li>
+     *    <li>A map form for specifying the cluster:
      * <pre>{@code
      * connect: { cluster: 1, uri: 0 }
      * connect: { cluster: 1 }
      * }</pre>
+     * </li>
+     * </ul>
      *
      * @param connectObject can be {@code null}, an {@link Integer}, a {@link String}, or a {@link Map} with
      *                      optional {@code cluster} and {@code uri} keys.
@@ -337,7 +329,7 @@ public final class YamlExecutionContext {
         } else if (connectObject instanceof Integer) {
             return getConnectionFromConnectionURIList(resource, false, (Integer) connectObject, false);
         } else {
-            final var stringURI = Matchers.string(connectObject);
+            final var stringURI = Matchers.string(connectObject, "connection object");
             if (stringURI.startsWith("(global)")) {
                 return getConnectionFromConnectionURIList(resource, false, Integer.parseInt(stringURI.substring(8).trim()), true);
             }
