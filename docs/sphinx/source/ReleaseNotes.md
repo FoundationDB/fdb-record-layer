@@ -7,6 +7,74 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.10.20.0
+
+<h4> New Features </h4>
+
+* Add sliding window index maintainer - [PR #4062](https://github.com/FoundationDB/fdb-record-layer/pull/4062)
+* Make `SelectMergeRule` greedily merge all child selects - [PR #3850](https://github.com/FoundationDB/fdb-record-layer/pull/3850)
+<h4> Bug Fixes </h4>
+
+* Fix `LIKE` predicate literal stripping in AST normalizer - [PR #4088](https://github.com/FoundationDB/fdb-record-layer/pull/4088)
+* Do not pullUp all values for fixed binding in ordering - [PR #4086](https://github.com/FoundationDB/fdb-record-layer/pull/4086)
+* fix sanity check failures - [PR #4085](https://github.com/FoundationDB/fdb-record-layer/pull/4085)
+* VectorIndexIndexingTest: preset seeds for Random objects - [PR #4027](https://github.com/FoundationDB/fdb-record-layer/pull/4027)
+
+
+**[Full Changelog (4.10.19.0...4.10.20.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.19.0...4.10.20.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.8.0`, ✅`4.10.9.0`, ✅`4.10.10.0`, ✅`4.10.12.0`, ✅`4.10.13.0`, ✅`4.10.15.0`, ✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24519920189)
+
+
+
+### 4.10.19.0
+
+<h4> New Features </h4>
+
+* Collect PLANNER_METRICS for each plan generation - [PR #4059](https://github.com/FoundationDB/fdb-record-layer/pull/4059)
+* Reuse cached plan for explain request. (Attempt 2) - [PR #4036](https://github.com/FoundationDB/fdb-record-layer/pull/4036)
+* LRU eviction metrics to the plan cache - [PR #4067](https://github.com/FoundationDB/fdb-record-layer/pull/4067)
+<h4> Bug Fixes </h4>
+
+* Allow for first of 2 ops to go longer than time quota - [PR #4078](https://github.com/FoundationDB/fdb-record-layer/pull/4078)
+* Fix CopyPlan's inconsistent plan hash - [PR #4063](https://github.com/FoundationDB/fdb-record-layer/pull/4063)
+* Attempt preventing "record store state is being used for queries" during index rebuild - [PR #4011](https://github.com/FoundationDB/fdb-record-layer/pull/4011)
+* Cover case of negative array size in decompression of corrupt record - [PR #4066](https://github.com/FoundationDB/fdb-record-layer/pull/4066)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Bump version to 4.10.18.0 - [PR #4082](https://github.com/FoundationDB/fdb-record-layer/pull/4082)
+* Remove local variable when push release changes - [PR #4081](https://github.com/FoundationDB/fdb-record-layer/pull/4081)
+* Remove two unused test classes - [PR #4072](https://github.com/FoundationDB/fdb-record-layer/pull/4072)
+* Increase coverage of `MetaDataEvolutionValidator` tests - [PR #4075](https://github.com/FoundationDB/fdb-record-layer/pull/4075)
+* Fetch changes during release before pushing - [PR #4052](https://github.com/FoundationDB/fdb-record-layer/pull/4052)
+
+</details>
+
+
+**[Full Changelog (4.10.17.0...4.10.19.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.17.0...4.10.19.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.7.0`, ✅`4.10.8.0`, ✅`4.10.9.0`, ✅`4.10.10.0`, ✅`4.10.12.0`, ✅`4.10.13.0`, ✅`4.10.15.0`, ✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24423382662)
+
+
+
 ### 4.10.17.0
 
 <h4> New Features </h4>

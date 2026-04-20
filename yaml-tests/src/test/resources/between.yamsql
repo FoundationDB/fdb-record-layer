@@ -94,13 +94,20 @@ test_block:
 ---
 test_block:
   name: between-incompatible-types
+  supported_version: !current_version
   tests:
     -
       - query: select * from t1 WHERE col1 BETWEEN 10 AND 'a'
+      - initialVersionLessThan: !current_version
       - error: "XX000"
+      - initialVersionAtLeast: !current_version
+      - error: "42804"
     -
       - query: select * from t1 WHERE 'a' BETWEEN 10 AND 20
+      - initialVersionLessThan: !current_version
       - error: "XX000"
+      - initialVersionAtLeast: !current_version
+      - error: "42804"
 ---
 test_block:
   name: between-compatible-types

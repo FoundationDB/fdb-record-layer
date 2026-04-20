@@ -60,6 +60,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.IndexMaintenanceUtils;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
@@ -383,7 +384,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Nullable
     public <M extends Message> FDBIndexableRecord<M> maybeFilterRecord(FDBIndexableRecord<M> rec) {
         if (rec != null) {
-            final IndexMaintenanceFilter.IndexValues filterType = getFilterTypeForRecord(rec);
+            final IndexMaintenanceFilter.IndexValues filterType = IndexMaintenanceUtils.getFilterTypeForRecord(state, rec);
             if (filterType == IndexMaintenanceFilter.IndexValues.NONE) {
                 return null;
             } else if (filterType == IndexMaintenanceFilter.IndexValues.SOME) {
