@@ -78,7 +78,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
      * should generally be mediated through one of the {@code synchronized} methods.
      */
     @Nonnull
-    private final Queue<PipelineQueueEntry> pipeline;
+    private final Queue<PipelineQueueEntry<V, T>> pipeline;
     /**
      * The next value to pull from the outer cursor. This value is cleared out by {@link #close()}, so
      * some care should be taken when accessing it. In general, it should be set via one of the {@code synchronized}
@@ -124,7 +124,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
             return CompletableFuture.completedFuture(lastResult);
         }
         return AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor()).thenApply(vignore -> {
-            PipelineQueueEntry peeked = peekPipeline();
+            PipelineQueueEntry<V, T> peeked = peekPipeline();
             if (peeked == null) {
                 throw new CancellationException("cursor closed while iterating");
             }
@@ -190,12 +190,12 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
             if (!outerNext.isDone()) {
                 // Still waiting for outer future. Check back when it has finished.
-                final PipelineQueueEntry nextEntry = peekPipeline();
+                final PipelineQueueEntry<V, T> nextEntry = peekPipeline();
                 if (nextEntry == null) {
                     return outerNext.thenApply(vignore -> true); // loop back to process outer result
                 } else {
                     // keep looping unless we get something from the next entry's inner cursor or the next cursor is ready
-                    final CompletableFuture<PipelineQueueEntry> innerPipelineFuture = nextEntry.getNextInnerPipelineFuture();
+                    final CompletableFuture<PipelineQueueEntry<V, T>> innerPipelineFuture = nextEntry.getNextInnerPipelineFuture();
                     return CompletableFuture.anyOf(outerNext, innerPipelineFuture).thenApply(vignore ->
                         !innerPipelineFuture.isDone() || innerPipelineFuture.join().doesNotHaveReturnableResult());
                 }
@@ -220,12 +220,12 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
                 }
                 final RecordCursor<V> innerCursor = innerCursorFunction.apply(outerValue, innerContinuation);
                 outerContinuation = outerResult.getContinuation();
-                addEntryToPipeline(new PipelineQueueEntry(innerCursor, priorOuterContinuation, outerResult, outerCheckValue));
+                addEntryToPipeline(PipelineQueueEntry.newInstanceWithBackgroundComputationOfFirstResult(innerCursor, priorOuterContinuation, outerResult, outerCheckValue));
                 outerNextFuture = null; // done with this future, advance outer cursor next time
                 // keep looping to fill pipeline
             } else { // don't have next, and won't ever with this cursor
                 // Add sentinel to end of pipeline
-                addEntryToPipeline(new PipelineQueueEntry(null, outerContinuation, outerResult, null));
+                addEntryToPipeline(PipelineQueueEntry.newSentinel(outerContinuation, outerResult));
                 outerExhausted = true;
                 // Wait for next entry, as if pipeline were full
                 break;
@@ -239,7 +239,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         // 4) A concurrent operation cancelled this cursor and so the pipeline is empty
         // The only case where the element should be null is when the cursor has been closed, so return CANCELLED in
         // that case.
-        PipelineQueueEntry peeked = peekPipeline();
+        PipelineQueueEntry<V, T> peeked = peekPipeline();
         if (peeked == null) {
             return ALREADY_CANCELLED;
         }
@@ -263,7 +263,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         return outerNextFuture;
     }
 
-    private synchronized void addEntryToPipeline(PipelineQueueEntry pipelineQueueEntry) {
+    private synchronized void addEntryToPipeline(PipelineQueueEntry<V, T> pipelineQueueEntry) {
         if (closed) {
             pipelineQueueEntry.close();
         }
@@ -274,12 +274,12 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         return !closed && !outerExhausted && pipeline.size() < pipelineSize;
     }
 
-    private synchronized PipelineQueueEntry peekPipeline() {
+    private synchronized PipelineQueueEntry<V, T> peekPipeline() {
         // Not a lot in this method, but the underlying queue isn't thread safe so
         return pipeline.peek();
     }
 
-    private class PipelineQueueEntry {
+    private static class PipelineQueueEntry<V, T> {
         final RecordCursor<V> innerCursor;
         final RecordCursorContinuation priorOuterContinuation;
         final RecordCursorResult<T> outerResult;
@@ -287,7 +287,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
         private CompletableFuture<RecordCursorResult<V>> innerFuture;
 
-        public PipelineQueueEntry(RecordCursor<V> innerCursor,
+        private PipelineQueueEntry(RecordCursor<V> innerCursor,
                                   RecordCursorContinuation priorOuterContinuation,
                                   RecordCursorResult<T> outerResult,
                                   byte[] outerCheckValue) {
@@ -298,15 +298,19 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         }
 
         @Nonnull
-        public CompletableFuture<PipelineQueueEntry> getNextInnerPipelineFuture() {
+        public CompletableFuture<PipelineQueueEntry<V, T>> getNextInnerPipelineFuture() {
             if (innerFuture == null) {
-                if (innerCursor == null) {
-                    innerFuture = CompletableFuture.completedFuture(RecordCursorResult.exhausted());
-                } else {
-                    innerFuture = innerCursor.onNext();
-                }
+                setInnerFuture();
             }
             return innerFuture.thenApply(vignore -> this);
+        }
+
+        private void setInnerFuture() {
+            if (innerCursor == null) {
+                innerFuture = CompletableFuture.completedFuture(RecordCursorResult.exhausted());
+            } else {
+                innerFuture = innerCursor.onNext();
+            }
         }
 
         public boolean doesNotHaveReturnableResult() {
@@ -358,6 +362,30 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         @Nonnull
         private Continuation<T, V> toContinuation() {
             return new Continuation<>(priorOuterContinuation, outerResult, outerCheckValue, innerFuture.join());
+        }
+
+        @Nonnull
+        public static <V, T> PipelineQueueEntry<V, T> newInstance(RecordCursor<V> innerCursor,
+                                                                  RecordCursorContinuation priorOuterContinuation,
+                                                                  RecordCursorResult<T> outerResult,
+                                                                  byte[] outerCheckValue) {
+            return new PipelineQueueEntry<>(innerCursor, priorOuterContinuation, outerResult, outerCheckValue);
+        }
+
+        @Nonnull
+        public static <V, T> PipelineQueueEntry<V, T> newInstanceWithBackgroundComputationOfFirstResult(RecordCursor<V> innerCursor,
+                                                                                                        RecordCursorContinuation priorOuterContinuation,
+                                                                                                        RecordCursorResult<T> outerResult,
+                                                                                                        byte[] outerCheckValue) {
+            final var result = newInstance(innerCursor, priorOuterContinuation, outerResult, outerCheckValue);
+            result.setInnerFuture();
+            return result;
+        }
+
+        @Nonnull
+        public static <V, T> PipelineQueueEntry<V, T> newSentinel(RecordCursorContinuation priorOuterContinuation,
+                                                                  RecordCursorResult<T> outerResult) {
+            return new PipelineQueueEntry<>(null, priorOuterContinuation, outerResult, null);
         }
     }
 
