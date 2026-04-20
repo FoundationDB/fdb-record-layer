@@ -139,9 +139,9 @@ public final class YamlExecutionContext {
         this.connectionFactory = factory;
         this.topLevelResource = topLevelResource;
         this.additionalOptions = additionalOptions;
-        if (isInCI() && (shouldCorrectExplains() || shouldCorrectMetrics() || shouldCorrectResultMetadata())) {
-            logger.error("‼️ Explain, planner metrics, and/or result metadata cannot be modified during nightly runs.");
-            Assertions.fail("‼️ Explain, planner metrics, or result metadata cannot be modified during nightly runs. " +
+        if (isInCI() && (shouldCorrectExplains() || shouldCorrectMetrics() || shouldCorrectResultMetadata() || shouldAddResultMetadata())) {
+            logger.error("‼️ Yamsql files cannot be modified during CI runs.");
+            Assertions.fail("‼️ Yamsql files cannot be modified during CI runs. " +
                     "Make sure maintenance annotations have not been checked in.");
         }
         if (isNightly()) {

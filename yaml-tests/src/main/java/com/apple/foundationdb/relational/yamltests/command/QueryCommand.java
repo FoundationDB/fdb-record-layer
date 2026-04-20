@@ -194,11 +194,8 @@ public final class QueryCommand extends Command {
         Integer maxRows = null;
         boolean exhausted = false;
         boolean errored = false;
-        // The most recently seen resultMetadata config, sticky across all continuation pages.
-        // When encountered before the query starts, it is run independently (fresh query) and then kept here
-        // so that every subsequent continuation page also receives an inline metadata check.
-        // When encountered while a continuation is in progress, it is deferred inline from that page onward.
-        // Passed only to continuation pages (continuation != null) so the first page is not double-checked.
+        // The most recently seen resultMetadata config. Passed to every result/count/error executor
+        // call so metadata is checked inline on every page (including the first).
         CheckResultMetadataConfig stickyMetadata = null;
 
         final DebuggerImplementation debuggerImplementation =
@@ -233,14 +230,8 @@ public final class QueryCommand extends Command {
                         () -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows));
             } else if (QueryConfig.QUERY_CONFIG_RESULT_METADATA.equals(queryConfig.getConfigName())) {
                 stickyMetadata = (CheckResultMetadataConfig) queryConfig;
-                if (!queryIsRunning) {
-                    // No active continuation — run the query independently to check its metadata.
-                    // The same config is kept as stickyMetadata so it is also checked inline on
-                    // every subsequent continuation page.
-                    executor.execute(connection, null, queryConfig, checkCache, maxRows);
-                }
-                // If queryIsRunning: the continuation page cannot be re-executed, so stickyMetadata
-                // will be checked inline when the next (and all later) result pages are fetched.
+                // Checked inline when the next result/count/error block executes (all pages).
+                // If mid-continuation, the next page picks it up automatically.
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfig.getConfigName())) {
                 Assert.that(!queryIsRunning, "Explain test should not be intermingled with query result tests");
                 // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
@@ -277,7 +268,7 @@ public final class QueryCommand extends Command {
                             queryConfig.getReference(), queryConfig.getValueString()));
                 }
                 continuation = executor.execute(connection, continuation, queryConfig, checkCache, maxRows,
-                        continuation != null ? stickyMetadata : null);
+                        stickyMetadata);
                 // stickyMetadata is intentionally not cleared: it applies to all remaining continuation pages.
                 if (continuation == null || continuation.atEnd()) {
                     queryIsRunning = false;

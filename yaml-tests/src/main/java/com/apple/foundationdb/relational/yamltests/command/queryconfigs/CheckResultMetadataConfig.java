@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.StructMetaData;
+import com.apple.foundationdb.relational.yamltests.ArrayType;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
@@ -174,7 +175,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
     @SuppressWarnings("unchecked")
     private void checkDescriptorsInternal(@Nonnull final List<ColumnDescriptor> actualDescriptors,
                                           @Nonnull final String queryDescription) {
-        final Object val = getVal();
+        final Object rawExpectedValue = getVal();
         logger.debug("⛳️ Checking result metadata for query '{}'", queryDescription);
 
         // If the server returned no column metadata (e.g. an older server that omits metadata for empty result
@@ -183,19 +184,19 @@ public class CheckResultMetadataConfig extends QueryConfig {
         // remove this workaround once all external server versions in multi-server test configs are updated
         // to a version that includes the TypeConversion.toProtobuf() fix (metadata always set before row
         // iteration, so empty result sets also carry column metadata).
-        if (actualDescriptors.isEmpty() && (val == null || !((List<?>) val).isEmpty())) {
+        if (actualDescriptors.isEmpty() && (rawExpectedValue == null || !((List<?>) rawExpectedValue).isEmpty())) {
             logger.warn("⚠️ resultMetadata check skipped at {}: server returned no column metadata (possibly an older server version)", getReference());
             return;
         }
 
-        // Synthetic config (val == null) injected when OPTION_ADD_RESULT_METADATA is set:
+        // Synthetic config (rawExpectedValue == null) injected when OPTION_ADD_RESULT_METADATA is set:
         // write the actual metadata to the file without comparing.
-        if (val == null && executionContext.shouldAddResultMetadata()) {
+        if (rawExpectedValue == null && executionContext.shouldAddResultMetadata()) {
             addResultMetadata(actualDescriptors);
             return;
         }
 
-        final List<Map<?, ?>> expectedColumns = val == null ? List.of() : (List<Map<?, ?>>) val;
+        final List<Map<?, ?>> expectedColumns = rawExpectedValue == null ? List.of() : (List<Map<?, ?>>) rawExpectedValue;
 
         if (!matchesExpected(expectedColumns, actualDescriptors)) {
             if (executionContext.shouldCorrectResultMetadata()) {
@@ -267,29 +268,22 @@ public class CheckResultMetadataConfig extends QueryConfig {
             if (!expectedName.equalsIgnoreCase(actualCol.name)) {
                 return false;
             }
-            if (entry.getValue() instanceof Map) {
-                // array-of-struct: value is {"!array": [{field: type}, ...]}
-                final Map<?, ?> arrayMap = CustomYamlConstructor.LinedObject.unlineKeys((Map<?, ?>) entry.getValue());
-                final Map.Entry<?, ?> arrayEntry = arrayMap.entrySet().iterator().next();
-                if (!"!array".equalsIgnoreCase(arrayEntry.getKey().toString())
-                        || !(arrayEntry.getValue() instanceof List)) {
-                    return false;
-                }
-                if (!actualCol.isArray || actualCol.fields == null) {
-                    return false;
-                }
-                @SuppressWarnings("unchecked")
-                final List<Map<?, ?>> elementFields = (List<Map<?, ?>>) arrayEntry.getValue();
-                if (!matchesExpected(elementFields, actualCol.fields)) {
-                    return false;
-                }
-            } else if (entry.getValue() instanceof List) {
+            if (entry.getValue() instanceof List) {
                 // plain struct column: value is [{field: type}, ...]
                 if (actualCol.fields == null || actualCol.isArray) {
                     return false;
                 }
                 @SuppressWarnings("unchecked")
                 final List<Map<?, ?>> valueList = (List<Map<?, ?>>) entry.getValue();
+                if (!matchesExpected(valueList, actualCol.fields)) {
+                    return false;
+                }
+            } else if (entry.getValue() instanceof ArrayType) {
+                if (actualCol.fields == null || !actualCol.isArray) {
+                    return false;
+                }
+                @SuppressWarnings("unchecked")
+                final List<Map<?, ?>> valueList = (List<Map<?, ?>>) ((ArrayType) entry.getValue()).getExpectedMetadata();
                 if (!matchesExpected(valueList, actualCol.fields)) {
                     return false;
                 }

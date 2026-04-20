@@ -35,6 +35,7 @@ import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
+import org.yaml.snakeyaml.nodes.Tag;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -91,6 +92,10 @@ public class CustomYamlConstructor extends SafeConstructor {
             } else {
                 return super.constructObject(node);
             }
+        }
+        if (node.getTag().getValue().equals("!array")) {
+            node.setTag(Tag.SEQ);
+            return new ArrayType(super.constructObject(node));
         }
         return super.constructObject(node);
     }
