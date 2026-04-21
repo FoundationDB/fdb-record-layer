@@ -392,13 +392,15 @@ public class JDBCParameterizedQueryComparisonTest {
                 RandomizedTestUtils.randomSeeds(),
                 Arrays.stream(TypeTestCase.values()),
                 ParameterizedTestUtils.booleans("typedSetter", "setObject"),
+                ParameterizedTestUtils.booleans("typedGetter", "getObject"),
                 ParameterizedTestUtils.booleans("insertJdbc", "insertEmbedded"),
                 ParameterizedTestUtils.booleans("readJdbc", "readEmbedded"));
     }
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void testParameterizedInsertAndSelect(long seed, @Nonnull TypeTestCase testCase, boolean useTypedSetter,
+    void testParameterizedInsertAndSelect(long seed, @Nonnull TypeTestCase testCase,
+                                          boolean useTypedSetter, boolean useTypedGetter,
                                           boolean insertWithJdbc, boolean readWithJdbc) throws Exception {
         if (insertWithJdbc || readWithJdbc) {
             // JDBC does not support createStruct (always returns null), so inserting with jdbc is not supported.
@@ -415,15 +417,17 @@ public class JDBCParameterizedQueryComparisonTest {
         try (Connection insertConn = getConnection(insertWithJdbc)) {
             insertedValue = testCase.createValue(insertConn, random);
             Assertions.assertNotNull(insertedValue);
-            insert(insertConn, insertedValue, useTypedSetter
-                    ? (statement, value) -> testCase.setTyped(statement, 2, value)
-                    : (statement, value) -> statement.setObject(2, value));
+            final ValueSetter valueSetter = useTypedSetter
+                                       ? (statement, value) -> testCase.setTyped(statement, 2, value)
+                                       : (statement, value) -> statement.setObject(2, value);
+            insert(insertConn, insertedValue, valueSetter);
         }
 
         try (Connection readConn = getConnection(readWithJdbc)) {
-            readAndAssert(readConn, insertedValue,
-                    resultSet -> testCase.getTyped(resultSet, 1),
-                    testCase::assertEquals);
+            ValueReader valueReader = useTypedGetter
+                                      ? (resultSet -> testCase.getTyped(resultSet, 1))
+                                      : (resultSet -> resultSet.getObject(1));
+            readAndAssert(readConn, insertedValue, valueReader, testCase::assertEquals);
         }
     }
 
