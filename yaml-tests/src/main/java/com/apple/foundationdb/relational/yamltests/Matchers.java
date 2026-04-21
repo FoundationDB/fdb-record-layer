@@ -677,6 +677,12 @@ public class Matchers {
             }
         }
 
+        if (expected instanceof byte[] && actual instanceof byte[]) {
+            if (Arrays.equals((byte[]) expected, (byte[]) actual)) {
+                return ResultSetMatchResult.success();
+            }
+        }
+
         // exact comparison.
         if (Objects.equals(expected, actual)) {
             return ResultSetMatchResult.success();

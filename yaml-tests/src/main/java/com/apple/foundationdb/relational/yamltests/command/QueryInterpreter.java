@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Pa
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.PrimitiveParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.TupleParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.UnboundParameter;
+import com.apple.foundationdb.relational.yamltests.tags.BytesTag;
 import com.apple.foundationdb.relational.yamltests.tags.LongTag;
 import org.apache.commons.lang3.tuple.Pair;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -121,6 +122,9 @@ public final class QueryInterpreter {
 
             final var longTag = new LongTag();
             this.yamlConstructors.put(longTag.getTag(), longTag.getConstruct());
+
+            final var bytesTag = new BytesTag();
+            this.yamlConstructors.put(bytesTag.getTag(), bytesTag.getConstruct());
         }
 
         @Override

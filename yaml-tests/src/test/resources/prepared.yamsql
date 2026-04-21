@@ -3,7 +3,7 @@
 #
 # This source file is part of the FoundationDB open source project
 #
-# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,11 @@ options:
     supported_version: 4.0.559.6 # This will only work on 4.0.559.6 and then on 4.1.6.0+
 ---
 schema_template:
+    create type as struct test_struct(f0 bigint, f1 string)
     create table ta(a bigint, b double, c boolean, d integer, e integer array, f string, primary key(a))
+    create table tb(a bigint, b float, primary key(a))
+    create table tc(a bigint, b bytes, primary key(a))
+    create table td(a bigint, b test_struct, primary key(a))
 ---
 setup:
   steps:
@@ -39,6 +43,9 @@ setup:
                (15, 16.01, false, 1566, [17, 18, 19], 'black widow'),
                (17, 18.01, true, 1744, [19, 20, 21], 'jessica jones'),
                (19, 20.01, false, 1853, [21, 22, 23], 'luke cage')
+#    - query: INSERT INTO TB VALUES (1, 1.5), (2, 2.25), (3, 3.75)
+    - query: INSERT INTO TC VALUES (1, x'deadbeef'), (2, x'cafe'), (3, x'0ff1ce')
+    - query: INSERT INTO TD VALUES (1, (100, 'hello')), (2, (200, 'world'))
 ---
 test_block:
   name: prepared-tests
@@ -146,4 +153,79 @@ test_block:
     -
       - query: update ta set e = !! [10, 100, 1000] !! where a = 1 returning "new".e
       - result: [{[10, 100, 1000]}]
+#---
+# ---------- float ----------
+#test_block:
+#  name: float-prepared-tests
+#  tests:
+#    -
+#      # parameterized comparison against float column (using double parameter)
+#      - query: select a from tb where b < !! 3.0 !!
+#      - result: [{!l 1}, {!l 2}]
+#    -
+#      # parameterized equality on float column
+#      - query: select a from tb where b = !! 1.5 !!
+#      - result: [{!l 1}]
+#    -
+#      # read back float value via cast to double to avoid Float/Double mismatch
+#      - query: select cast(b as double) from tb where a = !! !l 1 !!
+#      - result: [{1.5}]
+#    -
+#      - query: select cast(b as double) from tb where a = !! !l 3 !!
+#      - result: [{3.75}]
+#---
+#test_block:
+#  name: float-insert-test
+#  preset: single_repetition_ordered
+#  tests:
+#    -
+#      # parameterized insert into float column
+#      - query: insert into tb(a, b) values (!! !l 100 !!, !! 0.5 !!)
+#      - count: 1
+#    -
+#      # verify the inserted float value round-trips
+#      - query: select cast(b as double) from tb where a = !! !l 100 !!
+#      - result: [{0.5}]
+# ---------- bytes ----------
+---
+test_block:
+  name: bytes-insert-test
+  preset: single_repetition_ordered
+  tests:
+    -
+      # parameterized insert into bytes column
+      - query: insert into tc(a, b) values (!! !l 100 !!, !! !b x'baadf00d' !!)
+      - count: 1
+---
+test_block:
+  name: bytes-prepared-tests
+  tests:
+    -
+      # select bytes value using prepared bigint parameter
+      - query: select b from tc where b = !! !b x'deadbeef' !!
+      - result: [{x'deadbeef'}]
+    -
+      # verify the inserted bytes value
+      - query: select b from tc where a = !! !l 100 !!
+      - result: [{x'baadf00d'}]
+# ---------- struct ----------
+---
+test_block:
+  name: struct-insert-test
+  preset: single_repetition_ordered
+  options:
+    # struct tuple parameter creates a JDBC Struct with generic type name,
+    # so use simple statement for the insert
+    statement_type: simple
+  tests:
+    -
+      - query: insert into td values !! {!l 100, {!l 42, 'test_value'}} !!
+      - count: 1
+---
+test_block:
+  name: struct-prepared-tests
+  tests:
+    -
+      - query: select b from td where a = 100
+      - result: [{{f0: 42, f1: 'test_value'}}]
 ...
