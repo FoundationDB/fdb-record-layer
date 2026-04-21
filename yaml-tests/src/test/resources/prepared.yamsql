@@ -43,7 +43,7 @@ setup:
                (15, 16.01, false, 1566, [17, 18, 19], 'black widow'),
                (17, 18.01, true, 1744, [19, 20, 21], 'jessica jones'),
                (19, 20.01, false, 1853, [21, 22, 23], 'luke cage')
-#    - query: INSERT INTO TB VALUES (1, 1.5), (2, 2.25), (3, 3.75)
+    - query: INSERT INTO TB VALUES (1, cast(1.5 as float)), (2, cast(2.25 as float)), (3, cast(3.75 as float))
     - query: INSERT INTO TC VALUES (1, x'deadbeef'), (2, x'cafe'), (3, x'0ff1ce')
     - query: INSERT INTO TD VALUES (1, (100, 'hello')), (2, (200, 'world'))
 ---
@@ -140,7 +140,7 @@ test_block:
 test_block:
   preset: single_repetition_ordered
   options:
-    # insert statements do not take parameter
+    # insert statements do not take parameter by itself
     statement_type: simple
   tests:
     -
@@ -153,44 +153,42 @@ test_block:
     -
       - query: update ta set e = !! [10, 100, 1000] !! where a = 1 returning "new".e
       - result: [{[10, 100, 1000]}]
-#---
-# ---------- float ----------
-#test_block:
-#  name: float-prepared-tests
-#  tests:
-#    -
-#      # parameterized comparison against float column (using double parameter)
-#      - query: select a from tb where b < !! 3.0 !!
-#      - result: [{!l 1}, {!l 2}]
-#    -
-#      # parameterized equality on float column
-#      - query: select a from tb where b = !! 1.5 !!
-#      - result: [{!l 1}]
-#    -
-#      # read back float value via cast to double to avoid Float/Double mismatch
-#      - query: select cast(b as double) from tb where a = !! !l 1 !!
-#      - result: [{1.5}]
-#    -
-#      - query: select cast(b as double) from tb where a = !! !l 3 !!
-#      - result: [{3.75}]
-#---
-#test_block:
-#  name: float-insert-test
-#  preset: single_repetition_ordered
-#  tests:
-#    -
-#      # parameterized insert into float column
-#      - query: insert into tb(a, b) values (!! !l 100 !!, !! 0.5 !!)
-#      - count: 1
-#    -
-#      # verify the inserted float value round-trips
-#      - query: select cast(b as double) from tb where a = !! !l 100 !!
-#      - result: [{0.5}]
-# ---------- bytes ----------
+---
+test_block:
+  name: float-insert-test
+  preset: single_repetition_ordered
+  options:
+    statement_type: prepared # ensure we are testing with inserting via parameters
+  tests:
+    -
+      - query: insert into tb(a, b) values (!! !l 100 !!, !! !f 0.5 !!)
+      - count: 1
+---
+test_block:
+  name: float-prepared-tests
+  tests:
+    -
+      - query: select a from tb where b < !! !f 3.0 !!
+      - result: [{a: 1}, {a: 2}, {a: 100}]
+    -
+      - query: select a from tb where b = !! !f 1.5 !!
+      - result: [{!l 1}]
+    -
+      - query: select b from tb where a = !! !l 1 !!
+      - result: [{!f 1.5}]
+    -
+      - query: select b from tb where a = !! !l 3 !!
+      - result: [{!f 3.75}]
+    -
+      # verify the inserted float value round-trips
+      - query: select b from tb where a = !! !l 100 !!
+      - result: [{!f 0.5}]
 ---
 test_block:
   name: bytes-insert-test
   preset: single_repetition_ordered
+  options:
+    statement_type: prepared # ensure we are testing with inserting via parameters
   tests:
     -
       # parameterized insert into bytes column
