@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.server.InProcessRelationalServer;
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.test.ParameterizedTestUtils;
+import com.apple.test.RandomizedTestUtils;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -52,8 +53,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
@@ -89,11 +92,11 @@ public class JDBCParameterizedQueryComparisonTest {
      * optionally {@link #assertEquals} to customize behavior per type.
      */
     enum TypeTestCase {
-        BIGINT("bigint", "", "BIGINT", new Object[] {10L, 20L, 30L}) {
+        BIGINT("bigint", "", "BIGINT") {
             @Nonnull
             @Override
-            Object createValue(@Nonnull Connection conn) {
-                return 42L;
+            Object createValue(@Nonnull Connection conn, @Nonnull Random random) {
+                return random.nextLong();
             }
 
             @Override
@@ -107,11 +110,11 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getLong(columnIndex);
             }
         },
-        INTEGER("integer", "", "INTEGER", new Object[] {10, 20, 30}) {
+        INTEGER("integer", "", "INTEGER") {
             @Nonnull
             @Override
-            Object createValue(@Nonnull Connection conn) {
-                return 42;
+            Object createValue(@Nonnull Connection conn, @Nonnull Random random) {
+                return random.nextInt();
             }
 
             @Override
@@ -125,11 +128,11 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getInt(columnIndex);
             }
         },
-        DOUBLE("double", "", "DOUBLE", new Object[] {1.1, 2.2, 3.3}) {
+        DOUBLE("double", "", "DOUBLE") {
             @Nonnull
             @Override
-            Object createValue(@Nonnull Connection conn) {
-                return 3.141592653589793;
+            Object createValue(@Nonnull Connection conn, @Nonnull Random random) {
+                return random.nextDouble();
             }
 
             @Override
@@ -149,11 +152,11 @@ public class JDBCParameterizedQueryComparisonTest {
                         ((Number)actual).doubleValue(), 1e-10, message);
             }
         },
-        FLOAT("float", "", "FLOAT", new Object[] {1.1f, 2.2f, 3.3f}) {
+        FLOAT("float", "", "FLOAT") {
             @Nonnull
             @Override
-            Object createValue(@Nonnull Connection conn) {
-                return 2.718f;
+            Object createValue(@Nonnull Connection conn, @Nonnull Random random) {
+                return random.nextFloat();
             }
 
             @Override
@@ -173,11 +176,11 @@ public class JDBCParameterizedQueryComparisonTest {
                         ((Number)actual).floatValue(), 0.001f, message);
             }
         },
-        STRING("string", "", "STRING", new Object[] {"a", "b", "c"}) {
+        STRING("string", "", "STRING") {
             @Nonnull
             @Override
-            Object createValue(@Nonnull Connection conn) {
-                return "hello world";
+            Object createValue(@Nonnull Connection conn, @Nonnull Random random) {
+                return randomAlphanumericString(random, random.nextInt(20) + 1);
             }
 
             @Override
@@ -191,11 +194,11 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getString(columnIndex);
             }
         },
-        BOOLEAN("boolean", "", "BOOLEAN", new Object[] {true, false, true}) {
+        BOOLEAN("boolean", "", "BOOLEAN") {
             @Nonnull
             @Override
-            Object createValue(@Nonnull Connection conn) {
-                return true;
+            Object createValue(@Nonnull Connection conn, @Nonnull Random random) {
+                return random.nextBoolean();
             }
 
             @Override
@@ -209,11 +212,13 @@ public class JDBCParameterizedQueryComparisonTest {
                 return resultSet.getBoolean(columnIndex);
             }
         },
-        BYTES("bytes", "", "BINARY", new Object[] {new byte[] {1, 2, 3, 4, 5}, new byte[] {-1, 0, 1}}) {
+        BYTES("bytes", "", "BINARY") {
             @Nonnull
             @Override
-            Object createValue(@Nonnull Connection conn) {
-                return new byte[] {1, 2, 3, 4, 5};
+            Object createValue(@Nonnull Connection conn, @Nonnull Random random) {
+                byte[] bytes = new byte[random.nextInt(20) + 1];
+                random.nextBytes(bytes);
+                return bytes;
             }
 
             @Override
@@ -232,11 +237,16 @@ public class JDBCParameterizedQueryComparisonTest {
                 Assertions.assertArrayEquals((byte[])expected, (byte[])actual, message);
             }
         },
-        INTEGER_ARRAY("integer array", "", null, null) {
-            @Nullable
+        INTEGER_ARRAY("integer array", "", null) {
+            @Nonnull
             @Override
-            Object createValue(@Nonnull Connection conn) throws SQLException {
-                return conn.createArrayOf("INTEGER", new Object[] {10, 20, 30});
+            Object createValue(@Nonnull Connection conn, @Nonnull Random random) throws SQLException {
+                int count = random.nextInt(5) + 1;
+                Object[] elements = new Object[count];
+                for (int i = 0; i < count; i++) {
+                    elements[i] = random.nextInt();
+                }
+                return conn.createArrayOf("INTEGER", elements);
             }
 
             @Override
@@ -261,11 +271,12 @@ public class JDBCParameterizedQueryComparisonTest {
                 }
             }
         },
-        STRUCT("MyStruct", "CREATE TYPE AS STRUCT MyStruct (f0 bigint, f1 string)", null, null) {
-            @Nullable
+        STRUCT("MyStruct", "CREATE TYPE AS STRUCT MyStruct (f0 bigint, f1 string)", null) {
+            @Nonnull
             @Override
-            Object createValue(@Nonnull Connection conn) throws SQLException {
-                return conn.createStruct("MyStruct", new Object[] {100L, "test_value"});
+            Object createValue(@Nonnull Connection conn, @Nonnull Random random) throws SQLException {
+                return conn.createStruct("MyStruct", new Object[] {random.nextLong(),
+                        randomAlphanumericString(random, random.nextInt(20) + 1)});
             }
 
             @Override
@@ -308,23 +319,19 @@ public class JDBCParameterizedQueryComparisonTest {
          */
         @Nullable
         private final String arrayTypeName;
-        /**
-         * Sample values for creating an array of this type, or {@code null} if arrays are not supported.
-         */
-        @Nullable
-        private final Object[] sampleArrayElements;
 
         TypeTestCase(@Nonnull String columnDdl, @Nonnull String extraTypeDdl,
-                     @Nullable String arrayTypeName,
-                     @Nullable Object[] sampleArrayElements) {
+                     @Nullable String arrayTypeName) {
             this.columnDdl = columnDdl;
             this.extraTypeDdl = extraTypeDdl;
             this.arrayTypeName = arrayTypeName;
-            this.sampleArrayElements = sampleArrayElements;
         }
 
-        @Nullable
-        abstract Object createValue(@Nonnull Connection conn) throws SQLException;
+        /**
+         * Create a random value of this type, suitable for insertion into the test table.
+         */
+        @Nonnull
+        abstract Object createValue(@Nonnull Connection conn, @Nonnull Random random) throws SQLException;
 
         abstract void setTyped(@Nonnull PreparedStatement statement, int parameterIndex, @Nonnull Object val) throws SQLException;
 
@@ -333,6 +340,15 @@ public class JDBCParameterizedQueryComparisonTest {
 
         void assertEquals(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
             Assertions.assertEquals(expected, actual, message);
+        }
+
+        @Nonnull
+        private static String randomAlphanumericString(@Nonnull Random random, int length) {
+            char[] chars = new char[length];
+            for (int i = 0; i < length; i++) {
+                chars[i] = (char)('a' + random.nextInt(26));
+            }
+            return new String(chars);
         }
 
         /**
@@ -407,6 +423,7 @@ public class JDBCParameterizedQueryComparisonTest {
     @Nonnull
     static Stream<Arguments> testCases() {
         return ParameterizedTestUtils.cartesianProduct(
+                RandomizedTestUtils.randomSeeds(),
                 Arrays.stream(TypeTestCase.values()),
                 ParameterizedTestUtils.booleans("typedSetter", "setObject"),
                 ParameterizedTestUtils.booleans("insertJdbc", "insertEmbedded"),
@@ -415,7 +432,7 @@ public class JDBCParameterizedQueryComparisonTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void testParameterizedInsertAndSelect(@Nonnull TypeTestCase testCase, boolean useTypedSetter,
+    void testParameterizedInsertAndSelect(long seed, @Nonnull TypeTestCase testCase, boolean useTypedSetter,
                                           boolean insertWithJdbc, boolean readWithJdbc) throws Exception {
         if (insertWithJdbc || readWithJdbc) {
             // JDBC does not support createStruct (always returns null), so inserting with jdbc is not supported.
@@ -423,13 +440,14 @@ public class JDBCParameterizedQueryComparisonTest {
             Assumptions.assumeFalse(testCase == TypeTestCase.STRUCT);
         }
 
+        final Random random = new Random(seed);
         createSchema(testCase.columnDdl, testCase.extraTypeDdl);
 
         // Create the value on the insert connection, insert it, then verify the read-back
         // matches the original inserted value (not a freshly created one).
         final Object insertedValue;
         try (Connection insertConn = getConnection(insertWithJdbc)) {
-            insertedValue = testCase.createValue(insertConn);
+            insertedValue = testCase.createValue(insertConn, random);
             Assertions.assertNotNull(insertedValue);
             insert(insertConn, insertedValue, useTypedSetter
                     ? (statement, value) -> testCase.setTyped(statement, 2, value)
@@ -445,20 +463,30 @@ public class JDBCParameterizedQueryComparisonTest {
 
     @ParameterizedTest
     @MethodSource("testCases")
-    void testArrayOfTypeInsertAndSelect(@Nonnull TypeTestCase testCase, boolean useTypedSetter,
+    void testArrayOfTypeInsertAndSelect(long seed, @Nonnull TypeTestCase testCase, boolean useTypedSetter,
                                         boolean insertWithJdbc, boolean readWithJdbc) throws Exception {
         Assumptions.assumeFalse(testCase == TypeTestCase.STRUCT,
                 "createArrayOf does not support STRUCT in either implementation");
         Assumptions.assumeFalse(testCase == TypeTestCase.INTEGER_ARRAY,
                 "array array is not supported by DDL");
 
+        final Random random = new Random(seed);
         createSchema(testCase.columnDdl + " array", testCase.extraTypeDdl);
 
         // Create the array on the insert connection, insert it, then verify the read-back
         // matches the original inserted array elements.
         final Array insertedArray;
         try (Connection insertConn = getConnection(insertWithJdbc)) {
-            insertedArray = insertConn.createArrayOf(testCase.arrayTypeName, testCase.sampleArrayElements);
+            Object[] arrayValue = IntStream.range(0, random.nextInt(20) + 1)
+                    .mapToObj(i -> {
+                        try {
+                            return testCase.createValue(insertConn, random);
+                        } catch (SQLException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+                    .toArray(Object[]::new);
+            insertedArray = insertConn.createArrayOf(testCase.arrayTypeName, arrayValue);
             insert(insertConn, insertedArray, useTypedSetter
                     ? (statement, value) -> statement.setArray(2, (Array) value)
                     : (statement, value) -> statement.setObject(2, value));
