@@ -192,9 +192,9 @@ public class CollapseTask extends AbstractDeferredTask {
                                 final ImmutableList<Tuple> deleteTargetClusterAssignedVectors =
                                         deleteTargetClusterAssignedVectorsBuilder.build();
 
-                                updateAssignments(transaction, random, targetClusterMetadataWithDistance, collapseResult,
-                                        writeTargetClusterAssignedVectors, deleteTargetClusterAssignedVectors,
-                                        quantizer);
+                                updateAssignments(transaction, random, targetClusterMetadataWithDistance,
+                                        collapseResult, writeTargetClusterAssignedVectors,
+                                        deleteTargetClusterAssignedVectors, quantizer);
                             });
                 });
     }
@@ -316,14 +316,12 @@ public class CollapseTask extends AbstractDeferredTask {
 
         final List<VectorReference> assignments = collapseResult.getAssignments();
 
-        int numPrimaryVectorsAdded = 0;
         int numPrimaryUnderreplicatedVectorsAdded = 0;
         int numReplicatedVectorsAdded = 0;
 
         // write all vector references outside the target cluster
         for (final var vectorReference : assignments) {
             if (vectorReference.isPrimaryCopy()) {
-                numPrimaryVectorsAdded++;
                 if (vectorReference.isUnderreplicated()) {
                     numPrimaryUnderreplicatedVectorsAdded++;
                 }

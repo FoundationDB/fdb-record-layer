@@ -54,6 +54,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
@@ -127,7 +128,9 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
         return primitives.fetchClusterMetadata(transaction, getTargetClusterId())
                 .thenCompose(clusterMetadata -> {
-                    if (clusterMetadata == null || !clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE)) {
+                    if (clusterMetadata == null ||
+                            !clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE) ||
+                            clusterMetadata.getStates().contains(ClusterMetadata.State.COLLAPSE)) {
                         return AsyncUtil.DONE;
                     }
 
@@ -226,30 +229,38 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                                         .thenApply(vectorReferences ->
                                                                 kMeans(neighborhoods, vectorReferences, nestedRandom, estimator));
                                             }, 10, executor)
-                                    .thenApply(assignmentCandidates -> {
-                                        // TODO if the clusters are too lopsided and the vector references point to
-                                        //      some vector duplicates, try to collapse them into a black hole and
-                                        //      bounce back.
-
+                                    .<AssignmentCandidate>thenApply(assignmentCandidates -> {
+                                        final Map<AssignmentCandidate, UpgradeResult> candidateToUpgradeResultMap = Maps.newIdentityHashMap();
                                         final AssignmentCandidate split1to2Candidate =
                                                 Objects.requireNonNull(assignmentCandidates.get(0));
                                         final UpgradeResult upgradeResult1to2 =
                                                 evaluateNewPartition(estimator, ImmutableList.of(innerClusters.get(0)),
                                                         split1to2Candidate);
+                                        candidateToUpgradeResultMap.put(split1to2Candidate, upgradeResult1to2);
                                         final AssignmentCandidate split2to3Candidate = assignmentCandidates.get(1);
                                         if (split2to3Candidate != null) {
                                             Verify.verify(innerClusters.size() > 1);
                                             final UpgradeResult upgradeResult2to3 =
                                                     evaluateNewPartition(estimator, innerClusters,
                                                             split2to3Candidate);
-                                            return upgradeResult1to2.getScoreGain() > upgradeResult2to3.getScoreGain()
-                                                   ? split1to2Candidate : split2to3Candidate;
+                                            candidateToUpgradeResultMap.put(split2to3Candidate, upgradeResult2to3);
                                         }
-                                        return split1to2Candidate;
+                                        final Optional<AssignmentCandidate> bestValidCandidateOptional =
+                                                bestValidCandidateMaybe(candidateToUpgradeResultMap);
+                                        if (bestValidCandidateOptional.isEmpty()) {
+                                            if (enqueueCollapseIfNecessary(transaction, random,
+                                                    split1to2Candidate.getPrimaryVectorReferences(),
+                                                    getTargetClusterId(), centroid)) {
+                                                primitives.writeClusterMetadata(transaction,
+                                                        targetClusterMetadata.withNewStates(EnumSet.of(ClusterMetadata.State.COLLAPSE)));
+                                                return null;
+                                            }
+                                        }
+                                        return bestValidCandidateOptional.orElseThrow();
                                     }))
                             .thenCompose(assignmentCandidate -> {
                                 if (assignmentCandidate == null) {
-                                    return null;
+                                    return AsyncUtil.DONE;
                                 }
 
                                 final NeighborhoodsResult neighborhoods = assignmentCandidate.getNeighborhoods();
@@ -615,17 +626,17 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
         final Set<UUID> newDependentTaskIds = newDependentTaskIdsBuilder.build();
         if (!newDependentTaskIds.isEmpty()) {
-            final BounceReassignTask newBounceReassignTask =
-                    BounceReassignTask.of(getLocator(), getAccessInfo(),
+            final BounceTask newBounceTask =
+                    BounceTask.of(getLocator(), getAccessInfo(),
                             randomNormalPriorityTaskId(random, config.isDeterministicRandomness()), newClusterIds,
-                            newDependentTaskIds);
-            primitives.writeDeferredTask(transaction, newBounceReassignTask);
+                            newDependentTaskIds, Kind.REASSIGN);
+            primitives.writeDeferredTask(transaction, newBounceTask);
 
             if (logger.isInfoEnabled()) {
                 logger.info("enqueuing BOUNCE_REASSIGN; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
-                        taskIdToString(newBounceReassignTask.getTaskId()),
-                        newBounceReassignTask.getTargetClusterIds(),
-                        newBounceReassignTask.getDependentTaskIds());
+                        taskIdToString(newBounceTask.getTaskId()),
+                        newBounceTask.getTargetClusterIds(),
+                        newBounceTask.getDependentTaskIds());
             }
         }
     }
@@ -761,6 +772,28 @@ public class SplitMergeTask extends AbstractDeferredTask {
                         Transformed.underlyingLens(), kMeansResult.getAssignment()),
                 VectorReference.vectorLens(),
                 new SplitMergeEvaluator.Parameters(estimator));
+    }
+
+    @Nonnull
+    Optional<AssignmentCandidate> bestValidCandidateMaybe(@Nonnull final Map<AssignmentCandidate, UpgradeResult> candidateToUpgradeResultMap) {
+        AssignmentCandidate bestCandidate = null;
+        UpgradeResult bestUpgradeResult = null;
+        for (final Map.Entry<AssignmentCandidate, UpgradeResult> entry : candidateToUpgradeResultMap.entrySet()) {
+            final AssignmentCandidate candidate = entry.getKey();
+            final UpgradeResult upgradeResult = entry.getValue();
+            if (upgradeResult.getDecision() != SplitMergeEvaluator.Decision.INVALID_CANDIDATE) {
+                if (bestUpgradeResult == null) {
+                    bestUpgradeResult = upgradeResult;
+                    bestCandidate = candidate;
+                } else {
+                    if (upgradeResult.getScoreGain() > bestUpgradeResult.getScoreGain()) {
+                        bestUpgradeResult = upgradeResult;
+                        bestCandidate = candidate;
+                    }
+                }
+            }
+        }
+        return Optional.ofNullable(bestCandidate);
     }
 
     private static class AssignmentCandidate {

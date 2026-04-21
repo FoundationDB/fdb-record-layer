@@ -141,7 +141,8 @@ public class ReassignTask extends AbstractDeferredTask {
 
                     final EnumSet<ClusterMetadata.State> states = clusterMetadata.getStates();
                     if (!states.contains(ClusterMetadata.State.REASSIGN) ||
-                            states.contains(ClusterMetadata.State.SPLIT_MERGE)) {
+                            states.contains(ClusterMetadata.State.SPLIT_MERGE) ||
+                            states.contains(ClusterMetadata.State.COLLAPSE)) {
                         return AsyncUtil.DONE;
                     }
 

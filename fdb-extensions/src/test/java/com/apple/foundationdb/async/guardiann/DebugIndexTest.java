@@ -145,7 +145,7 @@ public class DebugIndexTest implements BaseTest {
         logger.info("Preparing db and inserting SIFT small dataset...");
         //insertedData = TestHelpers.insertSIFTSmall(db, guardiann);
         insertedData = TestHelpers.insertSIFT100k(db, guardiann, 1_000_000, 50);
-        // (660545), (405278), (270733), (330315), (231431), (127517), (338338), (129853), (491092), (370597)
+        //[(81836), (602936), (236681), (143840), (537950), (14794), (235529), (162367), (237668), (427560), (256723), (312461), (411952), (483931), (512233), (132292), (616836), (174782), (258984), (721809), (405382), (536516)]
     }
 
     @Test
@@ -293,8 +293,8 @@ public class DebugIndexTest implements BaseTest {
     @Test
     void testValidate() throws Exception {
         TestHelpers.validateSIFT(getDb(), guardiann,
-                "/Users/nseemann/Downloads/embeddings-unified-model-100k-queries-1.0.0.fvecs",
-                "/Users/nseemann/Downloads/embeddings-unified-model-100k-groundtruth-1.0.0.ivecs", 100);
+                "/Users/nseemann/Downloads/embeddings-unified-model-1m-queries-1.0.0.fvecs",
+                "/Users/nseemann/Downloads/embeddings-unified-model-1m-groundtruth-1.0.0.ivecs", 100);
     }
 
     @Test

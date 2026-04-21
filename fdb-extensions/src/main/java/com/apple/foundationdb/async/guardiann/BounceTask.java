@@ -47,18 +47,21 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-public class BounceReassignTask extends AbstractDeferredTask {
+public class BounceTask extends AbstractDeferredTask {
     @Nonnull
-    private static final Logger logger = LoggerFactory.getLogger(BounceReassignTask.class);
+    private static final Logger logger = LoggerFactory.getLogger(BounceTask.class);
 
     @Nonnull
     private final Set<UUID> dependentTaskIds;
+    @Nonnull
+    private final Kind finalTaskKind;
 
-    private BounceReassignTask(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                               @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds,
-                               @Nonnull final Set<UUID> dependentTaskIds) {
+    private BounceTask(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
+                       @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds,
+                       @Nonnull final Set<UUID> dependentTaskIds, @Nonnull final Kind finalTaskKind) {
         super(locator, accessInfo, taskId, targetClusterIds);
         this.dependentTaskIds = ImmutableSet.copyOf(dependentTaskIds);
+        this.finalTaskKind = finalTaskKind;
     }
 
     @Nonnull
@@ -67,16 +70,21 @@ public class BounceReassignTask extends AbstractDeferredTask {
     }
 
     @Nonnull
+    public Kind getFinalTaskKind() {
+        return finalTaskKind;
+    }
+
+    @Nonnull
     @Override
     public Tuple valueTuple() {
         return Tuple.from(getKind().getCode(), StorageAdapter.tupleFromClusterIds(getTargetClusterIds()),
-                StorageAdapter.tupleFromTaskIds(getDependentTaskIds()));
+                StorageAdapter.tupleFromTaskIds(getDependentTaskIds()), finalTaskKind.name());
     }
 
     @Nonnull
     @Override
     public Kind getKind() {
-        return Kind.BOUNCE_REASSIGN;
+        return Kind.BOUNCE;
     }
 
     @Nonnull
@@ -103,7 +111,7 @@ public class BounceReassignTask extends AbstractDeferredTask {
                     }
 
                     if (shuffledTasks.isEmpty()) {
-                        return enqueueReassign(transaction, splittableRandom);
+                        return enqueueFinal(transaction, splittableRandom);
                     }
 
                     // there is at least one task, bounce and the rewrite a new bounce task afterward
@@ -127,30 +135,31 @@ public class BounceReassignTask extends AbstractDeferredTask {
                                     }
 
                                     final ImmutableSet<UUID> newDependentTaskIds = newDependentTaskIdsBuilder.build();
-                                    final BounceReassignTask newBounceReassignTask =
-                                            BounceReassignTask.of(getLocator(), accessInfo,
-                                                    randomNormalPriorityTaskId(splittableRandom, config.isDeterministicRandomness()), getTargetClusterIds(),
-                                                    newDependentTaskIds);
-                                    primitives.writeDeferredTask(transaction, newBounceReassignTask);
+                                    final BounceTask newBounceTask =
+                                            BounceTask.of(getLocator(), accessInfo,
+                                                    randomNormalPriorityTaskId(splittableRandom,
+                                                            config.isDeterministicRandomness()),
+                                                    getTargetClusterIds(), newDependentTaskIds, getFinalTaskKind());
+                                    primitives.writeDeferredTask(transaction, newBounceTask);
 
                                     if (logger.isInfoEnabled()) {
                                         logger.info("re-enqueuing BOUNCE_REASSIGN; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
-                                                taskIdToString(newBounceReassignTask.getTaskId()),
-                                                newBounceReassignTask.getTargetClusterIds(),
-                                                newBounceReassignTask.getDependentTaskIds());
+                                                taskIdToString(newBounceTask.getTaskId()),
+                                                newBounceTask.getTargetClusterIds(),
+                                                newBounceTask.getDependentTaskIds());
                                     }
                                     return AsyncUtil.DONE;
                                 }
 
                                 Verify.verify(shuffledTasks.size() == 1); // the one we just executed
-                                return enqueueReassign(transaction, splittableRandom);
+                                return enqueueFinal(transaction, splittableRandom);
                             });
                 });
     }
 
     @Nonnull
-    private CompletableFuture<Void> enqueueReassign(@Nonnull final Transaction transaction,
-                                                    @Nonnull final SplittableRandom random) {
+    private CompletableFuture<Void> enqueueFinal(@Nonnull final Transaction transaction,
+                                                 @Nonnull final SplittableRandom random) {
         final Config config = getConfig();
         final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();
@@ -165,24 +174,38 @@ public class BounceReassignTask extends AbstractDeferredTask {
                                         .thenAccept(resultEntry -> {
                                             if (resultEntry == null) {
                                                 if (logger.isInfoEnabled()) {
-                                                    logger.info("unable to enqueue final REASSIGN; targetClusterIds={}",
-                                                            targetClusterId);
+                                                    logger.info("unable to enqueue final task; kind={}; targetClusterIds={}",
+                                                            getFinalTaskKind(), targetClusterId);
                                                 }
                                                 return;
                                             }
                                             final Transformed<RealVector> transformedCentroid =
                                                     storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
-                                            final ReassignTask reassignTask =
-                                                    ReassignTask.of(getLocator(), accessInfo,
-                                                            randomNormalPriorityTaskId(nestedRandom, config.isDeterministicRandomness()),
-                                                            targetClusterId,
-                                                            transformedCentroid,
-                                                            ImmutableSet.of());
-                                            primitives.writeDeferredTask(transaction, reassignTask);
+
+                                            final UUID taskId = randomNormalPriorityTaskId(nestedRandom, config.isDeterministicRandomness());
+                                            final AbstractDeferredTask finalTask;
+                                            switch (getFinalTaskKind()) {
+                                                case SPLIT_MERGE:
+                                                    finalTask =
+                                                            SplitMergeTask.of(getLocator(), accessInfo, taskId,
+                                                                    targetClusterId, transformedCentroid);
+                                                    break;
+                                                case REASSIGN:
+                                                    finalTask =
+                                                            ReassignTask.of(getLocator(), accessInfo,
+                                                                    taskId, targetClusterId, transformedCentroid,
+                                                                    ImmutableSet.of());
+                                                    break;
+                                                default:
+                                                    throw new UnsupportedOperationException("unsupported kind for final task");
+                                            }
+
+                                            primitives.writeDeferredTask(transaction, finalTask);
                                             if (logger.isInfoEnabled()) {
-                                                logger.info("enqueuing final REASSIGN; taskId={}; targetClusterIds={}",
-                                                        taskIdToString(reassignTask.getTaskId()),
-                                                        reassignTask.getTargetClusterIds());
+                                                logger.info("enqueuing final task; kind={}; taskId={}; targetClusterIds={}",
+                                                        finalTask.getKind(),
+                                                        taskIdToString(finalTask.getTaskId()),
+                                                        finalTask.getTargetClusterIds());
                                             }
 
                                         }), 10, executor)
@@ -190,20 +213,21 @@ public class BounceReassignTask extends AbstractDeferredTask {
     }
 
     @Nonnull
-    static BounceReassignTask fromTuples(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                                         @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
-        Verify.verify(Kind.fromValueTuple(valueTuple) == Kind.BOUNCE_REASSIGN);
+    static BounceTask fromTuples(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
+                                 @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
+        Verify.verify(Kind.fromValueTuple(valueTuple) == Kind.BOUNCE);
 
         final Set<UUID> targetClusterIds = StorageAdapter.clusterIdsFromTuple(valueTuple.getNestedTuple(1));
         final Set<UUID> dependentTaskIds = StorageAdapter.taskIdsFromTuple(valueTuple.getNestedTuple(2));
-        return new BounceReassignTask(locator, accessInfo, keyTuple.getUUID(0),
-                targetClusterIds, dependentTaskIds);
+        final Kind finalTaskKind = Kind.valueOf(valueTuple.getString(3));
+        return new BounceTask(locator, accessInfo, keyTuple.getUUID(0),
+                targetClusterIds, dependentTaskIds, finalTaskKind);
     }
 
     @Nonnull
-    static BounceReassignTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                                 @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds,
-                                 @Nonnull final Set<UUID> dependentTaskIds) {
-        return new BounceReassignTask(locator, accessInfo, taskId, targetClusterIds, dependentTaskIds);
+    static BounceTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
+                         @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds,
+                         @Nonnull final Set<UUID> dependentTaskIds, @Nonnull final Kind finalTaskKind) {
+        return new BounceTask(locator, accessInfo, taskId, targetClusterIds, dependentTaskIds, finalTaskKind);
     }
 }

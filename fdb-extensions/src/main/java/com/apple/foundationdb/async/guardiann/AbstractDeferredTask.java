@@ -22,6 +22,8 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.common.RandomHelpers;
+import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -29,6 +31,7 @@ import org.slf4j.Logger;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -110,6 +113,37 @@ public abstract class AbstractDeferredTask {
     @Nonnull
     public abstract Kind getKind();
 
+    boolean enqueueCollapseIfNecessary(@Nonnull final Transaction transaction,
+                                       @Nonnull final SplittableRandom random,
+                                       @Nonnull final List<VectorReference> primaryVectorReferences,
+                                       @Nonnull final UUID targetClusterId,
+                                       @Nonnull final Transformed<RealVector> centroid) {
+        final Config config = getConfig();
+        final Primitives primitives = primitives();
+        final Map<UUID, Integer> collapsibleVectorsCountersMap =
+                CollapseTask.collapsibleVectorsCountersMap(primaryVectorReferences);
+        final int maximumNumberCollapsibleVectorsPerDuplicate =
+                CollapseTask.maximumNumberCollapsibleVectorsPerDuplicate(collapsibleVectorsCountersMap);
+        if (maximumNumberCollapsibleVectorsPerDuplicate > 10) {
+            final UUID collapseTaskId = AbstractDeferredTask.randomHighPriorityTaskId(random,
+                    config.isDeterministicRandomness());
+            final CollapseTask collapseTask =
+                    CollapseTask.of(getLocator(), getAccessInfo(), collapseTaskId,
+                            targetClusterId, centroid);
+            final UUID bounceTaskId = randomHighPriorityTaskId(random,
+                    config.isDeterministicRandomness());
+            primitives.writeDeferredTask(transaction, collapseTask);
+            final BounceTask bounceTask =
+                    BounceTask.of(getLocator(), getAccessInfo(), bounceTaskId,
+                            ImmutableSet.of(targetClusterId),
+                            ImmutableSet.of(collapseTaskId),
+                            AbstractDeferredTask.Kind.SPLIT_MERGE);
+            primitives.writeDeferredTask(transaction, bounceTask);
+            return true;
+        }
+        return false;
+    }
+
     @Nonnull
     static AbstractDeferredTask newFromTuples(@Nonnull final Locator locator,
                                               @Nonnull final AccessInfo accessInfo,
@@ -174,7 +208,7 @@ public abstract class AbstractDeferredTask {
     public enum Kind {
         SPLIT_MERGE(0, SplitMergeTask::fromTuples),
         REASSIGN(1, ReassignTask::fromTuples),
-        BOUNCE_REASSIGN(2, BounceReassignTask::fromTuples),
+        BOUNCE(2, BounceTask::fromTuples),
         COLLAPSE(3, CollapseTask::fromTuples);
 
         private static final Map<Integer, Kind> BY_CODE =
