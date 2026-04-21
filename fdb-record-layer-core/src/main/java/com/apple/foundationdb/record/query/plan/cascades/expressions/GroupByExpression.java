@@ -573,10 +573,15 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
         if (!unmatchedCandidateValues.isEmpty()) {
             Verify.verify(candidateGroupingValues.size() > translatedGroupingValuesSet.size());
 
-            if (!AggregateIndexExpansionVisitor.compatibleRollUpGroupingValues(
-                    candidateGroupingValues, translatedGroupingValues, valueEquivalence)) {
+            final var compatibleRollUpConstraint = AggregateIndexExpansionVisitor.compatibleRollUpGroupingValues(
+                    candidateGroupingValues, translatedGroupingValues, valueEquivalence);
+            if (compatibleRollUpConstraint.isFalse()) {
                 return SubsumedGroupingsResult.noSubsumption();
             }
+
+            // The compatibleRollUpConstraint and booleanWithConstraint are both derived from the semantic equivalence
+            // between the translatedGroupingValues and the candidateGroupingValues.
+            Verify.verify(compatibleRollUpConstraint.equals(booleanWithConstraint));
 
             return SubsumedGroupingsResult.of(booleanWithConstraint, matchedGroupingsMap, translatedGroupingValues);
         }
