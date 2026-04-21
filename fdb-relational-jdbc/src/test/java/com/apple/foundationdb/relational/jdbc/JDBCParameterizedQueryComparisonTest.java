@@ -237,40 +237,6 @@ public class JDBCParameterizedQueryComparisonTest {
                 Assertions.assertArrayEquals((byte[])expected, (byte[])actual, message);
             }
         },
-        INTEGER_ARRAY("integer array", "", null) {
-            @Nonnull
-            @Override
-            Object createValue(@Nonnull Connection conn, @Nonnull Random random) throws SQLException {
-                int count = random.nextInt(5) + 1;
-                Object[] elements = new Object[count];
-                for (int i = 0; i < count; i++) {
-                    elements[i] = random.nextInt();
-                }
-                return conn.createArrayOf("INTEGER", elements);
-            }
-
-            @Override
-            void setTyped(@Nonnull PreparedStatement statement, int parameterIndex, @Nonnull Object val) throws SQLException {
-                statement.setArray(parameterIndex, (Array)val);
-            }
-
-            @Nonnull
-            @Override
-            Object getTyped(@Nonnull ResultSet resultSet, int columnIndex) throws SQLException {
-                return resultSet.getArray(columnIndex);
-            }
-
-            @Override
-            void assertEquals(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
-                try {
-                    List<Object> expectedElements = extractArrayElements(expected);
-                    List<Object> actualElements = extractArrayElements(actual);
-                    Assertions.assertEquals(expectedElements, actualElements, message);
-                } catch (SQLException e) {
-                    throw new AssertionError(message + ": failed to extract array", e);
-                }
-            }
-        },
         STRUCT("MyStruct", "CREATE TYPE AS STRUCT MyStruct (f0 bigint, f1 string)", null) {
             @Nonnull
             @Override
@@ -467,8 +433,7 @@ public class JDBCParameterizedQueryComparisonTest {
                                         boolean insertWithJdbc, boolean readWithJdbc) throws Exception {
         Assumptions.assumeFalse(testCase == TypeTestCase.STRUCT,
                 "createArrayOf does not support STRUCT in either implementation");
-        Assumptions.assumeFalse(testCase == TypeTestCase.INTEGER_ARRAY,
-                "array array is not supported by DDL");
+        // "array array" is not supported in the DDL, if it is we should add test coverage of that
 
         final Random random = new Random(seed);
         createSchema(testCase.columnDdl + " array", testCase.extraTypeDdl);
