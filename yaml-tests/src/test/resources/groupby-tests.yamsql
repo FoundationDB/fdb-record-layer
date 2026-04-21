@@ -193,7 +193,7 @@ test_block:
       - error: "42702"
     -
       - query: SELECT COUNT(*) from T1 WHERE col1 = 20 or col2 = 5
-      - explain: "ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c11 AS LONG) OR _.COL2 EQUALS promote(@c15 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) OR _.COL2 EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{!l 9}]
     -
       # This used to be planned as a union with an unordered distinct by primary key on top of it, which led
@@ -202,7 +202,7 @@ test_block:
       # but without the state of the already seen primary keys, leading to it not being filtered.
       - query: SELECT COUNT(*) from T1 WHERE col1 = 20 or col2 = 10
       - supported_version: !current_version
-      - explain: "ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c11 AS LONG) OR _.COL2 EQUALS promote(@c15 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) OR _.COL2 EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{!l 8}]
 ---
 test_block:

@@ -29,12 +29,15 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.annotations.VisibleForTesting;
@@ -46,6 +49,7 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -109,6 +113,8 @@ public abstract class IndexPredicate {
             return new NotPredicate(proto.getNotPredicate());
         } else if (proto.hasValuePredicate()) {
             return new ValuePredicate(proto.getValuePredicate());
+        } else if (proto.hasRowNumberWindowPredicate()) {
+            return new RowNumberWindowPredicate(proto.getRowNumberWindowPredicate());
         } else {
             throw new RecordCoreException("attempt to deserialize unsupported predicate").addLogInfo(LogMessageKeys.VALUE, proto);
         }
@@ -132,10 +138,69 @@ public abstract class IndexPredicate {
         } else if (queryPredicate instanceof com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate) {
             return new OrPredicate((com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate)queryPredicate);
         } else if (queryPredicate instanceof com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate) {
-            return new ValuePredicate((com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate)queryPredicate);
+            final var valuePredicate = (com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate)queryPredicate;
+            final var maybeQualify = tryFromRowNumberPredicate(valuePredicate);
+            if (maybeQualify != null) {
+                return maybeQualify;
+            }
+            return new ValuePredicate(valuePredicate);
         } else {
             throw new RecordCoreException("attempt to construct index predicate PoJo from unsupported query predicate").addLogInfo(LogMessageKeys.VALUE, queryPredicate);
         }
+    }
+
+    /**
+     * Attempts to convert a {@link com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate}
+     * wrapping a {@link RowNumberValue} with a field ordering and a constant size comparison into
+     * a {@link RowNumberWindowPredicate}.
+     *
+     * <p>Expected pattern: {@code ROW_NUMBER() OVER (ORDER BY field ASC) <= size}.</p>
+     *
+     * @param valuePredicate the value predicate to inspect
+     * @return a {@link RowNumberWindowPredicate} if the pattern matches, or {@code null} otherwise
+     */
+    @javax.annotation.Nullable
+    private static RowNumberWindowPredicate tryFromRowNumberPredicate(
+            @Nonnull final com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate valuePredicate) {
+        if (!(valuePredicate.getValue() instanceof RowNumberValue)) {
+            return null;
+        }
+        final var rowNumberValue = (RowNumberValue)valuePredicate.getValue();
+        final var argumentValues = rowNumberValue.getArgumentValues();
+        if (argumentValues.size() != 1 || !(argumentValues.get(0) instanceof FieldValue)) {
+            return null;
+        }
+        final var fieldValue = (FieldValue)argumentValues.get(0);
+        final var fieldNames = fieldValue.getFieldPathNames();
+        if (fieldNames.isEmpty()) {
+            return null;
+        }
+        final var comparison = valuePredicate.getComparison();
+        if (comparison.getType() != Comparisons.Type.LESS_THAN_OR_EQUALS) {
+            return null;
+        }
+        final Object comparand = comparison.getComparand();
+        if (!(comparand instanceof Number)) {
+            return null;
+        }
+        final int size = ((Number)comparand).intValue();
+
+        // Extract partition fields from the RowNumberValue's partitioning values
+        final var partitionValues = rowNumberValue.getPartitioningValues();
+        final ImmutableList.Builder<List<String>> partitionFieldPaths = ImmutableList.builder();
+        for (Value pv : partitionValues) {
+            if (!(pv instanceof FieldValue)) {
+                return null;
+            }
+            final var partFieldNames = ((FieldValue)pv).getFieldPathNames();
+            if (partFieldNames.isEmpty()) {
+                return null;
+            }
+            partitionFieldPaths.add(partFieldNames);
+        }
+
+        return new RowNumberWindowPredicate(fieldNames, RowNumberWindowPredicate.Direction.ASC, size,
+                partitionFieldPaths.build());
     }
 
     /**
@@ -155,12 +220,71 @@ public abstract class IndexPredicate {
             return StreamSupport.stream(predicate.getChildren().spliterator(), false).allMatch(IndexPredicate::isSupported);
         } else if (predicate instanceof com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate) {
             final var valuePredicate = (com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate)predicate;
+            if (tryFromRowNumberPredicate(valuePredicate) != null) {
+                return true;
+            }
             return IndexComparison.isSupported(valuePredicate.getComparison()) &&
                    valuePredicate.getValue() instanceof FieldValue &&
                    ((FieldValue)valuePredicate.getValue()).getFieldPathNamesMaybe().stream().allMatch(Optional::isPresent);
         } else {
             return false;
         }
+    }
+
+    /**
+     * Validates that a {@link RowNumberWindowPredicate} only appears on a pure conjunctive (AND-only) path
+     * from the root. It must never appear under an {@link OrPredicate}.
+     *
+     * @param predicate the root predicate to validate
+     * @throws RecordCoreException if a {@link RowNumberWindowPredicate} is found under a disjunction
+     */
+    public static void validateRowNumberWindowPlacement(@Nonnull final IndexPredicate predicate) {
+        if (!isValidInConjunctivePath(predicate)) {
+            throw new RecordCoreException("RowNumberWindowPredicate must not appear under a disjunction (OR)");
+        }
+    }
+
+    private static boolean isValidInConjunctivePath(@Nonnull final IndexPredicate predicate) {
+        if (predicate instanceof RowNumberWindowPredicate) {
+            return true;
+        }
+        if (predicate instanceof ConstantPredicate || predicate instanceof ValuePredicate) {
+            return true;
+        }
+        if (predicate instanceof AndPredicate) {
+            return ((AndPredicate) predicate).getChildren().stream()
+                    .allMatch(IndexPredicate::isValidInConjunctivePath);
+        }
+        if (predicate instanceof OrPredicate) {
+            // Under an OR, no QualifyRowNumber is allowed anywhere below
+            return ((OrPredicate) predicate).getChildren().stream()
+                    .allMatch(IndexPredicate::hasNoRowNumberWindow);
+        }
+        if (predicate instanceof NotPredicate) {
+            return hasNoRowNumberWindow(((NotPredicate) predicate).getValue());
+        }
+        return true;
+    }
+
+    private static boolean hasNoRowNumberWindow(@Nonnull final IndexPredicate predicate) {
+        if (predicate instanceof RowNumberWindowPredicate) {
+            return false;
+        }
+        if (predicate instanceof ConstantPredicate || predicate instanceof ValuePredicate) {
+            return true;
+        }
+        if (predicate instanceof AndPredicate) {
+            return ((AndPredicate) predicate).getChildren().stream()
+                    .allMatch(IndexPredicate::hasNoRowNumberWindow);
+        }
+        if (predicate instanceof OrPredicate) {
+            return ((OrPredicate) predicate).getChildren().stream()
+                    .allMatch(IndexPredicate::hasNoRowNumberWindow);
+        }
+        if (predicate instanceof NotPredicate) {
+            return hasNoRowNumberWindow(((NotPredicate) predicate).getValue());
+        }
+        return true;
     }
 
     /**
@@ -477,6 +601,216 @@ public abstract class IndexPredicate {
         @Override
         public String toString() {
             return '(' + fieldPath.stream().collect(Collectors.joining("/")) + ' ' + comparison + ") ";
+        }
+    }
+
+    /**
+     * A predicate that qualifies records based on their row number position when sorted by a field path.
+     * Syntax: {@code QualifyRowNumber(fieldPath, direction) <= size}.
+     *
+     * <p>For example, {@code QualifyRowNumber(score, DESC) <= 100} keeps the 100 records with
+     * the highest {@code score} values in the index.</p>
+     *
+     * <ul>
+     *     <li>{@code ASC}: keeps the smallest values (lowest row numbers in ascending order)</li>
+     *     <li>{@code DESC}: keeps the largest values (lowest row numbers in descending order)</li>
+     * </ul>
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public static class RowNumberWindowPredicate extends IndexPredicate {
+
+        /**
+         * Sort direction for the qualifying field.
+         */
+        public enum Direction {
+            ASC,
+            DESC
+        }
+
+        @Nonnull
+        private final List<String> orderingField;
+        private final int size;
+        @Nonnull
+        private final Direction direction;
+        @Nonnull
+        private final List<List<String>> partitionFieldPaths;
+
+        public RowNumberWindowPredicate(@Nonnull final List<String> orderingField, @Nonnull final Direction direction,
+                                        int size, @Nonnull final List<List<String>> partitionFieldPaths) {
+            this.orderingField = ImmutableList.copyOf(orderingField);
+            this.direction = direction;
+            this.size = size;
+            this.partitionFieldPaths = partitionFieldPaths.stream()
+                    .map(ImmutableList::copyOf)
+                    .collect(ImmutableList.toImmutableList());
+        }
+
+        public RowNumberWindowPredicate(@Nonnull final List<String> orderingField, @Nonnull final Direction direction, int size) {
+            this(orderingField, direction, size, ImmutableList.of());
+        }
+
+        public RowNumberWindowPredicate(@Nonnull final String fieldName, @Nonnull final Direction direction, int size) {
+            this(ImmutableList.of(fieldName), direction, size, ImmutableList.of());
+        }
+
+        public RowNumberWindowPredicate(@Nonnull final RecordMetaDataProto.RowNumberWindowPredicate proto) {
+            this.orderingField = ImmutableList.copyOf(proto.getOrderingFieldList());
+            this.size = proto.getSize();
+            switch (proto.getDirection()) {
+                case ASC:
+                    this.direction = Direction.ASC;
+                    break;
+                case DESC:
+                    this.direction = Direction.DESC;
+                    break;
+                default:
+                    throw new RecordCoreException("unknown RowNumberWindowPredicate direction")
+                            .addLogInfo(LogMessageKeys.VALUE, proto.getDirection());
+            }
+            this.partitionFieldPaths = proto.getPartitionFieldsList().stream()
+                    .map(fp -> ImmutableList.copyOf(fp.getFieldList()))
+                    .collect(ImmutableList.toImmutableList());
+        }
+
+        @Nonnull
+        public List<String> getOrderingField() {
+            return orderingField;
+        }
+
+        /**
+         * Returns the simple field name. Convenience method for single-element ordering fields.
+         * @return the first (and only) element of the ordering field path
+         * @throws RecordCoreException if the field path has more than one element
+         */
+        @Nonnull
+        public String getFieldName() {
+            Verify.verify(orderingField.size() == 1, "getFieldName() called on multi-element ordering field: %s", orderingField);
+            return orderingField.get(0);
+        }
+
+        public int getSize() {
+            return size;
+        }
+
+        @Nonnull
+        public Direction getDirection() {
+            return direction;
+        }
+
+        @Nonnull
+        public List<List<String>> getPartitionFieldPaths() {
+            return partitionFieldPaths;
+        }
+
+        @Nonnull
+        public KeyExpression getOrderingKey() {
+            return fieldPathToKeyExpression(orderingField);
+        }
+
+        /**
+         * Builds a {@link KeyExpression} for the partition key from the partition field paths.
+         * Returns {@code null} if there are no partition fields.
+         */
+        @javax.annotation.Nullable
+        public KeyExpression getPartitionKey() {
+            if (partitionFieldPaths.isEmpty()) {
+                return null;
+            }
+            if (partitionFieldPaths.size() == 1) {
+                return fieldPathToKeyExpression(partitionFieldPaths.get(0));
+            }
+            KeyExpression result = fieldPathToKeyExpression(partitionFieldPaths.get(0));
+            for (int i = 1; i < partitionFieldPaths.size(); i++) {
+                result = Key.Expressions.concat(result, fieldPathToKeyExpression(partitionFieldPaths.get(i)));
+            }
+            return result;
+        }
+
+        /**
+         * Returns the total number of columns in the partition key.
+         */
+        public int getPartitionKeyColumnSize() {
+            if (partitionFieldPaths.isEmpty()) {
+                return 0;
+            }
+            final KeyExpression pk = getPartitionKey();
+            return pk != null ? pk.getColumnSize() : 0;
+        }
+
+        @Override
+        public <M extends Message> boolean shouldIndexThisRecord(@Nonnull FDBRecordStore store, @Nonnull final FDBIndexableRecord<M> savedRecord) {
+            return true;
+        }
+
+        @Nonnull
+        @Override
+        public RecordMetaDataProto.Predicate toProto() {
+            final RecordMetaDataProto.RowNumberWindowPredicate.Direction protoDirection =
+                    direction == Direction.ASC
+                            ? RecordMetaDataProto.RowNumberWindowPredicate.Direction.ASC
+                            : RecordMetaDataProto.RowNumberWindowPredicate.Direction.DESC;
+            final RecordMetaDataProto.RowNumberWindowPredicate.Builder builder =
+                    RecordMetaDataProto.RowNumberWindowPredicate.newBuilder()
+                            .addAllOrderingField(orderingField)
+                            .setSize(size)
+                            .setDirection(protoDirection);
+            for (List<String> partitionPath : partitionFieldPaths) {
+                builder.addPartitionFields(RecordMetaDataProto.FieldPath.newBuilder()
+                        .addAllField(partitionPath)
+                        .build());
+            }
+            return RecordMetaDataProto.Predicate.newBuilder()
+                    .setRowNumberWindowPredicate(builder.build())
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public QueryPredicate toPredicate(@Nonnull final Value value) {
+            return com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate.TRUE;
+        }
+
+        @Override
+        public String toString() {
+            final StringBuilder sb = new StringBuilder("QualifyRowNumber(");
+            if (!partitionFieldPaths.isEmpty()) {
+                sb.append("PARTITION BY ");
+                sb.append(partitionFieldPaths.stream()
+                        .map(fp -> String.join(".", fp))
+                        .collect(Collectors.joining(", ")));
+                sb.append(" ORDER BY ");
+            }
+            sb.append(String.join(".", orderingField));
+            sb.append(", ").append(direction).append(") <= ").append(size);
+            return sb.toString();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            RowNumberWindowPredicate that = (RowNumberWindowPredicate) o;
+            return size == that.size && direction == that.direction
+                    && orderingField.equals(that.orderingField)
+                    && partitionFieldPaths.equals(that.partitionFieldPaths);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(orderingField, direction, size, partitionFieldPaths);
+        }
+
+        @Nonnull
+        private static KeyExpression fieldPathToKeyExpression(@Nonnull List<String> path) {
+            KeyExpression result = Key.Expressions.field(path.get(path.size() - 1));
+            for (int i = path.size() - 2; i >= 0; i--) {
+                result = Key.Expressions.field(path.get(i)).nest(result);
+            }
+            return result;
         }
     }
 }

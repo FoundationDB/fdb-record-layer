@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.DefaultQueryPredicateRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateWithCnfRuleSet;
@@ -58,6 +59,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.values.ValueTest
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -390,5 +392,32 @@ public class QueryPredicateTest {
                 Simplification.optimize(predicate, EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(),
                         QueryPredicateWithDnfRuleSet.ofSimplificationRules()).get();
         assertEquals(expectedSimplifiedPredicate, simplifiedPredicate);
+    }
+
+    /**
+     * Tests that {@link AndPredicate#and} retains placeholders.
+     *
+     * <p>A {@link Placeholder} with no range constraints reports {@code isTautology() == true} because it accepts every
+     * value. The tautology filter in {@code and()} must not drop such placeholders, as they are necessary for correct
+     * index matching.
+     */
+    @Test
+    void andRetainsPlaceholders() {
+        final var alias = CorrelationIdentifier.of("p0");
+        final var value = LiteralValue.ofScalar(42);
+        final Placeholder placeholder = Placeholder.newInstanceWithoutRanges(value, alias);
+
+        // Sanity-check that the placeholder indeed claims to be a tautology.
+        assertTrue(placeholder.isTautology());
+
+        // A conjunction of only an unconstrained placeholder is simplified to just that (not collapsed to TRUE).
+        final QueryPredicate pred1 = AndPredicate.and(List.of(placeholder));
+        assertSame(placeholder, pred1);
+
+        // Mixing a placeholder with a real predicate. The resulting `AndPredicate` must contain the placeholder.
+        final var pred2 = new ValuePredicate(value, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 42));
+        final QueryPredicate pred3 = AndPredicate.and(List.of(placeholder, pred2));
+        assertTrue(pred3 instanceof AndPredicate);
+        assertTrue(((AndPredicate)pred3).getChildren().contains(placeholder));
     }
 }

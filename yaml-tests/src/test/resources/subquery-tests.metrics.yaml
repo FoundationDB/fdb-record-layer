@@ -1,28 +1,28 @@
 subquery-tests:
 -   query: EXPLAIN select ida from a where exists (select ida from a where ida = 1);
     ref: subquery-tests.yamsql:44
-    explain: SCAN([IS A, EQUALS promote(@c14 AS INT)]) | MAP (_.IDA AS IDA) | DEFAULT
+    explain: SCAN([IS A, EQUALS promote(@c15 AS INT)]) | MAP (_.IDA AS IDA) | DEFAULT
         NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS A]) AS q1 RETURN (q1.IDA
         AS IDA) }
     task_count: 478
-    task_total_time_ms: 244
+    task_total_time_ms: 61
     transform_count: 131
-    transform_time_ms: 111
+    transform_time_ms: 18
     transform_yield_count: 33
-    insert_time_ms: 12
+    insert_time_ms: 2
     insert_new_count: 52
     insert_reused_count: 3
 -   query: EXPLAIN select idx from x where exists (select x from a where ida = 1);
     ref: subquery-tests.yamsql:51
-    explain: SCAN([IS A, EQUALS promote(@c14 AS INT)]) | MAP (_.X AS X) | DEFAULT
+    explain: SCAN([IS A, EQUALS promote(@c15 AS INT)]) | MAP (_.X AS X) | DEFAULT
         NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS X]) AS q1 RETURN (q1.IDX
         AS IDX) }
     task_count: 506
-    task_total_time_ms: 244
+    task_total_time_ms: 195
     transform_count: 140
-    transform_time_ms: 113
+    transform_time_ms: 101
     transform_yield_count: 38
-    insert_time_ms: 13
+    insert_time_ms: 10
     insert_new_count: 55
     insert_reused_count: 3
 -   query: EXPLAIN select x from a where exists (select a.x, max(idb) from b where
@@ -33,11 +33,11 @@ subquery-tests:
         AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X
         AS X) }
     task_count: 601
-    task_total_time_ms: 219
+    task_total_time_ms: 182
     transform_count: 170
-    transform_time_ms: 119
+    transform_time_ms: 107
     transform_yield_count: 46
-    insert_time_ms: 4
+    insert_time_ms: 3
     insert_new_count: 57
     insert_reused_count: 1
 -   query: EXPLAIN select x from a where exists (select x, max(idb) from b where q
@@ -48,9 +48,9 @@ subquery-tests:
         AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X
         AS X) }
     task_count: 601
-    task_total_time_ms: 94
+    task_total_time_ms: 81
     transform_count: 170
-    transform_time_ms: 45
+    transform_time_ms: 35
     transform_yield_count: 46
     insert_time_ms: 2
     insert_new_count: 57
@@ -63,11 +63,11 @@ subquery-tests:
         AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL
         AS q0 RETURN (q0.X AS X) }
     task_count: 601
-    task_total_time_ms: 216
+    task_total_time_ms: 176
     transform_count: 170
-    transform_time_ms: 132
+    transform_time_ms: 102
     transform_yield_count: 46
-    insert_time_ms: 5
+    insert_time_ms: 3
     insert_new_count: 57
     insert_reused_count: 1
 -   query: EXPLAIN select x from a where exists (select max(a.x), max(idb) from b
@@ -78,24 +78,24 @@ subquery-tests:
         AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL
         AS q0 RETURN (q0.X AS X) }
     task_count: 601
-    task_total_time_ms: 215
+    task_total_time_ms: 82
     transform_count: 170
-    transform_time_ms: 115
+    transform_time_ms: 36
     transform_yield_count: 46
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 57
     insert_reused_count: 1
 -   query: EXPLAIN select sq.idr, sq.z from (select * from r where idr = 1) sq, (select
         f from sq.nr where f > 10) sq2 where sq.z = 10 AND sq2.f is not null
     ref: subquery-tests.yamsql:88
-    explain: ISCAN(IR [EQUALS @c17, EQUALS promote(@c31 AS INT)]) | FLATMAP q0 ->
-        { EXPLODE q0.NR | FILTER _.F GREATER_THAN @c31 AND _.F NOT_NULL AS q1 RETURN
-        (q0.IDR AS IDR, q0.Z AS Z) }
-    task_count: 886
-    task_total_time_ms: 171
-    transform_count: 235
-    transform_time_ms: 67
-    transform_yield_count: 77
-    insert_time_ms: 20
-    insert_new_count: 176
-    insert_reused_count: 20
+    explain: ISCAN(IR [EQUALS promote(@c18 AS INT), EQUALS promote(@c32 AS INT)])
+        | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN promote(@c32 AS
+        INT) AND _.F NOT_NULL AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }
+    task_count: 907
+    task_total_time_ms: 261
+    transform_count: 242
+    transform_time_ms: 107
+    transform_yield_count: 79
+    insert_time_ms: 40
+    insert_new_count: 165
+    insert_reused_count: 19

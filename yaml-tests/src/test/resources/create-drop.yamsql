@@ -57,7 +57,7 @@ test_block:
   tests:
     -
       - query: select count(*) from "TEMPLATES" where template_name = 'TEMP1'
-      - explain: "SCAN([IS TEMPLATES, EQUALS promote(@c11 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "SCAN([IS TEMPLATES, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{1}]
 ---
 setup:
@@ -97,7 +97,7 @@ test_block:
   tests:
     -
       - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
-      - explain: "SCAN([IS DATABASES, EQUALS promote(@c11 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "SCAN([IS DATABASES, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{1}]
 ---
 setup:
@@ -163,7 +163,7 @@ test_block:
   tests:
     -
       - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
-      - explain: "SCAN([IS SCHEMAS, EQUALS promote(@c11 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "SCAN([IS SCHEMAS, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{1}]
 ---
 setup:

@@ -108,16 +108,16 @@ test_block:
       - unorderedResult: [{ ID: 100 }]
     -
       - query: select id from t1 where coalesce(a.a.a, 'blah') = 'a1'
-      - explain: "ISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c14 AS STRING)) EQUALS promote(@c17 AS STRING) | MAP (_.ID AS ID)"
+      - explain: "ISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c13 AS STRING)) EQUALS promote(@c16 AS STRING) | MAP (_.ID AS ID)"
       - unorderedResult: [{ ID: 100 }, { ID: 101 }, { ID: 102 }, { ID: 103 }]
     -
       - query: select id from t1 where coalesce(a.a.a, 'blah') = 'a1p'
-      - explain: "ISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c14 AS STRING)) EQUALS promote(@c17 AS STRING) | MAP (_.ID AS ID)"
+      - explain: "ISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c13 AS STRING)) EQUALS promote(@c16 AS STRING) | MAP (_.ID AS ID)"
       - unorderedResult: [{ ID: 104 }, { ID: 105 }, { ID: 106 }, { ID: 107 }]
     -
       # As 'blah' is not nullable, so this predicate could be simplified to TRUE
       - query: select id from t1 where coalesce(a.a.a, 'blah') IS NOT NULL
-      - explain: "ISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c14 AS STRING)) NOT_NULL | MAP (_.ID AS ID)"
+      - explain: "ISCAN(I1 <,>) | FILTER coalesce_string(_.A.A.A, promote(@c13 AS STRING)) NOT_NULL | MAP (_.ID AS ID)"
       - unorderedResult: [{ ID: 100 }, { ID: 101 }, { ID: 102 }, { ID: 103 }, { ID: 104 }, { ID: 105 }, { ID: 106 }, { ID: 107 }]
     -
       # The coalesce could be removed and replaced with a simple field access
@@ -126,16 +126,16 @@ test_block:
       - unorderedResult: [{ ID: 100 }, { ID: 101 }, { ID: 102 }, { ID: 103 }, { ID: 104 }, { ID: 105 }, { ID: 106 }, { ID: 107 }]
     -
       - query: select id from t1 where coalesce(a.b.a, 'a2') = 'a2'
-      - explain: "ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING)) EQUALS promote(@c14 AS STRING) | MAP (_.ID AS ID)"
+      - explain: "ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING)) EQUALS promote(@c13 AS STRING) | MAP (_.ID AS ID)"
       - unorderedResult: [ { ID: 100 }, { ID: 101 }, { ID: 102 }, { ID: 103 }, { ID: 107 }]
     -
       - query: select id from t1 where coalesce(a.b.a, 'foo') = 'foo'
-      - explain: "ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING)) EQUALS promote(@c14 AS STRING) | MAP (_.ID AS ID)"
+      - explain: "ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING)) EQUALS promote(@c13 AS STRING) | MAP (_.ID AS ID)"
       - unorderedResult: [{ ID: 103 }, { ID: 107 }]
     -
       # One of the two coalesce values is not null, so this could be simplified to FALSE
       - query: select id from t1 where coalesce(a.b.a, 'foo') IS NULL
-      - explain: "ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING)) IS_NULL | MAP (_.ID AS ID)"
+      - explain: "ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING)) IS_NULL | MAP (_.ID AS ID)"
       - result: []
     -
       # This cannot be simplified to FALSE, as both of the coalesce values are nullable. We could however remove the coalesce entirely
@@ -145,24 +145,24 @@ test_block:
     -
       # One of the two coalesce values is not null, so this could be simplified to TRUE
       - query: select id from t1 where coalesce(a.b.a, 'foo') IS NOT NULL
-      - explain: "ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c14 AS STRING)) NOT_NULL | MAP (_.ID AS ID)"
+      - explain: "ISCAN(I1 <,>) | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING)) NOT_NULL | MAP (_.ID AS ID)"
       - unorderedResult: [{ ID: 100 }, { ID: 101 }, { ID: 102 }, { ID: 103 }, { ID: 104 }, { ID: 105 }, { ID: 106 }, { ID: 107 }]
     -
       - query: select id from t1 where coalesce(b.a.b, 3) = 3
-      - explain: "ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG)) EQUALS promote(@c14 AS LONG) | MAP (_.ID AS ID)"
+      - explain: "ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG)) EQUALS promote(@c13 AS LONG) | MAP (_.ID AS ID)"
       - unorderedResult: [{ ID: 100 }, { ID: 101 }, { ID: 102 }, { ID: 103 }, { ID: 104 }, { ID: 105 }, { ID: 106 }, { ID: 107 }]
     -
       - query: select id from t1 where coalesce(b.a.b, 42) = 42
-      - explain: "ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG)) EQUALS promote(@c14 AS LONG) | MAP (_.ID AS ID)"
+      - explain: "ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG)) EQUALS promote(@c13 AS LONG) | MAP (_.ID AS ID)"
       - unorderedResult: [{ ID: 102 }, { ID: 103 }, { ID: 104 }, { ID: 105 }, { ID: 106 }, { ID: 107 }]
     -
       # One of the two coalesce values is not null, so this could be simplified to FALSE
       - query: select id from t1 where coalesce(b.a.b, 42) IS NULL
-      - explain: "ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG)) IS_NULL | MAP (_.ID AS ID)"
+      - explain: "ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG)) IS_NULL | MAP (_.ID AS ID)"
       - result: []
     -
       # One of the two coalesce values is not null, so this could be simplified to TRUE
       - query: select id from t1 where coalesce(b.a.b, 42) IS NOT NULL
-      - explain: "ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c14 AS LONG)) NOT_NULL | MAP (_.ID AS ID)"
+      - explain: "ISCAN(I1 <,>) | FILTER coalesce_long(_.B.A.B, promote(@c13 AS LONG)) NOT_NULL | MAP (_.ID AS ID)"
       - unorderedResult: [{ ID: 100 }, { ID: 101 }, { ID: 102 }, { ID: 103 }, { ID: 104 }, { ID: 105 }, { ID: 106 }, { ID: 107 }]
 ...

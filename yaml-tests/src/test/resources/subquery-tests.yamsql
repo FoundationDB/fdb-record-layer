@@ -41,14 +41,14 @@ test_block:
     -
       # non correlated subquery, resolving alias should be fine.
       - query: select ida from a where exists (select ida from a where ida = 1);
-      - explain: "SCAN([IS A, EQUALS promote(@c15 AS INT)]) | MAP (_.IDA AS IDA) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS A]) AS q1 RETURN (q1.IDA AS IDA) }"
+      - explain: "SCAN([IS A, EQUALS promote(@c14 AS INT)]) | MAP (_.IDA AS IDA) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS A]) AS q1 RETURN (q1.IDA AS IDA) }"
       - result: [{1}, {2}, {3}]
     -
       # this should work albeit being seemingly ambiguous
       # upper query block resolution should kick in _iff_ we fail to resolve
       # the identifier in current query block.
       - query: select idx from x where exists (select x from a where ida = 1);
-      - explain: "SCAN([IS A, EQUALS promote(@c15 AS INT)]) | MAP (_.X AS X) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS X]) AS q1 RETURN (q1.IDX AS IDX) }"
+      - explain: "SCAN([IS A, EQUALS promote(@c14 AS INT)]) | MAP (_.X AS X) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS X]) AS q1 RETURN (q1.IDX AS IDX) }"
       - result: [{4}, {5}, {6}]
     -
       # PartiQL resolution.
@@ -85,6 +85,6 @@ test_block:
     -
       # plans with pushed-down predicates should be preferred
       - query: select sq.idr, sq.z from (select * from r where idr = 1) sq, (select f from sq.nr where f > 10) sq2 where sq.z = 10 AND sq2.f is not null
-      - explain: "ISCAN(IR [EQUALS @c18, EQUALS promote(@c32 AS INT)]) | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN @c32 AND _.F NOT_NULL AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }"
+      - explain: "ISCAN(IR [EQUALS promote(@c17 AS INT), EQUALS promote(@c31 AS INT)]) | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN promote(@c31 AS INT) AND _.F NOT_NULL AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }"
       - result: [{1, 10}, {1, 10}, {1, 10}]
 ...

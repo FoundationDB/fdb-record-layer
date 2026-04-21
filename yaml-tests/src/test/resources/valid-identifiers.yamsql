@@ -154,46 +154,46 @@ test_block:
     -
       # select from nested repeated table
       - query: select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as x where x."level1$field.3" = 20)
-      - explain: "COVERING(foo.table$nested.repeated.idx.field.1.3 [EQUALS promote(@c25 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
+      - explain: "COVERING(foo.table$nested.repeated.idx.field.1.3 [EQUALS promote(@c24 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
       - result: [{2}]
     -
       # select a nested field field on a nested repeated struct
       - query: select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as x where x."level1$field.2"."level2$field.1" = 91)
-      - explain: "COVERING(foo.table$nested.repeated.idx.field.1.2.1 [EQUALS promote(@c27 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
+      - explain: "COVERING(foo.table$nested.repeated.idx.field.1.2.1 [EQUALS promote(@c26 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
       - result: [{1}]
     -
       # select from deeply nested repeated table
       - query: select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1" = 10)
-      - explain: "COVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c27 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
+      - explain: "COVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c26 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
       - result: [{1}]
     -
       # select from nested table
       - query: select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested" where id = 1
-      - explain: "SCAN([IS foo__2table__1nested, EQUALS promote(@c12 AS LONG)]) | MAP (_.level0.field1.level1$field.1.level2$field.1 AS level2$field.1)"
+      - explain: "SCAN([IS foo__2table__1nested, EQUALS promote(@c11 AS LONG)]) | MAP (_.level0.field1.level1$field.1.level2$field.1 AS level2$field.1)"
       - result: [{10}]
     -
       # select with predicates on repeated scalar fields
       - query: select "foo.table$repeated".id from "foo.table$repeated" where 'foo' IN "foo.table$repeated"."field.1$array"
       # Ideally, this would use the index "foo.table$repeated.2". It appears to be a matching problem unrelated to the identifier choices
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3777
-      - explain: "SCAN([IS foo__2table__1repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.1$array) | FILTER @c8 EQUALS _ AS q1 RETURN (q0.ID AS ID) }"
+      - explain: "SCAN([IS foo__2table__1repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.1$array) | FILTER @c7 EQUALS _ AS q1 RETURN (q0.ID AS ID) }"
       - result: [{1}, {2}]
     -
       # select with predicates on repeated scalar fields
       - query: select "foo.table$repeated".id from "foo.table$repeated" where exists (select 1 from "foo.table$repeated"."field.1$array" r where r = 'foo')
-      - explain: "COVERING(foo.table$repeated.2 [EQUALS @c20] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
+      - explain: "COVERING(foo.table$repeated.2 [EQUALS @c19] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       # select repeated scalar fields
       - query: select t."field.1$array" from "foo.table$repeated" as t where 3 IN t."field.0$array"
       # Ideally, this would use the index "foo.table$repeated.1". It appears to be a matching problem unrelated to the identifier choices
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3777
-      - explain: "SCAN([IS foo__2table__1repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.0$array) | FILTER promote(@c10 AS LONG) EQUALS _ AS q1 RETURN (q0.field.1$array AS field.1$array) }"
+      - explain: "SCAN([IS foo__2table__1repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.0$array) | FILTER promote(@c9 AS LONG) EQUALS _ AS q1 RETURN (q0.field.1$array AS field.1$array) }"
       - result: [{["foo", "bar", "baz"]}]
     -
       # select repeated scalar fields
       - query: select t."field.1$array" from "foo.table$repeated" as t where exists (select 1 from t."field.0$array" r where r = 3)
-      - explain: "ISCAN(foo.table$repeated.1 [EQUALS promote(@c22 AS LONG)]) | MAP (_.field.1$array AS field.1$array)"
+      - explain: "ISCAN(foo.table$repeated.1 [EQUALS promote(@c21 AS LONG)]) | MAP (_.field.1$array AS field.1$array)"
       - result: [{["foo", "bar", "baz"]}]
     -
       # qualified star
@@ -319,7 +319,7 @@ test_block:
       - result: [{"__foo__tableD$D1": 1 , "__foo__tableD$D2": 20, "__foo__tableD$D3": 1}, {"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
     -
       - query: select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2;
-      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | FETCH"
+      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c10 AS LONG) | FETCH"
       - result: [{"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
     -
       - query: select "__foo__tableD"."__foo__tableD$D1" from "__foo__tableD";
@@ -331,7 +331,7 @@ test_block:
       - result: [{"__foo__tableD$D1": 1}, {"__foo__tableD$D1": 2}, {"__foo__tableD$D1": 3}, {"__foo__tableD$D1": 4}]
     -
       - query: select "__foo__tableD".* from "__foo__tableD" where "__foo__tableD$D3" >= 2 order by "__foo__tableD$D1";
-      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c11 AS LONG) | FETCH"
+      - explain: "COVERING(__foo__tableD$idx <,> -> [__foo__0tableD__1D1: KEY:[0], __foo__0tableD__1D2: KEY:[1], __foo__0tableD__1D3: KEY:[2]]) | FILTER _.__foo__tableD$D3 GREATER_THAN_OR_EQUALS promote(@c10 AS LONG) | FETCH"
       - result: [{"__foo__tableD$D1": 2, "__foo__tableD$D2": 20, "__foo__tableD$D3": 2}, {"__foo__tableD$D1": 3, "__foo__tableD$D2": 20, "__foo__tableD$D3": 3}, {"__foo__tableD$D1": 4, "__foo__tableD$D2": 20, "__foo__tableD$D3": 4}]
     -
       - query: select sum("__foo__tableD$D1") from "__foo__tableD" group by "__foo__tableD$D2";
@@ -344,29 +344,29 @@ test_block:
     # macro functions
     -
       - query: select "βήτα__f"("f__e"."foo.tableE.E3") AS "___h.1" from "foo.tableE" as "f__e" where "alpha__f"("f__e"."foo.tableE.E3") = 5
-      - explain: "SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c22 AS LONG) | MAP (_.foo.tableE.E3.S2 AS ___h.1)"
+      - explain: "SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c21 AS LONG) | MAP (_.foo.tableE.E3.S2 AS ___h.1)"
       - result: [ {"___h.1": 50 }]
     -
       - query: select "alpha__f"("f__e"."foo.tableE.E3") AS "___h.1" from "foo.tableE" as "f__e" where "βήτα__f"("f__e"."foo.tableE.E3") >= 50
-      - explain: "SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S2 GREATER_THAN_OR_EQUALS promote(@c23 AS LONG) | MAP (_.foo.tableE.E3.S1 AS ___h.1)"
+      - explain: "SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S2 GREATER_THAN_OR_EQUALS promote(@c22 AS LONG) | MAP (_.foo.tableE.E3.S1 AS ___h.1)"
       - result: [ {"___h.1": 5 }, {"___h.1": 6 }]
 
     # functions
     -
       - query: select * from "__$func3"(10, 1, 1);
-      - explain: "SCAN([IS my__1adjacency__1list, EQUALS promote(@c8 AS LONG)]) | FLATMAP q0 -> { SCAN([IS my__1adjacency__1list, [LESS_THAN promote(@c6 AS LONG)]]) | FILTER _.my__parent EQUALS promote(@c8 AS LONG) AS q1 RETURN (q1.me AS _0, q1.my__parent AS _1, q0.me AS _2, q0.my__parent AS _3) }"
+      - explain: "SCAN([IS my__1adjacency__1list, EQUALS promote(@c7 AS LONG)]) | FLATMAP q0 -> { SCAN([IS my__1adjacency__1list, [LESS_THAN promote(@c5 AS LONG)]]) | FILTER _.my__parent EQUALS promote(@c7 AS LONG) AS q1 RETURN (q1.me AS _0, q1.my__parent AS _1, q0.me AS _2, q0.my__parent AS _3) }"
       - result: [{"_0": 2, "_1": 1, "_2": 1, "_3": -1}, {"_0": 3, "_1": 1, "_2": 1, "_3": -1}, {"_0": 4, "_1": 1, "_2": 1, "_3": -1}]
     -
       - query: select * from "$yay"(5);
-      - explain: "SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c6 AS LONG) | MAP (_.foo.tableE.E1 AS _$x.id)"
+      - explain: "SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5 AS LONG) | MAP (_.foo.tableE.E1 AS _$x.id)"
       - result: [{"_$x.id": 2}]
     -
       - query: select * from "__2yay"(6);
-      - explain: "SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c6 AS LONG) | MAP (_.foo.tableE.E1 AS _$y.id)"
+      - explain: "SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5 AS LONG) | MAP (_.foo.tableE.E1 AS _$y.id)"
       - result: [{"_$y.id": 3}]
     -
       - query: select * from "नमस्त"(4);
-      - explain: "SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c6 AS LONG) | MAP (_.foo.tableE.E1 AS _$z.id)"
+      - explain: "SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5 AS LONG) | MAP (_.foo.tableE.E1 AS _$z.id)"
       - result: [{"_$z.id": 1}]
 
     # views
@@ -385,7 +385,7 @@ test_block:
     -
       # inline table definition
       - query: select * from values (1, 2, 3), (4, 5, 6) as "_$$$$"("_$$$", "_$$", "_$")
-      - explain: "EXPLODE array((@c6 AS _$$$, @c8 AS _$$, @c10 AS _$), (@c14 AS _$$$, @c16 AS _$$, @c18 AS _$))"
+      - explain: "EXPLODE array((@c5 AS _$$$, @c7 AS _$$, @c9 AS _$), (@c13 AS _$$$, @c15 AS _$$, @c17 AS _$))"
       - result: [{"_$$$": 1, "_$$": 2, "_$": 3}, { "_$$$": 4, "_$$": 5, "_$": 6}]
     -
       # named record construction
@@ -422,7 +422,7 @@ test_block:
         ]
     -
       - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'B$C';
-      - explain: "ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])"
+      - explain: "ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c7 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
       - maxRows: 0
       - result: [
@@ -448,7 +448,7 @@ test_block:
         ]
     -
       - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'C.D';
-      - explain: "ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])"
+      - explain: "ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c7 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
       - maxRows: 0
       - result: [
@@ -464,7 +464,7 @@ test_block:
         ]
     -
       - query: select * from "foo.enum.type" where "enum_type.enum__1" = 'A';
-      - explain: "ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])"
+      - explain: "ISCAN(foo.enum.type$enum__1 [EQUALS promote(@c7 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)])"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
       - maxRows: 0
       - result: [
@@ -480,7 +480,7 @@ test_block:
         ]
     -
       - query: select * from "foo.enum.type" where "enum_type.enum__2" = 'B$C';
-      - explain: "ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)"
+      - explain: "ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c7 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)"
       - unorderedResult: [
          {"enum_type.id":  1, "enum_type.enum__1": "A",     "enum_type.enum__2": "B$C"},
          {"enum_type.id":  2, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "B$C"},
@@ -491,13 +491,13 @@ test_block:
         ]
     -
       - query: select * from "foo.enum.type" where "enum_type.enum__2" = 'C.D';
-      - explain: "ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)"
+      - explain: "ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c7 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)"
       - result: [
          {"enum_type.id": 7, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "C.D"},
         ]
     -
       - query: select * from "foo.enum.type" where "enum_type.enum__2" = 'A';
-      - explain: "ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c8 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)"
+      - explain: "ISCAN(foo.enum.type$enum__1 <,>) | FILTER _.enum_type.enum__2 EQUALS promote(@c7 AS ENUM<A(0), B$C(1), C.D(2), E__F(3), __G$H(4)>)"
       - result: [
          {"enum_type.id": 6, "enum_type.enum__1": "B$C",   "enum_type.enum__2": "A"},
         ]
@@ -508,19 +508,19 @@ test_block:
   tests:
     -
       - query: UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" = 1
-      - explain: "COVERING(foo.tableA.idx [EQUALS promote(@c10 AS LONG)] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA"
+      - explain: "COVERING(foo.tableA.idx [EQUALS promote(@c9 AS LONG)] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA"
       - count: 1
     -
       - query: UPDATE "foo.tableA" SET "foo.tableA.A2" = 100 WHERE "foo.tableA.A1" > 1 RETURNING "new"."foo.tableA.A1"
-      - explain: "COVERING(foo.tableA.idx [[GREATER_THAN promote(@c10 AS LONG)]] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)"
+      - explain: "COVERING(foo.tableA.idx [[GREATER_THAN promote(@c9 AS LONG)]] -> [foo__2tableA__2A1: KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)"
       - result: [{"foo.tableA.A1" : 2}, {"foo.tableA.A1" : 3}]
     -
       - query: DELETE FROM "foo.tableA" WHERE "foo.tableA.A1" = 1 RETURNING "foo.tableA.A1" + "foo.tableA.A2" + "foo.tableA.A3"
-      - explain: "ISCAN(foo.tableA.idx [EQUALS promote(@c7 AS LONG)]) | DELETE | MAP (_.foo.tableA.A1 + _.foo.tableA.A2 + _.foo.tableA.A3 AS _0)"
+      - explain: "ISCAN(foo.tableA.idx [EQUALS promote(@c6 AS LONG)]) | DELETE | MAP (_.foo.tableA.A1 + _.foo.tableA.A2 + _.foo.tableA.A3 AS _0)"
       - result: [{102}]
     -
       - query: DELETE FROM "foo.tableA" WHERE "foo.tableA.A2" = 100
-      - explain: "ISCAN(foo.tableA.idx3 [EQUALS promote(@c7 AS LONG)]) | DELETE"
+      - explain: "ISCAN(foo.tableA.idx3 [EQUALS promote(@c6 AS LONG)]) | DELETE"
       - count: 2
 ---
 setup:
@@ -659,11 +659,11 @@ test_block:
       - result: [{"ID": 1, "T1.COL1": 10, "T1.COL2" : 1}, {"ID": 2, "T1.COL1": 10, "T1.COL2" : 2}, {"ID": 3, "T1.COL1": 10, "T1.COL2" : 3}, {"ID": 4, "T1.COL1": 10, "T1.COL2" : 4}, {"ID": 5, "T1.COL1": 10, "T1.COL2" : 5}]
     -
       - query: SELECT * FROM T1 WHERE "T1.COL2" > 3
-      - explain: "SCAN([IS T1]) | FILTER _.T1.COL2 GREATER_THAN promote(@c8 AS LONG)"
+      - explain: "SCAN([IS T1]) | FILTER _.T1.COL2 GREATER_THAN promote(@c7 AS LONG)"
       - result: [{"ID": 4, "T1.COL1": 10, "T1.COL2" : 4}, {"ID": 5, "T1.COL1": 10, "T1.COL2" : 5}]
     -
       - query: SELECT "T1.COL2" FROM T1 WHERE "T1.COL2" > 3
-      - explain: "SCAN([IS T1]) | FILTER _.T1.COL2 GREATER_THAN promote(@c8 AS LONG) | MAP (_.T1.COL2 AS T1.COL2)"
+      - explain: "SCAN([IS T1]) | FILTER _.T1.COL2 GREATER_THAN promote(@c7 AS LONG) | MAP (_.T1.COL2 AS T1.COL2)"
       - result: [{4}, {5}]
     -
       - query: SELECT * FROM T2
@@ -671,11 +671,11 @@ test_block:
       - result: [{"ID": 6, "T2$COL1": 10, "T2$COL2" : 6}, {"ID": 7, "T2$COL1": 10, "T2$COL2" : 7}, {"ID": 8, "T2$COL1": 10, "T2$COL2" : 8}, {"ID": 9, "T2$COL1": 10, "T2$COL2" : 9}, {"ID": 10, "T2$COL1": 10, "T2$COL2" : 10}]
     -
       - query: SELECT * FROM T2 WHERE "T2$COL2" > 8
-      - explain: "ISCAN(T2$T2.COL1 <,>) | FILTER _.T2$COL2 GREATER_THAN promote(@c8 AS LONG)"
+      - explain: "ISCAN(T2$T2.COL1 <,>) | FILTER _.T2$COL2 GREATER_THAN promote(@c7 AS LONG)"
       - result: [{"ID": 9, "T2$COL1": 10, "T2$COL2" : 9}, {"ID": 10, "T2$COL1": 10, "T2$COL2" : 10}]
     -
       - query: SELECT "T2$COL2" FROM T2 WHERE "T2$COL2" > 8
-      - explain: "ISCAN(T2$T2.COL1 <,>) | FILTER _.T2$COL2 GREATER_THAN promote(@c8 AS LONG) | MAP (_.T2$COL2 AS T2$COL2)"
+      - explain: "ISCAN(T2$T2.COL1 <,>) | FILTER _.T2$COL2 GREATER_THAN promote(@c7 AS LONG) | MAP (_.T2$COL2 AS T2$COL2)"
       - result: [{9}, {10}]
     -
       - query: SELECT * FROM "__T3"
@@ -689,18 +689,18 @@ test_block:
         ]
     -
       - query: SELECT * FROM "__T3" WHERE "__T3$COL2" > 13
-      - explain: "SCAN([IS __T3]) | FILTER _.__T3$COL2 GREATER_THAN promote(@c8 AS LONG)"
+      - explain: "SCAN([IS __T3]) | FILTER _.__T3$COL2 GREATER_THAN promote(@c7 AS LONG)"
       - result: [
           {"ID": 14, "__T3$COL1": 10, "__T3$COL2" : 14, "__T3$COL3": "T3.E.C"},
           {"ID": 15, "__T3$COL1": 10, "__T3$COL2" : 15, "__T3$COL3": "T3.E.A"},
         ]
     -
       - query: SELECT "__T3$COL2" FROM "__T3" WHERE "__T3$COL2" > 13
-      - explain: "SCAN([IS __T3]) | FILTER _.__T3$COL2 GREATER_THAN promote(@c8 AS LONG) | MAP (_.__T3$COL2 AS __T3$COL2)"
+      - explain: "SCAN([IS __T3]) | FILTER _.__T3$COL2 GREATER_THAN promote(@c7 AS LONG) | MAP (_.__T3$COL2 AS __T3$COL2)"
       - result: [{14}, {15}]
     -
       - query: SELECT * FROM "__func__T3$col2"(13)
-      - explain: "SCAN([IS __T3]) | FILTER _.__T3$COL2 EQUALS promote(@c6 AS LONG) | MAP (_.__T3$COL1 AS c.1, _.__T3$COL3 AS c.2)"
+      - explain: "SCAN([IS __T3]) | FILTER _.__T3$COL2 EQUALS promote(@c5 AS LONG) | MAP (_.__T3$COL1 AS c.1, _.__T3$COL3 AS c.2)"
       - result: [{ "c.1": 10, "c.2": "T3.E.B" }]
     -
       - query: SELECT * FROM T4
@@ -717,14 +717,14 @@ test_block:
         ]
     -
       - query: SELECT * FROM T4 WHERE "T4.COL2" > 18
-      - explain: "SCAN([IS T4]) | FILTER _.T4.COL2 GREATER_THAN promote(@c8 AS LONG)"
+      - explain: "SCAN([IS T4]) | FILTER _.T4.COL2 GREATER_THAN promote(@c7 AS LONG)"
       - result: [
           {"ID": 19, "___hidden": {11, 19}, "T4.COL1": 10, "T4.COL2" : 19},
           {"ID": 20, "___hidden": {22, 20}, "T4.COL1": 10, "T4.COL2" : 20},
         ]
     -
       - query: SELECT "T4.COL2" FROM T4 WHERE "T4.COL2" > 18
-      - explain: "SCAN([IS T4]) | FILTER _.T4.COL2 GREATER_THAN promote(@c8 AS LONG) | MAP (_.T4.COL2 AS T4.COL2)"
+      - explain: "SCAN([IS T4]) | FILTER _.T4.COL2 GREATER_THAN promote(@c7 AS LONG) | MAP (_.T4.COL2 AS T4.COL2)"
       - result: [{19}, {20}]
     -
       - query: SELECT * FROM "T4$view"
@@ -755,7 +755,7 @@ test_block:
         ]
     -
       - query: SELECT * FROM T5__UNESCAPED WHERE T5__COL1 = 10
-      - explain: "SCAN([IS T5__UNESCAPED]) | FILTER _.T5__COL1 EQUALS promote(@c8 AS LONG)"
+      - explain: "SCAN([IS T5__UNESCAPED]) | FILTER _.T5__COL1 EQUALS promote(@c7 AS LONG)"
       - result: [
           {"ID": 24, "T5__COL1": 10, "__T5__COL2" : 16},
           {"ID": 25, "T5__COL1": 10, "__T5__COL2" : 17},
@@ -765,7 +765,7 @@ test_block:
         ]
     -
       - query: SELECT ID, "__T5__COL2" FROM T5__UNESCAPED WHERE T5__COL1 = 10
-      - explain: "SCAN([IS T5__UNESCAPED]) | FILTER _.T5__COL1 EQUALS promote(@c10 AS LONG) | MAP (_.ID AS ID, _.__T5__COL2 AS __T5__COL2)"
+      - explain: "SCAN([IS T5__UNESCAPED]) | FILTER _.T5__COL1 EQUALS promote(@c9 AS LONG) | MAP (_.ID AS ID, _.__T5__COL2 AS __T5__COL2)"
       - result: [
           {"ID": 24, "__T5__COL2" : 16},
           {"ID": 25, "__T5__COL2" : 17},
@@ -775,7 +775,7 @@ test_block:
         ]
     -
       - query: SELECT * FROM T5__UNESCAPED WHERE "__T5__COL2" < 10
-      - explain: "SCAN([IS T5__UNESCAPED]) | FILTER _.__T5__COL2 LESS_THAN promote(@c8 AS LONG)"
+      - explain: "SCAN([IS T5__UNESCAPED]) | FILTER _.__T5__COL2 LESS_THAN promote(@c7 AS LONG)"
       - result: [
           {"ID": 29, "T5__COL1": -1, "__T5__COL2" :  5},
           {"ID": 30, "T5__COL1":  5, "__T5__COL2" : -1},
@@ -783,7 +783,7 @@ test_block:
         ]
     -
       - query: SELECT ID, "__T5__COL2" FROM T5__UNESCAPED WHERE "__T5__COL2" < 10
-      - explain: "SCAN([IS T5__UNESCAPED]) | FILTER _.__T5__COL2 LESS_THAN promote(@c10 AS LONG) | MAP (_.ID AS ID, _.__T5__COL2 AS __T5__COL2)"
+      - explain: "SCAN([IS T5__UNESCAPED]) | FILTER _.__T5__COL2 LESS_THAN promote(@c9 AS LONG) | MAP (_.ID AS ID, _.__T5__COL2 AS __T5__COL2)"
       - result: [
           {"ID": 29, "__T5__COL2" :  5},
           {"ID": 30, "__T5__COL2" : -1},
@@ -804,7 +804,7 @@ test_block:
         ]
     -
       - query: SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10
-      - explain: "ISCAN(T6$ENUM2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c8 AS LONG)"
+      - explain: "ISCAN(T6$ENUM2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c7 AS LONG)"
       - unorderedResult: [
           {"ID": 32, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 16, "T6$__ENUM_1": 'A',      "T6$__ENUM_2": 'A' },
           {"ID": 33, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 17, "T6$__ENUM_1": 'B__',    "T6$__ENUM_2": 'B__' },
@@ -814,7 +814,7 @@ test_block:
         ]
     -
       - query: SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "T6$__COL1__" = 10
-      - explain: "ISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c10 AS LONG) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)"
+      - explain: "ISCAN(T6$COL2 <,>) | FILTER _.T6$__COL1__ EQUALS promote(@c9 AS LONG) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)"
       - unorderedResult: [
           {"ID": 32, "__T6.COL2__VALUE" : 16},
           {"ID": 33, "__T6.COL2__VALUE" : 17},
@@ -824,7 +824,7 @@ test_block:
         ]
     -
       - query: SELECT * FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10
-      - explain: "ISCAN(T6$COL2 [[LESS_THAN promote(@c8 AS LONG)]])"
+      - explain: "ISCAN(T6$COL2 [[LESS_THAN promote(@c7 AS LONG)]])"
       - result: [
           {"ID": 38, "T6$__COL1__":  5, "__T6.COL2__VALUE" : -1, "T6$__ENUM_1": '__D.__', "T6$__ENUM_2": 'C__' },
           {"ID": 39, "T6$__COL1__": -1, "__T6.COL2__VALUE" : -1, "T6$__ENUM_1": 'A',      "T6$__ENUM_2": '__D.__' },
@@ -832,7 +832,7 @@ test_block:
         ]
     -
       - query: SELECT ID, "__T6.COL2__VALUE" FROM "___T6.__UNESCAPED" WHERE "__T6.COL2__VALUE" < 10
-      - explain: "COVERING(T6$COL2 [[LESS_THAN promote(@c10 AS LONG)]] -> [ID: KEY:[2], __T6__2COL2__VALUE: KEY:[0]]) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)"
+      - explain: "COVERING(T6$COL2 [[LESS_THAN promote(@c9 AS LONG)]] -> [ID: KEY:[2], __T6__2COL2__VALUE: KEY:[0]]) | MAP (_.ID AS ID, _.__T6.COL2__VALUE AS __T6.COL2__VALUE)"
       - result: [
           {"ID": 38, "__T6.COL2__VALUE" : -1},
           {"ID": 39, "__T6.COL2__VALUE" : -1},
@@ -840,21 +840,21 @@ test_block:
         ]
     -
       - query: SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_1" = '__D.__'
-      - explain: "ISCAN(T6$ENUM2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)"
+      - explain: "ISCAN(T6$ENUM2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c7 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)"
       - unorderedResult: [
           {"ID": 35, "T6$__COL1__": 10, "__T6.COL2__VALUE" : 19, "T6$__ENUM_1": '__D.__', "T6$__ENUM_2": '__D.__' },
           {"ID": 38, "T6$__COL1__":  5, "__T6.COL2__VALUE" : -1, "T6$__ENUM_1": '__D.__', "T6$__ENUM_2": 'C__' },
         ]
     -
       - query: SELECT ID, "T6$__ENUM_2" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_1" = '__D.__'
-      - explain: "ISCAN(T6$COL2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c10 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>) | MAP (_.ID AS ID, _.T6$__ENUM_2 AS T6$__ENUM_2)"
+      - explain: "ISCAN(T6$COL2 <,>) | FILTER _.T6$__ENUM_1 EQUALS promote(@c9 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>) | MAP (_.ID AS ID, _.T6$__ENUM_2 AS T6$__ENUM_2)"
       - unorderedResult: [
           {"ID": 35, "T6$__ENUM_2": '__D.__' },
           {"ID": 38, "T6$__ENUM_2": 'C__' },
         ]
     -
       - query: SELECT * FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
-      - explain: "ISCAN(T6$ENUM2 [EQUALS promote(@c8 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])"
+      - explain: "ISCAN(T6$ENUM2 [EQUALS promote(@c7 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)])"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
       - maxRows: 0
       - result: [
@@ -872,7 +872,7 @@ test_block:
         ]
     -
       - query: SELECT ID, "T6$__ENUM_1" FROM "___T6.__UNESCAPED" WHERE "T6$__ENUM_2" = '__D.__'
-      - explain: "ISCAN(T6$ENUM2 [EQUALS promote(@c10 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)]) | MAP (_.ID AS ID, _.T6$__ENUM_1 AS T6$__ENUM_1)"
+      - explain: "ISCAN(T6$ENUM2 [EQUALS promote(@c9 AS ENUM<A(0), B__(1), C__(2), __D.__(3)>)]) | MAP (_.ID AS ID, _.T6$__ENUM_1 AS T6$__ENUM_1)"
       # Disable force_continuations on this plan until we resolve: https://github.com/FoundationDB/fdb-record-layer/issues/3734
       - maxRows: 0
       - result: [

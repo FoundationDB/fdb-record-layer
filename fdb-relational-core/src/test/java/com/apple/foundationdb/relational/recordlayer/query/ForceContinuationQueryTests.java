@@ -45,23 +45,25 @@ public class ForceContinuationQueryTests {
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     private static final String getTemplate_definition =
-            "create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))\n" +
-                    "create index mv1 as select count(*) from t1\n" +
-                    "create index mv2 as select count(*) from t1 group by col2\n" +
-                    "create index mv3 as select count(col1) from t1\n" +
-                    "create index mv4 as select count(col1) from t1 group by col2\n" +
+            """
+            create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+            create index mv1 as select count(*) from t1
+            create index mv2 as select count(*) from t1 group by col2
+            create index mv3 as select count(col1) from t1
+            create index mv4 as select count(col1) from t1 group by col2
 
-                    "create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))\n" +
-                    "create index mv5 as select col2 from t2\n" +
-                    "create index mv7 as select min_ever(col3) from t2\n" +
+            create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
+            create index mv5 as select col2 from t2
+            create index mv7 as select min_ever(col3) from t2
 
-                    "create table t3(id bigint, col1 bigint, col2 bigint, primary key(id))\n" +
-                    "create index t3_i1 as select count(*) from t3\n" +
-                    "create index t3_i2 as select count(*) from t3 group by col1\n" +
-                    "create index t3_i3 as select count(col2) from t3\n" +
-                    "create index t3_i4 as select count(col2) from t3 group by col1\n" +
-                    "create index t3_i5 as select sum(col1) from t3\n" +
-                    "create index t3_i6 as select sum(col1) from t3 group by col2";
+            create table t3(id bigint, col1 bigint, col2 bigint, primary key(id))
+            create index t3_i1 as select count(*) from t3
+            create index t3_i2 as select count(*) from t3 group by col1
+            create index t3_i3 as select count(col2) from t3
+            create index t3_i4 as select count(col2) from t3 group by col1
+            create index t3_i5 as select sum(col1) from t3
+            create index t3_i6 as select sum(col1) from t3 group by col2
+            """;
 
     @RegisterExtension
     @Order(1)
