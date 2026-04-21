@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.StructMetaData;
-import com.apple.foundationdb.relational.yamltests.ArrayType;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
@@ -99,13 +98,15 @@ public class CheckResultMetadataConfig extends QueryConfig {
         for (int i = 1; i <= count; i++) {
             final int type = metaData.getColumnType(i);
             if (type == Types.STRUCT) {
+                final StructMetaData structMeta = metaData.getStructMetaData(i);
                 descriptors.add(new ColumnDescriptor(metaData.getColumnName(i), "STRUCT",
-                        extractDescriptors(metaData.getStructMetaData(i)), false));
+                        structMeta.getTypeName(), extractDescriptors(structMeta), false));
             } else if (type == Types.ARRAY) {
                 final ArrayMetaData arrayMeta = metaData.getArrayMetaData(i);
                 if (arrayMeta.getElementType() == Types.STRUCT) {
-                    descriptors.add(ColumnDescriptor.forArrayOfStruct(metaData.getColumnName(i),
-                            extractDescriptors(arrayMeta.getElementStructMetaData())));
+                    final StructMetaData elemStructMeta = arrayMeta.getElementStructMetaData();
+                    descriptors.add(new ColumnDescriptor(metaData.getColumnName(i), "ARRAY(STRUCT)",
+                            elemStructMeta.getTypeName(), extractDescriptors(elemStructMeta), true));
                 } else {
                     descriptors.add(new ColumnDescriptor(metaData.getColumnName(i),
                             buildArrayTypeName(arrayMeta)));
@@ -126,6 +127,44 @@ public class CheckResultMetadataConfig extends QueryConfig {
             elementTypeName = arrayMeta.getElementTypeName();
         }
         return "ARRAY(" + elementTypeName + ")";
+    }
+
+    /**
+     * Case-insensitive lookup of the {@code "array"} key in an {@code {array: ...}} map.
+     * Returns the associated value, or {@code null} if no such key exists.
+     */
+    @Nullable
+    private static Object getArrayValue(@Nonnull final Map<?, ?> map) {
+        for (final Map.Entry<?, ?> e : map.entrySet()) {
+            if (e.getKey() instanceof String && "array".equalsIgnoreCase((String) e.getKey())) {
+                return e.getValue();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Converts an {@code {array: ...}} map (from the YAML expected metadata) into the equivalent SQL type-name
+     * string so it can be compared against {@link ColumnDescriptor#typeName}.
+     * <ul>
+     *   <li>{@code {array: "INTEGER"}} → {@code "ARRAY(INTEGER)"}</li>
+     *   <li>{@code {array: {array: "INTEGER"}}} → {@code "ARRAY(ARRAY(INTEGER))"}</li>
+     * </ul>
+     * The list case ({@code {array: [fields...]}}) is handled upstream in
+     * {@link #matchesExpected} and never reaches this method.
+     */
+    @Nonnull
+    private static String buildExpectedArrayTypeName(@Nonnull final Map<?, ?> arrayMap) {
+        final Object arrayValue = getArrayValue(arrayMap);
+        if (arrayValue instanceof String) {
+            return "ARRAY(" + arrayValue + ")";
+        } else if (arrayValue instanceof Map) {
+            @SuppressWarnings("unchecked")
+            final String inner = buildExpectedArrayTypeName((Map<?, ?>) arrayValue);
+            return "ARRAY(" + inner + ")";
+        } else {
+            return "ARRAY(null)";
+        }
     }
 
     /**
@@ -247,12 +286,39 @@ public class CheckResultMetadataConfig extends QueryConfig {
     private static void appendDescriptorToMessage(@Nonnull final StringBuilder sb,
                                                    @Nonnull final ColumnDescriptor desc,
                                                    @Nonnull final String prefix) {
-        sb.append(prefix).append(desc.name).append(": ").append(desc.typeName).append('\n');
+        sb.append(prefix).append(desc.name).append(": ").append(desc.typeName);
+        if (desc.structTypeName != null) {
+            sb.append('(').append(desc.structTypeName).append(')');
+        }
+        sb.append('\n');
         if (desc.fields != null) {
             for (final ColumnDescriptor field : desc.fields) {
                 appendDescriptorToMessage(sb, field, prefix + "    ");
             }
         }
+    }
+
+    /**
+     * Checks the optional struct type name prefix in a field list.
+     * <p>
+     * If the first element of {@code valueList} is a {@link String}, it is treated as the expected struct type name
+     * and compared case-insensitively against {@code actualCol.structTypeName}.
+     * Returns the tail of the list (field descriptors only) on a match, or {@code null} on a mismatch.
+     * If the first element is not a {@link String} (i.e., no type name was specified), returns {@code valueList}
+     * unchanged — the type name is not checked.
+     * </p>
+     */
+    @Nullable
+    private static List<?> checkStructTypeName(@Nonnull final List<?> valueList,
+                                               @Nonnull final ColumnDescriptor actualCol) {
+        if (!valueList.isEmpty() && valueList.get(0) instanceof String) {
+            final String expectedTypeName = (String) valueList.get(0);
+            if (actualCol.structTypeName == null || !expectedTypeName.equalsIgnoreCase(actualCol.structTypeName)) {
+                return null;
+            }
+            return valueList.subList(1, valueList.size());
+        }
+        return valueList;
     }
 
     private static boolean matchesExpected(@Nonnull final List<Map<?, ?>> expected,
@@ -269,28 +335,58 @@ public class CheckResultMetadataConfig extends QueryConfig {
                 return false;
             }
             if (entry.getValue() instanceof List) {
-                // plain struct column: value is [{field: type}, ...]
+                // plain struct column: value is [{field: type}, ...] or [struct_name, {field: type}, ...]
                 if (actualCol.fields == null || actualCol.isArray) {
                     return false;
                 }
                 @SuppressWarnings("unchecked")
-                final List<Map<?, ?>> valueList = (List<Map<?, ?>>) entry.getValue();
-                if (!matchesExpected(valueList, actualCol.fields)) {
-                    return false;
-                }
-            } else if (entry.getValue() instanceof ArrayType) {
-                if (actualCol.fields == null || !actualCol.isArray) {
+                List<?> valueList = (List<?>) entry.getValue();
+                valueList = checkStructTypeName(valueList, actualCol);
+                if (valueList == null) {
                     return false;
                 }
                 @SuppressWarnings("unchecked")
-                final List<Map<?, ?>> valueList = (List<Map<?, ?>>) ((ArrayType) entry.getValue()).getExpectedMetadata();
-                if (!matchesExpected(valueList, actualCol.fields)) {
+                final List<Map<?, ?>> fieldMaps = (List<Map<?, ?>>) valueList;
+                if (!matchesExpected(fieldMaps, actualCol.fields)) {
                     return false;
                 }
+            } else if (entry.getValue() instanceof Map) {
+                // {array: VALUE} — array type (primitive or struct)
+                @SuppressWarnings("unchecked")
+                final Map<?, ?> arrayMap = (Map<?, ?>) entry.getValue();
+                final Object arrayValue = getArrayValue(arrayMap);
+                if (arrayValue instanceof List) {
+                    // {array: [fields...]} — array of struct
+                    if (actualCol.fields == null || !actualCol.isArray) {
+                        return false;
+                    }
+                    @SuppressWarnings("unchecked")
+                    List<?> valueList = (List<?>) arrayValue;
+                    valueList = checkStructTypeName(valueList, actualCol);
+                    if (valueList == null) {
+                        return false;
+                    }
+                    @SuppressWarnings("unchecked")
+                    final List<Map<?, ?>> fieldMaps = (List<Map<?, ?>>) valueList;
+                    if (!matchesExpected(fieldMaps, actualCol.fields)) {
+                        return false;
+                    }
+                } else {
+                    // {array: typeName} or {array: {array: typeName}} — primitive/nested array
+                    if (actualCol.fields != null) {
+                        return false;
+                    }
+                    final String expectedType = buildExpectedArrayTypeName(arrayMap);
+                    if (!expectedType.equalsIgnoreCase(actualCol.typeName)) {
+                        return false;
+                    }
+                }
             } else {
-                // scalar column: value is a type name string (or null to skip type check)
-                final String expectedType = entry.getValue() == null ? null : entry.getValue().toString();
-                if (expectedType != null && !expectedType.equalsIgnoreCase(actualCol.typeName)) {
+                // scalar column: value must be a type name string
+                if (!(entry.getValue() instanceof String)) {
+                    return false;
+                }
+                if (!((String) entry.getValue()).equalsIgnoreCase(actualCol.typeName)) {
                     return false;
                 }
             }
@@ -312,6 +408,12 @@ public class CheckResultMetadataConfig extends QueryConfig {
         @Nonnull
         public final String typeName;
         /**
+         * Declared struct type name (e.g. {@code "point"} from {@code CREATE TYPE AS STRUCT point(...)}).
+         * Non-null for struct and array-of-struct columns; {@code null} for scalars and array-of-scalar columns.
+         */
+        @Nullable
+        public final String structTypeName;
+        /**
          * Non-null for struct and array-of-struct columns; contains the struct's field descriptors
          * (or the element struct's field descriptors when {@link #isArray} is {@code true}).
          */
@@ -323,16 +425,25 @@ public class CheckResultMetadataConfig extends QueryConfig {
          */
         public final boolean isArray;
 
-        ColumnDescriptor(@Nonnull final String name, @Nonnull final String typeName, @Nonnull final List<ColumnDescriptor> fields, boolean isArray) {
+        ColumnDescriptor(@Nonnull final String name, @Nonnull final String typeName,
+                         @Nullable final String structTypeName,
+                         @Nonnull final List<ColumnDescriptor> fields, boolean isArray) {
             this.name = name;
             this.typeName = typeName;
+            this.structTypeName = structTypeName;
             this.fields = Collections.unmodifiableList(fields);
             this.isArray = isArray;
+        }
+
+        ColumnDescriptor(@Nonnull final String name, @Nonnull final String typeName,
+                         @Nonnull final List<ColumnDescriptor> fields, boolean isArray) {
+            this(name, typeName, null, fields, isArray);
         }
 
         ColumnDescriptor(@Nonnull final String name, @Nonnull final String typeName) {
             this.name = name;
             this.typeName = typeName;
+            this.structTypeName = null;
             this.fields = null;
             this.isArray = false;
         }

@@ -368,22 +368,45 @@ public final class YamlExecutionContext {
      * Builds a single-line inline YAML representation for a {@link CheckResultMetadataConfig.ColumnDescriptor}.
      * <ul>
      *   <li>Scalar column: {@code {NAME: TYPE}}</li>
-     *   <li>Struct column: {@code {NAME: [{FIELD: TYPE}, ...]}}</li>
-     *   <li>Array-of-struct column: {@code {NAME: {"!array": [{FIELD: TYPE}, ...]}}}</li>
+     *   <li>Struct column (no type name): {@code {NAME: [{FIELD: TYPE}, ...]}}</li>
+     *   <li>Struct column (with type name): {@code {NAME: [structTypeName, {FIELD: TYPE}, ...]}}</li>
+     *   <li>Array-of-scalar column: {@code {NAME: {array: TYPE}}}</li>
+     *   <li>Array-of-array column: {@code {NAME: {array: {array: TYPE}}}}</li>
+     *   <li>Array-of-struct column (no type name): {@code {NAME: {array: [{FIELD: TYPE}, ...]}}}</li>
+     *   <li>Array-of-struct column (with type name): {@code {NAME: {array: [structTypeName, {FIELD: TYPE}, ...]}}}</li>
      * </ul>
      */
     static String buildInlineDescriptor(@Nonnull final CheckResultMetadataConfig.ColumnDescriptor col) {
         if (col.isArray && col.fields != null) {
+            final String typePrefix = col.structTypeName != null ? col.structTypeName + ", " : "";
             final String fields = col.fields.stream().map(YamlExecutionContext::buildInlineDescriptor)
                     .collect(Collectors.joining(", "));
-            return "{" + col.name + ": {\"!array\": [" + fields + "]}}";
+            return "{" + col.name + ": {array: [" + typePrefix + fields + "]}}";
         } else if (col.fields != null) {
+            final String typePrefix = col.structTypeName != null ? col.structTypeName + ", " : "";
             final String fields = col.fields.stream().map(YamlExecutionContext::buildInlineDescriptor)
                     .collect(Collectors.joining(", "));
-            return "{" + col.name + ": [" + fields + "]}";
+            return "{" + col.name + ": [" + typePrefix + fields + "]}";
         } else {
-            return "{" + col.name + ": " + col.typeName + "}";
+            return "{" + col.name + ": " + typeNameToInlineValue(col.typeName) + "}";
         }
+    }
+
+    /**
+     * Converts an SQL array type name (e.g., {@code "ARRAY(INTEGER)"}) to its {@code {array: ...}} inline YAML
+     * representation. Non-array type names are returned unchanged.
+     * <ul>
+     *   <li>{@code "ARRAY(INTEGER)"} → {@code "{array: INTEGER}"}</li>
+     *   <li>{@code "ARRAY(ARRAY(INTEGER))"} → {@code "{array: {array: INTEGER}}"}</li>
+     *   <li>{@code "BIGINT"} → {@code "BIGINT"}</li>
+     * </ul>
+     */
+    static String typeNameToInlineValue(@Nonnull final String typeName) {
+        if (typeName.startsWith("ARRAY(") && typeName.endsWith(")")) {
+            final String inner = typeName.substring(6, typeName.length() - 1);
+            return "{array: " + typeNameToInlineValue(inner) + "}";
+        }
+        return typeName;
     }
 
     /**

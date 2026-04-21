@@ -102,7 +102,8 @@ public class CheckResultMetadataTest {
                 "wrong-struct-field-name",                // nested struct field name wrong
                 "wrong-struct-field-type",                // nested struct field type wrong
                 "wrong-array-of-struct-field-name",       // array-of-struct element field name wrong
-                "wrong-array-of-struct-field-type"        // array-of-struct element field type wrong
+                "wrong-array-of-struct-field-type",        // array-of-struct element field type wrong
+                "wrong-struct-type-name"                  // struct type name does not match declared type
         );
     }
 
@@ -126,8 +127,11 @@ public class CheckResultMetadataTest {
                 "nested-struct-column",            // struct column with nested field descriptors
                 "metadata-on-continuation-page",  // single metadata block covers all continuation pages
                 "empty-result-set",                // metadata check passes even with zero rows
-                "array-column",                    // integer array column reported as ARRAY(INTEGER)
-                "array-of-struct-column"           // array-of-struct with nested element field descriptors
+                "array-column",                    // integer array column reported as {array: INTEGER}
+                "array-of-struct-column",          // array-of-struct with nested element field descriptors
+                "struct-type-name",                // struct type name as optional prefix in field list
+                "field-named-array",               // struct field named "array" — no clash with {array: ...} map syntax
+                "type-named-array"                 // struct type named "array" — no clash with {array: ...} map syntax
         );
     }
 

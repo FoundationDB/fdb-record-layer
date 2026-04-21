@@ -17,7 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Happy-path: an array-of-struct column lists the element struct's fields under a "!array": key.
+# Happy-path: an array-of-struct column lists the element struct's fields under an {array: ...} map.
 ---
 schema_template:
     CREATE TYPE AS STRUCT point(x bigint, y bigint)
@@ -33,7 +33,5 @@ test_block:
       - query: SELECT pk, pts FROM t1
       - resultMetadata:
         - {PK: INTEGER}
-        - PTS: !array
-          - {X: BIGINT}
-          - {Y: BIGINT}
+        - PTS: {array: [{X: BIGINT}, {Y: BIGINT}]}
 ...

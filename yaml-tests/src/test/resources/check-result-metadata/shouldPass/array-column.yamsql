@@ -17,7 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Happy-path: an integer array column is reported as ARRAY(INTEGER).
+# Happy-path: an integer array column is reported as {array: INTEGER}.
 ---
 schema_template:
     create table t1(pk integer, x integer array, primary key(pk))
@@ -30,6 +30,6 @@ test_block:
   tests:
     -
       - query: SELECT pk, x FROM t1
-      - resultMetadata: [{PK: INTEGER}, {X: ARRAY(INTEGER)}]
+      - resultMetadata: [{PK: INTEGER}, {X: {array: INTEGER}}]
       - result: [{1, [10, 20, 30]}]
 ...

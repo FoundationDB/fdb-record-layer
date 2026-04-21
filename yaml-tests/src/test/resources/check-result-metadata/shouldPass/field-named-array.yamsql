@@ -1,5 +1,5 @@
 #
-# wrong-array-of-struct-field-type.yamsql
+# field-named-array.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -17,20 +17,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Failure: element struct field X is expected as INTEGER but actual type is BIGINT.
+# Struct column where one field is named "array" (a potential reserved word).
+# Verifies that {ARRAY: BIGINT} inside a list is not confused with the
+# {array: ...} map syntax used to denote array-typed columns.
 ---
 schema_template:
-    CREATE TYPE AS STRUCT point(x bigint, y bigint)
-    CREATE TABLE t1(pk integer, pts point array, primary key(pk))
+    CREATE TYPE AS STRUCT s("array" bigint, y bigint)
+    CREATE TABLE t1(pk integer, col s, primary key(pk))
 ---
 setup:
   steps:
-    - query: INSERT INTO t1 VALUES (1, [(10, 20)])
+    - query: INSERT INTO t1 VALUES (1, (10, 20))
 ---
 test_block:
   tests:
     -
-      - query: SELECT pk, pts FROM t1
-      - resultMetadata: [{PK: INTEGER}, {PTS: {array: [{X: INTEGER}, {Y: BIGINT}]}}]
-      - result: [{1, [{X: 10, Y: 20}]}]
+      # Field name "array" appears as a plain map key inside the struct field list —
+      # not as the top-level {array: ...} array marker.
+      - query: SELECT pk, col FROM t1
+      - resultMetadata: [{PK: INTEGER}, {COL: [{ARRAY: BIGINT}, {Y: BIGINT}]}]
+      - result: [{1, {ARRAY: 10, Y: 20}}]
 ...
