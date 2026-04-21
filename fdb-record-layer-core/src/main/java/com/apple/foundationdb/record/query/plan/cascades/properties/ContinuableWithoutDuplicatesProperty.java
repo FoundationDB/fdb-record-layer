@@ -47,7 +47,7 @@ import java.util.List;
  * This class is a singleton; use {@link #continuableWithoutDuplicates()} to obtain the instance.
  * </p>
  */
-public class ContinuableWithoutDuplicatesProperty implements ExpressionProperty<Boolean> {
+public final class ContinuableWithoutDuplicatesProperty implements ExpressionProperty<Boolean> {
     private static final ContinuableWithoutDuplicatesProperty CONTINUABLE_WITHOUT_DUPLICATES_PROPERTY =
             new ContinuableWithoutDuplicatesProperty();
 

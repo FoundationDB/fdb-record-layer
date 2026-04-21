@@ -47,7 +47,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class ImplementStreamingAggregationRuleTest {
+class ImplementStreamingAggregationRuleTest {
     @Nonnull
     private static final ImplementStreamingAggregationRule rule = new ImplementStreamingAggregationRule();
     @Nonnull
