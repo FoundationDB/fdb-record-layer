@@ -206,24 +206,6 @@ test_block:
       # verify the inserted bytes value
       - query: select b from tc where a = !! !l 100 !!
       - result: [{x'baadf00d'}]
-# ---------- struct ----------
----
-test_block:
-  name: struct-insert-test
-  preset: single_repetition_ordered
-  options:
-    # struct tuple parameter creates a JDBC Struct with generic type name,
-    # so use simple statement for the insert
-    statement_type: simple
-  tests:
-    -
-      - query: insert into td values !! {!l 100, {!l 42, 'test_value'}} !!
-      - count: 1
----
-test_block:
-  name: struct-prepared-tests
-  tests:
-    -
-      - query: select b from td where a = 100
-      - result: [{{f0: 42, f1: 'test_value'}}]
+# JDBC does not support createStruct (always returns null), so inserting with jdbc parameters is not supported.
+# See: https://github.com/FoundationDB/fdb-record-layer/issues/4064
 ...
