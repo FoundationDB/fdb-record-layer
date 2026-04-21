@@ -18,12 +18,12 @@ transactions-tests:
     - create temporary function t2_func() on commit drop function AS SELECT * FROM
         t2 where id < 50;
     ref: include-scoped.yamsql:48
-    explain: SCAN(<,>) | FILTER _.ID LESS_THAN promote(@cT2_FUNC18 AS LONG)
-    task_count: 189
-    task_total_time_ms: 15
-    transform_count: 50
-    transform_time_ms: 5
-    transform_yield_count: 16
-    insert_time_ms: 0
-    insert_new_count: 18
-    insert_reused_count: 2
+    explain: SCAN([IS T2, [LESS_THAN promote(@cT2_FUNC18 AS LONG)]])
+    task_count: 186
+    task_total_time_ms: 153
+    transform_count: 49
+    transform_time_ms: 121
+    transform_yield_count: 17
+    insert_time_ms: 1
+    insert_new_count: 17
+    insert_reused_count: 1

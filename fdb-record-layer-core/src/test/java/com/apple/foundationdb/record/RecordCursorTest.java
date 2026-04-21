@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.test.TestExecutors;
 import com.apple.test.BooleanSource;
+import com.apple.test.RandomSeedSource;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
@@ -58,6 +59,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CancellationException;
@@ -1394,6 +1396,97 @@ public class RecordCursorTest {
                     () -> resultFuture.get(2, TimeUnit.SECONDS));
             assertThat(executionException.getCause(), Matchers.instanceOf(CancellationException.class));
         }
+    }
+
+    @Test
+    void closePipelineClosesAllInnerCursors() {
+        for (int i = 0; i < 200_000; i++) {
+            final int iteration = i;
+            CompletableFuture<Void> signal = new CompletableFuture<>();
+            List<RecordCursor<String>> createdCursors = Collections.synchronizedList(new ArrayList<>());
+            RecordCursor<String> cursor = RecordCursor.flatMapPipelined(
+                    outerContinuation -> RecordCursor.fromList(EXECUTOR,
+                            IntStream.range(0, iteration % 50 + 1).boxed().collect(Collectors.toList()),
+                            outerContinuation),
+                    (outerValue, innerContinuation) -> {
+                        RecordCursor<String> innerCursor = new LazyCursor<>(signal.thenApply(ignore ->
+                                RecordCursor.fromList(EXECUTOR,
+                                        IntStream.range(0, 3).mapToObj(j -> outerValue + ":" + j).collect(Collectors.toList()),
+                                        innerContinuation)));
+                        createdCursors.add(innerCursor);
+                        return innerCursor;
+                    },
+                    null,
+                    null,
+                    iteration % 9 + 2
+            );
+            CompletableFuture<? extends RecordCursorResult<?>> resultFuture = cursor.onNext();
+
+            signal.complete(null);
+            cursor.close();
+            try {
+                resultFuture.get(2, TimeUnit.SECONDS);
+            } catch (Exception ignored) {
+                // We don't care about the result; we care about cursor closure below
+            }
+            for (RecordCursor<String> innerCursor : createdCursors) {
+                assertTrue(innerCursor.isClosed(),
+                        "Inner cursor not closed on iteration " + iteration + " (created " + createdCursors.size() + " cursors)");
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @RandomSeedSource
+    void closePipelineCancelsInnerFutureRace(long seed) {
+        final Random random = new Random(seed);
+        Map<Class<? extends Throwable>, Integer> exceptionCount = new HashMap<>();
+        for (int i = 0; i < 20_000; i++) {
+            try {
+                // Inner cursors depend on signals that are NEVER completed.
+                // The only way for the pipeline future to resolve is via cancellation of innerFuture.
+                RecordCursor<String> cursor = RecordCursor.flatMapPipelined(
+                        outerContinuation -> RecordCursor.fromList(EXECUTOR,
+                                IntStream.range(0, random.nextInt(100) + 1).boxed().collect(Collectors.toList()),
+                                outerContinuation),
+                        (outerValue, innerContinuation) -> {
+                            CompletableFuture<Void> neverCompleted = new CompletableFuture<>();
+                            return new LazyCursor<>(neverCompleted.thenApply(ignore ->
+                                    RecordCursor.fromList(EXECUTOR,
+                                            Collections.singletonList(String.valueOf(outerValue)),
+                                            innerContinuation)));
+                        },
+                        null,
+                        null,
+                        random.nextInt(20) + 1
+                );
+                CompletableFuture<? extends RecordCursorResult<?>> resultFuture = cursor.onNext();
+
+                // Close immediately — race with getNextInnerPipelineFuture
+                cursor.close();
+
+                // If innerFuture was properly cancelled, this resolves quickly.
+                // If the race caused close() to miss the cancel, this hangs.
+                resultFuture.get(500, TimeUnit.MILLISECONDS);
+            } catch (Exception e) {
+                Throwable errToCount;
+                if (e instanceof ExecutionException && e.getCause() != null) {
+                    errToCount = e.getCause();
+                    errToCount.addSuppressed(e);
+                } else {
+                    errToCount = e;
+                }
+                if (errToCount instanceof CancellationException) {
+                    continue;
+                }
+                LOGGER.error(KeyValueLogMessage.of("error during test"), errToCount);
+                exceptionCount.compute(errToCount.getClass(), (k, v) -> v == null ? 1 : v + 1);
+            }
+        }
+        KeyValueLogMessage msg = KeyValueLogMessage.build("exception counts");
+        msg.addKeysAndValues(exceptionCount);
+        LOGGER.info(msg.toString());
+        assertThat(exceptionCount, Matchers.anEmptyMap());
     }
 
     @Test

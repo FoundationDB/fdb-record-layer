@@ -282,7 +282,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                                 new AccessHints())));
 
         qun = Quantifier.forEach(Reference.initialOf(
-                new LogicalTypeFilterExpression(ImmutableSet.of("MySimpleRecord"),
+                LogicalTypeFilterExpression.of(ImmutableSet.of("MySimpleRecord"),
                         qun,
                         recordStore.getRecordMetaData().getPlannerType("MySimpleRecord"))));
 
@@ -554,7 +554,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                                 new AccessHints())));
 
         qun = Quantifier.forEach(Reference.initialOf(
-                new LogicalTypeFilterExpression(ImmutableSet.of("MySimpleRecord"),
+                LogicalTypeFilterExpression.of(ImmutableSet.of("MySimpleRecord"),
                         qun,
                         recordStore.getRecordMetaData().getPlannerType(allRecordTypes))));
 

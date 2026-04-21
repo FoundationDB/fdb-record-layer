@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.planprotos.PIndexEntryObjectValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -35,18 +36,16 @@ import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord.Tup
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
-import com.google.protobuf.Internal;
 import com.google.protobuf.Message;
-import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -134,16 +133,7 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
             return null;
         }
 
-        switch (resultType.getTypeCode()) {
-            case INT:
-                return ((Long)value).intValue();
-            case BYTES:
-                return ZeroCopyByteString.wrap((byte[])value);
-            case ENUM:
-                return (Internal.EnumLite)() -> ((Long)value).intValue();
-            default:
-                return value;
-        }
+        return TupleFieldsHelper.tupleValueToRuntimeValue(value, resultType);
     }
 
     @Override

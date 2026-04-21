@@ -129,7 +129,7 @@ public class FDBDatabaseExtension implements AfterEachCallback {
             }
             factory.setBlockingInAsyncDetection(detection);
             if (detection != BlockingInAsyncDetection.DISABLED) {
-                LOGGER.info("Blocking-in-async is " + detection);
+                LOGGER.debug("Blocking-in-async is " + detection);
             }
         }
     }
@@ -160,7 +160,7 @@ public class FDBDatabaseExtension implements AfterEachCallback {
     public FDBDatabase getDatabase(@Nullable String clusterFile) {
         return databases.computeIfAbsent(Objects.requireNonNullElse(clusterFile, ""),
                 key -> {
-                    LOGGER.info("Connecting to cluster file: " + key);
+                    LOGGER.debug("Connecting to cluster file: " + key);
                     return getDatabaseFactory().getDatabase(key.isEmpty() ? null : key);
                 });
     }

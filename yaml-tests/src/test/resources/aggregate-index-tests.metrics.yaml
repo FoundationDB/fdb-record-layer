@@ -1,191 +1,191 @@
 agg-index-tests:
 -   query: EXPLAIN select col1, sum(col2) from T1 group by col1;
-    ref: aggregate-index-tests.yamsql:118
+    ref: aggregate-index-tests.yamsql:126
     explain: 'AISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0
         AS COL1, _._1 AS _1)'
     task_count: 500
-    task_total_time_ms: 37
+    task_total_time_ms: 38
     transform_count: 143
-    transform_time_ms: 18
+    transform_time_ms: 22
     transform_yield_count: 64
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 48
     insert_reused_count: 5
 -   query: EXPLAIN select col1 from T1 group by col1;
-    ref: aggregate-index-tests.yamsql:122
+    ref: aggregate-index-tests.yamsql:130
     explain: ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.COL1 AS _0) |
         MAP (_._0._0 AS COL1)
     task_count: 385
-    task_total_time_ms: 26
+    task_total_time_ms: 22
     transform_count: 104
-    transform_time_ms: 12
+    transform_time_ms: 11
     transform_yield_count: 54
     insert_time_ms: 0
     insert_new_count: 37
     insert_reused_count: 4
 -   query: EXPLAIN select sum(col2) from T1 group by col1;
-    ref: aggregate-index-tests.yamsql:126
+    ref: aggregate-index-tests.yamsql:134
     explain: 'AISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
     task_count: 500
-    task_total_time_ms: 40
+    task_total_time_ms: 44
     transform_count: 143
-    transform_time_ms: 23
+    transform_time_ms: 26
     transform_yield_count: 64
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 48
     insert_reused_count: 5
 -   query: EXPLAIN select col1, sum(col2) from T1 group by col1 order by col1 asc;
-    ref: aggregate-index-tests.yamsql:130
+    ref: aggregate-index-tests.yamsql:138
     explain: 'AISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0
         AS COL1, _._1 AS _1)'
     task_count: 500
-    task_total_time_ms: 42
+    task_total_time_ms: 38
     transform_count: 143
-    transform_time_ms: 27
+    transform_time_ms: 23
     transform_yield_count: 64
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 48
     insert_reused_count: 5
 -   query: EXPLAIN select col1, sum(col2) from T1 group by col1 order by col1 desc;
-    ref: aggregate-index-tests.yamsql:134
+    ref: aggregate-index-tests.yamsql:142
     explain: 'AISCAN(MV1 <,> BY_GROUP REVERSE -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP
         (_._0 AS COL1, _._1 AS _1)'
     task_count: 500
-    task_total_time_ms: 43
+    task_total_time_ms: 49
     transform_count: 143
-    transform_time_ms: 27
+    transform_time_ms: 29
     transform_yield_count: 64
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 48
     insert_reused_count: 5
 -   query: EXPLAIN select col1, sum(col2) + 1 from T1 group by col1;
-    ref: aggregate-index-tests.yamsql:138
+    ref: aggregate-index-tests.yamsql:146
     explain: 'AISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0
         AS COL1, _._1 + 1 AS _1)'
     task_count: 500
-    task_total_time_ms: 44
+    task_total_time_ms: 48
     transform_count: 143
-    transform_time_ms: 23
+    transform_time_ms: 30
     transform_yield_count: 64
     insert_time_ms: 1
     insert_new_count: 48
     insert_reused_count: 5
 -   query: EXPLAIN select col1, max(col2) from T1 group by col1;
-    ref: aggregate-index-tests.yamsql:142
+    ref: aggregate-index-tests.yamsql:150
     explain: 'AISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS
         COL1, _._1 AS _1)'
     task_count: 520
-    task_total_time_ms: 42
+    task_total_time_ms: 58
     transform_count: 147
-    transform_time_ms: 24
+    transform_time_ms: 34
     transform_yield_count: 66
     insert_time_ms: 1
     insert_new_count: 50
     insert_reused_count: 5
 -   query: EXPLAIN select col1, max(col2) from T1 group by col1 order by col1;
-    ref: aggregate-index-tests.yamsql:146
+    ref: aggregate-index-tests.yamsql:154
     explain: 'AISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS
         COL1, _._1 AS _1)'
     task_count: 520
-    task_total_time_ms: 52
+    task_total_time_ms: 38
     transform_count: 147
-    transform_time_ms: 32
+    transform_time_ms: 20
     transform_yield_count: 66
     insert_time_ms: 1
     insert_new_count: 50
     insert_reused_count: 5
 -   query: EXPLAIN select col1, max(col2) from T1 group by col1 order by col1 desc;
-    ref: aggregate-index-tests.yamsql:150
+    ref: aggregate-index-tests.yamsql:158
     explain: 'AISCAN(MV8 <,> BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1]]) | MAP
         (_._0 AS COL1, _._1 AS _1)'
     task_count: 520
-    task_total_time_ms: 38
+    task_total_time_ms: 50
     transform_count: 147
-    transform_time_ms: 24
+    transform_time_ms: 30
     transform_yield_count: 66
     insert_time_ms: 1
     insert_new_count: 50
     insert_reused_count: 5
 -   query: EXPLAIN select col1, max(col2) from T1 where col1 = 10 group by col1;
-    ref: aggregate-index-tests.yamsql:154
-    explain: 'AISCAN(MV8 [EQUALS promote(@c13 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:162
+    explain: 'AISCAN(MV8 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)'
     task_count: 714
-    task_total_time_ms: 57
+    task_total_time_ms: 70
     transform_count: 198
-    transform_time_ms: 26
+    transform_time_ms: 33
     transform_yield_count: 74
-    insert_time_ms: 1
+    insert_time_ms: 3
     insert_new_count: 70
     insert_reused_count: 3
 -   query: EXPLAIN select max(col2) from T1 use index (mv8);
-    ref: aggregate-index-tests.yamsql:160
+    ref: aggregate-index-tests.yamsql:168
     explain: 'AISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | AGG max_l(_._1)
         GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)'
     task_count: 478
-    task_total_time_ms: 27
+    task_total_time_ms: 33
     transform_count: 137
-    transform_time_ms: 12
+    transform_time_ms: 17
     transform_yield_count: 34
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 46
     insert_reused_count: 5
 -   query: EXPLAIN select col2 from T1 where col1 = 10;
-    ref: aggregate-index-tests.yamsql:167
-    explain: 'COVERING(MV8 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY[0], COL2: KEY[1],
-        ID: KEY[3]]) | MAP (_.COL2 AS COL2)'
-    task_count: 677
-    task_total_time_ms: 37
-    transform_count: 171
-    transform_time_ms: 11
+    ref: aggregate-index-tests.yamsql:175
+    explain: 'COVERING(MV8 [EQUALS promote(@c7 AS LONG)] -> [COL1: KEY:[0], COL2:
+        KEY:[1], ID: KEY:[3]]) | MAP (_.COL2 AS COL2)'
+    task_count: 653
+    task_total_time_ms: 38
+    transform_count: 169
+    transform_time_ms: 14
     transform_yield_count: 69
-    insert_time_ms: 3
-    insert_new_count: 68
+    insert_time_ms: 2
+    insert_new_count: 65
     insert_reused_count: 5
 -   query: EXPLAIN select col2 from T1 where col1 = 10 order by col2 desc;
-    ref: aggregate-index-tests.yamsql:171
-    explain: 'COVERING(MV8 [EQUALS promote(@c8 AS LONG)] REVERSE -> [COL1: KEY[0],
-        COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)'
+    ref: aggregate-index-tests.yamsql:179
+    explain: 'COVERING(MV8 [EQUALS promote(@c7 AS LONG)] REVERSE -> [COL1: KEY:[0],
+        COL2: KEY:[1], ID: KEY:[3]]) | MAP (_.COL2 AS COL2)'
     task_count: 274
-    task_total_time_ms: 98
+    task_total_time_ms: 22
     transform_count: 88
-    transform_time_ms: 79
+    transform_time_ms: 12
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 18
     insert_reused_count: 0
 -   query: EXPLAIN select min(col3) from T2 group by col1, col2;
-    ref: aggregate-index-tests.yamsql:175
+    ref: aggregate-index-tests.yamsql:183
     explain: ISCAN(MV2 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL3) AS _0) GROUP BY
         (_._0.COL1 AS _0, _._0.COL2 AS _1) | MAP (_._1._0 AS _0)
     task_count: 337
-    task_total_time_ms: 19
+    task_total_time_ms: 106
     transform_count: 98
-    transform_time_ms: 11
+    transform_time_ms: 83
     transform_yield_count: 56
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 25
     insert_reused_count: 2
 -   query: EXPLAIN select max(col2) from t2;
-    ref: aggregate-index-tests.yamsql:181
+    ref: aggregate-index-tests.yamsql:189
     explain: 'AISCAN(MV9 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]])
         | AGG max_l(_._2) GROUP BY () | MAP ((_._2 AS _0) AS _0) | ON EMPTY NULL |
         MAP (_._0._0 AS _0)'
-    task_count: 742
-    task_total_time_ms: 66
-    transform_count: 194
-    transform_time_ms: 39
+    task_count: 729
+    task_total_time_ms: 59
+    transform_count: 193
+    transform_time_ms: 31
     transform_yield_count: 82
-    insert_time_ms: 1
-    insert_new_count: 86
+    insert_time_ms: 2
+    insert_new_count: 83
     insert_reused_count: 11
 -   query: EXPLAIN select col1, sum(col2) from T1 USE INDEX (vi1) group by col1;
-    ref: aggregate-index-tests.yamsql:185
+    ref: aggregate-index-tests.yamsql:193
     explain: ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY
         (_._0.COL1 AS _0) | MAP (_._0._0 AS COL1, _._1._0 AS _1)
     task_count: 261
-    task_total_time_ms: 13
+    task_total_time_ms: 14
     transform_count: 66
     transform_time_ms: 4
     transform_yield_count: 18
@@ -193,169 +193,169 @@ agg-index-tests:
     insert_new_count: 25
     insert_reused_count: 2
 -   query: EXPLAIN select max(col2) from t2 group by col1, col3;
-    ref: aggregate-index-tests.yamsql:188
+    ref: aggregate-index-tests.yamsql:196
     explain: 'AISCAN(MV9 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]])
         | MAP (_._2 AS _0)'
     task_count: 532
-    task_total_time_ms: 53
+    task_total_time_ms: 67
     transform_count: 150
-    transform_time_ms: 29
+    transform_time_ms: 44
     transform_yield_count: 72
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 50
     insert_reused_count: 5
 -   query: EXPLAIN select col1, col3, max(col2) from t2 group by col1, col3;
-    ref: aggregate-index-tests.yamsql:192
+    ref: aggregate-index-tests.yamsql:200
     explain: 'AISCAN(MV9 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]])
         | MAP (_._0 AS COL1, _._1 AS COL3, _._2 AS _2)'
     task_count: 532
-    task_total_time_ms: 63
+    task_total_time_ms: 50
     transform_count: 151
-    transform_time_ms: 37
+    transform_time_ms: 31
     transform_yield_count: 72
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 50
     insert_reused_count: 5
 -   query: EXPLAIN select col3, max(col2) from t2 where col1 = 2 group by col1, col3;
-    ref: aggregate-index-tests.yamsql:196
-    explain: 'AISCAN(MV9 [EQUALS promote(@c13 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:204
+    explain: 'AISCAN(MV9 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS _1)'
     task_count: 726
-    task_total_time_ms: 181
+    task_total_time_ms: 47
     transform_count: 202
-    transform_time_ms: 135
+    transform_time_ms: 26
     transform_yield_count: 80
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 70
     insert_reused_count: 3
 -   query: EXPLAIN select col3, max(col2) from t2 where col1 = 1 group by col1, col3
         order by max(col2) desc;
-    ref: aggregate-index-tests.yamsql:200
-    explain: 'AISCAN(MV9 [EQUALS promote(@c13 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:208
+    explain: 'AISCAN(MV9 [EQUALS promote(@c12 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0],
         _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS _1)'
     task_count: 391
-    task_total_time_ms: 36
+    task_total_time_ms: 70
     transform_count: 128
-    transform_time_ms: 25
+    transform_time_ms: 50
     transform_yield_count: 62
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 24
     insert_reused_count: 1
 -   query: EXPLAIN select col3, max(col2) from t2 where col1 = 1 group by col1, col3
         order by max(col2) desc;
-    ref: aggregate-index-tests.yamsql:205
-    explain: 'AISCAN(MV9 [EQUALS promote(@c13 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:213
+    explain: 'AISCAN(MV9 [EQUALS promote(@c12 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0],
         _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS _1)'
     task_count: 391
-    task_total_time_ms: 36
+    task_total_time_ms: 70
     transform_count: 128
-    transform_time_ms: 25
+    transform_time_ms: 50
     transform_yield_count: 62
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 24
     insert_reused_count: 1
 -   query: EXPLAIN select col3, max(col2) from t2 where col1 = 1 group by col1, col3
         having max(col2) < 2 order by max(col2) desc;
-    ref: aggregate-index-tests.yamsql:210
-    explain: 'AISCAN(MV9 [EQUALS promote(@c13 AS LONG), [LESS_THAN promote(@c25 AS
+    ref: aggregate-index-tests.yamsql:218
+    explain: 'AISCAN(MV9 [EQUALS promote(@c12 AS LONG), [LESS_THAN promote(@c24 AS
         LONG)]] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP
         (_._1 AS COL3, _._2 AS _1)'
     task_count: 402
-    task_total_time_ms: 31
+    task_total_time_ms: 63
     transform_count: 130
-    transform_time_ms: 20
+    transform_time_ms: 44
     transform_yield_count: 62
     insert_time_ms: 0
     insert_new_count: 25
     insert_reused_count: 1
 -   query: EXPLAIN select col3, max(col2) from t2 where col1 = 1 group by col1, col3
         having max(col2) < 2 and max(col2) >= 1 order by max(col2) desc;
-    ref: aggregate-index-tests.yamsql:214
-    explain: 'AISCAN(MV9 [EQUALS promote(@c13 AS LONG), [GREATER_THAN_OR_EQUALS promote(@c13
-        AS LONG) && LESS_THAN promote(@c25 AS LONG)]] BY_GROUP REVERSE -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:222
+    explain: 'AISCAN(MV9 [EQUALS promote(@c12 AS LONG), [GREATER_THAN_OR_EQUALS promote(@c12
+        AS LONG) && LESS_THAN promote(@c24 AS LONG)]] BY_GROUP REVERSE -> [_0: KEY:[0],
         _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS _1)'
     task_count: 402
-    task_total_time_ms: 31
+    task_total_time_ms: 42
     transform_count: 130
-    transform_time_ms: 23
+    transform_time_ms: 28
     transform_yield_count: 62
     insert_time_ms: 0
     insert_new_count: 25
     insert_reused_count: 1
 -   query: EXPLAIN select t.* from (select col3, max(col2) as m from t2 where col1
         = 1 group by col1, col3) as t where m < 2 order by m desc;
-    ref: aggregate-index-tests.yamsql:218
-    explain: 'AISCAN(MV9 [EQUALS promote(@c21 AS LONG), [LESS_THAN promote(@c33 AS
+    ref: aggregate-index-tests.yamsql:226
+    explain: 'AISCAN(MV9 [EQUALS promote(@c20 AS LONG), [LESS_THAN promote(@c32 AS
         LONG)]] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP
         (_._1 AS COL3, _._2 AS M)'
     task_count: 461
-    task_total_time_ms: 32
+    task_total_time_ms: 53
     transform_count: 143
-    transform_time_ms: 21
+    transform_time_ms: 34
     transform_yield_count: 67
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 36
     insert_reused_count: 2
 -   query: EXPLAIN select col3, m from (select col3, max(col2) as m from t2 where
         col1 = 1 group by col1, col3) as t order by m desc;
-    ref: aggregate-index-tests.yamsql:222
-    explain: 'AISCAN(MV9 [EQUALS promote(@c21 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:230
+    explain: 'AISCAN(MV9 [EQUALS promote(@c20 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0],
         _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M)'
     task_count: 417
-    task_total_time_ms: 36
+    task_total_time_ms: 26
     transform_count: 132
-    transform_time_ms: 22
+    transform_time_ms: 17
     transform_yield_count: 64
     insert_time_ms: 0
     insert_new_count: 28
     insert_reused_count: 1
 -   query: EXPLAIN select col3, col2 from t2 where col1 = 1 order by col3 asc;
-    ref: aggregate-index-tests.yamsql:227
-    explain: 'COVERING(MV9 [EQUALS promote(@c10 AS LONG)] -> [COL1: KEY:[0], COL2:
+    ref: aggregate-index-tests.yamsql:235
+    explain: 'COVERING(MV9 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY:[0], COL2:
         KEY:[2], COL3: KEY:[1], ID: KEY:[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)'
     task_count: 353
-    task_total_time_ms: 39
+    task_total_time_ms: 30
     transform_count: 113
-    transform_time_ms: 21
+    transform_time_ms: 14
     transform_yield_count: 58
     insert_time_ms: 0
     insert_new_count: 26
     insert_reused_count: 0
 -   query: EXPLAIN select col3, col2 from t2 where col1 = 1 order by col3 desc;
-    ref: aggregate-index-tests.yamsql:231
-    explain: 'COVERING(MV9 [EQUALS promote(@c10 AS LONG)] REVERSE -> [COL1: KEY:[0],
+    ref: aggregate-index-tests.yamsql:239
+    explain: 'COVERING(MV9 [EQUALS promote(@c9 AS LONG)] REVERSE -> [COL1: KEY:[0],
         COL2: KEY:[2], COL3: KEY:[1], ID: KEY:[4]]) | MAP (_.COL3 AS COL3, _.COL2
         AS COL2)'
     task_count: 353
-    task_total_time_ms: 17
+    task_total_time_ms: 26
     transform_count: 113
-    transform_time_ms: 9
+    transform_time_ms: 12
     transform_yield_count: 58
     insert_time_ms: 0
     insert_new_count: 26
     insert_reused_count: 0
 -   query: EXPLAIN select col3, sum(col2) as s from t2 use index (mv9) where col1
         = 1 group by col1, col3 order by col3 asc;
-    ref: aggregate-index-tests.yamsql:236
-    explain: ISCAN(MV9 [EQUALS promote(@c20 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2)
+    ref: aggregate-index-tests.yamsql:244
+    explain: ISCAN(MV9 [EQUALS promote(@c19 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2)
         AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3,
         _._1._0 AS S)
     task_count: 281
-    task_total_time_ms: 19
+    task_total_time_ms: 26
     transform_count: 81
-    transform_time_ms: 7
+    transform_time_ms: 10
     transform_yield_count: 22
     insert_time_ms: 0
     insert_new_count: 23
     insert_reused_count: 0
 -   query: EXPLAIN select col3, sum(col2) as s from t2 use index (mv9) where col1
         = 1 group by col1, col3 order by col3 desc;
-    ref: aggregate-index-tests.yamsql:240
-    explain: ISCAN(MV9 [EQUALS promote(@c20 AS LONG)] REVERSE) | MAP (_ AS _0) | AGG
+    ref: aggregate-index-tests.yamsql:248
+    explain: ISCAN(MV9 [EQUALS promote(@c19 AS LONG)] REVERSE) | MAP (_ AS _0) | AGG
         (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP
         (_._0._1 AS COL3, _._1._0 AS S)
     task_count: 281
-    task_total_time_ms: 20
+    task_total_time_ms: 22
     transform_count: 81
     transform_time_ms: 7
     transform_yield_count: 22
@@ -363,260 +363,246 @@ agg-index-tests:
     insert_new_count: 23
     insert_reused_count: 0
 -   query: EXPLAIN select max(col3) from t2 group by col1, col3;
-    ref: aggregate-index-tests.yamsql:249
+    ref: aggregate-index-tests.yamsql:257
     explain: ISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL3) AS _0) GROUP BY
         (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._1._0 AS _0)
     task_count: 397
-    task_total_time_ms: 10
+    task_total_time_ms: 23
     transform_count: 108
-    transform_time_ms: 5
+    transform_time_ms: 12
     transform_yield_count: 60
     insert_time_ms: 0
     insert_new_count: 37
     insert_reused_count: 4
 -   query: EXPLAIN select min_ever(col3) from t2
-    ref: aggregate-index-tests.yamsql:258
+    ref: aggregate-index-tests.yamsql:266
     explain: 'AISCAN(MV7 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (_._0._0 AS _0)'
-    task_count: 600
-    task_total_time_ms: 56
-    transform_count: 179
-    transform_time_ms: 34
+    task_count: 587
+    task_total_time_ms: 48
+    transform_count: 178
+    transform_time_ms: 29
     transform_yield_count: 71
-    insert_time_ms: 3
-    insert_new_count: 62
+    insert_time_ms: 2
+    insert_new_count: 59
     insert_reused_count: 11
 -   query: EXPLAIN select min_ever(col3) from t2
-    ref: aggregate-index-tests.yamsql:262
+    ref: aggregate-index-tests.yamsql:270
     explain: 'AISCAN(MV7 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (_._0._0 AS _0)'
-    task_count: 600
-    task_total_time_ms: 56
-    transform_count: 179
-    transform_time_ms: 34
+    task_count: 587
+    task_total_time_ms: 48
+    transform_count: 178
+    transform_time_ms: 29
     transform_yield_count: 71
-    insert_time_ms: 3
-    insert_new_count: 62
+    insert_time_ms: 2
+    insert_new_count: 59
     insert_reused_count: 11
 -   query: EXPLAIN select col1, max_ever(col2) from T1 group by col1;
-    ref: aggregate-index-tests.yamsql:265
+    ref: aggregate-index-tests.yamsql:273
     explain: 'AISCAN(MV6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0
         AS COL1, _._1 AS _1)'
     task_count: 585
-    task_total_time_ms: 76
+    task_total_time_ms: 49
     transform_count: 173
-    transform_time_ms: 51
+    transform_time_ms: 33
     transform_yield_count: 72
     insert_time_ms: 2
     insert_new_count: 53
     insert_reused_count: 6
 -   query: EXPLAIN select col1, min_ever(col2) from T1 group by col1;
-    ref: aggregate-index-tests.yamsql:269
+    ref: aggregate-index-tests.yamsql:277
     explain: 'AISCAN(MV12 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0
         AS COL1, _._1 AS _1)'
     task_count: 470
-    task_total_time_ms: 35
+    task_total_time_ms: 26
     transform_count: 140
-    transform_time_ms: 21
+    transform_time_ms: 17
     transform_yield_count: 62
     insert_time_ms: 0
     insert_new_count: 42
     insert_reused_count: 5
 -   query: EXPLAIN select col2, max_ever(col1) from T4 group by col2;
-    ref: aggregate-index-tests.yamsql:274
+    ref: aggregate-index-tests.yamsql:282
     explain: 'AISCAN(MV15 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0
         AS COL2, _._1 AS _1)'
     task_count: 332
-    task_total_time_ms: 26
-    transform_count: 102
-    transform_time_ms: 14
-    transform_yield_count: 32
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
--   query: EXPLAIN select col2, min_ever(col1) from T4 group by col2;
-    ref: aggregate-index-tests.yamsql:279
-    explain: 'AISCAN(MV14 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0
-        AS COL2, _._1 AS _1)'
-    task_count: 332
-    task_total_time_ms: 24
+    task_total_time_ms: 22
     transform_count: 102
     transform_time_ms: 13
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 24
     insert_reused_count: 1
+-   query: EXPLAIN select col2, min_ever(col1) from T4 group by col2;
+    ref: aggregate-index-tests.yamsql:287
+    explain: 'AISCAN(MV14 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0
+        AS COL2, _._1 AS _1)'
+    task_count: 332
+    task_total_time_ms: 94
+    transform_count: 102
+    transform_time_ms: 76
+    transform_yield_count: 32
+    insert_time_ms: 1
+    insert_new_count: 24
+    insert_reused_count: 1
 -   query: EXPLAIN select col1, sum(col2) from T1 where col1 > 15 group by col1;
-    ref: aggregate-index-tests.yamsql:283
-    explain: 'AISCAN(MV1 [[GREATER_THAN promote(@c13 AS LONG)]] BY_GROUP -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:291
+    explain: 'AISCAN(MV1 [[GREATER_THAN promote(@c12 AS LONG)]] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)'
     task_count: 694
-    task_total_time_ms: 64
+    task_total_time_ms: 66
     transform_count: 194
-    transform_time_ms: 33
+    transform_time_ms: 34
     transform_yield_count: 72
     insert_time_ms: 1
     insert_new_count: 68
     insert_reused_count: 3
 -   query: EXPLAIN select sum(col2) from T1 where col1  = 10 group by col1
-    ref: aggregate-index-tests.yamsql:287
-    explain: 'AISCAN(MV1 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:295
+    explain: 'AISCAN(MV1 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS _0)'
     task_count: 694
-    task_total_time_ms: 52
+    task_total_time_ms: 59
     transform_count: 194
-    transform_time_ms: 27
+    transform_time_ms: 32
     transform_yield_count: 72
     insert_time_ms: 1
     insert_new_count: 68
     insert_reused_count: 3
 -   query: EXPLAIN select col1 as g, sum(col2) as s from T1 use index (mv1) where
         col1 in (10, 20) group by col1
-    ref: aggregate-index-tests.yamsql:292
+    ref: aggregate-index-tests.yamsql:300
     explain: 'AISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._0
-        IN promote(@c22 AS ARRAY(LONG)) | MAP (_._0 AS G, _._1 AS S)'
+        IN promote(@c21 AS ARRAY(LONG)) | MAP (_._0 AS G, _._1 AS S)'
     task_count: 557
-    task_total_time_ms: 37
+    task_total_time_ms: 114
     transform_count: 204
-    transform_time_ms: 17
+    transform_time_ms: 83
     transform_yield_count: 32
-    insert_time_ms: 0
+    insert_time_ms: 3
     insert_new_count: 42
     insert_reused_count: 1
 -   query: EXPLAIN select sum(col2) from T1 where col1 <= 10 group by col1 having
         col1 > 0;
-    ref: aggregate-index-tests.yamsql:296
-    explain: 'AISCAN(MV1 [[GREATER_THAN promote(@c19 AS LONG) && LESS_THAN_OR_EQUALS
-        promote(@c12 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
+    ref: aggregate-index-tests.yamsql:304
+    explain: 'AISCAN(MV1 [[GREATER_THAN promote(@c18 AS LONG) && LESS_THAN_OR_EQUALS
+        promote(@c11 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
     task_count: 705
-    task_total_time_ms: 149
+    task_total_time_ms: 61
     transform_count: 196
-    transform_time_ms: 115
+    transform_time_ms: 33
     transform_yield_count: 72
-    insert_time_ms: 4
+    insert_time_ms: 2
     insert_new_count: 69
     insert_reused_count: 3
 -   query: EXPLAIN select max(b) as x1, a+3 as x2 from t3 group by a+3;
-    ref: aggregate-index-tests.yamsql:300
+    ref: aggregate-index-tests.yamsql:308
     explain: 'AISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._1
         AS X1, _._0 AS X2)'
     task_count: 401
-    task_total_time_ms: 33
+    task_total_time_ms: 24
     transform_count: 120
-    transform_time_ms: 18
+    transform_time_ms: 16
     transform_yield_count: 47
     insert_time_ms: 0
     insert_new_count: 33
     insert_reused_count: 3
 -   query: EXPLAIN select a+3 as x1, max(b) as x2 from t3 group by a+3;
-    ref: aggregate-index-tests.yamsql:304
+    ref: aggregate-index-tests.yamsql:312
     explain: 'AISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0
         AS X1, _._1 AS X2)'
     task_count: 401
-    task_total_time_ms: 36
+    task_total_time_ms: 37
     transform_count: 120
-    transform_time_ms: 18
+    transform_time_ms: 21
     transform_yield_count: 47
     insert_time_ms: 0
     insert_new_count: 33
     insert_reused_count: 3
 -   query: EXPLAIN select a+b as x1, min(b) as x2 from t3 group by a+b, b+10;
-    ref: aggregate-index-tests.yamsql:308
+    ref: aggregate-index-tests.yamsql:316
     explain: 'AISCAN(MV11 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]])
         | MAP (_._0 AS X1, _._2 AS X2)'
     task_count: 401
-    task_total_time_ms: 48
+    task_total_time_ms: 130
     transform_count: 120
-    transform_time_ms: 33
+    transform_time_ms: 101
     transform_yield_count: 47
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 33
     insert_reused_count: 3
 -   query: EXPLAIN select M as x1, min(b) as x2 from t3 group by a+b as M, b+10;
-    ref: aggregate-index-tests.yamsql:312
+    ref: aggregate-index-tests.yamsql:320
     explain: 'AISCAN(MV11 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]])
         | MAP (_._0 AS X1, _._2 AS X2)'
     task_count: 401
-    task_total_time_ms: 44
+    task_total_time_ms: 36
     transform_count: 120
-    transform_time_ms: 29
+    transform_time_ms: 24
     transform_yield_count: 47
     insert_time_ms: 0
     insert_new_count: 33
     insert_reused_count: 3
 -   query: EXPLAIN select M as x1, min(b) as x2 from t3 group by a+b as M, b+10 as
         N;
-    ref: aggregate-index-tests.yamsql:316
+    ref: aggregate-index-tests.yamsql:324
     explain: 'AISCAN(MV11 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]])
         | MAP (_._0 AS X1, _._2 AS X2)'
     task_count: 401
-    task_total_time_ms: 33
+    task_total_time_ms: 54
     transform_count: 120
-    transform_time_ms: 22
+    transform_time_ms: 36
     transform_yield_count: 47
     insert_time_ms: 0
     insert_new_count: 33
     insert_reused_count: 3
 -   query: EXPLAIN select max(b) as x1, a+3 as x2 from t3 where a + 3 < 10000 group
         by a+3;
-    ref: aggregate-index-tests.yamsql:320
-    explain: 'AISCAN(MV10 [[LESS_THAN promote(@c21 AS LONG)]] BY_GROUP -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:328
+    explain: 'AISCAN(MV10 [[LESS_THAN promote(@c20 AS LONG)]] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1]]) | MAP (_._1 AS X1, _._0 AS X2)'
     task_count: 469
-    task_total_time_ms: 36
+    task_total_time_ms: 46
     transform_count: 141
-    transform_time_ms: 19
+    transform_time_ms: 26
     transform_yield_count: 50
     insert_time_ms: 0
     insert_new_count: 39
     insert_reused_count: 2
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
         d, e order by b, max(x), c, d, e
-    ref: aggregate-index-tests.yamsql:328
-    explain: 'AISCAN(MV16 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:336
+    explain: 'AISCAN(MV16 [EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1
         AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)'
     task_count: 405
-    task_total_time_ms: 165
+    task_total_time_ms: 94
     transform_count: 131
-    transform_time_ms: 139
+    transform_time_ms: 76
     transform_yield_count: 69
     insert_time_ms: 0
     insert_new_count: 24
     insert_reused_count: 1
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
         d, e order by b, max(x)
-    ref: aggregate-index-tests.yamsql:344
-    explain: 'AISCAN(MV16 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:352
+    explain: 'AISCAN(MV16 [EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1
         AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)'
     task_count: 405
-    task_total_time_ms: 135
+    task_total_time_ms: 66
     transform_count: 131
-    transform_time_ms: 115
+    transform_time_ms: 55
     transform_yield_count: 69
     insert_time_ms: 0
     insert_new_count: 24
     insert_reused_count: 1
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
         d, e order by b, min(x), c, d, e
-    ref: aggregate-index-tests.yamsql:357
-    explain: 'AISCAN(MV17 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0],
-        _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1
-        AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)'
-    task_count: 405
-    task_total_time_ms: 149
-    transform_count: 131
-    transform_time_ms: 129
-    transform_yield_count: 69
-    insert_time_ms: 0
-    insert_new_count: 24
-    insert_reused_count: 1
--   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
-        d, e order by b, min(x)
-    ref: aggregate-index-tests.yamsql:373
-    explain: 'AISCAN(MV17 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:365
+    explain: 'AISCAN(MV17 [EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1
         AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)'
     task_count: 405
@@ -627,258 +613,515 @@ agg-index-tests:
     insert_time_ms: 0
     insert_new_count: 24
     insert_reused_count: 1
+-   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
+        d, e order by b, min(x)
+    ref: aggregate-index-tests.yamsql:381
+    explain: 'AISCAN(MV17 [EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1
+        AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)'
+    task_count: 405
+    task_total_time_ms: 34
+    transform_count: 131
+    transform_time_ms: 28
+    transform_yield_count: 69
+    insert_time_ms: 0
+    insert_new_count: 24
+    insert_reused_count: 1
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
         d, e order by b, c, max(x), d, e
-    ref: aggregate-index-tests.yamsql:386
-    explain: 'AISCAN(MV18 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:394
+    explain: 'AISCAN(MV18 [EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1
         AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)'
     task_count: 405
-    task_total_time_ms: 125
+    task_total_time_ms: 36
     transform_count: 131
-    transform_time_ms: 108
+    transform_time_ms: 30
     transform_yield_count: 69
     insert_time_ms: 0
     insert_new_count: 24
     insert_reused_count: 1
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
         d, e order by b, c, max(x)
-    ref: aggregate-index-tests.yamsql:402
-    explain: 'AISCAN(MV18 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:410
+    explain: 'AISCAN(MV18 [EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1
         AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)'
     task_count: 405
-    task_total_time_ms: 154
+    task_total_time_ms: 66
     transform_count: 131
-    transform_time_ms: 131
+    transform_time_ms: 51
     transform_yield_count: 69
     insert_time_ms: 0
     insert_new_count: 24
     insert_reused_count: 1
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
         d, e order by b, c, min(x), d, e
-    ref: aggregate-index-tests.yamsql:415
-    explain: 'AISCAN(MV19 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:423
+    explain: 'AISCAN(MV19 [EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1
         AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)'
     task_count: 405
-    task_total_time_ms: 157
+    task_total_time_ms: 147
     transform_count: 131
-    transform_time_ms: 135
+    transform_time_ms: 122
     transform_yield_count: 69
     insert_time_ms: 0
     insert_new_count: 24
     insert_reused_count: 1
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
         d, e order by b, c, min(x)
-    ref: aggregate-index-tests.yamsql:431
-    explain: 'AISCAN(MV19 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:439
+    explain: 'AISCAN(MV19 [EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1
         AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)'
     task_count: 405
-    task_total_time_ms: 140
+    task_total_time_ms: 102
     transform_count: 131
-    transform_time_ms: 119
+    transform_time_ms: 85
     transform_yield_count: 69
     insert_time_ms: 0
     insert_new_count: 24
     insert_reused_count: 1
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') order by max(x), c
-    ref: aggregate-index-tests.yamsql:444
-    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c19
+    ref: aggregate-index-tests.yamsql:452
+    explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c18
         AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3:
         KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D,
         _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)'
     task_count: 622
-    task_total_time_ms: 345
+    task_total_time_ms: 184
     transform_count: 244
-    transform_time_ms: 293
+    transform_time_ms: 159
     transform_yield_count: 86
     insert_time_ms: 0
     insert_new_count: 39
     insert_reused_count: 0
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') order by min(x), c
-    ref: aggregate-index-tests.yamsql:457
-    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c19
+    ref: aggregate-index-tests.yamsql:465
+    explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c18
         AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3:
         KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D,
         _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)'
     task_count: 622
-    task_total_time_ms: 276
+    task_total_time_ms: 241
     transform_count: 244
-    transform_time_ms: 229
+    transform_time_ms: 200
     transform_yield_count: 86
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 39
     insert_reused_count: 0
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') and d = 1 order by max(x), c
-    ref: aggregate-index-tests.yamsql:470
-    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c19
+    ref: aggregate-index-tests.yamsql:478
+    explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c18
         AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3:
-        KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c42 AS LONG)
+        KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c41 AS LONG)
         | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY
         (_._4, _.C, _.B, _.D, _.E)'
     task_count: 752
-    task_total_time_ms: 449
+    task_total_time_ms: 227
     transform_count: 278
-    transform_time_ms: 367
+    transform_time_ms: 182
     transform_yield_count: 98
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 55
     insert_reused_count: 0
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') and d = 1 order by min(x), c
-    ref: aggregate-index-tests.yamsql:480
-    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c19
+    ref: aggregate-index-tests.yamsql:488
+    explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c18
         AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3:
-        KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c42 AS LONG)
+        KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c41 AS LONG)
         | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY
         (_._4, _.C, _.B, _.D, _.E)'
     task_count: 752
-    task_total_time_ms: 442
+    task_total_time_ms: 206
     transform_count: 278
-    transform_time_ms: 358
+    transform_time_ms: 177
     transform_yield_count: 98
     insert_time_ms: 0
     insert_new_count: 55
     insert_reused_count: 0
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c
-    ref: aggregate-index-tests.yamsql:490
-    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { [IN arrayDistinct(promote(@c42
-        AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG),
+    ref: aggregate-index-tests.yamsql:498
+    explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41
+        AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG),
         EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
         _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E)
         } COMPARE BY (_._4, _.C, _.B, _.E)'
     task_count: 2172
-    task_total_time_ms: 765
+    task_total_time_ms: 385
     transform_count: 957
-    transform_time_ms: 480
+    transform_time_ms: 213
     transform_yield_count: 168
-    insert_time_ms: 8
+    insert_time_ms: 10
     insert_new_count: 194
     insert_reused_count: 24
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c
-    ref: aggregate-index-tests.yamsql:503
-    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { [IN arrayDistinct(promote(@c42
-        AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG),
+    ref: aggregate-index-tests.yamsql:511
+    explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41
+        AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG),
         EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
         _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E)
         } COMPARE BY (_._4, _.C, _.B, _.E)'
     task_count: 2172
-    task_total_time_ms: 679
+    task_total_time_ms: 409
     transform_count: 957
-    transform_time_ms: 397
+    transform_time_ms: 265
     transform_yield_count: 168
-    insert_time_ms: 7
+    insert_time_ms: 8
     insert_new_count: 194
     insert_reused_count: 24
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c, e
-    ref: aggregate-index-tests.yamsql:516
-    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { [IN arrayDistinct(promote(@c42
-        AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG),
+    ref: aggregate-index-tests.yamsql:524
+    explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41
+        AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c18 AS LONG),
         EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
         _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D)
         } COMPARE BY (_._4, _.C, _.E, _.B)'
     task_count: 1886
-    task_total_time_ms: 616
+    task_total_time_ms: 389
     transform_count: 881
-    transform_time_ms: 473
+    transform_time_ms: 289
     transform_yield_count: 135
-    insert_time_ms: 7
+    insert_time_ms: 10
     insert_new_count: 136
     insert_reused_count: 28
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
         d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c, e
-    ref: aggregate-index-tests.yamsql:532
-    explain: '[IN arrayDistinct(@c34)] INUNION q0 -> { [IN arrayDistinct(promote(@c42
-        AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG),
+    ref: aggregate-index-tests.yamsql:540
+    explain: '[IN arrayDistinct(@c33)] INUNION q0 -> { [IN arrayDistinct(promote(@c41
+        AS ARRAY(LONG)))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c18 AS LONG),
         EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4],
         _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D)
         } COMPARE BY (_._4, _.C, _.E, _.B)'
     task_count: 1886
-    task_total_time_ms: 585
+    task_total_time_ms: 356
     transform_count: 881
-    transform_time_ms: 420
+    transform_time_ms: 265
     transform_yield_count: 135
-    insert_time_ms: 8
+    insert_time_ms: 6
     insert_new_count: 136
     insert_reused_count: 28
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 and c = 0 group by
         a, b, c, d, e having b IN ('foo', 'bar') order by max(x), d
-    ref: aggregate-index-tests.yamsql:548
-    explain: '[IN arrayDistinct(@c38)] INUNION q0 -> { AISCAN(MV18 [EQUALS promote(@c19
-        AS LONG), EQUALS q0, EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:556
+    explain: '[IN arrayDistinct(@c37)] INUNION q0 -> { AISCAN(MV18 [EQUALS promote(@c18
+        AS LONG), EQUALS q0, EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1
         AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D,
         _.B, _.C, _.E)'
     task_count: 800
-    task_total_time_ms: 413
+    task_total_time_ms: 243
     transform_count: 292
-    transform_time_ms: 309
+    transform_time_ms: 191
     transform_yield_count: 98
     insert_time_ms: 1
     insert_new_count: 68
     insert_reused_count: 0
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 and c = 0 group by
         a, b, c, d, e having b IN ('foo', 'bar') order by min(x), d
-    ref: aggregate-index-tests.yamsql:559
-    explain: '[IN arrayDistinct(@c38)] INUNION q0 -> { AISCAN(MV19 [EQUALS promote(@c19
-        AS LONG), EQUALS q0, EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+    ref: aggregate-index-tests.yamsql:567
+    explain: '[IN arrayDistinct(@c37)] INUNION q0 -> { AISCAN(MV19 [EQUALS promote(@c18
+        AS LONG), EQUALS q0, EQUALS promote(@c18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1
         AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D,
         _.B, _.C, _.E)'
     task_count: 800
-    task_total_time_ms: 369
+    task_total_time_ms: 227
     transform_count: 292
-    transform_time_ms: 270
+    transform_time_ms: 168
     transform_yield_count: 98
     insert_time_ms: 1
     insert_new_count: 68
     insert_reused_count: 0
 -   query: EXPLAIN select sum(col3) from T2 group by col2;
-    ref: aggregate-index-tests.yamsql:570
-    explain: 'AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]])
+    ref: aggregate-index-tests.yamsql:578
+    explain: 'AISCAN(MV21 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]])
         | AGG sum_l(_._2) GROUP BY (_._0 AS _0) | MAP (_._2 AS _0)'
     task_count: 414
-    task_total_time_ms: 154
+    task_total_time_ms: 61
     transform_count: 129
-    transform_time_ms: 120
+    transform_time_ms: 42
     transform_yield_count: 62
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 27
     insert_reused_count: 1
 -   query: EXPLAIN select sum(col3) from T2 group by col1;
-    ref: aggregate-index-tests.yamsql:574
+    ref: aggregate-index-tests.yamsql:582
     explain: ISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL3) AS _0) GROUP BY
         (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
     task_count: 457
-    task_total_time_ms: 157
+    task_total_time_ms: 121
     transform_count: 118
-    transform_time_ms: 120
+    transform_time_ms: 95
     transform_yield_count: 64
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 49
     insert_reused_count: 6
 -   query: EXPLAIN select sum(col3) from T2;
-    ref: aggregate-index-tests.yamsql:581
-    explain: 'AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]])
+    ref: aggregate-index-tests.yamsql:589
+    explain: 'AISCAN(MV21 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]])
         | AGG sum_l(_._2) GROUP BY () | MAP ((_._2 AS _0) AS _0) | ON EMPTY NULL |
         MAP (_._0._0 AS _0)'
-    task_count: 742
-    task_total_time_ms: 38
-    transform_count: 194
-    transform_time_ms: 21
+    task_count: 729
+    task_total_time_ms: 55
+    transform_count: 193
+    transform_time_ms: 34
     transform_yield_count: 82
     insert_time_ms: 1
-    insert_new_count: 86
+    insert_new_count: 83
     insert_reused_count: 11
+-   query: EXPLAIN select a, ek.k, b, max(d) from t6, (select k from t6.c) as ek group
+        by a, ek.k, b
+    ref: aggregate-index-tests.yamsql:594
+    explain: 'AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3],
+        _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)'
+    task_count: 380
+    task_total_time_ms: 48
+    transform_count: 119
+    transform_time_ms: 32
+    transform_yield_count: 36
+    insert_time_ms: 0
+    insert_new_count: 32
+    insert_reused_count: 1
+-   query: EXPLAIN select ek.k, b, max(d) from t6, (select k from t6.c) as ek where
+        a = 1 group by a, ek.k, b
+    ref: aggregate-index-tests.yamsql:605
+    explain: 'AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3
+        AS _2)'
+    task_count: 434
+    task_total_time_ms: 55
+    transform_count: 149
+    transform_time_ms: 33
+    transform_yield_count: 39
+    insert_time_ms: 0
+    insert_new_count: 34
+    insert_reused_count: 1
+-   query: EXPLAIN select ek.k, b, max(d) from t6, (select k from t6.c) as ek where
+        a = 2 group by ek.k, b
+    ref: aggregate-index-tests.yamsql:611
+    explain: 'AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3
+        AS _2)'
+    task_count: 434
+    task_total_time_ms: 50
+    transform_count: 149
+    transform_time_ms: 33
+    transform_yield_count: 39
+    insert_time_ms: 0
+    insert_new_count: 34
+    insert_reused_count: 1
+-   query: EXPLAIN select ek.k, b, max(d) from t6, (select k from t6.c where k = 'q')
+        as ek where a = 2 group by a, ek.k, b
+    ref: aggregate-index-tests.yamsql:618
+    explain: 'AISCAN(MV20 [EQUALS promote(@c31 AS LONG), EQUALS promote(@c24 AS STRING)]
+        BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1
+        AS K, _._2 AS B, _._3 AS _2)'
+    task_count: 495
+    task_total_time_ms: 64
+    transform_count: 173
+    transform_time_ms: 40
+    transform_yield_count: 44
+    insert_time_ms: 1
+    insert_new_count: 41
+    insert_reused_count: 1
+-   query: EXPLAIN select b, max(d) from t6, (select k from t6.c where k = 'q') as
+        ek where a = 2 group by b
+    ref: aggregate-index-tests.yamsql:623
+    explain: 'AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)]
+        BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2
+        AS B, _._3 AS _1)'
+    task_count: 495
+    task_total_time_ms: 100
+    transform_count: 173
+    transform_time_ms: 64
+    transform_yield_count: 44
+    insert_time_ms: 2
+    insert_new_count: 41
+    insert_reused_count: 1
+-   query: EXPLAIN select b, max(d) from t6, (select k from t6.c where k = 'q') as
+        ek where a = 2 group by b order by max(d)
+    ref: aggregate-index-tests.yamsql:628
+    explain: 'AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)]
+        BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2
+        AS B, _._3 AS _1)'
+    task_count: 494
+    task_total_time_ms: 74
+    transform_count: 173
+    transform_time_ms: 45
+    transform_yield_count: 44
+    insert_time_ms: 2
+    insert_new_count: 41
+    insert_reused_count: 1
+-   query: EXPLAIN select b, max(d) from t6, (select k from t6.c where k = 'q') as
+        ek where a = 2 group by b order by max(d) desc
+    ref: aggregate-index-tests.yamsql:633
+    explain: 'AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)]
+        BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]])
+        | MAP (_._2 AS B, _._3 AS _1)'
+    task_count: 494
+    task_total_time_ms: 59
+    transform_count: 173
+    transform_time_ms: 36
+    transform_yield_count: 44
+    insert_time_ms: 1
+    insert_new_count: 41
+    insert_reused_count: 1
+-   query: EXPLAIN select a, ek.k, b, max(d) from t6, (select k from t6.c) as ek group
+        by a, ek.k, b having max(d) > 100
+    ref: aggregate-index-tests.yamsql:639
+    explain: 'AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3],
+        _3: KEY:[2]]) | FILTER _._3 GREATER_THAN promote(@c41 AS LONG) | MAP (_._0
+        AS A, _._1 AS K, _._2 AS B, _._3 AS _3)'
+    task_count: 411
+    task_total_time_ms: 20
+    transform_count: 125
+    transform_time_ms: 13
+    transform_yield_count: 37
+    insert_time_ms: 0
+    insert_new_count: 36
+    insert_reused_count: 1
+-   query: EXPLAIN select ek.k, b, max(d) from t6, (select k from t6.c) as ek where
+        a = 1 group by a, ek.k, b having max(d) >= 150
+    ref: aggregate-index-tests.yamsql:647
+    explain: 'AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS
+        promote(@c44 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)'
+    task_count: 465
+    task_total_time_ms: 71
+    transform_count: 155
+    transform_time_ms: 42
+    transform_yield_count: 40
+    insert_time_ms: 1
+    insert_new_count: 38
+    insert_reused_count: 1
+-   query: EXPLAIN select a, ek.k, b, max(d) from t6, (select k from t6.c where k
+        = 'q') as ek group by a, ek.k, b having a = 1 and max(d) > 100
+    ref: aggregate-index-tests.yamsql:653
+    explain: 'AISCAN(MV20 [EQUALS promote(@c42 AS LONG), EQUALS promote(@c26 AS STRING),
+        [GREATER_THAN promote(@c49 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
+        _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS
+        _3)'
+    task_count: 401
+    task_total_time_ms: 103
+    transform_count: 147
+    transform_time_ms: 86
+    transform_yield_count: 45
+    insert_time_ms: 1
+    insert_new_count: 39
+    insert_reused_count: 1
+agg-index-tests-t6-tvf:
+-   query: EXPLAIN select a, ek.k, b, max(d) from "t6v", (select k from "t6v".c) as
+        ek group by a, ek.k, b
+    setup:
+    - create temporary function "t6v" () on commit drop function AS SELECT * FROM
+        t6
+    ref: aggregate-index-tests.yamsql:674
+    explain: 'AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3],
+        _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)'
+    task_count: 397
+    task_total_time_ms: 54
+    transform_count: 123
+    transform_time_ms: 35
+    transform_yield_count: 37
+    insert_time_ms: 0
+    insert_new_count: 34
+    insert_reused_count: 1
+-   query: EXPLAIN select ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek
+        group by ek.k, b
+    setup:
+    - create temporary function "t6v" () on commit drop function AS SELECT * FROM
+        t6 WHERE a = 1
+    ref: aggregate-index-tests.yamsql:686
+    explain: 'AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3
+        AS _2)'
+    task_count: 451
+    task_total_time_ms: 61
+    transform_count: 153
+    transform_time_ms: 38
+    transform_yield_count: 40
+    insert_time_ms: 0
+    insert_new_count: 36
+    insert_reused_count: 1
+-   query: EXPLAIN select ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek
+        group by ek.k, b
+    setup:
+    - create temporary function "t6v" () on commit drop function AS SELECT * FROM
+        t6 WHERE a = 2
+    ref: aggregate-index-tests.yamsql:694
+    explain: 'AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3
+        AS _2)'
+    task_count: 451
+    task_total_time_ms: 61
+    transform_count: 153
+    transform_time_ms: 38
+    transform_yield_count: 40
+    insert_time_ms: 0
+    insert_new_count: 36
+    insert_reused_count: 1
+-   query: EXPLAIN select ek.k, b, max(d) from "t6v", (select k from "t6v".c where
+        k = 'q') as ek group by ek.k, b
+    setup:
+    - create temporary function "t6v" () on commit drop function AS SELECT * FROM
+        t6 WHERE a = 2
+    ref: aggregate-index-tests.yamsql:703
+    explain: 'AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c24 AS
+        STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]])
+        | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)'
+    task_count: 512
+    task_total_time_ms: 64
+    transform_count: 177
+    transform_time_ms: 38
+    transform_yield_count: 45
+    insert_time_ms: 0
+    insert_new_count: 43
+    insert_reused_count: 1
+-   query: EXPLAIN select ek.k, b, max(d) from "t6v", (select k from "t6v".c) as ek
+        group by ek.k, b having max(d) >= 150
+    setup:
+    - create temporary function "t6v" () on commit drop function AS SELECT * FROM
+        t6 WHERE a = 1
+    ref: aggregate-index-tests.yamsql:710
+    explain: 'AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS
+        promote(@c38 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)'
+    task_count: 482
+    task_total_time_ms: 63
+    transform_count: 159
+    transform_time_ms: 40
+    transform_yield_count: 41
+    insert_time_ms: 0
+    insert_new_count: 40
+    insert_reused_count: 1
+-   query: EXPLAIN select a, ek.k, b, max(d) from "t6v", (select k from "t6v".c where
+        k = 'q') as ek group by a, ek.k, b having max(d) > 100
+    setup:
+    - create temporary function "t6v" () on commit drop function AS SELECT * FROM
+        t6 WHERE a = 2
+    ref: aggregate-index-tests.yamsql:717
+    explain: 'AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c26 AS
+        STRING), [GREATER_THAN promote(@c45 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1:
+        KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B,
+        _._3 AS _3)'
+    task_count: 523
+    task_total_time_ms: 63
+    transform_count: 179
+    transform_time_ms: 38
+    transform_yield_count: 45
+    insert_time_ms: 0
+    insert_new_count: 44
+    insert_reused_count: 1

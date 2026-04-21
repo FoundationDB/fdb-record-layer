@@ -23,6 +23,8 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -39,6 +41,7 @@ import com.apple.foundationdb.relational.recordlayer.query.CopyPlan;
 import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
+import com.apple.foundationdb.relational.recordlayer.storage.BackingRecordStore;
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
@@ -47,6 +50,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -64,6 +68,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -220,8 +225,7 @@ public class CopyCommandTest {
 
         connectionUtils.runAgainstCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement();
-                     RelationalResultSet rs = stmt.executeQuery("COPY " + pathId)) {
-                // Should have no data
+                     RelationalResultSet rs = stmt.executeQuery("COPY " + pathId + " PRESERVE INCARNATION")) {
                 assertFalse(rs.next(), "Empty path should return empty result set");
             }
         });
@@ -233,10 +237,49 @@ public class CopyCommandTest {
         connectionUtils.runAgainstCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(
-                                () -> stmt.executeQuery("COPY /INVALID/PATH/STRUCTURE"))
+                                () -> stmt.executeQuery("COPY /INVALID/PATH/STRUCTURE PRESERVE INCARNATION"))
                         .hasErrorCode(ErrorCode.INVALID_PATH);
             }
         });
+    }
+
+    @ParameterizedTest
+    @BooleanSource("incrementIncarnation")
+    void exportWithIncarnationOption(boolean incrementIncarnation) throws Exception {
+        final String uuidName = uuidForPath(false);
+        // Use a driver with FormatVersion.INCARNATION so the store supports incarnation natively
+        final ConnectionUtils incarnationConnectionUtils =
+                new ConnectionUtils(relationalExtension.getDriver(FormatVersion.INCARNATION));
+        final SchemaInfo source = new SchemaInfo("/TEST/SOURCE_DB_" + uuidName, "1", incarnationConnectionUtils);
+        final SchemaInfo dest = new SchemaInfo("/TEST/DEST_DB_" + uuidName, "1", incarnationConnectionUtils);
+        String templateName = "TEMPLATE_" + uuidName;
+
+        try {
+            createTemplateAndSchema(incarnationConnectionUtils, templateName, source,
+                    "CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
+
+            incarnationConnectionUtils.runStatementUpdate(source.databasePath, source.schemaName,
+                    "INSERT INTO my_table VALUES (1, 'a')");
+
+            // Set a known incarnation on the store via the record store API
+            final int originalIncarnation = 42;
+            updateIncarnation(incarnationConnectionUtils, source, current -> originalIncarnation);
+
+            // Export with the incarnation option
+            final String incarnationClause = incrementIncarnation ? "INCREMENT INCARNATION" : "PRESERVE INCARNATION";
+            final List<byte[]> exportedData = exportData(source, incarnationClause);
+
+            // Import to destination and verify the incarnation via get_versionstamp_incarnation()
+            importDatabase(false, true, dest, exportedData);
+
+            final int expectedIncarnation = incrementIncarnation ? originalIncarnation + 1 : originalIncarnation;
+            incarnationConnectionUtils.runStatement(dest.databasePath, dest.schemaName, stmt ->
+                    ResultSetAssert.assertThat(stmt.executeQuery("SELECT get_versionstamp_incarnation() FROM my_table"))
+                            .containsRowsExactly(List.<Object[]>of(new Object[] {expectedIncarnation})));
+        } finally {
+            dropTemplateAndDatabase(false, List.of(templateName), source);
+            dropTemplateAndDatabase(false, List.of(templateName), dest);
+        }
     }
 
     @ParameterizedTest
@@ -283,7 +326,7 @@ public class CopyCommandTest {
         connectionUtils.runAgainstCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement()) {
                 stmt.setMaxRows(limit);
-                try (RelationalResultSet rs = stmt.executeQuery("COPY " + pathId)) {
+                try (RelationalResultSet rs = stmt.executeQuery("COPY " + pathId + " PRESERVE INCARNATION")) {
                     final ArrayList<byte[]> results = new ArrayList<>();
                     while (rs.next()) {
                         results.add(rs.getBytes(1));
@@ -314,7 +357,7 @@ public class CopyCommandTest {
             try (RelationalStatement stmt = conn.createStatement()) {
                 final int limit = 3;
                 stmt.setMaxRows(limit);
-                try (RelationalResultSet rs = stmt.executeQuery("COPY " + pathId)) {
+                try (RelationalResultSet rs = stmt.executeQuery("COPY " + pathId + " PRESERVE INCARNATION")) {
                     final ArrayList<byte[]> results = new ArrayList<>();
                     while (rs.next()) {
                         results.add(rs.getBytes(1));
@@ -368,14 +411,8 @@ public class CopyCommandTest {
         String templateName = "TEMPLATE_" + uuidName;
 
         try {
-            // Export from source (using quoted path)
-            // create a schema
-            connectionUtils.runCatalogStatement(stmt -> {
-                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + templateName +
-                        " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
-                stmt.executeUpdate("CREATE DATABASE " + schema.databasePath);
-                stmt.executeUpdate("CREATE SCHEMA " + schema.schemaPath + " WITH TEMPLATE " + templateName);
-            });
+            createTemplateAndSchema(connectionUtils, templateName, schema,
+                    "CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
 
             connectionUtils.runStatementUpdate(schema.databasePath, schema.schemaName, "INSERT INTO my_table VALUES (1, 'a'), (2, 'b')");
 
@@ -396,10 +433,7 @@ public class CopyCommandTest {
                                     List.of(2, "b")
                             )));
         } finally {
-            connectionUtils.runCatalogStatement(stmt -> {
-                stmt.executeUpdate("DROP SCHEMA TEMPLATE " + templateName);
-                stmt.executeUpdate("DROP DATABASE " + schema.databasePath);
-            });
+            dropTemplateAndDatabase(false, List.of(templateName), schema);
         }
     }
 
@@ -564,20 +598,12 @@ public class CopyCommandTest {
 
         try {
             // Create source database with a schema template
-            connectionUtils.runCatalogStatement(stmt -> {
-                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + sourceTemplateName +
-                        " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
-                stmt.executeUpdate("CREATE DATABASE " + setup.source.databasePath);
-                stmt.executeUpdate("CREATE SCHEMA " + setup.source.schemaPath + " WITH TEMPLATE " + sourceTemplateName);
-            });
+            createTemplateAndSchema(connectionUtils, sourceTemplateName, setup.source,
+                    "CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
 
             // Create destination database with a DIFFERENT schema template
-            connectionUtils.runCatalogStatement(stmt -> {
-                stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + destTemplateName +
-                        " CREATE TABLE other_table (id bigint, col2 string, PRIMARY KEY(id))");
-                stmt.executeUpdate("CREATE DATABASE " + setup.dest.databasePath);
-                stmt.executeUpdate("CREATE SCHEMA " + setup.dest.schemaPath + " WITH TEMPLATE " + destTemplateName);
-            });
+            createTemplateAndSchema(connectionUtils, destTemplateName, setup.dest,
+                    "CREATE TABLE other_table (id bigint, col2 string, PRIMARY KEY(id))");
 
             // Insert some records in the source database using SQL
             insertData(setup.source, data);
@@ -664,6 +690,40 @@ public class CopyCommandTest {
                 " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
     }
 
+    private static void createTemplateAndSchema(@Nonnull ConnectionUtils connUtils,
+                                                @Nonnull String templateName,
+                                                @Nonnull SchemaInfo schema,
+                                                @Nonnull String schemaTemplate) throws SQLException, RelationalException {
+        connUtils.runCatalogStatement(stmt -> {
+            stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + templateName + " " + schemaTemplate);
+            stmt.executeUpdate("CREATE DATABASE " + schema.databasePath);
+            stmt.executeUpdate("CREATE SCHEMA " + schema.schemaPath + " WITH TEMPLATE " + templateName);
+        });
+    }
+
+    private static FDBRecordStoreBase<Message> getBackingStore(@Nonnull RelationalConnection conn) throws SQLException, RelationalException {
+        conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
+        final RecordLayerSchema recordLayerSchema =
+                conn.unwrap(EmbeddedRelationalConnection.class).getRecordLayerDatabase().loadSchema(conn.getSchema());
+        final BackingRecordStore backingRecordStore =
+                (BackingRecordStore) recordLayerSchema.loadStore();
+        @SuppressWarnings("unchecked")
+        final FDBRecordStoreBase<Message> store =
+                (FDBRecordStoreBase<Message>) backingRecordStore.unwrap(FDBRecordStoreBase.class);
+        return store;
+    }
+
+    private static void updateIncarnation(@Nonnull ConnectionUtils connUtils,
+                                          @Nonnull SchemaInfo schema,
+                                          @Nonnull IntFunction<Integer> updater) throws SQLException, RelationalException {
+        connUtils.runAgainstConnection(schema.databasePath, schema.schemaName, conn -> {
+            conn.setAutoCommit(false);
+            final FDBRecordStoreBase<Message> store = getBackingStore(conn);
+            store.updateIncarnation(updater).join();
+            conn.setAutoCommit(true);
+        });
+    }
+
     @Nonnull
     private static String uuidForPath(final boolean quoted) {
         if (quoted) {
@@ -738,10 +798,18 @@ public class CopyCommandTest {
         return exportData(quoted, schemaInfo.databasePath, schemaInfo.connectionUtils);
     }
 
+    private static List<byte[]> exportData(SchemaInfo schemaInfo, String incarnationClause) throws SQLException, RelationalException {
+        return exportData(schemaInfo.databasePath, schemaInfo.connectionUtils, incarnationClause);
+    }
+
     private static List<byte[]> exportData(boolean quoted, String path, ConnectionUtils connectionUtils) throws SQLException, RelationalException {
+        return exportData(maybeQuote(path, quoted), connectionUtils, "PRESERVE INCARNATION");
+    }
+
+    private static List<byte[]> exportData(String path, ConnectionUtils connectionUtils, String incarnationClause) throws SQLException, RelationalException {
         return connectionUtils.getFromCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement();
-                     RelationalResultSet rs = stmt.executeQuery("COPY " + maybeQuote(path, quoted))) {
+                     RelationalResultSet rs = stmt.executeQuery("COPY " + path + " " + incarnationClause)) {
                 List<byte[]> exportedData = new ArrayList<>();
                 while (rs.next()) {
                     exportedData.add(rs.getBytes(1));
