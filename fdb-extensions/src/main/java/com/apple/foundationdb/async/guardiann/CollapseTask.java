@@ -90,6 +90,15 @@ public class CollapseTask extends AbstractDeferredTask {
                 StorageHelpers.bytesFromVector(encodedVector));
     }
 
+    @Override
+    protected void writeDeferredTask(@Nonnull final Transaction transaction) {
+        super.writeDeferredTask(transaction);
+        if (logger.isInfoEnabled()) {
+            logger.info("enqueuing COLLAPSE; taskId={}; targetClusterIds={}",
+                    taskIdToString(getTaskId()), getTargetClusterIds());
+        }
+    }
+
     @Nonnull
     @Override
     public Kind getKind() {
@@ -147,7 +156,8 @@ public class CollapseTask extends AbstractDeferredTask {
                                         collapseResult.getAssignments();
                                 final ImmutableMap.Builder<Tuple, VectorReference> targetClusterAssignedVectorsAsMapBuilder = ImmutableMap.builder();
                                 for (final VectorReference targetClusterAssignedVector : targetClusterAssignedVectors) {
-                                    targetClusterAssignedVectorsAsMapBuilder.put(targetClusterAssignedVector.getId().getPrimaryKey(),
+                                    targetClusterAssignedVectorsAsMapBuilder.put(
+                                            targetClusterAssignedVector.getId().getPrimaryKey(),
                                             targetClusterAssignedVector);
                                 }
                                 final ImmutableMap<Tuple, VectorReference> targetClusterAssignedVectorsAsMap =
@@ -157,8 +167,10 @@ public class CollapseTask extends AbstractDeferredTask {
                                         ImmutableList.builder();
                                 final ImmutableList.Builder<VectorReference> writeTargetClusterAssignedVectorsBuilder =
                                         ImmutableList.builder();
+                                final ImmutableMap.Builder<Tuple, VectorReference> primaryKeyToVectorReferencesMapBuilder = ImmutableMap.builder();
 
                                 for (final VectorReference vectorReference : targetCluster.getVectorReferences()) {
+                                    primaryKeyToVectorReferencesMapBuilder.put(vectorReference.getId().getPrimaryKey(), vectorReference);
                                     final Tuple primaryKey = vectorReference.getId().getPrimaryKey();
                                     final VectorReference assignedVectorReference =
                                             targetClusterAssignedVectorsAsMap.get(primaryKey);
@@ -183,6 +195,15 @@ public class CollapseTask extends AbstractDeferredTask {
                                     } else {
                                         // add to delete list
                                         deleteTargetClusterAssignedVectorsBuilder.add(primaryKey);
+                                    }
+                                }
+
+                                final ImmutableMap<Tuple, VectorReference> primaryKeyToVectorReferencesMap =
+                                        primaryKeyToVectorReferencesMapBuilder.build();
+
+                                for (final Map.Entry<Tuple, VectorReference> entry : targetClusterAssignedVectorsAsMap.entrySet()) {
+                                    if (!primaryKeyToVectorReferencesMap.containsKey(entry.getKey())) {
+                                        writeTargetClusterAssignedVectorsBuilder.add(entry.getValue());
                                     }
                                 }
 
@@ -341,10 +362,10 @@ public class CollapseTask extends AbstractDeferredTask {
         }
 
         // write updated vector references
-        int numUpdated = 0;
+        int numWritten = 0;
         for (final VectorReference vectorReference : writeTargetClusterAssignedVectors) {
             primitives.writeVectorReference(transaction, quantizer, targetClusterMetadata.getId(), vectorReference);
-            numUpdated++;
+            numWritten++;
         }
 
         //
@@ -370,10 +391,10 @@ public class CollapseTask extends AbstractDeferredTask {
         if (logger.isInfoEnabled()) {
             Objects.requireNonNull(newTargetClusterMetadata);
             logger.info("collapse stats; old.numPrimary={}, new.numPrimary={}, old.numReplicated={}, " +
-                    "new.numReplicated={}, numDeleted={}, numUpdated={}",
+                    "new.numReplicated={}, numDeleted={}, numWritten={}",
                     targetClusterMetadata.getNumPrimaryVectors(),
                     newTargetClusterMetadata.getNumPrimaryVectors(), targetClusterMetadata.getNumReplicatedVectors(),
-                    newTargetClusterMetadata.getNumReplicatedVectors(), numDeleted, numUpdated);
+                    newTargetClusterMetadata.getNumReplicatedVectors(), numDeleted, numWritten);
         }
     }
 

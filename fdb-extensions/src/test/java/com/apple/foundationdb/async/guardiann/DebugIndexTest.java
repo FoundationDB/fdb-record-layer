@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.Database;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.common.BaseTest;
 import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
 import com.apple.foundationdb.async.common.ResultEntry;
@@ -144,8 +145,9 @@ public class DebugIndexTest implements BaseTest {
 
         logger.info("Preparing db and inserting SIFT small dataset...");
         //insertedData = TestHelpers.insertSIFTSmall(db, guardiann);
+//        TestHelpers.insertFirstRepeatedly(db, guardiann,
+//                "/Users/nseemann/downloads/embeddings-unified-model-1m-1.0.0.fvecs", 1000, 50);
         insertedData = TestHelpers.insertSIFT100k(db, guardiann, 1_000_000, 50);
-        //[(81836), (602936), (236681), (143840), (537950), (14794), (235529), (162367), (237668), (427560), (256723), (312461), (411952), (483931), (512233), (132292), (616836), (174782), (258984), (721809), (405382), (536516)]
     }
 
     @Test
@@ -295,6 +297,14 @@ public class DebugIndexTest implements BaseTest {
         TestHelpers.validateSIFT(getDb(), guardiann,
                 "/Users/nseemann/Downloads/embeddings-unified-model-1m-queries-1.0.0.fvecs",
                 "/Users/nseemann/Downloads/embeddings-unified-model-1m-groundtruth-1.0.0.ivecs", 100);
+    }
+
+    @Test
+    void testScanCollapsedVectorIds() throws Exception {
+        db.run(tr -> {
+            final Primitives primitives = guardiann.getLocator().primitives();
+            return AsyncUtil.forEach(primitives.scanCollapsedVectorIdsIterable(tr), System.out::println).join();
+        });
     }
 
     @Test

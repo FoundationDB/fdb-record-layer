@@ -81,6 +81,15 @@ public class BounceTask extends AbstractDeferredTask {
                 StorageAdapter.tupleFromTaskIds(getDependentTaskIds()), finalTaskKind.name());
     }
 
+    @Override
+    protected void writeDeferredTask(@Nonnull final Transaction transaction) {
+        super.writeDeferredTask(transaction);
+        if (logger.isInfoEnabled()) {
+            logger.info("enqueuing BOUNCE; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
+                    taskIdToString(getTaskId()), getTargetClusterIds(), getDependentTaskIds());
+        }
+    }
+
     @Nonnull
     @Override
     public Kind getKind() {
@@ -125,7 +134,7 @@ public class BounceTask extends AbstractDeferredTask {
                         logger.info("bouncing task; taskKind={}, taskId={}", bounceTask.getKind().name(), bounceTask.getTaskId());
                     }
 
-                    return bounceTask.runTask(transaction)
+                    return primitives.doDeferredTask(transaction, bounceTask)
                             .thenCompose(ignored -> {
                                 if (shuffledTasks.size() > 1) {
                                     final ImmutableSet.Builder<UUID> newDependentTaskIdsBuilder = ImmutableSet.builder();
@@ -140,14 +149,7 @@ public class BounceTask extends AbstractDeferredTask {
                                                     randomNormalPriorityTaskId(splittableRandom,
                                                             config.isDeterministicRandomness()),
                                                     getTargetClusterIds(), newDependentTaskIds, getFinalTaskKind());
-                                    primitives.writeDeferredTask(transaction, newBounceTask);
-
-                                    if (logger.isInfoEnabled()) {
-                                        logger.info("re-enqueuing BOUNCE_REASSIGN; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
-                                                taskIdToString(newBounceTask.getTaskId()),
-                                                newBounceTask.getTargetClusterIds(),
-                                                newBounceTask.getDependentTaskIds());
-                                    }
+                                    newBounceTask.writeDeferredTask(transaction);
                                     return AsyncUtil.DONE;
                                 }
 
@@ -200,12 +202,10 @@ public class BounceTask extends AbstractDeferredTask {
                                                     throw new UnsupportedOperationException("unsupported kind for final task");
                                             }
 
-                                            primitives.writeDeferredTask(transaction, finalTask);
+                                            finalTask.writeDeferredTask(transaction);
                                             if (logger.isInfoEnabled()) {
-                                                logger.info("enqueuing final task; kind={}; taskId={}; targetClusterIds={}",
-                                                        finalTask.getKind(),
-                                                        taskIdToString(finalTask.getTaskId()),
-                                                        finalTask.getTargetClusterIds());
+                                                logger.info("enqueued final task; taskId={}",
+                                                        taskIdToString(finalTask.getTaskId()));
                                             }
 
                                         }), 10, executor)

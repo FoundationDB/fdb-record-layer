@@ -110,6 +110,10 @@ public abstract class AbstractDeferredTask {
         }
     }
 
+    protected void writeDeferredTask(@Nonnull final Transaction transaction) {
+        primitives().writeDeferredTask(transaction, this.getTaskId(), valueTuple());
+    }
+
     @Nonnull
     public abstract Kind getKind();
 
@@ -132,13 +136,13 @@ public abstract class AbstractDeferredTask {
                             targetClusterId, centroid);
             final UUID bounceTaskId = randomHighPriorityTaskId(random,
                     config.isDeterministicRandomness());
-            primitives.writeDeferredTask(transaction, collapseTask);
+            collapseTask.writeDeferredTask(transaction);
             final BounceTask bounceTask =
                     BounceTask.of(getLocator(), getAccessInfo(), bounceTaskId,
                             ImmutableSet.of(targetClusterId),
                             ImmutableSet.of(collapseTaskId),
                             AbstractDeferredTask.Kind.SPLIT_MERGE);
-            primitives.writeDeferredTask(transaction, bounceTask);
+            bounceTask.writeDeferredTask(transaction);
             return true;
         }
         return false;

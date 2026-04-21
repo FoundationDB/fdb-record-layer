@@ -378,6 +378,12 @@ class StorageAdapter {
     }
 
     @Nonnull
+    static VectorId collapsedVectorIdFromValueTuple(@Nonnull final Tuple primaryKey,
+                                                    @Nonnull final Tuple valueTuple) {
+        return new VectorId(primaryKey, valueTuple.getUUID(0));
+    }
+
+    @Nonnull
     static Tuple valueTupleFromCollapsedVectorId(@Nonnull final VectorId vectorId) {
         return Tuple.from(vectorId.getUuid());
     }

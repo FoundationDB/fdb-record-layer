@@ -42,6 +42,7 @@ import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.rabitq.RaBitQuantizer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -463,6 +464,47 @@ class Primitives {
         transaction.clear(range);
     }
 
+    @Nonnull
+    CompletableFuture<List<VectorId>> fetchCollapsedVectorIds(@Nonnull final ReadTransaction readTransaction,
+                                                              @Nonnull final UUID signature) {
+        return AsyncUtil.collect(fetchCollapsedVectorIdsIterable(readTransaction, signature),
+                getExecutor());
+    }
+
+    @Nonnull
+    AsyncIterable<VectorId> fetchCollapsedVectorIdsIterable(@Nonnull final ReadTransaction readTransaction,
+                                                            @Nonnull final UUID signature) {
+        final Subspace collapsedVectorIdsSubspace = getCollapsedVectorIdsSubspace();
+        final byte[] rangeKey = collapsedVectorIdsSubspace.pack(Tuple.from(signature));
+
+        return AsyncUtil.mapIterable(readTransaction.getRange(Range.startsWith(rangeKey),
+                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL),
+                keyValue -> {
+                    final Tuple primaryKey = collapsedVectorIdsSubspace.unpack(keyValue.getKey()).getNestedTuple(1);
+                    final byte[] keyBytes = keyValue.getKey();
+                    final byte[] valueBytes = keyValue.getValue();
+                    getOnReadListener().onKeyValueRead(-1, keyBytes, valueBytes);
+                    return StorageAdapter.collapsedVectorIdFromValueTuple(primaryKey, Tuple.fromBytes(valueBytes));
+                });
+    }
+
+    @Nonnull
+    @VisibleForTesting
+    AsyncIterable<VectorId> scanCollapsedVectorIdsIterable(@Nonnull final ReadTransaction readTransaction) {
+        final Subspace collapsedVectorIdsSubspace = getCollapsedVectorIdsSubspace();
+        final byte[] rangeKey = collapsedVectorIdsSubspace.pack();
+
+        return AsyncUtil.mapIterable(readTransaction.getRange(Range.startsWith(rangeKey),
+                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL),
+                keyValue -> {
+                    final Tuple primaryKey = collapsedVectorIdsSubspace.unpack(keyValue.getKey()).getNestedTuple(1);
+                    final byte[] keyBytes = keyValue.getKey();
+                    final byte[] valueBytes = keyValue.getValue();
+                    getOnReadListener().onKeyValueRead(-1, keyBytes, valueBytes);
+                    return StorageAdapter.collapsedVectorIdFromValueTuple(primaryKey, Tuple.fromBytes(valueBytes));
+                });
+    }
+
     void writeCollapsedVectorId(@Nonnull final Transaction transaction,
                                 @Nonnull final UUID signature,
                                 @Nonnull final VectorId vectorId) {
@@ -481,16 +523,20 @@ class Primitives {
                 .thenCompose(deferredTasks ->
                         forLoop(0, null,
                                 i -> i < deferredTasks.size(), i -> i + 1,
-                                (i, ignored) -> {
-                                    final AbstractDeferredTask deferredTask = deferredTasks.get(i);
-                                    deleteDeferredTask(transaction, deferredTask);
-                                    try {
-                                        return deferredTask.runTask(transaction);
-                                    } finally {
-                                        getOnWriteListener().onTaskExecuted(deferredTask.getKind(),
-                                                deferredTask.getTaskId(), deferredTask.getTargetClusterIds());
-                                    }
-                                }, getExecutor()));
+                                (i, ignored) ->
+                                        doDeferredTask(transaction, deferredTasks.get(i)), getExecutor()));
+    }
+
+    @Nonnull
+    CompletableFuture<Void> doDeferredTask(@Nonnull final Transaction transaction,
+                                           @Nonnull final AbstractDeferredTask deferredTask) {
+        deleteDeferredTask(transaction, deferredTask);
+        try {
+            return deferredTask.runTask(transaction);
+        } finally {
+            getOnWriteListener().onTaskExecuted(deferredTask.getKind(),
+                    deferredTask.getTaskId(), deferredTask.getTargetClusterIds());
+        }
     }
 
     @Nonnull
@@ -540,10 +586,11 @@ class Primitives {
     }
 
     void writeDeferredTask(@Nonnull final Transaction transaction,
-                           @Nonnull final AbstractDeferredTask deferredTask) {
+                           @Nonnull final UUID taskId,
+                           @Nonnull final Tuple valueTuple) {
         final Subspace tasksSubspace = getTasksSubspace();
-        final byte[] key = tasksSubspace.pack(Tuple.from(deferredTask.getTaskId()));
-        final byte[] value = deferredTask.valueTuple().pack();
+        final byte[] key = tasksSubspace.pack(Tuple.from(taskId));
+        final byte[] value = valueTuple.pack();
 
         getOnWriteListener().onKeyValueWritten(-1, key, value);
         transaction.set(key, value);
@@ -565,17 +612,18 @@ class Primitives {
 
         final int numTotalPrimaryVectors = clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded;
         if (!clusterMetadata.getStates().contains(ClusterMetadata.State.SPLIT_MERGE) && // not already splitting
+                !clusterMetadata.getStates().contains(ClusterMetadata.State.COLLAPSE) && // not already collapsing
                 ((numPrimaryVectorsAdded > 0 && numTotalPrimaryVectors > config.getPrimaryClusterMax()) ||
                          (numPrimaryVectorsAdded < 0 && numTotalPrimaryVectors < config.getPrimaryClusterMin()))) {
             // create a split/merge task
             final UUID newTaskId =
                     AbstractDeferredTask.randomNormalPriorityTaskId(random, config.isDeterministicRandomness());
-            writeDeferredTask(transaction,
-                    SplitMergeTask.of(getLocator(), accessInfo, newTaskId, clusterId, clusterCentroid));
-
+            final SplitMergeTask newSplitTask =
+                    SplitMergeTask.of(getLocator(), accessInfo, newTaskId, clusterId, clusterCentroid);
+            newSplitTask.writeDeferredTask(transaction);
             if (logger.isInfoEnabled()) {
-                logger.info("enqueuing SPLIT_MERGE; taskId={}; clusterId={}; numTotalPrimaryVectors={}",
-                        AbstractDeferredTask.taskIdToString(newTaskId), clusterId, numTotalPrimaryVectors);
+                logger.info("enqueued SPLIT_MERGE due to number of primary vectors, taskId={}, numPrimaryVectors={}",
+                        newSplitTask.getTaskId(), numTotalPrimaryVectors);
             }
 
             final ClusterMetadata newClusterMetadata =
@@ -598,13 +646,13 @@ class Primitives {
             // create a reassign task
             final UUID newTaskId =
                     AbstractDeferredTask.randomNormalPriorityTaskId(random, config.isDeterministicRandomness());
-            writeDeferredTask(transaction,
-                    ReassignTask.of(getLocator(), accessInfo, newTaskId,
-                            clusterId, clusterCentroid, causeClusterIds));
+            final ReassignTask newReassignTask = ReassignTask.of(getLocator(), accessInfo, newTaskId,
+                    clusterId, clusterCentroid, causeClusterIds);
+            newReassignTask.writeDeferredTask(transaction);
 
             if (logger.isInfoEnabled()) {
-                logger.info("enqueuing REASSIGN; taskId={}; clusterId={}; numTotalPrimaryVectors={}, numTotalReplicatedVectors={}, numTotalPrimaryUnderreplicatedVectors={}",
-                        AbstractDeferredTask.taskIdToString(newTaskId), clusterId, numTotalPrimaryVectors,
+                logger.info("enqueued REASSIGN due to violated invariance; taskId={}; numTotalPrimaryVectors={}, numTotalReplicatedVectors={}, numTotalPrimaryUnderreplicatedVectors={}",
+                        AbstractDeferredTask.taskIdToString(newTaskId), numTotalPrimaryVectors,
                         numPrimaryUnderreplicatedVectorsAdded, numTotalReplicatedVectors);
             }
 
@@ -789,7 +837,7 @@ class Primitives {
                 vectorReference ->
                         primitives.fetchVectorMetadata(transaction, vectorReference.getId().getPrimaryKey())
                                 .thenApply(vectorMetadata ->
-                                        vectorMetadata.getUuid().equals(vectorReference.getId().getUuid())
+                                        vectorReference.isCollapsed() || vectorMetadata.getUuid().equals(vectorReference.getId().getUuid())
                                         ? vectorReference : null),
                 10,
                 executor)

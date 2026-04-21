@@ -89,6 +89,15 @@ public class SplitMergeTask extends AbstractDeferredTask {
         return neighborhood;
     }
 
+    @Override
+    protected void writeDeferredTask(@Nonnull final Transaction transaction) {
+        super.writeDeferredTask(transaction);
+        if (logger.isInfoEnabled()) {
+            logger.info("enqueuing SPLIT_MERGE; taskId={}; clusterId={}",
+                    AbstractDeferredTask.taskIdToString(getTaskId()), getTargetClusterId());
+        }
+    }
+
     @Nonnull
     @Override
     public Kind getKind() {
@@ -178,11 +187,10 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                 withHighPriorityAndNeighborhood(random,
                                         config.isDeterministicRandomness(),
                                         ClusterIdAndCentroid.fromClusterMetadataAndDistances(fetchedNeighborhood));
-                        primitives.writeDeferredTask(transaction, splitMergeTask);
+                        splitMergeTask.writeDeferredTask(transaction);
                         if (logger.isInfoEnabled()) {
-                            logger.info("enqueuing high priority SPLIT_MERGE; taskId={}; clusterId={}; neighborhoodSize={}",
+                            logger.info("enqueued high priority SPLIT_MERGE due to refetch of the neighborhood; taskId={}; neighborhoodSize={}",
                                     AbstractDeferredTask.taskIdToString(splitMergeTask.getTaskId()),
-                                    splitMergeTask.getTargetClusterId(),
                                     splitMergeTask.getNeighborhood().size());
                         }
                     });
@@ -630,14 +638,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                     BounceTask.of(getLocator(), getAccessInfo(),
                             randomNormalPriorityTaskId(random, config.isDeterministicRandomness()), newClusterIds,
                             newDependentTaskIds, Kind.REASSIGN);
-            primitives.writeDeferredTask(transaction, newBounceTask);
-
-            if (logger.isInfoEnabled()) {
-                logger.info("enqueuing BOUNCE_REASSIGN; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
-                        taskIdToString(newBounceTask.getTaskId()),
-                        newBounceTask.getTargetClusterIds(),
-                        newBounceTask.getDependentTaskIds());
-            }
+            newBounceTask.writeDeferredTask(transaction);
         }
     }
 

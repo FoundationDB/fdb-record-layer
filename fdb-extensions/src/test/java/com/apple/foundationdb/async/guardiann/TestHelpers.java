@@ -59,6 +59,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.async.common.CommonTestHelpers.createPrimaryKey;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -193,6 +195,49 @@ class TestHelpers {
             assertThat(i).isEqualTo(numVectors);
         }
         return insertedDataBuilder.build();
+    }
+
+    static void insertFirstRepeatedly(@Nonnull final Database db,
+                                      @Nonnull final Guardiann guardiann,
+                                      @Nonnull final String baseFile,
+                                      final int numRepetitions,
+                                      final int desiredBatchSize) throws Exception {
+        final Path siftPath = Paths.get(baseFile);
+
+        try (final var fileChannel = FileChannel.open(siftPath, StandardOpenOption.READ)) {
+            final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
+
+            if (!vectorIterator.hasNext()) {
+                return;
+            }
+
+            int i = 0;
+            final DoubleRealVector onlyVector = vectorIterator.next();
+
+            while (i < numRepetitions) {
+                final int batchSize = Math.min(desiredBatchSize, numRepetitions - i);
+                final List<DoubleRealVector> remainingBatch =
+                        IntStream.range(0, batchSize).mapToObj(ignored -> onlyVector)
+                                .collect(Collectors.toList());
+                while (!remainingBatch.isEmpty()) {
+                    final long currentBatchStart = i;
+                    final List<PrimaryKeyAndVector> insertedInBatch =
+                            basicInsertBatch(db, guardiann, remainingBatch.size(), i,
+                                    (tr, nextId) -> {
+                                        final int indexInBatch = Math.toIntExact(nextId - currentBatchStart);
+                                        if (indexInBatch >= remainingBatch.size()) {
+                                            return null;
+                                        }
+                                        final Tuple currentPrimaryKey = createPrimaryKey(-1 - nextId);
+                                        final DoubleRealVector doubleVector = remainingBatch.get(indexInBatch);
+                                        return new PrimaryKeyAndVector(currentPrimaryKey, doubleVector);
+                                    });
+                    final int numInsertedInBatch = insertedInBatch.size();
+                    i += numInsertedInBatch;
+                    remainingBatch.subList(0, numInsertedInBatch).clear();
+                }
+            }
+        }
     }
 
     static void validateSIFTSmall(@Nonnull final Database db,

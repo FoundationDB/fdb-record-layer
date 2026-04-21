@@ -118,6 +118,15 @@ public class ReassignTask extends AbstractDeferredTask {
                 Tuple.fromItems(neighborhoodTuplesBuilder.build()));
     }
 
+    @Override
+    protected void writeDeferredTask(@Nonnull final Transaction transaction) {
+        super.writeDeferredTask(transaction);
+        if (logger.isInfoEnabled()) {
+            logger.info("enqueuing REASSIGN; taskId={}; clusterId={}",
+                    AbstractDeferredTask.taskIdToString(getTaskId()), getTargetClusterId());
+        }
+    }
+
     @Nonnull
     @Override
     public Kind getKind() {
@@ -175,11 +184,10 @@ public class ReassignTask extends AbstractDeferredTask {
                         final ReassignTask reassignTask = withHighPriorityAndNeighborhood(random,
                                 config.isDeterministicRandomness(),
                                 ClusterIdAndCentroid.fromClusterMetadataAndDistances(fetchedNeighborhood));
-                        primitives.writeDeferredTask(transaction, reassignTask);
+                        reassignTask.writeDeferredTask(transaction);
                         if (logger.isInfoEnabled()) {
-                            logger.info("enqueuing high priority REASSIGN; taskId={}; clusterId={}; neighborhoodSize={}",
+                            logger.info("enqueuing high priority REASSIGN due to refetch of neighborhood; taskId={}; neighborhoodSize={}",
                                     AbstractDeferredTask.taskIdToString(reassignTask.getTaskId()),
-                                    reassignTask.getTargetClusterId(),
                                     reassignTask.getNeighborhood().size());
                         }
                     });
