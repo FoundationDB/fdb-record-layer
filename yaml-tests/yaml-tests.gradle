@@ -229,6 +229,8 @@ task listRecentVersions {
             ? Integer.parseInt(project.getProperty('tests.listVersionsCount'))
             : 10
         def versions = resolveRecentVersionStrings(count)
+        versions.add("4.10.1.0")
+        versions.add("4.9.9.0")
         // we don't want the output to be a declared output, otherwise gradle will conclude that it doesn't need to
         // rerun this when the property changes.
         def outputFile = project.layout.buildDirectory.file('recentVersions.txt').get().asFile
