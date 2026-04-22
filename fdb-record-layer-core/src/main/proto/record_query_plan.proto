@@ -262,7 +262,6 @@ message PValue {
     PBinaryRelOpValue binary_rel_op_value = 35;
     PUnaryRelOpValue unary_rel_op_value = 36;
     PVariadicFunctionValue variadic_function_value = 37;
-    PVersionValue version_value = 38;
     PFirstOrDefaultValue first_or_default_value = 39;
     PThrowsValue throws_value = 40;
     PIndexEntryObjectValue index_entry_object_value = 41;
@@ -288,6 +287,8 @@ message PValue {
     PIncarnationValue incarnation_value = 62;
     PCardinalityValue cardinality_value = 63;
   }
+  // Removed types that are no longer supported
+  reserved 38;
 }
 
 message PUserDefinedMacroFunction {
@@ -1364,11 +1365,6 @@ message PVariadicFunctionValue {
   }
   optional PPhysicalOperator operator = 1;
   repeated PValue children = 2;
-}
-
-message PVersionValue {
-  optional string base_alias = 1;  // to-be-deprecated
-  optional PValue child = 2;
 }
 
 message PIncarnationValue {
