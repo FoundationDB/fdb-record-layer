@@ -24,11 +24,15 @@ options:
     supported_version: 4.0.559.6 # This will only work on 4.0.559.6 and then on 4.1.6.0+
 ---
 schema_template:
-    create type as struct test_struct(f0 bigint, f1 string)
     create table ta(a bigint, b double, c boolean, d integer, e integer array, f string, primary key(a))
-    create table tb(a bigint, b float, primary key(a))
-    create table tc(a bigint, b bytes, primary key(a))
-    create table td(a bigint, b test_struct, primary key(a))
+    create table type_with_scalars(pk bigint, bigint_value bigint, integer_value integer, double_value double,
+                                   float_value float, string_value string, boolean_value boolean,
+                                   bytes_value bytes, primary key(pk))
+    create table type_with_arrays(pk bigint, bigint_array bigint array, integer_array integer array,
+                                  double_array double array, float_array float array, string_array string array,
+                                  boolean_array boolean array, bytes_array bytes array, primary key(pk))
+# Note: STRUCT is not included because it is not supported in JDBC
+# See: https://github.com/FoundationDB/fdb-record-layer/issues/4064
 ---
 setup:
   steps:
@@ -43,9 +47,6 @@ setup:
                (15, 16.01, false, 1566, [17, 18, 19], 'black widow'),
                (17, 18.01, true, 1744, [19, 20, 21], 'jessica jones'),
                (19, 20.01, false, 1853, [21, 22, 23], 'luke cage')
-    - query: INSERT INTO TB VALUES (1, cast(1.5 as float)), (2, cast(2.25 as float)), (3, cast(3.75 as float))
-    - query: INSERT INTO TC VALUES (1, x'deadbeef'), (2, x'cafe'), (3, x'0ff1ce')
-    - query: INSERT INTO TD VALUES (1, (100, 'hello')), (2, (200, 'world'))
 ---
 test_block:
   name: prepared-tests
@@ -155,57 +156,66 @@ test_block:
       - result: [{[10, 100, 1000]}]
 ---
 test_block:
-  name: float-insert-test
+  name: type-with-scalars-roundtrip
   preset: single_repetition_ordered
   options:
-    statement_type: prepared # ensure we are testing with inserting via parameters
+    statement_type: prepared
   tests:
     -
-      - query: insert into tb(a, b) values (!! !l 100 !!, !! !f 0.5 !!)
+      - query: insert into type_with_scalars(pk, bigint_value, integer_value, double_value, float_value, string_value, boolean_value, bytes_value)
+          values (!! !l 1 !!, !! !l 178 !!, !! 42 !!, !! 3.14 !!, !! !f 1.5 !!, !! 'hello' !!, !!true!!, !! !b x'deadbeef' !!)
+      - count: 1
+    -
+      # bigint beyond integer range; double beyond float precision; boolean false
+      - query: insert into type_with_scalars(pk, bigint_value, integer_value, double_value, float_value, string_value, boolean_value, bytes_value)
+          values (!! !l 2 !!, !! !l 3000000000 !!, !! -999 !!, !! 3.141592653589793 !!, !! !f 2.25 !!, !! 'prepared' !!, !!false!!, !! !b x'cafe' !!)
+      - count: 1
+    -
+      # negative bigint beyond integer range; very large double outside float range
+      - query: insert into type_with_scalars(pk, bigint_value, integer_value, double_value, float_value, string_value, boolean_value, bytes_value)
+          values (!! !l 3 !!, !! !l -5000000000 !!, !! 2147483647 !!, !! 1.0E300 !!, !! !f 0.125 !!, !! '' !!, !!true!!, !! !b x'0ff1ce' !!)
       - count: 1
 ---
 test_block:
-  name: float-prepared-tests
+  name: type-with-scalars-roundtrip-read
   tests:
     -
-      - query: select a from tb where b < !! !f 3.0 !!
-      - result: [{a: 1}, {a: 2}, {a: 100}]
+      - query: select * from type_with_scalars where pk = !! !l 1 !!
+      - result: [{!l 1, !l 178, 42, 3.14, !f 1.5, 'hello', true, x'deadbeef'}]
     -
-      - query: select a from tb where b = !! !f 1.5 !!
-      - result: [{!l 1}]
+      - query: select * from type_with_scalars where pk = !! !l 2 !!
+      - result: [{!l 2, !l 3000000000, -999, 3.141592653589793, !f 2.25, 'prepared', false, x'cafe'}]
     -
-      - query: select b from tb where a = !! !l 1 !!
-      - result: [{!f 1.5}]
-    -
-      - query: select b from tb where a = !! !l 3 !!
-      - result: [{!f 3.75}]
-    -
-      # verify the inserted float value round-trips
-      - query: select b from tb where a = !! !l 100 !!
-      - result: [{!f 0.5}]
+      - query: select * from type_with_scalars where pk = !! !l 3 !!
+      - result: [{!l 3, !l -5000000000, 2147483647, 1.0E300, !f 0.125, '', true, x'0ff1ce'}]
+
 ---
 test_block:
-  name: bytes-insert-test
+  name: type-with-arrays-roundtrip
   preset: single_repetition_ordered
   options:
-    statement_type: prepared # ensure we are testing with inserting via parameters
+    statement_type: prepared
+    supported_version: !current_version
   tests:
     -
-      # parameterized insert into bytes column
-      - query: insert into tc(a, b) values (!! !l 100 !!, !! !b x'baadf00d' !!)
+      - query: insert into type_with_arrays(pk, bigint_array, integer_array, double_array, float_array, string_array, boolean_array, bytes_array)
+          values (!! !l 1 !!, !! [!l 10, !l 20] !!, !! [1, 2, 3] !!, !! [1.1, 2.2] !!, !! [!f 1.5, !f 2.5] !!, !! ['a', 'b'] !!, !! [true, false] !!, !! [!b x'cafe', !b x'f00d'] !!)
+      - count: 1
+    -
+      # arrays with boundary values: bigints beyond int range, doubles beyond float range
+      - query: insert into type_with_arrays(pk, bigint_array, integer_array, double_array, float_array, string_array, boolean_array, bytes_array)
+          values (!! !l 2 !!, !! [!l 3000000000, !l -5000000000] !!, !! [-1, 0, 1] !!, !! [1.0E300, 3.141592653589793] !!, !! [!f 0.125, !f 3.75] !!, !! ['', 'prepared'] !!, !! [false, false, true] !!, !! [!b x'deadbeef', !b x'0ff1ce', !b x'baadf00d'] !!)
       - count: 1
 ---
 test_block:
-  name: bytes-prepared-tests
+  name: type-with-arrays-roundtrip-read
+  options:
+    supported_version: !current_version
   tests:
     -
-      # select bytes value using prepared bigint parameter
-      - query: select b from tc where b = !! !b x'deadbeef' !!
-      - result: [{x'deadbeef'}]
+      - query: select * from type_with_arrays where pk = !! !l 1 !!
+      - result: [{!l 1, [!l 10, !l 20], [1, 2, 3], [1.1, 2.2], [!f 1.5, !f 2.5], ['a', 'b'], [true, false], [x'cafe', x'f00d']}]
     -
-      # verify the inserted bytes value
-      - query: select b from tc where a = !! !l 100 !!
-      - result: [{x'baadf00d'}]
-# JDBC does not support createStruct (always returns null), so inserting with jdbc parameters is not supported.
-# See: https://github.com/FoundationDB/fdb-record-layer/issues/4064
+      - query: select * from type_with_arrays where pk = !! !l 2 !!
+      - result: [{!l 2, [!l 3000000000, !l -5000000000], [-1, 0, 1], [1.0E300, 3.141592653589793], [!f 0.125, !f 3.75], ['', 'prepared'], [false, false, true], [x'deadbeef', x'0ff1ce', x'baadf00d']}]
 ...
