@@ -75,6 +75,11 @@ class DocumentationQueriesTests {
     }
 
     @TestTemplate
+    void subqueriesDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/subqueries-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     void udfDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/udf-documentation-queries.yamsql");
     }
