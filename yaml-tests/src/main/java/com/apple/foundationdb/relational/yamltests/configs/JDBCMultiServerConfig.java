@@ -21,35 +21,32 @@
 package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.ExternalServerYamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
  * Run against an embedded JDBC driver, and an external server, alternating commands that go against each.
+ * <p>
+ * Multi-cluster support (in-process servers for all cluster files) is inherited from
+ * {@link JDBCInProcessConfig}. The external server clusters should have one entry per cluster file
+ * (matching the in-process servers), so that cluster-specific connections also alternate.
  */
 public class JDBCMultiServerConfig extends JDBCInProcessConfig {
 
-    private final ExternalServer externalServer;
+    @Nonnull
+    private final Clusters<ExternalServer> externalServers;
     private final int initialConnection;
 
-    public JDBCMultiServerConfig(final int initialConnection, ExternalServer externalServer) {
-        this(initialConnection, externalServer, null);
-    }
-
-    public JDBCMultiServerConfig(final int initialConnection, ExternalServer externalServer,
-                                 @Nullable final String clusterFile) {
-        super(clusterFile);
+    public JDBCMultiServerConfig(final int initialConnection, @Nonnull Clusters<ExternalServer> externalServers) {
+        super(externalServers.clusterFiles());
         this.initialConnection = initialConnection;
-        this.externalServer = externalServer;
-    }
-
-    @Override
-    public void beforeAll() throws Exception {
-        super.beforeAll();
+        this.externalServers = externalServers;
     }
 
     @Override
@@ -58,15 +55,16 @@ public class JDBCMultiServerConfig extends JDBCInProcessConfig {
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 initialConnection,
                 super.createConnectionFactory(),
-                List.of(new ExternalServerYamlConnectionFactory(externalServer)));
+                List.of(new ExternalServerYamlConnectionFactory(externalServers)));
     }
 
     @Override
     public String toString() {
+        final SemanticVersion externalVersion = externalServers.getInfo(ExternalServer::getVersion);
         if (initialConnection == 0) {
-            return "MultiServer (" + super.toString() + " then " + externalServer.getVersion() + ")";
+            return "MultiServer (" + super.toString() + " then " + externalVersion + ")";
         } else {
-            return "MultiServer (" + externalServer.getVersion() + " then " + super.toString() + ")";
+            return "MultiServer (" + externalVersion + " then " + super.toString() + ")";
         }
     }
 }

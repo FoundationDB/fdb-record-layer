@@ -18,24 +18,16 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
-import com.apple.foundationdb.relational.yamltests.YamlConnection;
-import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
-import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
+import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import java.net.URI;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -50,9 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class CheckResultMetadataTest {
 
-    private static final SemanticVersion VERSION = SemanticVersion.parse("4.4.8.0");
-    private static final String CLUSTER_FILE = FDBTestEnvironment.randomClusterFile();
-    private static final EmbeddedConfig config = new EmbeddedConfig(CLUSTER_FILE);
+    private static final YamlTestConfig config = new EmbeddedConfig(FDBTestEnvironment.allClusterFiles());
 
     @BeforeAll
     static void beforeAll() throws Exception {
@@ -65,21 +55,7 @@ public class CheckResultMetadataTest {
     }
 
     private void doRun(String fileName) throws Exception {
-        new YamlRunner(fileName, createConnectionFactory(), YamlExecutionContext.ContextOptions.EMPTY_OPTIONS).run();
-    }
-
-    YamlConnectionFactory createConnectionFactory() {
-        return new YamlConnectionFactory() {
-            @Override
-            public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-                return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), VERSION, CLUSTER_FILE);
-            }
-
-            @Override
-            public Set<SemanticVersion> getVersionsUnderTest() {
-                return Set.of(VERSION);
-            }
-        };
+        new YamlRunner(fileName, config.createConnectionFactory(), YamlExecutionContext.ContextOptions.EMPTY_OPTIONS).run();
     }
 
     // ── negative tests ────────────────────────────────────────────────────────

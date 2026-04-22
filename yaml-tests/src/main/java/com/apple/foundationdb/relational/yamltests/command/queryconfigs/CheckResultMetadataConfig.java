@@ -87,7 +87,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
     @Nonnull
     public static List<ColumnDescriptor> extractDescriptors(@Nonnull final RelationalResultSetMetaData metaData)
             throws SQLException {
-        return extractDescriptors((StructMetaData) metaData);
+        return extractDescriptors((StructMetaData)metaData);
     }
 
     @Nonnull
@@ -136,7 +136,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
     @Nullable
     private static Object getArrayValue(@Nonnull final Map<?, ?> map) {
         for (final Map.Entry<?, ?> e : map.entrySet()) {
-            if (e.getKey() instanceof String && "array".equalsIgnoreCase((String) e.getKey())) {
+            if (e.getKey() instanceof String && "array".equalsIgnoreCase((String)e.getKey())) {
                 return e.getValue();
             }
         }
@@ -159,8 +159,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
         if (arrayValue instanceof String) {
             return "ARRAY(" + arrayValue + ")";
         } else if (arrayValue instanceof Map) {
-            @SuppressWarnings("unchecked")
-            final String inner = buildExpectedArrayTypeName((Map<?, ?>) arrayValue);
+            @SuppressWarnings("unchecked") final String inner = buildExpectedArrayTypeName((Map<?, ?>)arrayValue);
             return "ARRAY(" + inner + ")";
         } else {
             return "ARRAY(null)";
@@ -196,7 +195,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
             logger.warn("⚠️ resultMetadata check skipped: query returned a non-ResultSet result at {}", getReference());
             return;
         }
-        try (RelationalResultSet rs = (RelationalResultSet) actual) {
+        try (RelationalResultSet rs = (RelationalResultSet)actual) {
             // Read metadata before consuming rows (metadata is available from the open result set)
             final List<ColumnDescriptor> actualDescriptors = extractDescriptors(rs.getMetaData());
             // Exhaust the result set: getContinuation() requires the result set to be fully iterated
@@ -223,7 +222,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
         // remove this workaround once all external server versions in multi-server test configs are updated
         // to a version that includes the TypeConversion.toProtobuf() fix (metadata always set before row
         // iteration, so empty result sets also carry column metadata).
-        if (actualDescriptors.isEmpty() && (rawExpectedValue == null || !((List<?>) rawExpectedValue).isEmpty())) {
+        if (actualDescriptors.isEmpty() && (rawExpectedValue == null || !((List<?>)rawExpectedValue).isEmpty())) {
             logger.warn("⚠️ resultMetadata check skipped at {}: server returned no column metadata (possibly an older server version)", getReference());
             return;
         }
@@ -235,7 +234,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
             return;
         }
 
-        final List<Map<?, ?>> expectedColumns = rawExpectedValue == null ? List.of() : (List<Map<?, ?>>) rawExpectedValue;
+        final List<Map<?, ?>> expectedColumns = rawExpectedValue == null ? List.of() : (List<Map<?, ?>>)rawExpectedValue;
 
         if (!matchesExpected(expectedColumns, actualDescriptors)) {
             if (executionContext.shouldCorrectResultMetadata()) {
@@ -268,15 +267,15 @@ public class CheckResultMetadataConfig extends QueryConfig {
                                         @Nonnull final List<ColumnDescriptor> actualDescriptors) {
         final StringBuilder sb = new StringBuilder();
         sb.append("‼️ result metadata mismatch at ").append(getReference()).append(":\n")
-          .append("⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n")
-          .append("↪ expected columns (").append(expectedColumns.size()).append("):\n");
+                .append("⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n")
+                .append("↪ expected columns (").append(expectedColumns.size()).append("):\n");
         for (Map<?, ?> col : expectedColumns) {
             final Map.Entry<?, ?> entry = CustomYamlConstructor.LinedObject.unlineKeys(col).entrySet().iterator().next();
             sb.append("    ").append(entry.getKey())
-              .append(": ").append(entry.getValue()).append('\n');
+                    .append(": ").append(entry.getValue()).append('\n');
         }
         sb.append("⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n")
-          .append("↩ actual columns (").append(actualDescriptors.size()).append("):\n");
+                .append("↩ actual columns (").append(actualDescriptors.size()).append("):\n");
         for (ColumnDescriptor desc : actualDescriptors) {
             appendDescriptorToMessage(sb, desc, "    ");
         }
@@ -284,8 +283,8 @@ public class CheckResultMetadataConfig extends QueryConfig {
     }
 
     private static void appendDescriptorToMessage(@Nonnull final StringBuilder sb,
-                                                   @Nonnull final ColumnDescriptor desc,
-                                                   @Nonnull final String prefix) {
+                                                  @Nonnull final ColumnDescriptor desc,
+                                                  @Nonnull final String prefix) {
         sb.append(prefix).append(desc.name).append(": ").append(desc.typeName);
         if (desc.structTypeName != null) {
             sb.append('(').append(desc.structTypeName).append(')');
@@ -312,7 +311,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
     private static List<?> checkStructTypeName(@Nonnull final List<?> valueList,
                                                @Nonnull final ColumnDescriptor actualCol) {
         if (!valueList.isEmpty() && valueList.get(0) instanceof String) {
-            final String expectedTypeName = (String) valueList.get(0);
+            final String expectedTypeName = (String)valueList.get(0);
             if (actualCol.structTypeName == null || !expectedTypeName.equalsIgnoreCase(actualCol.structTypeName)) {
                 return null;
             }
@@ -340,20 +339,18 @@ public class CheckResultMetadataConfig extends QueryConfig {
                     return false;
                 }
                 @SuppressWarnings("unchecked")
-                List<?> valueList = (List<?>) entry.getValue();
+                List<?> valueList = (List<?>)entry.getValue();
                 valueList = checkStructTypeName(valueList, actualCol);
                 if (valueList == null) {
                     return false;
                 }
-                @SuppressWarnings("unchecked")
-                final List<Map<?, ?>> fieldMaps = (List<Map<?, ?>>) valueList;
+                @SuppressWarnings("unchecked") final List<Map<?, ?>> fieldMaps = (List<Map<?, ?>>)valueList;
                 if (!matchesExpected(fieldMaps, actualCol.fields)) {
                     return false;
                 }
             } else if (entry.getValue() instanceof Map) {
                 // {array: VALUE} — array type (primitive or struct)
-                @SuppressWarnings("unchecked")
-                final Map<?, ?> arrayMap = (Map<?, ?>) entry.getValue();
+                @SuppressWarnings("unchecked") final Map<?, ?> arrayMap = (Map<?, ?>)entry.getValue();
                 final Object arrayValue = getArrayValue(arrayMap);
                 if (arrayValue instanceof List) {
                     // {array: [fields...]} — array of struct
@@ -361,13 +358,12 @@ public class CheckResultMetadataConfig extends QueryConfig {
                         return false;
                     }
                     @SuppressWarnings("unchecked")
-                    List<?> valueList = (List<?>) arrayValue;
+                    List<?> valueList = (List<?>)arrayValue;
                     valueList = checkStructTypeName(valueList, actualCol);
                     if (valueList == null) {
                         return false;
                     }
-                    @SuppressWarnings("unchecked")
-                    final List<Map<?, ?>> fieldMaps = (List<Map<?, ?>>) valueList;
+                    @SuppressWarnings("unchecked") final List<Map<?, ?>> fieldMaps = (List<Map<?, ?>>)valueList;
                     if (!matchesExpected(fieldMaps, actualCol.fields)) {
                         return false;
                     }
@@ -386,7 +382,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
                 if (!(entry.getValue() instanceof String)) {
                     return false;
                 }
-                if (!((String) entry.getValue()).equalsIgnoreCase(actualCol.typeName)) {
+                if (!((String)entry.getValue()).equalsIgnoreCase(actualCol.typeName)) {
                     return false;
                 }
             }
@@ -435,22 +431,12 @@ public class CheckResultMetadataConfig extends QueryConfig {
             this.isArray = isArray;
         }
 
-        ColumnDescriptor(@Nonnull final String name, @Nonnull final String typeName,
-                         @Nonnull final List<ColumnDescriptor> fields, boolean isArray) {
-            this(name, typeName, null, fields, isArray);
-        }
-
         ColumnDescriptor(@Nonnull final String name, @Nonnull final String typeName) {
             this.name = name;
             this.typeName = typeName;
             this.structTypeName = null;
             this.fields = null;
             this.isArray = false;
-        }
-
-        static ColumnDescriptor forArrayOfStruct(@Nonnull final String name,
-                                                  @Nonnull final List<ColumnDescriptor> elementStructFields) {
-            return new ColumnDescriptor(name, "ARRAY(STRUCT)", elementStructFields, true);
         }
     }
 }
