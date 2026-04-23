@@ -119,9 +119,11 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
     @Nonnull
     @Override
     public Value visitExpression(@Nonnull FieldKeyExpression fieldKeyExpression) {
+        // The fan-out type is usually expected to be `None` aka. SCALAR here. It may also be `Concatenate`, for example
+        // when a function key expression invokes CARDINALITY() on an ARRAY field.
         final KeyExpression.FanType fanType = fieldKeyExpression.getFanType();
-        if (fanType != KeyExpression.FanType.None) {
-            throw new RecordCoreException("cannot expand fan outs in scalar expansion");
+        if (!(fanType == KeyExpression.FanType.None || fanType == KeyExpression.FanType.Concatenate)) {
+            throw new RecordCoreException("cannot expand fan-outs in scalar expansion");
         }
 
         final ScalarVisitorState state = getCurrentState();
@@ -169,12 +171,18 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
 
         final ScalarVisitorState state = getCurrentState();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
-        final KeyExpression child = nestingKeyExpression.getChild();
         final String parentFieldName = ProtoUtils.toUserIdentifier(parent.getFieldName());
         final List<String> newPrefix = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(parentFieldName)
                 .build();
+
+        // Strip the "values" wrapper for nullable arrays.
+        if (NullableArrayTypeUtils.isArrayWrapper(nestingKeyExpression).isPresent()) {
+            return FieldValue.ofFieldNames(QuantifiedObjectValue.of(state.getBaseAlias(), state.inputType), newPrefix);
+        }
+
+        final KeyExpression child = nestingKeyExpression.getChild();
         // TODO resolve type
         return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));
     }
