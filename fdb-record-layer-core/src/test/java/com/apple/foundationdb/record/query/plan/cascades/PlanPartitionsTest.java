@@ -197,8 +197,9 @@ class PlanPartitionsTest {
 
     private static <T> ExpressionProperty<T> newProperty(T propertyValue) {
         return new ExpressionProperty<>() {
-            @SuppressWarnings("unchecked")
             @Nonnull
+            @Override
+            @SuppressWarnings("unchecked")
             public T narrowAttribute(@Nonnull final Object object) {
                 return (T)object;
             }
