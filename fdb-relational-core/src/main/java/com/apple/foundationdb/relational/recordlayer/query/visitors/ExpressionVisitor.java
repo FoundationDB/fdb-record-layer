@@ -941,14 +941,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         for (int i = 0; i < parserRuleContexts.size(); i++) {
             final var parserRuleContext = parserRuleContexts.get(i);
             final var targetField = targetFields == null ? null : targetFields.get(i);
-            resultsBuilder.add(parseRecordField(parserRuleContext, targetField));
+            resultsBuilder.add(Expression.fromColumn(parseRecordField(parserRuleContext, targetField)));
         }
         return Expressions.of(resultsBuilder.build());
     }
 
     @Nonnull
-    private Expression parseRecordField(@Nonnull ParserRuleContext parserRuleContext,
-                                        @Nullable Type.Record.Field targetField) {
+    private Column<? extends Value> parseRecordField(@Nonnull ParserRuleContext parserRuleContext,
+                                                      @Nullable Type.Record.Field targetField) {
         final var fieldType = targetField == null ? null : targetField.getFieldType();
         StringTrieNode reorderings = null;
         final var maybeState = getStateMaybe();
@@ -974,16 +974,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         Assert.notNullUnchecked(expression);
         if (fieldType == null) {
-            return expression;
+            return Column.of(expression.getName().map(Identifier::getName), expression.getUnderlying());
         }
         final var coercedExpression = coerceIfNecessary(expression, fieldType);
         if (expression.getName().isPresent() && targetField.getFieldNameOptional().isPresent()) {
             Assert.thatUnchecked(expression.getName().get().equals(Identifier.of(targetField.getFieldNameOptional().get())));
         }
-        if (expression.getName().isEmpty() && targetField.getFieldNameOptional().isPresent()) {
-            return coercedExpression.withName(Identifier.of(targetField.getFieldName()));
-        }
-        return coercedExpression;
+        final var value = coercedExpression.getUnderlying();
+        return Column.of(
+                Type.Record.Field.of(value.getResultType(), targetField.getFieldNameOptional(), targetField.getFieldIndexOptional()),
+                value);
     }
 
     @Nonnull
@@ -1034,9 +1034,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             for (final var elementField : elementFields) {
                 final int index = targetTypeReorderings.indexOf(elementField.getFieldName());
                 final var fieldType = elementField.getFieldType();
-                Expression currentFieldExpression = null;
                 if (index >= 0 && index < providedColumnContexts.size()) {
-                    currentFieldExpression = parseRecordField(providedColumnContexts.get(index), elementField);
+                    resultColumnsBuilder.add(parseRecordField(providedColumnContexts.get(index), elementField));
                 } else if (index >= providedColumnContexts.size()) {
                     // column is declared but the value is not provided
                     Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "Value of column \"" + elementField.getFieldName() + "\" is not provided");
@@ -1044,12 +1043,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                     // We do not yet support default values for any types, hence it makes sense to simply fail if the field type
                     // expects non-null but no value is provided.
                     Assert.thatUnchecked(fieldType.isNullable(), ErrorCode.NOT_NULL_VIOLATION, "null value in column \"" + elementField.getFieldName() + "\" violates not-null constraint");
-                    currentFieldExpression = Expression.fromUnderlying(new NullValue(fieldType));
+                    final var nullValue = new NullValue(fieldType);
+                    resultColumnsBuilder.add(Column.of(
+                            Type.Record.Field.of(nullValue.getResultType(), elementField.getFieldNameOptional(), elementField.getFieldIndexOptional()),
+                            nullValue));
                 }
-                final var value = currentFieldExpression.getUnderlying();
-                resultColumnsBuilder.add(Column.of(
-                        Type.Record.Field.of(value.getResultType(), elementField.getFieldNameOptional(), elementField.getFieldIndexOptional()),
-                        value));
             }
             return resultColumnsBuilder.build();
         }
@@ -1059,12 +1057,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         );
         final var resultColumnsBuilder = ImmutableList.<Column<? extends Value>>builder();
         for (int i = 0; i < providedColumnContexts.size(); i++) {
-            final var elementField = elementFields.get(i);
-            final var expression = parseRecordField(providedColumnContexts.get(i), elementField);
-            final var value = expression.getUnderlying();
-            resultColumnsBuilder.add(Column.of(
-                    Type.Record.Field.of(value.getResultType(), elementField.getFieldNameOptional(), elementField.getFieldIndexOptional()),
-                    value));
+            resultColumnsBuilder.add(parseRecordField(providedColumnContexts.get(i), elementFields.get(i)));
         }
         return resultColumnsBuilder.build();
     }
