@@ -277,7 +277,7 @@ public class PartitionSelectRule extends ExplorationCascadesRule<SelectExpressio
             final SelectExpression lowerSelectExpression;
             if (lowerQuantifier instanceof Quantifier.ForEach && !lowerQuantifier.getFlowedObjectType().isRecord()) {
                 final var wrappedValue = RecordConstructorValue.ofColumns(
-                        ImmutableList.of(Column.unnamedOf((lowerQuantifier).getFlowedObjectValue())));
+                        ImmutableList.of(Column.unnamedOf(((Quantifier.ForEach)lowerQuantifier).getFlowedObjectValue())));
                 lowerSelectExpression = lowerGraphExpansionBuilder.build().buildSelectWithResultValue(wrappedValue);
             } else {
                 lowerSelectExpression = lowerGraphExpansionBuilder.build().buildSelectWithResultValue(lowerQuantifier.getFlowedObjectValue());

@@ -58,14 +58,14 @@ all-tests:
     ref: valid-identifiers.yamsql:179
     explain: SCAN([IS foo__2table__1repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.1$array)
         | FILTER @c7 EQUALS _ AS q1 RETURN (q0.ID AS ID) }
-    task_count: 380
-    task_total_time_ms: 22
-    transform_count: 119
-    transform_time_ms: 10
-    transform_yield_count: 27
+    task_count: 347
+    task_total_time_ms: 9
+    transform_count: 116
+    transform_time_ms: 4
+    transform_yield_count: 25
     insert_time_ms: 0
-    insert_new_count: 35
-    insert_reused_count: 2
+    insert_new_count: 32
+    insert_reused_count: 3
 -   query: EXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where
         exists (select 1 from "foo.table$repeated"."field.1$array" r where r = 'foo')
     ref: valid-identifiers.yamsql:184
@@ -85,14 +85,14 @@ all-tests:
     explain: SCAN([IS foo__2table__1repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.0$array)
         | FILTER promote(@c9 AS LONG) EQUALS _ AS q1 RETURN (q0.field.1$array AS field.1$array)
         }
-    task_count: 380
-    task_total_time_ms: 26
-    transform_count: 119
-    transform_time_ms: 13
-    transform_yield_count: 27
-    insert_time_ms: 1
-    insert_new_count: 35
-    insert_reused_count: 2
+    task_count: 347
+    task_total_time_ms: 7
+    transform_count: 116
+    transform_time_ms: 3
+    transform_yield_count: 25
+    insert_time_ms: 0
+    insert_new_count: 32
+    insert_reused_count: 3
 -   query: EXPLAIN select t."field.1$array" from "foo.table$repeated" as t where exists
         (select 1 from t."field.0$array" r where r = 3)
     ref: valid-identifiers.yamsql:196
