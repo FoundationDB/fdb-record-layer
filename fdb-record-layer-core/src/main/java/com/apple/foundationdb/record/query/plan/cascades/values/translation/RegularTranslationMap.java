@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
@@ -59,8 +58,9 @@ public class RegularTranslationMap implements TranslationMap {
 
     @Override
     public boolean definesOnlyIdentities() {
-        return getAliasMapMaybe().map(AliasMap::definesOnlyIdentities)
-                .orElseGet(aliasToFunctionMap::isEmpty);
+        // The absence of an AliasMap could be regarded as defining only identities.
+        return getAliasMapMaybe().map(AliasMap::definesOnlyIdentities).orElse(true) &&
+                aliasToFunctionMap.isEmpty();
     }
 
     @Override
@@ -68,14 +68,14 @@ public class RegularTranslationMap implements TranslationMap {
         return aliasToFunctionMap.containsKey(sourceAlias);
     }
 
-    @Nullable
+    @Nonnull
     @Override
-    public CorrelationIdentifier getTarget(@Nonnull final CorrelationIdentifier sourceAlias) {
+    public Optional<CorrelationIdentifier> getTargetMaybe(@Nonnull final CorrelationIdentifier sourceAlias) {
         AliasMap aliasMap = getAliasMapMaybe().orElse(null);
         if (aliasMap == null) {
-            throw new RecordCoreException("translation map is not backed by an alias map");
+            return Optional.empty();
         }
-        return aliasMap.getTarget(sourceAlias);
+        return Optional.ofNullable(aliasMap.getTarget(sourceAlias));
     }
 
     @Nonnull
@@ -84,11 +84,6 @@ public class RegularTranslationMap implements TranslationMap {
                                           @Nonnull final LeafValue leafValue) {
         final var translationFunction = Preconditions.checkNotNull(aliasToFunctionMap.get(sourceAlias));
         return translationFunction.apply(sourceAlias, leafValue);
-    }
-
-    @Nonnull
-    public Builder toBuilder() {
-        return new Builder(aliasToFunctionMap);
     }
 
     @Nonnull
@@ -150,21 +145,26 @@ public class RegularTranslationMap implements TranslationMap {
     public static class Builder {
         @Nonnull
         private final Map<CorrelationIdentifier, TranslationFunction> aliasToFunctionMap;
+        @Nonnull
+        private final AliasMap.Builder aliasMapBuilder = AliasMap.builder();
 
         private Builder() {
-            this.aliasToFunctionMap = Maps.newLinkedHashMap();
+            this(Maps.newLinkedHashMap(), AliasMap.emptyMap());
         }
 
-        private Builder(@Nonnull final Map<CorrelationIdentifier, TranslationFunction> aliasToFunctionMap) {
+        private Builder(@Nonnull final Map<CorrelationIdentifier, TranslationFunction> aliasToFunctionMap,
+                        @Nonnull final AliasMap aliasMap) {
             this.aliasToFunctionMap = Maps.newLinkedHashMap(aliasToFunctionMap);
+            this.aliasMapBuilder.putAll(aliasMap);
         }
 
         @Nonnull
         public RegularTranslationMap build() {
             if (aliasToFunctionMap.isEmpty()) {
-                return RegularTranslationMap.empty();
+                return AliasMapBasedTranslationMap.empty();
             }
-            return new RegularTranslationMap(aliasToFunctionMap);
+            final var aliasMap = aliasMapBuilder.build();
+            return new AliasMapBasedTranslationMap(aliasToFunctionMap, aliasMap);
         }
 
         @Nonnull
@@ -184,6 +184,7 @@ public class RegularTranslationMap implements TranslationMap {
                         Verify.verify(!aliasToFunctionMap.containsKey(key));
                         aliasToFunctionMap.put(key, value);
                     });
+            aliasMapBuilder.putAll(other.getAliasMapMaybe().orElse(AliasMap.emptyMap()));
             return this;
         }
 

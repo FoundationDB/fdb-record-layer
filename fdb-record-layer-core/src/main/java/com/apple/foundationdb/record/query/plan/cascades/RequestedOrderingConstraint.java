@@ -39,12 +39,13 @@ public class RequestedOrderingConstraint implements PlannerConstraint<Set<Reques
                                                     @Nonnull final Set<RequestedOrdering> newConstraint) {
         final var newRequestedOrderings = Sets.newLinkedHashSet(newConstraint);
         for (final var newRequestedOrdering : newConstraint) {
+            final var newOrderingParts = newRequestedOrdering.getOrderingParts();
+
             for (final var currentRequestedOrdering : currentConstraint) {
                 // try to figure out if current already subsumes new
                 if (newRequestedOrdering.isDistinct() != currentRequestedOrdering.isDistinct()) {
                     continue;
                 }
-                final var newOrderingParts = newRequestedOrdering.getOrderingParts();
                 final var currentOrderingParts = currentRequestedOrdering.getOrderingParts();
 
                 if (!currentRequestedOrdering.isExhaustive() && newRequestedOrdering.isExhaustive()) {
@@ -53,11 +54,13 @@ public class RequestedOrderingConstraint implements PlannerConstraint<Set<Reques
                 if (currentRequestedOrdering.isExhaustive() && newOrderingParts.size() >= currentOrderingParts.size()) {
                     if (newOrderingParts.subList(0, currentOrderingParts.size()).equals(currentOrderingParts)) {
                         newRequestedOrderings.remove(newRequestedOrdering);
+                        break;
                     }
                     continue;
                 }
                 if (newOrderingParts.equals(currentOrderingParts)) {
                     newRequestedOrderings.remove(newRequestedOrdering);
+                    break;
                 }
             }
         }

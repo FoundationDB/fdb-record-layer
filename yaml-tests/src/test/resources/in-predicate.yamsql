@@ -86,7 +86,7 @@ test_block:
     -
       # LONG value matched against IN list of repeated LONG values
       - query: select a, b from ta where b in (1, 1, 1, 1)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c10 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - initialVersionAtLeast: 4.6.4.0
       - result: [{A: 8, 1}]
       # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
@@ -95,7 +95,7 @@ test_block:
     -
       # LONG value matched against IN list of repeated LONG values
       - query: select a, b from ta where b in (1, 2, 1, 3)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c10 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - initialVersionAtLeast: 4.6.4.0
       - unorderedResult: [{A: 6, 3}, {A: 7, 2}, {A: 8, 1}]
       # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
@@ -104,7 +104,7 @@ test_block:
     -
       # LONG value matched against IN list of repeated LONG-resultant simple arithmetic values
       - query: select a, b from ta where b in (1 + 0, 1 + 0, 1 + 0, 1 + 0)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c11 + @c13, @c11 + @c13, @c11 + @c13, @c11 + @c13) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c10 + @c12, @c10 + @c12, @c10 + @c12) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - initialVersionAtLeast: 4.6.4.0
       - result: [{A: 8, 1}]
       # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
@@ -113,7 +113,7 @@ test_block:
     -
       # LONG value matched against IN list of repeated LONG-resultant simple expressions
       - query: select a, b from ta where b in (1 + 0, 0 + 1)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c11 + @c13, @c13 + @c11) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c12 + @c10) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }"
       - initialVersionAtLeast: 4.6.4.0
       - result: [ { A: 8, 1 } ]
       # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
@@ -126,7 +126,7 @@ test_block:
     -
       # DOUBLE value matched against IN list of DOUBLE values
       - query: select a, c from ta where c in (4.56, 3.45, 2.34)
-      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c10) | FILTER q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }"
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }"
       - unorderedResult: [{A: 1, 4.56}, {A: 4, 3.45}, {A: 7, 2.34}]
     -
       # DOUBLE value matched against singleton IN list of DOUBLE value
@@ -164,7 +164,7 @@ test_block:
     -
       # struct value matched against IN list of Tuple values
       - query: select a, b from ta where (a, b) in ((0L, 9L), (1L, 8L))
-      - explain: "ISCAN(F1 <,>) | FILTER (_.A AS A, _.B AS B) IN array((@c16 AS _0, @c18 AS _1), (@c22 AS _0, @c24 AS _1)) | MAP (_.A AS A, _.B AS B)"
+      - explain: "ISCAN(F1 <,>) | FILTER (_.A AS A, _.B AS B) IN array((@c15 AS _0, @c17 AS _1), (@c21 AS _0, @c23 AS _1)) | MAP (_.A AS A, _.B AS B)"
       - unorderedResult: [ { A: 0, 9 }, { A: 1, 8 } ]
     -
       # struct column with an index matched against IN list of Tuple values
@@ -173,7 +173,7 @@ test_block:
     -
       # struct column with an index matched against IN list of repeated Tuple values
       - query: select a, b from ta where f in ((90L, 9L), (81L, 18L), (81L, 18L), (90L, 9L))
-      - explain: "EXPLODE arrayDistinct(array((@c12 AS _0, @c14 AS _1), (@c18 AS _0, @c20 AS _1), (@c18 AS _0, @c20 AS _1), (@c12 AS _0, @c14 AS _1))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS promote(q0._0 AS LONG), EQUALS promote(q0._1 AS LONG)]) AS q1 RETURN (q1.A AS A, q1.B AS B) }"
+      - explain: "EXPLODE arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19 AS _1), (@c17 AS _0, @c19 AS _1), (@c11 AS _0, @c13 AS _1))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS promote(q0._0 AS LONG), EQUALS promote(q0._1 AS LONG)]) AS q1 RETURN (q1.A AS A, q1.B AS B) }"
       - initialVersionAtLeast: 4.6.4.0
       - unorderedResult: [ { A: 0, 9 }, { A: 1, 8 } ]
       # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
@@ -207,7 +207,7 @@ test_block:
       # Test alternate IN-like predicate with primitive array column - string in string array
       - query: select id from array_table where exists (select 1 from array_table.fruits f where f = 'apple')
       - supported_version: 4.8.1.0
-      - explain: "COVERING(FRUITS [EQUALS @c18] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
+      - explain: "COVERING(FRUITS [EQUALS @c17] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
       - unorderedResult: [{1}, {3}]
     -
       # Test IN predicate with primitive array column - string in string array
@@ -215,7 +215,7 @@ test_block:
       - supported_version: 4.8.1.0
       # Note: this should be able to match the "fruits" index like the above query, but it does not
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3777
-      - explain: "SCAN(<,>) | TFILTER ARRAY_TABLE | FILTER @c6 IN _.FRUITS | MAP (_.ID AS ID)"
+      - explain: "SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.FRUITS) | FILTER @c5 EQUALS _ AS q1 RETURN (q0.ID AS ID) }"
       - unorderedResult: [{1}, {3}]
     -
       # Test IN predicate with primitive array column - multiple matches
@@ -231,14 +231,14 @@ test_block:
       # Test alternate IN-like predicate with primitive array column - int in int array
       - query: select id from array_table where exists (select 1 from array_table.numbers n where n = 10)
       - supported_version: 4.8.1.0
-      - explain: "SCAN(<,>) | TFILTER ARRAY_TABLE | FLATMAP q0 -> { EXPLODE q0.NUMBERS | FILTER _ EQUALS promote(@c18 AS LONG) | MAP (@c9 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.ID AS ID) }"
+      - explain: "SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE q0.NUMBERS | FILTER _ EQUALS promote(@c17 AS LONG) | MAP (@c8 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.ID AS ID) }"
       - unorderedResult: [{1}, {3}]
     -
       # Test IN predicate with primitive array column - bigint in bigint array
       - query: select id from array_table where 10 in numbers
       - supported_version: 4.8.1.0
       # Note: as there is no index on the numbers field, this is the expected plan. Ideally, the previous query would also have the same plan as this one
-      - explain: "SCAN(<,>) | TFILTER ARRAY_TABLE | FILTER promote(@c6 AS LONG) IN _.NUMBERS | MAP (_.ID AS ID)"
+      - explain: "SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.NUMBERS) | FILTER promote(@c5 AS LONG) EQUALS _ AS q1 RETURN (q0.ID AS ID) }"
       - unorderedResult: [{1}, {3}]
     -
       # Test IN predicate with primitive array column - bigint no match

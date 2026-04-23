@@ -368,6 +368,8 @@ public class MessageHelpers {
                     // want to get the value of that field as a 'runtime' type, hence we get the raw message itself.
                     var fieldResult = messageFieldDescriptor.isRepeated() || !messageFieldDescriptor.getType().equals(Descriptors.FieldDescriptor.Type.MESSAGE) ?
                                       getFieldOnMessage(currentMessage, messageFieldDescriptor) : getFieldMessageOnMessage(currentMessage, messageFieldDescriptor);
+                    // If the last step in the field path is an array that is also nullable, then we need to unwrap the
+                    // value wrapper.
                     fieldResult = NullableArrayTypeUtils.unwrapIfArray(fieldResult, currentFieldType);
                     final var coercedObject =
                             coerceObject(promotionTrieForField, targetFieldType, targetDescriptorForField, currentFieldType, fieldResult);
@@ -408,6 +410,21 @@ public class MessageHelpers {
                 Verify.verify(targetDescriptor instanceof Descriptors.Descriptor);
                 return deepCopyMessageIfNeeded((Descriptors.Descriptor)targetDescriptor, (Message)current);
             }
+
+            // “Re-wrap” `List` values when the target is a nullable ARRAY. Such arrays are stored as a wrapper message
+            // { repeated <type> values = 1; }. Without this wrapping, when the evaluated value is a plain `List` (e.g.,
+            // from an array literal or from `unwrapIfArray()`), subsequently setting it on the protobuf builder would
+            // cause `setField()` to reject the `List<>` with a type mismatch error.
+            if (targetType.isNullable() && targetType.isArray()) {
+                Verify.verify(current instanceof List);
+                Verify.verify(targetDescriptor instanceof Descriptors.Descriptor);
+                final var wrapperDescriptor = (Descriptors.Descriptor)targetDescriptor;
+                final var valuesField = Verify.verifyNotNull(wrapperDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()));
+                final var wrapperBuilder = DynamicMessage.newBuilder(wrapperDescriptor);
+                wrapperBuilder.setField(valuesField, current);
+                return wrapperBuilder.build();
+            }
+
             return current;
         }
 
@@ -435,13 +452,12 @@ public class MessageHelpers {
             return Verify.verifyNotNull(coercionFunction.apply(targetDescriptor, current));
         }
 
-        //
-        // This juggles with a change in nullability for arrays. If we were nullable before, but now we are not or
-        // vice versa, we need to change the wrapping in protobuf.
-        //
+        // This juggles with a change in nullability for arrays. If the array was nullable before, but now is not or
+        // vice versa, we need to change the wrapping in protobuf. This case also covers the promotion of `[]` (of type
+        // `None`) to an array (via the coercion function NONE_TO_ARRAY, which just returns the empty list unchanged).
         if (targetType.isArray()) {
-            Verify.verify(currentType.isArray());
-            final var coercionFunction = Verify.verifyNotNull(coercionsTrie.getValue());
+            Verify.verify(currentType.isArray() || currentType.isNone());
+            final CoercionBiFunction coercionFunction = Verify.verifyNotNull(coercionsTrie.getValue());
             return Verify.verifyNotNull(coercionFunction.apply(targetDescriptor, current));
         }
 
@@ -454,13 +470,16 @@ public class MessageHelpers {
     }
 
     /**
-     * Method to coerce an array.
-     * This juggles with a change in nullability for arrays. If we were nullable before, but now we are not or
-     * vice versa, we need to change the wrapping in protobuf.
+     * Coerce the given array {@code current}.
+     *
+     * <p>This juggles with a change in nullability for arrays. If the array was nullable before, but now is not or
+     * vice versa, we need to change the wrapping in protobuf. Note though that the protobuf wrapping path is only taken
+     * when a real {@link Descriptors.Descriptor} is provided (i.e., during storage-layer serialization as opposed to
+     * in-memory evaluation, where {@code targetDescriptor} would be {@code null}).
      *
      * @param targetArrayType target array type
      * @param currentArrayType current array type
-     * @param targetDescriptor target protobuf descriptor
+     * @param targetDescriptor target protobuf descriptor, if available; else {@code null}
      * @param elementsTrie a trie describing the coercions of the elements data structures
      * @param current the current object
      * @return a coerced array adjusted for nullability-differences of current versus target
@@ -475,7 +494,7 @@ public class MessageHelpers {
         final var currentElementType = Verify.verifyNotNull(currentArrayType.getElementType());
 
         final Descriptors.FieldDescriptor targetElementFieldDescriptor;
-        if (targetArrayType.isNullable()) {
+        if (targetDescriptor != null && targetArrayType.isNullable()) {
             Verify.verify(targetDescriptor instanceof Descriptors.Descriptor);
             targetElementFieldDescriptor = Verify.verifyNotNull((Descriptors.Descriptor)targetDescriptor).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
         } else {
@@ -501,15 +520,27 @@ public class MessageHelpers {
                             currentObject));
             coercedObjectsBuilder.add(coercedObject);
         }
-        final var coercedArray = coercedObjectsBuilder.build();
+        final ImmutableList<Object> coercedArray = coercedObjectsBuilder.build();
 
-        if (targetArrayType.isNullable()) {
-            // the target descriptor is the wrapping holder
-            final var wrapperBuilder = DynamicMessage.newBuilder(Verify.verifyNotNull((Descriptors.Descriptor)targetDescriptor));
-            wrapperBuilder.setField(Verify.verifyNotNull(targetElementFieldDescriptor), coercedArray);
-            return wrapperBuilder.build();
+        if (targetDescriptor != null && targetArrayType.isNullable()) {
+            Verify.verifyNotNull(targetElementFieldDescriptor);
+            return wrapNullableArray((Descriptors.Descriptor)targetDescriptor, targetElementFieldDescriptor, coercedArray);
         }
         return coercedArray;
+    }
+
+    /**
+     * Wrap the given {@code array} into a message.
+     *
+     * @param targetDescriptor Descriptor for the wrapper message holding the array.
+     */
+    @Nonnull
+    private static DynamicMessage wrapNullableArray(@Nonnull final Descriptors.Descriptor targetDescriptor,
+                                                    @Nonnull final Descriptors.FieldDescriptor targetElementFieldDescriptor,
+                                                    final List<? extends Object> array) {
+        final var builder = DynamicMessage.newBuilder(targetDescriptor);
+        builder.setField(targetElementFieldDescriptor, array);
+        return builder.build();
     }
 
     @Nonnull
@@ -557,8 +588,12 @@ public class MessageHelpers {
     }
 
     private static boolean hasAnySuchField(@Nonnull final Message message, Descriptors.FieldDescriptor fieldDescriptor) {
+        // A repeated field represents an array and must be treated as always present by `coerceMessage()`, even when
+        // `fieldDescriptor.getRepeatedFieldCount()` is 0 (which is a valid state that represents the empty array []).
+        // (Note: A nullable array that is NULL is represented by the absence of the optional wrapper message field;
+        // this is handled by the else branch below.)
         if (fieldDescriptor.isRepeated()) {
-            return message.getRepeatedFieldCount(fieldDescriptor) > 0;
+            return true;
         } else {
             return message.hasField(fieldDescriptor);
         }

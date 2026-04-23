@@ -785,7 +785,7 @@ class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
             });
 
             assertMatchesExactly(plan, mapPlan(
-                    scanPlan().where(scanComparisons(unbounded()))
+                    typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
             ));
 
             assertVersionsByIdMatch(expectedVersionsById, plan);

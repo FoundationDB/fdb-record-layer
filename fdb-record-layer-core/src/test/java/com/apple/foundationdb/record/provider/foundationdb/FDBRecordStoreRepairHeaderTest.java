@@ -671,7 +671,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
                 assertThat(recordStore.getAllIndexStates().values())
                         .contains(IndexState.READABLE);
                 for (final Index index : toRebuild) {
-                    recordStore.markIndexDisabled(index);
+                    recordStore.markIndexDisabled(index).join();
                 }
             } else {
                 assertAllIndexStates(recordStore, IndexState.DISABLED);
@@ -806,7 +806,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
     private static void disableAllIndexesAndClearLock(final FDBRecordStore recordStore) {
         recordStore.getAllIndexStates().forEach((index, indexState) ->
                 recordStore.markIndexDisabled(index).join());
-        recordStore.clearStoreLockStateAsync();
+        recordStore.clearStoreLockStateAsync().join();
     }
 
     private void validateRecords(final List<FDBStoredRecord<Message>> records, final FDBRecordStoreBase<Message> recordStore) {

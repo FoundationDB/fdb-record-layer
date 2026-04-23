@@ -104,6 +104,7 @@ import com.google.common.collect.Streams;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A property used to create and collect the derivations of data flowing in a plan. A derivation is a {@link Value}-tree
@@ -764,7 +765,11 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         @Nonnull
         @Override
         public Derivations visitScanPlan(@Nonnull final RecordQueryScanPlan scanPlan) {
-            return visitPlanWithComparisons(scanPlan, Objects.requireNonNull(scanPlan.getRecordTypes()));
+            final var matchCandidate = scanPlan.getMatchCandidate();
+            final Set<String> recordTypeNames = matchCandidate.hasAndOrderedByRecordTypeKey()
+                                                ? matchCandidate.getQueriedRecordTypeNames()
+                                                : scanPlan.getRecordTypes();
+            return visitPlanWithComparisons(scanPlan, Objects.requireNonNull(recordTypeNames));
         }
 
         @Nonnull

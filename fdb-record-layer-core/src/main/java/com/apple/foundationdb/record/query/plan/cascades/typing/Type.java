@@ -288,8 +288,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     /**
-     * Checks whether a {@link Type} is numeric.
-     * @return <code>true</code> if the {@link Type} is numeric, otherwise <code>false</code>.
+     * Whether this is a numeric type.
      */
     default boolean isNumeric() {
         return getTypeCode().isNumeric();
@@ -298,6 +297,20 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     default boolean isUnresolved() {
         final var typeCode = getTypeCode();
         return typeCode == TypeCode.UNKNOWN;
+    }
+
+    /**
+     * Whether this is the {@code NULL} type.
+     */
+    default boolean isNull() {
+        return getTypeCode() == TypeCode.NULL;
+    }
+
+    /**
+     * Whether this is the {@code NONE} type, i.e., the type of the untyped empty array {@code []}.
+     */
+    default boolean isNone() {
+        return getTypeCode() == TypeCode.NONE;
     }
 
     @Nonnull
@@ -569,15 +582,24 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     static Type maximumType(@Nonnull final Type t1, @Nonnull final Type t2) {
-        if (t1.getTypeCode() == TypeCode.NULL && t2.getTypeCode() == TypeCode.NULL) {
+        // NULL case
+        if (t1.isNull() && t2.isNull()) {
             return Type.nullType();
         }
-
-        if (t1.getTypeCode() == TypeCode.NULL && PromoteValue.isPromotable(t1, t2)) {
+        if (t1.isNull() && PromoteValue.isPromotable(t1, t2)) {
             return t2.withNullability(true);
         }
-        if (t2.getTypeCode() == TypeCode.NULL && PromoteValue.isPromotable(t2, t1)) {
+        if (t2.isNull() && PromoteValue.isPromotable(t2, t1)) {
             return t1.withNullability(true);
+        }
+
+        // NONE case: The untyped empty array [] identity-promotes to any ARRAY type; so the maximum type is simply the
+        // other side (no nullability change, since NONE is non-nullable).
+        if (t1.isNone() && PromoteValue.isPromotable(t1, t2)) {
+            return t2;
+        }
+        if (t2.isNone() && PromoteValue.isPromotable(t2, t1)) {
+            return t1;
         }
 
         Verify.verify(!t1.isUnresolved());
@@ -1389,14 +1411,17 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     /**
-     * The none type is an unresolved type meaning that an entity returning a none type should resolve the
-     * type to a regular type as the runtime does not support a none-typed data producer. Only the empty array constant
-     * is actually of type {@code none}, however, that type is changed to an actual type during type resolution (to an
-     * array of some regular type).
-     * It is correct to say that the none type (just as {@link Null} type) are types that have no instances.
-     * It is still useful use this type for modelling purposes. Just as in Scala, the none-type is implicitly, a
-     * subtype of every other type in a sense that the substitution principle holds, e.g. {@code none} can be substituted
-     * for any value of an array type.
+     * The none type.
+     *
+     * <p>The none type is the type of the untyped empty array. It is an <em>unresolved</em> type. An entity returning
+     * a none type must resolve the type to a regular type, as the runtime does not support a none-typed data producer.
+     * For the empty array constant {@code []}, the type {@code None} is changed to an actual type during type
+     * resolution (to an array of some regular type).
+     *
+     * <p>It is correct to say that the none type (just as the {@link Null} type) is a type that has no instances.
+     * It is still useful to have this type for modeling purposes. Just as in Scala, the none type is implicitly a
+     * subtype of every other array type in a sense that the substitution principle holds; e.g., {@code none} can be
+     * substituted for any value of an array type.
      */
     class None implements Type {
         @Override
