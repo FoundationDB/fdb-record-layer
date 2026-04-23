@@ -71,8 +71,13 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    void arrays_cardinality(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("arrays_cardinality.yamsql");
+    void arraysCardinality(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("arrays-cardinality.yamsql");
+    }
+
+    @TestTemplate
+    void arraysUnnesting(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("arrays-unnesting.yamsql");
     }
 
     @TestTemplate

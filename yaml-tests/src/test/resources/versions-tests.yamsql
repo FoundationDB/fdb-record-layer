@@ -34,9 +34,9 @@ schema_template:
 
     create table t4(id bigint, col1 string, col2 bigint, col3 bigint, col4 bigint array, primary key (id))
     create index t4_col2 as select col2 from t4
-    create index t4_col2_col4 as select col2, col4 from t4 order by col2, col4
+    create index t4_col2_col4 as select t.col2, "e" from t4 as t, t.col4 as "e" order by t.col2, "e"
     create index t4_col3_version as select col3, "__ROW_VERSION" from t4 order by col3, "__ROW_VERSION"
-    create index t4_col4_version as select col4, "__ROW_VERSION" from t4 order by col4, "__ROW_VERSION"
+    create index t4_col4_version as select "e", "__ROW_VERSION" from t4 as t, t.col4 as "e" order by "e", "__ROW_VERSION"
 
     create function t1_v(in x bigint) as select "__ROW_VERSION", id, col1, col2 from t1 where col1 = x
     create function t2_v(in x bigint) as select "__ROW_VERSION", id, col1, col2 from t2 where col1 = x

@@ -573,7 +573,7 @@ public final class MaterializedViewIndexGenerator {
         final var exprConstituents = childrenMap.entrySet().stream().map(nodeEntry -> {
             final FieldValue.ResolvedAccessor accessor = nodeEntry.getKey();
             final FieldValueTrieNode node = nodeEntry.getValue();
-            final KeyExpression expr = toFieldKeyExpression(accessor.getField());
+            final KeyExpression expr = toFieldKeyExpression(accessor);
             if (node.getChildrenMap() != null) {
                 final FieldKeyExpression fieldExpr = Assert.castUnchecked(expr, FieldKeyExpression.class);
                 return fieldExpr.nest(toKeyExpression(node, orderingFunctions));
@@ -604,8 +604,11 @@ public final class MaterializedViewIndexGenerator {
         final var groupByContainsOneAggregation = expressions.stream().filter(r -> r instanceof GroupByExpression).map(r -> (GroupByExpression) r).noneMatch(g -> Values.deconstructRecord(g.getAggregateValue()).size() > 1);
         Assert.thatUnchecked(groupByContainsOneAggregation, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found group by expression with more than one aggregation");
 
-        // result values of each operation must be simple or arithmetic values.
-        final var allRecordValues = expressions.stream().allMatch(r -> (r.getResultValue().getResultType().getTypeCode() == Type.TypeCode.RECORD));
+        // Result values of each operation must be record-typed. `ExplodeExpression` is excluded because
+        // unnesting a scalar array (e.g., a STRING ARRAY) produces scalar elements, not records.
+        final var allRecordValues = expressions.stream()
+                .filter(r -> !(r instanceof ExplodeExpression))
+                .allMatch(r -> (r.getResultValue().getResultType().getTypeCode() == Type.TypeCode.RECORD));
         Assert.thatUnchecked(allRecordValues, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, some operators return non-record values");
 
         final var allSimpleValues = expressions.stream()
@@ -755,8 +758,8 @@ public final class MaterializedViewIndexGenerator {
     @Nonnull
     private KeyExpression toKeyExpression(@Nonnull Iterator<FieldValue.ResolvedAccessor> resolvedAccessors) {
         Assert.thatUnchecked(resolvedAccessors.hasNext(), "cannot resolve empty list");
-        final Type.Record.Field field = resolvedAccessors.next().getField();
-        final KeyExpression expression = toFieldKeyExpression(field);
+        final FieldValue.ResolvedAccessor accessor = resolvedAccessors.next();
+        final KeyExpression expression = toFieldKeyExpression(accessor);
         if (resolvedAccessors.hasNext()) {
             KeyExpression childExpression = toKeyExpression(resolvedAccessors);
             final FieldKeyExpression fieldExpression = Assert.castUnchecked(expression, FieldKeyExpression.class);
@@ -779,8 +782,13 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nonnull
-    private static KeyExpression toFieldKeyExpression(@Nonnull Type.Record.Field fieldType) {
+    private static KeyExpression toFieldKeyExpression(@Nonnull FieldValue.ResolvedAccessor accessor) {
+        final Type.Record.Field fieldType = accessor.getField();
         Assert.notNullUnchecked(fieldType.getFieldStorageName());
+        Assert.thatUnchecked(!fieldType.getFieldType().isArray() || (accessor instanceof AnnotatedAccessor),
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, cannot create index on array field '" +
+                fieldType.getFieldName() + "' without unnesting");
         final var fanType = fieldType.getFieldType().getTypeCode() == Type.TypeCode.ARRAY ?
                 KeyExpression.FanType.FanOut :
                 KeyExpression.FanType.None;
