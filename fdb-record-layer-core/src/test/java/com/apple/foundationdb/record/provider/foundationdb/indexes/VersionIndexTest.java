@@ -1192,9 +1192,9 @@ public class VersionIndexTest {
             // This assert may need to change if additional indexes subspaces are created
             long rangeDeletes = context.getTimer().getCount(FDBStoreTimer.Counts.RANGE_DELETES);
             if (inLegacyVersionSpace) {
-                assertEquals(9L, rangeDeletes);
+                assertEquals(11L, rangeDeletes);
             } else {
-                assertEquals(8L, rangeDeletes);
+                assertEquals(10L, rangeDeletes);
             }
         }
     }

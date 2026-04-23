@@ -468,10 +468,10 @@ public class PreparedStatementTests {
                 ps.setLong(4, 13);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("REST_NO", 10L)
-                            .hasNextRow().hasColumn("REST_NO", 11L)
-                            .hasNextRow().hasColumn("REST_NO", 12L)
                             .hasNextRow().hasColumn("REST_NO", 13L)
+                            .hasNextRow().hasColumn("REST_NO", 12L)
+                            .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNextRow().hasColumn("REST_NO", 10L)
                             .hasNoNextRow();
                 }
             }
@@ -491,10 +491,10 @@ public class PreparedStatementTests {
                 ps.setArray("param", ddl.getConnection().createArrayOf("BIGINT", new Object[]{12L, 13L}));
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("REST_NO", 10L)
-                            .hasNextRow().hasColumn("REST_NO", 11L)
-                            .hasNextRow().hasColumn("REST_NO", 12L)
                             .hasNextRow().hasColumn("REST_NO", 13L)
+                            .hasNextRow().hasColumn("REST_NO", 12L)
+                            .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNextRow().hasColumn("REST_NO", 10L)
                             .hasNoNextRow();
                 }
             }
@@ -506,8 +506,8 @@ public class PreparedStatementTests {
                 ps.setArray("param", ddl.getConnection().createArrayOf("BIGINT", new Object[]{12L, 130L}));
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("REST_NO", 10L)
                             .hasNextRow().hasColumn("REST_NO", 12L)
+                            .hasNextRow().hasColumn("REST_NO", 10L)
                             .hasNoNextRow();
                 }
             }

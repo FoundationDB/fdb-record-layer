@@ -212,11 +212,11 @@ public final class YamlExecutionContext {
         this.isDirtyMetrics = true;
     }
 
-    public boolean isInCI() {
+    public static boolean isInCI() {
         return Boolean.parseBoolean(System.getProperty(YamlRunner.TEST_CI, "false"));
     }
 
-    public boolean isNightly() {
+    public static boolean isNightly() {
         return Boolean.parseBoolean(System.getProperty(YamlRunner.TEST_NIGHTLY, "false"));
     }
 
@@ -286,29 +286,50 @@ public final class YamlExecutionContext {
     }
 
     /**
-     * Infers the URI of the database to which a block should connect to.
+     * Infers the connection target (URI and cluster index) for a block.
      * <br>
-     * A block can declare a connection in multiple ways:
-     * 1. no explicit declaration: Try to connect to the only registered connection URI in the local {@link YamlReference.YamlResource}.
+     * <ul>
+     *   <li>no explicit declaration: Try to connect to the only registered connection URI in the local {@link YamlReference.YamlResource}.
      *    If not, try to connect to the only connection across all parent resources.
      *    A URI can be registered by defining a "schema_template" block before that, which sets up the database and schema for a provided schema template.
-     * 2. Parameter 0: connects to the system tables (catalog).
-     * 3. Parameter One-based Number: connects to the registered connection URI, number denotes the sequence of definitions in the local YamlResource.
+     *    </li>
+     *    <li>Parameter 0: connects to the system tables (catalog). </li>
+     *    <li>Parameter One-based Number: connects to the registered connection URI, number denotes the sequence of definitions in the local YamlResource.
      *    To access parent connection URIs, this number should be prepended by `(global)` tag.
-     * 4. Parameter String: connects to the defined String
+     *    </li>
+     *    <li>Parameter String: connects to the defined String</li>
+     *    <li>A map form for specifying the cluster:
+     * <pre>{@code
+     * connect: { cluster: 1, uri: 0 }
+     * connect: { cluster: 1 }
+     * }</pre>
+     * </li>
+     * </ul>
      *
-     * @param connectObject can be {@code null}, an {@link Integer} value or a {@link String}.
+     * @param connectObject can be {@code null}, an {@link Integer}, a {@link String}, or a {@link Map} with
+     *                      optional {@code cluster} and {@code uri} keys.
      *
-     * @return a valid connection URI
+     * @return a valid connection target
      */
-    public URI inferConnectionURI(@Nonnull final YamlReference.YamlResource resource, @Nullable Object connectObject) {
+    public ConnectionTarget inferConnectionTarget(@Nonnull final YamlReference.YamlResource resource, @Nullable Object connectObject) {
         Assert.thatUnchecked(registeredResources.contains(resource), "A YamlResource should be registered before registering available connection URIs");
+        if (connectObject instanceof Map) {
+            final Map<?, ?> connectMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(connectObject, "connect"));
+            final int clusterIndex = connectMap.containsKey("cluster")
+                    ? ((Number) connectMap.get("cluster")).intValue() : 0;
+            final Object uriSpec = connectMap.getOrDefault("uri", null);
+            return new ConnectionTarget(resolveConnectionURI(resource, uriSpec), clusterIndex);
+        }
+        return new ConnectionTarget(resolveConnectionURI(resource, connectObject), 0);
+    }
+
+    private URI resolveConnectionURI(@Nonnull final YamlReference.YamlResource resource, @Nullable Object connectObject) {
         if (connectObject == null) {
             return getConnectionFromConnectionURIList(resource, true, -1, true);
         } else if (connectObject instanceof Integer) {
             return getConnectionFromConnectionURIList(resource, false, (Integer) connectObject, false);
         } else {
-            final var stringURI = Matchers.string(connectObject);
+            final var stringURI = Matchers.string(connectObject, "connection object");
             if (stringURI.startsWith("(global)")) {
                 return getConnectionFromConnectionURIList(resource, false, Integer.parseInt(stringURI.substring(8).trim()), true);
             }

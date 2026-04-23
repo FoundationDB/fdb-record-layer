@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests.block;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.ConnectionTarget;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlReference;
@@ -42,7 +43,6 @@ import org.opentest4j.TestAbortedException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -276,7 +276,7 @@ public final class TestBlock extends ConnectedBlock {
         private void setWithExecutionContext(@Nonnull YamlExecutionContext executionContext) {
             // Use the system-provided seed if that is available from the context.
             executionContext.getSeed().ifPresent(s -> seed = Matchers.longValue(s));
-            if (executionContext.isNightly()) {
+            if (YamlExecutionContext.isNightly()) {
                 // If the test is for nightly, nightlyRepetition is provided and the repetition set is not 1, then use
                 // the nightlyRepetition value. We explicitly check for the provided repetition to not being 1 because
                 // a repetition of 1 means that the tests are non-idempotent.
@@ -400,7 +400,7 @@ public final class TestBlock extends ConnectedBlock {
 
             Assert.thatUnchecked(!executables.isEmpty(), "‼️ Test block at " + reference + " have no tests to execute");
             return ImmutableList.of(new TestBlock(reference, blockName, queryCommands, executables, executableTestsWithCacheCheck,
-                    executionContext.inferConnectionURI(reference.getResource(), testsMap.getOrDefault(BLOCK_CONNECT, null)), options, executionContext));
+                    executionContext.inferConnectionTarget(reference.getResource(), testsMap.getOrDefault(BLOCK_CONNECT, null)), options, executionContext));
         } catch (Throwable e) {
             throw executionContext.wrapContext(e, () -> "‼️ Error parsing the test block at " + reference, TEST_BLOCK, reference);
         }
@@ -408,9 +408,9 @@ public final class TestBlock extends ConnectedBlock {
 
     private TestBlock(@Nonnull final YamlReference reference, @Nonnull final String blockName, @Nonnull final List<QueryCommand> queryCommands,
                       @Nonnull final List<Consumer<YamlConnection>> executables,
-                      @Nonnull final List<Consumer<YamlConnection>> executableTestsWithCacheCheck, @Nonnull final URI connectionURI,
+                      @Nonnull final List<Consumer<YamlConnection>> executableTestsWithCacheCheck, @Nonnull final ConnectionTarget connectionTarget,
                       @Nonnull final TestBlockOptions options, @Nonnull final YamlExecutionContext executionContext) {
-        super(reference, executables, connectionURI, executionContext);
+        super(reference, executables, connectionTarget, executionContext);
         this.blockName = blockName;
         this.queryCommands = queryCommands;
         this.options = options;

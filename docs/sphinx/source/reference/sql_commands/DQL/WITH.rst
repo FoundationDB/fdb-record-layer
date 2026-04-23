@@ -337,6 +337,7 @@ Find all employees who report to any of Bob's managers (colleagues in Bob's mana
         FROM colleagues_of_bob AS c, employees AS e
         WHERE c.id = e.manager_id AND NOT EXISTS (SELECT name FROM c WHERE name = e.name)
     )
+    TRAVERSAL ORDER level_order
     SELECT name FROM colleagues_of_bob WHERE name != 'Bob'
 
 This query demonstrates several advanced concepts. The nested recursive CTEs allow the inner ``bob_managers`` CTE to
@@ -345,6 +346,11 @@ related employees. The ``NOT EXISTS (SELECT name FROM c WHERE name = e.name)`` p
 who are already in the result set - without this, employees could be added multiple times through different management
 paths. The query uses two-phase processing: first finding Bob's management chain (Bob → Alice), then finding all
 employees who report to anyone in that chain.
+
+.. note::
+
+   Due to a known bug with nesting DFS over level-based traversal, level-based traversal should be explicitly hinted
+   when using nested recursive CTEs.
 
 Result:
 
