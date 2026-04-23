@@ -45,8 +45,10 @@ import java.sql.SQLException;
  */
 public class CaseSensitiveDbObjectsTest {
     @Nonnull
-    private static final String SCHEMA_TEMPLATE = "CREATE TABLE \"t1\" (\"group\" bigint, \"id\" string, \"val\" " +
-            "bigint, PRIMARY KEY(\"group\", \"id\")) ";
+    private static final String SCHEMA_TEMPLATE =
+            """
+            CREATE TABLE "t1" ("group" bigint, "id" string, "val" bigint, PRIMARY KEY("group", "id"))
+            """;
 
     @RegisterExtension
     @Order(0)

@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.BuildVersion;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.google.common.base.Verify;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -54,7 +55,7 @@ import java.util.jar.Manifest;
 /**
  * Class to manage running an external server.
  */
-public class ExternalServer {
+public class ExternalServer implements Clusters.BoundToCluster {
 
     private static final Logger logger = LogManager.getLogger(ExternalServer.class);
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
@@ -65,7 +66,7 @@ public class ExternalServer {
     private int httpPort;
     private final SemanticVersion version;
     private Process serverProcess;
-    @Nullable
+    @Nonnull
     private final String clusterFile;
 
     /**
@@ -74,7 +75,7 @@ public class ExternalServer {
      * @param serverJar the path to the jar to run
      */
     public ExternalServer(@Nonnull final File serverJar,
-                          @Nullable final String clusterFile) throws IOException {
+                          @Nonnull final String clusterFile) throws IOException {
         this.clusterFile = clusterFile;
 
         this.serverJar = serverJar;
@@ -128,7 +129,9 @@ public class ExternalServer {
         return version;
     }
 
-    public String getClusterFile() {
+    @Nonnull
+    @Override
+    public String clusterFile() {
         return clusterFile;
     }
 

@@ -45,18 +45,20 @@ public class UniqueIndexTests {
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     private static final String getTemplate_definition =
-            "CREATE TABLE T1(t1_p bigint, t1_a bigint, primary key(t1_p))\n" +
-                    "CREATE UNIQUE INDEX mv1 AS SELECT t1_a FROM t1\n" +
-                    "CREATE TABLE T2(t2_p bigint, t2_a bigint, t2_b bigint, primary key(t2_p))\n" +
-                    "CREATE UNIQUE INDEX mv2 AS SELECT t2_a, t2_b FROM t2 order by t2_a, t2_b\n" +
-                    "CREATE TABLE T3(t3_p bigint, t3_a bigint, t3_b bigint, primary key(t3_p))\n" +
-                    "CREATE UNIQUE INDEX mv3 AS SELECT t3_a FROM t3\n" +
-                    "CREATE UNIQUE INDEX mv4 AS SELECT t3_b FROM t3\n" +
-                    "CREATE TYPE AS STRUCT ST1(st1_a bigint)\n" +
-                    "CREATE TABLE T4(t4_p bigint, t4_st1 st1 array, primary key(t4_p))\n" +
-                    "CREATE UNIQUE INDEX mv5 AS SELECT v.st1_a from t4 t, (SELECT u.st1_a from t.t4_st1 u) v\n" +
-                    "CREATE TABLE T5(t5_p bigint, t5_a bigint, t5_b bigint, t5_c bigint, t5_d bigint, primary key(t5_p))\n" +
-                    "CREATE UNIQUE INDEX mv6 AS SELECT t5_a, t5_b, t5_c, t5_d from t5 order by t5_d, t5_c\n";
+            """
+            CREATE TABLE T1(t1_p bigint, t1_a bigint, primary key(t1_p))
+            CREATE UNIQUE INDEX mv1 AS SELECT t1_a FROM t1
+            CREATE TABLE T2(t2_p bigint, t2_a bigint, t2_b bigint, primary key(t2_p))
+            CREATE UNIQUE INDEX mv2 AS SELECT t2_a, t2_b FROM t2 order by t2_a, t2_b
+            CREATE TABLE T3(t3_p bigint, t3_a bigint, t3_b bigint, primary key(t3_p))
+            CREATE UNIQUE INDEX mv3 AS SELECT t3_a FROM t3
+            CREATE UNIQUE INDEX mv4 AS SELECT t3_b FROM t3
+            CREATE TYPE AS STRUCT ST1(st1_a bigint)
+            CREATE TABLE T4(t4_p bigint, t4_st1 st1 array, primary key(t4_p))
+            CREATE UNIQUE INDEX mv5 AS SELECT v.st1_a from t4 t, (SELECT u.st1_a from t.t4_st1 u) v
+            CREATE TABLE T5(t5_p bigint, t5_a bigint, t5_b bigint, t5_c bigint, t5_d bigint, primary key(t5_p))
+            CREATE UNIQUE INDEX mv6 AS SELECT t5_a, t5_b, t5_c, t5_d from t5 order by t5_d, t5_c
+            """;
 
     @RegisterExtension
     @Order(1)
