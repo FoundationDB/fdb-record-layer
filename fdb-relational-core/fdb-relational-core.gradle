@@ -20,6 +20,7 @@
 
 plugins {
     id 'java-test-fixtures'
+    alias(libs.plugins.jmh)
 }
 
 apply from: rootProject.file('gradle/antlr.gradle')
@@ -83,4 +84,14 @@ publishing {
             }
         }
     }
+}
+
+jmh {
+    environment = rootProject.ext.fdbEnvironment
+    includes = ['(DirectAccessVsQueryBenchmark|IndexScanVsQueryBenchmark)']
+    resultFormat = 'text'
+}
+
+project.tasks.named("processJmhResources") {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }
