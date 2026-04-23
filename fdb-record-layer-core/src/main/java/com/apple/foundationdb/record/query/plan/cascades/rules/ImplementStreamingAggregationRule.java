@@ -24,28 +24,32 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.PlanPartitions;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.properties.ContinuableWithoutDuplicatesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.atLeastOne;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPlanPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitionsTo;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.groupByExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
@@ -58,7 +62,24 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementStreamingAggregationRule extends ImplementationCascadesRule<GroupByExpression> {
     @Nonnull
-    private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
+    private static final BindingMatcher<PlanPartition> innerPlanPartitions = anyPlanPartition();
+
+    @Nonnull
+    private static final BindingMatcher<Collection<PlanPartition>> rolledUpPlanPartitions =
+            rollUpPartitionsTo(
+                    // The aggregation result from a streaming aggregation may be incorrect if the underlying plan returns
+                    // the same record multiple times across continuations for some aggregate values (e.g. COUNT).
+                    filterPlanPartitions(
+                            p -> p.getPartitionPropertyValue(
+                                    ContinuableWithoutDuplicatesProperty.continuableWithoutDuplicates()),
+                    atLeastOne(innerPlanPartitions)),
+                    Set.of(
+                            ContinuableWithoutDuplicatesProperty.continuableWithoutDuplicates(),
+                            OrderingProperty.ordering()));
+
+    @Nonnull
+    private static final BindingMatcher<Reference> lowerRefMatcher = planPartitions(rolledUpPlanPartitions);
+
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
     @Nonnull
@@ -92,33 +113,21 @@ public class ImplementStreamingAggregationRule extends ImplementationCascadesRul
                                 DefaultValueSimplificationRuleSet.instance(),
                                 call.getEvaluationContext(), AliasMap.emptyMap(), correlatedTo));
 
-        final var innerReference = innerQuantifier.getRangesOver();
-        final var planPartitions = PlanPartitions.rollUpTo(innerReference.toPlanPartitions(), OrderingProperty.ordering());
-
+        final var planPartitions = bindings.getAll(innerPlanPartitions);
         for (final var planPartition : planPartitions) {
             final var providedOrdering = planPartition.getPartitionPropertyValue(OrderingProperty.ordering());
             if (requiredOrderingKeyValues == null || providedOrdering.satisfiesGroupingValues(requiredOrderingKeyValues)) {
-                // The aggregation result from a streaming aggregation may be incorrect if the underlying plan returns
-                // the same record multiple times across continuations for some aggregate values (e.g. COUNT).
-                final var plansWithDistinctRecordsAcrossContinuations =
-                        planPartition.getPlans().stream()
-                                .filter(ContinuableWithoutDuplicatesProperty.continuableWithoutDuplicates()::evaluate)
-                                .collect(ImmutableSet.toImmutableSet());
-                if (plansWithDistinctRecordsAcrossContinuations.isEmpty()) {
-                    continue;
-                }
-
-                call.yieldPlan(implementGroupBy(call, plansWithDistinctRecordsAcrossContinuations, groupByExpression));
+                call.yieldPlan(implementGroupBy(call, planPartition, groupByExpression));
             }
         }
     }
 
     @Nonnull
     private RecordQueryStreamingAggregationPlan implementGroupBy(@Nonnull final ImplementationCascadesRuleCall call,
-                                                                 @Nonnull final Collection<RecordQueryPlan> plans,
+                                                                 @Nonnull final PlanPartition planPartition,
                                                                  @Nonnull final GroupByExpression groupByExpression) {
         final var innerQuantifier = Iterables.getOnlyElement(groupByExpression.getQuantifiers());
-        final var newInnerPlanReference = call.memoizeMemberPlansFromOther(innerQuantifier.getRangesOver(), plans);
+        final var newInnerPlanReference = call.memoizeMemberPlansFromOther(innerQuantifier.getRangesOver(), planPartition.getPlans());
         final var newPlanQuantifier = Quantifier.physical(newInnerPlanReference);
         final var aliasMap = AliasMap.ofAliases(innerQuantifier.getAlias(), newPlanQuantifier.getAlias());
         final var rebasedAggregatedValue = groupByExpression.getAggregateValue().rebase(aliasMap);

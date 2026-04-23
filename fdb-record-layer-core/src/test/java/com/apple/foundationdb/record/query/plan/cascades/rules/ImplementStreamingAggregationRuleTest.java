@@ -79,7 +79,7 @@ class ImplementStreamingAggregationRuleTest {
                 GroupByExpression::nestedResults,
                 unorderedDistinctQuantifier);
 
-        testHelper.assertYieldsNothing(logicalGroupBy, true);
+        testHelper.assertYieldsNothing(logicalGroupBy, false);
     }
 
     @Test
@@ -116,9 +116,7 @@ class ImplementStreamingAggregationRuleTest {
     }
 
     private static RecordQueryIndexPlan indexScan() {
-        return new RecordQueryIndexPlan("IndexA", null, IndexScanComparisons.byValue(),
-                IndexFetchMethod.SCAN_AND_FETCH, FetchIndexRecords.PRIMARY_KEY, false, false,
-                Optional.empty(), RuleTestHelper.TYPE_S, QueryPlanConstraint.noConstraint());
+        return new RecordQueryIndexPlan("IndexA", null, IndexScanComparisons.byValue(), IndexFetchMethod.SCAN_AND_FETCH, FetchIndexRecords.PRIMARY_KEY, false, false, Optional.empty(), RuleTestHelper.TYPE_S, QueryPlanConstraint.noConstraint());
     }
 
     private static RecordQueryStreamingAggregationPlan expectedPhysicalPlan(Quantifier.Physical innerPhysicalQuantifier, GroupByExpression logicalGroupByExpression) {
