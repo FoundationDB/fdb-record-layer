@@ -194,7 +194,9 @@ public class PredicatePushDownRule extends ExplorationCascadesRule<SelectExpress
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
-
+        if (!selectExpression.getResultValue().getResultType().isRecord()) {
+            return;
+        }
         //
         // This is the quantifier we are going to push predicates along.
         //

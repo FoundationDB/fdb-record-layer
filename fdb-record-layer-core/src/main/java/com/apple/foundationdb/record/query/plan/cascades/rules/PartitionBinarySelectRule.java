@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -106,7 +108,10 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
 
         final var selectExpression = bindings.get(root);
 
-
+        if (false) {
+        // if (!selectExpression.getResultValue().getResultType().isRecord()) {
+            return;
+        }
         //
         // We are going to try to pull as many predicates as we can towards the left side.
         //
@@ -167,8 +172,12 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
             leftExpansionBuilder.addAllPredicates(leftPredicates);
 
             final SelectExpression leftSelectExpression;
-            if (leftQuantifier instanceof Quantifier.ForEach) {
-                leftSelectExpression = leftExpansionBuilder.build().buildSimpleSelectOverQuantifier((Quantifier.ForEach)leftQuantifier);
+            if (leftQuantifier instanceof Quantifier.ForEach && !leftQuantifier.getFlowedObjectType().isRecord()) {
+                final var wrappedValue = RecordConstructorValue.ofColumns(
+                        ImmutableList.of(Column.unnamedOf(leftQuantifier.getFlowedObjectValue())));
+                leftSelectExpression = leftExpansionBuilder.build().buildSelectWithResultValue(wrappedValue);
+            } else if (leftQuantifier instanceof Quantifier.ForEach) {
+                leftSelectExpression = leftExpansionBuilder.build().buildSelectWithResultValue(leftQuantifier.getFlowedObjectValue());
             } else {
                 leftExpansionBuilder.addResultValue(LiteralValue.ofScalar(1));
                 leftSelectExpression = leftExpansionBuilder.build().buildSelect();
@@ -187,8 +196,12 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
             rightExpansionBuilder.addAllPredicates(rightPredicates);
 
             final SelectExpression rightSelectExpression;
-            if (rightQuantifier instanceof Quantifier.ForEach) {
-                rightSelectExpression = rightExpansionBuilder.build().buildSimpleSelectOverQuantifier((Quantifier.ForEach)rightQuantifier);
+            if (rightQuantifier instanceof Quantifier.ForEach && !rightQuantifier.getFlowedObjectType().isRecord()) {
+                final var wrappedValue = RecordConstructorValue.ofColumns(
+                        ImmutableList.of(Column.unnamedOf(rightQuantifier.getFlowedObjectValue())));
+                rightSelectExpression = rightExpansionBuilder.build().buildSelectWithResultValue(wrappedValue);
+            } else if (rightQuantifier instanceof Quantifier.ForEach) {
+                rightSelectExpression = rightExpansionBuilder.build().buildSelectWithResultValue(rightQuantifier.getFlowedObjectValue());
             } else {
                 rightExpansionBuilder.addResultValue(LiteralValue.ofScalar(1));
                 rightSelectExpression = rightExpansionBuilder.build().buildSelect();

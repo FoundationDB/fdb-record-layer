@@ -261,7 +261,15 @@ public class PartitionSelectRule extends ExplorationCascadesRule<SelectExpressio
             upperSelectExpression = upperGraphExpansionBuilder.build().buildSelectWithResultValue(resultValue);
         } else if (!lowersCorrelatedToByUpperAliases.isEmpty() || lowersCorrelatedToByUppers.size() == 1) {
             final var lowerAlias = lowersCorrelatedToByUpperAliases.isEmpty() ? Iterables.getOnlyElement(lowersCorrelatedToByUppers) : lowerAliasCorrelatedToByUpperAliases;
-            final var lowerSelectExpression = lowerGraphExpansionBuilder.build().buildSelectWithResultValue(Verify.verifyNotNull(aliasToQuantifierMap.get(lowerAlias)).getFlowedObjectValue());
+            final var lowerQuantifier = Verify.verifyNotNull(aliasToQuantifierMap.get(lowerAlias));
+            final SelectExpression lowerSelectExpression;
+            if (lowerQuantifier instanceof Quantifier.ForEach && !lowerQuantifier.getFlowedObjectType().isRecord()) {
+                final var wrappedValue = RecordConstructorValue.ofColumns(
+                        ImmutableList.of(Column.unnamedOf((lowerQuantifier).getFlowedObjectValue())));
+                lowerSelectExpression = lowerGraphExpansionBuilder.build().buildSelectWithResultValue(wrappedValue);
+            } else {
+                lowerSelectExpression = lowerGraphExpansionBuilder.build().buildSelectWithResultValue(lowerQuantifier.getFlowedObjectValue());
+            }
 
             final var upperGraphExpansionBuilder = GraphExpansion.builder();
             upperGraphExpansionBuilder.addQuantifier(Quantifier.forEachBuilder().withAlias(lowerAlias).build(call.memoizeExploratoryExpression(lowerSelectExpression)));
