@@ -7,6 +7,53 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.11.1.0
+
+<h4> Breaking Changes </h4>
+
+* Update language level to JDK 17 - [PR #3967](https://github.com/FoundationDB/fdb-record-layer/pull/3967)
+* Increment Incarnation as part of COPY command - [PR #4045](https://github.com/FoundationDB/fdb-record-layer/pull/4045)
+<h4> New Features </h4>
+
+* Multi-Cluster support for yamsql & support not-registering the driver with FRL - [PR #4042](https://github.com/FoundationDB/fdb-record-layer/pull/4042)
+* Support the CARDINALITY() SQL function - [PR #4074](https://github.com/FoundationDB/fdb-record-layer/pull/4074)
+* Support equality/inequality and NULL comparisons for ARRAYs - [PR #4080](https://github.com/FoundationDB/fdb-record-layer/pull/4080)
+<h4> Bug Fixes </h4>
+
+* Fix NullPointerException in FlatMapPipelinedCursor.close & unclosed resources - [PR #4077](https://github.com/FoundationDB/fdb-record-layer/pull/4077)
+* Preserve unconstrained placeholders in `AndPredicate#and()` - [PR #4090](https://github.com/FoundationDB/fdb-record-layer/pull/4090)
+* Fix issues with ARRAY columns and NULL values - [PR #4073](https://github.com/FoundationDB/fdb-record-layer/pull/4073)
+<h4> Dependency Updates </h4>
+
+* Update actions dependencies to not depend on Node 20 - [PR #4068](https://github.com/FoundationDB/fdb-record-layer/pull/4068)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Join two unjoined futures in FDBRecordStoreRepairHeaderTest - [PR #4096](https://github.com/FoundationDB/fdb-record-layer/pull/4096)
+* Increase documentation for yamsql code and showcasing-tests.yamsql - [PR #4038](https://github.com/FoundationDB/fdb-record-layer/pull/4038)
+* Add SECURITY.md - [PR #4093](https://github.com/FoundationDB/fdb-record-layer/pull/4093)
+* uncomment `like.yamsql` explains - [PR #4094](https://github.com/FoundationDB/fdb-record-layer/pull/4094)
+
+</details>
+
+
+**[Full Changelog (4.10.20.0...4.11.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.10.20.0...4.11.1.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.9.0`, ✅`4.10.10.0`, ✅`4.10.12.0`, ✅`4.10.13.0`, ✅`4.10.15.0`, ✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/24841938252)
+
+
+
 ### 4.10.20.0
 
 <h4> New Features </h4>
