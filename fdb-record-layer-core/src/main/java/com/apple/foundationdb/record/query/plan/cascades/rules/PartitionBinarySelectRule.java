@@ -172,12 +172,14 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
             leftExpansionBuilder.addAllPredicates(leftPredicates);
 
             final SelectExpression leftSelectExpression;
-            if (leftQuantifier instanceof Quantifier.ForEach && !leftQuantifier.getFlowedObjectType().isRecord()) {
-                final var wrappedValue = RecordConstructorValue.ofColumns(
-                        ImmutableList.of(Column.unnamedOf(leftQuantifier.getFlowedObjectValue())));
-                leftSelectExpression = leftExpansionBuilder.build().buildSelectWithResultValue(wrappedValue);
-            } else if (leftQuantifier instanceof Quantifier.ForEach) {
-                leftSelectExpression = leftExpansionBuilder.build().buildSelectWithResultValue(leftQuantifier.getFlowedObjectValue());
+            if (leftQuantifier instanceof Quantifier.ForEach) {
+                if(!leftQuantifier.getFlowedObjectType().isRecord()) {
+                    final var wrappedValue = RecordConstructorValue.ofColumns(
+                            ImmutableList.of(Column.unnamedOf(leftQuantifier.getFlowedObjectValue())));
+                    leftSelectExpression = leftExpansionBuilder.build().buildSelectWithResultValue(wrappedValue);
+                } else {
+                    leftSelectExpression = leftExpansionBuilder.build().buildSelectWithResultValue(leftQuantifier.getFlowedObjectValue());
+                }
             } else {
                 leftExpansionBuilder.addResultValue(LiteralValue.ofScalar(1));
                 leftSelectExpression = leftExpansionBuilder.build().buildSelect();
@@ -196,12 +198,14 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
             rightExpansionBuilder.addAllPredicates(rightPredicates);
 
             final SelectExpression rightSelectExpression;
-            if (rightQuantifier instanceof Quantifier.ForEach && !rightQuantifier.getFlowedObjectType().isRecord()) {
-                final var wrappedValue = RecordConstructorValue.ofColumns(
-                        ImmutableList.of(Column.unnamedOf(rightQuantifier.getFlowedObjectValue())));
-                rightSelectExpression = rightExpansionBuilder.build().buildSelectWithResultValue(wrappedValue);
-            } else if (rightQuantifier instanceof Quantifier.ForEach) {
-                rightSelectExpression = rightExpansionBuilder.build().buildSelectWithResultValue(rightQuantifier.getFlowedObjectValue());
+            if (rightQuantifier instanceof Quantifier.ForEach) {
+                if(!rightQuantifier.getFlowedObjectType().isRecord()) {
+                    final var wrappedValue = RecordConstructorValue.ofColumns(
+                            ImmutableList.of(Column.unnamedOf(rightQuantifier.getFlowedObjectValue())));
+                    rightSelectExpression = rightExpansionBuilder.build().buildSelectWithResultValue(wrappedValue);
+                } else {
+                    rightSelectExpression = rightExpansionBuilder.build().buildSelectWithResultValue(rightQuantifier.getFlowedObjectValue());
+                }
             } else {
                 rightExpansionBuilder.addResultValue(LiteralValue.ofScalar(1));
                 rightSelectExpression = rightExpansionBuilder.build().buildSelect();
