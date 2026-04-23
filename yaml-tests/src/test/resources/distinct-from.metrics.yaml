@@ -1,148 +1,148 @@
 distinct-from-tests:
 -   query: EXPLAIN select * from t1 WHERE col2 is   distinct    from null
     ref: distinct-from.yamsql:50
-    explain: 'COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 IS_DISTINCT_FROM
+    explain: 'COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 IS_DISTINCT_FROM
         NULL | FETCH'
     task_count: 434
-    task_total_time_ms: 24
+    task_total_time_ms: 22
     transform_count: 107
     transform_time_ms: 7
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 50
-    insert_reused_count: 7
+    insert_reused_count: 5
 -   query: EXPLAIN select * from t1 WHERE col1 is DISTINCT from 10
     ref: distinct-from.yamsql:54
-    explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 IS_DISTINCT_FROM
-        promote(@c10 AS INT) | FETCH'
+    explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 IS_DISTINCT_FROM
+        promote(@c9 AS INT) | FETCH'
     task_count: 450
-    task_total_time_ms: 25
+    task_total_time_ms: 23
     transform_count: 112
-    transform_time_ms: 7
+    transform_time_ms: 8
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 54
-    insert_reused_count: 7
+    insert_reused_count: 5
 -   query: EXPLAIN select * from t1 WHERE null is distinct from col2
     ref: distinct-from.yamsql:58
-    explain: 'COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 IS_DISTINCT_FROM
+    explain: 'COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 IS_DISTINCT_FROM
         NULL | FETCH'
     task_count: 434
-    task_total_time_ms: 24
+    task_total_time_ms: 21
     transform_count: 107
     transform_time_ms: 7
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 50
-    insert_reused_count: 7
+    insert_reused_count: 5
 -   query: EXPLAIN select * from t1 WHERE 10 is distinct from col1
     ref: distinct-from.yamsql:62
-    explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 IS_DISTINCT_FROM
-        promote(@c6 AS INT) | FETCH'
+    explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 IS_DISTINCT_FROM
+        promote(@c5 AS INT) | FETCH'
     task_count: 450
-    task_total_time_ms: 25
-    transform_count: 112
-    transform_time_ms: 7
-    transform_yield_count: 48
-    insert_time_ms: 3
-    insert_new_count: 54
-    insert_reused_count: 7
--   query: EXPLAIN select * from t1 WHERE null is distinct from null
-    ref: distinct-from.yamsql:66
-    explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER NULL IS_DISTINCT_FROM
-        NULL | FETCH'
-    task_count: 473
-    task_total_time_ms: 25
+    task_total_time_ms: 21
     transform_count: 112
     transform_time_ms: 7
     transform_yield_count: 48
     insert_time_ms: 0
+    insert_new_count: 54
+    insert_reused_count: 5
+-   query: EXPLAIN select * from t1 WHERE null is distinct from null
+    ref: distinct-from.yamsql:66
+    explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER NULL IS_DISTINCT_FROM
+        NULL | FETCH'
+    task_count: 473
+    task_total_time_ms: 23
+    transform_count: 112
+    transform_time_ms: 9
+    transform_yield_count: 48
+    insert_time_ms: 0
     insert_new_count: 56
-    insert_reused_count: 8
+    insert_reused_count: 6
 -   query: EXPLAIN select * from t1 WHERE 10 is distinct from 10
     ref: distinct-from.yamsql:70
-    explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER @c6 IS_DISTINCT_FROM
-        @c6 | FETCH'
+    explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER @c5 IS_DISTINCT_FROM
+        @c5 | FETCH'
     task_count: 473
-    task_total_time_ms: 25
+    task_total_time_ms: 5
     transform_count: 112
-    transform_time_ms: 7
+    transform_time_ms: 2
     transform_yield_count: 48
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 56
-    insert_reused_count: 8
+    insert_reused_count: 6
 not-distinct-from-tests:
 -   query: EXPLAIN select * from t1 WHERE col2 is      not distinct from null
     ref: distinct-from.yamsql:79
-    explain: 'COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM
+    explain: 'COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM
         NULL | FETCH'
     task_count: 434
-    task_total_time_ms: 22
+    task_total_time_ms: 21
     transform_count: 106
     transform_time_ms: 7
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 50
-    insert_reused_count: 7
+    insert_reused_count: 5
 -   query: EXPLAIN select * from t1 WHERE col1 is not distinct from 20
     ref: distinct-from.yamsql:83
-    explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM
-        promote(@c11 AS INT) | FETCH'
-    task_count: 450
-    task_total_time_ms: 24
-    transform_count: 111
-    transform_time_ms: 8
-    transform_yield_count: 48
-    insert_time_ms: 1
-    insert_new_count: 54
-    insert_reused_count: 7
--   query: EXPLAIN select * from t1 WHERE null is not distinct from col2
-    ref: distinct-from.yamsql:87
-    explain: 'COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM
-        NULL | FETCH'
-    task_count: 434
-    task_total_time_ms: 22
-    transform_count: 106
-    transform_time_ms: 7
-    transform_yield_count: 46
-    insert_time_ms: 0
-    insert_new_count: 50
-    insert_reused_count: 7
--   query: EXPLAIN select * from t1 WHERE 20 is not distinct from col1
-    ref: distinct-from.yamsql:91
-    explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM
-        promote(@c6 AS INT) | FETCH'
+    explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM
+        promote(@c10 AS INT) | FETCH'
     task_count: 450
     task_total_time_ms: 23
     transform_count: 111
     transform_time_ms: 8
     transform_yield_count: 48
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 54
-    insert_reused_count: 7
+    insert_reused_count: 5
+-   query: EXPLAIN select * from t1 WHERE null is not distinct from col2
+    ref: distinct-from.yamsql:87
+    explain: 'COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM
+        NULL | FETCH'
+    task_count: 434
+    task_total_time_ms: 22
+    transform_count: 106
+    transform_time_ms: 7
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 50
+    insert_reused_count: 5
+-   query: EXPLAIN select * from t1 WHERE 20 is not distinct from col1
+    ref: distinct-from.yamsql:91
+    explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM
+        promote(@c5 AS INT) | FETCH'
+    task_count: 450
+    task_total_time_ms: 23
+    transform_count: 111
+    transform_time_ms: 8
+    transform_yield_count: 48
+    insert_time_ms: 0
+    insert_new_count: 54
+    insert_reused_count: 5
 -   query: EXPLAIN select count(*) from t1 WHERE null is not distinct from null
     ref: distinct-from.yamsql:95
     explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER NULL NOT_DISTINCT_FROM
         NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
         AS LONG)) AS _0)'
     task_count: 995
-    task_total_time_ms: 26
+    task_total_time_ms: 37
     transform_count: 254
-    transform_time_ms: 11
-    transform_yield_count: 69
-    insert_time_ms: 0
-    insert_new_count: 111
-    insert_reused_count: 7
--   query: EXPLAIN select count(*) from t1 WHERE 10 is not distinct from 10
-    ref: distinct-from.yamsql:99
-    explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c9 NOT_DISTINCT_FROM
-        @c9 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
-        AS LONG)) AS _0)'
-    task_count: 995
-    task_total_time_ms: 49
-    transform_count: 254
-    transform_time_ms: 20
+    transform_time_ms: 12
     transform_yield_count: 69
     insert_time_ms: 1
     insert_new_count: 111
-    insert_reused_count: 7
+    insert_reused_count: 6
+-   query: EXPLAIN select count(*) from t1 WHERE 10 is not distinct from 10
+    ref: distinct-from.yamsql:99
+    explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c8 NOT_DISTINCT_FROM
+        @c8 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0)'
+    task_count: 995
+    task_total_time_ms: 15
+    transform_count: 254
+    transform_time_ms: 5
+    transform_yield_count: 69
+    insert_time_ms: 0
+    insert_new_count: 111
+    insert_reused_count: 6

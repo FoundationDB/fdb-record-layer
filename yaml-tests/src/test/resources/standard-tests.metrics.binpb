@@ -35,18 +35,18 @@ w
 }∑
 I
 standard-tests7EXPLAIN select * from T1 where COL1 >= 10 OR COL1 <= 20È
-’ù¶ƒ5† ‘ñ‡(W0ÃÁﬂ8≥@›COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) ‚à™ COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c13 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) COMPARE BY (_.COL1, _.ID) | FETCHËdigraph G {
+’€ÑÑ † ˚Ëò(W0ÊõÍ8≥@›COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) ‚à™ COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c13 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) COMPARE BY (_.COL1, _.ID) | FETCHËdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union Distinct</td></tr><tr><td align="left">COMPARE BY (_.COL1, _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN_OR_EQUALS promote(@c8 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN_OR_EQUALS promote(@c13 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN_OR_EQUALS promote(@c13 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN_OR_EQUALS promote(@c8 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
-  3 -> 2 [ label=<&nbsp;q196> label="q196" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q198> label="q198" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q198> label="q198" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q196> label="q196" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q200> label="q200" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -54,7 +54,7 @@ I
 W
 standard-testsEEXPLAIN select * from T1 where COL1 >= 10 OR COL1 <= 20 ORDER BY COL1È
 à
-ˇÑ–H¸ ãéÓ"(F0⁄«„8ë@›COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) ‚à™ COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c13 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) COMPARE BY (_.COL1, _.ID) | FETCHËdigraph G {
+Ñô¨=¸ ÜµÆ(F0ëÃ‘8ë@›COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) ‚à™ COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c13 AS LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) COMPARE BY (_.COL1, _.ID) | FETCHËdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -122,18 +122,18 @@ H
 }í
 f
 standard-testsTEXPLAIN select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20 OR COL1 = 10)ß
-Â≠˘∫?• ‘‡´(Y0˝êÿ8∑@ºCOVERING(I1 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) ‚à™ COVERING(I1 [EQUALS promote(@c12 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) COMPARE BY (_.COL1, _.ID) | FETCH«digraph G {
+ÂÂ∂Ï2• Áï¡(Y0ìƒ˛8∑@ºCOVERING(I1 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) ‚à™ COVERING(I1 [EQUALS promote(@c12 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) COMPARE BY (_.COL1, _.ID) | FETCH«digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union Distinct</td></tr><tr><td align="left">COMPARE BY (_.COL1, _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c12 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c12 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
-  3 -> 2 [ label=<&nbsp;q189> label="q189" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q191> label="q191" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q191> label="q191" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q189> label="q189" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q193> label="q193" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -141,15 +141,14 @@ f
 t
 standard-testsbEXPLAIN select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20 OR COL1 = 10) ORDER BY COL1ß
 ¯
-„Û∫ç øøÈ
-(H0˙óÖ8ò@ºCOVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) ‚à™ COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) COMPARE BY (_.COL1, _.ID) | FETCH«digraph G {
+ø—â!ç ËâÕ(H0ö‹ÿ8ò@ºCOVERING(I1 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) ‚à™ COVERING(I1 [EQUALS promote(@c12 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) COMPARE BY (_.COL1, _.ID) | FETCH«digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union Distinct</td></tr><tr><td align="left">COMPARE BY (_.COL1, _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c12 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   3 -> 2 [ label=<&nbsp;q183> label="q183" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -177,11 +176,10 @@ y
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN_OR_EQUALS promote(@c10 AS LONG) &amp;&amp; LESS_THAN_OR_EQUALS promote(@c15 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}®
+}ß
 b
-standard-testsPEXPLAIN select * from (select * from (select * from T1) as x where ID = 5) as y;¡
-åú≈œ] ±ÂÄ
-(%0Ωè√81@+SCAN([IS T1, EQUALS promote(@c18 AS LONG)])ıdigraph G {
+standard-testsPEXPLAIN select * from (select * from (select * from T1) as x where ID = 5) as y;¿
+åüß‘] ÁﬁÅ(%0˙©881@+SCAN([IS T1, EQUALS promote(@c18 AS LONG)])ıdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -191,8 +189,7 @@ b
 }®
 b
 standard-testsPEXPLAIN select * from (select * from (select * from T1) as x) as y where ID = 5;¡
-∂ºùúf ¡¶˘
-()0≈ªÁ8:@+SCAN([IS T1, EQUALS promote(@c21 AS LONG)])ıdigraph G {
+∂÷Ä‡f àªÂ()0ç¨Ñ8:@+SCAN([IS T1, EQUALS promote(@c21 AS LONG)])ıdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -220,7 +217,7 @@ b
 }Œ
 y
 standard-testsgEXPLAIN select * from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;–
-ÖèΩ©X “Ùñ	($0·¥a8.@3SCAN([IS T1, [GREATER_THAN promote(@c19 AS LONG)]])˝digraph G {
+Ö∆‚ÌX ÚÄº($0œ∂=8.@3SCAN([IS T1, [GREATER_THAN promote(@c19 AS LONG)]])˝digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

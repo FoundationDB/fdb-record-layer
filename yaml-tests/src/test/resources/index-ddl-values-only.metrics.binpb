@@ -74,7 +74,7 @@ c
 }∂
 f
 multi_column_value_indexJEXPLAIN select name, rating from products_mat_view where name = 'Widget A'À
-Ô˛ÒûA˛ ËÚà (≤0∫±Õ8Û@òCOVERING(IDX_MV_NAME_RATING [EQUALS promote(@c9 AS STRING)] -> [ID: KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING AS RATING)édigraph G {
+ÔÄ˛Ö˛ ¸îË(≤0É◊•8Û@òCOVERING(IDX_MV_NAME_RATING [EQUALS promote(@c9 AS STRING)] -> [ID: KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING AS RATING)édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -86,7 +86,7 @@ f
 }∏
 f
 multi_column_value_indexJEXPLAIN select name, rating from products_index_on where name = 'Widget A'Õ
-Ô≤º≤L˛ À˙Ú%(≤0à¬ò8Û@ôCOVERING(IDX_IOT_NAME_RATING [EQUALS promote(@c9 AS STRING)] -> [ID: KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING AS RATING)èdigraph G {
+ÔÏ•Ä&˛ √æ˚(≤0∆ﬂ¡8Û@ôCOVERING(IDX_IOT_NAME_RATING [EQUALS promote(@c9 AS STRING)] -> [ID: KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING AS RATING)èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -360,25 +360,25 @@ y
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_FILTERED_ELECTRONICS</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q126> label="q126" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}É
+}Ç
 Ç
-filtered_indexesnEXPLAIN select category, price, stock from products_mat_view where price > 15 and stock > 60 order by category˚
-å	Ê≠˘3† Å◊≈(Ç0ø¯–8}@	™COVERING(IDX_MV_FILTERED_MULTI <,> -> [CATEGORY: KEY[0], ID: KEY[2], PRICE: VALUE[0], STOCK: VALUE[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.STOCK AS STOCK)≠digraph G {
+filtered_indexesnEXPLAIN select category, price, stock from products_mat_view where price > 15 and stock > 60 order by category˙
+å	Í°å#† èÆΩ(Ç0ò“z8}@ÆCOVERING(IDX_MV_FILTERED_MULTI <,> -> [CATEGORY: KEY:[0], ID: KEY:[2], PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.STOCK AS STOCK)©digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q223.CATEGORY AS CATEGORY, q223.PRICE AS PRICE, q223.STOCK AS STOCK)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, DOUBLE AS PRICE, INT AS STOCK)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_MV_FILTERED_MULTI</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q223> label="q223" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ö
+}Ñ
 Ç
-filtered_indexesnEXPLAIN select category, price, stock from products_index_on where price > 15 and stock > 60 order by category˝
-å	‘ï§5† ∏Áé(Ç0˘≈—8}@	´COVERING(IDX_IOT_FILTERED_MULTI <,> -> [CATEGORY: KEY[0], ID: KEY[2], PRICE: VALUE[0], STOCK: VALUE[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.STOCK AS STOCK)Ædigraph G {
+filtered_indexesnEXPLAIN select category, price, stock from products_index_on where price > 15 and stock > 60 order by category¸
+å	˚´æ † Ù‚…(Ç0Ω⁄t8}@ØCOVERING(IDX_IOT_FILTERED_MULTI <,> -> [CATEGORY: KEY:[0], ID: KEY:[2], PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.STOCK AS STOCK)™digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q223.CATEGORY AS CATEGORY, q223.PRICE AS PRICE, q223.STOCK AS STOCK)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CATEGORY, DOUBLE AS PRICE, INT AS STOCK)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_IOT_FILTERED_MULTI</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS ID, STRING AS NAME, DOUBLE AS PRICE, STRING AS CATEGORY, INT AS STOCK, STRING AS SUPPLIER, DOUBLE AS RATING)" ];

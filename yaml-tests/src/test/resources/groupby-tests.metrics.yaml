@@ -101,29 +101,29 @@ group-by-tests:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT COUNT(*) from T1 WHERE col1 = 20 or col2 = 5
     ref: groupby-tests.yamsql:196
-    explain: ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c11 AS LONG) OR _.COL2
-        EQUALS promote(@c15 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
+    explain: ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) OR _.COL2
+        EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
         BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
         _0)
     task_count: 1075
-    task_total_time_ms: 46
+    task_total_time_ms: 25
     transform_count: 260
-    transform_time_ms: 16
+    transform_time_ms: 8
     transform_yield_count: 71
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 146
-    insert_reused_count: 19
+    insert_reused_count: 17
 -   query: EXPLAIN SELECT COUNT(*) from T1 WHERE col1 = 20 or col2 = 10
     ref: groupby-tests.yamsql:205
-    explain: ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c11 AS LONG) OR _.COL2
-        EQUALS promote(@c15 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
+    explain: ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) OR _.COL2
+        EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
         BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
         _0)
     task_count: 1075
-    task_total_time_ms: 46
+    task_total_time_ms: 25
     transform_count: 260
-    transform_time_ms: 16
+    transform_time_ms: 8
     transform_yield_count: 71
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 146
-    insert_reused_count: 19
+    insert_reused_count: 17

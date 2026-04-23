@@ -127,24 +127,24 @@ pseudo-field-clash-queries:
     ref: pseudo-field-clash.yamsql:187
     explain: ISCAN(T2_VERSION [[GREATER_THAN promote(@c7 AS STRING)]])
     task_count: 478
-    task_total_time_ms: 17
+    task_total_time_ms: 19
     transform_count: 112
-    transform_time_ms: 8
+    transform_time_ms: 6
     transform_yield_count: 47
     insert_time_ms: 0
     insert_new_count: 56
-    insert_reused_count: 7
+    insert_reused_count: 6
 -   query: EXPLAIN SELECT * FROM t2 WHERE col1 = 20
     ref: pseudo-field-clash.yamsql:196
     explain: ISCAN(T2_COL1_VERSION [EQUALS promote(@c7 AS LONG)])
     task_count: 423
-    task_total_time_ms: 16
+    task_total_time_ms: 19
     transform_count: 101
-    transform_time_ms: 5
+    transform_time_ms: 7
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
-    insert_reused_count: 6
+    insert_reused_count: 5
 -   query: EXPLAIN SELECT * FROM t3 WHERE col1 = 20
     ref: pseudo-field-clash.yamsql:204
     explain: ISCAN(T3_COL1_VERSION [EQUALS promote(@c7 AS LONG)]) | MAP (_.ID AS ID,
@@ -159,15 +159,15 @@ pseudo-field-clash-queries:
     insert_reused_count: 5
 -   query: EXPLAIN SELECT * FROM t2 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC
     ref: pseudo-field-clash.yamsql:212
-    explain: ISCAN(T2_COL1_VERSION [EQUALS promote(@c8 AS LONG)] REVERSE)
+    explain: ISCAN(T2_COL1_VERSION [EQUALS promote(@c7 AS LONG)] REVERSE)
     task_count: 281
-    task_total_time_ms: 7
+    task_total_time_ms: 13
     transform_count: 75
-    transform_time_ms: 3
+    transform_time_ms: 4
     transform_yield_count: 33
     insert_time_ms: 0
     insert_new_count: 27
-    insert_reused_count: 3
+    insert_reused_count: 2
 -   query: EXPLAIN SELECT * FROM t3 WHERE col1 = 20 ORDER BY "__ROW_VERSION" DESC
     ref: pseudo-field-clash.yamsql:220
     explain: ISCAN(T3_COL1_VERSION [EQUALS promote(@c8 AS LONG)] REVERSE) | MAP (_.ID
@@ -216,12 +216,12 @@ pseudo-field-clash-queries:
         q3 RETURN (q0 AS _0, q3._0 AS _1, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2
         AS COL2) AS _2) }
     task_count: 2300
-    task_total_time_ms: 295
+    task_total_time_ms: 72
     transform_count: 738
-    transform_time_ms: 100
+    transform_time_ms: 26
     transform_yield_count: 165
-    insert_time_ms: 9
-    insert_new_count: 414
+    insert_time_ms: 3
+    insert_new_count: 386
     insert_reused_count: 34
 -   query: EXPLAIN SELECT (t1.id, t1.col1, t1."__ROW_VERSION"), (t2.id, t2.col1, t2."__ROW_VERSION"),
         (t3.id, t3.col1, t3.col2, t3."__ROW_VERSION") FROM t1, t2, t3 WHERE t2.id
@@ -234,10 +234,10 @@ pseudo-field-clash-queries:
         AS _1, (q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2, q3._1.__ROW_VERSION
         AS __ROW_VERSION) AS _2) }
     task_count: 2300
-    task_total_time_ms: 293
+    task_total_time_ms: 215
     transform_count: 738
-    transform_time_ms: 108
+    transform_time_ms: 82
     transform_yield_count: 165
-    insert_time_ms: 8
-    insert_new_count: 414
+    insert_time_ms: 5
+    insert_new_count: 386
     insert_reused_count: 34
