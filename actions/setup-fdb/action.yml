@@ -17,7 +17,7 @@ runs:
         echo "server_deb=foundationdb-server_${{ inputs.fdb_version }}-1_amd64.deb" >> "${GITHUB_OUTPUT}"
     - name: Check FDB Binaries Cache
       id: cache_fdb
-      uses: actions/cache@v3
+      uses: actions/cache@v5.0.4
       with:
         path: ~/.fdb-cache
         key: ${{ runner.os }}-fdb-debs-${{ inputs.fdb_version }}
