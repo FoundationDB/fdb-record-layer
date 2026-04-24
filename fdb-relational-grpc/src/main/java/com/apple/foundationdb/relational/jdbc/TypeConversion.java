@@ -351,6 +351,9 @@ public class TypeConversion {
             case Types.BINARY:
                 checkColumnType(columnType, column.hasBinary());
                 return column.getBinary().toByteArray();
+            case Types.FLOAT:
+                checkColumnType(columnType, column.hasFloat());
+                return column.getFloat();
             case Types.DOUBLE:
                 checkColumnType(columnType, column.hasDouble());
                 return column.getDouble();
@@ -417,28 +420,38 @@ public class TypeConversion {
         Column.Builder builder = Column.newBuilder();
         switch (columnType) {
             case Types.BIGINT:
-                builder = builder.setLong((Long)obj);
+                builder.setLong((Long)obj);
                 break;
             case Types.INTEGER:
-                builder = builder.setInteger((Integer)obj);
+                builder.setInteger((Integer)obj);
                 break;
             case Types.BOOLEAN:
-                builder = builder.setBoolean((Boolean)obj);
+                builder.setBoolean((Boolean)obj);
                 break;
             case Types.VARCHAR:
-                builder = builder.setString((String)obj);
+                builder.setString((String)obj);
                 break;
             case Types.BINARY:
-                builder = builder.setBinary((ByteString)obj);
+                if (obj instanceof ByteString) {
+                    builder.setBinary((ByteString)obj);
+                } else if (obj instanceof byte[]) {
+                    builder.setBinary(ByteString.copyFrom((byte[]) obj));
+                } else {
+                    throw new SQLException(obj.getClass().getCanonicalName() + " is not a valid BINARY object",
+                            ErrorCode.INVALID_BINARY_REPRESENTATION.getErrorCode());
+                }
+                break;
+            case Types.FLOAT:
+                builder.setFloat((Float) obj);
                 break;
             case Types.DOUBLE:
-                builder = builder.setDouble((Double)obj);
+                builder.setDouble((Double)obj);
                 break;
             case Types.ARRAY:
-                builder = builder.setArray(toArray((java.sql.Array)obj));
+                builder.setArray(toArray((java.sql.Array)obj));
                 break;
             case Types.NULL:
-                builder = builder.setNullType((Integer)obj);
+                builder.setNullType((Integer)obj);
                 break;
             default:
                 throw new SQLException("java.sql.Type=" + columnType + " not supported",
