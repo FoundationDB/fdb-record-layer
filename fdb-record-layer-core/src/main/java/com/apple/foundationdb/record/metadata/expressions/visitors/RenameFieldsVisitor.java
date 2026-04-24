@@ -323,6 +323,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
      * @param targetDescriptor a {@link Descriptors.Descriptor} on which to rewrite the {@code expression}
      * @return a new key expression with rewritten field information
      */
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Nonnull
     public static KeyExpression renameFields(@Nonnull KeyExpression expression, @Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
         if (sourceDescriptor == targetDescriptor) {
