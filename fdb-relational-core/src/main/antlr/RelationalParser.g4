@@ -687,8 +687,13 @@ executeContinuationStatement
     ;
 
 copyStatement
-    : COPY path                                    #copyExportStatement
+    : COPY path incarnationOption                  #copyExportStatement
     | COPY path FROM preparedStatementParameter    #copyImportStatement
+    ;
+
+incarnationOption
+    : PRESERVE INCARNATION
+    | INCREMENT INCARNATION
     ;
 
 // details
@@ -1227,7 +1232,7 @@ expression
 predicate
     : NOT? BETWEEN left=expressionAtom AND right=expressionAtom           #betweenComparisonPredicate // done
     | NOT? IN inList                                                      #inPredicate // done
-    | NOT? LIKE pattern=STRING_LITERAL (ESCAPE escape=STRING_LITERAL)?    #likePredicate // done
+    | NOT? LIKE pattern=constant (ESCAPE escape=STRING_LITERAL)?          #likePredicate // done
     | IS NOT? testValue=(TRUE | FALSE | NULL_LITERAL)                     #isExpression      // done
     ;
 
@@ -1319,8 +1324,8 @@ keywordsCanBeId
     | FIELDS | FILE_BLOCK_SIZE | FILTER | FIREWALL_ADMIN | FIREWALL_USER | FIRST | FIXED | FLUSH
     | FOLLOWS | FOUND | FULL | FUNCTION | GENERAL | GLOBAL | GRANTS | GROUP | GROUP_CONCAT
     |  HANDLER | HASH | HELP | HOST | HOSTS | IDENTIFIED
-    | IGNORED | IGNORE_SERVER_IDS | IMPORT | INDEX | INDEXES | INITIAL_SIZE | INNODB_REDO_LOG_ARCHIVE
-    | INPLACE | INSERT_METHOD | INSTALL | INSTANCE | INSTANT | INTERNAL | INVOKER | IO
+    | IGNORED | IGNORE_SERVER_IDS | IMPORT | INCARNATION | INCREMENT | INDEX | INDEXES | INITIAL_SIZE
+    | INNODB_REDO_LOG_ARCHIVE | INPLACE | INSERT_METHOD | INSTALL | INSTANCE | INSTANT | INTERNAL | INVOKER | IO
     | IO_THREAD | IPC | ISO | ISOLATION | ISSUER | JIS | JSON | KEY | KEY_BLOCK_SIZE
     | LANGUAGE | LAST | LEAVES | LESS | LEVEL | LIST | LOCAL
     | LOGFILE | LOGS | MASTER | MASTER_AUTO_POSITION

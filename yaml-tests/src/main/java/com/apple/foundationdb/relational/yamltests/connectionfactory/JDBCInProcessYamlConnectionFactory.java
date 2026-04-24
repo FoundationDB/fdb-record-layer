@@ -38,26 +38,35 @@ import java.util.Set;
 
 public class JDBCInProcessYamlConnectionFactory implements YamlConnectionFactory {
     private static final Logger LOG = LogManager.getLogger(JDBCInProcessYamlConnectionFactory.class);
-    private final InProcessRelationalServer server;
-    private final String clusterFile;
+    @Nonnull
+    private final Clusters<Clusters.Entry<InProcessRelationalServer>> clusters;
 
-    public JDBCInProcessYamlConnectionFactory(final InProcessRelationalServer server, final String clusterFile) {
-        this.server = server;
-        this.clusterFile = clusterFile;
+    public JDBCInProcessYamlConnectionFactory(@Nonnull Clusters<Clusters.Entry<InProcessRelationalServer>> clusters) {
+        this.clusters = clusters;
     }
 
     @Override
-    public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        // Add name of the in-process running server to the connectPath.
-        URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
+    public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
+        final Clusters.Entry<InProcessRelationalServer> entry = clusters.get(clusterIndex);
+        return createConnection(connectPath, entry.server(), entry.clusterFile());
+    }
+
+    @Override
+    public int getAvailableClusterCount() {
+        return clusters.size();
+    }
+
+    private YamlConnection createConnection(@Nonnull URI connectPath, @Nonnull InProcessRelationalServer targetServer,
+                                            @Nonnull String targetClusterFile) throws SQLException {
+        URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, targetServer.getServerName());
         String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
         if (LOG.isInfoEnabled()) {
             LOG.info(KeyValueLogMessage.of("Rewrote connection string for in-process server",
                     "original", connectPath,
                     "rewritten", uriStr,
-                    "server", server.getServerName()));
+                    "server", targetServer.getServerName()));
         }
-        return new SimpleYamlConnection(DriverManager.getConnection(uriStr), SemanticVersion.current(), "JDBC In-Process", clusterFile);
+        return new SimpleYamlConnection(DriverManager.getConnection(uriStr), SemanticVersion.current(), "JDBC In-Process", targetClusterFile);
     }
 
     @Override

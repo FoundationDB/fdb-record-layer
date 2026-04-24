@@ -118,9 +118,7 @@ public class KeySpacePathSerializer {
         if (!proto.hasValue()) {
             throw new RecordCoreArgumentException("Serialized data must have a value");
         }
-        byte[] value = proto.getValue().toByteArray();
-
-        return new DataInKeySpacePath(path, remainder, value);
+        return new DataInKeySpacePath(path, remainder, proto.getValue());
     }
 
     @Nullable

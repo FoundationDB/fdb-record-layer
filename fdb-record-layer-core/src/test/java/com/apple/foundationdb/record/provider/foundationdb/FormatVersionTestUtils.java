@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.RecordMetaDataProto;
+
+import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Comparator;
 
@@ -31,10 +34,16 @@ public final class FormatVersionTestUtils {
     private FormatVersionTestUtils() {
     }
 
-    public static FormatVersion previous(FormatVersion version) {
+    @Nonnull
+    public static FormatVersion previous(@Nonnull FormatVersion version) {
         return Arrays.stream(FormatVersion.values())
                 .filter(other -> !other.isAtLeast(version))
                 .max(Comparator.naturalOrder())
                 .orElseThrow(() -> new IllegalArgumentException("No versions previous to " + version));
+    }
+
+    public static void addToStoreInfo(@Nonnull final RecordMetaDataProto.DataStoreInfo.Builder builder,
+                                      @Nonnull FormatVersion formatVersion) {
+        builder.setFormatVersion(formatVersion.getValueForSerialization());
     }
 }

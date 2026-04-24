@@ -292,14 +292,16 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
             final var value =
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
-            if (normalizedValues.add(value)) {
+            if (!normalizedValues.contains(value)) {
                 final var matchedOrderingPart =
                         value.<OrderingPart.MatchedSortOrder, OrderingPart.MatchedOrderingPart>deriveOrderingPart(EvaluationContext.empty(),
                                 AliasMap.emptyMap(), ImmutableSet.of(),
                                 (v, sortOrder) ->
                                         OrderingPart.MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
                                 OrderingValueComputationRuleSet.usingMatchedOrderingParts());
-                builder.add(matchedOrderingPart);
+                if (normalizedValues.add(matchedOrderingPart.getValue())) {
+                    builder.add(matchedOrderingPart);
+                }
             }
         }
 

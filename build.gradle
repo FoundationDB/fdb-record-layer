@@ -191,8 +191,8 @@ subprojects {
     apply from: rootProject.file('gradle/testing.gradle')
 
     java {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
@@ -233,7 +233,7 @@ subprojects {
 		// It would be good to have more coverage, but this allows us to move forward with incomplete docs
                 options.addBooleanOption('Xdoclint:none', true)
 
-                options.addStringOption('source', '11')
+                options.addStringOption('source', '17')
                 options.with {
                     overview "src/main/javadoc/overview.html"
 
@@ -257,8 +257,8 @@ subprojects {
                 //enable incremental compilation
                 options.incremental = true
 
-                //target byte-code compatibility with Java 11 (regardless of build JDK)
-                options.release = 11
+                //target byte-code compatibility with Java 17 (regardless of build JDK)
+                options.release = 17
             }
         }
     }

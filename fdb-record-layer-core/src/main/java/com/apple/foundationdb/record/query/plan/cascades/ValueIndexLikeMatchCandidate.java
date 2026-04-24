@@ -100,14 +100,16 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             final var value =
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
-            if (normalizedValues.add(value)) {
+            if (!normalizedValues.contains(value)) {
                 final var matchedOrderingPart =
                         value.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(EvaluationContext.empty(),
                                 AliasMap.emptyMap(), ImmutableSet.of(),
                                 (v, sortOrder) ->
                                         MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
                                 OrderingValueComputationRuleSet.usingMatchedOrderingParts());
-                builder.add(matchedOrderingPart);
+                if (normalizedValues.add(matchedOrderingPart.getValue())) {
+                    builder.add(matchedOrderingPart);
+                }
             }
         }
 

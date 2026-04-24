@@ -606,9 +606,9 @@ public class Ordering {
                 if (comparison instanceof Comparisons.ValueComparison) {
                     final var valueComparison = (Comparisons.ValueComparison)comparison;
                     if (translationMap.containsKey(valueComparison.getValue())) {
-                        translationMap.get(valueComparison.getValue()).stream()
+                        translationMap.get(valueComparison.getValue()).stream().findFirst()
                                 .map(value -> new Comparisons.ValueComparison(valueComparison.getType(), Objects.requireNonNull(value)))
-                                .forEach(translatedValueComparison -> translatedBindingsBuilder.add(Binding.fixed(translatedValueComparison)));
+                                .ifPresent(translatedValueComparison -> translatedBindingsBuilder.add(Binding.fixed(translatedValueComparison)));
                     }
                 } else {
                     translatedBindingsBuilder.add(binding);
@@ -683,25 +683,20 @@ public class Ordering {
     public static ImmutableSetMultimap<Value, Binding> normalizeBindingMap(@Nonnull final SetMultimap<Value, Binding> bindingMap) {
         final var normalizedBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         for (final Value value : bindingMap.keySet()) {
-            final boolean isFixed = areAllBindingsFixed(bindingMap.get(value));
+            final boolean areAllFixed = areAllBindingsFixed(bindingMap.get(value));
             final var bindings = bindingMap.get(value);
             ProvidedSortOrder seenSortOrder = null;
             for (final Binding binding : bindings) {
                 if (seenSortOrder != null) {
                     switch (binding.getSortOrder()) {
                         case ASCENDING:
-                            Verify.verify(!isFixed);
-                            Verify.verify(seenSortOrder != ProvidedSortOrder.DESCENDING);
-                            if (seenSortOrder != ProvidedSortOrder.ASCENDING) {
-                                // Not seen an ASCENDING binding already
-                                normalizedBindingMapBuilder.put(value, binding);
-                            }
-                            break;
+                        case ASCENDING_NULLS_LAST:
                         case DESCENDING:
-                            Verify.verify(!isFixed);
-                            Verify.verify(seenSortOrder != ProvidedSortOrder.ASCENDING);
-                            if (seenSortOrder != ProvidedSortOrder.DESCENDING) {
-                                // Not seen an DESCENDING binding already
+                        case DESCENDING_NULLS_FIRST:
+                            Verify.verify(!areAllFixed);
+                            Verify.verify(!seenSortOrder.isDirectional() || seenSortOrder == binding.getSortOrder());
+                            if (seenSortOrder != binding.getSortOrder()) { // this can only be FIXED or CHOOSE
+                                // Not seen that binding already
                                 normalizedBindingMapBuilder.put(value, binding);
                             }
                             break;
@@ -710,7 +705,7 @@ public class Ordering {
                             // If it is not fixed there will be an ASCENDING or DESCENDING as well, so we don't want to
                             // add the fixed binding at all.
                             //
-                            if (isFixed) {
+                            if (areAllFixed) {
                                 normalizedBindingMapBuilder.put(value, binding);
                             }
                             break;
@@ -720,15 +715,11 @@ public class Ordering {
                 } else {
                     switch (binding.getSortOrder()) {
                         case ASCENDING:
-                            Verify.verify(!isFixed);
-                            normalizedBindingMapBuilder.put(value, binding);
-                            break;
+                        case ASCENDING_NULLS_LAST:
                         case DESCENDING:
-                            Verify.verify(!isFixed);
-                            normalizedBindingMapBuilder.put(value, binding);
-                            break;
+                        case DESCENDING_NULLS_FIRST:
                         case CHOOSE:
-                            Verify.verify(!isFixed);
+                            Verify.verify(!areAllFixed);
                             normalizedBindingMapBuilder.put(value, binding);
                             break;
                         case FIXED:
@@ -736,7 +727,7 @@ public class Ordering {
                             // If it is not fixed there will be an ASCENDING or DESCENDING as well, so we don't want to
                             // add the fixed binding at all.
                             //
-                            if (isFixed) {
+                            if (areAllFixed) {
                                 normalizedBindingMapBuilder.put(value, binding);
                             }
                             break;
