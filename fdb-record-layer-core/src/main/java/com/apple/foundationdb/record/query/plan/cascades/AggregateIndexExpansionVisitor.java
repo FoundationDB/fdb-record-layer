@@ -384,41 +384,6 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         return rollUpAggregateMap.get().containsKey(indexType);
     }
 
-    /**
-     * Whether it is possible to roll-up an aggregate index to the provided grouping values.
-     *
-     * @param indexGroupingValues the grouping values of the index
-     * @param rollUpGroupingValues the rollup grouping values
-     * @param valueEquivalence the value equivalence between the roll-up and index grouping values
-     * @return a {@link ConstrainedBoolean} that is {@code true} (possibly with a query plan constraint)
-     *         if the index grouping values can be rolled up using the provided values, or a {@code false}
-     *         {@link ConstrainedBoolean} otherwise. The query plan constraints returned in the {@code true}
-     *         case are required to achieve semantic equivalence between the index grouping values and
-     *         the roll-up grouping values.
-     */
-    public static ConstrainedBoolean compatibleRollUpGroupingValues(@Nonnull final List<Value> indexGroupingValues,
-                                                                    @Nonnull final List<Value> rollUpGroupingValues,
-                                                                    @Nonnull final ValueEquivalence valueEquivalence) {
-        //
-        // For a roll-up to be possible, the roll-up groupings must be completely subsumed by a prefix of the
-        // index groupings. Iterate over both grouping values in order to find out.
-        //
-        var booleanWithConstraint = ConstrainedBoolean.alwaysTrue();
-        final var indexGroupingValueIterator = indexGroupingValues.iterator();
-        for (final var rollupGroupingValue : rollUpGroupingValues) {
-            if (!indexGroupingValueIterator.hasNext()) {
-                return ConstrainedBoolean.falseValue();
-            }
-            final var semanticEquals = rollupGroupingValue.semanticEquals(indexGroupingValueIterator.next(), valueEquivalence);
-            if (semanticEquals.isFalse()) {
-                return ConstrainedBoolean.falseValue();
-            }
-            booleanWithConstraint = booleanWithConstraint.composeWithOther(semanticEquals);
-        }
-
-        return booleanWithConstraint;
-    }
-
     @Nonnull
     public static Optional<AggregateValue> rollUpAggregateValueMaybe(@Nonnull final String indexType, @Nonnull final Value argument) {
         return Optional.ofNullable(rollUpAggregateMap.get()

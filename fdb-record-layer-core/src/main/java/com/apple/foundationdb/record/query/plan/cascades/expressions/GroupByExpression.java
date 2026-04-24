@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -573,15 +574,18 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
         if (!unmatchedCandidateValues.isEmpty()) {
             Verify.verify(candidateGroupingValues.size() > translatedGroupingValuesSet.size());
 
-            final var compatibleRollUpConstraint = AggregateIndexExpansionVisitor.compatibleRollUpGroupingValues(
-                    candidateGroupingValues, translatedGroupingValues, valueEquivalence);
-            if (compatibleRollUpConstraint.isFalse()) {
-                return SubsumedGroupingsResult.noSubsumption();
+            //
+            // This is a potential roll-up case, but only if the query side's grouping values as a set are fully
+            // subsumed by a prefix of the list of the candidate grouping values.
+            //
+            final var candidateGroupingValuesPrefix = candidateGroupingValues.subList(0, translatedGroupingValuesSet.size());
+            for (final var translatedGroupingValue : translatedGroupingValuesSet) {
+                final var matchFoundInPrefix = candidateGroupingValuesPrefix.stream().anyMatch(
+                        value -> translatedGroupingValue.semanticEquals(value, valueEquivalence).isTrue());
+                if (!matchFoundInPrefix) {
+                    return SubsumedGroupingsResult.noSubsumption();
+                }
             }
-
-            // The compatibleRollUpConstraint and booleanWithConstraint are both derived from the semantic equivalence
-            // between the translatedGroupingValues and the candidateGroupingValues.
-            Verify.verify(compatibleRollUpConstraint.equals(booleanWithConstraint));
 
             return SubsumedGroupingsResult.of(booleanWithConstraint, matchedGroupingsMap, translatedGroupingValues);
         }
