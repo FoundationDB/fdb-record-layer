@@ -39,7 +39,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalStatement;
 import com.apple.foundationdb.relational.recordlayer.Utils;
