@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.visitors.FieldRenames;
 import com.apple.foundationdb.record.metadata.expressions.visitors.RenameFieldsVisitor;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
@@ -41,7 +40,6 @@ import com.google.protobuf.Descriptors.EnumDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -147,10 +145,10 @@ public class MetaDataEvolutionValidator {
                     LogMessageKeys.NEW_VERSION, newMetaData.getVersion());
         }
         validateSchemaOptions(oldMetaData, newMetaData);
-        FieldRenames fieldRenames = validateUnion(oldMetaData.getUnionDescriptor(), newMetaData.getUnionDescriptor());
+        validateUnion(oldMetaData.getUnionDescriptor(), newMetaData.getUnionDescriptor());
         Map<String, String> typeRenames = getTypeRenames(oldMetaData.getUnionDescriptor(), newMetaData.getUnionDescriptor());
-        validateRecordTypes(oldMetaData, newMetaData, typeRenames, fieldRenames);
-        validateCurrentAndFormerIndexes(oldMetaData, newMetaData, typeRenames, fieldRenames);
+        validateRecordTypes(oldMetaData, newMetaData, typeRenames);
+        validateCurrentAndFormerIndexes(oldMetaData, newMetaData, typeRenames);
     }
 
     private void validateSchemaOptions(@Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData) {
@@ -176,14 +174,13 @@ public class MetaDataEvolutionValidator {
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @VisibleForTesting
-    public FieldRenames validateUnion(@Nonnull Descriptor oldUnionDescriptor, @Nonnull Descriptor newUnionDescriptor) {
+    public void validateUnion(@Nonnull Descriptor oldUnionDescriptor, @Nonnull Descriptor newUnionDescriptor) {
         if (oldUnionDescriptor == newUnionDescriptor) {
             // Don't bother validating the record types if they are all the same.
-            return FieldRenames.identity();
+            return;
         }
         final BiMap<Descriptor, Descriptor> updatedDescriptors = HashBiMap.create(oldUnionDescriptor.getFields().size());
         final Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors = new HashSet<>();
-        final FieldRenames.Builder fieldRenames = allowFieldRenames ? FieldRenames.newBuilder() : null;
 
         for (FieldDescriptor oldUnionField : oldUnionDescriptor.getFields()) {
             if (!oldUnionField.getType().equals(FieldDescriptor.Type.MESSAGE)) {
@@ -220,19 +217,16 @@ public class MetaDataEvolutionValidator {
                 updatedDescriptors.put(oldRecord, newRecord);
 
                 // Validate the form of the old and new record types
-                validateMessage(oldRecord, newRecord, seenDescriptors, fieldRenames);
+                validateMessage(oldRecord, newRecord, seenDescriptors);
             } else {
                 throw new MetaDataException("record type removed from union", LogMessageKeys.RECORD_TYPE, oldUnionField.getMessageType());
             }
         }
-
-        return fieldRenames == null ? FieldRenames.identity() : fieldRenames.build();
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private void validateMessage(@Nonnull Descriptor oldDescriptor, @Nonnull Descriptor newDescriptor,
-                                 @Nonnull Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors,
-                                 @Nullable FieldRenames.Builder fieldRenames) {
+                                 @Nonnull Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors) {
         if (oldDescriptor == newDescriptor) {
             // Don't bother validating message types that are the same.
             return;
@@ -254,7 +248,7 @@ public class MetaDataEvolutionValidator {
             int fieldNumber = oldField.getNumber();
             FieldDescriptor newField = newDescriptor.findFieldByNumber(fieldNumber);
             if (newField != null) {
-                validateField(oldField, newField, seenDescriptors, fieldRenames);
+                validateField(oldField, newField, seenDescriptors);
             } else {
                 throw new MetaDataException("field removed from message descriptor", LogMessageKeys.FIELD_NAME, oldField.getName());
             }
@@ -276,16 +270,12 @@ public class MetaDataEvolutionValidator {
     }
 
     private void validateField(@Nonnull FieldDescriptor oldFieldDescriptor, @Nonnull FieldDescriptor newFieldDescriptor,
-                               @Nonnull Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors,
-                               @Nullable FieldRenames.Builder fieldRenames) {
+                               @Nonnull Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors) {
         if (!oldFieldDescriptor.getName().equals(newFieldDescriptor.getName())) {
-            if (fieldRenames == null) {
+            if (!allowFieldRenames) {
                 throw new MetaDataException("field renamed",
                         LogMessageKeys.OLD_FIELD_NAME, oldFieldDescriptor.getName(),
                         LogMessageKeys.NEW_FIELD_NAME, newFieldDescriptor.getName());
-            } else {
-                final Descriptor containingType = oldFieldDescriptor.getContainingType();
-                fieldRenames.putRenamedField(containingType, newFieldDescriptor.getContainingType(), oldFieldDescriptor.getName(), newFieldDescriptor.getName());
             }
         }
         if (!oldFieldDescriptor.getType().equals(newFieldDescriptor.getType())) {
@@ -308,7 +298,7 @@ public class MetaDataEvolutionValidator {
             // Message types need to be validated against each other as well.
             final Descriptor oldMessageType = oldFieldDescriptor.getMessageType();
             final Descriptor newMessageType = newFieldDescriptor.getMessageType();
-            validateMessage(oldMessageType, newMessageType, seenDescriptors, fieldRenames);
+            validateMessage(oldMessageType, newMessageType, seenDescriptors);
         }
     }
 
@@ -365,8 +355,7 @@ public class MetaDataEvolutionValidator {
     }
 
     private void validateRecordTypes(@Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData,
-                                     @Nonnull Map<String, String> typeRenames,
-                                     @Nonnull FieldRenames fieldRenames) {
+                                     @Nonnull Map<String, String> typeRenames) {
         final Map<String, RecordType> oldRecordTypes = oldMetaData.getRecordTypes();
         final Map<String, RecordType> newRecordTypes = newMetaData.getRecordTypes();
         // Validate that all of the old record types are still in the new map
@@ -386,9 +375,14 @@ public class MetaDataEvolutionValidator {
                         LogMessageKeys.OLD_VERSION, oldRecordType.getSinceVersion(),
                         LogMessageKeys.NEW_VERSION, newRecordType.getSinceVersion());
             }
-            final KeyExpression renamedPrimaryKey = RenameFieldsVisitor.renameFields(oldRecordType.getPrimaryKey(), fieldRenames, oldRecordType.getDescriptor(), newRecordType.getDescriptor());
-            if (!renamedPrimaryKey.equals(newRecordType.getPrimaryKey())) {
-                if (renamedPrimaryKey.equals(oldRecordType.getPrimaryKey())) {
+            final KeyExpression expectedPrimaryKey;
+            if (allowFieldRenames) {
+                expectedPrimaryKey = RenameFieldsVisitor.renameFields(oldRecordType.getPrimaryKey(), oldRecordType.getDescriptor(), newRecordType.getDescriptor());
+            } else {
+                expectedPrimaryKey = oldRecordType.getPrimaryKey();
+            }
+            if (!expectedPrimaryKey.equals(newRecordType.getPrimaryKey())) {
+                if (expectedPrimaryKey.equals(oldRecordType.getPrimaryKey())) {
                     throw new MetaDataException("record type primary key changed",
                             LogMessageKeys.RECORD_TYPE, newRecordTypeName,
                             LogMessageKeys.OLD_KEY_EXPRESSION, oldRecordType.getPrimaryKey(),
@@ -397,7 +391,7 @@ public class MetaDataEvolutionValidator {
                     throw new MetaDataException("record type primary key does not match required",
                             LogMessageKeys.RECORD_TYPE, newRecordTypeName,
                             LogMessageKeys.OLD_KEY_EXPRESSION, oldRecordType.getPrimaryKey(),
-                            LogMessageKeys.REQUIRED_KEY_EXPRESSION, renamedPrimaryKey,
+                            LogMessageKeys.REQUIRED_KEY_EXPRESSION, expectedPrimaryKey,
                             LogMessageKeys.NEW_KEY_EXPRESSION, newRecordType.getPrimaryKey());
                 }
             }
@@ -458,8 +452,7 @@ public class MetaDataEvolutionValidator {
     }
 
     private void validateCurrentAndFormerIndexes(@Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData,
-                                                 @Nonnull Map<String, String> typeRenames,
-                                                 @Nonnull FieldRenames fieldRenames) {
+                                                 @Nonnull Map<String, String> typeRenames) {
         final Map<Object, FormerIndex> oldFormerIndexMap = getFormerIndexMap(oldMetaData);
         final Map<Object, Index> oldIndexMap = getIndexMap(oldMetaData);
         final Map<Object, FormerIndex> newFormerIndexMap = getFormerIndexMap(newMetaData);
@@ -526,7 +519,7 @@ public class MetaDataEvolutionValidator {
             final Index newIndex = newIndexEntry.getValue();
             if (oldIndexMap.containsKey(subspaceKey)) {
                 final Index oldIndex = oldIndexMap.get(subspaceKey);
-                validateIndex(oldMetaData, oldIndex, newMetaData, newIndex, typeRenames, fieldRenames);
+                validateIndex(oldMetaData, oldIndex, newMetaData, newIndex, typeRenames);
             } else {
                 if (newIndex.getLastModifiedVersion() <= oldMetaData.getVersion()) {
                     throw new MetaDataException("new index has version that is not newer than the old meta-data version",
@@ -610,8 +603,7 @@ public class MetaDataEvolutionValidator {
 
     private void validateIndex(@Nonnull RecordMetaData oldMetaData, @Nonnull Index oldIndex,
                                @Nonnull RecordMetaData newMetaData, @Nonnull Index newIndex,
-                               @Nonnull Map<String, String> typeRenames,
-                               @Nonnull FieldRenames fieldRenames) {
+                               @Nonnull Map<String, String> typeRenames) {
         if (!oldIndex.getName().equals(newIndex.getName())) {
             // The index name is stored durably as part of the record store state.
             // If that were to use the subspace key, this check would probably be unnecessary.
@@ -677,13 +669,11 @@ public class MetaDataEvolutionValidator {
         }
         // The index root expression must be the same, modulo field renames
         KeyExpression expectedKeyExpression = null;
-        if (fieldRenames.isIdentity()) {
-            expectedKeyExpression = oldIndex.getRootExpression();
-        } else {
+        if (allowFieldRenames) {
             for (String oldRecordTypeName : oldRecordTypeNames) {
                 final Descriptor oldDescriptor = oldMetaData.getRecordType(oldRecordTypeName).getDescriptor();
                 final Descriptor newDescriptor = newMetaData.getRecordType(typeRenames.getOrDefault(oldRecordTypeName, oldRecordTypeName)).getDescriptor();
-                final KeyExpression renamedKeyExpression = RenameFieldsVisitor.renameFields(oldIndex.getRootExpression(), fieldRenames, oldDescriptor, newDescriptor);
+                final KeyExpression renamedKeyExpression = RenameFieldsVisitor.renameFields(oldIndex.getRootExpression(), oldDescriptor, newDescriptor);
                 if (expectedKeyExpression == null) {
                     expectedKeyExpression = renamedKeyExpression;
                 } else if (!renamedKeyExpression.equals(expectedKeyExpression)) {
@@ -693,6 +683,8 @@ public class MetaDataEvolutionValidator {
                             LogMessageKeys.NEW_KEY_EXPRESSION, expectedKeyExpression);
                 }
             }
+        } else {
+            expectedKeyExpression = oldIndex.getRootExpression();
         }
         // This shouldn't happen, as it would imply that the index is not defined on any record types
         Verify.verifyNotNull(expectedKeyExpression, "Unable to create expected key expression for index %s", newIndex.getName());

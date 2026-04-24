@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.evolution.TestSelfReferenceUnspooledProto;
 import com.apple.foundationdb.record.evolution.TestSplitNestedTypesProto;
 import com.apple.foundationdb.record.evolution.TestUnmergedNestedTypesProto;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
-import com.apple.foundationdb.record.metadata.expressions.visitors.FieldRenames;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.PrefixTextTokenizer;
@@ -764,12 +763,7 @@ class MetaDataEvolutionValidatorTest {
                 .setAllowFieldRenames(true)
                 .build();
         assertTrue(laxerValidator.allowsFieldRenames());
-        FieldRenames fieldRenames = laxerValidator.validateUnion(TestRecords1Proto.RecordTypeUnion.getDescriptor(), updatedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
-        FieldRenames expectedRenames = FieldRenames.newBuilder()
-                .putRenamedField(TestRecords1Proto.MySimpleRecord.getDescriptor(), updatedFile.findMessageTypeByName("MySimpleRecord"), "num_value_2", "num_value_too")
-                .build();
-        assertEquals(expectedRenames, fieldRenames);
-        assertEquals(expectedRenames.hashCode(), fieldRenames.hashCode());
+        laxerValidator.validateUnion(TestRecords1Proto.RecordTypeUnion.getDescriptor(), updatedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
 
         laxerValidator.validate(metaData1, metaData2);
     }
@@ -1037,12 +1031,7 @@ class MetaDataEvolutionValidatorTest {
                 .setAllowFieldRenames(true)
                 .build();
         assertTrue(laxerValidator.allowsFieldRenames());
-        FieldRenames renames = laxerValidator.validateUnion(TestRecordsWithHeaderProto.RecordTypeUnion.getDescriptor(), updatedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
-        FieldRenames expectedRenames = FieldRenames.newBuilder()
-                .putRenamedField(TestRecordsWithHeaderProto.HeaderRecord.getDescriptor(), updatedFile.findMessageTypeByName("HeaderRecord"), "num", "numb")
-                .build();
-        assertEquals(expectedRenames, renames);
-        assertEquals(expectedRenames.hashCode(), renames.hashCode());
+        laxerValidator.validateUnion(TestRecordsWithHeaderProto.RecordTypeUnion.getDescriptor(), updatedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
 
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
         metaDataBuilder.getRecordType("MyRecord").setPrimaryKey(Key.Expressions.field("header").nest(Key.Expressions.concatenateFields("path", "rec_no")));
@@ -1066,7 +1055,7 @@ class MetaDataEvolutionValidatorTest {
 
     @Test
     void nestedTypesMerged() {
-        assertTrue(validator.validateUnion(TestUnmergedNestedTypesProto.RecordTypeUnion.getDescriptor(), TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor()).isIdentity());
+        validator.validateUnion(TestUnmergedNestedTypesProto.RecordTypeUnion.getDescriptor(), TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor());
 
         FileDescriptor updatedMergedFile = mutateField("OneTrueNested", "b", TestMergedNestedTypesProto.getDescriptor(),
                 field -> field.setName("c"));
@@ -1077,13 +1066,7 @@ class MetaDataEvolutionValidatorTest {
                 .setAllowFieldRenames(true)
                 .build();
         assertTrue(laxerValidator.allowsFieldRenames());
-        FieldRenames fieldRenames = laxerValidator.validateUnion(TestUnmergedNestedTypesProto.RecordTypeUnion.getDescriptor(), updatedMergedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
-        assertFalse(fieldRenames.isIdentity());
-        FieldRenames expectedFieldRenames = FieldRenames.newBuilder()
-                .putRenamedField(TestUnmergedNestedTypesProto.NestedB.getDescriptor(), updatedMergedFile.findMessageTypeByName("OneTrueNested"), "b", "c")
-                .build();
-        assertEquals(expectedFieldRenames, fieldRenames);
-        assertEquals(expectedFieldRenames.hashCode(), fieldRenames.hashCode());
+        laxerValidator.validateUnion(TestUnmergedNestedTypesProto.RecordTypeUnion.getDescriptor(), updatedMergedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
     }
 
     @Test
@@ -1134,7 +1117,7 @@ class MetaDataEvolutionValidatorTest {
 
     @Test
     void nestedTypesSplit() {
-        assertTrue(validator.validateUnion(TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor(), TestSplitNestedTypesProto.RecordTypeUnion.getDescriptor()).isIdentity());
+        validator.validateUnion(TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor(), TestSplitNestedTypesProto.RecordTypeUnion.getDescriptor());
 
         FileDescriptor fieldTypeChangedFile = mutateField("NestedB", "b", TestSplitNestedTypesProto.getDescriptor(),
                 field -> field.setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES));
@@ -1152,14 +1135,7 @@ class MetaDataEvolutionValidatorTest {
                 .setAllowFieldRenames(true)
                 .build();
         assertTrue(laxerValidator.allowsFieldRenames());
-        FieldRenames fieldRenames = laxerValidator.validateUnion(TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor(), updatedSplitFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
-        assertFalse(fieldRenames.isIdentity());
-        FieldRenames expectedFieldRenames = FieldRenames.newBuilder()
-                .putRenamedField(TestMergedNestedTypesProto.OneTrueNested.getDescriptor(), updatedSplitFile.findMessageTypeByName("NestedA"), "b", "b_1")
-                .putRenamedField(TestMergedNestedTypesProto.OneTrueNested.getDescriptor(), updatedSplitFile.findMessageTypeByName("NestedB"), "b", "b_2")
-                .build();
-        assertEquals(expectedFieldRenames, fieldRenames);
-        assertEquals(expectedFieldRenames.hashCode(), fieldRenames.hashCode());
+        laxerValidator.validateUnion(TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor(), updatedSplitFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
     }
 
     @Test

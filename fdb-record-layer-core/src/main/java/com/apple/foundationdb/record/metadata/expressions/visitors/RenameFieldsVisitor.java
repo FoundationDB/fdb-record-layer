@@ -50,24 +50,20 @@ import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Visitor that can be used to rewrite a {@link KeyExpression} in response to a field renaming. This
- * should generally be invoked via {@link #renameFields(KeyExpression, FieldRenames, Descriptors.Descriptor, Descriptors.Descriptor)}.
+ * should generally be invoked via {@link #renameFields(KeyExpression, Descriptors.Descriptor, Descriptors.Descriptor)}.
  *
- * @see #renameFields(KeyExpression, FieldRenames, Descriptors.Descriptor, Descriptors.Descriptor)
+ * @see #renameFields(KeyExpression, Descriptors.Descriptor, Descriptors.Descriptor)
  */
 public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFieldsVisitor.RenameFieldsState, KeyExpression> {
     @Nonnull
-    private final FieldRenames fieldRenames;
-    @Nonnull
     private final Deque<RenameFieldsState> stateStack;
 
-    private RenameFieldsVisitor(@Nonnull FieldRenames fieldRenames, @Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
-        this.fieldRenames = fieldRenames;
+    private RenameFieldsVisitor(@Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
         this.stateStack = new ArrayDeque<>();
-        stateStack.add(new RenameFieldsState(fieldRenames.getRenamingForTypes(sourceDescriptor, targetDescriptor), sourceDescriptor, targetDescriptor));
+        stateStack.add(new RenameFieldsState(sourceDescriptor, targetDescriptor));
     }
 
     @Override
@@ -87,8 +83,8 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
     public FieldKeyExpression visitExpression(@Nonnull final FieldKeyExpression fieldKeyExpression) {
         final String originalName = fieldKeyExpression.getFieldName();
         final RenameFieldsState state = getCurrentState();
-        final String newName = state.currentRenaming.get(originalName);
-        if (newName == null) {
+        final String newName = state.renameField(originalName);
+        if (originalName.equals(newName)) {
             return fieldKeyExpression;
         } else {
             return new FieldKeyExpression(newName, fieldKeyExpression.getFanType(), fieldKeyExpression.getNullStandin());
@@ -107,11 +103,15 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         // that need to apply to the child's descriptor type
         final Descriptors.Descriptor childSource = getMessageTypeForField(getCurrentState().sourceDescriptor, originalParent);
         final Descriptors.Descriptor childTarget = getMessageTypeForField(getCurrentState().targetDescriptor, newParent);
-        final Map<String, String> childRenaming = fieldRenames.getRenamingForTypes(childSource, childTarget);
-
-        stateStack.addLast(new RenameFieldsState(childRenaming, childSource, childTarget));
-        final KeyExpression newChild = nestingKeyExpression.getChild().expand(this);
-        stateStack.removeLast();
+        final KeyExpression newChild;
+        if (childSource == childTarget) {
+            // No renaming here. Skip the recursive exploration
+            newChild = nestingKeyExpression.getChild();
+        } else {
+            stateStack.addLast(new RenameFieldsState(childSource, childTarget));
+            newChild = nestingKeyExpression.getChild().expand(this);
+            stateStack.removeLast();
+        }
 
         if (originalParent == newParent && newChild == nestingKeyExpression.getChild()) {
             return nestingKeyExpression;
@@ -124,9 +124,17 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
     private static Descriptors.Descriptor getMessageTypeForField(@Nonnull Descriptors.Descriptor descriptor, @Nonnull FieldKeyExpression field) {
         final Descriptors.FieldDescriptor targetFieldDescriptor = descriptor.findFieldByName(field.getFieldName());
         if (targetFieldDescriptor == null) {
-            throw new MetaDataException("field missing from parent definition");
+            throw new MetaDataException("parent field not found")
+                    .addLogInfo(LogMessageKeys.FIELD_NAME, field.getFieldName())
+                    .addLogInfo(LogMessageKeys.MESSAGE, descriptor.getFullName());
         }
-        return targetFieldDescriptor.getMessageType();
+        if (targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+            return targetFieldDescriptor.getMessageType();
+        } else {
+            throw new MetaDataException("parent field is not of message type")
+                    .addLogInfo(LogMessageKeys.FIELD_NAME, field.getFieldName())
+                    .addLogInfo(LogMessageKeys.MESSAGE, descriptor.getFullName());
+        }
     }
 
     @Nonnull
@@ -270,40 +278,53 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
 
     public static final class RenameFieldsState implements KeyExpressionVisitor.State {
         @Nonnull
-        private final Map<String, String> currentRenaming;
-        @Nonnull
         private final Descriptors.Descriptor sourceDescriptor;
         @Nonnull
         private final Descriptors.Descriptor targetDescriptor;
 
-        private RenameFieldsState(@Nonnull Map<String, String> currentRenaming, @Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
-            this.currentRenaming = currentRenaming;
+        private RenameFieldsState(@Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
             this.sourceDescriptor = sourceDescriptor;
             this.targetDescriptor = targetDescriptor;
+        }
+
+        @Nonnull
+        public String renameField(@Nonnull String sourceFieldName) {
+            // Grab the source field descriptor by name
+            @Nullable Descriptors.FieldDescriptor sourceField = sourceDescriptor.findFieldByName(sourceFieldName);
+            if (sourceField == null) {
+                throw new MetaDataException("field not found in source descriptor")
+                        .addLogInfo(LogMessageKeys.FIELD_NAME, sourceFieldName)
+                        .addLogInfo(LogMessageKeys.MESSAGE, sourceDescriptor.getFullName());
+            }
+            // Use the field number to find the equivalent field in the target
+            @Nullable Descriptors.FieldDescriptor targetField = targetDescriptor.findFieldByNumber(sourceField.getNumber());
+            if (targetField == null) {
+                throw new MetaDataException("field not found in target descriptor")
+                        .addLogInfo(LogMessageKeys.OLD_FIELD_NAME, sourceFieldName)
+                        .addLogInfo(LogMessageKeys.MESSAGE, targetDescriptor.getFullName());
+            }
+            return targetField.getName();
         }
     }
 
     /**
-     * Rewrite an expression in response to a field renaming. For a given {@link KeyExpression}, this will look
-     * for instances where a field is referenced and then create a new {@link KeyExpression} referencing
-     * the new field where appropriate. This updated expression can then be used, for instance, to update an index
-     * in response to a field change in the meta-data, or to validate that such a change has not resulted
-     * in any semantic differences. Note that if we are given the {@linkplain FieldRenames#identity() identity field renaming}
-     * or if none of the field renames apply to any referenced descriptors, then the original key expression
-     * can be returned unmodified.
+     * Rewrite an expression in response to modifying the descriptor. In particular, this looks at the fields referenced
+     * by the original expression (by name), and then it finds the equivalent field (by number) in the new descriptor.
+     * It will then create an updated expression which references the new field name. This updated expression can then
+     * be used, for instance, to update an index in response to a field change in the meta-data, or to validate that
+     * such a change has not resulted in any semantic differences.
      *
      * @param expression the original expression
-     * @param fieldRenames a specification for how fields should be adjusted
      * @param sourceDescriptor a {@link Descriptors.Descriptor} for which the original {@code expression} was written
      * @param targetDescriptor a {@link Descriptors.Descriptor} on which to rewrite the {@code expression}
      * @return a new key expression with rewritten field information
      */
     @Nonnull
-    public static KeyExpression renameFields(@Nonnull KeyExpression expression, @Nonnull FieldRenames fieldRenames, @Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
-        if (fieldRenames.isIdentity()) {
+    public static KeyExpression renameFields(@Nonnull KeyExpression expression, @Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
+        if (sourceDescriptor == targetDescriptor) {
             return expression;
         }
-        final RenameFieldsVisitor visitor = new RenameFieldsVisitor(fieldRenames, sourceDescriptor, targetDescriptor);
+        final RenameFieldsVisitor visitor = new RenameFieldsVisitor(sourceDescriptor, targetDescriptor);
         return expression.expand(visitor);
     }
 }
