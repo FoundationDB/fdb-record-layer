@@ -770,11 +770,18 @@ public class MetaDataEvolutionValidator {
 
     /**
      * Whether this validator allows field renames. Correspondences between old and new fields are evaluated by looking
-     * at the Protobuf field number. In general, renaming fields can be a bad idea, as it requires that
+     * at the Protobuf field number. In general, renaming fields is probably a bad idea, as it requires that
      * any queries are updated to use the new field names atomically with the meta-data update, which can be difficult
      * to orchestrate. However, if that can be guaranteed, then older data can still be deserialized. If this is
      * {@code true}, then this will allow fields to be renamed, and it will validate that all record primary keys and
      * index root expressions have been updated to use the new names.
+     *
+     * <p>
+     * If field renames are allowed, this performs a best-effort validation to ensure that all usages of modified fields have
+     * been updated. Some parts of the meta-data, like user-defined functions and views, cannot be validated at this
+     * level as it would require parsing the SQL, so if this option is enabled, there is some onus on the user to
+     * update those definitions.
+     * </p>
      *
      * @return whether this validator allows field names to change
      */

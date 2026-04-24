@@ -200,6 +200,10 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
     @Nonnull
     @Override
     public KeyExpression visitExpression(@Nonnull final KeyExpression keyExpression) {
+        // These KeyExpression classes implementations fall through to the default KeyExpression within the visitor.
+        // We should consider adding them to the top-level visitor so that we can follow the visitor
+        // pattern more generally.
+        // See: https://github.com/FoundationDB/fdb-record-layer/issues/4110
         if (keyExpression instanceof GroupingKeyExpression) {
             return visitExpression((GroupingKeyExpression) keyExpression);
         } else if (keyExpression instanceof SplitKeyExpression) {
