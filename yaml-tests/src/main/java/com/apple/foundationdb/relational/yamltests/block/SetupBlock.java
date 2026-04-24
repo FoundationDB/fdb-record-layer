@@ -30,8 +30,9 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 
+import com.apple.foundationdb.relational.yamltests.ConnectionTarget;
+
 import javax.annotation.Nonnull;
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,9 +57,9 @@ public class SetupBlock extends ConnectedBlock {
 
     public static final String SETUP_BLOCK = "setup";
 
-    protected SetupBlock(@Nonnull YamlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI,
+    protected SetupBlock(@Nonnull YamlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull ConnectionTarget connectionTarget,
                          @Nonnull YamlExecutionContext executionContext) {
-        super(reference, executables, connectionURI, executionContext);
+        super(reference, executables, connectionTarget, executionContext);
     }
 
     @Override
@@ -99,16 +100,16 @@ public class SetupBlock extends ConnectedBlock {
                     final var resolvedCommand = Objects.requireNonNull(Command.parse(reference.getResource(), List.of(step), "unnamed-setup-block", executionContext));
                     executables.add(createSetupExecutable(resolvedCommand, connectionOptions));
                 }
-                return List.of(new ManualSetupBlock(reference, executables, executionContext.inferConnectionURI(reference.getResource(), setupMap.getOrDefault(BLOCK_CONNECT, null)),
+                return List.of(new ManualSetupBlock(reference, executables, executionContext.inferConnectionTarget(reference.getResource(), setupMap.getOrDefault(BLOCK_CONNECT, null)),
                         executionContext));
             } catch (Throwable e) {
                 throw YamlExecutionContext.wrapContext(e, () -> "‼️ Error parsing the setup block at " + reference, SETUP_BLOCK, reference);
             }
         }
 
-        private ManualSetupBlock(@Nonnull YamlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull URI connectionURI,
+        private ManualSetupBlock(@Nonnull YamlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull ConnectionTarget connectionTarget,
                                  @Nonnull YamlExecutionContext executionContext) {
-            super(reference, executables, connectionURI, executionContext);
+            super(reference, executables, connectionTarget, executionContext);
         }
 
         @Nonnull
@@ -159,7 +160,7 @@ public class SetupBlock extends ConnectedBlock {
         private SchemaTemplateBlock(@Nonnull final YamlReference reference, @Nonnull final String schemaTemplateName,
                                     @Nonnull final String databaseName, @Nonnull List<Consumer<YamlConnection>> executables,
                                     @Nonnull YamlExecutionContext executionContext) {
-            super(reference, executables, executionContext.inferConnectionURI(reference.getResource(), 0), executionContext);
+            super(reference, executables, executionContext.inferConnectionTarget(reference.getResource(), 0), executionContext);
             this.finalizingBlocks = List.of(DestructTemplateBlock.withDatabaseAndSchema(reference, executionContext, schemaTemplateName, databaseName));
         }
 
@@ -192,7 +193,7 @@ public class SetupBlock extends ConnectedBlock {
         }
 
         private DestructTemplateBlock(@Nonnull final YamlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
-            super(reference, executables, executionContext.inferConnectionURI(reference.getResource(), 0), executionContext);
+            super(reference, executables, executionContext.inferConnectionTarget(reference.getResource(), 0), executionContext);
         }
     }
 }
