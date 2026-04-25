@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.async.common;
 
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
@@ -30,7 +30,7 @@ import java.util.Objects;
  * A record-like class wrapping a {@link RealVector} and a count. This data structure is used to keep a running sum
  * of many vectors in order to compute their centroid at a later time.
  */
-class AggregatedVector {
+public class AggregatedVector {
     private final int partialCount;
     @Nonnull
     private final Transformed<RealVector> partialVector;

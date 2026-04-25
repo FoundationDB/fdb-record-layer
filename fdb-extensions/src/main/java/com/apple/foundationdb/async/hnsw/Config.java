@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.async.common.BaseConfig;
 import com.apple.foundationdb.linear.Metric;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -31,7 +32,7 @@ import java.util.Objects;
  * Configuration settings for a {@link HNSW}.
  */
 @SuppressWarnings("checkstyle:MemberName")
-public final class Config {
+public final class Config implements BaseConfig {
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final boolean DEFAULT_USE_INLINING = false;
     public static final int DEFAULT_M = 16;
@@ -132,6 +133,7 @@ public final class Config {
      * The metric that is used to determine distances between vectors.
      */
     @Nonnull
+    @Override
     public Metric getMetric() {
         return metric;
     }
@@ -139,6 +141,7 @@ public final class Config {
     /**
      * The number of dimensions used. All vectors must have exactly this number of dimensions.
      */
+    @Override
     public int getNumDimensions() {
         return numDimensions;
     }
@@ -278,6 +281,7 @@ public final class Config {
      * Indicator if we should RaBitQ quantization. See {@link com.apple.foundationdb.rabitq.RaBitQuantizer} for more
      * details.
      */
+    @Override
     public boolean isUseRaBitQ() {
         return useRaBitQ;
     }
@@ -286,6 +290,7 @@ public final class Config {
      * Number of bits per dimensions iff {@link #isUseRaBitQ()} is set to {@code true}, ignored otherwise. If RaBitQ
      * encoding is used, a vector is stored using roughly {@code 25 + numDimensions * (numExBits + 1) / 8} bytes.
      */
+    @Override
     public int getRaBitQNumExBits() {
         return raBitQNumExBits;
     }

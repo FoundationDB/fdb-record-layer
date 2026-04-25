@@ -24,12 +24,15 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.common.ResultEntry;
+import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -153,7 +156,7 @@ public class Search {
                 Search::distanceToTargetVector)
                 .thenApply(searchResult ->
                         postProcessSearchResult(searchResult.getStorageTransform(), k,
-                                NodeReferenceAndNode.references(searchResult.getNearestReferenceAndNodes()),
+                                searchResult.getNearestReferenceAndNodes(),
                                 includeVectors));
     }
 
@@ -188,7 +191,7 @@ public class Search {
                         distanceToSphericalSurface(estimator, targetVector, radius))
                 .thenApply(searchResult ->
                         postProcessSearchResult(searchResult.getStorageTransform(), k,
-                                NodeReferenceAndNode.references(searchResult.getNearestReferenceAndNodes()),
+                                searchResult.getNearestReferenceAndNodes(),
                                 includeVectors));
     }
 
@@ -288,22 +291,28 @@ public class Search {
     @Nonnull
     private ImmutableList<ResultEntry> postProcessSearchResult(@Nonnull final StorageTransform storageTransform,
                                                                final int k,
-                                                               @Nonnull final List<NodeReferenceWithDistance> nearestReferences,
+                                                               @Nonnull List<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> nearestReferencesAndNodes,
                                                                final boolean includeVectors) {
-        final int lastIndex = Math.max(nearestReferences.size() - k, 0);
+        final int lastIndex = Math.max(nearestReferencesAndNodes.size() - k, 0);
 
         final ImmutableList.Builder<ResultEntry> resultBuilder =
                 ImmutableList.builder();
 
-        for (int i = nearestReferences.size() - 1; i >= lastIndex; i --) {
-            final var nodeReference = nearestReferences.get(i);
+        for (int i = nearestReferencesAndNodes.size() - 1; i >= lastIndex; i --) {
+            final NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference> nearestReferenceAndNode =
+                    nearestReferencesAndNodes.get(i);
+            final NodeReferenceWithDistance nodeReference = nearestReferenceAndNode.getNodeReference();
+            final AbstractNode<NodeReference> node = nearestReferenceAndNode.getNode();
             @Nullable final RealVector reconstructedVector =
                     includeVectors ? storageTransform.untransform(nodeReference.getVector()) : null;
 
+            @Nullable final Tuple additionalValues =
+                    node.isCompactNode() ? node.asCompactNode().getAdditionalValues() : null;
+
             resultBuilder.add(
                     new ResultEntry(nodeReference.getPrimaryKey(),
-                            reconstructedVector, nodeReference.getDistance(),
-                            nearestReferences.size() - i - 1));
+                            reconstructedVector, additionalValues, nodeReference.getDistance(),
+                            nearestReferencesAndNodes.size() - i - 1));
         }
         return resultBuilder.build();
     }
@@ -396,6 +405,7 @@ public class Search {
                             //
                             throw new IllegalStateException("unable to fetch node");
                         }
+                        Verify.verify(node.isInliningNode());
                         final InliningNode candidateNode = node.asInliningNode();
 
                         if (updatedNodes.containsKey(candidateReference.getPrimaryKey())) {
@@ -424,7 +434,8 @@ public class Search {
                                     candidates.add(updatedNodeReference);
                                     updatedNodes.put(candidateReference.getPrimaryKey(),
                                             nodeFactory.create(candidateReference.getPrimaryKey(),
-                                                    baseCompactNode.getVector(), candidateNode.getNeighbors()));
+                                                    baseCompactNode.getVector(),
+                                                    null, candidateNode.getNeighbors()));
                                 })
                                 .thenApply(ignored -> null); // keep Java happy about the return type
 
@@ -607,6 +618,13 @@ public class Search {
      * @param minimumPrimaryKey the primary key of the last item from a previous scan, used for pagination. If provided
      *        along with {@code minimumRadius}, the scan will resume after the item with this key at that radius. Can be
      *        {@code null} to start from the beginning.
+     * @param shouldQuickStart an indicator that if set to {@code true} causes the iterator to first return the result
+     *        of the zoom-in process before any work to traverse outwards is carried out. This may lead to inversions,
+     *        if the zoom-out process finds candidates that are in fact closer to {@code centerVector} than the vectors
+     *        found by the zoom-in process. If the starting radius is {@code 0.0d} or close to it, this should not ever
+     *        happen. Setting this parameter {@code true} is useful if it is uncertain or even doubtful that even the
+     *        result of the zoom-in is ever going to be consumed by the caller. In such a scenario, additional work is
+     *        only carried out if it is requested by the caller (by advancing the iterator).
      * @return an {@link AsyncIterator} of {@link ResultEntry} objects, ordered by increasing distance from the
      *         {@code centerVector}
      */
@@ -616,13 +634,14 @@ public class Search {
                                                final boolean includeVectors,
                                                @Nonnull final RealVector centerVector,
                                                final double minimumRadius,
-                                               @Nullable final Tuple minimumPrimaryKey) {
+                                               @Nullable final Tuple minimumPrimaryKey,
+                                               final boolean shouldQuickStart) {
         final OutwardTraversalIterator it =
                 searchAndIterateOutward(readTransaction, efRingSearch, efOutwardSearch, centerVector,
-                        minimumRadius, minimumPrimaryKey);
+                        minimumRadius, minimumPrimaryKey, shouldQuickStart);
         return AsyncUtil.mapIterator(it,
                 nodeReferenceAndNode -> {
-                    final var nodeReference = nodeReferenceAndNode.getNodeReference();
+                    final NodeReferenceWithDistance nodeReference = nodeReferenceAndNode.getNodeReference();
                     @Nullable final RealVector reconstructedVector;
                     if (includeVectors) {
                         final StorageTransform storageTransform = it.getTraversalState().getStorageTransform();
@@ -631,8 +650,12 @@ public class Search {
                         reconstructedVector = null;
                     }
 
+                    final AbstractNode<NodeReference> node = nodeReferenceAndNode.getNode();
+                    @Nullable Tuple additionalValues =
+                            node.isCompactNode() ? node.asCompactNode().getAdditionalValues() : null;
+
                     return new ResultEntry(nodeReference.getPrimaryKey(),
-                            reconstructedVector, nodeReference.getDistance(), -1);
+                            reconstructedVector, additionalValues, nodeReference.getDistance(), -1);
                 });
     }
 
@@ -642,7 +665,8 @@ public class Search {
                                                              final int efOutwardSearch,
                                                              @Nonnull final RealVector centerVector,
                                                              final double minimumRadius,
-                                                             @Nullable final Tuple minimumPrimaryKey) {
+                                                             @Nullable final Tuple minimumPrimaryKey,
+                                                             final boolean shouldQuickStart) {
         final CompletableFuture<SearchResult> zoomInResultFuture =
                 search(readTransaction, centerVector,
                         layer ->
@@ -653,7 +677,7 @@ public class Search {
                                 distanceToSphericalSurface(estimator, targetVector, minimumRadius));
         final CompactStorageAdapter storageAdapter = primitives().storageAdapterForLayer(0).asCompactStorageAdapter();
         return new OutwardTraversalIterator(getLocator(), storageAdapter, readTransaction, zoomInResultFuture, centerVector,
-                minimumRadius, minimumPrimaryKey, efOutwardSearch);
+                minimumRadius, minimumPrimaryKey, efOutwardSearch, shouldQuickStart);
     }
 
     @Nonnull

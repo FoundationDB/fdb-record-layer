@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
+package com.apple.foundationdb.async.common;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.linear.AffineOperator;
@@ -31,12 +31,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * A special affine operator that uses a random rotator seeded by the current {@link AccessInfo} and a given
- * (pre-rotated) centroid. This operator is used inside the HNSW to transform back and forth between the coordinate
- * system of the client and the coordinate system that is currently employed in the HNSW.
+ * A special operator that is used to rotated, translated, and potentially normalize vectors. This operator is used
+ * inside the HNSW and GuardiANN packages to transform back and forth between the coordinate
+ * system of the client and the coordinate system that is currently employed in the structure.
  */
 @SpotBugsSuppressWarnings(value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR", justification = "Singleton designation is a false positive")
-class StorageTransform implements VectorOperator {
+public class StorageTransform implements VectorOperator {
     private static final StorageTransform IDENTITY_STORAGE_TRANSFORM =
             new StorageTransform(null, null, false);
 

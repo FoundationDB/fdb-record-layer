@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.async.common.StorageHelpers;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FloatRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
@@ -50,7 +51,7 @@ class RealVectorSerializationTest {
         final Random random = new Random(seed);
         final HalfRealVector randomVector = RealVectorTest.createRandomHalfVector(random, numDimensions);
         final RealVector deserializedVector =
-                StorageAdapter.vectorFromBytes(HNSW.newConfigBuilder().build(numDimensions), randomVector.getRawData());
+                StorageHelpers.vectorFromBytes(HNSW.newConfigBuilder().build(numDimensions), randomVector.getRawData());
         Assertions.assertThat(deserializedVector).isInstanceOf(HalfRealVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
@@ -61,7 +62,7 @@ class RealVectorSerializationTest {
         final Random random = new Random(seed);
         final FloatRealVector randomVector = RealVectorTest.createRandomFloatVector(random, numDimensions);
         final RealVector deserializedVector =
-                StorageAdapter.vectorFromBytes(HNSW.newConfigBuilder().build(numDimensions), randomVector.getRawData());
+                StorageHelpers.vectorFromBytes(HNSW.newConfigBuilder().build(numDimensions), randomVector.getRawData());
         Assertions.assertThat(deserializedVector).isInstanceOf(FloatRealVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
@@ -72,7 +73,7 @@ class RealVectorSerializationTest {
         final Random random = new Random(seed);
         final DoubleRealVector randomVector = RealVectorTest.createRandomDoubleVector(random, numDimensions);
         final RealVector deserializedVector =
-                StorageAdapter.vectorFromBytes(HNSW.newConfigBuilder().build(numDimensions), randomVector.getRawData());
+                StorageHelpers.vectorFromBytes(HNSW.newConfigBuilder().build(numDimensions), randomVector.getRawData());
         Assertions.assertThat(deserializedVector).isInstanceOf(DoubleRealVector.class);
         Assertions.assertThat(deserializedVector).isEqualTo(randomVector);
     }
