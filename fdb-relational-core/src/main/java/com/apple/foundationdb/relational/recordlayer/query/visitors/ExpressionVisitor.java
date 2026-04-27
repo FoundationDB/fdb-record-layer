@@ -934,16 +934,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    private Expressions parseRecordFields(@Nonnull List<? extends ParserRuleContext> parserRuleContexts,
-                                          @Nullable List<Type.Record.Field> targetFields) {
+    private ImmutableList<Column<? extends Value>> parseRecordFields(@Nonnull List<? extends ParserRuleContext> parserRuleContexts,
+                                                                      @Nullable List<Type.Record.Field> targetFields) {
         Assert.thatUnchecked(targetFields == null || targetFields.size() == parserRuleContexts.size());
-        final var resultsBuilder = ImmutableList.<Expression>builder();
+        final var resultsBuilder = ImmutableList.<Column<? extends Value>>builder();
         for (int i = 0; i < parserRuleContexts.size(); i++) {
             final var parserRuleContext = parserRuleContexts.get(i);
             final var targetField = targetFields == null ? null : targetFields.get(i);
-            resultsBuilder.add(Expression.fromColumn(parseRecordField(parserRuleContext, targetField)));
+            resultsBuilder.add(parseRecordField(parserRuleContext, targetField));
         }
-        return Expressions.of(resultsBuilder.build());
+        return resultsBuilder.build();
     }
 
     @Nonnull
@@ -1018,8 +1018,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     private ImmutableList<Column<? extends Value>> parseRecordFieldsUnderReorderings(@Nonnull final List<? extends ParserRuleContext> providedColumnContexts) {
         final var maybeState = getStateMaybe();
         if (maybeState.isEmpty() || maybeState.get().getTargetType().isEmpty()) {
-            return parseRecordFields(providedColumnContexts, null).underlyingAsColumns()
-                    .stream().collect(ImmutableList.toImmutableList());
+            return parseRecordFields(providedColumnContexts, null);
         }
 
         final var state = maybeState.get();
@@ -1052,14 +1051,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             return resultColumnsBuilder.build();
         }
 
-        Assert.thatUnchecked(elementFields.size() == providedColumnContexts.size(),
-                ErrorCode.CANNOT_CONVERT_TYPE, "provided record cannot be assigned as its type is incompatible with the target type"
-        );
-        final var resultColumnsBuilder = ImmutableList.<Column<? extends Value>>builder();
-        for (int i = 0; i < providedColumnContexts.size(); i++) {
-            resultColumnsBuilder.add(parseRecordField(providedColumnContexts.get(i), elementFields.get(i)));
-        }
-        return resultColumnsBuilder.build();
+        return parseRecordFields(providedColumnContexts, elementFields);
     }
 
     @Nonnull

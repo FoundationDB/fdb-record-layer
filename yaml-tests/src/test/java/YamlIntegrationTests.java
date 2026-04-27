@@ -332,7 +332,6 @@ public class YamlIntegrationTests {
         runner.runYamsql("setup-with-connection-options.yamsql");
     }
 
-    // disabled because supported_version: !current_version in not supported on the test_block level.
     @TestTemplate
     public void skippedFieldNumberProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("skipped-field-number-proto.yamsql");
