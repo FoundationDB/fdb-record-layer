@@ -36,17 +36,17 @@ test_block:
   tests:
     -
       - query: select count(*) from T1;
-      - explain: "SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(*) from T1 where col1 = 0;
-      - explain: "SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(*) from T1 where col1 > 0;
-      - explain: "SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
@@ -98,17 +98,17 @@ test_block:
       - result: []
     -
       - query: select count(*) from T3;
-      - explain: "ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(*) from T3 where col1 = 0;
-      - explain: "ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(*) from T3 where col1 > 0;
-      - explain: "ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
@@ -128,17 +128,17 @@ test_block:
       - result: []
     -
       - query: select count(col2) from T1;
-      - explain: "SCAN([IS T1]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "SCAN([IS T1]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(col2) from T1 where col1 = 0;
-      - explain: "SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(col2) from T1 where col1 > 0;
-      - explain: "SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
@@ -190,17 +190,17 @@ test_block:
       - result: []
     -
       - query: select count(col2) from T3;
-      - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(col2) from T3 where col1 = 0;
-      - explain: "ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(col2) from T3 where col1 > 0;
-      - explain: "ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
@@ -220,27 +220,27 @@ test_block:
       - result: []
     -
       - query: select sum(col1) from T1;
-      - explain: "SCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "SCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T1 where col1 = 0;
-      - explain: "SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T1 where col2 = 0;
-      - explain: "SCAN([IS T1]) | FILTER _.COL2 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "SCAN([IS T1]) | FILTER _.COL2 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T1 where col1 > 0;
-      - explain: "SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T1 where col2 > 0;
-      - explain: "SCAN([IS T1]) | FILTER _.COL2 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "SCAN([IS T1]) | FILTER _.COL2 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
@@ -252,7 +252,7 @@ test_block:
       - result: [{!null _}]
     -
       - query: select sum(col1) from T2 where col1 = 0;
-      - explain: "SCAN([IS T2]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "SCAN([IS T2]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
@@ -262,7 +262,7 @@ test_block:
       - result: [{!null _}]
     -
       - query: select sum(col1) from T2 where col1 > 0;
-      - explain: "SCAN([IS T2]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "SCAN([IS T2]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
@@ -288,27 +288,27 @@ test_block:
       - result: []
     -
       - query: select sum(col1) from T3;
-      - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col1 = 0;
-      - explain: "ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col2 = 0;
-      - explain: "ISCAN(T3_I2 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(T3_I2 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col1 > 0;
-      - explain: "ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col2 > 0;
-      - explain: "ISCAN(T3_I2 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(T3_I2 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
@@ -359,17 +359,17 @@ test_block:
   tests:
     -
       - query: select count(*) from T1;
-      - explain: "SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(*) from T1 where col1 = 0;
-      - explain: "SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(*) from T1 where col1 > 0;
-      - explain: "SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
@@ -492,17 +492,17 @@ test_block:
 #      - result: []
     -
       - query: select count(col2) from T3;
-      - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(col2) from T3 where col1 = 0;
-      - explain: "ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
       - query: select count(col2) from T3 where col1 > 0;
-      - explain: "ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
@@ -522,27 +522,27 @@ test_block:
       - result: []
     -
       - query: select sum(col1) from T1;
-      - explain: "SCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "SCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T1 where col1 = 0;
-      - explain: "SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T1 where col2 = 0;
-      - explain: "SCAN([IS T1]) | FILTER _.COL2 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "SCAN([IS T1]) | FILTER _.COL2 EQUALS promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T1 where col1 > 0;
-      - explain: "SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T1 where col2 > 0;
-      - explain: "SCAN([IS T1]) | FILTER _.COL2 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "SCAN([IS T1]) | FILTER _.COL2 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
@@ -566,7 +566,7 @@ test_block:
       - result: [{!null _}]
     -
       - query: select sum(col1) from T2 where col1 > 0;
-      - explain: "SCAN([IS T2]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "SCAN([IS T2]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
@@ -595,22 +595,22 @@ test_block:
       - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col1 = 0;
-      - explain: "ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col2 = 0;
-      - explain: "ISCAN(T3_I2 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(T3_I2 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col1 > 0;
-      - explain: "ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col2 > 0;
-      - explain: "ISCAN(T3_I2 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(T3_I2 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{!null _}]
     -

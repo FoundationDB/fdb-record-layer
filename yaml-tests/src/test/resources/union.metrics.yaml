@@ -21,13 +21,13 @@ union-tests:
     ref: union.yamsql:159
     explain: 'AISCAN(MV10 [[LESS_THAN promote(@c21 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS Y) ⊎ SCAN([IS T4]) | MAP (_ AS _0) | AGG (count_star(*)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0
-        AS S)'
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
+        ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 760
-    task_total_time_ms: 19
-    transform_count: 207
-    transform_time_ms: 8
+    task_total_time_ms: 16
+    transform_count: 206
+    transform_time_ms: 6
     transform_yield_count: 55
     insert_time_ms: 0
     insert_new_count: 65
@@ -38,16 +38,16 @@ union-tests:
     explain: 'AISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1)
         GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS Y) ⊎ ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (count_star(*)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0
-        AS S)'
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
+        ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 974
-    task_total_time_ms: 27
+    task_total_time_ms: 17
     transform_count: 255
-    transform_time_ms: 11
+    transform_time_ms: 7
     transform_yield_count: 72
-    insert_time_ms: 1
-    insert_new_count: 95
+    insert_time_ms: 0
+    insert_new_count: 94
     insert_reused_count: 8
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t6 union all
         select count(*) from t7) as X
@@ -55,13 +55,13 @@ union-tests:
     explain: 'AISCAN(MV11 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) ⊎ AISCAN(MV12
         <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
-        ON EMPTY NULL | MAP (_._0._0 AS S)'
+        promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP
+        BY () | ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 1057
-    task_total_time_ms: 51
+    task_total_time_ms: 42
     transform_count: 303
-    transform_time_ms: 17
+    transform_time_ms: 19
     transform_yield_count: 74
-    insert_time_ms: 1
-    insert_new_count: 98
+    insert_time_ms: 0
+    insert_new_count: 96
     insert_reused_count: 8
