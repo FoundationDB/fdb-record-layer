@@ -87,6 +87,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends ExplorationCas
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
+
         final Collection<? extends Quantifier.ForEach> explodeQuantifiers = bindings.get(explodeQuantifiersMatcher);
         if (explodeQuantifiers.isEmpty()) {
             return;

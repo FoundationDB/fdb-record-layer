@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -106,6 +108,9 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
 
         final var selectExpression = bindings.get(root);
 
+        final var outerResultValue = selectExpression.getResultValue().getResultType().isRecord()
+                ? selectExpression.getResultValue()
+                : RecordConstructorValue.ofColumns(ImmutableList.of(Column.unnamedOf(selectExpression.getResultValue())));
         //
         // We are going to try to pull as many predicates as we can towards the left side.
         //
@@ -201,7 +206,7 @@ public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExp
         graphExpansionBuilder.addQuantifier(newLeftQuantifier);
         graphExpansionBuilder.addQuantifier(newRightQuantifier);
 
-        final var newSelectExpression = graphExpansionBuilder.build().buildSelectWithResultValue(selectExpression.getResultValue());
+        final var newSelectExpression = graphExpansionBuilder.build().buildSelectWithResultValue(outerResultValue);
 
         call.yieldExploratoryExpression(newSelectExpression);
     }
