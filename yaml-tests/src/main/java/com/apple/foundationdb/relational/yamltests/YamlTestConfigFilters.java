@@ -72,13 +72,14 @@ public enum YamlTestConfigFilters {
         }
     },
     /**
-     * Used to correct both.
+     * Used to correct explains, metrics, and result metadata.
      */
-    CORRECT_EXPLAIN_AND_METRICS {
+    CORRECT_EXPECTATIONS {
         @Override
         boolean filter(final YamlTestConfig config) {
             return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_EXPLAIN, false) &&
-                    config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_METRICS, false);
+                    config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_METRICS, false) &&
+                    config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_RESULT_METADATA, false);
         }
     },
     /**
@@ -88,6 +89,24 @@ public enum YamlTestConfigFilters {
         @Override
         boolean filter(final YamlTestConfig config) {
             return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_SHOW_PLAN_ON_DIFF, false);
+        }
+    },
+    /**
+     * Used to correct result metadata.
+     */
+    CORRECT_RESULT_METADATA {
+        @Override
+        boolean filter(final YamlTestConfig config) {
+            return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_CORRECT_RESULT_METADATA, false);
+        }
+    },
+    /**
+     * Used to add {@code resultMetadata} blocks to queries that don't yet have one.
+     */
+    ADD_RESULT_METADATA {
+        @Override
+        boolean filter(final YamlTestConfig config) {
+            return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_ADD_RESULT_METADATA, false);
         }
     };
 
