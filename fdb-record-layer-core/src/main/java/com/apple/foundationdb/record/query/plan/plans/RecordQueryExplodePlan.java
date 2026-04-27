@@ -42,9 +42,12 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisi
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithoutChildren;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
@@ -52,6 +55,8 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -59,25 +64,53 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 /**
- * A query plan that applies the values it contains over the incoming ones. In a sense, this is similar to the {@code Stream.map()}
- * method: Mapping one {@link Value} to another.
+ * An {@code EXPLODE} query plan.
+ *
+ * <p>{@code EXPLODE} is the plan node that implements <emph>array unnesting</emph>, also known as the “explode”
+ * operation. It is a leaf plan node. The array data comes from its {@link #collectionValue} member, which is a
+ * correlated {@link Value} referencing the field of an outer quantifier. The plan node first evaluates the collection
+ * value to Java type {@code List<?>}, and then produces one {@link QueryResult} datum per array element.
+ *
+ * <p>In the {@code WITH ORDINALITY} variant, {@code EXPLODE} also generates ordinals of the array elements. In this
+ * case the plan produces a {@link DynamicMessage} struct with fields {@code {_element, _ordinal}} instead of
+ * the bare element. The ordinals are 1-based per the SQL standard (Foundation, Section 4.10.2).
+ *
+ * @see RecordQueryFlatMapPlan
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Explode-Plan");
 
+    /**
+     * The collection value. Must evaluate to a {@code List<?>}.
+     */
     @Nonnull
     private final Value collectionValue;
 
-    public RecordQueryExplodePlan(@Nonnull Value collectionValue) {
+    /**
+     * Whether ordinals should be produced alongside the array elements.
+     */
+    private final boolean withOrdinality;
+
+    public RecordQueryExplodePlan(@Nonnull Value collectionValue, boolean withOrdinality) {
         this.collectionValue = collectionValue;
+        this.withOrdinality = withOrdinality;
+    }
+
+    public RecordQueryExplodePlan(@Nonnull Value collectionValue) {
+        this(collectionValue, false);
     }
 
     @Nonnull
     public Value getCollectionValue() {
         return collectionValue;
+    }
+
+    public boolean isWithOrdinality() {
+        return withOrdinality;
     }
 
     @SuppressWarnings("resource")
@@ -87,8 +120,38 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final var result = collectionValue.eval(store, context);
-        return RecordCursor.fromList(result == null ? ImmutableList.of() : (List<?>)result, continuation)
+        final Object result = collectionValue.eval(store, context);
+        final List<?> list = (result == null) ? List.of() : (List<?>)result;
+
+        // Without ordinality, produce the bare elements.
+        if (!withOrdinality) {
+            return RecordCursor.fromList(list, continuation)
+                    .map(QueryResult::ofComputed)
+                    .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+        }
+
+        // In the WITH ORDINALITY case, produce a struct {_element, _ordinal} per list element, with 1-based ordinals.
+        final Type elementType = getElementType();
+        final var resultType = (Type.Record) getExplodeResultType();
+        final TypeRepository typeRepository = context.getTypeRepository();
+        final DynamicMessage.Builder messageBuilder = Objects.requireNonNull(typeRepository.newMessageBuilder(resultType));
+        final Descriptors.Descriptor descriptor = messageBuilder.getDescriptorForType();
+        final Descriptors.FieldDescriptor elementField = descriptor.getFields().get(0);
+        final Descriptors.FieldDescriptor ordinalField = descriptor.getFields().get(1);
+        final ImmutableList<Message> indexedList =
+                IntStream.rangeClosed(1, list.size())
+                .mapToObj(i -> {
+                    final DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
+                    final Object element = list.get(i - 1);
+                    if (element != null) {
+                        builder.setField(elementField,
+                                RecordConstructorValue.deepCopyIfNeeded(typeRepository, elementType, element));
+                    }
+                    builder.setField(ordinalField, i);
+                    return (Message)builder.build();
+                })
+                .collect(ImmutableList.toImmutableList());
+        return RecordCursor.fromList(indexedList, continuation)
                 .map(QueryResult::ofComputed)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
@@ -109,7 +172,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         final Value translatedCollectionValue =
                 collectionValue.translateCorrelations(translationMap, shouldSimplifyValues);
         if (translatedCollectionValue != collectionValue) {
-            return new RecordQueryExplodePlan(translatedCollectionValue);
+            return new RecordQueryExplodePlan(translatedCollectionValue, withOrdinality);
         }
         return this;
     }
@@ -156,12 +219,27 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         return AvailableFields.NO_FIELDS;
     }
 
+    /**
+     * Returns the element type of the collection value.
+     */
+    @Nonnull
+    public Type getElementType() {
+        Verify.verify(collectionValue.getResultType().isArray());
+        return Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
+    }
+
+    /**
+     * Returns the type of the explode result.
+     */
+    @Nonnull
+    public Type getExplodeResultType() {
+        return ExplodeExpression.explodeResultType(getElementType(), withOrdinality);
+    }
+
     @Nonnull
     @Override
     public Value getResultValue() {
-        Verify.verify(collectionValue.getResultType().isArray());
-
-        return new QueriedValue(Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType()));
+        return new QueriedValue(getExplodeResultType());
     }
 
     @Nonnull
@@ -186,10 +264,11 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final var otherExplodePlan =  (RecordQueryExplodePlan)otherExpression;
+        final var otherExplodePlan = (RecordQueryExplodePlan)otherExpression;
 
         return collectionValue.semanticEquals(otherExplodePlan.getCollectionValue(), equivalencesMap) &&
-               semanticEqualsForResults(otherExpression, equivalencesMap);
+                withOrdinality == otherExplodePlan.withOrdinality &&
+                semanticEqualsForResults(otherExpression, equivalencesMap);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -205,7 +284,9 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
 
     @Override
     public int computeHashCodeWithoutChildren() {
-        return Objects.hash(getResultValue());
+        Value result = getResultValue();
+        return withOrdinality ? Objects.hash(result, true)
+                              : Objects.hash(result);
     }
 
     @Override
@@ -223,7 +304,9 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-                return PlanHashable.objectsPlanHash(mode, BASE_HASH, getResultValue());
+                Value result = getResultValue();
+                return withOrdinality ? PlanHashable.objectsPlanHash(mode, BASE_HASH, result, true)
+                                      : PlanHashable.objectsPlanHash(mode, BASE_HASH, result);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
@@ -232,10 +315,12 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        final String label = withOrdinality ? "EXPLODE {{expr}} WITH ORDINALITY"
+                                            : "EXPLODE {{expr}}";
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
-                        ImmutableList.of("EXPLODE {{expr}}"),
+                        ImmutableList.of(label),
                         ImmutableMap.of("expr", Attribute.gml(collectionValue.toString()))),
                 childGraphs);
     }
@@ -243,9 +328,12 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     @Nonnull
     @Override
     public PRecordQueryExplodePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordQueryExplodePlan.newBuilder()
-                .setCollectionValue(collectionValue.toValueProto(serializationContext))
-                .build();
+        final var builder = PRecordQueryExplodePlan.newBuilder();
+        builder.setCollectionValue(collectionValue.toValueProto(serializationContext));
+        if (withOrdinality) {
+            builder.setWithOrdinality(true);
+        }
+        return builder.build();
     }
 
     @Nonnull
@@ -256,8 +344,10 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
 
     @Nonnull
     public static RecordQueryExplodePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                   @Nonnull final PRecordQueryExplodePlan recordQueryRangePlanProto) {
-        return new RecordQueryExplodePlan(Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryRangePlanProto.getCollectionValue())));
+                                                   @Nonnull final PRecordQueryExplodePlan proto) {
+        return new RecordQueryExplodePlan(
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(proto.getCollectionValue())),
+                proto.hasWithOrdinality() && proto.getWithOrdinality());
     }
 
     /**

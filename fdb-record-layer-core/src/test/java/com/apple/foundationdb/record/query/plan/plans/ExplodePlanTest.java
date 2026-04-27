@@ -23,10 +23,16 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -136,5 +142,49 @@ public class ExplodePlanTest {
                                       @Nonnull final List<Integer> expectedResult,
                                       boolean shouldReachLimit) {
         verifyCursor(actualCursorBuilder.build(), expectedResult, shouldReachLimit);
+    }
+
+    @Test
+    void translateCorrelationsPreservesWithOrdinality() {
+        final var sourceAlias = CorrelationIdentifier.of("source");
+        final var targetAlias = CorrelationIdentifier.of("target");
+
+        // Build a correlated collection value: `sourceAlias.arr` (an integer array field).
+        final var arrayType = new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false));
+        final var recordType = Type.Record.fromFields(List.of(
+                Type.Record.Field.of(arrayType, Optional.of("arr"))));
+        final var qov = QuantifiedObjectValue.of(sourceAlias, recordType);
+        final var collectionValue = FieldValue.ofFieldName(qov, "arr");
+
+        final var plan = new RecordQueryExplodePlan(collectionValue, true);
+        Assertions.assertTrue(plan.isWithOrdinality());
+        Assertions.assertTrue(plan.getCollectionValue().getCorrelatedTo().contains(sourceAlias));
+
+        // Translate: Remap sourceAlias → targetAlias.
+        final var translated = plan.translateCorrelations(TranslationMap.ofAliases(sourceAlias, targetAlias), true, List.of());
+
+        // A new plan must have been created (the correlation changed).
+        Assertions.assertNotSame(plan, translated);
+        // `withOrdinality` must be preserved.
+        Assertions.assertTrue(translated.isWithOrdinality());
+        // The collection value must now reference the target alias, not the source.
+        Assertions.assertTrue(translated.getCollectionValue().getCorrelatedTo().contains(targetAlias));
+        Assertions.assertFalse(translated.getCollectionValue().getCorrelatedTo().contains(sourceAlias));
+    }
+
+    @Test
+    void translateCorrelationsNoOpReturnsSameInstance() {
+        final var collectionValue = LiteralValue.ofList(List.of(1, 2, 3));
+        final var plan = new RecordQueryExplodePlan(collectionValue, true);
+        Assertions.assertTrue(plan.isWithOrdinality());
+
+        // Translate with a mapping for an alias not present in the value.
+        final var translated = plan.translateCorrelations(
+                TranslationMap.ofAliases(CorrelationIdentifier.of("absent"), CorrelationIdentifier.of("target")),
+                true, List.of());
+
+        // No translation occurred, so the same instance is returned.
+        Assertions.assertSame(plan, translated);
+        Assertions.assertTrue(translated.isWithOrdinality());
     }
 }

@@ -71,6 +71,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    void arrayJoinAt(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("array-join-at.yamsql");
+    }
+
+    @TestTemplate
     void arrays_cardinality(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("arrays_cardinality.yamsql");
     }
