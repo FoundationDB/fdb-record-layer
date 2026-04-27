@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsIdenticalTypesProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
@@ -77,6 +78,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests of the {@link MetaDataEvolutionValidator} class. This mostly consists of trying to perform illegal updates
@@ -855,6 +857,57 @@ class MetaDataEvolutionValidatorTest {
                 indexProto -> indexProto.toBuilder().setRootExpression(Key.Expressions.field("num_value_2__old").toKeyExpression()).build());
         assertInvalid("field renamed", metaData1, metaData4);
         laxerValidator.validate(metaData1, metaData4);
+    }
+
+    @Test
+    void renameFieldWithMultiTypeIndex() {
+        // Create a meta-data with a non-universal multi-type index
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords4Proto.getDescriptor());
+        final List<String> types = List.of("RestaurantReviewer", "RestaurantRecord");
+        metaDataBuilder.addMultiTypeIndex(types.stream().map(metaDataBuilder::getRecordType).toList(),
+                new Index("multi_name", "name"));
+        metaDataBuilder.removeIndex("RestaurantRecord$name");
+        metaDataBuilder.removeIndex("RestaurantReviewer$name");
+        RecordMetaData metaData1 = metaDataBuilder.build();
+
+        assertFalse(validator.allowsFieldRenames());
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowFieldRenames(true)
+                .build();
+        assertTrue(laxerValidator.allowsFieldRenames());
+
+        // Updating the name in just one type results in different types requiring different field renames
+        for (String type : types) {
+            FileDescriptor renamedOneName = mutateMessageType(type, TestRecords4Proto.getDescriptor(), this::updateNameField);
+            RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedOneName);
+
+            assertInvalid("field renamed", metaData1, metaData2);
+            assertInvalid("field renames result in inconsistent index definition for multi-type index", laxerValidator, metaData1, metaData2);
+        }
+
+        // Updating all the names changes the error message
+        FileDescriptor updateAllNames = types.stream()
+                .reduce(TestRecords4Proto.getDescriptor(), (fileDescriptor, type) -> mutateMessageType(type, fileDescriptor, this::updateNameField), (fileA, fileB) -> fail("cannot combine"));
+        RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updateAllNames);
+        assertInvalid("field renamed", metaData1, metaData3);
+        assertInvalid("index key expression does not match required", laxerValidator, metaData1, metaData3);
+
+        // Updating the key expression in the index to match the new name is legal if field renames are allowed
+        RecordMetaData metaData4 = replaceIndex(metaData3, "multi_name", index -> index.toBuilder().setRootExpression(Key.Expressions.field("name_a").toKeyExpression()).build());
+        assertInvalid("field renamed", metaData1, metaData4);
+        laxerValidator.validate(metaData1, metaData4);
+    }
+
+    private void updateNameField(DescriptorProtos.DescriptorProto.Builder descriptor) {
+        // Rename name to name_a
+        descriptor.getFieldBuilderList().stream()
+                .filter(field -> field.getName().equals("name"))
+                .forEach(field -> field.setName("name_a"));
+        // Add in a name field to ensure meta-data validation (not evolution validation) passes
+        addField(descriptor)
+                .setName("name")
+                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
+                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
     }
 
     @Test
