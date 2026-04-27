@@ -93,6 +93,8 @@ public interface Block {
                     return PreambleBlock.parse(entry.getValue(), executionContext);
                 case IncludeBlock.INCLUDE:
                     return IncludeBlock.parse(reference, entry.getValue(), executionContext);
+                case CopyBlock.COPY_BLOCK:
+                    return CopyBlock.parse(reference, entry.getValue(), executionContext);
                 default:
                     throw new RuntimeException("Cannot recognize the type of block");
             }

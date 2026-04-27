@@ -238,6 +238,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void copyBasic(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("copy-basic.yamsql");
+    }
+
+    @TestTemplate
     public void indexDdl(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("index-ddl.yamsql");
     }
