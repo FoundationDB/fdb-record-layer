@@ -103,6 +103,14 @@ class MetaDataEvolutionValidatorBuilderTest {
     }
 
     @Test
+    void allowFieldRenames() {
+        testSettingBooleanOption("allowFieldRenames",
+                MetaDataEvolutionValidator.Builder::setAllowFieldRenames,
+                MetaDataEvolutionValidator.Builder::allowsFieldRenames,
+                MetaDataEvolutionValidator::allowsFieldRenames);
+    }
+
+    @Test
     void allowIndexRebuilds() {
         testSettingBooleanOption("allowIndexRebuilds",
                 MetaDataEvolutionValidator.Builder::setAllowIndexRebuilds,

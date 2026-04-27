@@ -342,8 +342,8 @@ clean.doLast {
 
 apply from: 'gradle/sphinx.gradle'
 
-if (!JavaVersion.current().isJava8Compatible()) {
-    throw new Exception("Java 8 is required to build fdb-record-layer")
+if (!JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_17)) {
+    throw new Exception("Java 17 is required to build fdb-record-layer")
 }
 
 // fdb-environment.properties is the old way we configured the library path and cluster file, it does not scale well

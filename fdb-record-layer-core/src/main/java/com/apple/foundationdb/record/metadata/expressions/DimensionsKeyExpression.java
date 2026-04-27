@@ -262,6 +262,14 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         return new DimensionsKeyExpression(wholeKey, prefixCount, dimensionsCount);
     }
 
+    public static DimensionsKeyExpression of(@Nonnull KeyExpression wholeKey,
+                                             int prefixCount,
+                                             int dimensionsCount) {
+        Verify.verify(dimensionsCount > 1);
+        Verify.verify(prefixCount + dimensionsCount <= wholeKey.getColumnSize());
+        return new DimensionsKeyExpression(wholeKey, prefixCount, dimensionsCount);
+    }
+
     @Nonnull
     private static List<KeyExpression> liftExpression(@Nullable final KeyExpression expression) {
         if (expression == null) {
