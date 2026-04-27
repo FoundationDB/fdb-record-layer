@@ -24,6 +24,7 @@ schema_template:
     create table t3(id bigint, a bigint, b bigint, primary key(id))
     create table t4(id bigint, col1 string, col2 bigint, primary key(id))
     create index vi1 as select col1 from t1
+    create index vi2 as select col2 from t2
     create index mv1 as select sum(col2) from t1 group by col1
     create index mv2 as select col1, col2 from t2 order by col1, col2
     create index mv3 as select col1, col3 from t2 order by col1, col3
@@ -656,6 +657,19 @@ test_block:
       - unorderedResult: [{col1: 1, col2: 1, s: 101},
                           {col1: 1, col2: 2, s: 202},
                           {col1: 2, col2: 1, s: 1403}]
+    -
+      # The aggregate index MV21 can be used here as the set of the query's grouping values (along with the implied
+      # grouping due to the equality predicate) are subsumed by a prefix of the index grouping values.
+      - query: select col1, sum(col3) as s from T2 where col2 = 2 group by col1
+      - explain: "AISCAN(MV21 [EQUALS promote(@c14 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0 AS _0, _._1 AS _1) | MAP (_._1 AS COL1, _._3 AS S)"
+      - unorderedResult: [{col1: 1, s: 202}]
+    -
+      # TODO: It should have been possible to use the aggregate index MV21 here as the query's grouping value is a prefix
+      #       of the index grouping values, however the planner doesn't support applying a predicate compensation before
+      #       applying a roll-up, which will be tackled as part of https://github.com/FoundationDB/fdb-record-layer/issues/4115.
+      - query: select col2, sum(col3) as s from T2 where col3 = 200 group by col2
+      - explain: "ISCAN(VI2 <,>) | FILTER _.COL3 EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (sum_l(_._0.COL3) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._0._0 AS COL2, _._1._0 AS S)"
+      - unorderedResult: [ { col2: 1, s: 200 }, { col2: 2, s: 200 } ]
     -
       # The aggregate index MV21 can't be used here as the query's requested ordering is not compatible with the
       # index's ordering.
