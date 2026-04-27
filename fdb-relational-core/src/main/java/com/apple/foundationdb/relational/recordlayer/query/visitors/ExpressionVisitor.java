@@ -1050,6 +1050,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             }
             return resultColumnsBuilder.build();
         }
+        Assert.thatUnchecked(elementFields.size() == providedColumnContexts.size(),
+                ErrorCode.CANNOT_CONVERT_TYPE, "provided record cannot be assigned as its type is incompatible with the target type"
+        );
 
         return parseRecordFields(providedColumnContexts, elementFields);
     }
