@@ -1,0 +1,49 @@
+/*
+ * test_person_skipped_field.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2027 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+package com.apple.foundationdb.relational.test.skippedfield;
+
+option java_outer_classname = "TestPersonSkippedFieldProto";
+
+import "record_metadata_options.proto";
+
+// Nested struct: field number 2 is intentionally skipped.
+// street = 1, <2 skipped>, city = 3.
+message Address {
+  string street = 1;
+  // field 2 intentionally skipped
+  string city = 3;
+}
+
+// Top-level record: field number 2 is intentionally skipped.
+// first_name = 1, <2 skipped>, last_name = 3, id = 4, address = 5.
+message PERSON {
+  string first_name = 1;
+  // field 2 intentionally skipped
+  string last_name = 3;
+  int64 id = 4 [(com.apple.foundationdb.record.field).primary_key = true];
+  Address address = 5;
+}
+
+message RecordTypeUnion {
+  PERSON _PERSON = 1;
+}
