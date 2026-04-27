@@ -39,7 +39,7 @@ test_block:
     -
       # Attempting to insert a NULL value into a not-nullable ARRAY column.
       - query: INSERT INTO A_NOT_NULL VALUES (0, NULL)
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - error: "XX000"
     -
       # INSERT + basic SELECT for a not-nullable INTEGER ARRAY.
@@ -51,29 +51,33 @@ test_block:
     -
       # INSERT + basic SELECT for a nullable INTEGER ARRAY, including a NULL array value.
       - query: INSERT INTO A_NULL VALUES (-1, NULL), (0, []), (1, [1]), (2, [1, 2])
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - count: 4
     -
       - query: SELECT * FROM A_NULL
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - result: [{-1, !null _}, {0, []}, {1, [1]}, {2, [1, 2]}]
     -
       # INSERT + basic SELECT for a nullable INTEGER ARRAY.
       - query: INSERT INTO A VALUES (1, [1, 2, 3]), (2, [2, 3, 4]), (3, [3, 4, 5])
       - count: 3
     -
+      - query: SELECT * FROM A
+      - resultMetadata: [{PK: INTEGER}, {X: {array: INTEGER}}]
+      - result: [{1, [1, 2, 3]}, {2, [2, 3, 4]}, {3, [3, 4, 5]}]
+    -
       # INSERT NULL for a nullable INTEGER ARRAY.
       - query: INSERT INTO A VALUES (-1, NULL)
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - count: 1
     -
       # INSERT empty array for a nullable INTEGER ARRAY.
       - query: INSERT INTO A VALUES (0, [])
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - count: 1
     -
       - query: SELECT * FROM A
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - result: [{-1, !null _}, {0, []}, {1, [1, 2, 3]}, {2, [2, 3, 4]}, {3, [3, 4, 5]}]
     -
       # INSERT for a nullable STRING ARRAY.
@@ -82,20 +86,24 @@ test_block:
     -
       # INSERT NULL for a nullable STRING ARRAY.
       - query: INSERT INTO B VALUES (0, NULL)
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - count: 1
     -
       # INSERT + basic SELECT for a nullable DOUBLE ARRAY.
       - query: INSERT INTO C VALUES (1, [1.1, 2.1, 3.1]), (2, [2.1, 3.1, 4.1]), (3, [3.1, 4.1, 5.1])
       - count: 3
     -
+      - query: select x from c
+      - resultMetadata: [{X: {array: DOUBLE}}]
+      - result: [{[1.1, 2.1, 3.1]}, {[2.1, 3.1, 4.1]}, {[3.1, 4.1, 5.1]}]
+    -
       # INSERT NULL for a nullable DOUBLE ARRAY.
       - query: INSERT INTO C VALUES (0, NULL)
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - count: 1
     -
       - query: select x from c
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - result: [{!null _}, {[1.1, 2.1, 3.1]}, {[2.1, 3.1, 4.1]}, {[3.1, 4.1, 5.1]}]
     -
       # INSERT for an ARRAY of a 1-element STRUCT type.
@@ -104,7 +112,7 @@ test_block:
     -
       # INSERT NULL for an ARRAY of a 1-element STRUCT type.
       - query: INSERT INTO D VALUES (0, NULL)
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - count: 1
     -
       # INSERT for an ARRAY of a multi-element STRUCT type.
@@ -113,7 +121,7 @@ test_block:
     -
       # INSERT NULL for an ARRAY of a multi-element STRUCT type.
       - query: INSERT INTO E VALUES (0, NULL)
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - count: 1
     -
       # INSERT for an ARRAY of a multi-element STRUCT type featuring an INTEGER ARRAY member.
@@ -125,7 +133,7 @@ test_block:
     -
       # INSERT NULL for an ARRAY of a multi-element STRUCT type featuring an INTEGER ARRAY member.
       - query: INSERT INTO F VALUES (0, NULL)
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - count: 1
     -
       # INSERT for a nullable STRING ARRAY using the untyped empty array literal [].
@@ -135,90 +143,103 @@ test_block:
     -
       # INSERT NULL for a nullable STRING ARRAY.
       - query: INSERT INTO G VALUES (0, NULL)
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - count: 1
     -
       # UPDATE for a not-nullable INTEGER ARRAY.
       # Note: `"new"` should not be quoted here and below! TODO [Post] Fix identifiers case-sensitivity matching in plan generator
       - query: UPDATE A_NOT_NULL SET X = [11, 12, 13] WHERE PK = 1 RETURNING "new".X
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - result: [{[11, 12, 13]}]
     -
       # UPDATE for a nullable INTEGER ARRAY.
       - query: UPDATE A SET X = [11, 12, 13] WHERE PK = 1 RETURNING "new".X
+      - resultMetadata: [{X: {array: INTEGER}}]
       - result: [{[11, 12, 13]}]
     -
       - query: UPDATE D SET X = [(11), (12), (13)] WHERE PK = 1 RETURNING "new".X
+      - resultMetadata: [{X: {array: [{F: INTEGER}]}}]
       - result: [{[{F: 11}, {F: 12}, {F: 13}]}]
     -
       # UPDATE nullable array to empty array.
       - query: UPDATE A SET X = CAST([] AS INTEGER ARRAY) WHERE PK = 0 RETURNING "new".X
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - result: [{[]}]
     -
       # UPDATE nullable array to NULL.
       - query: UPDATE A SET X = NULL WHERE PK = -1 RETURNING "new".X
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - result: [{!null _}]
     -
       # UPDATE NOT NULL array to empty array.
       - query: UPDATE A_NOT_NULL SET X = CAST([] AS INTEGER ARRAY) WHERE PK = 1 RETURNING "new".X
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - result: [{[]}]
     -
       # UPDATE explicitly-nullable column from NULL to non-null array.
       - query: UPDATE A_NULL SET X = [99] WHERE PK = -1 RETURNING "new".X
-      - supported_version: !current_version
+      - supported_version: 4.11.1.0
       - result: [{[99]}]
     -
       - query: select X[3] from A where PK = 1
       - supported_version: 4.5.13.0
+      - resultMetadata: [{_0: INTEGER}]
       - result: [{13}]
     -
       - query: select X[2+1] from A where PK = 1
       - supported_version: 4.5.13.0
+      - resultMetadata: [{_0: INTEGER}]
       - result: [{13}]
     -
       - query: select X[2+1] + X[4-1] from A where PK = 1
       - supported_version: 4.5.13.0
+      - resultMetadata: [{_0: INTEGER}]
       - result: [{26}]
     -
       - query: select pk FROM A WHERE X[1] + 0 between 0 + X[1+0] and X[1-0] - 0
       - supported_version: 4.5.13.0
+      - resultMetadata: [{PK: INTEGER}]
       - result: [{PK: 1}, {PK: 2}, {PK: 3}]
     -
       # high-order subscript indexes are supported
       - query: select pk FROM A WHERE X[X[1] - X[1] + 1] between 0 + X[1+0] and X[1-0] - 0
       - supported_version: 4.5.13.0
+      - resultMetadata: [{PK: INTEGER}]
       - result: [{PK: 1}, {PK: 2}, {PK: 3}]
     -
       # out of bound
       - query: select X[100000] AS ERR FROM A WHERE pk = 1
       - supported_version: 4.5.13.0
+      - resultMetadata: [{ERR: INTEGER}]
       - result: [{ERR: !null _}]
     -
       # out of bound
       - query: select X[-1] AS ERR FROM A WHERE pk = 1
       - supported_version: 4.5.13.0
+      - resultMetadata: [{ERR: INTEGER}]
       - result: [{ERR: !null _}]
     -
       # out of bound
       - query: select X[0] AS ERR FROM A WHERE pk = 1
       - supported_version: 4.5.13.0
+      - resultMetadata: [{ERR: INTEGER}]
       - result: [{ERR: !null _}]
     -
       # empty array
       - query: select X[1] AS ERR FROM G where pk = 1
       - supported_version: 4.5.13.0
+      - resultMetadata: [{ERR: STRING}]
       - result: [{ERR: !null _}]
     -
       # empty result
       - query: select X[1] AS F FROM G where pk = 42
       - supported_version: 4.5.13.0
+      - resultMetadata: [{F: STRING}]
       - result: []
     -
       # subscript from empty array
       - query: select cast([] as string array)[0] AS ERR FROM F where pk = 1;
       - supported_version: 4.7.3.0
+      - resultMetadata: [{ERR: STRING}]
       - result: [{ERR: !null _}]
 ...
