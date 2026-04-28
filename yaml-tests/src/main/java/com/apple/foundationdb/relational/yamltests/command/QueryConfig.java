@@ -113,6 +113,7 @@ public abstract class QueryConfig {
 
     private static final Set<String> RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT, QUERY_CONFIG_RESULT_METADATA);
     private static final Set<String> VERSION_DEPENDENT_RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, QUERY_CONFIG_INITIAL_VERSION_LESS_THAN);
+    private static final Set<String> RESULT_CONSUMING_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
 
     @Nullable private final Object value;
     @Nonnull private final YamlReference reference;
@@ -503,6 +504,11 @@ public abstract class QueryConfig {
         Assert.thatUnchecked(configs.stream().skip(1)
                         .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
                 "supported_version must be the first config in a query (after the query itself)");
+
+        if (configs.stream().anyMatch(c -> QUERY_CONFIG_RESULT_METADATA.equals(c.getConfigName()))) {
+            Assert.thatUnchecked(configs.stream().anyMatch(c -> RESULT_CONSUMING_CONFIGS.contains(c.getConfigName())),
+                    "resultMetadata requires at least one of result, unorderedResult, error, or count to be present");
+        }
 
         // Validate that the results check each version comprehensively by making sure the set of
         // covered ranges spans the range [MIN_VERSION, MAX_VERSION)
