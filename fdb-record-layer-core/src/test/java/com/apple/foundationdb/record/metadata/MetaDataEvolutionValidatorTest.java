@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsIdenticalTypesProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
@@ -44,13 +45,17 @@ import com.apple.foundationdb.record.provider.common.text.PrefixTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.ParameterizedTestUtils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.FileDescriptor;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -63,6 +68,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -110,6 +116,95 @@ class MetaDataEvolutionValidatorTest {
     static void assertInvalid(@Nonnull String errMsg, @Nonnull FileDescriptor oldFileDescriptor, @Nonnull FileDescriptor newFileDescriptor) {
         assertInvalid(errMsg, oldFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME), newFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
     }
+
+    private static class FieldRenameChecker {
+        @Nonnull
+        private final MetaDataEvolutionValidator baseValidator;
+        @Nonnull
+        private final MetaDataEvolutionValidator noRenamesValidator;
+        @Nonnull
+        private final MetaDataEvolutionValidator deprecatedOnlyValidator;
+        @Nonnull
+        private final MetaDataEvolutionValidator anyRenameValidator;
+        @Nonnull
+        private final MetaDataEvolutionValidator allRenamesValidator;
+
+        public FieldRenameChecker(MetaDataEvolutionValidator baseValidator) {
+            this.baseValidator = baseValidator;
+            final MetaDataEvolutionValidator.Builder builder = baseValidator.asBuilder();
+
+            noRenamesValidator = builder
+                    .setAllowDeprecatedFieldRenames(false)
+                    .setAllowDeprecatedFieldRenames(false)
+                    .build();
+            assertFalse(noRenamesValidator.allowsAnyFieldRenames());
+            assertFalse(noRenamesValidator.allowsDeprecatedFieldRenames());
+            assertFalse(noRenamesValidator.allowsFieldRenames());
+
+            deprecatedOnlyValidator = builder
+                    .setAllowDeprecatedFieldRenames(true)
+                    .build();
+            assertTrue(deprecatedOnlyValidator.allowsAnyFieldRenames());
+            assertTrue(deprecatedOnlyValidator.allowsDeprecatedFieldRenames());
+            assertFalse(deprecatedOnlyValidator.allowsFieldRenames());
+
+            anyRenameValidator = builder
+                    .setAllowDeprecatedFieldRenames(false)
+                    .setAllowFieldRenames(true)
+                    .build();
+            assertTrue(anyRenameValidator.allowsAnyFieldRenames());
+            assertFalse(anyRenameValidator.allowsDeprecatedFieldRenames());
+            assertTrue(anyRenameValidator.allowsFieldRenames());
+
+            // This should behave the same as anyRenameValidator, but it is included for completeness
+            allRenamesValidator = builder
+                    .setAllowDeprecatedFieldRenames(true)
+                    .build();
+            assertTrue(allRenamesValidator.allowsAnyFieldRenames());
+            assertTrue(allRenamesValidator.allowsDeprecatedFieldRenames());
+            assertTrue(allRenamesValidator.allowsFieldRenames());
+        }
+
+        @Nonnull
+        public MetaDataEvolutionValidator getBaseValidator() {
+            return baseValidator;
+        }
+
+        public void assertInvalidRenaming(@Nonnull String errMsg, boolean deprecatedOnly, @Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData) {
+            assertInvalid("field renamed", noRenamesValidator, oldMetaData, newMetaData);
+            assertInvalid(deprecatedOnly ? errMsg : "field renamed", deprecatedOnlyValidator, oldMetaData, newMetaData);
+            assertInvalid(errMsg, anyRenameValidator, oldMetaData, newMetaData);
+            assertInvalid(errMsg, allRenamesValidator, oldMetaData, newMetaData);
+        }
+
+        public void assertValidRenaming(boolean deprecatedOnly, @Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData) {
+            assertInvalid("field renamed", noRenamesValidator, oldMetaData, newMetaData);
+            if (deprecatedOnly) {
+                deprecatedOnlyValidator.validate(oldMetaData, newMetaData);
+            } else {
+                assertInvalid("field renamed", deprecatedOnlyValidator, oldMetaData, newMetaData);
+            }
+            anyRenameValidator.validate(oldMetaData, newMetaData);
+            allRenamesValidator.validate(oldMetaData, newMetaData);
+        }
+
+        public void assertValidRenaming(boolean deprecatedOnly, @Nonnull FileDescriptor oldFileDescriptor, @Nonnull FileDescriptor newFileDescriptor) {
+            assertValidRenaming(deprecatedOnly, oldFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME), newFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
+        }
+
+        public void assertValidRenaming(boolean deprecatedOnly, @Nonnull Descriptor oldUnionDescriptor, @Nonnull Descriptor newUnionDescriptor) {
+            assertInvalid("field renamed", noRenamesValidator, oldUnionDescriptor, newUnionDescriptor);
+            if (deprecatedOnly) {
+                deprecatedOnlyValidator.validateUnion(oldUnionDescriptor, newUnionDescriptor);
+            } else {
+                assertInvalid("field renamed", deprecatedOnlyValidator, oldUnionDescriptor, newUnionDescriptor);
+            }
+            anyRenameValidator.validateUnion(oldUnionDescriptor, newUnionDescriptor);
+            allRenamesValidator.validateUnion(oldUnionDescriptor, newUnionDescriptor);
+        }
+    }
+
+    private final FieldRenameChecker fieldRenameChecker = new FieldRenameChecker(validator);
 
     @Test
     void doNotChangeVersion() {
@@ -216,6 +311,10 @@ class MetaDataEvolutionValidatorTest {
                 .orElse(0);
         return message.addFieldBuilder()
                 .setNumber(maxFieldNumber + 1);
+    }
+
+    static void deprecateField(@Nonnull DescriptorProtos.FieldDescriptorProto.Builder field) {
+        field.getOptionsBuilder().setDeprecated(true);
     }
 
     @Test
@@ -752,29 +851,112 @@ class MetaDataEvolutionValidatorTest {
     void renameField() {
         FileDescriptor updatedFile = mutateField("MySimpleRecord", "num_value_2",
                 field -> field.setName("num_value_too"));
+        fieldRenameChecker.assertValidRenaming(false, TestRecords1Proto.getDescriptor(), updatedFile);
 
-        assertFalse(validator.allowsFieldRenames());
-        assertInvalid("field renamed", TestRecords1Proto.getDescriptor(), updatedFile);
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
-        assertInvalid("field renamed", metaData1, metaData2);
-
-        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
-                .setAllowFieldRenames(true)
-                .build();
-        assertTrue(laxerValidator.allowsFieldRenames());
-        laxerValidator.validateUnion(TestRecords1Proto.RecordTypeUnion.getDescriptor(), updatedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
-
-        laxerValidator.validate(metaData1, metaData2);
+        fieldRenameChecker.assertValidRenaming(false, metaData1, metaData2);
     }
 
     @Test
-    void renameFieldWithIndex() {
+    void renameDeprecatedField() {
+        FileDescriptor deprecatedFile = mutateField("MySimpleRecord", "num_value_2",
+                MetaDataEvolutionValidatorTest::deprecateField);
+        FileDescriptor renamedFile = mutateField("MySimpleRecord", "num_value_2", deprecatedFile,
+                field -> field.setName("num_value_too"));
+        fieldRenameChecker.assertValidRenaming(true, deprecatedFile, renamedFile);
+
+        RecordMetaData metaData1 = RecordMetaData.build(deprecatedFile);
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedFile);
+        fieldRenameChecker.assertValidRenaming(true, metaData1, metaData2);
+    }
+
+    @Test
+    void renameFieldWhenMarkingDeprecated() {
+        FileDescriptor updatedFile = mutateField("MySimpleRecord", "num_value_2", field -> {
+            deprecateField(field);
+            field.setName("num_value_too");
+        });
+        fieldRenameChecker.assertValidRenaming(true, TestRecords1Proto.getDescriptor(), updatedFile);
+
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
+        fieldRenameChecker.assertValidRenaming(true, metaData1, metaData2);
+    }
+
+    @Test
+    void renameFieldWhenUndeprecating() {
+        // Change the field name at the same time we mark it as not deprecated
+        FileDescriptor deprecatedFile = mutateField("MySimpleRecord", "num_value_2",
+                MetaDataEvolutionValidatorTest::deprecateField);
+        FileDescriptor renamedFile = mutateField("MySimpleRecord", "num_value_2", deprecatedFile,
+                field -> field.clearOptions().setName("num_value_too"));
+        RecordMetaData metaData1 = RecordMetaData.build(deprecatedFile);
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedFile);
+
+        // Under default settings, this is still not allowed (because we ban undeprecating fields)
+        assertFalse(fieldRenameChecker.getBaseValidator().allowsUndeprecatingFields());
+        fieldRenameChecker.assertInvalidRenaming("field is no longer deprecated", true, metaData1, metaData2);
+
+        // If un-deprecating fields is okay, then we get a valid renaming
+        final FieldRenameChecker laxerFieldRenameChecker = new FieldRenameChecker(fieldRenameChecker.getBaseValidator().asBuilder()
+                .setAllowUndeprecatingFields(true)
+                .build());
+        assertTrue(laxerFieldRenameChecker.getBaseValidator().allowsUndeprecatingFields());
+        laxerFieldRenameChecker.assertValidRenaming(true, metaData1, metaData2);
+    }
+
+    @Test
+    void renameMixOfDeprecatedAndUndeprecatedFields() {
+        FileDescriptor deprecatedFile = mutateField("RestaurantTag", "weight", TestRecords4Proto.getDescriptor(),
+                MetaDataEvolutionValidatorTest::deprecateField);
+        deprecatedFile = mutateField("ReviewerStats", "hometown", deprecatedFile,
+                MetaDataEvolutionValidatorTest::deprecateField);
+        assertTrue(deprecatedFile.findMessageTypeByName("RestaurantTag").findFieldByName("weight").getOptions().getDeprecated());
+        assertTrue(deprecatedFile.findMessageTypeByName("ReviewerStats").findFieldByName("hometown").getOptions().getDeprecated());
+        final RecordMetaData metaData1 = RecordMetaData.build(deprecatedFile);
+
+        // Rename one deprecated field
+        FileDescriptor renamedFile = mutateField("ReviewerStats", "hometown", deprecatedFile,
+                field -> field.setName("origin"));
+        assertTrue(renamedFile.findMessageTypeByName("ReviewerStats").findFieldByName("origin").getOptions().getDeprecated());
+        fieldRenameChecker.assertValidRenaming(true, deprecatedFile.findMessageTypeByName("UnionDescriptor"), renamedFile.findMessageTypeByName("UnionDescriptor"));
+        fieldRenameChecker.assertValidRenaming(true, metaData1, replaceRecordsDescriptor(metaData1, renamedFile));
+
+        // Rename another deprecated field
+        renamedFile = mutateField("RestaurantTag", "weight", renamedFile,
+                field -> field.setName("weighting"));
+        assertTrue(renamedFile.findMessageTypeByName("RestaurantTag").findFieldByName("weighting").getOptions().getDeprecated());
+        fieldRenameChecker.assertValidRenaming(true, deprecatedFile.findMessageTypeByName("UnionDescriptor"), renamedFile.findMessageTypeByName("UnionDescriptor"));
+        fieldRenameChecker.assertValidRenaming(true, metaData1, replaceRecordsDescriptor(metaData1, renamedFile));
+
+        // Rename a non deprecated field. Now, the fieldRenameChecker should only consider this valid if it allows
+        // all field renames
+        renamedFile = mutateField("RestaurantRecord", "reviews", renamedFile,
+                field -> field.setName("review_list"));
+        assertFalse(renamedFile.findMessageTypeByName("RestaurantRecord").findFieldByName("review_list").getOptions().getDeprecated());
+        fieldRenameChecker.assertValidRenaming(false, deprecatedFile.findMessageTypeByName("UnionDescriptor"), renamedFile.findMessageTypeByName("UnionDescriptor"));
+        fieldRenameChecker.assertValidRenaming(false, metaData1, replaceRecordsDescriptor(metaData1, renamedFile));
+    }
+
+    @Nonnull
+    static Stream<Named<Boolean>> deprecatedArgs() {
+        return ParameterizedTestUtils.booleans("deprecated");
+    }
+
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldWithIndex(boolean deprecated) {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", simpleRecordType -> {
             simpleRecordType.getFieldBuilderList().stream()
                     .filter(field -> field.getName().equals("str_value_indexed"))
-                    .forEach(field -> field.setName("str_value_indexed_old"));
+                    .forEach(field -> {
+                        if (deprecated) {
+                            deprecateField(field);
+                        }
+                        field.setName("str_value_indexed_old");
+                    });
 
             // Add a new field also called str_value_indexed. This is necessary as the validation logic invoked
             // when building the meta-data will fail if there's an index on a field that doesn't exist
@@ -785,14 +967,8 @@ class MetaDataEvolutionValidatorTest {
         });
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
 
-        assertFalse(validator.allowsFieldRenames());
-        assertInvalid("field renamed", metaData1, metaData2);
-
         // This is rejected even if we allow field renames as the index expression has not been updated
-        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
-                .setAllowFieldRenames(true)
-                .build();
-        assertInvalid("index key expression does not match required", laxerValidator, metaData1, metaData2);
+        fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData2);
 
         // This updates both the field name and its indexes which means that this is actually okay.
         RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updatedFile, protoBuilder ->
@@ -802,12 +978,12 @@ class MetaDataEvolutionValidatorTest {
                     }
                 })
         );
-        assertInvalid("field renamed", metaData1, metaData3);
-        laxerValidator.validate(metaData1, metaData3);
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
     }
 
-    @Test
-    void renameFieldInUniversalIndex() {
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldInUniversalIndex(boolean deprecated) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.addUniversalIndex(new Index("all$num_value_2", "num_value_2"));
         RecordMetaData metaData1 = metaDataBuilder.build();
@@ -815,7 +991,12 @@ class MetaDataEvolutionValidatorTest {
         FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", simpleRecordType -> {
             simpleRecordType.getFieldBuilderList().stream()
                     .filter(field -> field.getName().equals("num_value_2"))
-                    .forEach(field -> field.setName("num_value_2__old"));
+                    .forEach(field -> {
+                        if (deprecated) {
+                            deprecateField(field);
+                        }
+                        field.setName("num_value_2__old");
+                    });
 
             addField(simpleRecordType)
                     .setName("num_value_2")
@@ -824,22 +1005,20 @@ class MetaDataEvolutionValidatorTest {
         });
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
 
-        assertFalse(validator.allowsFieldRenames());
-        assertInvalid("field renamed", metaData1, metaData2);
-
         // Still not allowed as the multi-type index requires the new key expression num_value_2__old on one record
         // type but num_value_2 on another
-        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
-                .setAllowFieldRenames(true)
-                .build();
-        assertTrue(laxerValidator.allowsFieldRenames());
-        assertInvalid("field renames result in inconsistent index definition for multi-type index", laxerValidator, metaData1, metaData2);
+        fieldRenameChecker.assertInvalidRenaming("field renames result in inconsistent index definition for multi-type index", deprecated, metaData1, metaData2);
 
         // Update the other types num_value_2 so now all types rename num_value_2 the same way
         updatedFile = mutateMessageType("MyOtherRecord", updatedFile, otherRecordType -> {
             otherRecordType.getFieldBuilderList().stream()
                     .filter(field -> field.getName().equals("num_value_2"))
-                    .forEach(field -> field.setName("num_value_2__old"));
+                    .forEach(field -> {
+                        if (deprecated) {
+                            deprecateField(field);
+                        }
+                        field.setName("num_value_2__old");
+                    });
 
             addField(otherRecordType)
                     .setName("num_value_2")
@@ -847,23 +1026,27 @@ class MetaDataEvolutionValidatorTest {
                     .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
         });
         RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updatedFile);
-        assertInvalid("field renamed", metaData1, metaData3);
         // Still not allowed as the index hasn't been updated
-        assertInvalid("index key expression does not match required", laxerValidator, metaData1, metaData3);
+        fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData3);
 
         RecordMetaData metaData4 = replaceIndex(metaData3, "all$num_value_2",
                 indexProto -> indexProto.toBuilder().setRootExpression(Key.Expressions.field("num_value_2__old").toKeyExpression()).build());
-        assertInvalid("field renamed", metaData1, metaData4);
-        laxerValidator.validate(metaData1, metaData4);
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData4);
     }
 
-    @Test
-    void renameFieldInPrimaryKey() {
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldInPrimaryKey(boolean deprecated) {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         FileDescriptor updatedFile = mutateMessageType("MySimpleRecord", simpleRecordType -> {
             simpleRecordType.getFieldBuilderList().stream()
                     .filter(field -> field.getName().equals("rec_no"))
-                    .forEach(field -> field.setName("old_rec_no"));
+                    .forEach(field -> {
+                        if (deprecated) {
+                            deprecateField(field);
+                        }
+                        field.setName("old_rec_no");
+                    });
 
             // Add a new field also called rec_no so that we pass meta-data validation
             addField(simpleRecordType)
@@ -873,14 +1056,8 @@ class MetaDataEvolutionValidatorTest {
         });
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
 
-        assertFalse(validator.allowsFieldRenames());
-        assertInvalid("field renamed", metaData1, metaData2);
-
         // This is rejected even if we allow field renames as the primary key has not been updated
-        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
-                .setAllowFieldRenames(true)
-                .build();
-        assertInvalid("record type primary key does not match required", laxerValidator, metaData1, metaData2);
+        fieldRenameChecker.assertInvalidRenaming("record type primary key does not match required", deprecated, metaData1, metaData2);
 
         // Now update the primary key to match the new record name
         RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updatedFile, protoBuilder ->
@@ -890,8 +1067,36 @@ class MetaDataEvolutionValidatorTest {
                     }
                 })
         );
-        assertInvalid("field renamed", metaData1, metaData3);
-        laxerValidator.validate(metaData1, metaData3);
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
+    }
+
+    @Test
+    void deprecateField() {
+        FileDescriptor deprecatedFile = mutateField("MySimpleRecord", "str_value_indexed",
+                MetaDataEvolutionValidatorTest::deprecateField);
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        // The str_value_indexed field is used in indexes. We may want to ban those, which we should do in the
+        // MetaDataValidator (not the evolution validator). If we do, this may fail, and we should change this
+        // test to use a non-indexed field
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, deprecatedFile);
+        // Deprecating fields is okay
+        validator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void undeprecateField() {
+        FileDescriptor deprecatedFile = mutateField("MySimpleRecord", "num_value_3_indexed",
+                MetaDataEvolutionValidatorTest::deprecateField);
+        RecordMetaData metaData1 = RecordMetaData.build(deprecatedFile);
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, TestRecords1Proto.getDescriptor());
+        assertFalse(validator.allowsUndeprecatingFields());
+        assertInvalid("field is no longer deprecated", metaData1, metaData2);
+
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowUndeprecatingFields(true)
+                .build();
+        assertTrue(laxerValidator.allowsUndeprecatingFields());
+        laxerValidator.validate(metaData1, metaData2);
     }
 
     @Test
@@ -989,7 +1194,16 @@ class MetaDataEvolutionValidatorTest {
         final Descriptor selfReferenceUnion = TestSelfReferenceProto.RecordTypeUnion.getDescriptor();
         final Descriptor unspooledUnion = TestSelfReferenceUnspooledProto.RecordTypeUnion.getDescriptor();
         validator.validateUnion(selfReferenceUnion, unspooledUnion);
-        assertInvalid("field removed", unspooledUnion, selfReferenceUnion);
+
+        // Try the other way. Note that one of the fields in the unspooled LinkedListRecord is deprecated, so we need
+        // to allow undeprecation in order to catch the field removal error
+        assertFalse(validator.allowsUndeprecatingFields());
+        assertInvalid("field is no longer deprecated", unspooledUnion, selfReferenceUnion);
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowUndeprecatingFields(true)
+                .build();
+        assertTrue(laxerValidator.allowsUndeprecatingFields());
+        assertInvalid("field removed", laxerValidator, unspooledUnion, selfReferenceUnion);
 
         FileDescriptor updatedUnspooledFile = mutateMessageType("Node", TestSelfReferenceUnspooledProto.getDescriptor(),
                 message -> message.removeField(0));
@@ -1021,24 +1235,22 @@ class MetaDataEvolutionValidatorTest {
         validator.validate(metaData1, metaData2);
     }
 
-    @Test
-    void nestedTypeChangesFieldName() {
-        FileDescriptor updatedFile = mutateField("HeaderRecord", "num", TestRecordsWithHeaderProto.getDescriptor(),
-                field -> field.setName("numb"));
-        assertFalse(validator.allowsFieldRenames());
-        assertInvalid("field renamed", TestRecordsWithHeaderProto.getDescriptor(), updatedFile);
-        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
-                .setAllowFieldRenames(true)
-                .build();
-        assertTrue(laxerValidator.allowsFieldRenames());
-        laxerValidator.validateUnion(TestRecordsWithHeaderProto.RecordTypeUnion.getDescriptor(), updatedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void nestedTypeChangesFieldName(boolean deprecated) {
+        FileDescriptor updatedFile = mutateField("HeaderRecord", "num", TestRecordsWithHeaderProto.getDescriptor(), field -> {
+            if (deprecated) {
+                deprecateField(field);
+            }
+            field.setName("numb");
+        });
+        fieldRenameChecker.assertValidRenaming(deprecated, TestRecordsWithHeaderProto.getDescriptor(), updatedFile);
 
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
         metaDataBuilder.getRecordType("MyRecord").setPrimaryKey(Key.Expressions.field("header").nest(Key.Expressions.concatenateFields("path", "rec_no")));
         RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
         RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedFile);
-        assertInvalid("field renamed", metaData1, metaData2);
-        laxerValidator.validate(metaData1, metaData2);
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData2);
     }
 
     @Test
@@ -1053,24 +1265,23 @@ class MetaDataEvolutionValidatorTest {
         assertInvalid("field type changed", metaData1, metaData2);
     }
 
-    @Test
-    void nestedTypesMerged() {
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void nestedTypesMerged(boolean deprecated) {
         validator.validateUnion(TestUnmergedNestedTypesProto.RecordTypeUnion.getDescriptor(), TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor());
 
-        FileDescriptor updatedMergedFile = mutateField("OneTrueNested", "b", TestMergedNestedTypesProto.getDescriptor(),
-                field -> field.setName("c"));
-        assertFalse(validator.allowsFieldRenames());
-        assertInvalid("field renamed", TestUnmergedNestedTypesProto.getDescriptor(), updatedMergedFile);
-
-        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
-                .setAllowFieldRenames(true)
-                .build();
-        assertTrue(laxerValidator.allowsFieldRenames());
-        laxerValidator.validateUnion(TestUnmergedNestedTypesProto.RecordTypeUnion.getDescriptor(), updatedMergedFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
+        FileDescriptor updatedMergedFile = mutateField("OneTrueNested", "b", TestMergedNestedTypesProto.getDescriptor(), field -> {
+            if (deprecated) {
+                deprecateField(field);
+            }
+            field.setName("c");
+        });
+        fieldRenameChecker.assertValidRenaming(deprecated, TestUnmergedNestedTypesProto.getDescriptor(), updatedMergedFile);
     }
 
-    @Test
-    void nestedTypesMergedWithIndexesAndFieldRenames() {
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void nestedTypesMergedWithIndexesAndFieldRenames(boolean deprecated) {
         // Start with two fields in MyRecord, a and b, pointing to a NestedA and Nested B respectively
         // Then merge the types NestedA and NestedB together. In the merging, field 2 of NestedA is renamed
         // from a_prime to b, and field 2 of NestedB is renamed from b_prime to b. Validate that indexes
@@ -1088,35 +1299,36 @@ class MetaDataEvolutionValidatorTest {
         final RecordMetaData metaData1 = metaDataBuilder.build();
 
         FileDescriptor mergedFile = mutateMessageType("OneTrueNested", TestMergedNestedTypesProto.getDescriptor(), message -> {
-            addField(message)
+            final DescriptorProtos.FieldDescriptorProto.Builder aPrime = addField(message)
                     .setName("a_prime")
                     .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
                     .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
-            addField(message)
+            final DescriptorProtos.FieldDescriptorProto.Builder bPrime = addField(message)
                     .setName("b_prime")
                     .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
                     .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
+            if (deprecated) {
+                deprecateField(aPrime);
+                deprecateField(bPrime);
+                message.getFieldBuilderList().stream()
+                        .filter(field -> field.getName().equals("a") || field.getName().equals("b"))
+                        .forEach(MetaDataEvolutionValidatorTest::deprecateField);
+            }
         });
         final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, mergedFile);
-        assertFalse(validator.allowsFieldRenames());
-        assertInvalid("field renamed", metaData1, metaData2);
 
         // Even with field renames allowed, this should be rejected as the a.a_prime field has not been updated in the index
-        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
-                .setAllowFieldRenames(true)
-                .build();
-        assertTrue(laxerValidator.allowsFieldRenames());
-        assertInvalid("index key expression does not match required", laxerValidator, metaData1, metaData2);
+        fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData2);
 
         // Update the index so that it reflects the new field name for a.a_prime -> a.b
         final RecordMetaData metaData3 = replaceIndex(metaData2, "MyRecord$a.b+b.b", indexProto ->
                 indexProto.toBuilder().setRootExpression(Key.Expressions.concat(Key.Expressions.field("a").nest("b"), Key.Expressions.field("b").nest("b")).toKeyExpression()).build());
-        assertInvalid("field renamed", metaData1, metaData3);
-        laxerValidator.validate(metaData1, metaData3);
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
     }
 
-    @Test
-    void nestedTypesSplit() {
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void nestedTypesSplit(boolean deprecated) {
         validator.validateUnion(TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor(), TestSplitNestedTypesProto.RecordTypeUnion.getDescriptor());
 
         FileDescriptor fieldTypeChangedFile = mutateField("NestedB", "b", TestSplitNestedTypesProto.getDescriptor(),
@@ -1124,22 +1336,24 @@ class MetaDataEvolutionValidatorTest {
         assertInvalid("field type changed", TestUnmergedNestedTypesProto.getDescriptor(), fieldTypeChangedFile);
 
         // Put different renames for different fields
-        FileDescriptor updatedSplitFile = mutateField("NestedA", "b", TestSplitNestedTypesProto.getDescriptor(),
-                field -> field.setName("b_1"));
-        updatedSplitFile = mutateField("NestedB", "b", updatedSplitFile,
-                field -> field.setName("b_2"));
-        assertFalse(validator.allowsFieldRenames());
-        assertInvalid("field renamed", TestMergedNestedTypesProto.getDescriptor(), updatedSplitFile);
-
-        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
-                .setAllowFieldRenames(true)
-                .build();
-        assertTrue(laxerValidator.allowsFieldRenames());
-        laxerValidator.validateUnion(TestMergedNestedTypesProto.RecordTypeUnion.getDescriptor(), updatedSplitFile.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
+        FileDescriptor updatedSplitFile = mutateField("NestedA", "b", TestSplitNestedTypesProto.getDescriptor(), field -> {
+            if (deprecated) {
+                deprecateField(field);
+            }
+            field.setName("b_1");
+        });
+        updatedSplitFile = mutateField("NestedB", "b", updatedSplitFile, field -> {
+            if (deprecated) {
+                deprecateField(field);
+            }
+            field.setName("b_2");
+        });
+        fieldRenameChecker.assertValidRenaming(deprecated, TestMergedNestedTypesProto.getDescriptor(), updatedSplitFile);
     }
 
-    @Test
-    void nestedTypesSplitWithIndex() {
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void nestedTypesSplitWithIndex(boolean deprecated) {
         // Start with two fields in MyRecord, a and b, both pointing to OneTrueNested with fields a and b
         // In the split file, a now points to a NestedA and b points to a NestedB
         // Rename the b field in NestedA to b_1 and the b field in NestedB to b_2 and validate that the indexes
@@ -1152,6 +1366,9 @@ class MetaDataEvolutionValidatorTest {
         FileDescriptor splitFile = mutateMessageType("NestedA", TestSplitNestedTypesProto.getDescriptor(), message -> {
             message.getFieldBuilderList().forEach(field -> {
                 if (field.getName().equals("b")) {
+                    if (deprecated) {
+                        deprecateField(field);
+                    }
                     field.setName("b_1");
                 }
             });
@@ -1163,6 +1380,9 @@ class MetaDataEvolutionValidatorTest {
         splitFile = mutateMessageType("NestedB", splitFile, message -> {
             message.getFieldBuilderList().forEach(field -> {
                 if (field.getName().equals("b")) {
+                    if (deprecated) {
+                        deprecateField(field);
+                    }
                     field.setName("b_2");
                 }
             });
@@ -1172,21 +1392,14 @@ class MetaDataEvolutionValidatorTest {
                     .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
         });
         final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, splitFile);
-        assertFalse(validator.allowsFieldRenames());
-        assertInvalid("field renamed", metaData1, metaData2);
 
-        // Even with field renames allowed, this should be rejected as the a.b and b.b fields field have not been updated in the index
-        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
-                .setAllowFieldRenames(true)
-                .build();
-        assertTrue(laxerValidator.allowsFieldRenames());
-        assertInvalid("index key expression does not match required", laxerValidator, metaData1, metaData2);
+        // Even with field renames allowed, this should be rejected as the a.b and b.b fields have not been updated in the index
+        fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData2);
 
         // Update the index so that it reflects the new field name for a.b -> a.b_1 and b.b -> b.b_2
         final RecordMetaData metaData3 = replaceIndex(metaData2, "MyRecord$a.b+b.b", indexProto ->
                 indexProto.toBuilder().setRootExpression(Key.Expressions.concat(Key.Expressions.field("a").nest("b_1"), Key.Expressions.field("b").nest("b_2")).toKeyExpression()).build());
-        assertInvalid("field renamed", metaData1, metaData3);
-        laxerValidator.validate(metaData1, metaData3);
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
     }
 
     @Test
