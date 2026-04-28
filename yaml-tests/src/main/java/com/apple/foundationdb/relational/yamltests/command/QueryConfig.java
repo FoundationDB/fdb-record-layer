@@ -113,6 +113,7 @@ public abstract class QueryConfig {
 
     private static final Set<String> RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT, QUERY_CONFIG_RESULT_METADATA);
     private static final Set<String> VERSION_DEPENDENT_RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, QUERY_CONFIG_INITIAL_VERSION_LESS_THAN);
+    private static final Set<String> RESULT_CONSUMING_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
 
     @Nullable private final Object value;
     @Nonnull private final YamlReference reference;
@@ -498,8 +499,6 @@ public abstract class QueryConfig {
             throw Assert.failUnchecked("‼️ '" + key + "' is not a valid configuration");
         }
     }
-
-    private static final Set<String> RESULT_CONSUMING_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
 
     private static void validateConfigs(List<QueryConfig> configs, @Nonnull final YamlReference reference) {
         Assert.thatUnchecked(configs.stream().skip(1)
