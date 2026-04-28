@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -69,7 +70,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.v
  */
 class SelectMergeRuleTest {
     @Nonnull
-    private static final RuleTestHelper testHelper = new RuleTestHelper(new SelectMergeRule());
+    private static final RuleTestHelper testHelper = new RuleTestHelper(new SelectMergeRule(), PlannerPhase.REWRITING);
 
     @BeforeEach
     void setUp() {

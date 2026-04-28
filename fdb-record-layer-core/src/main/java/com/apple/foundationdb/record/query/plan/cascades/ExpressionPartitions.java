@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -31,6 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Helpers for collections of {@link ExpressionPartition}s.
@@ -77,13 +79,28 @@ public class ExpressionPartitions {
                             .filter(attributeEntry ->
                                     rollupProperties.contains(attributeEntry.getKey()))
                             .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-            rolledUpMap.compute(filteredPropertiesMap, (key, oldValue) -> {
-                if (oldValue == null) {
-                    return new LinkedIdentityMap<>(partition.getNonPartitioningPropertiesMap());
-                }
-                oldValue.putAll(partition.getNonPartitioningPropertiesMap());
-                return oldValue;
-            });
+
+            final var nonTrackedPartitioningProperties = rollupProperties.stream()
+                    .filter(property -> !groupingPropertyMap.containsKey(property))
+                    .collect(Collectors.toSet());
+
+            for (final E expression : partition.getExpressions()) {
+                final Map<ExpressionProperty<?>, ?> partitioningPropertiesForExpression = Streams.concat(
+                        filteredPropertiesMap.entrySet().stream(),
+                        nonTrackedPartitioningProperties.stream().map(
+                                expressionProperty -> Map.entry(
+                                        expressionProperty, expressionProperty.createVisitor().visit(expression)))
+                        ).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+                final var nonPartitioningPropertiesMapForExpression = partition.getNonPartitioningPropertiesMap().get(expression);
+                rolledUpMap.compute(partitioningPropertiesForExpression, (key, oldValue) -> {
+                    if (oldValue == null) {
+                        oldValue = new LinkedHashMap<>();
+                    }
+                    oldValue.put(expression, nonPartitioningPropertiesMapForExpression);
+                    return oldValue;
+                });
+            }
         }
 
         final var resultsBuilder = ImmutableList.<P>builder();

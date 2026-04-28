@@ -112,12 +112,18 @@ public class StreamGrouping<M extends Message> {
                           @Nullable final RecordCursorProto.PartialAggregationResult partialAggregationResult) {
         this.groupingKeyValue = groupingKeyValue;
         this.aggregateValue = aggregateValue;
+
         if (partialAggregationResult == null) {
             this.accumulator = aggregateValue.createAccumulatorWithInitialState(context.getTypeRepository(), null);
         } else {
             this.accumulator = aggregateValue.createAccumulatorWithInitialState(context.getTypeRepository(), partialAggregationResult.getAccumulatorStatesList());
+        }
+
+        if (partialAggregationResult != null && groupingKeyValue != null) {
             try {
-                this.currentGroup = DynamicMessage.parseFrom(context.getTypeRepository().newMessageBuilder(groupingKeyValue.getResultType()).getDescriptorForType(), partialAggregationResult.getGroupKey().toByteArray());
+                this.currentGroup = DynamicMessage.parseFrom(
+                        context.getTypeRepository().newMessageBuilder(groupingKeyValue.getResultType()).getDescriptorForType(),
+                        partialAggregationResult.getGroupKey().toByteArray());
             } catch (InvalidProtocolBufferException e) {
                 throw new RuntimeException(e);
             }
@@ -212,16 +218,15 @@ public class StreamGrouping<M extends Message> {
 
     @Nullable
     public RecordCursorProto.PartialAggregationResult getPartialAggregationResult() {
-        if (currentGroup == null) {
-            return null;
-        }
         List<RecordCursorProto.AccumulatorState> accumulatorStates = accumulator.getAccumulatorStates();
         if (accumulatorStates.isEmpty()) {
             return null;
         }
-        return RecordCursorProto.PartialAggregationResult.newBuilder()
-                .setGroupKey(Objects.requireNonNull((Message)currentGroup).toByteString())
-                .addAllAccumulatorStates(accumulatorStates)
-                .build();
+        final var builder = RecordCursorProto.PartialAggregationResult.newBuilder()
+                .addAllAccumulatorStates(accumulatorStates);
+        if (currentGroup != null) {
+            builder.setGroupKey(Objects.requireNonNull((Message)currentGroup).toByteString());
+        }
+        return builder.build();
     }
 }
