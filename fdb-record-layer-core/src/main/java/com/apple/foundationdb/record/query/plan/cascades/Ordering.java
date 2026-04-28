@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -503,6 +503,22 @@ public class Ordering {
         }
 
         return Ordering.ofOrderingSet(bindingMapBuilder.build(), mappedOrderingSet, isDistinct());
+    }
+
+    /**
+     * Pulls up this ordering from a child quantifier's column space into the parent expression's result-value
+     * space. This is the common pattern used by join implementation rules to translate a child plan's ordering
+     * into the join output's ordering.
+     *
+     * @param resultValue the parent expression's result value
+     * @param childAlias the alias of the child quantifier whose ordering is being pulled up
+     * @return the translated ordering in the parent's column space
+     */
+    @Nonnull
+    public Ordering pullUpForJoin(@Nonnull final Value resultValue, @Nonnull final CorrelationIdentifier childAlias) {
+        return pullUp(resultValue, EvaluationContext.empty(),
+                AliasMap.ofAliases(childAlias, Quantifier.current()),
+                resultValue.getCorrelatedTo());
     }
 
     @Nonnull

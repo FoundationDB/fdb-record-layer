@@ -1,0 +1,256 @@
+#
+# join-tests-outer.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    CREATE TABLE "emp" ("id" BIGINT, "fname" STRING, "lname" STRING, "dept_id" BIGINT, PRIMARY KEY ("id"))
+    CREATE INDEX "emp$fname" AS SELECT "fname" FROM "emp" ORDER BY "fname"
+    CREATE TABLE "dept" ("id" BIGINT, "name" STRING, PRIMARY KEY ("id"))
+    CREATE INDEX "dept$name" AS SELECT "name" FROM "dept" ORDER BY "name"
+    CREATE TABLE "project" ("id" BIGINT, "name" STRING, "emp_id" BIGINT, PRIMARY KEY ("id"))
+    CREATE TABLE "award" ("id" BIGINT, "name" STRING, "emp_id" BIGINT, PRIMARY KEY ("id"))
+---
+setup:
+  steps:
+    - query:
+        INSERT INTO "emp"
+        VALUES (1, 'Alice', 'Smith', 1),
+               (2, 'Bob', 'Jones', 1),
+               (3, 'Carol', 'Lee', 2),
+               (4, 'Dave', 'Kim', 99)
+    - query:
+        INSERT INTO "dept"
+        VALUES (1, 'Engineering'),
+               (2, 'Sales'),
+               (3, 'Marketing')
+    - query:
+        INSERT INTO "project"
+        VALUES (1, 'Alpha', 1),
+               (2, 'Beta', 2),
+               (3, 'Gamma', 1)
+---
+test_block:
+  preset: single_repetition_ordered
+  tests:
+    -
+      # RIGHT OUTER JOIN is recognized by the parser but not yet supported.
+      - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" RIGHT OUTER JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
+      - error: '0AF00'
+    -
+      # FULL OUTER JOIN is not recognized by the parser and should produce a syntax error.
+      - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" FULL OUTER JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
+      - error: '42601'
+    -
+      # Basic LEFT JOIN: All employees appear, including Dave with no matching department.
+      # In the FLATMAP subplan, notice the `… | FILTER … | ON EMPTY NULL` pattern that provides the outer join semantics.
+      - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | MAP (_._1 AS fname, _._5 AS name)"
+      - unorderedResult: [
+          {'Alice', 'Engineering'},
+          {'Bob', 'Engineering'},
+          {'Carol', 'Sales'},
+          {'Dave', !null _}]
+    -
+      # LEFT JOIN with a WHERE on the left side such that only matching rows survive (no null padded rows in the result).
+      # TODO The OUTER JOIN could be rewritten to an INNER JOIN in this case.
+      - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" WHERE "e"."dept_id" < 3;
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | FILTER _._3 LESS_THAN promote(@c28 AS LONG) | MAP (_._1 AS fname, _._5 AS name)"
+      - unorderedResult: [
+          {'Alice', 'Engineering'},
+          {'Bob', 'Engineering'},
+          {'Carol', 'Sales'}]
+    -
+      # LEFT JOIN with WHERE on the right side filtering out null-padded rows.
+      # TODO The OUTER JOIN could be rewritten to an INNER JOIN in this case.
+      - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" WHERE "d"."name" = 'Engineering';
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | FILTER _._5 EQUALS promote(@c28 AS STRING) | MAP (_._1 AS fname, _._5 AS name)"
+      - unorderedResult: [
+          {'Alice', 'Engineering'},
+          {'Bob', 'Engineering'}]
+    -
+      # LEFT JOIN with WHERE … IS NULL to find unmatched rows (aka. the “anti-join pattern”).
+      - query: SELECT "e"."fname", "e"."lname" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" WHERE "d"."id" IS NULL;
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | FILTER _._4 IS_NULL | MAP (_._1 AS fname, _._2 AS lname)"
+      - result: [{'Dave', 'Kim'}]
+    -
+      # LEFT JOIN where the right side has multiple matches (1:N).
+      - query: SELECT "d"."name", "p"."name" FROM "dept" "d" LEFT JOIN "project" "p" ON "d"."id" = "p"."emp_id";
+      - explain: "ISCAN(dept$name <,>) | FLATMAP q0 -> { SCAN([IS project]) | FILTER q0.id EQUALS _.emp_id | MAP (_.id AS _0, _.name AS _1, _.emp_id AS _2) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.name AS _1, q1._0 AS _2, q1._1 AS _3, q1._2 AS _4) } | MAP (_._1 AS _0, _._3 AS _1)"
+      - unorderedResult: [
+          {'Engineering', 'Alpha'},
+          {'Engineering', 'Gamma'},
+          {'Sales', 'Beta'},
+          {'Marketing', !null _}]
+    -
+      # LEFT JOIN projecting only left-side columns.
+      - query: SELECT "e"."id", "e"."fname" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | MAP (_._0 AS id, _._1 AS fname)"
+      - unorderedResult: [
+          {!l 1, 'Alice'},
+          {!l 2, 'Bob'},
+          {!l 3, 'Carol'},
+          {!l 4, 'Dave'}]
+    -
+      # LEFT JOIN … USING syntax.
+      - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept" "d" USING ("id");
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.id EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | MAP (_._1 AS fname, _._5 AS name)"
+      - unorderedResult: [
+          {'Alice', 'Engineering'},
+          {'Bob', 'Sales'},
+          {'Carol', 'Marketing'},
+          {'Dave', !null _}]
+    -
+      # Two chained LEFT JOINs: emp › dept › project.
+      - query: SELECT "e"."fname", "d"."name", "p"."name" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" LEFT JOIN "project" "p" ON "e"."id" = "p"."emp_id";
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | FLATMAP q2 -> { SCAN([IS project]) | FILTER q2._0 EQUALS _.emp_id | MAP (_.id AS _0, _.name AS _1, _.emp_id AS _2) | ON EMPTY NULL AS q3 RETURN (q2._0 AS _0, q2._1 AS _1, q2._2 AS _2, q2._3 AS _3, q2._4 AS _4, q2._5 AS _5, q3._0 AS _6, q3._1 AS _7, q3._2 AS _8) } | MAP (_._1 AS fname, _._5 AS _1, _._7 AS _2)"
+      - unorderedResult: [
+          {'Alice', 'Engineering', 'Alpha'},
+          {'Alice', 'Engineering', 'Gamma'},
+          {'Bob', 'Engineering', 'Beta'},
+          {'Carol', 'Sales', !null _},
+          {'Dave', !pos 2: !null _, !pos 3: !null _}]
+    -
+      # SELECT * with LEFT JOIN exposes all columns from both sides.
+      - query: SELECT * FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | MAP (_._0 AS _0, _._1 AS fname, _._2 AS lname, _._3 AS dept_id, _._4 AS _4, _._5 AS name)"
+      - unorderedResult: [
+          {!pos 1: !l 1, !pos 2: 'Alice', !pos 3: 'Smith', !pos 4: !l 1, !pos 5: !l 1, !pos 6: 'Engineering'},
+          {!pos 1: !l 2, !pos 2: 'Bob', !pos 3: 'Jones', !pos 4: !l 1, !pos 5: !l 1, !pos 6: 'Engineering'},
+          {!pos 1: !l 3, !pos 2: 'Carol', !pos 3: 'Lee', !pos 4: !l 2, !pos 5: !l 2, !pos 6: 'Sales'},
+          {!pos 1: !l 4, !pos 2: 'Dave', !pos 3: 'Kim', !pos 4: !l 99, !pos 5: !null _, !pos 6: !null _}]
+    -
+      # LEFT JOIN with compound ON condition (two predicates in the ON clause, combined with AND).
+      - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" AND "d"."name" <> 'Sales';
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id AND _.name NOT_EQUALS promote(@c29 AS STRING) | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | MAP (_._1 AS fname, _._5 AS name)"
+      - unorderedResult: [
+          {'Alice', 'Engineering'},
+          {'Bob', 'Engineering'},
+          {'Carol', !null _},
+          {'Dave', !null _}]
+    -
+      # LEFT JOIN against an empty right table: Every left row is null-padded.
+      - query: SELECT "e"."fname", "a"."name" FROM "emp" "e" LEFT JOIN "award" "a" ON "e"."id" = "a"."emp_id";
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS award]) | FILTER q0.id EQUALS _.emp_id | MAP (_.id AS _0, _.name AS _1, _.emp_id AS _2) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5, q1._2 AS _6) } | MAP (_._1 AS fname, _._5 AS name)"
+      - unorderedResult: [
+          {'Alice', !null _},
+          {'Bob', !null _},
+          {'Carol', !null _},
+          {'Dave', !null _}]
+    -
+      # INNER JOIN followed by LEFT JOIN.
+      - query: SELECT "e"."fname", "d"."name", "p"."name" FROM "emp" "e" JOIN "dept" "d" ON "e"."dept_id" = "d"."id" LEFT JOIN "project" "p" ON "e"."id" = "p"."emp_id";
+      - explain: "ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER _.dept_id EQUALS q0.id AS q1 RETURN (q1.id AS _0, q1.fname AS fname, q1.lname AS lname, q1.dept_id AS dept_id, q0.id AS _4, q0.name AS name) } | FLATMAP q2 -> { SCAN([IS project]) | FILTER q2._0 EQUALS _.emp_id | MAP (_.id AS _0, _.name AS _1, _.emp_id AS _2) | ON EMPTY NULL AS q3 RETURN (q2._0 AS _0, q2.fname AS _1, q2.lname AS _2, q2.dept_id AS _3, q2._4 AS _4, q2.name AS _5, q3._0 AS _6, q3._1 AS _7, q3._2 AS _8) } | MAP (_._1 AS fname, _._5 AS _1, _._7 AS _2)"
+      - unorderedResult: [
+          {'Alice', 'Engineering', 'Alpha'},
+          {'Alice', 'Engineering', 'Gamma'},
+          {'Bob', 'Engineering', 'Beta'},
+          {'Carol', 'Sales', !null _}]
+    -
+      # LEFT JOIN with ORDER BY on a preserved-side column (to exercise the push-down of ordering).
+      - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" ORDER BY "e"."fname";
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | MAP (_._1 AS fname, _._5 AS name)"
+      - result: [
+          {'Alice', 'Engineering'},
+          {'Bob', 'Engineering'},
+          {'Carol', 'Sales'},
+          {'Dave', !null _}]
+    -
+      # LEFT JOIN with GROUP BY and COUNT(*): Count projects per department including departments with none.
+      # Note: COUNT(*) counts rows, not non-null values, so Marketing gets 1 (the null-padded row is counted).
+      # Use COUNT(<column>) to get 0 for unmatched departments — see the next test.
+      - query: SELECT "d"."name", COUNT(*) FROM "dept" "d" LEFT JOIN "project" "p" ON "d"."id" = "p"."emp_id" GROUP BY "d"."name";
+      - explain: "ISCAN(dept$name <,>) | FLATMAP q0 -> { SCAN([IS project]) | FILTER q0.id EQUALS _.emp_id | MAP (_.id AS _0, _.name AS _1, _.emp_id AS _2) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.name AS _1, q1._0 AS _2, q1._1 AS _3, q1._2 AS _4) } | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0._1 AS _0) | MAP (_._0._0 AS name, _._1._0 AS _1)"
+      - unorderedResult: [
+          {'Engineering', !l 2},
+          {'Sales', !l 1},
+          {'Marketing', !l 1}]
+    -
+      # LEFT JOIN with GROUP BY and COUNT(column): Unlike COUNT(*), COUNT(<column>) skips NULLs, so
+      # departments with no matching projects correctly get 0.
+      - query: SELECT "d"."name", COUNT("p"."id") FROM "dept" "d" LEFT JOIN "project" "p" ON "d"."id" = "p"."emp_id" GROUP BY "d"."name";
+      - unorderedResult: [
+          {'Engineering', !l 2},
+          {'Sales', !l 1},
+          {'Marketing', !l 0}]
+    -
+      # Scalar COUNT(*) over a LEFT JOIN.
+      - query: SELECT COUNT(*) FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - result: [{!l 4}]
+    -
+      # LEFT JOIN with a derived table (subquery) as the right side.
+      - query: SELECT "e"."fname", "sq"."name" FROM "emp" "e" LEFT JOIN (SELECT "id", "name" FROM "dept" WHERE "id" < 3) AS "sq" ON "e"."dept_id" = "sq"."id";
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept, [LESS_THAN promote(@c23 AS LONG)]]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | MAP (_._1 AS fname, _._5 AS name)"
+      - unorderedResult: [
+          {'Alice', 'Engineering'},
+          {'Bob', 'Engineering'},
+          {'Carol', 'Sales'},
+          {'Dave', !null _}]
+    -
+      # Compound WHERE referencing both sides: a left-side filter combined with the “anti-join pattern” on the right.
+      - query: SELECT "e"."fname" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" WHERE "e"."id" > 1 AND "d"."id" IS NULL;
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | FILTER _._0 GREATER_THAN promote(@c24 AS LONG) AND _._4 IS_NULL | MAP (_._1 AS fname)"
+      - result: [{'Dave'}]
+    -
+      # COALESCE on a null-padded column.
+      - query: SELECT "e"."fname", COALESCE("d"."name", 'None') FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | MAP (_._1 AS fname, coalesce_string(_._5, promote(@c11 AS STRING)) AS _1)"
+      - unorderedResult: [
+          {'Alice', 'Engineering'},
+          {'Bob', 'Engineering'},
+          {'Carol', 'Sales'},
+          {'Dave', 'None'}]
+    -
+      # Self LEFT JOIN: Find employees whose `dept_id` does not match any other employee id.
+      - query: SELECT "e1"."fname" FROM "emp" "e1" LEFT JOIN "emp" "e2" ON "e1"."dept_id" = "e2"."id" WHERE "e2"."id" IS NULL;
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(emp$fname <,> -> [fname: KEY:[0], id: KEY:[2]]) | FILTER q0.dept_id EQUALS _.id | FETCH | MAP (_.id AS _0, _.fname AS _1, _.lname AS _2, _.dept_id AS _3) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5, q1._2 AS _6, q1._3 AS _7) } | FILTER _._4 IS_NULL | MAP (_._1 AS fname)"
+      - result: [{'Dave'}]
+    -
+      # Explicit LEFT OUTER JOIN keyword (OUTER is optional but must be accepted).
+      - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT OUTER JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | MAP (_._1 AS fname, _._5 AS name)"
+      - unorderedResult: [
+          {'Alice', 'Engineering'},
+          {'Bob', 'Engineering'},
+          {'Carol', 'Sales'},
+          {'Dave', !null _}]
+    -
+      # INNER JOIN followed by LEFT JOIN … USING (exercises `collapseLeftSideOperators()` and the USING branch).
+      # Uses "name" which exists in `dept` (from the collapsed left side) and `project`.
+      - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" JOIN "dept" "d" ON "e"."dept_id" = "d"."id" LEFT JOIN "project" "p" USING ("name");
+      - explain: "ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER _.dept_id EQUALS q0.id AS q1 RETURN (q1.id AS _0, q1.fname AS fname, q1.lname AS lname, q1.dept_id AS dept_id, q0.id AS _4, q0.name AS name) } | FLATMAP q2 -> { SCAN([IS project]) | FILTER q2.name EQUALS _.name | MAP (_.id AS _0, _.name AS _1, _.emp_id AS _2) | ON EMPTY NULL AS q3 RETURN (q2._0 AS _0, q2.fname AS _1, q2.lname AS _2, q2.dept_id AS _3, q2._4 AS _4, q2.name AS _5, q3._0 AS _6, q3._1 AS _7, q3._2 AS _8) } | MAP (_._1 AS fname, _._5 AS name)"
+      - unorderedResult: [
+          {'Alice', 'Engineering'},
+          {'Bob', 'Engineering'},
+          {'Carol', 'Sales'}]
+    -
+      # LEFT JOIN with a range (non-equality) condition in the ON clause.
+      - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" >= "d"."id";
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id GREATER_THAN_OR_EQUALS _.id | MAP (_.id AS _0, _.name AS _1) | ON EMPTY NULL AS q1 RETURN (q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1._0 AS _4, q1._1 AS _5) } | MAP (_._1 AS fname, _._5 AS name)"
+      - unorderedResult: [
+          {'Alice', 'Engineering'},
+          {'Bob', 'Engineering'},
+          {'Carol', 'Engineering'},
+          {'Carol', 'Sales'},
+          {'Dave', 'Engineering'},
+          {'Dave', 'Sales'},
+          {'Dave', 'Marketing'}]
