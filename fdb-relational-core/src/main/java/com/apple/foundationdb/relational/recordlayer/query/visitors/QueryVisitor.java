@@ -69,6 +69,16 @@ import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.relational.generated.RelationalParser.ALL;
 
+/**
+ * The main ANTLR visitor that translates a parsed SQL statement into a logical query plan. It walks the parse tree
+ * produced by {@link RelationalParser} and builds a graph of {@link LogicalOperator} objects, which are later lowered
+ * into Cascades relational expressions (such as {@code SelectExpression}).
+ *
+ * <p>Translation state is accumulated in a {@link LogicalPlanFragment}, a mutable container for the operators and
+ * pending join predicates of the current SQL scope. Fragments are managed as a stack on the {@link BaseVisitor}: Each
+ * {@code SELECT} block (including subqueries) pushes a new fragment, and pops it when done. See
+ * {@link BaseVisitor#pushPlanFragment()} for details.
+ */
 @API(API.Status.EXPERIMENTAL)
 public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 

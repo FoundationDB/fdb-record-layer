@@ -36,7 +36,18 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * This represents an SQL fragment that comprises one or more {@link LogicalOperator}(s).
+ * A SQL fragment comprising one or more {@link LogicalOperator} instances. This is a mutable accumulator that is used
+ * during SQL-to-logical-plan translation to collect the logical operators and related components (such as applicable
+ * join predicates) that belong to a single query scope.
+ *
+ * <p>Each SQL {@code SELECT} block (including subqueries and CTEs) gets its own fragment. As the ANTLR visitor walks
+ * the {@code FROM} clause it adds table-source operators via {@link #addOperator} and deferred inner-join predicates
+ * via {@link #addInnerJoinExpression}. At the end of a scope, everything in the fragment is folded into a
+ * {@code RelationalExpression} (such as a {@code SelectExpression}).
+ *
+ * <p>Fragments form a stack mirroring the nesting of SQL scopes. A subquery pushes a new child fragment; when the
+ * subquery is done the child is popped and the parent fragment becomes current again. The parent link lets column
+ * resolution walk up the stack to find outer-scope correlations (see {@link #getOuterCorrelations}).
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
