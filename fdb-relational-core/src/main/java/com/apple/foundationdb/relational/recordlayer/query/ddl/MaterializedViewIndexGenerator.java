@@ -601,10 +601,14 @@ public final class MaterializedViewIndexGenerator {
         final var groupByContainsOneAggregation = expressions.stream().filter(r -> r instanceof GroupByExpression).map(r -> (GroupByExpression) r).noneMatch(g -> Values.deconstructRecord(g.getAggregateValue()).size() > 1);
         Assert.thatUnchecked(groupByContainsOneAggregation, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found group by expression with more than one aggregation");
 
-        // result values of each operation must be simple or arithmetic values.
-        final var allRecordValues = expressions.stream().allMatch(r -> (r.getResultValue().getResultType().getTypeCode() == Type.TypeCode.RECORD));
+        // Result values of each operation must be record-typed. `ExplodeExpression` is excluded because
+        // unnesting a scalar array (e.g., a STRING ARRAY) produces scalar elements, not records.
+        final var allRecordValues = expressions.stream()
+                .filter(r -> !(r instanceof ExplodeExpression))
+                .allMatch(r -> (r.getResultValue().getResultType().getTypeCode() == Type.TypeCode.RECORD));
         Assert.thatUnchecked(allRecordValues, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, some operators return non-record values");
 
+        // Fields of result values of each record-typed operation must be simple or arithmetic values.
         final var allSimpleValues = expressions.stream()
                 .filter(r -> r.getResultType().getInnerType() instanceof Type.Record)
                 .allMatch(r -> Values.deconstructRecord(r.getResultValue()).stream().allMatch(v -> v instanceof FieldValue || v instanceof QuantifiedObjectValue || v instanceof AggregateValue || v instanceof ArithmeticValue || v instanceof LiteralValue));
