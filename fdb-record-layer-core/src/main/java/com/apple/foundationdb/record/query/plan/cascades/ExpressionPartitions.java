@@ -62,6 +62,27 @@ public class ExpressionPartitions {
                 (PartitionCreator<E, ExpressionPartition<E>>)ExpressionPartition::new);
     }
 
+    /**
+     * Merges (rolls up) a collection of partitions into fewer, coarser partitions by retaining only the
+     * properties in {@code rollupProperties} as grouping keys.
+     *
+     * <p>Each incoming partition carries a map of <em>partitioning properties</em> (the key that defines the
+     * partition) and a map of <em>non-partitioning properties</em> (per-expression property values within the
+     * partition). This method projects the partitioning-property map down to the subset specified by
+     * {@code rollupProperties}. Partitions whose projected keys are equal are merged: their non-partitioning
+     * property maps are combined so that the resulting partition contains the union of all expressions from the
+     * merged input partitions.
+     *
+     * <p>Passing an empty {@code rollupProperties} set causes <em>all</em> partitions to merge into one
+     * (a full roll-up), since every partition projects to the same empty key.
+     *
+     * @param <E>              the expression type
+     * @param <P>              the partition type
+     * @param partitions       the input partitions to roll up
+     * @param rollupProperties the properties to keep as grouping keys; all others are discarded from the key
+     * @param partitionCreator factory for constructing result partitions
+     * @return a list of rolled-up partitions, one per distinct projected key
+     */
     @Nonnull
     static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> rollUpTo(@Nonnull final Collection<P> partitions,
                                                                                                @Nonnull final Set<ExpressionProperty<?>> rollupProperties,
