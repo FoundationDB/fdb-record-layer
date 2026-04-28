@@ -40,6 +40,7 @@ import com.google.protobuf.Descriptors.EnumDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -154,6 +155,7 @@ public class MetaDataEvolutionValidator {
         validateUnion(oldMetaData.getUnionDescriptor(), newMetaData.getUnionDescriptor());
         Map<String, String> typeRenames = getTypeRenames(oldMetaData.getUnionDescriptor(), newMetaData.getUnionDescriptor());
         validateRecordTypes(oldMetaData, newMetaData, typeRenames);
+        validateSyntheticTypes(oldMetaData, newMetaData, typeRenames);
         validateCurrentAndFormerIndexes(oldMetaData, newMetaData, typeRenames);
     }
 
@@ -440,6 +442,255 @@ public class MetaDataEvolutionValidator {
         }
     }
 
+    private void validateSyntheticTypes(@Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData,
+                                        @Nonnull Map<String, String> typeRenames) {
+        final Map<Object, SyntheticRecordType<?>> oldSyntheticTypes = getSyntheticTypesByRecordTypeKey(oldMetaData);
+        if (oldSyntheticTypes.isEmpty()) {
+            return;
+        }
+        final Map<Object, SyntheticRecordType<?>> newSyntheticTypes = getSyntheticTypesByRecordTypeKey(newMetaData);
+        for (Map.Entry<Object, SyntheticRecordType<?>> oldEntry : oldSyntheticTypes.entrySet()) {
+            Object recordTypeKey = oldEntry.getKey();
+            final SyntheticRecordType<?> oldSyntheticType = oldEntry.getValue();
+            @Nullable SyntheticRecordType<?> newSyntheticType = newSyntheticTypes.get(recordTypeKey);
+            if (newSyntheticType == null) {
+                // If the newSyntheticType is null, then it has been removed. This would mean that all the
+                // indexes that reference it have likewise been removed (or the meta-data validator would fail).
+                // So, we can ignore it
+                continue;
+            }
+            validateSyntheticType(oldSyntheticType, newSyntheticType, typeRenames);
+        }
+    }
+
+    @Nonnull
+    private Map<Object, SyntheticRecordType<?>> getSyntheticTypesByRecordTypeKey(@Nonnull RecordMetaData metaData) {
+        final Map<Object, SyntheticRecordType<?>> byTypeKeyMap = new HashMap<>();
+        for (SyntheticRecordType<?> syntheticType : metaData.getSyntheticRecordTypes().values()) {
+            byTypeKeyMap.put(syntheticType.getRecordTypeKey(), syntheticType);
+        }
+        return byTypeKeyMap;
+    }
+
+    private void validateSyntheticType(@Nonnull SyntheticRecordType<?> oldType, @Nonnull SyntheticRecordType<?> newType, @Nonnull Map<String, String> typeRenames) {
+        if (disallowTypeRenames && !oldType.getName().equals(newType.getName())) {
+            throw new MetaDataException("synthetic record type name changed",
+                    LogMessageKeys.OLD_RECORD_TYPE, oldType.getName(),
+                    LogMessageKeys.NEW_RECORD_TYPE, newType.getName());
+        }
+        if (!(oldType.getClass().equals(newType.getClass()))) {
+            throw new MetaDataException("synthetic record type changed type",
+                    LogMessageKeys.EXPECTED, oldType.getName(),
+                    LogMessageKeys.ACTUAL, newType.getClass().getName(),
+                    LogMessageKeys.RECORD_TYPE, newType.getName());
+        }
+        if (oldType instanceof JoinedRecordType) {
+            validateJoinedRecordType((JoinedRecordType) oldType, (JoinedRecordType) newType, typeRenames);
+        } else if (oldType instanceof UnnestedRecordType) {
+            validateUnnestedRecordType((UnnestedRecordType) oldType, (UnnestedRecordType) newType, typeRenames);
+        } else {
+            throw new MetaDataException("unknown synthetic record type",
+                    LogMessageKeys.OLD_RECORD_TYPE, oldType.getName(),
+                    LogMessageKeys.NEW_RECORD_TYPE, newType.getName(),
+                    LogMessageKeys.RECORD_TYPE, oldType.getClass().getName());
+        }
+    }
+
+    private void validateJoinedRecordType(@Nonnull JoinedRecordType oldType, @Nonnull JoinedRecordType newType, @Nonnull Map<String, String> typeRenames) {
+        // Validate constituents
+        final List<JoinedRecordType.JoinConstituent> oldConstituents = oldType.getConstituents();
+        final List<JoinedRecordType.JoinConstituent> newConstituents = newType.getConstituents();
+        if (oldConstituents.size() != newConstituents.size()) {
+            throw new MetaDataException("join constituent count changed",
+                    LogMessageKeys.EXPECTED, oldConstituents.size(),
+                    LogMessageKeys.ACTUAL, newConstituents.size(),
+                    LogMessageKeys.RECORD_TYPE, newType.getName());
+        }
+
+        for (int i = 0; i < oldConstituents.size(); i++) {
+            // We use the definition order of join constituents here to find a correspondence between
+            // old and new types. This is important because the position in the definition is how the
+            // logic within the code identifies different constituents (e.g., the primary key component
+            // at position i + 1 is the nested primary key of the i'th constituent).
+            JoinedRecordType.JoinConstituent oldConstituent = oldConstituents.get(i);
+            JoinedRecordType.JoinConstituent newConstituent = newConstituents.get(i);
+
+            if (!allowFieldRenames && !oldConstituent.getName().equals(newConstituent.getName())) {
+                // The join constituent names are used in things like index field declarations, so changing
+                // them is analogous to a field change. Unlike regular field names, the name shouldn't appear
+                // in queries (only internal data structures like index definitions), so it may be okay to
+                // loosen this.
+                throw new MetaDataException("join constituent name changed",
+                        LogMessageKeys.EXPECTED, oldConstituent.getName(),
+                        LogMessageKeys.ACTUAL, newConstituent.getName(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+            final String expectedTypeName = typeRenames.getOrDefault(oldConstituent.getRecordType().getName(), oldConstituent.getRecordType().getName());
+            if (!expectedTypeName.equals(newConstituent.getRecordType().getName())) {
+                throw new MetaDataException("join constituent type changed",
+                        LogMessageKeys.OLD_RECORD_TYPE, oldConstituent.getName(),
+                        LogMessageKeys.NEW_RECORD_TYPE, newConstituent.getName(),
+                        LogMessageKeys.NAME, newConstituent.getName(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+            if (oldConstituent.isOuterJoined() != newConstituent.isOuterJoined()) {
+                throw new MetaDataException("join constituent outer-joined property changed",
+                        LogMessageKeys.EXPECTED, oldConstituent.isOuterJoined(),
+                        LogMessageKeys.ACTUAL, newConstituent.isOuterJoined(),
+                        LogMessageKeys.NAME, newConstituent.getName(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+        }
+
+        // Validate joins
+        final List<JoinedRecordType.Join> oldJoins = oldType.getJoins();
+        final List<JoinedRecordType.Join> newJoins = newType.getJoins();
+        if (oldJoins.size() != newJoins.size()) {
+            throw new MetaDataException("join type join count changed",
+                    LogMessageKeys.EXPECTED, oldConstituents.size(),
+                    LogMessageKeys.ACTUAL, newConstituents.size(),
+                    LogMessageKeys.RECORD_TYPE, newType.getClass().getName());
+        }
+        final Map<String, Integer> oldNameToConstituentPosMap = constituentNameToPositionMap(oldConstituents);
+        final Map<String, Integer> newNameToConstituentPosMap = constituentNameToPositionMap(newConstituents);
+        for (int i = 0; i < oldJoins.size(); i++) {
+            // Technically, these aren't ordered, but we'd otherwise need to enumerate the different joins by constituent
+            // pair and then search for ones that match. It is simpler here to just require that the joins be in the
+            // same order
+            JoinedRecordType.Join oldJoin = oldJoins.get(i);
+            JoinedRecordType.Join newJoin = newJoins.get(i);
+
+            // Validate the left and right constituents are the same
+            int oldLeftPos = oldNameToConstituentPosMap.get(oldJoin.getLeft().getName());
+            int newLeftPos = newNameToConstituentPosMap.get(newJoin.getLeft().getName());
+            if (oldLeftPos != newLeftPos) {
+                throw new MetaDataException("join changed left constituent",
+                        LogMessageKeys.EXPECTED, newConstituents.get(oldLeftPos).getName(),
+                        LogMessageKeys.ACTUAL, newConstituents.get(newLeftPos).getName(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+            final KeyExpression expectedLeftExpression;
+            if (allowsAnyFieldRenames()) {
+                Descriptors.Descriptor oldDescriptor = oldConstituents.get(oldLeftPos).getRecordType().getDescriptor();
+                Descriptors.Descriptor newDescriptor = newConstituents.get(newLeftPos).getRecordType().getDescriptor();
+                expectedLeftExpression = RenameFieldsVisitor.renameFields(oldJoin.getLeftExpression(), oldDescriptor, newDescriptor);
+            } else {
+                expectedLeftExpression = oldJoin.getLeftExpression();
+            }
+            if (!expectedLeftExpression.equals(newJoin.getLeftExpression())) {
+                throw new MetaDataException("join changed left expression",
+                        LogMessageKeys.EXPECTED, expectedLeftExpression,
+                        LogMessageKeys.ACTUAL, newJoin.getLeftExpression(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+
+            int oldRightPos = oldNameToConstituentPosMap.get(oldJoin.getRight().getName());
+            int newRightPos = newNameToConstituentPosMap.get(newJoin.getRight().getName());
+            if (oldRightPos != newRightPos) {
+                throw new MetaDataException("join changed right constituent",
+                        LogMessageKeys.EXPECTED, newConstituents.get(oldRightPos).getName(),
+                        LogMessageKeys.ACTUAL, newConstituents.get(newRightPos).getName(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+            final KeyExpression expectedRightExpression;
+            if (allowsAnyFieldRenames()) {
+                Descriptors.Descriptor oldDescriptor = oldConstituents.get(oldRightPos).getRecordType().getDescriptor();
+                Descriptors.Descriptor newDescriptor = newConstituents.get(newRightPos).getRecordType().getDescriptor();
+                expectedRightExpression = RenameFieldsVisitor.renameFields(oldJoin.getRightExpression(), oldDescriptor, newDescriptor);
+            } else {
+                expectedRightExpression = oldJoin.getLeftExpression();
+            }
+            if (!expectedRightExpression.equals(newJoin.getRightExpression())) {
+                throw new MetaDataException("join changed right expression",
+                        LogMessageKeys.EXPECTED, expectedRightExpression,
+                        LogMessageKeys.ACTUAL, newJoin.getRightExpression(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+        }
+    }
+
+    private void validateUnnestedRecordType(@Nonnull UnnestedRecordType oldType, @Nonnull UnnestedRecordType newType, @Nonnull Map<String, String> typeRenames) {
+        // Validate constituents
+        final List<UnnestedRecordType.NestedConstituent> oldConstituents = oldType.getConstituents();
+        final List<UnnestedRecordType.NestedConstituent> newConstituents = newType.getConstituents();
+        if (oldConstituents.size() != newConstituents.size()) {
+            throw new MetaDataException("unnested type constituent count changed",
+                    LogMessageKeys.EXPECTED, oldConstituents.size(),
+                    LogMessageKeys.ACTUAL, newConstituents.size(),
+                    LogMessageKeys.RECORD_TYPE, newType.getName());
+        }
+
+        // We will need this to validate that the parent constituents refer to the same entity, even in the presence of renames
+        final Map<String, Integer> oldNameToConstituentPosMap = constituentNameToPositionMap(oldConstituents);
+        final Map<String, Integer> newNameToConstituentPosMap = constituentNameToPositionMap(newConstituents);
+
+        for (int i = 0; i < oldConstituents.size(); i++) {
+            UnnestedRecordType.NestedConstituent oldConstituent = oldConstituents.get(i);
+            UnnestedRecordType.NestedConstituent newConstituent = newConstituents.get(i);
+
+            if (!allowFieldRenames && !oldConstituent.getName().equals(newConstituent.getName())) {
+                throw new MetaDataException("nested constituent name changed",
+                        LogMessageKeys.EXPECTED, oldConstituent.getName(),
+                        LogMessageKeys.ACTUAL, newConstituent.getName(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+
+            if (oldConstituent.isParent() != newConstituent.isParent()) {
+                throw new MetaDataException("nested constituent parent property changed",
+                        LogMessageKeys.EXPECTED, oldConstituent.isParent(),
+                        LogMessageKeys.ACTUAL, newConstituent.isParent(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+
+            if (oldConstituent.isParent()) {
+                // Make sure the overall parent has the same record type (subject to renames)
+                final String oldRecordType = oldConstituent.getRecordType().getName();
+                final String expectedTypeName = typeRenames.getOrDefault(oldRecordType, oldRecordType);
+                if (!expectedTypeName.equals(newConstituent.getRecordType().getName())) {
+                    throw new MetaDataException("unnested type parent record type changed",
+                            LogMessageKeys.EXPECTED, expectedTypeName,
+                            LogMessageKeys.ACTUAL, newConstituent.getRecordType().getName(),
+                            LogMessageKeys.RECORD_TYPE, newType.getName());
+                }
+            } else {
+                // Make sure we are pointing to the same parent
+                int oldParentPos = oldNameToConstituentPosMap.get(oldConstituent.getName());
+                int newParentPos = newNameToConstituentPosMap.get(newConstituent.getName());
+                if (oldParentPos != newParentPos) {
+                    throw new MetaDataException("nested constituent changed parent",
+                            LogMessageKeys.EXPECTED, newConstituents.get(oldParentPos).getName(),
+                            LogMessageKeys.ACTUAL, newConstituent.getParentName(),
+                            LogMessageKeys.RECORD_TYPE, newType.getName());
+                }
+
+                // Make sure the nesting expression is still the same, possibly accounting for field renames
+                final KeyExpression expectedNestingExpression;
+                if (allowsAnyFieldRenames()) {
+                    UnnestedRecordType.NestedConstituent oldParent = Objects.requireNonNull(oldConstituent.getParent());
+                    UnnestedRecordType.NestedConstituent newParent = Objects.requireNonNull(newConstituent.getParent());
+                    expectedNestingExpression = RenameFieldsVisitor.renameFields(oldConstituent.getNestingExpression(), oldParent.getRecordType().getDescriptor(), newParent.getRecordType().getDescriptor());
+                } else {
+                    expectedNestingExpression = oldConstituent.getNestingExpression();
+                }
+                if (!expectedNestingExpression.equals(newConstituent.getNestingExpression())) {
+                    throw new MetaDataException("nested constituent nesting expression changed",
+                            LogMessageKeys.EXPECTED, expectedNestingExpression,
+                            LogMessageKeys.ACTUAL, newConstituent.getNestingExpression(),
+                            LogMessageKeys.RECORD_TYPE, newType.getName());
+                }
+            }
+        }
+    }
+
+    @Nonnull
+    private Map<String, Integer> constituentNameToPositionMap(@Nonnull List<? extends SyntheticRecordType.Constituent> constituents) {
+        final Map<String, Integer> nameToPositionMap = new HashMap<>();
+        for (int i = 0; i < constituents.size(); i++) {
+            nameToPositionMap.put(constituents.get(i).getName(), i);
+        }
+        return nameToPositionMap;
+    }
+
     @Nonnull
     private Map<Object, FormerIndex> getFormerIndexMap(@Nonnull RecordMetaData metaData) {
         Map<Object, FormerIndex> formerIndexMap;
@@ -690,8 +941,8 @@ public class MetaDataEvolutionValidator {
         KeyExpression expectedKeyExpression = null;
         if (allowsAnyFieldRenames()) {
             for (String oldRecordTypeName : oldRecordTypeNames) {
-                final Descriptor oldDescriptor = oldMetaData.getRecordType(oldRecordTypeName).getDescriptor();
-                final Descriptor newDescriptor = newMetaData.getRecordType(typeRenames.getOrDefault(oldRecordTypeName, oldRecordTypeName)).getDescriptor();
+                final Descriptor oldDescriptor = oldMetaData.getIndexableRecordType(oldRecordTypeName).getDescriptor();
+                final Descriptor newDescriptor = newMetaData.getIndexableRecordType(typeRenames.getOrDefault(oldRecordTypeName, oldRecordTypeName)).getDescriptor();
                 final KeyExpression renamedKeyExpression = RenameFieldsVisitor.renameFields(oldIndex.getRootExpression(), oldDescriptor, newDescriptor);
                 if (expectedKeyExpression == null) {
                     expectedKeyExpression = renamedKeyExpression;

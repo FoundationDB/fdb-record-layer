@@ -66,7 +66,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -1029,8 +1028,8 @@ class MetaDataEvolutionValidatorTest {
         // Still not allowed as the index hasn't been updated
         fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData3);
 
-        RecordMetaData metaData4 = replaceIndex(metaData3, "all$num_value_2",
-                indexProto -> indexProto.toBuilder().setRootExpression(Key.Expressions.field("num_value_2__old").toKeyExpression()).build());
+        RecordMetaData metaData4 = mutateIndex(metaData3, "all$num_value_2",
+                indexProto -> indexProto.setRootExpression(Key.Expressions.field("num_value_2__old").toKeyExpression()));
         fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData4);
     }
 
@@ -1321,8 +1320,8 @@ class MetaDataEvolutionValidatorTest {
         fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData2);
 
         // Update the index so that it reflects the new field name for a.a_prime -> a.b
-        final RecordMetaData metaData3 = replaceIndex(metaData2, "MyRecord$a.b+b.b", indexProto ->
-                indexProto.toBuilder().setRootExpression(Key.Expressions.concat(Key.Expressions.field("a").nest("b"), Key.Expressions.field("b").nest("b")).toKeyExpression()).build());
+        final RecordMetaData metaData3 = mutateIndex(metaData2, "MyRecord$a.b+b.b", indexProto ->
+                indexProto.setRootExpression(Key.Expressions.concat(Key.Expressions.field("a").nest("b"), Key.Expressions.field("b").nest("b")).toKeyExpression()));
         fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
     }
 
@@ -1397,8 +1396,8 @@ class MetaDataEvolutionValidatorTest {
         fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData2);
 
         // Update the index so that it reflects the new field name for a.b -> a.b_1 and b.b -> b.b_2
-        final RecordMetaData metaData3 = replaceIndex(metaData2, "MyRecord$a.b+b.b", indexProto ->
-                indexProto.toBuilder().setRootExpression(Key.Expressions.concat(Key.Expressions.field("a").nest("b_1"), Key.Expressions.field("b").nest("b_2")).toKeyExpression()).build());
+        final RecordMetaData metaData3 = mutateIndex(metaData2, "MyRecord$a.b+b.b", indexProto ->
+                indexProto.setRootExpression(Key.Expressions.concat(Key.Expressions.field("a").nest("b_1"), Key.Expressions.field("b").nest("b_2")).toKeyExpression()));
         fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
     }
 
@@ -1584,6 +1583,102 @@ class MetaDataEvolutionValidatorTest {
 
         RecordMetaData metaData2 = RecordMetaData.build(protoBuilder.build());
         assertInvalid("record type primary key changed", metaData1, metaData2);
+    }
+
+    // Synthetic type tests
+
+    @Test
+    void addJoinedType() {
+        final RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        metaDataBuilder.setVersion(metaData1.getVersion() + 1);
+        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("join_nv2");
+        joinBuilder.addConstituent("l", "MySimpleRecord");
+        joinBuilder.addConstituent("r", "MyOtherRecord");
+        joinBuilder.addJoin("l", Key.Expressions.field("num_value_2"), "r", Key.Expressions.field("num_value_2"));
+        metaDataBuilder.addIndex("join_nv2", "joined$l.num_value_unique", Key.Expressions.field("l").nest("num_value_unique"));
+        RecordMetaData metaData2 = metaDataBuilder.build();
+
+        validator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void dropJoinedType() {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("join_nv2");
+        joinBuilder.addConstituent("l", "MySimpleRecord");
+        joinBuilder.addConstituent("r", "MyOtherRecord");
+        joinBuilder.addJoin("l", Key.Expressions.field("num_value_2"), "r", Key.Expressions.field("num_value_2"));
+        metaDataBuilder.addIndex("join_nv2", "joined$l.num_value_unique", Key.Expressions.field("l").nest("num_value_unique"));
+        final RecordMetaData metaData1 = metaDataBuilder.build();
+
+        metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        metaDataBuilder.setVersion(metaData1.getVersion() + 1);
+        metaDataBuilder.addFormerIndex(new FormerIndex("joined$l.num_value_unique", metaData1.getVersion(), metaData1.getVersion() + 1, "joined$l.num_value_unique"));
+        RecordMetaData metaData2 = metaDataBuilder.build();
+
+        validator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void swapJoinConstituents() {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("join_nv2");
+        joinBuilder.addConstituent("l", "MySimpleRecord");
+        joinBuilder.addConstituent("r", "MyOtherRecord");
+        joinBuilder.addJoin("l", Key.Expressions.field("num_value_2"), "r", Key.Expressions.field("num_value_2"));
+        metaDataBuilder.addIndex("join_nv2", "joined$l.num_value_unique", Key.Expressions.field("l").nest("num_value_unique"));
+
+        final RecordMetaData metaData1 = metaDataBuilder.build();
+        final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "join_nv2", joinedType -> {
+            final var constituentsList = joinedType.getJoinConstituentsList();
+            joinedType.clearJoinConstituents();
+            joinedType.addJoinConstituents(constituentsList.get(1));
+            joinedType.addJoinConstituents(constituentsList.get(0));
+        });
+
+        assertInvalid("join constituent name changed", metaData1, metaData2);
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowFieldRenames(true)
+                .build();
+        assertInvalid("join constituent type changed", laxerValidator, metaData1, metaData2);
+    }
+
+    @Test
+    void swapSelfJoinConstituents() {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("self_join_svi");
+        joinBuilder.addConstituent("s1", "MySimpleRecord");
+        joinBuilder.addConstituent("s2", "MySimpleRecord");
+        joinBuilder.addJoin("s1", Key.Expressions.field("str_value_indexed"), "s2", Key.Expressions.field("str_value_indexed"));
+        metaDataBuilder.addIndex("self_join_svi", "self_join_svi$num_value_unique", Key.Expressions.concat(Key.Expressions.field("s1").nest("num_value_unique"), Key.Expressions.field("s2").nest("num_value_unique")));
+
+        final RecordMetaData metaData1 = metaDataBuilder.build();
+        final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "self_join_svi", joinedType -> {
+            final var constituentsList = joinedType.getJoinConstituentsList();
+            joinedType.clearJoinConstituents();
+            joinedType.addJoinConstituents(constituentsList.get(1));
+            joinedType.addJoinConstituents(constituentsList.get(0));
+        });
+
+        assertInvalid("join constituent name changed", metaData1, metaData2);
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowFieldRenames(true)
+                .build();
+        assertInvalid("join changed left constituent", laxerValidator, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateJoinedRecordType(metaData2, "self_join_svi",
+                // Swap the names in the Join definition
+                joinedType -> joinedType.getJoinsBuilder(0).setLeft("s2").setRight("s1"));
+        assertInvalid("join constituent name changed", metaData1, metaData3);
+        assertInvalid("index key expression does not match required", laxerValidator, metaData1, metaData3);
+
+        final RecordMetaData metaData4 = mutateIndex(metaData3, "self_join_svi$num_value_unique",
+                // Swap the names in the index definition
+                index -> index.setRootExpression(Key.Expressions.concat(Key.Expressions.field("s2").nest("num_value_unique"), Key.Expressions.field("s1").nest("num_value_unique")).toKeyExpression()));
+        assertInvalid("join constituent name changed", metaData1, metaData4);
+        laxerValidator.validate(metaData1, metaData4);
     }
 
     // Former index tests
@@ -1790,12 +1885,11 @@ class MetaDataEvolutionValidatorTest {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
 
         // Step 1: Update the index definition in a way that updates the last modified version
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", index ->
-                // Mark the index as unique (and bump its last modified version
-                index.toBuilder()
-                        .addOptions(RecordMetaDataProto.Index.Option.newBuilder().setKey("unique").setValue("true"))
-                        .setLastModifiedVersion(index.getLastModifiedVersion() + 1)
-                        .build());
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed", index -> {
+            // Mark the index as unique (and bump its last modified version
+            makeUnique(index);
+            index.setLastModifiedVersion(index.getLastModifiedVersion() + 1);
+        });
         assertFalse(validator.allowsIndexRebuilds());
         assertInvalid("last modified version of index changed", metaData1, metaData2);
 
@@ -1843,50 +1937,63 @@ class MetaDataEvolutionValidatorTest {
 
     // Index tests
 
-    @Nonnull
-    private RecordMetaDataProto.Index changeOption(@Nonnull RecordMetaDataProto.Index indexProto, @Nonnull String key, @Nullable String value) {
-        RecordMetaDataProto.Index.Builder builder = indexProto.toBuilder();
+    private void changeOption(@Nonnull RecordMetaDataProto.Index.Builder indexProto, @Nonnull String key, @Nullable String value) {
         boolean found = false;
-        for (int i = 0; i < builder.getOptionsCount(); i++) {
-            final RecordMetaDataProto.Index.Option option = builder.getOptions(i);
+        int i = 0;
+        for (RecordMetaDataProto.Index.Option.Builder option : indexProto.getOptionsBuilderList()) {
             if (key.equals(option.getKey())) {
-                if (value == null) {
-                    builder.removeOptions(i);
-                } else {
-                    builder.setOptions(i, RecordMetaDataProto.Index.Option.newBuilder().setKey(key).setValue(value));
+                if (value != null) {
+                    option.setValue(value);
                 }
                 found = true;
                 break;
             }
+            i++;
         }
-        if (!found && value != null) {
-            builder.addOptions(RecordMetaDataProto.Index.Option.newBuilder().setKey(key).setValue(value));
+        if (found && value == null) {
+            indexProto.removeOptions(i);
+        } else if (!found && value != null) {
+            indexProto.addOptions(RecordMetaDataProto.Index.Option.newBuilder().setKey(key).setValue(value));
         }
-        return builder.build();
+    }
+
+    private void makeUnique(@Nonnull RecordMetaDataProto.Index.Builder indexProto) {
+        changeOption(indexProto, IndexOptions.UNIQUE_OPTION, "true");
     }
 
     @Nonnull
-    private RecordMetaDataProto.Index makeUnique(@Nonnull RecordMetaDataProto.Index indexProto) {
-        return changeOption(indexProto, IndexOptions.UNIQUE_OPTION, "true");
+    private void clearOptions(@Nonnull RecordMetaDataProto.Index.Builder indexProto) {
+        indexProto.clearOptions();
     }
 
     @Nonnull
-    private RecordMetaDataProto.Index clearOptions(@Nonnull RecordMetaDataProto.Index indexProto) {
-        return indexProto.toBuilder().clearOptions().build();
-    }
-
-    @Nonnull
-    private RecordMetaData replaceIndex(@Nonnull RecordMetaData metaData, @Nonnull String indexName, UnaryOperator<RecordMetaDataProto.Index> indexReplacement) {
-        RecordMetaDataProto.MetaData metaDataProto = metaData.toProto();
-        RecordMetaDataProto.MetaData.Builder metaDataProtoBuilder = metaDataProto.toBuilder();
+    private RecordMetaData updateMetaData(@Nonnull RecordMetaData metaData, @Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> updater) {
+        RecordMetaDataProto.MetaData.Builder metaDataProtoBuilder = metaData.toProto().toBuilder();
+        updater.accept(metaDataProtoBuilder);
         metaDataProtoBuilder.setVersion(metaData.getVersion() + 1);
-        for (int i = 0; i < metaDataProto.getIndexesCount(); i ++) {
-            RecordMetaDataProto.Index indexProto = metaDataProto.getIndexes(i);
-            if (indexProto.getName().equals(indexName)) {
-                metaDataProtoBuilder.setIndexes(i, indexReplacement.apply(indexProto));
-            }
-        }
         return RecordMetaData.build(metaDataProtoBuilder.build());
+    }
+
+    @Nonnull
+    private RecordMetaData mutateIndex(@Nonnull RecordMetaData metaData, @Nonnull String indexName, @Nonnull Consumer<RecordMetaDataProto.Index.Builder> indexMutator) {
+        return updateMetaData(metaData, metaDataProtoBuilder -> {
+            for (RecordMetaDataProto.Index.Builder indexProto : metaDataProtoBuilder.getIndexesBuilderList()) {
+                if (indexProto.getName().equals(indexName)) {
+                    indexMutator.accept(indexProto);
+                }
+            }
+        });
+    }
+
+    @Nonnull
+    private RecordMetaData mutateJoinedRecordType(@Nonnull RecordMetaData metaData, @Nonnull String typeName, @Nonnull Consumer<RecordMetaDataProto.JoinedRecordType.Builder> typeMutator) {
+        return updateMetaData(metaData, metaDataProtoBuilder -> {
+            for (RecordMetaDataProto.JoinedRecordType.Builder typeBuilder : metaDataProtoBuilder.getJoinedRecordTypesBuilderList()) {
+                if (typeBuilder.getName().equals(typeName)) {
+                    typeMutator.accept(typeBuilder);
+                }
+            }
+        });
     }
 
     @Test
@@ -1923,8 +2030,8 @@ class MetaDataEvolutionValidatorTest {
         // The index subspace key is the thing that determines whether an index is even there, so changing it
         // is identical to removing the index
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setSubspaceKey(ByteString.copyFrom(Tuple.from("dummy_key").pack())).build()
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
+                indexProto.setSubspaceKey(ByteString.copyFrom(Tuple.from("dummy_key").pack()))
         );
         assertInvalid("index missing in new meta-data", metaData1, metaData2);
     }
@@ -1932,11 +2039,10 @@ class MetaDataEvolutionValidatorTest {
     @Test
     void indexNameChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder()
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
+                indexProto
                         .setSubspaceKey(ByteString.copyFrom(Tuple.from("MySimpleRecord$str_value_indexed").pack()))
                         .setName("a_different_name")
-                        .build()
         );
         assertInvalid("index name changed", metaData1, metaData2);
     }
@@ -1944,34 +2050,29 @@ class MetaDataEvolutionValidatorTest {
     @Test
     void indexAddedVersionChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setAddedVersion(metaData1.getVersion() + 1).setLastModifiedVersion(metaData1.getVersion() + 1).build()
-        );
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed",
+                indexProto -> indexProto.setAddedVersion(metaData1.getVersion() + 1).setLastModifiedVersion(metaData1.getVersion() + 1));
         assertInvalid("new index added version does not match old index added version", metaData1, metaData2);
 
-        metaData2 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setAddedVersion(indexProto.getAddedVersion() - 1).build()
-        );
+        metaData2 = mutateIndex(metaData2, "MySimpleRecord$str_value_indexed",
+                indexProto -> indexProto.setAddedVersion(indexProto.getAddedVersion() - 1));
         assertInvalid("new index added version does not match old index added version", metaData1, metaData2);
     }
 
     @Test
     void indexLastModifiedVersionTooOld() {
-        RecordMetaData metaData1 = replaceIndex(RecordMetaData.build(TestRecords1Proto.getDescriptor()), "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setLastModifiedVersion(2).build()
-        );
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setLastModifiedVersion(1).build()
-        );
+        RecordMetaData metaData1 = mutateIndex(RecordMetaData.build(TestRecords1Proto.getDescriptor()), "MySimpleRecord$str_value_indexed",
+                indexProto -> indexProto.setLastModifiedVersion(2));
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed",
+                indexProto -> indexProto.setLastModifiedVersion(1));
         assertInvalid("old index has last-modified version newer than new index", metaData1, metaData2);
     }
 
     @Test
     void indexLastModifiedVersionChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setLastModifiedVersion(metaData1.getVersion() + 1).build()
-        );
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed",
+                indexProto -> indexProto.setLastModifiedVersion(metaData1.getVersion() + 1));
         assertFalse(validator.allowsIndexRebuilds());
         assertInvalid("last modified version of index changed", metaData1, metaData2);
 
@@ -1982,18 +2083,17 @@ class MetaDataEvolutionValidatorTest {
         laxerValidator.validate(metaData1, metaData2);
     }
 
-    private void validateIndexMutation(@Nonnull String errMsg, @Nonnull RecordMetaData metaData1, @Nonnull String indexName, UnaryOperator<RecordMetaDataProto.Index> indexReplacement) {
+    private void validateIndexMutation(@Nonnull String errMsg, @Nonnull RecordMetaData metaData1, @Nonnull String indexName, Consumer<RecordMetaDataProto.Index.Builder> indexReplacement) {
         MetaDataEvolutionValidator laxerValidator = MetaDataEvolutionValidator.newBuilder()
                 .setAllowIndexRebuilds(true)
                 .build();
-        RecordMetaData metaData2 = replaceIndex(metaData1, indexName, indexReplacement);
+        RecordMetaData metaData2 = mutateIndex(metaData1, indexName, indexReplacement);
         assertInvalid(errMsg, metaData1, metaData2);
         assertInvalid(errMsg, laxerValidator, metaData1, metaData2);
 
         // Allow the change if and only if the last modified version is updated and the option allowing rebuilds is set
-        RecordMetaData metaData3 = replaceIndex(metaData2, indexName, indexProto ->
-                indexProto.toBuilder().setLastModifiedVersion(metaData2.getVersion()).build()
-        );
+        RecordMetaData metaData3 = mutateIndex(metaData2, indexName,
+                indexProto -> indexProto.setLastModifiedVersion(metaData2.getVersion()));
         assertInvalid("last modified version of index changed", metaData1, metaData3);
         laxerValidator.validate(metaData1, metaData3);
     }
@@ -2001,17 +2101,16 @@ class MetaDataEvolutionValidatorTest {
     @Test
     void indexTypeChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        validateIndexMutation("index type changed", metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setType(IndexTypes.RANK).build()
+        validateIndexMutation("index type changed", metaData1, "MySimpleRecord$str_value_indexed",
+                indexProto -> indexProto.setType(IndexTypes.RANK)
         );
     }
 
     @Test
     void indexKeyExpressionChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        validateIndexMutation("index key expression changed", metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                indexProto.toBuilder().setRootExpression(Key.Expressions.field("num_value_2").toKeyExpression()).build()
-        );
+        validateIndexMutation("index key expression changed", metaData1, "MySimpleRecord$str_value_indexed",
+                indexProto -> indexProto.setRootExpression(Key.Expressions.field("num_value_2").toKeyExpression()));
     }
 
     @Test
@@ -2021,8 +2120,8 @@ class MetaDataEvolutionValidatorTest {
         metaDataBuilder.addMultiTypeIndex(Arrays.asList(metaDataBuilder.getRecordType("MySimpleRecord"), metaDataBuilder.getRecordType("MyOtherRecord")),
                 new Index(indexName, "num_value_2"));
         RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
-        validateIndexMutation("new index removes record type", metaData1, indexName, indexProto ->
-                indexProto.toBuilder().clearRecordType().addRecordType("MySimpleRecord").build()
+        validateIndexMutation("new index removes record type", metaData1, indexName,
+                indexProto -> indexProto.clearRecordType().addRecordType("MySimpleRecord")
         );
     }
 
@@ -2030,14 +2129,14 @@ class MetaDataEvolutionValidatorTest {
     void indexRecordTypeAdded() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         validateIndexMutation("new index adds record type that is not newer than old meta-data", metaData1, "MySimpleRecord$num_value_3_indexed", indexProto ->
-                indexProto.toBuilder().addRecordType("MyOtherRecord").build()
+                indexProto.addRecordType("MyOtherRecord").build()
         );
 
         // Add NewRecord as a record type to the existing meta-data and index and validate that this change is okay
         // because the new record type is newer the old meta-data version.
         RecordMetaData tempMetaData = addNewRecordType(metaData1);
-        RecordMetaData metaData2 = replaceIndex(tempMetaData, "MySimpleRecord$num_value_3_indexed", indexProto ->
-                indexProto.toBuilder().addRecordType("NewRecord").build());
+        RecordMetaData metaData2 = mutateIndex(tempMetaData, "MySimpleRecord$num_value_3_indexed",
+                indexProto -> indexProto.addRecordType("NewRecord"));
         validator.validate(metaData1, metaData2); // valid if type and index change happen together
         assertInvalid("new index adds record type that is not newer than old meta-data", tempMetaData, metaData2);
     }
@@ -2050,8 +2149,8 @@ class MetaDataEvolutionValidatorTest {
         assertThat(metaData1.getIndex("rec_no").hasPrimaryKeyComponentPositions(), is(true));
 
         RecordMetaData tempMetaData = addNewRecordType(metaData1);
-        RecordMetaData metaData2 = replaceIndex(tempMetaData, "rec_no", indexProto ->
-                indexProto.toBuilder().addRecordType("NewRecord").build());
+        RecordMetaData metaData2 = mutateIndex(tempMetaData, "rec_no",
+                indexProto -> indexProto.addRecordType("NewRecord"));
         assertInvalid("new index drops primary key component positions", metaData1, metaData2);
 
         // This is essentially the behavior change outlined by: https://github.com/FoundationDB/fdb-record-layer/issues/93
@@ -2079,8 +2178,8 @@ class MetaDataEvolutionValidatorTest {
         validator.validate(metaData1, metaData2);
 
         // Make the index a multi-type index on the original record types
-        RecordMetaData metaData3 = replaceIndex(metaData2, "rec_no", indexProto ->
-                indexProto.toBuilder().addRecordType("MySimpleRecord").addRecordType("MyOtherRecord").build());
+        RecordMetaData metaData3 = mutateIndex(metaData2, "rec_no",
+                indexProto -> indexProto.addRecordType("MySimpleRecord").addRecordType("MyOtherRecord"));
         MetaDataException e = assertThrows(MetaDataException.class, () -> metaData3.getUniversalIndex("rec_no"));
         assertThat(e.getMessage(), containsString("Index rec_no not defined"));
         assertInvalid("new index removes record type", metaData2, metaData3);
@@ -2094,10 +2193,10 @@ class MetaDataEvolutionValidatorTest {
         validateIndexMutation("index adds uniqueness constraint", metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
 
         // Removing the uniqueness constraint is fine
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
-        RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
+        RecordMetaData metaData3 = mutateIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
         validator.validate(metaData2, metaData3);
-        RecordMetaData metaData4 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", indexProto -> changeOption(indexProto, IndexOptions.UNIQUE_OPTION, "false"));
+        RecordMetaData metaData4 = mutateIndex(metaData2, "MySimpleRecord$str_value_indexed", indexProto -> changeOption(indexProto, IndexOptions.UNIQUE_OPTION, "false"));
         validator.validate(metaData2, metaData4);
     }
 
@@ -2105,25 +2204,25 @@ class MetaDataEvolutionValidatorTest {
     void allowedForQueriesChanged() {
         // Changing this option is always fine
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed",
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed",
                 indexProto -> changeOption(indexProto, IndexOptions.ALLOWED_FOR_QUERY_OPTION, "false"));
         validator.validate(metaData1, metaData2);
-        RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed",
+        RecordMetaData metaData3 = mutateIndex(metaData2, "MySimpleRecord$str_value_indexed",
                 indexProto -> changeOption(indexProto, IndexOptions.ALLOWED_FOR_QUERY_OPTION, "true"));
         validator.validate(metaData2, metaData3);
-        RecordMetaData metaData4 = replaceIndex(metaData3, "MySimpleRecord$str_value_indexed", this::clearOptions);
+        RecordMetaData metaData4 = mutateIndex(metaData3, "MySimpleRecord$str_value_indexed", this::clearOptions);
         validator.validate(metaData3, metaData4);
     }
 
     @Test
     void changeReplacedByIndex() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed",
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed",
                 indexProto -> changeOption(indexProto, IndexOptions.REPLACED_BY_OPTION_PREFIX, "MySimpleRecord$num_value_3_indexed"));
         assertEquals(Collections.singletonList("MySimpleRecord$num_value_3_indexed"),
                 metaData2.getIndex("MySimpleRecord$str_value_indexed").getReplacedByIndexNames());
         validator.validate(metaData1, metaData2);
-        RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
+        RecordMetaData metaData3 = mutateIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
         assertEquals(Collections.emptyList(),
                 metaData3.getIndex("MySimpleRecord$str_value_indexed").getReplacedByIndexNames());
         validator.validate(metaData2, metaData3);
@@ -2132,14 +2231,14 @@ class MetaDataEvolutionValidatorTest {
     @Test
     void changeReplacedByIndexSet() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
-                changeOption(changeOption(indexProto, IndexOptions.REPLACED_BY_OPTION_PREFIX + "_0", "MySimpleRecord$num_value_3_indexed"),
-                        IndexOptions.REPLACED_BY_OPTION_PREFIX + "_1", "MySimpleRecord$num_value_unique")
-        );
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto -> {
+            changeOption(indexProto, IndexOptions.REPLACED_BY_OPTION_PREFIX + "_0", "MySimpleRecord$num_value_3_indexed");
+            changeOption(indexProto, IndexOptions.REPLACED_BY_OPTION_PREFIX + "_1", "MySimpleRecord$num_value_unique");
+        });
         assertThat(metaData2.getIndex("MySimpleRecord$str_value_indexed").getReplacedByIndexNames(),
                 containsInAnyOrder("MySimpleRecord$num_value_3_indexed", "MySimpleRecord$num_value_unique"));
         validator.validate(metaData1, metaData2);
-        RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
+        RecordMetaData metaData3 = mutateIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
         assertEquals(Collections.emptyList(),
                 metaData3.getIndex("MySimpleRecord$str_value_indexed").getReplacedByIndexNames());
         validator.validate(metaData2, metaData3);
@@ -2150,9 +2249,11 @@ class MetaDataEvolutionValidatorTest {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         validateIndexMutation("index option changed", metaData1, "MySimpleRecord$str_value_indexed",
                 indexProto -> changeOption(indexProto, "dummyOption", "dummyValue"));
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed",
-                indexProto -> makeUnique(changeOption(indexProto, "dummyOption", "dummyValue")));
-        RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed",
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto -> {
+            makeUnique(indexProto);
+            changeOption(indexProto, "dummyOption", "dummyValue");
+        });
+        RecordMetaData metaData3 = mutateIndex(metaData2, "MySimpleRecord$str_value_indexed",
                 indexProto -> changeOption(indexProto, IndexOptions.UNIQUE_OPTION, null));
         validator.validate(metaData2, metaData3);
         validateIndexMutation("index option changed", metaData3, "MySimpleRecord$str_value_indexed",
@@ -2172,10 +2273,10 @@ class MetaDataEvolutionValidatorTest {
                 indexProto -> changeOption(indexProto, IndexOptions.RANK_NLEVELS, "" + RankedSet.MAX_LEVELS));
 
         // Setting the default explicitly is fine
-        RecordMetaData metaData2 = replaceIndex(metaData1, indexName,
+        RecordMetaData metaData2 = mutateIndex(metaData1, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.RANK_NLEVELS, "" + RankedSet.DEFAULT_LEVELS));
         validator.validate(metaData1, metaData2);
-        RecordMetaData metaData3 = replaceIndex(metaData2, indexName, this::clearOptions);
+        RecordMetaData metaData3 = mutateIndex(metaData2, indexName, this::clearOptions);
         validator.validate(metaData2, metaData3);
     }
 
@@ -2190,37 +2291,37 @@ class MetaDataEvolutionValidatorTest {
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
 
         // Setting the default explicitly is fine
-        RecordMetaData metaData2 = replaceIndex(metaData1, indexName,
+        RecordMetaData metaData2 = mutateIndex(metaData1, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_TOKENIZER_NAME_OPTION, DefaultTextTokenizer.NAME));
         validator.validate(metaData1, metaData2);
-        RecordMetaData metaData3 = replaceIndex(metaData2, indexName, this::clearOptions);
+        RecordMetaData metaData3 = mutateIndex(metaData2, indexName, this::clearOptions);
         validator.validate(metaData2, metaData3);
 
         // Increasing the tokenizer version is fine, but decreasing it is not
-        RecordMetaData metaData4 = replaceIndex(metaData3, indexName,
+        RecordMetaData metaData4 = mutateIndex(metaData3, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME));
-        RecordMetaData metaData5 = replaceIndex(metaData4, indexName,
+        RecordMetaData metaData5 = mutateIndex(metaData4, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "" + TextTokenizer.GLOBAL_MIN_VERSION));
         validator.validate(metaData4, metaData5);
-        RecordMetaData metaData6 = replaceIndex(metaData5, indexName,
+        RecordMetaData metaData6 = mutateIndex(metaData5, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "" + (TextTokenizer.GLOBAL_MIN_VERSION + 1)));
         validator.validate(metaData5, metaData6);
         validateIndexMutation("text tokenizer version downgraded", metaData6, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "" + TextTokenizer.GLOBAL_MIN_VERSION));
 
         // Changing whether aggressive conflict ranges are allowed is safe
-        RecordMetaData metaData7 = replaceIndex(metaData6, indexName,
+        RecordMetaData metaData7 = mutateIndex(metaData6, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, "true"));
         validator.validate(metaData6, metaData7);
-        RecordMetaData metaData8 = replaceIndex(metaData7, indexName,
+        RecordMetaData metaData8 = mutateIndex(metaData7, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, "false"));
         validator.validate(metaData7, metaData8);
 
         // Changing whether position lists are omitted is safe
-        RecordMetaData metaData9 = replaceIndex(metaData8, indexName,
+        RecordMetaData metaData9 = mutateIndex(metaData8, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_OMIT_POSITIONS_OPTION, "true"));
         validator.validate(metaData8, metaData9);
-        RecordMetaData metaData10 = replaceIndex(metaData9, indexName,
+        RecordMetaData metaData10 = mutateIndex(metaData9, indexName,
                 indexProto -> changeOption(indexProto, IndexOptions.TEXT_OMIT_POSITIONS_OPTION, "false"));
         validator.validate(metaData9, metaData10);
     }
@@ -2228,7 +2329,7 @@ class MetaDataEvolutionValidatorTest {
     @Test
     void optionChangeAllowedWithCustomIndexValidatorRegistry() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
+        RecordMetaData metaData2 = mutateIndex(metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
         assertSame(IndexMaintainerFactoryRegistryImpl.instance(), validator.getIndexValidatorRegistry());
         assertInvalid("index adds uniqueness constraint", metaData1, metaData2);
 
