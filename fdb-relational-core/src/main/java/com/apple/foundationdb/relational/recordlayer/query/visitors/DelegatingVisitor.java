@@ -667,7 +667,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitStraightJoin(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitOuterJoin(@Nonnull RelationalParser.OuterJoinContext ctx) {
         return getDelegate().visitOuterJoin(ctx);
