@@ -162,13 +162,13 @@ unnamed-1:
     ref: union-empty-tables.yamsql:81
     explain: 'AISCAN(MV10 [[LESS_THAN promote(@c21 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS Y) ⊎ SCAN([IS T4]) | MAP (_ AS _0) | AGG (count_star(*)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0
-        AS S)'
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
+        ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 760
-    task_total_time_ms: 24
-    transform_count: 207
-    transform_time_ms: 13
+    task_total_time_ms: 35
+    transform_count: 206
+    transform_time_ms: 15
     transform_yield_count: 55
     insert_time_ms: 0
     insert_new_count: 65
@@ -179,16 +179,16 @@ unnamed-1:
     explain: 'AISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1)
         GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS Y) ⊎ SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0
-        AS S)'
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
+        ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 900
-    task_total_time_ms: 50
+    task_total_time_ms: 31
     transform_count: 240
-    transform_time_ms: 18
+    transform_time_ms: 17
     transform_yield_count: 61
-    insert_time_ms: 1
-    insert_new_count: 83
+    insert_time_ms: 3
+    insert_new_count: 82
     insert_reused_count: 6
 -   query: EXPLAIN select col2 from t1 where exists (select a from t3 where col2 <=
         id union all select b from t4 where col2 <= id)
