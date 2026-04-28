@@ -111,6 +111,22 @@ class MetaDataEvolutionValidatorBuilderTest {
     }
 
     @Test
+    void allowDeprecatedFieldRenames() {
+        testSettingBooleanOption("allowDeprecatedFieldRenames",
+                MetaDataEvolutionValidator.Builder::setAllowDeprecatedFieldRenames,
+                MetaDataEvolutionValidator.Builder::allowsDeprecatedFieldRenames,
+                MetaDataEvolutionValidator::allowsDeprecatedFieldRenames);
+    }
+
+    @Test
+    void allowUndeprecatingFields() {
+        testSettingBooleanOption("allowUndeprecatingFields",
+                MetaDataEvolutionValidator.Builder::setAllowUndeprecatingFields,
+                MetaDataEvolutionValidator.Builder::allowsUndeprecatingFields,
+                MetaDataEvolutionValidator::allowsUndeprecatingFields);
+    }
+
+    @Test
     void allowIndexRebuilds() {
         testSettingBooleanOption("allowIndexRebuilds",
                 MetaDataEvolutionValidator.Builder::setAllowIndexRebuilds,

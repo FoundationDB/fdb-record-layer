@@ -100,6 +100,8 @@ public class MetaDataEvolutionValidator {
     private final boolean allowNoVersionChange;
     private final boolean allowNoSinceVersion;
     private final boolean allowFieldRenames;
+    private final boolean allowDeprecatedFieldRenames;
+    private final boolean allowUndeprecatingFields;
     private final boolean allowIndexRebuilds;
     private final boolean allowMissingFormerIndexNames;
     private final boolean allowOlderFormerIndexAddedVersions;
@@ -111,6 +113,8 @@ public class MetaDataEvolutionValidator {
         this.allowNoVersionChange = false;
         this.allowNoSinceVersion = false;
         this.allowFieldRenames = false;
+        this.allowDeprecatedFieldRenames = false;
+        this.allowUndeprecatingFields = false;
         this.allowIndexRebuilds = false;
         this.allowMissingFormerIndexNames = false;
         this.allowOlderFormerIndexAddedVersions = false;
@@ -123,6 +127,8 @@ public class MetaDataEvolutionValidator {
         this.allowNoVersionChange = builder.allowNoVersionChange;
         this.allowNoSinceVersion = builder.allowNoSinceVersion;
         this.allowFieldRenames = builder.allowFieldRenames;
+        this.allowDeprecatedFieldRenames = builder.allowDeprecatedFieldRenames;
+        this.allowUndeprecatingFields = builder.allowUndeprecatingFields;
         this.allowIndexRebuilds = builder.allowIndexRebuilds;
         this.allowMissingFormerIndexNames = builder.allowMissingFormerIndexNames;
         this.allowOlderFormerIndexAddedVersions = builder.allowOlderFormerIndexAddedVersions;
@@ -271,12 +277,25 @@ public class MetaDataEvolutionValidator {
 
     private void validateField(@Nonnull FieldDescriptor oldFieldDescriptor, @Nonnull FieldDescriptor newFieldDescriptor,
                                @Nonnull Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors) {
+        final boolean oldDeprecated = oldFieldDescriptor.getOptions().getDeprecated();
+        final boolean newDeprecated = newFieldDescriptor.getOptions().getDeprecated();
         if (!oldFieldDescriptor.getName().equals(newFieldDescriptor.getName())) {
-            if (!allowFieldRenames) {
+            // Field renames are allowed if either:
+            //  1. We allow all field renames (allowFieldRenames is true)
+            //  2. We allow deprecated field renames and the field is deprecated, here determined by whether the old
+            //     or new field is deprecated. (Using both the old and new fields means it is okay to change the
+            //     name both when deprecating it and un-deprecating it.)
+            // We want to throw an error if neither of those is true, hence the statement below. We could theoretically
+            // use DeMorgan's to rewrite some of that, but at the cost of legibility
+            if (!(allowFieldRenames || (allowDeprecatedFieldRenames && (oldDeprecated || newDeprecated)))) {
                 throw new MetaDataException("field renamed",
                         LogMessageKeys.OLD_FIELD_NAME, oldFieldDescriptor.getName(),
                         LogMessageKeys.NEW_FIELD_NAME, newFieldDescriptor.getName());
             }
+        }
+        if (!allowUndeprecatingFields && oldDeprecated && !newDeprecated) {
+            throw new MetaDataException("field is no longer deprecated",
+                    LogMessageKeys.FIELD_NAME, oldFieldDescriptor.getName());
         }
         if (!oldFieldDescriptor.getType().equals(newFieldDescriptor.getType())) {
             validateTypeChange(oldFieldDescriptor, newFieldDescriptor);
@@ -376,7 +395,7 @@ public class MetaDataEvolutionValidator {
                         LogMessageKeys.NEW_VERSION, newRecordType.getSinceVersion());
             }
             final KeyExpression expectedPrimaryKey;
-            if (allowFieldRenames) {
+            if (allowsAnyFieldRenames()) {
                 expectedPrimaryKey = RenameFieldsVisitor.renameFields(oldRecordType.getPrimaryKey(), oldRecordType.getDescriptor(), newRecordType.getDescriptor());
             } else {
                 expectedPrimaryKey = oldRecordType.getPrimaryKey();
@@ -669,7 +688,7 @@ public class MetaDataEvolutionValidator {
         }
         // The index root expression must be the same, modulo field renames
         KeyExpression expectedKeyExpression = null;
-        if (allowFieldRenames) {
+        if (allowsAnyFieldRenames()) {
             for (String oldRecordTypeName : oldRecordTypeNames) {
                 final Descriptor oldDescriptor = oldMetaData.getRecordType(oldRecordTypeName).getDescriptor();
                 final Descriptor newDescriptor = newMetaData.getRecordType(typeRenames.getOrDefault(oldRecordTypeName, oldRecordTypeName)).getDescriptor();
@@ -783,10 +802,82 @@ public class MetaDataEvolutionValidator {
      * update those definitions.
      * </p>
      *
+     * <p>
+     * Note that this is a strictly more permissive setting than
+     * {@linkplain #allowsDeprecatedFieldRenames() allowing deprecated field renames}. If this is set to {@code true},
+     * then that other setting is effectively ignored.
+     * </p>
+     *
      * @return whether this validator allows field names to change
+     * @see #allowsDeprecatedFieldRenames()
      */
     public boolean allowsFieldRenames() {
         return allowFieldRenames;
+    }
+
+    /**
+     * Whether this validator allows deprecated fields to be renamed. If this is {@code true}, then
+     * this behaves in an analogous fashion to if {@link #allowsFieldRenames()} returns {@code true}, but
+     * it only allows the change if the field has been deprecated. In general, removing fields is
+     * not allowed as it can result in unknown fields during Protobuf deserialization. For that reason,
+     * deprecating fields should be preferred to deleting them. Once a field is deprecated and no longer
+     * actively accessed, further modifications to the name of the now unused field may be safe.
+     * Note that this option will result in accepting a meta-data change if a field is renamed
+     * and deprecated in the same change. Additionally, if this validator {@link #allowsUndeprecatingFields()},
+     * then this also allows deprecated fields to be renamed in the same change in which they are
+     * marked as no longer deprecated.
+     *
+     * <p>
+     * One reason that a user may want to allow renaming deprecating fields is to support recreating
+     * an existing field. For example, there are certain incompatible changes that a user may want
+     * to make to a field (e.g., modifying its Protobuf type from {@code sfixed32} to {@code sfixed64}).
+     * To accomplish this, the user can deprecate the old field, rename it, and then create a new field
+     * with the original field's name. This is not an operation that is without cost (the user must,
+     * for example, delete or at least bump the {@linkplain Index#getLastModifiedVersion() last modified version} of
+     * any index referencing the field, and they may need to populate the new field with data from the
+     * deprecated field), but it may be something that a user wants to do while iterating on a test
+     * meta-data. However, this should generally be avoided in production use cases.
+     * </p>
+     *
+     * <p>
+     * Note that this is a strictly less permissive setting than more generally
+     * {@linkplain #allowsFieldRenames() allowing field renames}. If that configuration is set to {@code true}, then
+     * this configuration option is effectively ignored.
+     * </p>
+     *
+     * @return whether this validator allows deprecated fields to be renamed
+     * @see #allowsFieldRenames()
+     */
+    public boolean allowsDeprecatedFieldRenames() {
+        return allowDeprecatedFieldRenames;
+    }
+
+    /**
+     * Whether this validator allows any kind of field renames. It captures whether either this validator
+     * {@link #allowsFieldRenames()} or {@link #allowsDeprecatedFieldRenames()}. If this is false, then
+     * this validator will throw if any kind of field changes its name. The exact set of field renames
+     * that are allowed will depend on the values of the other two configuration parameters.
+     *
+     * @return whether this validator allows any kind of field renames
+     * @see #allowsFieldRenames()
+     * @see #allowsDeprecatedFieldRenames()
+     */
+    public boolean allowsAnyFieldRenames() {
+        return allowFieldRenames || allowDeprecatedFieldRenames;
+    }
+
+    /**
+     * Whether this validator allows fields that were previously deprecated to be marked as not
+     * deprecated. Deprecating a field should generally be a one-way operation, as it represents
+     * deleting a field from the meta-data. By default, validators will therefore reject any meta-data
+     * change where a field goes from deprecated to not deprecated. However, especially when iterating
+     * on a meta-data used only in testing, there may be times when a user wants to un-delete a field.
+     * This option provides the flexibility for the user to allow that.
+     *
+     * @return whether this validator allows fields to be undeprecated
+     */
+    public boolean allowsUndeprecatingFields() {
+        return allowUndeprecatingFields;
     }
 
     /**
@@ -905,6 +996,8 @@ public class MetaDataEvolutionValidator {
         private boolean allowNoVersionChange;
         private boolean allowNoSinceVersion;
         private boolean allowFieldRenames;
+        private boolean allowDeprecatedFieldRenames;
+        private boolean allowUndeprecatingFields;
         private boolean allowIndexRebuilds;
         private boolean allowMissingFormerIndexNames;
         private boolean allowOlderFormerIndexAddedVersions;
@@ -916,6 +1009,8 @@ public class MetaDataEvolutionValidator {
             this.allowNoVersionChange = validator.allowNoVersionChange;
             this.allowNoSinceVersion = validator.allowNoSinceVersion;
             this.allowFieldRenames = validator.allowFieldRenames;
+            this.allowDeprecatedFieldRenames = validator.allowDeprecatedFieldRenames;
+            this.allowUndeprecatingFields = validator.allowUndeprecatingFields;
             this.allowIndexRebuilds = validator.allowIndexRebuilds;
             this.allowMissingFormerIndexNames = validator.allowMissingFormerIndexNames;
             this.allowOlderFormerIndexAddedVersions = validator.allowOlderFormerIndexAddedVersions;
@@ -1018,6 +1113,54 @@ public class MetaDataEvolutionValidator {
          */
         public boolean allowsFieldRenames() {
             return allowFieldRenames;
+        }
+
+        /**
+         * Set whether the validator will allow deprecated fields to be renamed.
+         *
+         * @param allowDeprecatedFieldRenames whether the validator will allow deprecated fields to be renamed
+         * @return this builder
+         * @see MetaDataEvolutionValidator#allowsDeprecatedFieldRenames()
+         */
+        @CanIgnoreReturnValue
+        @Nonnull
+        public Builder setAllowDeprecatedFieldRenames(boolean allowDeprecatedFieldRenames) {
+            this.allowDeprecatedFieldRenames = allowDeprecatedFieldRenames;
+            return this;
+        }
+
+        /**
+         * Whether the validator will allow deprecated fields to be renamed.
+         *
+         * @return whether the validator will allow deprecated fields to be renamed
+         * @see MetaDataEvolutionValidator#allowsDeprecatedFieldRenames()
+         */
+        public boolean allowsDeprecatedFieldRenames() {
+            return allowDeprecatedFieldRenames;
+        }
+
+        /**
+         * Set whether the validator will allow deprecated fields to be marked as not deprecated.
+         *
+         * @param allowUndeprecatingFields whether the validator will allow deprecated fields to be un-deprecated
+         * @return this builder
+         * @see MetaDataEvolutionValidator#allowsUndeprecatingFields()
+         */
+        @CanIgnoreReturnValue
+        @Nonnull
+        public Builder setAllowUndeprecatingFields(boolean allowUndeprecatingFields) {
+            this.allowUndeprecatingFields = allowUndeprecatingFields;
+            return this;
+        }
+
+        /**
+         * Whether the validator will allow deprecated fields to be marked as not deprecated.
+         *
+         * @return whether the validator will allow deprecated fields to be un-deprecated
+         * @see MetaDataEvolutionValidator#allowsUndeprecatingFields()
+         */
+        public boolean allowsUndeprecatingFields() {
+            return allowUndeprecatingFields;
         }
 
         /**
