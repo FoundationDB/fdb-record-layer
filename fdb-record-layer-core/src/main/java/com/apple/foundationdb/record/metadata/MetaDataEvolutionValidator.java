@@ -654,8 +654,10 @@ public class MetaDataEvolutionValidator {
                 }
             } else {
                 // Make sure we are pointing to the same parent
-                int oldParentPos = oldNameToConstituentPosMap.get(oldConstituent.getName());
-                int newParentPos = newNameToConstituentPosMap.get(newConstituent.getName());
+                final UnnestedRecordType.NestedConstituent oldParent = Objects.requireNonNull(oldConstituent.getParent());
+                final UnnestedRecordType.NestedConstituent newParent = Objects.requireNonNull(newConstituent.getParent());
+                int oldParentPos = oldNameToConstituentPosMap.get(oldParent.getName());
+                int newParentPos = newNameToConstituentPosMap.get(newParent.getName());
                 if (oldParentPos != newParentPos) {
                     throw new MetaDataException("nested constituent changed parent",
                             LogMessageKeys.EXPECTED, newConstituents.get(oldParentPos).getName(),
@@ -666,8 +668,6 @@ public class MetaDataEvolutionValidator {
                 // Make sure the nesting expression is still the same, possibly accounting for field renames
                 final KeyExpression expectedNestingExpression;
                 if (allowsAnyFieldRenames()) {
-                    UnnestedRecordType.NestedConstituent oldParent = Objects.requireNonNull(oldConstituent.getParent());
-                    UnnestedRecordType.NestedConstituent newParent = Objects.requireNonNull(newConstituent.getParent());
                     expectedNestingExpression = RenameFieldsVisitor.renameFields(oldConstituent.getNestingExpression(), oldParent.getRecordType().getDescriptor(), newParent.getRecordType().getDescriptor());
                 } else {
                     expectedNestingExpression = oldConstituent.getNestingExpression();

@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
+import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsIdenticalTypesProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
@@ -40,6 +41,7 @@ import com.apple.foundationdb.record.evolution.TestSelfReferenceUnspooledProto;
 import com.apple.foundationdb.record.evolution.TestSplitNestedTypesProto;
 import com.apple.foundationdb.record.evolution.TestUnmergedNestedTypesProto;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.PrefixTextTokenizer;
@@ -67,6 +69,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -2056,7 +2059,305 @@ class MetaDataEvolutionValidatorTest {
 
     // UnnestedRecordTypeTests
 
+    private void addUnnestedManyMiddleType(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final UnnestedRecordTypeBuilder unnestedBuilder = metaDataBuilder.addUnnestedRecordType("unnest_many_middle");
+        unnestedBuilder.addParentConstituent("outer", metaDataBuilder.getRecordType("OuterRecord"));
+        unnestedBuilder.addNestedConstituent("middle", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDescriptor(), "outer", Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut));
 
+        metaDataBuilder.addIndex("unnest_many_middle", new Index("unnest$other_int", Key.Expressions.concat(Key.Expressions.field("outer").nest("other_int"), Key.Expressions.field("middle").nest("other_int"))));
+    }
+
+    private void addUnnestedManyMiddleAndInnerType(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final UnnestedRecordTypeBuilder unnestedBuilder = metaDataBuilder.addUnnestedRecordType("unnest_many_middle_and_inner");
+        unnestedBuilder.addParentConstituent("outer", metaDataBuilder.getRecordType("OuterRecord"));
+        unnestedBuilder.addNestedConstituent("middle", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDescriptor(), "outer", Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut));
+        unnestedBuilder.addNestedConstituent("inner", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor(), "middle", Key.Expressions.field("inner", KeyExpression.FanType.FanOut));
+
+        metaDataBuilder.addIndex("unnest_many_middle_and_inner", new Index("unnest$other_int+foo", Key.Expressions.concat(Key.Expressions.field("middle").nest("other_int"), Key.Expressions.field("inner").nest("foo"))));
+    }
+
+    private void addCrossProduceManyMiddleType(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final UnnestedRecordTypeBuilder unnestedBuilder = metaDataBuilder.addUnnestedRecordType("unnest_cross_many_middle");
+        unnestedBuilder.addParentConstituent("outer", metaDataBuilder.getRecordType("OuterRecord"));
+        unnestedBuilder.addNestedConstituent("m1", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDescriptor(), "outer", Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut));
+        unnestedBuilder.addNestedConstituent("m2", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDescriptor(), "outer", Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut));
+
+        metaDataBuilder.addIndex("unnest_cross_many_middle", new Index("unnest$all_other_int", Key.Expressions.concat(
+                Key.Expressions.field("outer").nest("other_int"),
+                Key.Expressions.field("m1").nest("other_int"),
+                Key.Expressions.field("m2").nest("other_int"))));
+    }
+
+    private void addCrossProductManyMiddleAndInnerType(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final UnnestedRecordTypeBuilder unnestedBuilder = metaDataBuilder.addUnnestedRecordType("unnest_cross_many_middle_and_inner");
+        unnestedBuilder.addParentConstituent("outer", metaDataBuilder.getRecordType("OuterRecord"));
+        unnestedBuilder.addNestedConstituent("m1", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDescriptor(), "outer", Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut));
+        unnestedBuilder.addNestedConstituent("m2", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDescriptor(), "outer", Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut));
+        unnestedBuilder.addNestedConstituent("inner", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor(), "m1", Key.Expressions.field("inner", KeyExpression.FanType.FanOut));
+
+        metaDataBuilder.addIndex("unnest_cross_many_middle_and_inner", new Index("unnest$inner_foo_bar",
+                Key.Expressions.field("inner").nest(Key.Expressions.concatenateFields("foo", "bar"))));
+    }
+
+    @Nonnull
+    private RecordMetaData mutateUnnestedRecordType(@Nonnull RecordMetaData metaData, @Nonnull String typeName, @Nonnull Consumer<RecordMetaDataProto.UnnestedRecordType.Builder> typeMutator) {
+        return updateMetaData(metaData, metaDataProtoBuilder -> {
+            for (RecordMetaDataProto.UnnestedRecordType.Builder typeBuilder : metaDataProtoBuilder.getUnnestedRecordTypesBuilderList()) {
+                if (typeBuilder.getName().equals(typeName)) {
+                    typeMutator.accept(typeBuilder);
+                }
+            }
+        });
+    }
+
+    @Nonnull
+    private RecordMetaData createDoubleNestedMetaData(@Nonnull FDBRecordStoreTestBase.RecordMetaDataHook hook) {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsDoubleNestedProto.getDescriptor());
+        hook.apply(metaDataBuilder);
+        return metaDataBuilder.build();
+    }
+
+    @Test
+    void addUnnestedRecordType() {
+        final RecordMetaData metaData1 = RecordMetaData.build(TestRecordsDoubleNestedProto.getDescriptor());
+
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsDoubleNestedProto.getDescriptor());
+        metaDataBuilder.setVersion(metaData1.getVersion() + 1);
+        addUnnestedManyMiddleType(metaDataBuilder);
+        final RecordMetaData metaData2 = metaDataBuilder.build();
+
+        validator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void dropUnnestedRecordType() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsDoubleNestedProto.getDescriptor());
+        metaDataBuilder.setVersion(metaData1.getVersion() + 1);
+        metaDataBuilder.addFormerIndex(new FormerIndex("unnest$other_int", metaData1.getVersion(), metaData1.getVersion() + 1, "unnest$other_int"));
+        final RecordMetaData metaData2 = metaDataBuilder.build();
+
+        validator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void addUnnestedConstituent() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        final RecordMetaData metaData2 = mutateUnnestedRecordType(metaData1, "unnest_many_middle",
+                unnestedTypeBuilder -> unnestedTypeBuilder.addNestedConstituentsBuilder()
+                        .setName("inner")
+                        .setParent("middle")
+                        .setNestingExpression(Key.Expressions.field("inner").toKeyExpression())
+                        .setTypeName(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor().getFullName()));
+
+        assertInvalid("unnested type constituent count changed", metaData1, metaData2);
+    }
+
+    @Test
+    void flipNestedConstituents() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addCrossProduceManyMiddleType);
+
+        final RecordMetaData metaData2 = mutateUnnestedRecordType(metaData1, "unnest_cross_many_middle", unnestedTypeBuilder -> {
+            // Flip the order of the m2 and m1 constituents
+            final RecordMetaDataProto.UnnestedRecordType.NestedConstituent m1 = unnestedTypeBuilder.getNestedConstituents(1);
+            final RecordMetaDataProto.UnnestedRecordType.NestedConstituent m2 = unnestedTypeBuilder.getNestedConstituents(2);
+            unnestedTypeBuilder.removeNestedConstituents(2);
+            unnestedTypeBuilder.removeNestedConstituents(1);
+            unnestedTypeBuilder.addNestedConstituents(m2);
+            unnestedTypeBuilder.addNestedConstituents(m1);
+        });
+
+        assertInvalid("nested constituent name changed", metaData1, metaData2);
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowFieldRenames(true)
+                .build();
+        assertInvalid("index key expression does not match required", laxerValidator, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateIndex(metaData2, "unnest$all_other_int",
+                indexBuilder -> indexBuilder.setRootExpression(Key.Expressions.concat(
+                        Key.Expressions.field("outer").nest("other_int"),
+                        Key.Expressions.field("m2").nest("other_int"),
+                        Key.Expressions.field("m1").nest("other_int")
+                ).toKeyExpression()));
+        assertInvalid("nested constituent name changed", metaData1, metaData3);
+        laxerValidator.validate(metaData1, metaData3);
+    }
+
+    @Test
+    void changeParentType() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        final RecordMetaData metaData2 = mutateUnnestedRecordType(metaData1, "unnest_many_middle", unnestedTypeBuilder -> {
+            // Change the parent from OuterRecord to middle record
+            final RecordMetaDataProto.UnnestedRecordType.NestedConstituent.Builder parent = unnestedTypeBuilder.getNestedConstituentsBuilder(0);
+            parent.setTypeName("MiddleRecord");
+
+            // Update the path for the nesting key expression. It still actually points to the same nested type as before, it just takes a more interesting path to get there
+            final RecordMetaDataProto.UnnestedRecordType.NestedConstituent.Builder middle = unnestedTypeBuilder.getNestedConstituentsBuilder(1);
+            middle.setNestingExpression(Key.Expressions.field("other_middle").nest(Key.Expressions.field("other").nest(Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut))).toKeyExpression());
+        });
+
+        assertInvalid("unnested type parent record type changed", metaData1, metaData2);
+    }
+
+    @Test
+    void renameParentType() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        FileDescriptor renamedDescriptor = mutateFile(TestRecordsDoubleNestedProto.getDescriptor(), fileBuilder -> {
+            DescriptorProtos.DescriptorProto outerRecord = null;
+            for (DescriptorProtos.DescriptorProto.Builder messageBuilder : fileBuilder.getMessageTypeBuilderList()) {
+                if (messageBuilder.getName().equals("OuterRecord")) {
+                    outerRecord = messageBuilder.build();
+                    messageBuilder.setName("OuterRecord__old");
+                } else if (messageBuilder.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                    for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : messageBuilder.getFieldBuilderList()) {
+                        if (fieldBuilder.getTypeName().endsWith("OuterRecord")) {
+                            deprecateField(fieldBuilder);
+                            fieldBuilder.setTypeName("OuterRecord__old").setName("_OuterRecord__old");
+                        }
+                    }
+                    addField(messageBuilder)
+                            .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                            .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                            .setTypeName("OuterRecord")
+                            .setName("_OuterRecord");
+
+                }
+            }
+            fileBuilder.addMessageType(Objects.requireNonNull(outerRecord));
+        });
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedDescriptor, metaDataBuilder -> {
+            for (RecordMetaDataProto.RecordType.Builder recordTypeBuilder : metaDataBuilder.getRecordTypesBuilderList()) {
+                if (recordTypeBuilder.getName().equals("OuterRecord")) {
+                    recordTypeBuilder.setName("OuterRecord__old");
+                }
+            }
+            metaDataBuilder.addRecordTypesBuilder()
+                    .setName("OuterRecord")
+                    .setSinceVersion(metaDataBuilder.getVersion())
+                    .setPrimaryKey(Key.Expressions.field("rec_no").toKeyExpression());
+        });
+
+        assertInvalid("unnested type parent record type changed", metaData1, metaData2);
+        final MetaDataEvolutionValidator stricterValidator = validator.asBuilder()
+                .setDisallowTypeRenames(true)
+                .build();
+        assertInvalid("record type name changed", stricterValidator, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateUnnestedRecordType(metaData2, "unnest_many_middle",
+                unnestedTypeBuilder -> unnestedTypeBuilder.getNestedConstituentsBuilder(0).setTypeName("OuterRecord__old"));
+        validator.validate(metaData1, metaData3);
+        assertInvalid("record type name changed", stricterValidator, metaData1, metaData3);
+    }
+
+    @Test
+    void changeNestedParent() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addCrossProductManyMiddleAndInnerType);
+
+        final RecordMetaData metaData2 = mutateUnnestedRecordType(metaData1, "unnest_cross_many_middle_and_inner",
+                // Change the inner from pointing to m2 to m1
+                unnestedRecordType -> unnestedRecordType.getNestedConstituentsBuilder(3).setParent("m2"));
+        assertInvalid("nested constituent changed parent", metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateUnnestedRecordType(metaData2, "unnest_cross_many_middle_and_inner", unnestedRecordType -> {
+            // Swap the positions of m1 and m2 so that now m2 is back to referring to the first middle
+            final List<RecordMetaDataProto.UnnestedRecordType.NestedConstituent> nestedConstituents = List.of(
+                    unnestedRecordType.getNestedConstituents(0),
+                    unnestedRecordType.getNestedConstituents(2),
+                    unnestedRecordType.getNestedConstituents(1),
+                    unnestedRecordType.getNestedConstituents(3)
+            );
+            unnestedRecordType.clearNestedConstituents().addAllNestedConstituents(nestedConstituents);
+        });
+        assertInvalid("nested constituent name changed", metaData1, metaData3);
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowFieldRenames(true)
+                .build();
+        laxerValidator.validate(metaData1, metaData3);
+    }
+
+    @Test
+    void changeNestedConstituentExpression() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        final RecordMetaData metaData2 = mutateUnnestedRecordType(metaData1, "unnest_many_middle", unnestedTypeBuilder ->
+                unnestedTypeBuilder.getNestedConstituentsBuilder(1).setNestingExpression(
+                        Key.Expressions.field("other").nest(Key.Expressions.field("outer").nest(Key.Expressions.field("many_middle", KeyExpression.FanType.FanOut))).toKeyExpression()));
+
+        assertInvalid("nested constituent nesting expression changed", metaData1, metaData2);
+    }
+
+    @Test
+    void changeNestedConstituentTypeName() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleAndInnerType);
+
+        final String newFullTypeName = TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor().getFullName() + "_new";
+        FileDescriptor renamedFileDescriptor = mutateFile(TestRecordsDoubleNestedProto.getDescriptor(), fileBuilder -> {
+            for (DescriptorProtos.DescriptorProto.Builder outerMessageBuilder : fileBuilder.getMessageTypeBuilderList()) {
+                if (outerMessageBuilder.getName().equals("OuterRecord")) {
+                    for (DescriptorProtos.FieldDescriptorProto.Builder outerFieldBuilder : outerMessageBuilder.getFieldBuilderList()) {
+                        if (outerFieldBuilder.getTypeName().endsWith("InnerRecord")) {
+                            outerFieldBuilder.setTypeName(newFullTypeName);
+                        }
+                    }
+                    for (DescriptorProtos.DescriptorProto.Builder middleMessageBuilder : outerMessageBuilder.getNestedTypeBuilderList()) {
+                        for (DescriptorProtos.FieldDescriptorProto.Builder middleFieldBuilder : middleMessageBuilder.getFieldBuilderList()) {
+                            if (middleFieldBuilder.getTypeName().endsWith("InnerRecord")) {
+                                middleFieldBuilder.setTypeName(newFullTypeName);
+                            }
+                        }
+                        for (DescriptorProtos.DescriptorProto.Builder innerMessageBuilder : middleMessageBuilder.getNestedTypeBuilderList()) {
+                            if (innerMessageBuilder.getName().equals("InnerRecord")) {
+                                innerMessageBuilder.setName("InnerRecord_new");
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedFileDescriptor, metaDataBuilder -> {
+            for (RecordMetaDataProto.UnnestedRecordType.Builder unnestedTypeBuilder : metaDataBuilder.getUnnestedRecordTypesBuilderList()) {
+                for (RecordMetaDataProto.UnnestedRecordType.NestedConstituent.Builder constituentBuilder : unnestedTypeBuilder.getNestedConstituentsBuilderList()) {
+                    if (constituentBuilder.getTypeName().endsWith("InnerRecord")) {
+                        constituentBuilder.setTypeName(newFullTypeName);
+                    }
+                }
+            }
+        });
+
+        validator.validate(metaData1, metaData2);
+    }
+
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldInNestingExpression(boolean deprecated) {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        FileDescriptor renamedDescriptor = mutateMessageType("OuterRecord", TestRecordsDoubleNestedProto.getDescriptor(), messageType -> {
+            for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : messageType.getFieldBuilderList()) {
+                if (fieldBuilder.getName().equals("many_middle")) {
+                    if (deprecated) {
+                        deprecateField(fieldBuilder);
+                    }
+                    fieldBuilder.setName("many_middle_old");
+                }
+            }
+            addField(messageType)
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED)
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                    .setTypeName(TestRecordsDoubleNestedProto.MiddleRecord.getDescriptor().getFullName())
+                    .setName("many_middle");
+        });
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedDescriptor);
+        fieldRenameChecker.assertInvalidRenaming("nested constituent nesting expression changed", deprecated, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateUnnestedRecordType(metaData2, "unnest_many_middle", unnestedTypeBuilder ->
+                unnestedTypeBuilder.getNestedConstituentsBuilder(1).setNestingExpression(Key.Expressions.field("many_middle_old", KeyExpression.FanType.FanOut).toKeyExpression()));
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
+    }
 
     // Former index tests
 
