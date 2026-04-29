@@ -20,7 +20,7 @@ Syntax
 
     DQL/SELECT
     DQL/WITH
-    DQL/INNER_JOIN
+    DQL/JOIN
     DQL/WHERE
     DQL/CASE
     DQL/ORDER_BY
