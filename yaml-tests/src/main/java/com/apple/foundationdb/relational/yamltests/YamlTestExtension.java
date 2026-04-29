@@ -20,9 +20,13 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.yamltests.configs.AddResultMetadata;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.yamltests.configs.CorrectExplains;
+import com.apple.foundationdb.relational.yamltests.configs.CorrectExpectations;
 import com.apple.foundationdb.relational.yamltests.configs.CorrectExplainsAndMetrics;
 import com.apple.foundationdb.relational.yamltests.configs.CorrectMetrics;
+import com.apple.foundationdb.relational.yamltests.configs.CorrectResultMetadata;
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
 import com.apple.foundationdb.relational.yamltests.configs.ExternalMultiServerConfig;
 import com.apple.foundationdb.relational.yamltests.configs.ForceContinuations;
@@ -30,6 +34,7 @@ import com.apple.foundationdb.relational.yamltests.configs.JDBCInProcessConfig;
 import com.apple.foundationdb.relational.yamltests.configs.JDBCMultiServerConfig;
 import com.apple.foundationdb.relational.yamltests.configs.ShowPlanOnDiff;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.google.common.collect.Iterables;
@@ -65,41 +70,56 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private static final Logger logger = LogManager.getLogger(YamlTestExtension.class);
     private List<YamlTestConfig> testConfigs;
     private List<YamlTestConfig> maintainConfigs;
-    private List<ExternalServer> servers;
+    /** External servers grouped by jar version. Each {@link Clusters} has one server per cluster file (same order as {@link #clusterFiles}). */
     @Nullable
-    private final String clusterFile;
+    private List<Clusters<ExternalServer>> externalServerGroups;
+    @Nonnull
+    private final List<String> clusterFiles;
     private final boolean includeMethodInDescriptions;
 
     @SuppressWarnings("unused") // Used implicitly with @ExtendWith(YamlTestExtension.class)
     public YamlTestExtension() {
-        this(FDBTestEnvironment.randomClusterFile(), false);
+        this(FDBTestEnvironment.allClusterFilesInRandomOrder(), false);
     }
 
     /**
      * Create a new extension with some configuration.
-     * @param clusterFile a custom cluster file to use, or {@code null} to inherit it from the environment, namely
-     * {@code FDB_CLUSTER_FILE}.
+     * @param clusterFile a custom cluster file to use as the primary.
      * @param includeMethodInDescriptions Set this to {@code true} if publishing test results to something that cannot
      * handle complex test hierarchies. In the record layer we maintain the full hierarchy in the output, so this is not
      * necessary, but if integrating some other tools this might be necessary.
      */
-    public YamlTestExtension(@Nullable final String clusterFile, final boolean includeMethodInDescriptions) {
-        this.clusterFile = clusterFile;
+    @API(API.Status.DEPRECATED)
+    public YamlTestExtension(@Nonnull final String clusterFile, final boolean includeMethodInDescriptions) {
+        this(List.of(clusterFile), includeMethodInDescriptions);
+    }
+
+    /**
+     * Create a new extension with an explicit list of cluster files.
+     * @param clusterFiles the cluster files to use, where index 0 is the primary cluster
+     * @param includeMethodInDescriptions Set this to {@code true} if publishing test results to something that cannot
+     * handle complex test hierarchies.
+     */
+    public YamlTestExtension(@Nonnull final List<String> clusterFiles, final boolean includeMethodInDescriptions) {
+        this.clusterFiles = clusterFiles;
         this.includeMethodInDescriptions = includeMethodInDescriptions;
     }
 
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
         maintainConfigs = List.of(
-                new CorrectExplains(new EmbeddedConfig(clusterFile)),
-                new CorrectMetrics(new EmbeddedConfig(clusterFile)),
-                new CorrectExplainsAndMetrics(new EmbeddedConfig(clusterFile)),
-                new ShowPlanOnDiff(new EmbeddedConfig(clusterFile))
+                new CorrectExplains(new EmbeddedConfig(clusterFiles)),
+                new CorrectMetrics(new EmbeddedConfig(clusterFiles)),
+                new CorrectExplainsAndMetrics(new EmbeddedConfig(clusterFiles)),
+                new CorrectExpectations(new EmbeddedConfig(clusterFiles)),
+                new CorrectResultMetadata(new EmbeddedConfig(clusterFiles)),
+                new AddResultMetadata(new EmbeddedConfig(clusterFiles)),
+                new ShowPlanOnDiff(new EmbeddedConfig(clusterFiles))
         );
         if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
-            testConfigs = List.of(new EmbeddedConfig(clusterFile));
+            testConfigs = List.of(new EmbeddedConfig(clusterFiles));
         } else if (Boolean.parseBoolean(System.getProperty("tests.runRPC", "false"))) {
-            testConfigs = List.of(new JDBCInProcessConfig(clusterFile));
+            testConfigs = List.of(new JDBCInProcessConfig(clusterFiles));
         } else {
             List<File> jars = ExternalServer.getAvailableServers();
             // Fail the test if there are no available servers. This would force the execution in "runQuick" mode in case
@@ -107,11 +127,22 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             // Potentially, we can relax this a little if all tests are disabled for multi-server execution, but this is
             // not a likely scenario.
             Assertions.assertFalse(jars.isEmpty(), "There are no external servers available to run");
-            servers = new ArrayList<>();
+            externalServerGroups = new ArrayList<>();
+            List<ExternalServer> allExternalServers = new ArrayList<>();
             for (File jar : jars) {
-                servers.add(new ExternalServer(jar, clusterFile));
+                Clusters<ExternalServer> group = Clusters.fromClusterFiles(clusterFiles, cf -> {
+                    try {
+                        return new ExternalServer(jar, cf);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+                externalServerGroups.add(group);
+                for (ExternalServer server : group) {
+                    allExternalServers.add(server);
+                }
             }
-            ExternalServer.startMultiple(servers);
+            ExternalServer.startMultiple(allExternalServers);
             final boolean mixedModeOnly = Boolean.parseBoolean(System.getProperty("tests.mixedModeOnly", "false"));
             final boolean singleExternalVersionOnly = Boolean.parseBoolean(System.getProperty("tests.singleVersion", "false"));
             Stream<YamlTestConfig> localTestingConfigs = localConfigs(mixedModeOnly, singleExternalVersionOnly);
@@ -132,25 +163,25 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         if (mixedModeOnly || singleExternalVersionOnly) {
             return Stream.of();
         } else {
-            return Stream.of(new EmbeddedConfig(clusterFile), new JDBCInProcessConfig(clusterFile));
+            return Stream.of(new EmbeddedConfig(clusterFiles), new JDBCInProcessConfig(clusterFiles));
         }
     }
 
     private Stream<YamlTestConfig> externalServerConfigs(final boolean singleExternalVersionOnly) {
         if (singleExternalVersionOnly) {
-            return servers.stream()
-                    // Create an ExternalServer config with two servers of the same version for each server
+            return externalServerGroups.stream()
+                    // Create an ExternalServer config with two connections to the same servers for each version
                     // (with and without forced continuations)
-                    .flatMap(server ->
-                            Stream.of(new ExternalMultiServerConfig(0, server, server),
-                                    new ForceContinuations(new ExternalMultiServerConfig(0, server, server))));
+                    .flatMap(group ->
+                            Stream.of(new ExternalMultiServerConfig(0, group, group),
+                                    new ForceContinuations(new ExternalMultiServerConfig(0, group, group))));
         } else {
-            return servers.stream().flatMap(server ->
-                    // (4 configs for each server available)
-                    Stream.of(new JDBCMultiServerConfig(0, server, clusterFile),
-                            new ForceContinuations(new JDBCMultiServerConfig(0, server, clusterFile)),
-                            new JDBCMultiServerConfig(1, server, clusterFile),
-                            new ForceContinuations(new JDBCMultiServerConfig(1, server, clusterFile))));
+            return externalServerGroups.stream().flatMap(group ->
+                    // (4 configs for each server version available)
+                    Stream.of(new JDBCMultiServerConfig(0, group),
+                            new ForceContinuations(new JDBCMultiServerConfig(0, group)),
+                            new JDBCMultiServerConfig(1, group),
+                            new ForceContinuations(new JDBCMultiServerConfig(1, group))));
         }
     }
 
@@ -171,19 +202,26 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                                 return e;
                             }
                         }).filter(Objects::nonNull).findFirst();
-        if (servers != null) {
-            for (ExternalServer server : servers) {
-                try {
-                    server.stop();
-                } catch (Exception ex) {
-                    if (logger.isWarnEnabled()) {
-                        logger.warn("Failed to stop server " + server.getVersion() + " on " + server.getPort());
-                    }
+        if (externalServerGroups != null) {
+            for (Clusters<ExternalServer> group : externalServerGroups) {
+                for (ExternalServer server : group) {
+                    stopServerSafely(server);
                 }
             }
+            externalServerGroups = null;
         }
         if (exception.isPresent()) {
             throw exception.get();
+        }
+    }
+
+    private static void stopServerSafely(final ExternalServer server) {
+        try {
+            server.stop();
+        } catch (Exception ex) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("Failed to stop server " + server.getVersion() + " on " + server.getPort());
+            }
         }
     }
 
@@ -197,6 +235,9 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         final var testClass = context.getRequiredTestClass();
         final var testMethod = context.getRequiredTestMethod();
         if (testClass.getAnnotation(MaintainYamlTestConfig.class) != null) {
+            if (YamlExecutionContext.isInCI()) {
+                throw new UnsupportedOperationException("somebody checked in a test with a MaintainYamlTestConfig annotation");
+            }
             final var annotation = testClass.getAnnotation(MaintainYamlTestConfig.class);
             return provideInvocationContextsForMaintenance(annotation, testMethod.getName());
         }
@@ -210,6 +251,9 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                     .map(config -> new Context(config, annotation.reason(), annotation.value(),
                             includeMethodInDescriptions, testMethod.getName()));
         } else if (testMethod.getAnnotation(MaintainYamlTestConfig.class) != null) {
+            if (YamlExecutionContext.isInCI()) {
+                throw new UnsupportedOperationException("somebody checked in a test with a MaintainYamlTestConfig annotation");
+            }
             final var annotation =
                     testMethod.getAnnotation(MaintainYamlTestConfig.class);
             return provideInvocationContextsForMaintenance(annotation, testMethod.getName());

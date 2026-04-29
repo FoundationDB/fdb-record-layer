@@ -92,23 +92,23 @@ public class NullableArrayTypeUtils {
     }
 
     /**
-     * If the value is a nullable array, unwrap the value wrapper.
+     * If the value is a {@link Message} for a nullable array, unwrap the value wrapper.
      *
-     * @param wrappedValue The input value
-     * @param type The input type
-     *
-     * @return The unwrapped value
+     * @param value The input value.
+     * @param type The input type.
+     * @return The unwrapped value.
      */
     @Nullable
-    public static Object unwrapIfArray(@Nullable Object wrappedValue, @Nonnull Type type) {
-        //
-        // If the last step in the field path is an array that is also nullable, then we need to unwrap the value
-        // wrapper.
-        //
-        if (wrappedValue != null && type.isArray() && type.isNullable()) {
-            return MessageHelpers.getFieldOnMessage((Message)wrappedValue, NullableArrayTypeUtils.getRepeatedFieldName());
+    public static Object unwrapIfArray(@Nullable Object value, @Nonnull Type type) {
+        if (value == null) {
+            return null;
         }
-        return wrappedValue;
+        // Note: The value may already be a `List`, as this is also called during evaluation (e.g. `FieldValue#eval()`).
+        if (value instanceof Message && type.isArray() && type.isNullable()) {
+            return MessageHelpers.getFieldOnMessage((Message)value, NullableArrayTypeUtils.getRepeatedFieldName());
+        } else {
+            return value;
+        }
     }
 
     /**

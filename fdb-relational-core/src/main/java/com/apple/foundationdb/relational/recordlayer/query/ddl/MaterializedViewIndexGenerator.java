@@ -65,7 +65,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggreg
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
-import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -176,7 +175,7 @@ public final class MaterializedViewIndexGenerator {
         Assert.thatUnchecked(unsupportedAggregates.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
                 () -> String.format(Locale.ROOT, "Unsupported aggregate index definition containing non-indexable aggregation (%s), consider using a value index on the aggregated column instead.", unsupportedAggregates.stream().map(Objects::toString).collect(joining(","))));
 
-        Assert.thatUnchecked(simplifiedValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof IndexableAggregateValue || sv instanceof VersionValue || sv instanceof ArithmeticValue));
+        Assert.thatUnchecked(simplifiedValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof IndexableAggregateValue || sv instanceof ArithmeticValue));
         final var aggregateValues = simplifiedValues.stream().filter(sv -> sv instanceof IndexableAggregateValue).collect(toList());
         final var fieldValues = simplifiedValues.stream().filter(sv -> !(sv instanceof IndexableAggregateValue)).collect(toList());
         final var versionValues = simplifiedValues.stream().filter(sv -> sv instanceof FieldValue && sv.getResultType().equals(PseudoField.ROW_VERSION.getType())).collect(toList());
@@ -185,7 +184,7 @@ public final class MaterializedViewIndexGenerator {
         final var orderByValues = getOrderByValues(relationalExpression, orderingFunctions);
         if (aggregateValues.isEmpty()) {
             indexBuilder.setIndexType(versionValues.isEmpty() ? IndexTypes.VALUE : IndexTypes.VERSION);
-            Assert.thatUnchecked(orderByValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof VersionValue || sv instanceof ArithmeticValue), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, order by must be a subset of projection list");
+            Assert.thatUnchecked(orderByValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof ArithmeticValue), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, order by must be a subset of projection list");
             if (fieldValues.size() > 1) {
                 Assert.thatUnchecked(!orderByValues.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, value indexes must have an order by clause at the top level");
             }
@@ -534,9 +533,7 @@ public final class MaterializedViewIndexGenerator {
 
     @Nonnull
     private KeyExpression toKeyExpression(@Nonnull Value value) {
-        if (value instanceof VersionValue) {
-            return VersionKeyExpression.VERSION;
-        } else if (value instanceof FieldValue) {
+        if (value instanceof FieldValue) {
             final FieldValue fieldValue = (FieldValue) value;
             return toKeyExpression(fieldValue.getFieldPath().getFieldAccessors().iterator());
         } else if (value instanceof ArithmeticValue) {
@@ -604,13 +601,17 @@ public final class MaterializedViewIndexGenerator {
         final var groupByContainsOneAggregation = expressions.stream().filter(r -> r instanceof GroupByExpression).map(r -> (GroupByExpression) r).noneMatch(g -> Values.deconstructRecord(g.getAggregateValue()).size() > 1);
         Assert.thatUnchecked(groupByContainsOneAggregation, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found group by expression with more than one aggregation");
 
-        // result values of each operation must be simple or arithmetic values.
-        final var allRecordValues = expressions.stream().allMatch(r -> (r.getResultValue().getResultType().getTypeCode() == Type.TypeCode.RECORD));
+        // Result values of each operation must be record-typed. `ExplodeExpression` is excluded because
+        // unnesting a scalar array (e.g., a STRING ARRAY) produces scalar elements, not records.
+        final var allRecordValues = expressions.stream()
+                .filter(r -> !(r instanceof ExplodeExpression))
+                .allMatch(r -> (r.getResultValue().getResultType().getTypeCode() == Type.TypeCode.RECORD));
         Assert.thatUnchecked(allRecordValues, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, some operators return non-record values");
 
+        // Fields of result values of each record-typed operation must be simple or arithmetic values.
         final var allSimpleValues = expressions.stream()
                 .filter(r -> r.getResultType().getInnerType() instanceof Type.Record)
-                .allMatch(r -> Values.deconstructRecord(r.getResultValue()).stream().allMatch(v -> v instanceof FieldValue || v instanceof VersionValue || v instanceof QuantifiedObjectValue || v instanceof AggregateValue || v instanceof ArithmeticValue || v instanceof LiteralValue));
+                .allMatch(r -> Values.deconstructRecord(r.getResultValue()).stream().allMatch(v -> v instanceof FieldValue || v instanceof QuantifiedObjectValue || v instanceof AggregateValue || v instanceof ArithmeticValue || v instanceof LiteralValue));
         Assert.thatUnchecked(allSimpleValues, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, not all fields can be mapped to key expression in");
     }
 

@@ -27,7 +27,7 @@ import org.junit.jupiter.api.TestTemplate;
 /**
  * Class covering the standard integration tests specified by yamsql files.
  * <br>
- * Note: Use {@link MaintainYamlTestConfig} using {@link YamlTestConfigFilters#CORRECT_EXPLAIN_AND_METRICS} or similar
+ * Note: Use {@link MaintainYamlTestConfig} using {@link YamlTestConfigFilters#CORRECT_EXPECTATIONS} or similar
  * to correct explain strings and/or planner metrics. That annotation works both on class and on method level.
  * Note: Use {@link com.apple.foundationdb.relational.yamltests.DebugPlanner} on a specific test in this class to bring
  * up the {@link com.apple.foundationdb.record.query.plan.cascades.debug.PlannerRepl} debugger implementation.
@@ -68,6 +68,21 @@ public class YamlIntegrationTests {
     @TestTemplate
     void arrays(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("arrays.yamsql");
+    }
+
+    @TestTemplate
+    void arraysCardinality(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("arrays-cardinality.yamsql");
+    }
+
+    @TestTemplate
+    void arraysOperators(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("arrays-operators.yamsql");
+    }
+
+    @TestTemplate
+    void arraysUnnesting(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("arrays-unnesting.yamsql");
     }
 
     @TestTemplate
@@ -223,6 +238,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void multiClusterIsolation(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("multi-cluster-isolation.yamsql");
+    }
+
+    @TestTemplate
     public void indexDdl(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("index-ddl.yamsql");
     }
@@ -283,6 +303,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void rightDeepPlanTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("right-deep-plan-tests.yamsql");
+    }
+
+    @TestTemplate
     public void scenarioTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("scenario-tests.yamsql");
     }
@@ -310,6 +335,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void setupWithConnectionOptionsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("setup-with-connection-options.yamsql");
+    }
+
+    @TestTemplate
+    public void slidingWindowSemanticSearchTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("sliding-window-semantic-search.yamsql");
     }
 
     @TestTemplate
@@ -378,8 +408,13 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void uuidTest(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("uuid.yamsql");
+    public void uuidPreparedTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("uuid-prepared.yamsql");
+    }
+
+    @TestTemplate
+    public void uuidNonPreparedTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("uuid-non-prepared.yamsql");
     }
 
     /**
@@ -427,5 +462,15 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void largeRecordFails(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("large-record-fails.yamsql");
+    }
+
+    @TestTemplate
+    public void recordTypeKeyTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("record-type-key-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void filterIndexTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("filter-index.yamsql");
     }
 }

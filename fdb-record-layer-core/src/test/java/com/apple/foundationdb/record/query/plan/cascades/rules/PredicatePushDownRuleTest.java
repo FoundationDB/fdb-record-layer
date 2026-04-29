@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -86,7 +87,7 @@ public class PredicatePushDownRuleTest {
     @Nonnull
     private static final PredicatePushDownRule rule = new PredicatePushDownRule();
     @Nonnull
-    private static final RuleTestHelper testHelper = new RuleTestHelper(rule);
+    private static final RuleTestHelper testHelper = new RuleTestHelper(rule, PlannerPhase.REWRITING);
 
     @BeforeEach
     void setUp() {

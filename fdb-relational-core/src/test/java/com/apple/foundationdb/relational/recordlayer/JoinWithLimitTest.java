@@ -40,10 +40,12 @@ public class JoinWithLimitTest {
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     private static final String getTemplate_definition =
-            "CREATE TABLE R(rpk bigint, ra bigint, primary key(rpk))" +
-                    "CREATE TABLE S(spk bigint, sa bigint, primary key(spk))" +
-                    "CREATE TYPE AS STRUCT D ( e bigint )" +
-                    "CREATE TABLE Q(qpk bigint, d D array, PRIMARY KEY(qpk))";
+            """
+            CREATE TABLE R(rpk bigint, ra bigint, primary key(rpk))
+            CREATE TABLE S(spk bigint, sa bigint, primary key(spk))
+            CREATE TYPE AS STRUCT D ( e bigint )
+            CREATE TABLE Q(qpk bigint, d D array, PRIMARY KEY(qpk))
+            """;
 
     @RegisterExtension
     @Order(1)
@@ -245,11 +247,11 @@ public class JoinWithLimitTest {
             preparedStatement.setBytes("param", continuation.serialize());
             try (final var resultSet = preparedStatement.executeQuery()) {
                 Assertions.assertThat(resultSet.next()).isTrue();
-                Assertions.assertThat(resultSet.getLong("rpk")).isEqualTo(1L);
-                Assertions.assertThat(resultSet.getLong("sa")).isEqualTo(20L);
-                Assertions.assertThat(resultSet.next()).isTrue();
                 Assertions.assertThat(resultSet.getLong("rpk")).isEqualTo(2L);
                 Assertions.assertThat(resultSet.getLong("sa")).isEqualTo(10L);
+                Assertions.assertThat(resultSet.next()).isTrue();
+                Assertions.assertThat(resultSet.getLong("rpk")).isEqualTo(1L);
+                Assertions.assertThat(resultSet.getLong("sa")).isEqualTo(20L);
                 continuation = resultSet.getContinuation();
             }
         }

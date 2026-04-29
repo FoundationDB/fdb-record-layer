@@ -44,6 +44,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.google.common.base.Verify;
@@ -93,6 +95,7 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
                     smallestCardinalityOfDataAccessesTiebreaker(),
                     lowestNumUnsatisfiedFiltersTiebreaker(),
                     lowestNumDataAccessesTiebreaker(),
+                    recursiveCteOperatorTiebreaker(),
                     inOperatorTiebreaker(),
                     primaryScanVsIndexScanTiebreaker(),
                     lowestNumTypeFilterTiebreaker(),
@@ -223,6 +226,27 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
     }
 
     /**
+     * Compares two recursive CTE plans, preferring DFS traversal over level-based traversal. The left expression
+     * is assumed to be a DFS plan and the right expression is assumed to be a level-based plan. Returns
+     * {@link OptionalInt#empty()} if the assumption does not hold. This method is meant to be called using
+     * {@link #flipFlop(Supplier, Supplier)} so the reversed case is also checked.
+     *
+     * @param leftExpression this expression (expected to be a DFS plan)
+     * @param rightExpression other expression (expected to be a level-based plan)
+     * @return {@code OptionalInt.of(-1)} to prefer the DFS plan (left), or {@code OptionalInt.empty()} if the
+     *         expressions are not a DFS vs level-based pair
+     */
+    @SuppressWarnings("java:S1172")
+    private static OptionalInt compareRecursiveCteOperator(@Nonnull final RelationalExpression leftExpression,
+                                                           @Nonnull final RelationalExpression rightExpression) {
+        if (leftExpression instanceof RecordQueryRecursiveDfsJoinPlan &&
+                rightExpression instanceof RecordQueryRecursiveLevelUnionPlan) {
+            return OptionalInt.of(-1);
+        }
+        return OptionalInt.empty();
+    }
+
+    /**
      * This comparator compares the left expression which must be of type {@link RecordQueryInUnionPlan} or
      * {@link RecordQueryInJoinPlan} and only returns an indication that the other plan is considered preferable
      * or that this plan and the other plan are comparable. It never returns that the in-plan should be preferable.
@@ -285,6 +309,16 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
                 count(planOpsMapIndexScan, RecordQueryFetchFromPartialRecordPlan.class) == 1);
     }
 
+    /**
+     * First evaluates {@code variantA} which compares {@code (a, b)} in some specific way. If that yields a result,
+     * it is returned directly. Otherwise, it evaluates {@code variantB} which compares {@code (b, a)} in the same way;
+     * if that yields a result, its sign is negated before returning (since the argument order was swapped). Returns
+     * {@link OptionalInt#empty()} if neither variant produces a result.
+     *
+     * @param variantA supplier for the {@code (a, b)} comparison, returning a positive value if {@code a} is preferred
+     * @param variantB supplier for the {@code (b, a)} comparison, returning a positive value if {@code b} is preferred
+     * @return the comparison result with consistent sign convention, or empty if neither variant matched
+     */
     private static OptionalInt flipFlop(final Supplier<OptionalInt> variantA,
                                         final Supplier<OptionalInt> variantB) {
         final OptionalInt resultA = variantA.get();
@@ -318,6 +352,11 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
     @Nonnull
     static LowestNumDataAccessesTiebreaker lowestNumDataAccessesTiebreaker() {
         return LowestNumDataAccessesTiebreaker.INSTANCE;
+    }
+
+    @Nonnull
+    static RecursiveCteOperatorTiebreaker recursiveCteOperatorTiebreaker() {
+        return RecursiveCteOperatorTiebreaker.INSTANCE;
     }
 
     @Nonnull
@@ -446,6 +485,24 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
                             RecordQueryCoveringIndexPlan.class);
 
             return Integer.compare(numDataAccessA, numDataAccessB);
+        }
+    }
+
+    static class RecursiveCteOperatorTiebreaker implements Tiebreaker<RecordQueryPlan> {
+        private static final RecursiveCteOperatorTiebreaker INSTANCE = new RecursiveCteOperatorTiebreaker();
+
+        @Override
+        public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,
+                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
+                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
+                           @Nonnull final RecordQueryPlan a, @Nonnull final RecordQueryPlan b) {
+            final OptionalInt dfsVsLevelOptional =
+                    flipFlop(() -> compareRecursiveCteOperator(a, b), () -> compareRecursiveCteOperator(b, a));
+            if (dfsVsLevelOptional.isPresent() && dfsVsLevelOptional.getAsInt() != 0) {
+                return dfsVsLevelOptional.getAsInt();
+            }
+
+            return 0;
         }
     }
 

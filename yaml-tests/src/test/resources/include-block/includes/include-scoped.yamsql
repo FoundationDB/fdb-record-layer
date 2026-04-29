@@ -35,7 +35,7 @@ test_block:
       - query: select * from t2_func
       - setup: create temporary function t2_func() on commit drop function AS
           SELECT * FROM t2;
-      - explain: "SCAN(<,>)"
+      - explain: "SCAN([IS T2])"
       - result: [
         {id: 10, col1: 20},
         {id: 30, col1: 40},
@@ -45,5 +45,5 @@ test_block:
       - query: select * from t2_func
       - setup: create temporary function t2_func() on commit drop function AS
           SELECT * FROM t2 where id < 50;
-      - explain: "SCAN(<,>) | FILTER _.ID LESS_THAN promote(@cT2_FUNC18 AS LONG)"
+      - explain: "SCAN([IS T2, [LESS_THAN promote(@cT2_FUNC18 AS LONG)]])"
 ...

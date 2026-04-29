@@ -1,0 +1,107 @@
+unnamed-3:
+-   query: EXPLAIN SELECT "id", "items" FROM T1
+    ref: arrays-unnesting.yamsql:80
+    explain: SCAN([IS T1])
+    task_count: 160
+    task_total_time_ms: 89
+    transform_count: 45
+    transform_time_ms: 63
+    transform_yield_count: 15
+    insert_time_ms: 1
+    insert_new_count: 13
+    insert_reused_count: 1
+-   query: EXPLAIN SELECT "id", "items" FROM "T1_indexed"
+    ref: arrays-unnesting.yamsql:88
+    explain: SCAN([IS T1_indexed])
+    task_count: 164
+    task_total_time_ms: 16
+    transform_count: 47
+    transform_time_ms: 7
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 13
+    insert_reused_count: 1
+-   query: EXPLAIN SELECT "items" FROM "T1_indexed"
+    ref: arrays-unnesting.yamsql:96
+    explain: SCAN([IS T1_indexed]) | MAP (_.items AS items)
+    task_count: 150
+    task_total_time_ms: 10
+    transform_count: 42
+    transform_time_ms: 5
+    transform_yield_count: 15
+    insert_time_ms: 0
+    insert_new_count: 12
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT "id", "item" FROM "T1_indexed" AS "row", "row"."items" AS
+        "item"
+    ref: arrays-unnesting.yamsql:113
+    explain: SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN
+        (q0.id AS id, q1 AS item) }
+    task_count: 170
+    task_total_time_ms: 15
+    transform_count: 56
+    transform_time_ms: 9
+    transform_yield_count: 18
+    insert_time_ms: 0
+    insert_new_count: 15
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "id", SQ."item" FROM "T1_indexed" AS "row", (SELECT "item"
+        FROM "row"."items" AS "item") AS SQ
+    ref: arrays-unnesting.yamsql:129
+    explain: SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN
+        (q0.id AS id, q1 AS item) }
+    task_count: 198
+    task_total_time_ms: 88
+    transform_count: 60
+    transform_time_ms: 66
+    transform_yield_count: 20
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "id", "items" FROM "T2"
+    ref: arrays-unnesting.yamsql:149
+    explain: SCAN([IS T2])
+    task_count: 164
+    task_total_time_ms: 19
+    transform_count: 47
+    transform_time_ms: 10
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 13
+    insert_reused_count: 1
+-   query: EXPLAIN SELECT "items" FROM "T2"
+    ref: arrays-unnesting.yamsql:157
+    explain: SCAN([IS T2]) | MAP (_.items AS items)
+    task_count: 150
+    task_total_time_ms: 84
+    transform_count: 42
+    transform_time_ms: 69
+    transform_yield_count: 15
+    insert_time_ms: 2
+    insert_new_count: 12
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT "id", "item" FROM "T2" AS "row", "row"."items" AS "item"
+    ref: arrays-unnesting.yamsql:169
+    explain: SCAN([IS T2]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN (q0.id
+        AS id, q1 AS item) }
+    task_count: 170
+    task_total_time_ms: 91
+    transform_count: 56
+    transform_time_ms: 68
+    transform_yield_count: 18
+    insert_time_ms: 1
+    insert_new_count: 15
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "id", SQ."item" FROM "T2" AS "row", (SELECT "item" FROM
+        "row"."items" AS "item") AS SQ
+    ref: arrays-unnesting.yamsql:182
+    explain: SCAN([IS T2]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN (q0.id
+        AS id, q1 AS item) }
+    task_count: 198
+    task_total_time_ms: 23
+    transform_count: 60
+    transform_time_ms: 12
+    transform_yield_count: 20
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 0

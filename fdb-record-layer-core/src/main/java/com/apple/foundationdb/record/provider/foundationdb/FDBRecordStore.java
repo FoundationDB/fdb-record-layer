@@ -245,9 +245,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // The size of preload cache
     private static final int PRELOAD_CACHE_SIZE = 100;
 
-    @Nonnull
-    private static final CompletableFuture<IndexState> READY_READABLE = CompletableFuture.completedFuture(IndexState.READABLE);
-
     protected static final Object STORE_INFO_KEY = FDBRecordStoreKeyspace.STORE_INFO.key();
     protected static final Object RECORD_KEY = FDBRecordStoreKeyspace.RECORD.key();
     protected static final Object INDEX_KEY = FDBRecordStoreKeyspace.INDEX.key();
@@ -258,6 +255,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected static final Object INDEX_UNIQUENESS_VIOLATIONS_KEY = FDBRecordStoreKeyspace.INDEX_UNIQUENESS_VIOLATIONS_SPACE.key();
     protected static final Object RECORD_VERSION_KEY = FDBRecordStoreKeyspace.RECORD_VERSION_SPACE.key();
     protected static final Object INDEX_BUILD_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.key();
+    protected static final Object INDEX_SLIDING_WINDOW_SPACE_KEY = FDBRecordStoreKeyspace.INDEX_SLIDING_WINDOW_SPACE.key();
 
     @SuppressWarnings("squid:S2386")
     @SpotBugsSuppressWarnings("MS_MUTABLE_ARRAY")
@@ -933,6 +931,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
+     * Subspace for sliding window index bookkeeping (window, overflow, and count partitions).
+     * Separate from the secondary subspace to avoid collisions with delegate index types
+     * that also use the secondary subspace (e.g. rank, permuted min/max, text).
+     * @param index the index to retrieve the sliding window subspace for
+     * @return the sliding window subspace for the given index
+     */
+    @Nonnull
+    public Subspace indexSlidingWindowSubspace(@Nonnull Index index) {
+        return getSubspace().subspace(Tuple.from(INDEX_SLIDING_WINDOW_SPACE_KEY, index.getSubspaceTupleKey()));
+    }
+
+    /**
      * Subspace for index in which to place a {@link com.apple.foundationdb.async.RangeSet RangeSet}.
      * This is used for determining how much progress has been made on building the index in the
      * case that one is building the index offline.
@@ -974,7 +984,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     @Override
     public IndexMaintainer getIndexMaintainer(@Nonnull Index index) {
-        return indexMaintainerRegistry.getIndexMaintainer(new IndexMaintainerState(this, index, indexMaintenanceFilter));
+        final IndexMaintainerState maintainerState = new IndexMaintainerState(this, index, indexMaintenanceFilter);
+        return indexMaintainerRegistry.getIndexMaintainer(maintainerState);
     }
 
     @Nonnull
@@ -2868,35 +2879,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private void beginRecordStoreStateRead() {
-        // When the record store state is being updated multiple times, this function (and its implicit retry loop at
-        // the atomic reference level) will retry the update on the new record store state, so the operation always
-        // does what's expected (i.e., update the "in flight reads" value while leaving the record store state otherwise
-        // in tact).
-        recordStoreStateRef.updateAndGet(state -> {
-            state.beginRead();
-            return state;
-        });
+        recordStoreStateRef.get().beginRead();
     }
 
     private void endRecordStoreStateRead() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.endRead();
-            return state;
-        });
+        recordStoreStateRef.get().endRead();
     }
 
     private void beginRecordStoreStateWrite() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.beginWrite();
-            return state;
-        });
+        recordStoreStateRef.get().beginWrite();
     }
 
     private void endRecordStoreStateWrite() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.endWrite();
-            return state;
-        });
+        recordStoreStateRef.get().endWrite();
     }
 
     @Nonnull
@@ -2997,6 +2992,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Note that index states are *not* cleared, as rebuilding the indexes resets each state
         context.clear(getSubspace().range(Tuple.from(INDEX_KEY)));
         context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY)));
+        context.clear(getSubspace().range(Tuple.from(INDEX_SLIDING_WINDOW_SPACE_KEY)));
         context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY)));
         context.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY)));
         List<CompletableFuture<Void>> work = new LinkedList<>();
@@ -4382,12 +4378,36 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
+    private CompletableFuture<Map<Index, IndexState>> rebuildIndexesGetDesiredIndexStates(
+            @Nonnull List<CompletableFuture<Void>> preWork,
+            @Nonnull Map<Index, CompletableFuture<IndexState>> newStates) {
+        final ConcurrentHashMap<Index, IndexState> desiredIndexStates = new ConcurrentHashMap<>();
+        // Combine pre-existing work and newStates resolution into a single list of futures
+        final List<CompletableFuture<Void>> allWork = new ArrayList<>(preWork);
+        for (Map.Entry<Index, CompletableFuture<IndexState>> entry : newStates.entrySet()) {
+            allWork.add(entry.getValue().thenAccept(state -> desiredIndexStates.put(entry.getKey(), state)));
+        }
+        return AsyncUtil.whenAll(allWork).thenApply(ignore -> desiredIndexStates);
+    }
+
     @Nonnull
     protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
                                                      @Nonnull Map<Index, CompletableFuture<IndexState>> newStates,
                                                      @Nonnull List<CompletableFuture<Void>> work,
                                                      @Nonnull RebuildIndexReason reason,
                                                      @Nullable Integer oldMetaDataVersion) {
+        // Finish any pre-existing work items and resolve desired index states (which may query index states) before
+        // rebuilding indexes (which writes index states)
+        return rebuildIndexesGetDesiredIndexStates(work, newStates).thenCompose(desiredIndexStates ->
+                rebuildIndexes(indexes, desiredIndexStates, reason, oldMetaDataVersion));
+    }
+
+    @Nonnull
+    protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
+                                                     @Nonnull Map<Index, IndexState> desiredIndexStates,
+                                                     @Nonnull RebuildIndexReason reason,
+                                                     @Nullable Integer oldMetaDataVersion) {
+        List<CompletableFuture<Void>> work = new ArrayList<>();
         Iterator<Map.Entry<Index, List<RecordType>>> indexIter = indexes.entrySet().iterator();
         return AsyncUtil.whileTrue(() -> {
             Iterator<CompletableFuture<Void>> workIter = work.iterator();
@@ -4403,11 +4423,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     Map.Entry<Index, List<RecordType>> indexItem = indexIter.next();
                     Index index = indexItem.getKey();
                     List<RecordType> recordTypes = indexItem.getValue();
+                    IndexState indexState = desiredIndexStates.getOrDefault(index, IndexState.READABLE);
                     final StringBuilder errMessageBuilder = new StringBuilder("unable to ");
                     final CompletableFuture<Void> rebuildOrMarkIndexSafely = MoreAsyncUtil.handleOnException(
-                            () -> newStates.getOrDefault(index, READY_READABLE).thenCompose(
-                                    indexState -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder)
-                            ),
+                            () -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion, errMessageBuilder),
                             exception -> {
                                 // If there is any issue, simply mark the index as disabled without blocking checkVersion
                                 logExceptionAsWarn(KeyValueLogMessage.build(errMessageBuilder.toString(),
@@ -5051,8 +5070,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // It also won't clear some of the secondary state from TimeWindowLeaderboard indexes.
         context.clear(getSubspace().range(Tuple.from(INDEX_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        context.clear(getSubspace().range(Tuple.from(INDEX_SLIDING_WINDOW_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
-        context.clear(getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        final String formerIndexName = formerIndex.getFormerName();
+        if (formerIndexName != null) {
+            // The index state space is currently keyed by the index name rather than the index subspace key.
+            // This will need to be adapted if we resolve: https://github.com/foundationdb/fdb-record-layer/issues/514
+            // Note that we set it to "readable" to clear it out
+            updateIndexState(formerIndexName, getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndexName)), IndexState.READABLE);
+        }
         context.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, formerIndex.getSubspaceTupleKey())));
         if (getTimer() != null) {
             getTimer().recordSinceNanoTime(FDBStoreTimer.Events.REMOVE_FORMER_INDEX, startTime);

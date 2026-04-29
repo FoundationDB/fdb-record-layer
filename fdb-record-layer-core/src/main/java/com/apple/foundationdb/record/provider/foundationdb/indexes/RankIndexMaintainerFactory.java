@@ -117,7 +117,7 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
         // For rank() we need to create at two candidates. One for BY_RANK scans and one for BY_VALUE scans.
         MatchCandidateExpansion.expandValueIndexMatchCandidate(info)
                         .ifPresent(resultBuilder::add);
-        MatchCandidateExpansion.expandIndexMatchCandidate(info, info.getCommonPrimaryKeyForTypes(), new WindowedIndexExpansionVisitor(index, info.getIndexedRecordTypes()))
+        MatchCandidateExpansion.expandIndexMatchCandidate(info, true, info.getCommonPrimaryKeyForTypes(), new WindowedIndexExpansionVisitor(index, info.getIndexedRecordTypes()))
                 .ifPresent(resultBuilder::add);
 
         return resultBuilder.build();
