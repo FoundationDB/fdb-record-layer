@@ -23,6 +23,8 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.common.RandomHelpers;
+import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
@@ -182,7 +184,7 @@ class Delete {
     @Nonnull
     public CompletableFuture<Void> delete(@Nonnull final Transaction transaction, @Nonnull final Tuple primaryKey) {
         final Primitives primitives = primitives();
-        final SplittableRandom random = Primitives.random(primaryKey);
+        final SplittableRandom random = RandomHelpers.random(primaryKey);
         final int topLayer = primitives.topLayer(primaryKey);
         if (logger.isTraceEnabled()) {
             logger.trace("node with key={} to be deleted form layer={}", primaryKey, topLayer);
@@ -255,10 +257,10 @@ class Delete {
                                                                          @Nonnull final Tuple primaryKey,
                                                                          final int topLayer) {
         // delete the node from all layers in parallel (inside layer in [0, topLayer])
-        return forEach(() -> IntStream.rangeClosed(0, topLayer).iterator(),
-                layer ->
+        return RandomHelpers.forEach(random, () -> IntStream.rangeClosed(0, topLayer).iterator(),
+                (layer, nestedRandom) ->
                         deleteFromLayer(primitives().storageAdapterForLayer(layer), transaction, storageTransform,
-                                quantizer, random.split(), layer, primaryKey),
+                                quantizer, nestedRandom, layer, primaryKey),
                 getConfig().getMaxNumConcurrentDeleteFromLayer(),
                 getExecutor());
     }

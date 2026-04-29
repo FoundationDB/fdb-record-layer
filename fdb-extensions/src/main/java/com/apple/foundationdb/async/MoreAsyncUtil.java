@@ -31,10 +31,12 @@ import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -48,6 +50,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.IntPredicate;
 import java.util.function.IntUnaryOperator;
@@ -83,54 +86,152 @@ public class MoreAsyncUtil {
     }
 
     @Nonnull
-    public static <T> AsyncIterable<T> limitIterable(@Nonnull final AsyncIterable<T> iterable,
-                                                     final int limit) {
-        return new AsyncIterable<T>() {
+    public static <T> AsyncIterable<T> iterableOf(@Nonnull final Supplier<AsyncIterator<T>> iteratorSupplier,
+                                                  @Nonnull final Executor executor) {
+        return new AsyncIterable<>() {
             @Nonnull
             @Override
-            public CloseableAsyncIterator<T> iterator() {
-                return new CloseableAsyncIterator<T>() {
-                    final AsyncIterator<T> iterator = iterable.iterator();
-                    int count = 0;
-
-                    @Override
-                    public CompletableFuture<Boolean> onHasNext() {
-                        if (count < limit) {
-                            return iterator.onHasNext();
-                        } else {
-                            return AsyncUtil.READY_FALSE;
-                        }
-                    }
-
-                    @Override
-                    public boolean hasNext() {
-                        return (count < limit) && iterator.hasNext();
-                    }
-
-                    @Override
-                    public T next() {
-                        if (!hasNext()) {
-                            throw new NoSuchElementException();
-                        }
-                        count++;
-                        return iterator.next();
-                    }
-
-                    @Override
-                    public void close() {
-                        closeIterator(iterator);
-                    }
-
-                    @Override
-                    public void remove() {
-                        iterator.remove();
-                    }
-                };
+            public AsyncIterator<T> iterator() {
+                return iteratorSupplier.get();
             }
 
             @Override
             public CompletableFuture<List<T>> asList() {
-                return collect(this);
+                return collect(this, executor);
+            }
+        };
+    }
+
+    @Nonnull
+    public static <T> CompletableFuture<Void> slurp(@Nonnull final AsyncIterable<T> iterable,
+                                                    @Nonnull final Executor executor) {
+        return slurpRemaining(iterable.iterator(), executor);
+    }
+
+    public static <T> CompletableFuture<Void> slurpRemaining(@Nonnull final AsyncIterator<T> iterator,
+                                                             @Nonnull final Executor executor) {
+        return tag(AsyncUtil.forEachRemaining(iterator, t -> { }, executor), null);
+    }
+
+    @Nonnull
+    public static <T> AsyncIterable<T> limitIterable(@Nonnull final AsyncIterable<T> iterable,
+                                                     final int limit, @Nonnull final Executor executor) {
+        return iterableOf(() -> limitRemaining(iterable.iterator(), limit), executor);
+    }
+
+    @Nonnull
+    public static <T> CloseableAsyncIterator<T> limitRemaining(@Nonnull final AsyncIterator<T> iterator,
+                                                               final int limit) {
+        return new CloseableAsyncIterator<T>() {
+            int count = 0;
+
+            @Override
+            public CompletableFuture<Boolean> onHasNext() {
+                //System.out.println("hNA " + count + " " + Thread.currentThread().getId() + " " + System.identityHashCode(this));
+                if (count < limit) {
+                    return iterator.onHasNext();
+                } else {
+                    return AsyncUtil.READY_FALSE;
+                }
+            }
+
+            @Override
+            public boolean hasNext() {
+                final boolean r = onHasNext().join();
+                //System.out.println("hN " + count + " " + Thread.currentThread().getId() + " " + System.identityHashCode(this) + " " + r);
+                return r;
+            }
+
+            @Override
+            public T next() {
+                //System.out.println(count + " " + Thread.currentThread().getId() + " " + System.identityHashCode(this));
+                if (!hasNext()) {
+                    System.out.println("boom " + count + " " + Thread.currentThread().getId() + " " + System.identityHashCode(this));
+                    throw new NoSuchElementException();
+                }
+                count++;
+                return iterator.next();
+            }
+
+            @Override
+            public void close() {
+                closeIterator(iterator);
+            }
+
+            @Override
+            public void remove() {
+                iterator.remove();
+            }
+        };
+    }
+
+    @Nonnull
+    public static <T> AsyncIterable<T> takeWhileIterable(@Nonnull final AsyncIterable<T> iterable,
+                                                         @Nonnull final Predicate<T> whilePredicate,
+                                                         @Nonnull final Executor executor) {
+        return iterableOf(() -> takeWhileRemaining(iterable.iterator(), whilePredicate), executor);
+    }
+
+    @Nonnull
+    public static <T> CloseableAsyncIterator<T> takeWhileRemaining(@Nonnull final AsyncIterator<T> iterator,
+                                                                   @Nonnull final Predicate<T> whilePredicate) {
+        return new CloseableAsyncIterator<>() {
+            boolean done = false;
+            @Nullable
+            CompletableFuture<Boolean> nextFuture = null;
+            T next = null;
+
+            @Override
+            public CompletableFuture<Boolean> onHasNext() {
+                if (nextFuture == null) {
+                    if (!done) {
+                        nextFuture = iterator.onHasNext()
+                                .thenApply(hasNext -> {
+                                    if (hasNext) {
+                                        final T potentiallyNextItem = iterator.next();
+                                        if (whilePredicate.test(potentiallyNextItem)) {
+                                            next = potentiallyNextItem;
+                                            return true;
+                                        } else {
+                                            done = true;
+                                            return false;
+                                        }
+                                    } else {
+                                        done = true;
+                                        return false;
+                                    }
+                                });
+                    } else {
+                        nextFuture = AsyncUtil.READY_FALSE;
+                    }
+                }
+                return nextFuture;
+            }
+
+            @Override
+            public boolean hasNext() {
+                return onHasNext().join();
+            }
+
+            @Override
+            public T next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+                final T result = next;
+                nextFuture = null;
+                next = null;
+                return result;
+            }
+
+            @Override
+            public void close() {
+                closeIterator(iterator);
+            }
+
+            @Override
+            public void remove() {
+                iterator.remove();
             }
         };
     }
@@ -149,83 +250,78 @@ public class MoreAsyncUtil {
     }
 
     @Nonnull
-    public static <T> AsyncIterable<T> filterIterable(@Nonnull Executor executor,
+    public static <T> AsyncIterable<T> filterIterable(@Nonnull final Executor executor,
                                                       @Nonnull final AsyncIterable<T> iterable,
                                                       @Nonnull final Function<T, Boolean> filter) {
-        return new AsyncIterable<T>() {
+        return iterableOf(() -> filterRemaining(executor, iterable.iterator(), filter), executor);
+    }
+
+    @Nonnull
+    public static <T> CloseableAsyncIterator<T> filterRemaining(@Nonnull Executor executor,
+                                                                @Nonnull final AsyncIterator<T> iterator,
+                                                                @Nonnull final Function<T, Boolean> filter) {
+        return new CloseableAsyncIterator<T>() {
+            T next;
+            boolean haveNext;
+            @Nullable
+            CompletableFuture<Boolean> nextFuture;
+
             @Nonnull
             @Override
-            public CloseableAsyncIterator<T> iterator() {
-                return new CloseableAsyncIterator<T>() {
-                    final AsyncIterator<T> iterator = iterable.iterator();
-                    T next;
-                    boolean haveNext;
-                    @Nullable
-                    CompletableFuture<Boolean> nextFuture;
-
-                    @Nonnull
-                    @Override
-                    public CompletableFuture<Boolean> onHasNext() {
-                        if (nextFuture != null) {
-                            return nextFuture;
-                        }
-                        if (haveNext) {
-                            return AsyncUtil.READY_TRUE;
-                        }
-                        nextFuture = whileTrue(() -> iterator.onHasNext()
-                            .thenApply(hasNext -> {
-                                if (!hasNext) {
-                                    return false;
-                                }
-                                next = iterator.next();
-                                haveNext = filter.apply(next);
-                                return !haveNext;
-                            }), executor)
-                            .thenApply(v -> haveNext);
-                        return nextFuture;
-                    }
-
-                    @Override
-                    public boolean hasNext() {
-                        if (nextFuture != null) {
-                            nextFuture.join();
-                            nextFuture = null;
-                        }
-                        while (!haveNext && iterator.hasNext()) {
+            public CompletableFuture<Boolean> onHasNext() {
+                if (nextFuture != null) {
+                    return nextFuture;
+                }
+                if (haveNext) {
+                    return AsyncUtil.READY_TRUE;
+                }
+                nextFuture = whileTrue(() -> iterator.onHasNext()
+                        .thenApply(hasNext -> {
+                            if (!hasNext) {
+                                return false;
+                            }
                             next = iterator.next();
                             haveNext = filter.apply(next);
-                        }
-                        return haveNext;
-                    }
-
-                    @Override
-                    public T next() {
-                        if (!hasNext()) {
-                            throw new NoSuchElementException();
-                        }
-                        haveNext = false;
-                        return next;
-                    }
-
-                    @Override
-                    public void close() {
-                        if (nextFuture != null) {
-                            nextFuture.cancel(false);
-                            nextFuture = null;
-                        }
-                        closeIterator(iterator);
-                    }
-
-                    @Override
-                    public void remove() {
-                        iterator.remove();
-                    }
-                };
+                            return !haveNext;
+                        }), executor)
+                        .thenApply(v -> haveNext);
+                return nextFuture;
             }
 
             @Override
-            public CompletableFuture<List<T>> asList() {
-                return collect(this, executor);
+            public boolean hasNext() {
+                if (nextFuture != null) {
+                    nextFuture.join();
+                    nextFuture = null;
+                }
+                while (!haveNext && iterator.hasNext()) {
+                    next = iterator.next();
+                    haveNext = filter.apply(next);
+                }
+                return haveNext;
+            }
+
+            @Override
+            public T next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+                haveNext = false;
+                return next;
+            }
+
+            @Override
+            public void close() {
+                if (nextFuture != null) {
+                    nextFuture.cancel(false);
+                    nextFuture = null;
+                }
+                closeIterator(iterator);
+            }
+
+            @Override
+            public void remove() {
+                iterator.remove();
             }
         };
     }
@@ -246,7 +342,7 @@ public class MoreAsyncUtil {
     public static <T> AsyncIterable<T> dedupIterable(@Nonnull Executor executor,
                                                      @Nonnull final AsyncIterable<T> iterable) {
         return filterIterable(executor, iterable,
-                new Function<T, Boolean>() {
+                new Function<>() {
                     private Object lastObj;
 
                     @Nonnull
@@ -397,6 +493,7 @@ public class MoreAsyncUtil {
      * for up to a requested number of elements of the iterable, in parallel with requests to the mapping results.
      * This does not pipeline the overlapping concatenations, i.e. it won't grab the first item of the
      * second result of func, until it has exhausted the first result of func.
+     * @param executor the executor
      * @param iterable the source
      * @param func mapping function from each element of iterable to a new iterable
      * @param pipelineSize the number of elements to pipeline
@@ -405,18 +502,11 @@ public class MoreAsyncUtil {
      * @return the results of all the {@code AsyncIterable}s returned by func for each value of iterable, concatenated
      */
     @Nonnull
-    public static <T1, T2> AsyncIterable<T2> mapConcatIterable(@Nonnull final AsyncIterable<T1> iterable,
-                                                               @Nonnull final Function<T1, AsyncIterable<T2>> func,
-                                                               final int pipelineSize) {
-        return mapConcatIterable(ForkJoinPool.commonPool(), iterable, func, pipelineSize);
-    }
-
-    @Nonnull
     public static <T1, T2> AsyncIterable<T2> mapConcatIterable(@Nonnull Executor executor,
                                                                @Nonnull final AsyncIterable<T1> iterable,
                                                                @Nonnull final Function<T1, AsyncIterable<T2>> func,
                                                                final int pipelineSize) {
-        return new AsyncIterable<T2>() {
+        return new AsyncIterable<>() {
             @Nonnull
             @Override
             public CloseableAsyncIterator<T2> iterator() {
@@ -464,6 +554,9 @@ public class MoreAsyncUtil {
                                 } else {
                                     waitOn.add(inner);
                                 }
+                            }
+                            if (waitOn.isEmpty()) {
+                                return AsyncUtil.READY_FALSE;
                             }
                             // TODO whenAny should special handle elements of 1
                             if (waitOn.size() == 1) {
@@ -627,31 +720,12 @@ public class MoreAsyncUtil {
         };
     }
 
-    /**
-     * Filter an iterable, pipelining the asynchronous filter functions.
-     * Unlike filterIterable, the filter here is asynchronous.
-     * As items comes back from iterable, a pipeline of filter futures is kept without advancing
-     * the iterable.
-     * @param iterable the source
-     * @param filter only the values of iterable for which the future returned by this filter returns true
-     * will be in the resulting iterable
-     * @param pipelineSize the number of filter results to pipeline
-     * @param <T> the source type
-     * @return a new {@code AsyncIterable} containing the elements of iterable for which filter returns a true future
-     */
-    @Nonnull
-    public static <T> AsyncIterable<T> filterIterablePipelined(@Nonnull AsyncIterable<T> iterable,
-                                                               @Nonnull final Function<T, CompletableFuture<Boolean>> filter,
-                                                               int pipelineSize) {
-        return filterIterablePipelined(ForkJoinPool.commonPool(), iterable, filter, pipelineSize);
-    }
-
     @Nonnull
     public static <T> AsyncIterable<T> filterIterablePipelined(@Nonnull Executor executor,
                                                                @Nonnull AsyncIterable<T> iterable,
                                                                @Nonnull final Function<T, CompletableFuture<Boolean>> filter,
                                                                int pipelineSize) {
-        return mapConcatIterable(iterable,
+        return mapConcatIterable(executor, iterable,
                 item -> filterToIterable(item, filter),
                 pipelineSize);
     }
@@ -750,7 +824,27 @@ public class MoreAsyncUtil {
     public static <T1, T2> AsyncIterable<T2> mapIterablePipelined(@Nonnull AsyncIterable<T1> iterable,
                                                                   @Nonnull final Function<T1, CompletableFuture<T2>> func,
                                                                   int pipelineSize) {
-        return mapConcatIterable(iterable,
+        return mapIterablePipelined(ForkJoinPool.commonPool(), iterable, func, pipelineSize);
+    }
+
+    /**
+     * Maps an AsyncIterable using an asynchronous mapping function.
+     * @param executor the executor to use to do the work
+     * @param iterable the source
+     * @param func Maps items of iterable to a new value asynchronously
+     * @param pipelineSize the number of map results to pipeline. As items comes back from iterable,
+     * this will have up to this many func futures in waiting before waiting on them without advancing
+     * the iterable.
+     * @param <T1> the source type
+     * @param <T2> the destination type
+     * @return a new {@code AsyncIterable} with the results of applying func to each of the elements of iterable
+     */
+    @Nonnull
+    public static <T1, T2> AsyncIterable<T2> mapIterablePipelined(@Nonnull final Executor executor,
+                                                                  @Nonnull final AsyncIterable<T1> iterable,
+                                                                  @Nonnull final Function<T1, CompletableFuture<T2>> func,
+                                                                  int pipelineSize) {
+        return mapConcatIterable(executor, iterable,
                 item -> mapToIterable(item, func),
                 pipelineSize);
     }
@@ -1080,11 +1174,39 @@ public class MoreAsyncUtil {
                                                    @Nonnull final IntUnaryOperator stepFunction,
                                                    @Nonnull final BiFunction<Integer, U, CompletableFuture<U>> body,
                                                    @Nonnull final Executor executor) {
+        return forLoop(startI, startU,
+                (i, ignored) -> conditionPredicate.test(i),
+                stepFunction, body, executor);
+    }
+
+    /**
+     * Method that provides the functionality of a for loop, however, in an asynchronous way. The result of this method
+     * is a {@link CompletableFuture} that represents the result of the last iteration of the loop body.
+     * @param startI an integer analogous to the starting value of a loop variable in a for loop
+     * @param startU an object of some type {@code U} that represents some initial state that is passed to the loop's
+     *        initial state
+     * @param conditionPredicate a predicate on the loop variable that must be true before the next iteration is
+     *        entered; analogous to the condition in a for loop
+     * @param stepFunction a unary operator used for modifying the loop variable after each iteration
+     * @param body a bi-function to be called for each iteration; this function is initially invoked using
+     *        {@code startI} and {@code startU}; the result of the body is then passed into the next iterator's body
+     *        together with a new value for the loop variable. In this way callers can access state inside an iteration
+     *        that was computed in a previous iteration.
+     * @param executor the executor
+     * @param <U> the type of the result of the body {@link BiFunction}
+     * @return a {@link CompletableFuture} containing the result of the last iteration's body invocation.
+     */
+    @Nonnull
+    public static <U> CompletableFuture<U> forLoop(final int startI, @Nullable final U startU,
+                                                   @Nonnull final BiPredicate<Integer, U> conditionPredicate,
+                                                   @Nonnull final IntUnaryOperator stepFunction,
+                                                   @Nonnull final BiFunction<Integer, U, CompletableFuture<U>> body,
+                                                   @Nonnull final Executor executor) {
         final AtomicInteger loopVariableAtomic = new AtomicInteger(startI);
         final AtomicReference<U> lastResultAtomic = new AtomicReference<>(startU);
         return whileTrue(() -> {
             final int loopVariable = loopVariableAtomic.get();
-            if (!conditionPredicate.test(loopVariable)) {
+            if (!conditionPredicate.test(loopVariable, lastResultAtomic.get())) {
                 return AsyncUtil.READY_FALSE;
             }
             return body.apply(loopVariable, lastResultAtomic.get())
@@ -1113,10 +1235,12 @@ public class MoreAsyncUtil {
                                                             @Nonnull final Function<T, CompletableFuture<U>> body,
                                                             final int parallelism,
                                                             @Nonnull final Executor executor) {
+        final Object nullStandIn = new Object();
+
         // this deque is only modified by once upon creation
-        final ArrayDeque<T> toBeProcessed = new ArrayDeque<>();
+        final ArrayDeque<Object> toBeProcessed = new ArrayDeque<>();
         for (final T item : items) {
-            toBeProcessed.addLast(item);
+            toBeProcessed.addLast(item == null ? nullStandIn : item);
         }
 
         final List<CompletableFuture<Void>> working = Lists.newArrayList();
@@ -1126,11 +1250,14 @@ public class MoreAsyncUtil {
         return whileTrue(() -> {
             working.removeIf(CompletableFuture::isDone);
 
-            while (working.size() <= parallelism) {
-                final T currentItem = toBeProcessed.pollFirst();
-                if (currentItem == null) {
+            while (working.size() < parallelism) {
+                final Object currentObject = toBeProcessed.pollFirst();
+                if (currentObject == null) {
                     break;
                 }
+
+                final T currentItem =
+                        currentObject == nullStandIn ? null : (T)currentObject;
 
                 final int index = indexAtomic.getAndIncrement();
                 working.add(body.apply(currentItem)
@@ -1142,6 +1269,49 @@ public class MoreAsyncUtil {
             }
             return whenAny(working).thenApply(ignored -> true);
         }, executor).thenApply(ignored -> Arrays.asList((U[])resultArray));
+    }
+
+    @Nonnull
+    public static <T> AsyncIterable<T> iterableFromCollection(@Nonnull final CompletableFuture<Collection<T>> collectionFuture,
+                                                       @Nonnull final Executor executor) {
+        return iterableOf(() -> iteratorFromCollection(collectionFuture), executor);
+    }
+
+    @Nonnull
+    public static <T> AsyncIterator<T> iteratorFromCollection(@Nonnull final CompletableFuture<Collection<T>> collectionFuture) {
+        return new CloseableAsyncIterator<>() {
+            @Nullable
+            Iterator<T> iterator = null;
+
+            @Override
+            public CompletableFuture<Boolean> onHasNext() {
+                if (iterator == null) {
+                    return collectionFuture.thenApply(collection -> {
+                        this.iterator = collection.iterator();
+                        return this.iterator.hasNext();
+                    });
+                }
+                return CompletableFuture.completedFuture(iterator.hasNext());
+            }
+
+            @Override
+            public boolean hasNext() {
+                return onHasNext().join();
+            }
+
+            @Override
+            public T next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+                return Objects.requireNonNull(iterator).next();
+            }
+
+            @Override
+            public void close() {
+                // nothing
+            }
+        };
     }
 
     /**

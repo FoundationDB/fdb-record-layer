@@ -20,14 +20,15 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.async.common.OnKeyValueReadListener;
+
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Interface for call backs whenever we read node data from the database.
  */
-public interface OnReadListener {
+public interface OnReadListener extends OnKeyValueReadListener {
     OnReadListener NOOP = new OnReadListener() {
     };
 
@@ -58,22 +59,6 @@ public interface OnReadListener {
      */
     @SuppressWarnings("unused")
     default void onNodeRead(int layer, @Nonnull Node<? extends NodeReference> node) {
-        // nothing
-    }
-
-    /**
-     * Callback invoked when a key-value pair is read from a specific layer.
-     * <p>
-     * This method is typically called during a scan or iteration over data for each key/value pair.
-     * The default implementation is a no-op and does nothing.
-     * @param layer the layer from which the key-value pair was read.
-     * @param key the key that was read, guaranteed to be non-null.
-     * @param value the value associated with the key, can be null if the key was not found
-     */
-    @SuppressWarnings("unused")
-    default void onKeyValueRead(int layer,
-                                @Nonnull byte[] key,
-                                @Nullable byte[] value) {
         // nothing
     }
 }

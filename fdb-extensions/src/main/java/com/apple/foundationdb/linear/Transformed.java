@@ -20,7 +20,10 @@
 
 package com.apple.foundationdb.linear;
 
+import com.apple.foundationdb.util.Lens;
+
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
@@ -107,5 +110,28 @@ public final class Transformed<V extends RealVector> {
     @Override
     public String toString() {
         return transformedVector.toString();
+    }
+
+    public static <V extends RealVector> Lens<Transformed<V>, V> underlyingLens() {
+        return new UnderlyingLens<>();
+    }
+
+    /**
+     * Lens to access the underlying vector of a transformed vector in logic that can be called for containers of
+     * both vectors and transformed vectors.
+     * @param <V> type parameter for vector class
+     */
+    private static class UnderlyingLens<V extends RealVector> implements Lens<Transformed<V>, V> {
+        @Nullable
+        @Override
+        public V get(@Nonnull final Transformed<V> transformedVector) {
+            return transformedVector.getUnderlyingVector();
+        }
+
+        @Nonnull
+        @Override
+        public Transformed<V> set(@Nullable final Transformed<V> ignored, @Nullable final V v) {
+            return new Transformed<>(v);
+        }
     }
 }

@@ -46,6 +46,7 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
         @Override
         public AbstractNode<NodeReferenceWithVector> create(@Nonnull final Tuple primaryKey,
                                                             @Nullable final Transformed<RealVector> vector,
+                                                            @Nullable final Tuple additionalValues,
                                                             @Nonnull final List<? extends NodeReference> neighbors) {
             return new InliningNode(primaryKey, (List<NodeReferenceWithVector>)neighbors);
         }
@@ -101,6 +102,11 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
         return NodeKind.INLINING;
     }
 
+    @Override
+    public boolean isCompactNode() {
+        return false;
+    }
+
     /**
      * Casts this node to a {@link CompactNode}.
      * <p>
@@ -113,6 +119,11 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
     @Override
     public CompactNode asCompactNode() {
         throw new IllegalStateException("this is not a compact node");
+    }
+
+    @Override
+    public boolean isInliningNode() {
+        return false;
     }
 
     /**

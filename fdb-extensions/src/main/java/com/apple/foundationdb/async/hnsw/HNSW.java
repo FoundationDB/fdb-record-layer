@@ -25,6 +25,7 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -46,7 +47,7 @@ import java.util.function.Consumer;
  * contains all the data points. This structure allows for logarithmic-time complexity
  * for search operations, making it suitable for large-scale, high-dimensional datasets.
  * <p>
- * This class provides methods for building the graph ({@link #insert(Transaction, Tuple, RealVector)})
+ * This class provides methods for building the graph ({@link #insert(Transaction, Tuple, RealVector, Tuple)})
  * and performing k-NN searches ({@link #kNearestNeighborsSearch(ReadTransaction, int, int, boolean, RealVector)}).
  * It is designed to be used with a transactional storage backend, managed via a {@link Subspace}.
  * <p>
@@ -154,6 +155,11 @@ public class HNSW {
     }
 
     @Nonnull
+    private Primitives primitives() {
+        return getLocator().primitives();
+    }
+
+    @Nonnull
     private Search search() {
         return getLocator().search();
     }
@@ -166,6 +172,19 @@ public class HNSW {
     @Nonnull
     private Delete delete() {
         return getLocator().delete();
+    }
+
+    /**
+     * Fetch a node and return its values as a {@link ResultEntry}.
+     * @param readTransaction the transaction to use for reading from the database
+     * @param primaryKey the primary key of the record
+     * @return a new {@link ResultEntry} where {@link ResultEntry#getDistance()} returns {@code 0.0d} and
+     *         {@link ResultEntry#getRankOrRowNumber()} returns {@code -1}
+     */
+    @Nonnull
+    public CompletableFuture<ResultEntry> fetch(@Nonnull final ReadTransaction readTransaction,
+                                                @Nonnull final Tuple primaryKey) {
+        return primitives().fetch(readTransaction, primaryKey);
     }
 
     /**
@@ -214,8 +233,7 @@ public class HNSW {
                                         final boolean includeVectors,
                                         @Nonnull final RealVector queryVector,
                                         final double radius) {
-        return search().kNearestNeighborsRingSearch(readTransaction, k, efSearch, includeVectors, queryVector,
-                radius);
+        return search().kNearestNeighborsRingSearch(readTransaction, k, efSearch, includeVectors, queryVector, radius);
     }
 
     /**
@@ -234,13 +252,14 @@ public class HNSW {
      * @param transaction the {@link Transaction} context for all database operations
      * @param newPrimaryKey the unique {@link Tuple} primary key for the new node being inserted
      * @param newVector the {@link RealVector} data to be inserted into the graph
+     * @param additionalValues additional values to be associated with the new vector/record
      *
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
     @Nonnull
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
-                                          @Nonnull final RealVector newVector) {
-        return insert().insert(transaction, newPrimaryKey, newVector);
+                                          @Nonnull final RealVector newVector, @Nullable final Tuple additionalValues) {
+        return insert().insert(transaction, newPrimaryKey, newVector, additionalValues);
     }
 
     /**
@@ -310,6 +329,13 @@ public class HNSW {
      * @param minimumPrimaryKey the primary key of the last item from a previous scan, used for pagination. If provided
      *        along with {@code minimumRadius}, the scan will resume after the item with this key at that radius. Can be
      *        {@code null} to start from the beginning.
+     * @param shouldQuickStart an indicator that if set to {@code true} causes the iterator to first return the result
+     *        of the zoom-in process before any work to traverse outwards is carried out. This may lead to inversions,
+     *        if the zoom-out process finds candidates that are in fact closer to {@code centerVector} than the vectors
+     *        found by the zoom-in process. If the starting radius is {@code 0.0d} or close to it, this should not ever
+     *        happen. Setting this parameter {@code true} is useful if it is uncertain or even doubtful that even the
+     *        result of the zoom-in is ever going to be consumed by the caller. In such a scenario, additional work is
+     *        only carried out if it is requested by the caller (by advancing the iterator).
      * @return an {@link AsyncIterator} of {@link ResultEntry} objects, ordered by increasing distance from the
      *         {@code centerVector}
      */
@@ -320,9 +346,20 @@ public class HNSW {
                                                       final boolean includeVectors,
                                                       @Nonnull final RealVector centerVector,
                                                       final double minimumRadius,
-                                                      @Nullable final Tuple minimumPrimaryKey) {
+                                                      @Nullable final Tuple minimumPrimaryKey,
+                                                      final boolean shouldQuickStart) {
         return search().orderByDistance(readTransaction, efRingSearch, efOutwardSearch, includeVectors, centerVector,
-                minimumRadius, minimumPrimaryKey);
+                minimumRadius, minimumPrimaryKey, shouldQuickStart);
+    }
+
+    @VisibleForTesting
+    public static void scanLayer(@Nonnull final Config config,
+                                 @Nonnull final Subspace subspace,
+                                 @Nonnull final Database db,
+                                 final int layer,
+                                 final int batchSize,
+                                 @Nonnull final Consumer<ResultEntry> consumer) {
+        Primitives.scanLayer(config, subspace, db, layer, batchSize, consumer);
     }
 
     /**
@@ -339,13 +376,13 @@ public class HNSW {
      * found in the layer.
      */
     @VisibleForTesting
-    static void scanLayer(@Nonnull final Config config,
-                          @Nonnull final Subspace subspace,
-                          @Nonnull final Database db,
-                          final int layer,
-                          final int batchSize,
-                          @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
-        Primitives.scanLayer(config, subspace, db, layer, batchSize, nodeConsumer);
+    static void scanLayerInternal(@Nonnull final Config config,
+                                  @Nonnull final Subspace subspace,
+                                  @Nonnull final Database db,
+                                  final int layer,
+                                  final int batchSize,
+                                  @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
+        Primitives.scanLayerInternal(config, subspace, db, layer, batchSize, nodeConsumer);
     }
 
     /**

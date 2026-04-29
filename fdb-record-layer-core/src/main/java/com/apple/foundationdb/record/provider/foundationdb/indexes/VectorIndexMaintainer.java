@@ -31,7 +31,7 @@ import com.apple.foundationdb.async.hnsw.Node;
 import com.apple.foundationdb.async.hnsw.NodeReference;
 import com.apple.foundationdb.async.hnsw.OnReadListener;
 import com.apple.foundationdb.async.hnsw.OnWriteListener;
-import com.apple.foundationdb.async.hnsw.ResultEntry;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EndpointType;
@@ -349,7 +349,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                 return hnsw.delete(state.transaction, trimmedPrimaryKey);
             } else {
                 return hnsw.insert(state.transaction, trimmedPrimaryKey,
-                        RealVector.fromBytes(vectorBytes));
+                        RealVector.fromBytes(vectorBytes), null);
             }
         });
     }

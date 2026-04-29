@@ -35,6 +35,8 @@ import javax.annotation.Nonnull;
  * data type conversions and raw data representation.
  */
 public interface RealVector {
+    double EPS = 1.0e-12;
+
     ImmutableList<VectorType> VECTOR_TYPES = ImmutableList.copyOf(VectorType.values());
 
     /**
@@ -116,6 +118,16 @@ public interface RealVector {
     @Nonnull
     DoubleRealVector toDoubleRealVector();
 
+    @Nonnull
+    default MutableDoubleRealVector toMutable() {
+        return new MutableDoubleRealVector(getData().clone());
+    }
+
+    default double clampedDot(@Nonnull final RealVector other) {
+        final double dot = dot(other);
+        return Math.max(-1.0d, Math.min(1.0d, dot));
+    }
+
     default double dot(@Nonnull final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
         double sum = 0.0d;
@@ -127,70 +139,46 @@ public interface RealVector {
         return sum;
     }
 
+    default boolean isNearlyZeroNorm() {
+        return l2SquaredNorm() <= EPS * EPS;
+    }
+
     default double l2Norm() {
-        return Math.sqrt(dot(this));
+        return Math.sqrt(l2SquaredNorm());
+    }
+
+    default double l2SquaredNorm() {
+        return dot(this);
     }
 
     @Nonnull
     default RealVector normalize() {
-        double n = l2Norm();
-        final int numDimensions = getNumDimensions();
-        double[] y = new double[numDimensions];
-        if (n == 0.0 || !Double.isFinite(n)) {
-            throw new IllegalArgumentException("vector has an L2 norm of infinite, not a number, or 0");
-        }
-        double inv = 1.0 / n;
-        for (int i = 0; i < numDimensions; i++) {
-            y[i] = getComponent(i) * inv;
-        }
-        return withData(y);
+        return withData(RealVectorPrimitives.normalizeInto(this, new double[getNumDimensions()]));
     }
 
     @Nonnull
     default RealVector add(@Nonnull final RealVector other) {
-        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
-        final double[] result = new double[getNumDimensions()];
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) + other.getComponent(i);
-        }
-        return withData(result);
+        return withData(RealVectorPrimitives.addInto(this, other, new double[getNumDimensions()]));
     }
 
     @Nonnull
     default RealVector add(final double scalar) {
-        final double[] result = new double[getNumDimensions()];
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) + scalar;
-        }
-        return withData(result);
+        return withData(RealVectorPrimitives.addInto(this, scalar, new double[getNumDimensions()]));
     }
 
     @Nonnull
     default RealVector subtract(@Nonnull final RealVector other) {
-        Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
-        final double[] result = new double[getNumDimensions()];
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) - other.getComponent(i);
-        }
-        return withData(result);
+        return withData(RealVectorPrimitives.subtractInto(this, other, new double[getNumDimensions()]));
     }
 
     @Nonnull
     default RealVector subtract(final double scalar) {
-        final double[] result = new double[getNumDimensions()];
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) - scalar;
-        }
-        return withData(result);
+        return withData(RealVectorPrimitives.subtractInto(this, scalar, new double[getNumDimensions()]));
     }
 
     @Nonnull
-    default RealVector multiply(final double scalarFactor) {
-        final double[] result = new double[getNumDimensions()];
-        for (int i = 0; i < getNumDimensions(); i ++) {
-            result[i] = getComponent(i) * scalarFactor;
-        }
-        return withData(result);
+    default RealVector multiply(final double scalar) {
+        return withData(RealVectorPrimitives.multiplyInto(this, scalar, new double[getNumDimensions()]));
     }
 
     @Nonnull

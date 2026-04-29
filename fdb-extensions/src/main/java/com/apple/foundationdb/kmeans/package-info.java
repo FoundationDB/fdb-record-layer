@@ -1,5 +1,5 @@
 /*
- * BaseTest.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,22 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.async.hnsw;
-
-import com.apple.foundationdb.Database;
-import com.apple.foundationdb.subspace.Subspace;
-
-import javax.annotation.Nonnull;
-import java.nio.file.Path;
-
-public interface BaseTest {
-
-    @Nonnull
-    Database getDb();
-
-    @Nonnull
-    Subspace getSubspace();
-
-    @Nonnull
-    Path getTempDir();
-}
+/**
+ * k-means++ algorithm.
+ */
+package com.apple.foundationdb.kmeans;
