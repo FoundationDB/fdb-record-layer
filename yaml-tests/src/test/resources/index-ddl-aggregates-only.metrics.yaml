@@ -115,9 +115,9 @@ sum_aggregate_three_grouping:
         _2: KEY:[2], _3: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2
         AS PRODUCT_ID, _._3 AS TOTAL)'
     task_count: 468
-    task_total_time_ms: 151
-    transform_count: 163
-    transform_time_ms: 125
+    task_total_time_ms: 106
+    transform_count: 162
+    transform_time_ms: 94
     transform_yield_count: 100
     insert_time_ms: 0
     insert_new_count: 24
@@ -130,11 +130,11 @@ sum_aggregate_three_grouping:
         _2: KEY:[2], _3: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2
         AS PRODUCT_ID, _._3 AS TOTAL)'
     task_count: 468
-    task_total_time_ms: 152
-    transform_count: 163
-    transform_time_ms: 128
+    task_total_time_ms: 105
+    transform_count: 162
+    transform_time_ms: 81
     transform_yield_count: 100
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 24
     insert_reused_count: 1
 count_star_aggregate:

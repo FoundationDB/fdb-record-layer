@@ -4,20 +4,20 @@ agg-index-tests-count:
     explain: 'AISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 579
-    task_total_time_ms: 15
+    task_total_time_ms: 21
     transform_count: 174
-    transform_time_ms: 9
+    transform_time_ms: 11
     transform_yield_count: 52
     insert_time_ms: 0
     insert_new_count: 52
-    insert_reused_count: 7
+    insert_reused_count: 6
 -   query: EXPLAIN select count(*) from t1 group by col2
     ref: aggregate-index-tests-count.yamsql:53
     explain: 'AISCAN(MV2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
     task_count: 348
     task_total_time_ms: 25
-    transform_count: 111
+    transform_count: 110
     transform_time_ms: 14
     transform_yield_count: 40
     insert_time_ms: 0
@@ -28,20 +28,20 @@ agg-index-tests-count:
     explain: 'AISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 579
-    task_total_time_ms: 38
+    task_total_time_ms: 34
     transform_count: 174
-    transform_time_ms: 20
+    transform_time_ms: 19
     transform_yield_count: 52
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 52
-    insert_reused_count: 7
+    insert_reused_count: 6
 -   query: EXPLAIN select count(col1) from t1 group by col2
     ref: aggregate-index-tests-count.yamsql:61
     explain: 'AISCAN(MV4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
     task_count: 348
-    task_total_time_ms: 25
-    transform_count: 111
+    task_total_time_ms: 24
+    transform_count: 110
     transform_time_ms: 15
     transform_yield_count: 40
     insert_time_ms: 0
