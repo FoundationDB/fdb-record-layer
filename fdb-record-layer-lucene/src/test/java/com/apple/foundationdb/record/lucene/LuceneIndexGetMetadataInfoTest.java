@@ -86,6 +86,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
                 assertThat(luceneInfo.getFiles(), Matchers.hasSize(segmentCountToFileCount(isGrouped ? 1 : 5)));
                 assertThat(luceneInfo.getDetailedFileInfos(), Matchers.hasSize(segmentCountToFileCount(isGrouped ? 1 : 5)));
                 assertEquals(1, luceneInfo.getFieldInfoCount());
+                assertEquals(0, luceneInfo.getPendingWritesQueueSize());
             }
         }
     }

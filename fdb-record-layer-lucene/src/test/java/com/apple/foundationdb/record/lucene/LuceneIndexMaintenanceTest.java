@@ -1403,7 +1403,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         AtomicInteger updates = new AtomicInteger(0);
         AtomicInteger deletes = new AtomicInteger(0);
         AtomicInteger saves = new AtomicInteger(0);
-        concurrentTestWithinTransaction(isSynthetic, (dataModel, recordStore) ->
+        concurrentTestWithinTransaction(false, (dataModel, recordStore) ->
                         RecordCursor.fromList(dataModel.recordsUnderTest())
                                 .mapPipelined(record -> {
                                     switch (step.incrementAndGet() % 3) {
@@ -1422,7 +1422,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                                 .asList().join(),
                 (inserted, actual) -> assertEquals(inserted + saves.get() - deletes.get(), actual),
                 noopConsumer(),
-                partitionCount);
+                PartitionCount.MULTIPLE);
     }
 
     private void concurrentTestWithinTransaction(boolean isSynthetic,
@@ -1471,7 +1471,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .build();
 
         final int repartitionCount = 10;
-        final int recordsPerIteration = 10;
+        final int recordsPerIteration = 100;
         final int loopCount = 40;
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()

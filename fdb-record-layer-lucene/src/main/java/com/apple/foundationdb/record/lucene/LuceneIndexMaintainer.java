@@ -75,6 +75,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import com.apple.foundationdb.record.util.pair.ImmutablePair;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -583,13 +584,24 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         try {
             try (IndexReader indexReader = directoryManager.getIndexReader(groupingKey, partitionId)) {
                 final FDBDirectory directory = getDirectory(groupingKey, partitionId);
-                final CompletableFuture<Integer> fieldInfosFuture = directory.getFieldInfosCount();
-                return directory.getAllAsync()
-                        .thenCombine(fieldInfosFuture, (fileList, fieldInfosCount) ->
+                final CompletableFuture<Map<String, FDBLuceneFileReference>> filesFuture =
+                        directory.getAllAsync();
+                final CompletableFuture<Integer> fieldInfosFuture =
+                        directory.getFieldInfosCount();
+                final CompletableFuture<Long> queueSizeFuture =
+                        directoryManager.getPendingWriteQueue(groupingKey, partitionId)
+                                        .getQueueSize(state.context);
+                return filesFuture.thenCombine(
+                        fieldInfosFuture.thenCombine(queueSizeFuture,
+                                (fieldInfosCount, queueSize) ->
+                                        ImmutablePair.of(fieldInfosCount,
+                                                queueSize != null ? queueSize : 0L)),
+                        (fileList, fieldInfosAndQueueSize) ->
                                 new LuceneMetadataInfo.LuceneInfo(
                                         indexReader.numDocs(),
-                                        fieldInfosCount,
-                                        toLuceneFileInfo(fileList)));
+                                        fieldInfosAndQueueSize.getLeft(),
+                                        toLuceneFileInfo(fileList),
+                                        fieldInfosAndQueueSize.getRight()));
             }
         } catch (IOException e) {
             return CompletableFuture.failedFuture(e);
