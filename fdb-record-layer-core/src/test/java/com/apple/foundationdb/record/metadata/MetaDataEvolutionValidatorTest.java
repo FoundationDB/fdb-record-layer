@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
@@ -43,6 +44,7 @@ import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokeniz
 import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.PrefixTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.ParameterizedTestUtils;
@@ -56,6 +58,7 @@ import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -238,14 +241,20 @@ class MetaDataEvolutionValidatorTest {
     // Schema evolution tests
 
     @Nonnull
+    static RecordMetaData updateMetaData(@Nonnull RecordMetaData metaData, @Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> updater) {
+        RecordMetaDataProto.MetaData.Builder metaDataProtoBuilder = metaData.toProto().toBuilder();
+        metaDataProtoBuilder.setVersion(metaData.getVersion() + 1);
+        updater.accept(metaDataProtoBuilder);
+        return RecordMetaData.build(metaDataProtoBuilder.build());
+    }
+
+    @Nonnull
     static RecordMetaData replaceRecordsDescriptor(@Nonnull RecordMetaData metaData, @Nonnull FileDescriptor newDescriptor,
                                                     @Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> metaDataMutation) {
-        RecordMetaDataProto.MetaData.Builder protoBuilder = metaData.toProto().toBuilder()
-                .setVersion(metaData.getVersion() + 1)
-                .setRecords(newDescriptor.toProto())
-                .addDependencies(TestRecords1Proto.getDescriptor().toProto());
-        metaDataMutation.accept(protoBuilder);
-        return RecordMetaData.build(protoBuilder.build());
+        return updateMetaData(metaData, protoBuilder -> {
+            protoBuilder.setRecords(newDescriptor.toProto());
+            metaDataMutation.accept(protoBuilder);
+        });
     }
 
     @Nonnull
@@ -1585,7 +1594,65 @@ class MetaDataEvolutionValidatorTest {
         assertInvalid("record type primary key changed", metaData1, metaData2);
     }
 
-    // Synthetic type tests
+    // JoinedRecordType type tests
+
+    private void addNumValue2Join(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("join_nv2");
+        joinBuilder.addConstituent("l", "MySimpleRecord");
+        joinBuilder.addConstituent("r", "MyOtherRecord");
+        joinBuilder.addJoin("l", Key.Expressions.field("num_value_2"), "r", Key.Expressions.field("num_value_2"));
+
+        metaDataBuilder.addIndex("join_nv2", "joined$l.num_value_unique", Key.Expressions.field("l").nest("num_value_unique"));
+    }
+
+    private void addThreeWayNumValue2Join(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("join_nv2");
+        joinBuilder.addConstituent("s", "MySimpleRecord");
+        joinBuilder.addConstituent("o", "MyOtherRecord");
+        joinBuilder.addConstituent("a", "AnotherRecord");
+        joinBuilder.addJoin("s", Key.Expressions.field("num_value_2"), "o", Key.Expressions.field("num_value_2"));
+        joinBuilder.addJoin("s", Key.Expressions.field("num_value_2"), "a", Key.Expressions.field("num_value_2"));
+
+        metaDataBuilder.addIndex("join_nv2", "joined$nv3", Key.Expressions.concat(
+                Key.Expressions.field("s").nest("num_value_3_indexed"),
+                Key.Expressions.field("o").nest("num_value_3_indexed"),
+                Key.Expressions.field("a").nest("num_value_3_indexed"))
+        );
+    }
+
+    private void addStrValueSelfJoin(@Nonnull RecordMetaDataBuilder metaDataBuilder) {
+        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("self_join_svi");
+        joinBuilder.addConstituent("s1", "MySimpleRecord");
+        joinBuilder.addConstituent("s2", "MySimpleRecord");
+        joinBuilder.addJoin("s1", Key.Expressions.field("str_value_indexed"), "s2", Key.Expressions.field("str_value_indexed"));
+
+        metaDataBuilder.addIndex("self_join_svi", "self_join_svi$num_value_unique", Key.Expressions.concat(Key.Expressions.field("s1").nest("num_value_unique"), Key.Expressions.field("s2").nest("num_value_unique")));
+    }
+
+    @Nonnull
+    private RecordMetaData createSimpleMetaData(@Nonnull FDBRecordStoreTestBase.RecordMetaDataHook hook) {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        hook.apply(metaDataBuilder);
+        return metaDataBuilder.build();
+    }
+
+    @Nonnull
+    private RecordMetaData createEvolvedMetaData(@Nonnull FDBRecordStoreTestBase.RecordMetaDataHook hook) {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1EvolvedProto.getDescriptor());
+        hook.apply(metaDataBuilder);
+        return metaDataBuilder.build();
+    }
+
+    @Nonnull
+    private RecordMetaData mutateJoinedRecordType(@Nonnull RecordMetaData metaData, @Nonnull String typeName, @Nonnull Consumer<RecordMetaDataProto.JoinedRecordType.Builder> typeMutator) {
+        return updateMetaData(metaData, metaDataProtoBuilder -> {
+            for (RecordMetaDataProto.JoinedRecordType.Builder typeBuilder : metaDataProtoBuilder.getJoinedRecordTypesBuilderList()) {
+                if (typeBuilder.getName().equals(typeName)) {
+                    typeMutator.accept(typeBuilder);
+                }
+            }
+        });
+    }
 
     @Test
     void addJoinedType() {
@@ -1593,11 +1660,7 @@ class MetaDataEvolutionValidatorTest {
 
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.setVersion(metaData1.getVersion() + 1);
-        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("join_nv2");
-        joinBuilder.addConstituent("l", "MySimpleRecord");
-        joinBuilder.addConstituent("r", "MyOtherRecord");
-        joinBuilder.addJoin("l", Key.Expressions.field("num_value_2"), "r", Key.Expressions.field("num_value_2"));
-        metaDataBuilder.addIndex("join_nv2", "joined$l.num_value_unique", Key.Expressions.field("l").nest("num_value_unique"));
+        addNumValue2Join(metaDataBuilder);
         RecordMetaData metaData2 = metaDataBuilder.build();
 
         validator.validate(metaData1, metaData2);
@@ -1605,15 +1668,9 @@ class MetaDataEvolutionValidatorTest {
 
     @Test
     void dropJoinedType() {
-        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
-        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("join_nv2");
-        joinBuilder.addConstituent("l", "MySimpleRecord");
-        joinBuilder.addConstituent("r", "MyOtherRecord");
-        joinBuilder.addJoin("l", Key.Expressions.field("num_value_2"), "r", Key.Expressions.field("num_value_2"));
-        metaDataBuilder.addIndex("join_nv2", "joined$l.num_value_unique", Key.Expressions.field("l").nest("num_value_unique"));
-        final RecordMetaData metaData1 = metaDataBuilder.build();
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addNumValue2Join);
 
-        metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.setVersion(metaData1.getVersion() + 1);
         metaDataBuilder.addFormerIndex(new FormerIndex("joined$l.num_value_unique", metaData1.getVersion(), metaData1.getVersion() + 1, "joined$l.num_value_unique"));
         RecordMetaData metaData2 = metaDataBuilder.build();
@@ -1622,15 +1679,36 @@ class MetaDataEvolutionValidatorTest {
     }
 
     @Test
-    void swapJoinConstituents() {
-        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
-        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("join_nv2");
-        joinBuilder.addConstituent("l", "MySimpleRecord");
-        joinBuilder.addConstituent("r", "MyOtherRecord");
-        joinBuilder.addJoin("l", Key.Expressions.field("num_value_2"), "r", Key.Expressions.field("num_value_2"));
-        metaDataBuilder.addIndex("join_nv2", "joined$l.num_value_unique", Key.Expressions.field("l").nest("num_value_unique"));
+    void swapJoinTypeDefinitions() {
+        final RecordMetaData metaData1 = createSimpleMetaData(metaDataBuilder -> {
+            addNumValue2Join(metaDataBuilder);
+            addStrValueSelfJoin(metaDataBuilder);
+        });
 
-        final RecordMetaData metaData1 = metaDataBuilder.build();
+        final RecordMetaData metaData2 = updateMetaData(metaData1, metaDataBuilder -> {
+            final RecordMetaDataProto.JoinedRecordType.Builder type1 = metaDataBuilder.getJoinedRecordTypesBuilder(0);
+            final RecordMetaDataProto.JoinedRecordType.Builder type2 = metaDataBuilder.getJoinedRecordTypesBuilder(1);
+
+            // Swap the two types' record type keys
+            RecordKeyExpressionProto.Value type1Key = type1.getRecordTypeKey();
+            type1.setRecordTypeKey(type2.getRecordTypeKey());
+            type2.setRecordTypeKey(type1Key);
+        });
+
+        assertNotEquals(metaData1.getSyntheticRecordType("join_nv2").getRecordTypeKey(), metaData2.getSyntheticRecordType("join_nv2").getRecordTypeKey());
+        assertNotEquals(metaData1.getSyntheticRecordType("self_join_svi").getRecordTypeKey(), metaData2.getSyntheticRecordType("self_join_svi").getRecordTypeKey());
+
+        assertInvalid("join constituent name changed", metaData1, metaData2);
+        final MetaDataEvolutionValidator stricterValidator = validator.asBuilder()
+                .setDisallowTypeRenames(true)
+                .build();
+        assertInvalid("synthetic record type name changed", stricterValidator, metaData1, metaData2);
+    }
+
+    @Test
+    void swapJoinConstituents() {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addNumValue2Join);
+
         final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "join_nv2", joinedType -> {
             final var constituentsList = joinedType.getJoinConstituentsList();
             joinedType.clearJoinConstituents();
@@ -1647,14 +1725,8 @@ class MetaDataEvolutionValidatorTest {
 
     @Test
     void swapSelfJoinConstituents() {
-        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
-        final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("self_join_svi");
-        joinBuilder.addConstituent("s1", "MySimpleRecord");
-        joinBuilder.addConstituent("s2", "MySimpleRecord");
-        joinBuilder.addJoin("s1", Key.Expressions.field("str_value_indexed"), "s2", Key.Expressions.field("str_value_indexed"));
-        metaDataBuilder.addIndex("self_join_svi", "self_join_svi$num_value_unique", Key.Expressions.concat(Key.Expressions.field("s1").nest("num_value_unique"), Key.Expressions.field("s2").nest("num_value_unique")));
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addStrValueSelfJoin);
 
-        final RecordMetaData metaData1 = metaDataBuilder.build();
         final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "self_join_svi", joinedType -> {
             final var constituentsList = joinedType.getJoinConstituentsList();
             joinedType.clearJoinConstituents();
@@ -1680,6 +1752,308 @@ class MetaDataEvolutionValidatorTest {
         assertInvalid("join constituent name changed", metaData1, metaData4);
         laxerValidator.validate(metaData1, metaData4);
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"MySimpleRecord", "MyOtherRecord"})
+    void changeUnderlyingJoinConstituentType(String recordType) {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addNumValue2Join);
+
+        // Delete and recreate the MySimpleRecord type. As we can't actually delete types, this is done by
+        // renaming the old type and deprecating its field in the union descriptor. We then add a new copy of
+        // it to the list of types, ensuring to assign that new type a new union descriptor field.
+        // We use a recreated version of the same type to maximize the number of things that are the same:
+        // the same type name, the same set of fields, etc. The only way that it should notice that something
+        // is up is that it has to check the position in the union descriptor
+        FileDescriptor updatedDescriptor = mutateFile(TestRecords1Proto.getDescriptor(), fileBuilder -> {
+            DescriptorProtos.DescriptorProto oldType = null;
+            for (DescriptorProtos.DescriptorProto.Builder messageType : fileBuilder.getMessageTypeBuilderList()) {
+                if (messageType.getName().equals(recordType)) {
+                    // Rename the old MySimpleRecord. Save a copy prior to the rename
+                    oldType = messageType.build();
+                    messageType.setName(recordType + "__old");
+                } else if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                    // Rename the reference in the union descriptor
+                    for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : messageType.getFieldBuilderList()) {
+                        if (fieldBuilder.getTypeName().endsWith(recordType)) {
+                            deprecateField(fieldBuilder);
+                            fieldBuilder
+                                    .setName("_" + recordType + "__old")
+                                    .setTypeName(recordType + "__old");
+                        }
+                    }
+                    // Create a field for the recreated MySimpleRecord (added below)
+                    addField(messageType)
+                            .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                            .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                            .setTypeName(recordType)
+                            .setName("_" + recordType);
+
+                }
+            }
+            // Add a copy of MySimpleRecord to the fileBuilder. This represents recreating a new type with
+            // the same name (and in this case, the same set of fields).
+            fileBuilder.addMessageType(oldType);
+        });
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedDescriptor, metaDataBuilder -> {
+            // Rename the old record type
+            for (RecordMetaDataProto.RecordType.Builder recordTypeBuilder : metaDataBuilder.getRecordTypesBuilderList()) {
+                if (recordTypeBuilder.getName().equals(recordType)) {
+                    recordTypeBuilder.setName(recordType + "__old");
+                }
+            }
+            // Create a new record type with an updated since version
+            metaDataBuilder.addRecordTypesBuilder()
+                    .setName(recordType)
+                    .setSinceVersion(metaDataBuilder.getVersion())
+                    .setPrimaryKey(Key.Expressions.field("rec_no").toKeyExpression());
+
+            for (RecordMetaDataProto.Index.Builder indexBuilder : metaDataBuilder.getIndexesBuilderList()) {
+                // Rename any references to the type in the indexes. Note that the joined record type's index is _not_ updated
+                if (indexBuilder.getRecordTypeList().contains(recordType)) {
+                    final List<String> oldTypes = indexBuilder.getRecordTypeList();
+                    indexBuilder.clearRecordType();
+                    oldTypes.stream()
+                            .map(type -> type.equals(recordType) ? (recordType + "__old") : type)
+                            .forEach(indexBuilder::addRecordType);
+                }
+            }
+        });
+
+        assertFalse(validator.disallowsTypeRenames());
+        assertInvalid("join constituent type changed", metaData1, metaData2);
+        final MetaDataEvolutionValidator stricterValidator = validator.asBuilder()
+                .setDisallowTypeRenames(true)
+                .build();
+        assertTrue(stricterValidator.disallowsTypeRenames());
+        assertInvalid("record type name changed", stricterValidator, metaData1, metaData2);
+
+        RecordMetaData metaData3 = mutateJoinedRecordType(metaData2, "join_nv2", typeBuilder -> {
+            for (RecordMetaDataProto.JoinedRecordType.JoinConstituent.Builder constituent : typeBuilder.getJoinConstituentsBuilderList()) {
+                if (constituent.getRecordType().equals(recordType)) {
+                    constituent.setRecordType(recordType + "__old");
+                }
+            }
+        });
+        validator.validate(metaData1, metaData3);
+        assertInvalid("record type name changed", stricterValidator, metaData1, metaData2);
+    }
+
+    @Test
+    void changeJoinConstituentName() {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addStrValueSelfJoin);
+
+        final RecordMetaData metaData2 = updateMetaData(metaData1, metaDataBuilder -> {
+            for (RecordMetaDataProto.JoinedRecordType.Builder joinedTypeBuilder : metaDataBuilder.getJoinedRecordTypesBuilderList()) {
+                if (joinedTypeBuilder.getName().equals("self_join_svi")) {
+                    for (RecordMetaDataProto.JoinedRecordType.JoinConstituent.Builder constituentBuilder : joinedTypeBuilder.getJoinConstituentsBuilderList()) {
+                        if (constituentBuilder.getName().equals("s1")) {
+                            constituentBuilder.setName("x");
+                        }
+                    }
+                    joinedTypeBuilder.getJoinsBuilderList().get(0)
+                            .setLeft("x");
+                }
+            }
+
+            for (RecordMetaDataProto.Index.Builder indexBuilder : metaDataBuilder.getIndexesBuilderList()) {
+                if (indexBuilder.getName().equals("self_join_svi$num_value_unique")) {
+                    indexBuilder.setRootExpression(Key.Expressions.concat(Key.Expressions.field("x").nest("num_value_unique"), Key.Expressions.field("s2").nest("num_value_unique")).toKeyExpression());
+                }
+            }
+        });
+
+        assertInvalid("join constituent name changed", metaData1, metaData2);
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setAllowFieldRenames(true)
+                .build();
+        laxerValidator.validate(metaData1, metaData2);
+    }
+
+    @Test
+    void addJoinConstituent() {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addNumValue2Join);
+
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, TestRecords1EvolvedProto.getDescriptor(), metaDataBuilder -> {
+            metaDataBuilder.addRecordTypesBuilder()
+                    .setName("AnotherRecord")
+                    .setPrimaryKey(Key.Expressions.field("rec_no").toKeyExpression())
+                    .setSinceVersion(metaDataBuilder.getVersion());
+
+            for (RecordMetaDataProto.JoinedRecordType.Builder joinTypeBuilder : metaDataBuilder.getJoinedRecordTypesBuilderList()) {
+                joinTypeBuilder.addJoinConstituentsBuilder()
+                        .setName("x")
+                        .setRecordType("AnotherRecord")
+                        .setOuterJoined(false);
+                joinTypeBuilder.addJoinsBuilder()
+                        .setLeft("l")
+                        .setLeftExpression(Key.Expressions.field("num_value_2").toKeyExpression())
+                        .setRight("x")
+                        .setRightExpression(Key.Expressions.field("num_value_2").toKeyExpression());
+            }
+        });
+        assertInvalid("join constituent count changed", metaData1, metaData2);
+    }
+
+    @Test
+    void removeJoinConstituent() {
+        final RecordMetaData metaData1 = createEvolvedMetaData(this::addThreeWayNumValue2Join);
+
+        final RecordMetaData metaData2 = updateMetaData(metaData1, metaDataBuilder -> {
+            for (RecordMetaDataProto.JoinedRecordType.Builder joinedTypeBuilder : metaDataBuilder.getJoinedRecordTypesBuilderList()) {
+                if (joinedTypeBuilder.getName().equals("join_nv2")) {
+                    joinedTypeBuilder.removeJoinConstituents(0);
+                    joinedTypeBuilder.clearJoins();
+                    joinedTypeBuilder.addJoinsBuilder()
+                            .setLeft("o")
+                            .setLeftExpression(Key.Expressions.field("num_value_2").toKeyExpression())
+                            .setRight("a")
+                            .setRightExpression(Key.Expressions.field("num_value_2").toKeyExpression());
+                }
+            }
+            for (RecordMetaDataProto.Index.Builder index : metaDataBuilder.getIndexesBuilderList()) {
+                if (index.getRecordTypeList().contains("join_nv2")) {
+                    index.setRootExpression(Key.Expressions.concat(
+                            Key.Expressions.field("o").nest("num_value_3_indexed"),
+                            Key.Expressions.field("a").nest("num_value_3_indexed")
+                    ).toKeyExpression());
+                }
+            }
+        });
+        assertInvalid("join constituent count changed", metaData1, metaData2);
+    }
+
+    @Test
+    void addJoinCondition() {
+        final RecordMetaData metaData1 = createEvolvedMetaData(this::addThreeWayNumValue2Join);
+
+        final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "join_nv2", joinedTypeBuilder ->
+                // Technically, this join criterion is implied by the existing two criteria via transitivity, so
+                // this may need to change if we ever modify the check to account for that
+                joinedTypeBuilder.addJoinsBuilder()
+                        .setLeft("o")
+                        .setLeftExpression(Key.Expressions.field("num_value_2").toKeyExpression())
+                        .setLeft("a")
+                        .setRightExpression(Key.Expressions.field("num_value_2").toKeyExpression()));
+
+        assertInvalid("join type join count changed", metaData1, metaData2);
+    }
+
+    @Test
+    void removeJoinCondition() {
+        final RecordMetaData metaData1 = createEvolvedMetaData(this::addThreeWayNumValue2Join);
+
+        final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "join_nv2",
+                joinedTypeBuilder -> joinedTypeBuilder.removeJoins(0));
+        assertInvalid("join type join count changed", metaData1, metaData2);
+    }
+
+    @Test
+    void changeOuterJoinedProperty() {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addNumValue2Join);
+
+        // Assert cannot go from not outer joined to outer joined
+        final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "join_nv2",
+                joinedTypeBuilder -> joinedTypeBuilder.getJoinConstituentsBuilder(0).setOuterJoined(true));
+        assertInvalid("join constituent outer-joined property changed", metaData1, metaData2);
+
+        // Assert cannot go from outer joined to not outer joined
+        final RecordMetaData metaData3 = updateMetaData(metaData1, metaDataBuilder -> metaDataBuilder.setVersion(metaData2.getVersion() + 1));
+        assertInvalid("join constituent outer-joined property changed", metaData2, metaData3);
+    }
+
+    @Test
+    void changeJoinLeftComponents() {
+        final RecordMetaData metaData1 = createEvolvedMetaData(this::addThreeWayNumValue2Join);
+
+        final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "join_nv2", joinedTypeBuilder -> {
+            final RecordMetaDataProto.JoinedRecordType.Join.Builder joinBuilder = joinedTypeBuilder.getJoinsBuilder(0);
+            joinBuilder.setLeft("a");
+        });
+        assertInvalid("join changed left constituent", metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateJoinedRecordType(metaData1, "join_nv2", joinedTypeBuilder -> {
+            final RecordMetaDataProto.JoinedRecordType.Join.Builder joinBuilder = joinedTypeBuilder.getJoinsBuilder(0);
+            joinBuilder.setLeftExpression(Key.Expressions.field("num_value_unique").toKeyExpression());
+        });
+        assertInvalid("join changed left expression", metaData1, metaData3);
+    }
+
+    @Test
+    void changeJoinRightComponents() {
+        final RecordMetaData metaData1 = createEvolvedMetaData(this::addThreeWayNumValue2Join);
+
+        final RecordMetaData metaData2 = mutateJoinedRecordType(metaData1, "join_nv2", joinedTypeBuilder -> {
+            final RecordMetaDataProto.JoinedRecordType.Join.Builder joinBuilder = joinedTypeBuilder.getJoinsBuilder(0);
+            joinBuilder.setRight("a");
+        });
+        assertInvalid("join changed right constituent", metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateJoinedRecordType(metaData1, "join_nv2", joinedTypeBuilder -> {
+            final RecordMetaDataProto.JoinedRecordType.Join.Builder joinBuilder = joinedTypeBuilder.getJoinsBuilder(0);
+            joinBuilder.setRightExpression(Key.Expressions.field("num_value_3_indexed").toKeyExpression());
+        });
+        assertInvalid("join changed right expression", metaData1, metaData3);
+    }
+
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldInJoinExpression(boolean deprecated) {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addNumValue2Join);
+
+        // Change a field in MySimpleRecord used in the join
+        FileDescriptor renamedSimpleNum2 = mutateMessageType("MySimpleRecord", typeBuilder -> {
+            for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : typeBuilder.getFieldBuilderList()) {
+                if (fieldBuilder.getName().equals("num_value_2")) {
+                    if (deprecated) {
+                        deprecateField(fieldBuilder);
+                    }
+                    fieldBuilder.setName("num_value_2__old");
+                }
+            }
+            addField(typeBuilder)
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_SFIXED64)
+                    .setName("num_value_2");
+        });
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedSimpleNum2);
+        fieldRenameChecker.assertInvalidRenaming("join changed left expression", deprecated, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateJoinedRecordType(metaData2, "join_nv2", joinedTypeBuilder -> {
+            final RecordMetaDataProto.JoinedRecordType.Join.Builder joinBuilder = joinedTypeBuilder.getJoinsBuilder(0);
+            joinBuilder.setLeftExpression(Key.Expressions.field("num_value_2__old").toKeyExpression());
+        });
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
+
+        // Now change the same field in MyOtherRecord
+        FileDescriptor renamedOtherNum2 = mutateMessageType("MyOtherRecord", renamedSimpleNum2, typeBuilder -> {
+            for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : typeBuilder.getFieldBuilderList()) {
+                if (fieldBuilder.getName().equals("num_value_2")) {
+                    if (deprecated) {
+                        deprecateField(fieldBuilder);
+                    }
+                    fieldBuilder.setName("num_value_2__old");
+                }
+            }
+            addField(typeBuilder)
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_SFIXED64)
+                    .setName("num_value_2");
+        });
+        final RecordMetaData metaData4 = replaceRecordsDescriptor(metaData3, renamedOtherNum2);
+        fieldRenameChecker.assertInvalidRenaming("join changed right expression", deprecated, metaData1, metaData4);
+        fieldRenameChecker.assertInvalidRenaming("join changed right expression", deprecated, metaData3, metaData4);
+
+        final RecordMetaData metaData5 = mutateJoinedRecordType(metaData4, "join_nv2", joinedTypeBuilder -> {
+            final RecordMetaDataProto.JoinedRecordType.Join.Builder joinBuilder = joinedTypeBuilder.getJoinsBuilder(0);
+            joinBuilder.setRightExpression(Key.Expressions.field("num_value_2__old").toKeyExpression());
+        });
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData5);
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData3, metaData5);
+    }
+
+    // UnnestedRecordTypeTests
+
+
 
     // Former index tests
 
@@ -1967,30 +2341,11 @@ class MetaDataEvolutionValidatorTest {
     }
 
     @Nonnull
-    private RecordMetaData updateMetaData(@Nonnull RecordMetaData metaData, @Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> updater) {
-        RecordMetaDataProto.MetaData.Builder metaDataProtoBuilder = metaData.toProto().toBuilder();
-        updater.accept(metaDataProtoBuilder);
-        metaDataProtoBuilder.setVersion(metaData.getVersion() + 1);
-        return RecordMetaData.build(metaDataProtoBuilder.build());
-    }
-
-    @Nonnull
     private RecordMetaData mutateIndex(@Nonnull RecordMetaData metaData, @Nonnull String indexName, @Nonnull Consumer<RecordMetaDataProto.Index.Builder> indexMutator) {
         return updateMetaData(metaData, metaDataProtoBuilder -> {
             for (RecordMetaDataProto.Index.Builder indexProto : metaDataProtoBuilder.getIndexesBuilderList()) {
                 if (indexProto.getName().equals(indexName)) {
                     indexMutator.accept(indexProto);
-                }
-            }
-        });
-    }
-
-    @Nonnull
-    private RecordMetaData mutateJoinedRecordType(@Nonnull RecordMetaData metaData, @Nonnull String typeName, @Nonnull Consumer<RecordMetaDataProto.JoinedRecordType.Builder> typeMutator) {
-        return updateMetaData(metaData, metaDataProtoBuilder -> {
-            for (RecordMetaDataProto.JoinedRecordType.Builder typeBuilder : metaDataProtoBuilder.getJoinedRecordTypesBuilderList()) {
-                if (typeBuilder.getName().equals(typeName)) {
-                    typeMutator.accept(typeBuilder);
                 }
             }
         });
