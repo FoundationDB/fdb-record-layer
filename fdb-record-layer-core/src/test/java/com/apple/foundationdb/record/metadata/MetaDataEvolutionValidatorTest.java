@@ -245,7 +245,10 @@ class MetaDataEvolutionValidatorTest {
         RecordMetaDataProto.MetaData.Builder metaDataProtoBuilder = metaData.toProto().toBuilder();
         metaDataProtoBuilder.setVersion(metaData.getVersion() + 1);
         updater.accept(metaDataProtoBuilder);
-        return RecordMetaData.build(metaDataProtoBuilder.build());
+        return RecordMetaData.newBuilder()
+                .addDependency(TestRecords1Proto.getDescriptor())
+                .setRecords(metaDataProtoBuilder.build())
+                .build();
     }
 
     @Nonnull
