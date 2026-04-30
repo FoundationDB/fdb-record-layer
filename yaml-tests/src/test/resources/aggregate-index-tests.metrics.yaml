@@ -922,8 +922,34 @@ agg-index-tests:
     insert_time_ms: 0
     insert_new_count: 25
     insert_reused_count: 2
+-   query: EXPLAIN select sum(col3) as s from T2 where col2 = 2
+    ref: aggregate-index-tests.yamsql:685
+    explain: 'AISCAN(MV21 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0
+        AS _0) | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)'
+    task_count: 1289
+    task_total_time_ms: 136
+    transform_count: 339
+    transform_time_ms: 60
+    transform_yield_count: 110
+    insert_time_ms: 4
+    insert_new_count: 145
+    insert_reused_count: 9
+-   query: EXPLAIN select sum(col3) as s from T2 where col2 = 90
+    ref: aggregate-index-tests.yamsql:695
+    explain: 'AISCAN(MV21 [EQUALS promote(@c12 AS LONG)] BY_GROUP -> [_0: KEY:[0],
+        _1: KEY:[1], _2: KEY:[2], _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY (_._0
+        AS _0) | MAP ((_._3 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)'
+    task_count: 1289
+    task_total_time_ms: 92
+    transform_count: 339
+    transform_time_ms: 42
+    transform_yield_count: 110
+    insert_time_ms: 4
+    insert_new_count: 145
+    insert_reused_count: 9
 -   query: EXPLAIN select sum(col3) from T2;
-    ref: aggregate-index-tests.yamsql:683
+    ref: aggregate-index-tests.yamsql:699
     explain: 'AISCAN(MV21 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2],
         _3: VALUE:[0]]) | AGG sum_l(_._3) GROUP BY () | MAP ((_._3 AS _0) AS _0) |
         ON EMPTY NULL | MAP (_._0._0 AS _0)'
@@ -937,7 +963,7 @@ agg-index-tests:
     insert_reused_count: 12
 -   query: EXPLAIN select a, ek.k, b, max(d) from t6, (select k from t6.c) as ek group
         by a, ek.k, b
-    ref: aggregate-index-tests.yamsql:688
+    ref: aggregate-index-tests.yamsql:704
     explain: 'AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3],
         _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)'
     task_count: 380
@@ -950,7 +976,7 @@ agg-index-tests:
     insert_reused_count: 1
 -   query: EXPLAIN select ek.k, b, max(d) from t6, (select k from t6.c) as ek where
         a = 1 group by a, ek.k, b
-    ref: aggregate-index-tests.yamsql:699
+    ref: aggregate-index-tests.yamsql:715
     explain: 'AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3
         AS _2)'
@@ -964,7 +990,7 @@ agg-index-tests:
     insert_reused_count: 1
 -   query: EXPLAIN select ek.k, b, max(d) from t6, (select k from t6.c) as ek where
         a = 2 group by ek.k, b
-    ref: aggregate-index-tests.yamsql:705
+    ref: aggregate-index-tests.yamsql:721
     explain: 'AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3
         AS _2)'
@@ -978,7 +1004,7 @@ agg-index-tests:
     insert_reused_count: 1
 -   query: EXPLAIN select ek.k, b, max(d) from t6, (select k from t6.c where k = 'q')
         as ek where a = 2 group by a, ek.k, b
-    ref: aggregate-index-tests.yamsql:712
+    ref: aggregate-index-tests.yamsql:728
     explain: 'AISCAN(MV20 [EQUALS promote(@c31 AS LONG), EQUALS promote(@c24 AS STRING)]
         BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1
         AS K, _._2 AS B, _._3 AS _2)'
@@ -992,7 +1018,7 @@ agg-index-tests:
     insert_reused_count: 1
 -   query: EXPLAIN select b, max(d) from t6, (select k from t6.c where k = 'q') as
         ek where a = 2 group by b
-    ref: aggregate-index-tests.yamsql:717
+    ref: aggregate-index-tests.yamsql:733
     explain: 'AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)]
         BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2
         AS B, _._3 AS _1)'
@@ -1006,7 +1032,7 @@ agg-index-tests:
     insert_reused_count: 1
 -   query: EXPLAIN select b, max(d) from t6, (select k from t6.c where k = 'q') as
         ek where a = 2 group by b order by max(d)
-    ref: aggregate-index-tests.yamsql:722
+    ref: aggregate-index-tests.yamsql:738
     explain: 'AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)]
         BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._2
         AS B, _._3 AS _1)'
@@ -1020,7 +1046,7 @@ agg-index-tests:
     insert_reused_count: 1
 -   query: EXPLAIN select b, max(d) from t6, (select k from t6.c where k = 'q') as
         ek where a = 2 group by b order by max(d) desc
-    ref: aggregate-index-tests.yamsql:727
+    ref: aggregate-index-tests.yamsql:743
     explain: 'AISCAN(MV20 [EQUALS promote(@c27 AS LONG), EQUALS promote(@c20 AS STRING)]
         BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]])
         | MAP (_._2 AS B, _._3 AS _1)'
@@ -1034,7 +1060,7 @@ agg-index-tests:
     insert_reused_count: 1
 -   query: EXPLAIN select a, ek.k, b, max(d) from t6, (select k from t6.c) as ek group
         by a, ek.k, b having max(d) > 100
-    ref: aggregate-index-tests.yamsql:733
+    ref: aggregate-index-tests.yamsql:749
     explain: 'AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3],
         _3: KEY:[2]]) | FILTER _._3 GREATER_THAN promote(@c41 AS LONG) | MAP (_._0
         AS A, _._1 AS K, _._2 AS B, _._3 AS _3)'
@@ -1048,7 +1074,7 @@ agg-index-tests:
     insert_reused_count: 1
 -   query: EXPLAIN select ek.k, b, max(d) from t6, (select k from t6.c) as ek where
         a = 1 group by a, ek.k, b having max(d) >= 150
-    ref: aggregate-index-tests.yamsql:741
+    ref: aggregate-index-tests.yamsql:757
     explain: 'AISCAN(MV20 [EQUALS promote(@c27 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS
         promote(@c44 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)'
@@ -1062,7 +1088,7 @@ agg-index-tests:
     insert_reused_count: 1
 -   query: EXPLAIN select a, ek.k, b, max(d) from t6, (select k from t6.c where k
         = 'q') as ek group by a, ek.k, b having a = 1 and max(d) > 100
-    ref: aggregate-index-tests.yamsql:747
+    ref: aggregate-index-tests.yamsql:763
     explain: 'AISCAN(MV20 [EQUALS promote(@c42 AS LONG), EQUALS promote(@c26 AS STRING),
         [GREATER_THAN promote(@c49 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
         _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS
@@ -1081,7 +1107,7 @@ agg-index-tests-t6-tvf:
     setup:
     - create temporary function "t6v" () on commit drop function AS SELECT * FROM
         t6
-    ref: aggregate-index-tests.yamsql:768
+    ref: aggregate-index-tests.yamsql:784
     explain: 'AISCAN(MV20 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3],
         _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS _3)'
     task_count: 397
@@ -1097,7 +1123,7 @@ agg-index-tests-t6-tvf:
     setup:
     - create temporary function "t6v" () on commit drop function AS SELECT * FROM
         t6 WHERE a = 1
-    ref: aggregate-index-tests.yamsql:780
+    ref: aggregate-index-tests.yamsql:796
     explain: 'AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3
         AS _2)'
@@ -1114,7 +1140,7 @@ agg-index-tests-t6-tvf:
     setup:
     - create temporary function "t6v" () on commit drop function AS SELECT * FROM
         t6 WHERE a = 2
-    ref: aggregate-index-tests.yamsql:788
+    ref: aggregate-index-tests.yamsql:804
     explain: 'AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS K, _._2 AS B, _._3
         AS _2)'
@@ -1131,7 +1157,7 @@ agg-index-tests-t6-tvf:
     setup:
     - create temporary function "t6v" () on commit drop function AS SELECT * FROM
         t6 WHERE a = 2
-    ref: aggregate-index-tests.yamsql:797
+    ref: aggregate-index-tests.yamsql:813
     explain: 'AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c24 AS
         STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]])
         | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)'
@@ -1148,7 +1174,7 @@ agg-index-tests-t6-tvf:
     setup:
     - create temporary function "t6v" () on commit drop function AS SELECT * FROM
         t6 WHERE a = 1
-    ref: aggregate-index-tests.yamsql:804
+    ref: aggregate-index-tests.yamsql:820
     explain: 'AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | FILTER _._3 GREATER_THAN_OR_EQUALS
         promote(@c38 AS LONG) | MAP (_._1 AS K, _._2 AS B, _._3 AS _2)'
@@ -1165,7 +1191,7 @@ agg-index-tests-t6-tvf:
     setup:
     - create temporary function "t6v" () on commit drop function AS SELECT * FROM
         t6 WHERE a = 2
-    ref: aggregate-index-tests.yamsql:811
+    ref: aggregate-index-tests.yamsql:827
     explain: 'AISCAN(MV20 [EQUALS promote(@ct6v18 AS LONG), EQUALS promote(@c26 AS
         STRING), [GREATER_THAN promote(@c45 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1:
         KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B,
