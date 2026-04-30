@@ -793,7 +793,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     @Override
     public Object visitStraightJoin(@Nonnull RelationalParser.StraightJoinContext ctx) {
-        return visitChildren(ctx);
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "STRAIGHT_JOIN is not supported");
     }
 
     @Nonnull
@@ -805,7 +805,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     @Override
     public Object visitNaturalJoin(@Nonnull RelationalParser.NaturalJoinContext ctx) {
-        return visitChildren(ctx);
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "NATURAL JOIN is not supported");
     }
 
     @Nonnull
