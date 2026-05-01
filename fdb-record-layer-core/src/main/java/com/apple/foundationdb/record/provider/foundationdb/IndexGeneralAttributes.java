@@ -49,11 +49,4 @@ public final class IndexGeneralAttributes {
     public boolean isOptimizedForMutualIndexing() {
         return optimizedForMutualIndexing;
     }
-
-    @Override
-    public String toString() {
-        return "IndexAttributes[" +
-                "optimizedForMutualIndexing=" + optimizedForMutualIndexing + ']';
-    }
-
 }
