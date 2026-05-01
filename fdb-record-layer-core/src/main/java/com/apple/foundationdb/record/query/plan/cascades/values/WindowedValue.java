@@ -32,8 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -88,7 +86,7 @@ public abstract class WindowedValue extends AbstractValue {
                                         RequestedSortOrder.ANY))
                                 .collect(ImmutableList.toImmutableList()),
                 windowedValueProto.hasFrameSpecification()
-                        ? frameSpecificationFromProto(windowedValueProto.getFrameSpecification())
+                        ? frameSpecificationFromProto(serializationContext, windowedValueProto.getFrameSpecification())
                         : FrameSpecification.defaultSpecification());
     }
 
@@ -293,7 +291,7 @@ public abstract class WindowedValue extends AbstractValue {
                     .setSortOrder(sortOrderToProto(orderingPart.getSortOrder()))
                     .build());
         }
-        builder.setFrameSpecification(frameSpecificationToProto(windowFrameSpecification));
+        builder.setFrameSpecification(frameSpecificationToProto(serializationContext, windowFrameSpecification));
         return builder.build();
     }
 
@@ -320,21 +318,23 @@ public abstract class WindowedValue extends AbstractValue {
     }
 
     @Nonnull
-    private static PFrameSpecification frameSpecificationToProto(@Nonnull final FrameSpecification spec) {
+    private static PFrameSpecification frameSpecificationToProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                @Nonnull final FrameSpecification spec) {
         return PFrameSpecification.newBuilder()
                 .setFrameType(frameTypeToProto(spec.frameType()))
-                .setLeft(frameBoundaryToProto(spec.left()))
-                .setRight(frameBoundaryToProto(spec.right()))
+                .setLeft(frameBoundaryToProto(serializationContext, spec.left()))
+                .setRight(frameBoundaryToProto(serializationContext, spec.right()))
                 .setExclusion(exclusionToProto(spec.exclusion()))
                 .build();
     }
 
     @Nonnull
-    private static FrameSpecification frameSpecificationFromProto(@Nonnull final PFrameSpecification proto) {
+    private static FrameSpecification frameSpecificationFromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                 @Nonnull final PFrameSpecification proto) {
         return new FrameSpecification(
                 frameTypeFromProto(proto.getFrameType()),
-                frameBoundaryFromProto(proto.getLeft()),
-                frameBoundaryFromProto(proto.getRight()),
+                frameBoundaryFromProto(serializationContext, proto.getLeft()),
+                frameBoundaryFromProto(serializationContext, proto.getRight()),
                 exclusionFromProto(proto.getExclusion()));
     }
 
@@ -357,11 +357,12 @@ public abstract class WindowedValue extends AbstractValue {
     }
 
     @Nonnull
-    private static PFrameSpecification.PFrameBoundary frameBoundaryToProto(@Nonnull final FrameSpecification.FrameBoundary boundary) {
+    private static PFrameSpecification.PFrameBoundary frameBoundaryToProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                          @Nonnull final FrameSpecification.FrameBoundary boundary) {
         if (boundary instanceof FrameSpecification.Unbounded) {
             return PFrameSpecification.PFrameBoundary.newBuilder().setUnbounded(true).build();
         } else if (boundary instanceof FrameSpecification.Bounded) {
-            return PFrameSpecification.PFrameBoundary.newBuilder().setBoundedLimit(((FrameSpecification.Bounded)boundary).limit()).build();
+            return PFrameSpecification.PFrameBoundary.newBuilder().setBoundedLimit(((FrameSpecification.Bounded)boundary).limit().toValueProto(serializationContext)).build();
         } else if (boundary instanceof FrameSpecification.CurrentRow) {
             return PFrameSpecification.PFrameBoundary.newBuilder().setCurrentRow(true).build();
         } else {
@@ -370,11 +371,12 @@ public abstract class WindowedValue extends AbstractValue {
     }
 
     @Nonnull
-    private static FrameSpecification.FrameBoundary frameBoundaryFromProto(@Nonnull final PFrameSpecification.PFrameBoundary proto) {
+    private static FrameSpecification.FrameBoundary frameBoundaryFromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                           @Nonnull final PFrameSpecification.PFrameBoundary proto) {
         if (proto.hasUnbounded()) {
             return FrameSpecification.Unbounded.INSTANCE;
         } else if (proto.hasBoundedLimit()) {
-            return new FrameSpecification.Bounded(proto.getBoundedLimit());
+            return new FrameSpecification.Bounded(Value.fromValueProto(serializationContext, proto.getBoundedLimit()));
         } else if (proto.hasCurrentRow()) {
             return new FrameSpecification.CurrentRow();
         } else {
@@ -403,18 +405,10 @@ public abstract class WindowedValue extends AbstractValue {
     }
 
     public record FrameSpecification(@Nonnull FrameType frameType, @Nonnull FrameBoundary left,
-                                     @Nonnull FrameBoundary right, @Nonnull Exclusion exclusion) implements Typed {
+                                     @Nonnull FrameBoundary right, @Nonnull Exclusion exclusion) {
 
-        private static final Type type = Type.Record.fromDescriptor(PFrameSpecification.getDescriptor());
-
-        @Nonnull
-        @Override
-        public Type getResultType() {
-            return type;
-        }
 
         @Nonnull
-        @Override
         public ExplainTokens describe() {
             final var tokens = new ExplainTokens();
             tokens.addKeyword(frameType.name().toUpperCase());
@@ -436,7 +430,7 @@ public abstract class WindowedValue extends AbstractValue {
                 tokens.addWhitespace().addKeyword("UNBOUNDED").addWhitespace()
                         .addKeyword(isLeft ? "PRECEDING" : "FOLLOWING");
             } else if (boundary instanceof Bounded bounded) {
-                tokens.addWhitespace().addToString(bounded.limit()).addWhitespace()
+                tokens.addWhitespace().addNested(bounded.limit().explain().getExplainTokens()).addWhitespace()
                         .addKeyword(isLeft ? "PRECEDING" : "FOLLOWING");
             } else if (boundary instanceof CurrentRow) {
                 tokens.addWhitespace().addKeyword("CURRENT").addWhitespace().addKeyword("ROW");
@@ -456,7 +450,12 @@ public abstract class WindowedValue extends AbstractValue {
             INSTANCE
         }
 
-        public record Bounded(long limit) implements FrameBoundary {
+        public record Bounded(@Nonnull Value limit) implements FrameBoundary {
+            public Bounded {
+                if (!limit.isConstant()) {
+                    throw new IllegalArgumentException("window frame boundary limit must be a constant value");
+                }
+            }
         }
 
         public record CurrentRow() implements FrameBoundary {

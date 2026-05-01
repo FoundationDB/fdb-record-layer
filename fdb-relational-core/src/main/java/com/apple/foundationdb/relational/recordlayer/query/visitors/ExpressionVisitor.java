@@ -413,9 +413,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             return WindowedValue.FrameSpecification.Unbounded.INSTANCE;
         } else {
             final var limitExpr = parseChild(ctx.expression());
-            final var limitValue = Assert.castUnchecked(limitExpr, LiteralValue.class, ErrorCode.UNSUPPORTED_QUERY, () -> "window limit must be literal").getLiteralValue();
-            final long limit = Assert.castUnchecked(limitValue, Long.class, ErrorCode.SYNTAX_ERROR, () -> "window limit must be long");
-            return new WindowedValue.FrameSpecification.Bounded(limit);
+            Assert.thatUnchecked(limitExpr.getUnderlying().isConstant(), ErrorCode.UNSUPPORTED_QUERY, "window limit must be constant");
+            final var limitValue = limitExpr.getUnderlying();
+            return new WindowedValue.FrameSpecification.Bounded(limitValue);
         }
     }
 

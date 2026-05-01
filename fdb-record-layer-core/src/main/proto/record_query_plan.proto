@@ -1415,7 +1415,7 @@ message PFrameSpecification {
   message PFrameBoundary {
     oneof boundary {
       bool unbounded = 1;
-      int64 bounded_limit = 2;
+      PValue bounded_limit = 2;
       bool current_row = 3;
     }
   }
