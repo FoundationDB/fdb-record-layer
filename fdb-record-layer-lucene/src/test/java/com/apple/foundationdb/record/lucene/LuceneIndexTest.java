@@ -6299,6 +6299,12 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
+    @Test
+    void luceneIndexAttributesNotOptimizedForMutualIndexing() {
+        final LuceneIndexMaintainerFactory factory = new LuceneIndexMaintainerFactory();
+        assertFalse(factory.getIndexGeneralAttributes().isOptimizedForMutualIndexing());
+    }
+
     /**
      * A version of the tests that runs with the new version of asyncToSync.
      */

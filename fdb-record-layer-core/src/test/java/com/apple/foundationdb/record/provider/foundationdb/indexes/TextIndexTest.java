@@ -183,6 +183,7 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -3262,5 +3263,11 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         long endTime = System.nanoTime();
         LOGGER.info("performed 1000 parallel insertions in {} seconds.", (endTime - startTime) * 1e-9);
         printUsage();
+    }
+
+    @Test
+    void textIndexAttributesNotOptimizedForMutualIndexing() {
+        final TextIndexMaintainerFactory factory = new TextIndexMaintainerFactory();
+        assertFalse(factory.getIndexGeneralAttributes().isOptimizedForMutualIndexing());
     }
 }
