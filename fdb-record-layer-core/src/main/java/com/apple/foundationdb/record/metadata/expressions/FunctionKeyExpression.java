@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.BuiltInFunctionCatalog;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -278,7 +279,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
                 BuiltInFunctionCatalog.resolve(functionName, argumentValues.size())
                         .orElseThrow(() -> new RecordCoreArgumentException("unknown function",
                                 LogMessageKeys.FUNCTION, getName()));
-        return (Value)builtInFunction.encapsulate(argumentValues);
+        return (Value)builtInFunction.encapsulate(ImmutableList.copyOf(argumentValues));
     }
 
     @Override

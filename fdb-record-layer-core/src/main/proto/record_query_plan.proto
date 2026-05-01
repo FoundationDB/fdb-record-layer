@@ -1382,6 +1382,48 @@ message PCardinalityValue {
 message PWindowedValue {
   repeated PValue partitioning_values = 1;
   repeated PValue argument_values = 2;
+  repeated PRequestedOrderingPart ordering_parts = 3;
+  optional PFrameSpecification frame_specification = 4;
+}
+
+message PRequestedOrderingPart {
+  enum PSortOrder {
+    ASCENDING = 1;
+    DESCENDING = 2;
+    ASCENDING_NULLS_LAST = 3;
+    DESCENDING_NULLS_FIRST = 4;
+    ANY = 5;
+  }
+  optional PValue value = 1;
+  optional PSortOrder sort_order = 2;
+}
+
+message PFrameSpecification {
+  enum PFrameType {
+    ROW = 1;
+    RANGE = 2;
+    WINDOW = 3;
+  }
+
+  enum PExclusion {
+    NO_OTHER = 1;
+    CURRENT_ROW = 2;
+    GROUP = 3;
+    TIES = 4;
+  }
+
+  message PFrameBoundary {
+    oneof boundary {
+      bool unbounded = 1;
+      int32 bounded_limit = 2;
+      bool current_row = 3;
+    }
+  }
+
+  optional PFrameType frame_type = 1;
+  optional PFrameBoundary left = 2;
+  optional PFrameBoundary right = 3;
+  optional PExclusion exclusion = 4;
 }
 
 message PCollateValue {

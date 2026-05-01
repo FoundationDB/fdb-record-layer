@@ -46,9 +46,11 @@ import java.util.stream.IntStream;
  * {@link BuiltInFunction} represents all functions that are built-in, and stored in code, while
  * {@link UserDefinedFunction} represents all functions defined by users, and stored in
  * {@link com.apple.foundationdb.record.RecordMetaDataProto.MetaData}
+ *
+ * @param <S> Argument type.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class CatalogedFunction {
+public abstract class CatalogedFunction<S> implements Typed {
     @Nonnull
     protected final String functionName;
 
@@ -59,7 +61,7 @@ public abstract class CatalogedFunction {
     protected final BiMap<String, Integer> parameterNamesMap;
 
     @Nonnull
-    protected final List<Optional<? extends Typed>> parameterDefaults;
+    protected final List<Optional<S>> parameterDefaults;
 
     /**
      * The type of the function's variadic parameters (if any).
@@ -78,7 +80,7 @@ public abstract class CatalogedFunction {
 
     protected CatalogedFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                                 @Nonnull final List<Type> parameterTypes,
-                                @Nonnull final List<Optional<? extends Typed>> parameterDefaults) {
+                                @Nonnull final List<Optional<S>> parameterDefaults) {
         Verify.verify(parameterNames.size() == parameterTypes.size());
         this.functionName = functionName;
         this.parameterTypes = ImmutableList.copyOf(parameterTypes);
@@ -153,11 +155,11 @@ public abstract class CatalogedFunction {
         return parameterNamesMap.get(parameter);
     }
 
-    public Optional<? extends Typed> getDefaultValue(@Nonnull final String paramName) {
+    public Optional<S> getDefaultValue(@Nonnull final String paramName) {
         return parameterDefaults.get(getParamIndex(paramName));
     }
 
-    public Optional<? extends Typed> getDefaultValue(int paramIndex) {
+    public Optional<S> getDefaultValue(int paramIndex) {
         return parameterDefaults.get(paramIndex);
     }
 
@@ -223,8 +225,14 @@ public abstract class CatalogedFunction {
     }
 
     @Nonnull
-    public abstract Typed encapsulate(@Nonnull List<? extends Typed> arguments);
+    @Override
+    public Type getResultType() {
+        return Type.FUNCTION;
+    }
 
     @Nonnull
-    public abstract Typed encapsulate(@Nonnull Map<String, ? extends Typed> namedArguments);
+    public abstract Typed encapsulate(@Nonnull List<S> arguments);
+
+    @Nonnull
+    public abstract Typed encapsulate(@Nonnull Map<String, S> namedArguments);
 }

@@ -26,10 +26,18 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PRankValue;
 import com.apple.foundationdb.record.planprotos.PValue;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -49,6 +57,12 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
     public RankValue(@Nonnull Iterable<? extends Value> partitioningValues,
                      @Nonnull Iterable<? extends Value> argumentValues) {
         super(partitioningValues, argumentValues);
+    }
+
+    public RankValue(@Nonnull final Iterable<? extends Value> partitioningValues,
+                     @Nonnull final Iterable<OrderingPart.RequestedOrderingPart> orderingParts,
+                     @Nonnull final FrameSpecification frameSpecification) {
+        super(partitioningValues, ImmutableList.of(), orderingParts, frameSpecification);
     }
 
     @Nonnull
@@ -109,6 +123,58 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
         public RankValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                    @Nonnull final PRankValue rankValueProto) {
             return RankValue.fromProto(serializationContext, rankValueProto);
+        }
+    }
+
+    @AutoService(BuiltInFunction.class)
+    public static final class RankValueFn extends BuiltInWindowFunction<RankValue> {
+
+        RankValueFn() {
+            super("rank", ImmutableList.of(), RankValueFn::encapsulateInternal);
+        }
+
+        @Nonnull
+        @Override
+        public BuiltInFunction<RankValue> createWindowedInstance(@Nullable final FrameSpecification frameSpecification,
+                                                                 @Nullable final ImmutableList<OrderingPart.RequestedOrderingPart> providedOrderingParts) {
+            return new BuiltInFunction<>("rank", ImmutableList.of(), (ignored, args) -> RankValueFn.encapsulateInternal(args, frameSpecification, providedOrderingParts));
+        }
+
+        @Nonnull
+        private static RankValue encapsulateInternal(@Nonnull BuiltInFunction<? extends Value> builtInFunction,
+                                                     List<? extends Typed> arguments) {
+            // calling convention:
+            SemanticException.check(arguments.size() >= 2,
+                    SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+            SemanticException.check(arguments.get(0) instanceof AbstractArrayConstructorValue,
+                    SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+            SemanticException.check(arguments.get(1) instanceof AbstractArrayConstructorValue,
+                    SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+
+            final var partitioningValuesList = (AbstractArrayConstructorValue)arguments.get(0);
+            final var argumentValuesList = (AbstractArrayConstructorValue)arguments.get(1);
+            return null;
+        }
+
+        @Nonnull
+        private static RankValue encapsulateInternal(@Nonnull final List<? extends Typed> arguments,
+                                                     @Nullable FrameSpecification frameSpecification,
+                                                     @Nonnull final ImmutableList<OrderingPart.RequestedOrderingPart> providedOrderingParts) {
+            SemanticException.check(arguments.size() <= 1,
+                    SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+
+            if (frameSpecification == null) {
+                frameSpecification = FrameSpecification.defaultSpecification();
+            }
+
+            if (arguments.isEmpty()) {
+                return new RankValue(ImmutableList.of(), providedOrderingParts, frameSpecification);
+            }
+            SemanticException.check(arguments.get(0) instanceof AbstractArrayConstructorValue,
+                    SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+            final var partitioningValuesList = (AbstractArrayConstructorValue)arguments.get(0);
+
+            return new RankValue(partitioningValuesList.getChildren(), providedOrderingParts, frameSpecification);
         }
     }
 }

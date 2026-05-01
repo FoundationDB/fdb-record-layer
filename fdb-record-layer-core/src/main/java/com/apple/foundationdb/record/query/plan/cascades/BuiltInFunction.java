@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
@@ -40,7 +41,7 @@ import java.util.Optional;
  * @param <T> The resulting type of the function.
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
-public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction {
+public class BuiltInFunction<T extends Typed> extends CatalogedFunction<Value> {
     @Nonnull
     final EncapsulationFunction<T> encapsulationFunction;
 
@@ -50,7 +51,7 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
      * @param parameterTypes The type of the parameter(s).
      * @param encapsulationFunction An encapsulation of the function's runtime computation.
      */
-    protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
+    public BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
         this(functionName, parameterTypes, null, encapsulationFunction);
     }
 
@@ -68,21 +69,21 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
 
     protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                               @Nonnull final List<Type> parameterTypes,
-                              @Nonnull final List<Optional<? extends Typed>> parameterDefaults,
-                              @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
+                              @Nonnull final List<Optional<Value>> parameterDefaults,
+                              @Nonnull final EncapsulationFunction<T, Value> encapsulationFunction) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
         this.encapsulationFunction = encapsulationFunction;
     }
 
     @Nonnull
     @Override
-    public Typed encapsulate(@Nonnull final List<? extends Typed> arguments) {
+    public Typed encapsulate(@Nonnull final List<Value> arguments) {
         return Verify.verifyNotNull(encapsulationFunction).encapsulate(this, arguments);
     }
 
     @Nonnull
     @Override
-    public Typed encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+    public Typed encapsulate(@Nonnull final Map<String, Value> namedArguments) {
         throw new RecordCoreException("built-in functions do not support named argument calling conventions");
     }
 }
