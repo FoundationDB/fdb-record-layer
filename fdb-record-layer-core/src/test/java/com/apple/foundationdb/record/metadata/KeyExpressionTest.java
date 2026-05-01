@@ -339,9 +339,11 @@ public class KeyExpressionTest {
         assertFalse(expression.createsDuplicates());
         assertEquals(Collections.singletonList(scalar(Arrays.asList("Boxes", "Bowls"))),
                 evaluate(expression, plantsBoxesAndBowls));
+        // `repeat_me` has 0 repetitions: Concatenate yields the empty list.
         assertEquals(Collections.singletonList(scalar(Collections.emptyList())),
                 evaluate(expression, emptyScalar));
-        assertEquals(Collections.singletonList(scalar(Collections.emptyList())),
+        // Null record: Concatenate propagates the field’s null standin (here NULL, by default).
+        assertEquals(Collections.singletonList(scalar(NULL)),
                 evaluate(expression, null));
     }
 
@@ -353,9 +355,11 @@ public class KeyExpressionTest {
         assertFalse(expression.createsDuplicates());
         assertEquals(Collections.singletonList(Key.Evaluated.concatenate("Plants", Arrays.asList("Boxes", "Bowls"))),
                 evaluate(expression, plantsBoxesAndBowls));
+        // Both fields unset: The scalar `field` yields the NULL standin; concatenate yields the empty list.
         assertEquals(Collections.singletonList(Key.Evaluated.concatenate(NULL, Collections.emptyList())),
                 evaluate(expression, emptyScalar));
-        assertEquals(Collections.singletonList(Key.Evaluated.concatenate(NULL, Collections.emptyList())),
+        // Null record: Both parts propagate their null standin (by default NULL) and yield NULL.
+        assertEquals(Collections.singletonList(Key.Evaluated.concatenate(NULL, NULL)),
                 evaluate(expression, null));
     }
 
@@ -524,7 +528,7 @@ public class KeyExpressionTest {
         // For the parent, NOT_NULL substitutes an empty sub-message; the child then sees a set-but-empty message,
         // so the child’s NOT_NULL substitutes the proto default "".
         // NULL/NULL_UNIQUE on the parent funnel null to the child, which then takes its own null path; and for
-        // `None`, `getNullResult()` emits the standin verbatim, so the child NOT_NULL yields the NOT_NULL
+        // `FanType.None`, `getNullResult()` emits the standin verbatim, so the child NOT_NULL yields the NOT_NULL
         // sentinel rather than "".
         // TODO Issue #4141: This seems to be a bug; the NOT_NULL standin is not supposed to be emitted as is.
         final NestSingularSingularCase expr3 = (parentStandin, childStandin, expected) ->
@@ -697,6 +701,8 @@ public class KeyExpressionTest {
         final var emptyList = Collections.emptyList();
         final var emptyListEntry = ImmutableList.of(scalar(emptyList));
         final ImmutableList<Key.Evaluated> noEntry = ImmutableList.of();
+        final var nullEntry = ImmutableList.of(scalar(NULL));
+        final var nullUniqueEntry = ImmutableList.of(scalar(NULL_UNIQUE));
 
         // Case: Parent present, child present.
         //
@@ -755,17 +761,16 @@ public class KeyExpressionTest {
         // Case: Parent absent (but on a non-null record)
         //
         // The `emptyNested` record has `nesty` absent. On the parent, the NOT_NULL standin effectively substitutes an
-        // empty sub-message, so the child sees 0 repetitions and goes through its repeated-field branch. For parent
-        // NULL/NULL_UNIQUE the parent funnels a `null` record to the child, which then takes its own null path; for
-        // both Concatenate and FanOut, `getNullResult()` does not consult the child standin either, so the child standin
-        // has no observable effect. FanOut yields no entries; Concatenate yields a single entry holding the empty list.
+        // empty sub-message, so the child sees 0 repetitions; whereas NULL/NULL_UNIQUE funnel a `null` record to the
+        // child, which then takes its own null path. For `FanOut` both code branches collapse to [], so we get no entry
+        // at all. For Concatenate the child standin has an observable effect only when the parent funnels null.
         final NestSingularRepeatedCase expr3 = (parentStandin, childStandin, childFanType, expected) ->
                 assertEquals(expected, evaluate(buildNestSingularRepeatedExpr(parentStandin, childStandin, childFanType), emptyNested));
-        expr3.verify(NULL,        NULL,        Concatenate, emptyListEntry);
-        expr3.verify(NULL,        NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr3.verify(NULL,        NULL,        Concatenate, nullEntry);
+        expr3.verify(NULL,        NULL_UNIQUE, Concatenate, nullUniqueEntry);
         expr3.verify(NULL,        NOT_NULL,    Concatenate, emptyListEntry);
-        expr3.verify(NULL_UNIQUE, NULL,        Concatenate, emptyListEntry);
-        expr3.verify(NULL_UNIQUE, NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr3.verify(NULL_UNIQUE, NULL,        Concatenate, nullEntry);
+        expr3.verify(NULL_UNIQUE, NULL_UNIQUE, Concatenate, nullUniqueEntry);
         expr3.verify(NULL_UNIQUE, NOT_NULL,    Concatenate, emptyListEntry);
         expr3.verify(NOT_NULL,    NULL,        Concatenate, emptyListEntry);
         expr3.verify(NOT_NULL,    NULL_UNIQUE, Concatenate, emptyListEntry);
@@ -783,20 +788,19 @@ public class KeyExpressionTest {
         // Case: Null record
         //
         // The parent standin doesn’t matter, as `FieldKeyExpression` short-circuits on `message == null` before
-        // consulting the parent standin. The child standin doesn’t matter either: for both Concatenate and FanOut,
-        // `getNullResult()` does not consult the standin. FanOut yields no entries; Concatenate yields a single entry
-        // holding the empty list.
+        // consulting the parent standin. Only the child’s null standin matters. For `FanOut` the null code path yields
+        // no entries regardless of the child standin.
         final NestSingularRepeatedCase expr4 = (parentStandin, childStandin, childFanType, expected) ->
                 assertEquals(expected,
                         evaluate(buildNestSingularRepeatedExpr(parentStandin, childStandin, childFanType), null));
-        expr4.verify(NULL,        NULL,        Concatenate, emptyListEntry);
-        expr4.verify(NULL,        NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr4.verify(NULL,        NULL,        Concatenate, nullEntry);
+        expr4.verify(NULL,        NULL_UNIQUE, Concatenate, nullUniqueEntry);
         expr4.verify(NULL,        NOT_NULL,    Concatenate, emptyListEntry);
-        expr4.verify(NULL_UNIQUE, NULL,        Concatenate, emptyListEntry);
-        expr4.verify(NULL_UNIQUE, NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr4.verify(NULL_UNIQUE, NULL,        Concatenate, nullEntry);
+        expr4.verify(NULL_UNIQUE, NULL_UNIQUE, Concatenate, nullUniqueEntry);
         expr4.verify(NULL_UNIQUE, NOT_NULL,    Concatenate, emptyListEntry);
-        expr4.verify(NOT_NULL,    NULL,        Concatenate, emptyListEntry);
-        expr4.verify(NOT_NULL,    NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr4.verify(NOT_NULL,    NULL,        Concatenate, nullEntry);
+        expr4.verify(NOT_NULL,    NULL_UNIQUE, Concatenate, nullUniqueEntry);
         expr4.verify(NOT_NULL,    NOT_NULL,    Concatenate, emptyListEntry);
         expr4.verify(NULL,        NULL,        FanOut,      noEntry);
         expr4.verify(NULL,        NULL_UNIQUE, FanOut,      noEntry);
