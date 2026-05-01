@@ -334,9 +334,11 @@ public class KeyExpressionTest {
         assertFalse(expression.createsDuplicates());
         assertEquals(Collections.singletonList(scalar(Arrays.asList("Boxes", "Bowls"))),
                 evaluate(expression, plantsBoxesAndBowls));
+        // `repeat_me` has 0 repetitions: Yields the empty list.
         assertEquals(Collections.singletonList(scalar(Collections.emptyList())),
                 evaluate(expression, emptyScalar));
-        assertEquals(Collections.singletonList(scalar(Collections.emptyList())),
+        // Null record: Propagates the field’s NullStandin (default NULL).
+        assertEquals(Collections.singletonList(scalar(NULL)),
                 evaluate(expression, null));
     }
 
@@ -348,9 +350,11 @@ public class KeyExpressionTest {
         assertFalse(expression.createsDuplicates());
         assertEquals(Collections.singletonList(Key.Evaluated.concatenate("Plants", Arrays.asList("Boxes", "Bowls"))),
                 evaluate(expression, plantsBoxesAndBowls));
+        // Both fields unset: The scalar `field` yields the NULL standin; concatenate yields the empty list.
         assertEquals(Collections.singletonList(Key.Evaluated.concatenate(NULL, Collections.emptyList())),
                 evaluate(expression, emptyScalar));
-        assertEquals(Collections.singletonList(Key.Evaluated.concatenate(NULL, Collections.emptyList())),
+        // Null record: Both parts propagate their null standin (default NULL) and yield NULL.
+        assertEquals(Collections.singletonList(Key.Evaluated.concatenate(NULL, NULL)),
                 evaluate(expression, null));
     }
 
@@ -504,11 +508,14 @@ public class KeyExpressionTest {
         assertFalse(expression.createsDuplicates());
         assertEquals(Collections.singletonList(scalar(Arrays.asList("lily", "rose"))),
                 evaluate(expression, matryoshkaDolls));
-        assertEquals(Collections.singletonList(scalar(Collections.emptyList())),
+        // `nesty` absent: Concatenate propagates its NULL standin and yields NULL.
+        assertEquals(Collections.singletonList(scalar(NULL)),
                 evaluate(expression, emptyNested));
+        // `nesty` is present but `repeated_field` has 0 repetitions: Yields the empty-list result.
         assertEquals(Collections.singletonList(scalar(Collections.emptyList())),
                 evaluate(expression, lonelyDoll));
-        assertEquals(Collections.singletonList(scalar(Collections.emptyList())),
+        // Null record: Concatenate propagates its NULL standin and yields NULL.
+        assertEquals(Collections.singletonList(scalar(NULL)),
                 evaluate(expression, null));
     }
 
