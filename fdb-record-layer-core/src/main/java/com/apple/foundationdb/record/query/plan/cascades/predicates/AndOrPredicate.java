@@ -48,6 +48,7 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
     @Nonnull
     private final List<QueryPredicate> children;
 
+    @SuppressWarnings("this-escape")
     private final Supplier<Set<QueryPredicate>> childrenAsSetSupplier =
             Suppliers.memoize(() -> ImmutableSet.copyOf(getChildren()));
 

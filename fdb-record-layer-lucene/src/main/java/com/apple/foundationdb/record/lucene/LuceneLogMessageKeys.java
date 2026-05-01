@@ -30,6 +30,7 @@ import java.util.Locale;
 @API(API.Status.UNSTABLE)
 public enum LuceneLogMessageKeys {
     // Lucene data compression
+    ALLOW_INCARNATION,
     ANALYZER_NAME,
     ANALYZER_TYPE,
     BLOCK_CACHE_STATS,
@@ -67,6 +68,7 @@ public enum LuceneLogMessageKeys {
     LOCK_EXISTING_UUID,
     LOCK_DIRECTORY,
     MAX_ENTRIES_TO_REPLAY,
+    MAX_QUEUE_SIZE,
     MERGE_SOURCE,
     MERGE_TRIGGER,
     OFFSET,

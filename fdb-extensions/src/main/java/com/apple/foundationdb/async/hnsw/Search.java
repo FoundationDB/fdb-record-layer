@@ -496,74 +496,95 @@ public class Search {
                             @Nonnull final ToDoubleFunction<Transformed<RealVector>> objectiveFunction,
                             @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
         final Primitives primitives = primitives();
-        final Queue<NodeReferenceWithDistance> candidates =
-                // This initial capacity is somewhat arbitrary as m is not necessarily a limit,
-                // but it gives us a number that is better than the default.
-                new PriorityQueue<>(getConfig().getM(), NodeReferenceWithDistance.comparator());
-        candidates.addAll(nodeReferences);
-        final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(nodeReferences));
-        final Queue<NodeReferenceWithDistance> nearestNeighbors =
-                new PriorityQueue<>(efSearch + 1, // prevent reallocation further down
-                        NodeReferenceWithDistance.reversedComparator());
-        nearestNeighbors.addAll(nodeReferences);
 
-        return AsyncUtil.whileTrue(() -> {
-            if (candidates.isEmpty()) {
-                return AsyncUtil.READY_FALSE;
-            }
+        //
+        // Refetch node references which we should start from as they potentially come from a higher layer.
+        // Semantically, that is fine, however, on a lower level, vectors may be encoded differently.
+        // We first refetch the node references we already synthesized on a higher level for this level in order
+        // to ensure that everything is identical to what is stored in the database.
+        //
+        return primitives.fetchNeighborhoodReferences(storageAdapter, readTransaction, storageTransform, layer,
+                        nodeReferences, nodeCache)
+                .thenApply(refetchedNodeReferences -> {
+                    final ImmutableList.Builder<NodeReferenceWithDistance> nodeReferencesWithDistanceBuilder =
+                            ImmutableList.builder();
+                    for (final NodeReferenceWithVector refetchedNodeReference : refetchedNodeReferences) {
+                        nodeReferencesWithDistanceBuilder.add(new NodeReferenceWithDistance(refetchedNodeReference.getPrimaryKey(),
+                                refetchedNodeReference.getVector(),
+                                objectiveFunction.applyAsDouble(refetchedNodeReference.getVector())));
+                    }
+                    return nodeReferencesWithDistanceBuilder.build();
+                })
+                .thenCompose(refetchedNodeReferences -> {
+                    final Queue<NodeReferenceWithDistance> candidates =
+                            // This initial capacity is somewhat arbitrary as m is not necessarily a limit,
+                            // but it gives us a number that is better than the default.
+                            new PriorityQueue<>(getConfig().getM(), NodeReferenceWithDistance.comparator());
+                    candidates.addAll(refetchedNodeReferences);
+                    final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(refetchedNodeReferences));
+                    final Queue<NodeReferenceWithDistance> nearestNeighbors =
+                            new PriorityQueue<>(efSearch + 1, // prevent reallocation further down
+                                    NodeReferenceWithDistance.reversedComparator());
+                    nearestNeighbors.addAll(refetchedNodeReferences);
 
-            final NodeReferenceWithDistance candidate = candidates.poll();
-            final NodeReferenceWithDistance furthestNeighbor = Objects.requireNonNull(nearestNeighbors.peek());
-
-            if (candidate.getDistance() > furthestNeighbor.getDistance()) {
-                return AsyncUtil.READY_FALSE;
-            }
-
-            return primitives.fetchNodeIfNotCached(storageAdapter, readTransaction, storageTransform, layer, candidate, nodeCache)
-                    .thenApply(candidateNode ->
-                            candidateNode == null
-                            ? ImmutableList.<N>of()
-                            : Iterables.filter(candidateNode.getNeighbors(),
-                                    neighbor -> !visited.contains(Objects.requireNonNull(neighbor).getPrimaryKey())))
-                    .thenCompose(neighborReferences -> primitives.fetchNeighborhoodReferences(storageAdapter, readTransaction,
-                            storageTransform, layer, neighborReferences, nodeCache))
-                    .thenApply(neighborReferences -> {
-                        for (final NodeReferenceWithVector current : neighborReferences) {
-                            visited.add(current.getPrimaryKey());
-                            final double furthestDistance =
-                                    Objects.requireNonNull(nearestNeighbors.peek()).getDistance();
-
-                            final double currentDistance = objectiveFunction.applyAsDouble(current.getVector());
-                            if (currentDistance < furthestDistance || nearestNeighbors.size() < efSearch) {
-                                final NodeReferenceWithDistance currentWithDistance =
-                                        new NodeReferenceWithDistance(current.getPrimaryKey(), current.getVector(),
-                                                currentDistance);
-                                candidates.add(currentWithDistance);
-                                nearestNeighbors.add(currentWithDistance);
-                                if (nearestNeighbors.size() > efSearch) {
-                                    nearestNeighbors.poll();
-                                }
-                            }
+                    return AsyncUtil.whileTrue(() -> {
+                        if (candidates.isEmpty()) {
+                            return AsyncUtil.READY_FALSE;
                         }
-                        return true;
+
+                        final NodeReferenceWithDistance candidate = candidates.poll();
+                        final NodeReferenceWithDistance furthestNeighbor = Objects.requireNonNull(nearestNeighbors.peek());
+
+                        if (candidate.getDistance() > furthestNeighbor.getDistance()) {
+                            return AsyncUtil.READY_FALSE;
+                        }
+
+                        return primitives.fetchNodeIfNotCached(storageAdapter, readTransaction, storageTransform, layer, candidate, nodeCache)
+                                .thenApply(candidateNode ->
+                                        candidateNode == null
+                                        ? ImmutableList.<N>of()
+                                        : Iterables.filter(candidateNode.getNeighbors(),
+                                                neighbor -> !visited.contains(Objects.requireNonNull(neighbor).getPrimaryKey())))
+                                .thenCompose(neighborReferences -> primitives.fetchNeighborhoodReferences(storageAdapter, readTransaction,
+                                        storageTransform, layer, neighborReferences, nodeCache))
+                                .thenApply(neighborReferences -> {
+                                    for (final NodeReferenceWithVector current : neighborReferences) {
+                                        visited.add(current.getPrimaryKey());
+                                        final double furthestDistance =
+                                                Objects.requireNonNull(nearestNeighbors.peek()).getDistance();
+
+                                        final double currentDistance = objectiveFunction.applyAsDouble(current.getVector());
+                                        if (currentDistance < furthestDistance || nearestNeighbors.size() < efSearch) {
+                                            final NodeReferenceWithDistance currentWithDistance =
+                                                    new NodeReferenceWithDistance(current.getPrimaryKey(), current.getVector(),
+                                                            currentDistance);
+                                            candidates.add(currentWithDistance);
+                                            nearestNeighbors.add(currentWithDistance);
+                                            if (nearestNeighbors.size() > efSearch) {
+                                                nearestNeighbors.poll();
+                                            }
+                                        }
+                                    }
+                                    return true;
+                                });
+                    })
+                    .thenCompose(ignored ->
+                            primitives.fetchSomeNodesIfNotCached(storageAdapter, readTransaction, storageTransform, layer,
+                                    Primitives.drain(nearestNeighbors), nodeCache))
+                    .thenApply(searchResult -> {
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("searched layer={} for efSearch={} with result=={}", layer, efSearch,
+                                    searchResult.stream()
+                                            .map(nodeReferenceAndNode ->
+                                                    "(primaryKey=" +
+                                                            nodeReferenceAndNode.getNodeReference().getPrimaryKey() +
+                                                            ",distance=" +
+                                                            nodeReferenceAndNode.getNodeReference().getDistance() + ")")
+                                            .collect(Collectors.joining(",")));
+                        }
+                        return searchResult;
                     });
-        })
-        .thenCompose(ignored ->
-                primitives.fetchSomeNodesIfNotCached(storageAdapter, readTransaction, storageTransform, layer,
-                        Primitives.drain(nearestNeighbors), nodeCache))
-        .thenApply(searchResult -> {
-            if (logger.isTraceEnabled()) {
-                logger.trace("searched layer={} for efSearch={} with result=={}", layer, efSearch,
-                        searchResult.stream()
-                                .map(nodeReferenceAndNode ->
-                                        "(primaryKey=" +
-                                                nodeReferenceAndNode.getNodeReference().getPrimaryKey() +
-                                                ",distance=" +
-                                                nodeReferenceAndNode.getNodeReference().getDistance() + ")")
-                                .collect(Collectors.joining(",")));
-            }
-            return searchResult;
-        });
+                });
     }
 
     /**

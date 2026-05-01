@@ -232,7 +232,7 @@ class ArrayDistinctValueTest {
 
         Assertions.assertEquals(
                 "arrayDistinct(" + inputArray + ")",
-                value.explain().getExplainTokens().render(new DefaultExplainFormatter(DefaultExplainSymbolMap::new)).toString());
+                value.explain().getExplainTokens().render(DefaultExplainFormatter.create(DefaultExplainSymbolMap::new)).toString());
     }
 
     @Test

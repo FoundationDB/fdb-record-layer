@@ -318,12 +318,18 @@ public class RaBitQuantizerTest {
             logger.trace("(cosine/dot product metric) reconstructed v = {}", reconstructedV);
             logger.trace("true distance(qDec, vDec) = {}", metric.distance(reconstructedV, reconstructedQ));
             final double reconstructedDistance = metric.distance(reconstructedV, q);
-            logger.trace("true 1 - cos(q, vDec) = {}", reconstructedDistance);
+            logger.trace("true distance(q, vDec) = {}", reconstructedDistance);
             double error = Math.abs(estimatedDistance.getDistance() - trueDistance);
             if (error < Math.abs(reconstructedDistance - trueDistance)) {
                 numEstimationBetter ++;
             }
-            sumRelativeError += error / trueDistance;
+
+            //
+            // Add up the relative error. Some metrics tend to have a probabilistic maximum around 0
+            // (like dot-product metric) and/or can be negative (like dot-product metric). In order to guarantee
+            // some stability here, cap the true distance to be at least 1e-3.
+            //
+            sumRelativeError += error / Math.max(Math.abs(trueDistance), 1e-3);
         }
         logger.info("(cosine/dot product metric) estimator within bounds = {}%",
                 String.format(Locale.ROOT, "%.2f", (double)numEstimationWithinBounds * 100.0d / numRounds));

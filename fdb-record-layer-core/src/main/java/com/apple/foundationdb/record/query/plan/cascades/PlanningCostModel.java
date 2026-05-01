@@ -33,17 +33,22 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionDe
 import com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedResidualPredicateProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -158,6 +163,14 @@ public class PlanningCostModel implements CascadesCostModel {
         }
 
         // special case
+        // rCTE tie-breaker, if both plans are rCTE plans; one is DFS and the other is Level-based, always prefer DFS.
+        final OptionalInt dfsVsLevelOptional =
+                flipFlop(() -> compareRecursiveCteOperator(a, b), () -> compareRecursiveCteOperator(b, a));
+        if (dfsVsLevelOptional.isPresent() && dfsVsLevelOptional.getAsInt() != 0) {
+            return dfsVsLevelOptional.getAsInt();
+        }
+
+        // special case
         // if one plan is a inUnion plan
         final OptionalInt inPlanVsOtherOptional =
                 flipFlop(() -> compareInOperator(a, b), () -> compareInOperator(b, a));
@@ -259,6 +272,41 @@ public class PlanningCostModel implements CascadesCostModel {
         if (numSimpleOperationsCompare != 0) {
             // smaller one wins
             return numSimpleOperationsCompare;
+        }
+
+        //
+        // Both plans are nested loop joins. Attempt to pick a plan with a more preferable join ordering
+        //
+        if (a instanceof RecordQueryFlatMapPlan && b instanceof RecordQueryFlatMapPlan) {
+            final List<RecordQueryPlan> aChildren = ((RecordQueryFlatMapPlan)a).getChildren();
+            Verify.verify(aChildren.size() == 2);
+            final RecordQueryPlan aOuter = aChildren.get(0);
+
+            final List<RecordQueryPlan> bChildren = ((RecordQueryFlatMapPlan)b).getChildren();
+            Verify.verify(bChildren.size() == 2);
+            final RecordQueryPlan bOuter = bChildren.get(0);
+
+            //
+            // Return the one with lower cardinality on the outer plan
+            //
+            // This is an imperfect heuristic, but the idea is that if we have something that
+            // only returns a small number (especially 1) number of results, we want that to
+            // be on the outside so that we execute the inner (with more results) fewer times.
+            // If there's just one result, that's probably safe, though we may have to adjust
+            // this, as the actual more important thing is going to be the discard rate--the
+            // optimal plan should have fewer discarded records, which may involve placing the
+            // lower cardinality plan in the inner
+            //
+            final Cardinalities aOuterCardinalities = cardinalities().evaluate(aOuter);
+            final Cardinalities bOuterCardinalities = cardinalities().evaluate(bOuter);
+            if (!aOuterCardinalities.getMaxCardinality().isUnknown() || !bOuterCardinalities.getMaxCardinality().isUnknown()) {
+                long aEffectiveMaxCardinality = aOuterCardinalities.getMaxCardinality().isUnknown() ? Long.MAX_VALUE : aOuterCardinalities.getMaxCardinality().getCardinality();
+                long bEffectiveMaxCardinality = bOuterCardinalities.getMaxCardinality().isUnknown() ? Long.MAX_VALUE : bOuterCardinalities.getMaxCardinality().getCardinality();
+                int compareOuterMaxCardinality = Long.compare(aEffectiveMaxCardinality, bEffectiveMaxCardinality);
+                if (compareOuterMaxCardinality != 0) {
+                    return compareOuterMaxCardinality;
+                }
+            }
         }
         
         //
@@ -422,6 +470,37 @@ public class PlanningCostModel implements CascadesCostModel {
                 count(planOpsMapIndexScan, RecordQueryFetchFromPartialRecordPlan.class) == 1);
     }
 
+    /**
+     * Compares two recursive CTE plans, preferring DFS traversal over level-based traversal. The left expression
+     * is assumed to be a DFS plan and the right expression is assumed to be a level-based plan. Returns
+     * {@link OptionalInt#empty()} if the assumption does not hold. This method is meant to be called using
+     * {@link #flipFlop(Supplier, Supplier)} so the reversed case is also checked.
+     *
+     * @param leftExpression this expression (expected to be a DFS plan)
+     * @param rightExpression other expression (expected to be a level-based plan)
+     * @return {@code OptionalInt.of(-1)} to prefer the DFS plan (left), or {@code OptionalInt.empty()} if the
+     *         expressions are not a DFS vs level-based pair
+     */
+    @SuppressWarnings("java:S1172")
+    private static OptionalInt compareRecursiveCteOperator(@Nonnull final RelationalExpression leftExpression,
+                                                           @Nonnull final RelationalExpression rightExpression) {
+        if (leftExpression instanceof RecordQueryRecursiveDfsJoinPlan &&
+                rightExpression instanceof RecordQueryRecursiveLevelUnionPlan) {
+            return OptionalInt.of(-1);
+        }
+        return OptionalInt.empty();
+    }
+
+    /** First evaluates {@code variantA} which compares
+     * {@code (a, b)} in some specific way. If that yields a result, it is returned directly. Otherwise, evaluates
+     * {@code variantB} which compares {@code (b, a)} in the same way; if that yields a result, its sign is negated
+     * before returning (since the argument order was swapped). Returns {@link OptionalInt#empty()} if neither
+     * variant produces a result.
+     *
+     * @param variantA supplier for the {@code (a, b)} comparison, returning a positive value if {@code a} is preferred
+     * @param variantB supplier for the {@code (b, a)} comparison, returning a positive value if {@code b} is preferred
+     * @return the comparison result with consistent sign convention, or empty if neither variant matched
+     */
     private static OptionalInt flipFlop(final Supplier<OptionalInt> variantA,
                                         final Supplier<OptionalInt> variantB) {
         final OptionalInt resultA = variantA.get();

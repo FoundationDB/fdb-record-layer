@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -87,7 +88,7 @@ class DecorrelateValuesRuleTest {
     @Nonnull
     private static final DecorrelateValuesRule rule = new DecorrelateValuesRule();
     @Nonnull
-    private static final RuleTestHelper testHelper = new RuleTestHelper(rule);
+    private static final RuleTestHelper testHelper = new RuleTestHelper(rule, PlannerPhase.REWRITING);
 
     @BeforeEach
     void setUpDebugger() {

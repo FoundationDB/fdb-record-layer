@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
  * that operations are not performed on a store whose lock semantics are not understood.
  */
 @API(API.Status.EXPERIMENTAL)
-public class UnknownStoreLockStateException extends RecordCoreStorageException {
+public final class UnknownStoreLockStateException extends RecordCoreStorageException {
     private static final long serialVersionUID = 5487301928475634129L;
 
     public UnknownStoreLockStateException(@Nonnull String message,

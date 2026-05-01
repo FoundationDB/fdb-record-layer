@@ -315,11 +315,11 @@ public class OrPredicate extends AndOrPredicate {
         for (final var leftRange : compensatedLeftValueWithRanges.getRanges()) {
             boolean termRequiresCompensation = true;
             boolean foundMatch = false;
+            final var evaluatedLeft = leftRange.compileTimeEval(evaluationContext);
             for (final var rightRange : rightValueWithRanges.getRanges()) {
-                final var evaluatedLeft = leftRange.compileTimeEval(evaluationContext);
-                if (rightRange.encloses(evaluatedLeft, evaluationContext) == Proposition.TRUE) {
+                if (rightRange.encloses(evaluatedLeft, evaluationContext)) {
                     foundMatch = true;
-                    if (evaluatedLeft.encloses(rightRange, evaluationContext) == Proposition.TRUE) {
+                    if (evaluatedLeft.encloses(rightRange, evaluationContext)) {
                         termRequiresCompensation = false;
                         break;
                     }

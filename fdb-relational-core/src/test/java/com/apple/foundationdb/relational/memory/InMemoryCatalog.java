@@ -23,8 +23,8 @@ package com.apple.foundationdb.relational.memory;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -40,10 +40,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Implementation of {@link StoreCatalog} that stores everything in memory, rather than in FDB.
+ */
 public class InMemoryCatalog implements StoreCatalog {
 
-    Map<URI, List<InMemorySchema>> dbToSchemas = new ConcurrentHashMap<>();
-    SchemaTemplateCatalog schemaTemplateCatalog = new InMemorySchemaTemplateCatalog();
+    @Nonnull
+    private final Map<URI, List<InMemorySchema>> dbToSchemas = new ConcurrentHashMap<>();
+    @Nonnull
+    final SchemaTemplateCatalog schemaTemplateCatalog = new InMemorySchemaTemplateCatalog();
+
+    /**
+     * Create a new catalog.
+     */
+    public InMemoryCatalog() {
+    }
 
     @Override
     public SchemaTemplateCatalog getSchemaTemplateCatalog() {

@@ -21,18 +21,20 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalDriver;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
-
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.codahale.metrics.MetricRegistry;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -62,23 +64,35 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
 
     @Nonnull
     private final Options options;
+    private StoreCatalog storeCatalog;
+    private FDBDatabase database;
+    private final String clusterFile;
+    private final boolean register;
 
     public EmbeddedRelationalExtension() {
         this(Options.none());
     }
 
     public EmbeddedRelationalExtension(@Nonnull final Options options) {
+        this(FDBTestEnvironment.randomClusterFile(), true, options);
+    }
+
+    public EmbeddedRelationalExtension(final String clusterFile, final boolean register, final Options options) {
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
         keyspaceProvider.registerDomainIfNotExists("TEST");
         this.keySpace = keyspaceProvider.getKeySpace();
         this.storeTimer = new MetricRegistry();
+        this.clusterFile = clusterFile;
+        this.register = register;
         this.options = options;
     }
 
     @Override
     public void afterEach(ExtensionContext ignored) throws Exception {
         if (driver != null) {
-            DriverManager.deregisterDriver(driver);
+            if (register) {
+                DriverManager.deregisterDriver(driver);
+            }
             driver = null;
         }
     }
@@ -95,21 +109,40 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         // This needs to be done prior to the first call to factory.getDatabase()
         FDBDatabaseFactory.instance().setAPIVersion(APIVersion.API_VERSION_7_1);
 
-        final var database = FDBDatabaseFactory.instance().getDatabase(FDBTestEnvironment.randomClusterFile());
-        final StoreCatalog storeCatalog;
+        makeDatabase(clusterFile);
+
+        // We can use the default format version, but it's important to remember that the registered driver will
+        // most likely touch the catalog, and could affect mixed-mode tests
+        engine = makeEngine(database, FormatVersion.getDefaultFormatVersion());
+        driver = new EmbeddedRelationalDriver(engine);
+        if (register) {
+            DriverManager.registerDriver(driver);
+        }
+    }
+
+    public EmbeddedRelationalDriver getDriver(@Nonnull final FormatVersion formatVersion) throws SQLException {
+        return new EmbeddedRelationalDriver(makeEngine(database, formatVersion));
+    }
+
+    private void makeDatabase(String clusterFile) throws RelationalException {
+        database = FDBDatabaseFactory.instance().getDatabase(clusterFile);
         try (var connection = new DirectFdbConnection(database);
-                var txn = connection.getTransactionManager().createTransaction(Options.NONE)) {
+                 Transaction txn = connection.getTransactionManager().createTransaction(Options.NONE)) {
             storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
             txn.commit();
         }
+    }
 
-        final var config = RecordLayerConfig.getDefault();
+    private EmbeddedRelationalEngine makeEngine(final @Nonnull FDBDatabase database, final @Nonnull FormatVersion formatVersion) {
+        final var config = new RecordLayerConfig.RecordLayerConfigBuilder()
+                .setFormatVersion(formatVersion)
+                .build();
         final var ddlFactory = RecordLayerMetadataOperationsFactory.defaultFactory()
                 .setBaseKeySpace(keySpace)
                 .setRlConfig(config)
                 .setStoreCatalog(storeCatalog)
                 .build();
-        engine = RecordLayerEngine.makeEngine(
+        return RecordLayerEngine.makeEngine(
                 config,
                 Collections.singletonList(database),
                 keySpace,
@@ -117,8 +150,6 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
                 storeTimer,
                 ddlFactory,
                 RelationalPlanCache.buildWithDefaults());
-        driver = new EmbeddedRelationalDriver(engine);
-        DriverManager.registerDriver(driver);
     }
 
     @Nullable
@@ -139,6 +170,15 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
     @Nonnull
     public static Resource newAsResource(@Nonnull final Options options) throws Exception {
         return new Resource(new EmbeddedRelationalExtension(options));
+    }
+
+    public EmbeddedRelationalExtension extensionForOtherCluster() throws SQLException, RelationalException {
+        final String otherClusterFile = FDBTestEnvironment.allClusterFiles().stream()
+                .filter(clusterFile -> !clusterFile.equals(database.getClusterFile()))
+                .findAny().orElseThrow();
+        final EmbeddedRelationalExtension embeddedRelationalExtension = new EmbeddedRelationalExtension(otherClusterFile, false, options);
+        embeddedRelationalExtension.setup();
+        return embeddedRelationalExtension;
     }
 
     public static final class Resource implements Closeable {

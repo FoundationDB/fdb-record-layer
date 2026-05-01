@@ -50,6 +50,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
@@ -140,6 +141,11 @@ public class KeySpaceDirectoryTest {
             .add(new KeyTypeValue(KeyType.UUID, UUID.randomUUID(), UUID.randomUUID(), UUID::randomUUID))
             .build();
 
+    private static Map<KeyType, Supplier<Object>> SAMPLE_VALUES = valueOfEveryType.stream().collect(
+            Collectors.toUnmodifiableMap(keyTypeValue -> keyTypeValue.keyType,
+                    keyTypeValue -> keyTypeValue.generator)
+    );
+
     // Catch if someone adds a new type to make sure that we account for it in this test harness
     @Test
     public void testValueOfEveryTypeReallyIsEveryType() {
@@ -186,6 +192,23 @@ public class KeySpaceDirectoryTest {
                 new KeySpace(
                         new KeySpaceDirectory("root1", KeyType.STRING, "production"),
                         new KeySpaceDirectory("root1", KeyType.STRING, "production")));
+    }
+
+    @ParameterizedTest
+    @EnumSource(KeyType.class)
+    void isConstant(KeyType keyType) {
+        assertTrue(new KeySpaceDirectory("dir", keyType, SAMPLE_VALUES.get(keyType).get()).isConstant());
+        if (keyType == KeyType.NULL) { // NULL is always the constant NULL
+            assertTrue(new KeySpaceDirectory("dir", keyType).isConstant());
+        } else {
+            assertFalse(new KeySpaceDirectory("dir", keyType).isConstant());
+        }
+    }
+
+    @Test
+    void directoryLayerIsConstant() {
+        assertTrue(new DirectoryLayerDirectory("dir", SAMPLE_VALUES.get(KeyType.STRING).get()).isConstant());
+        assertFalse(new DirectoryLayerDirectory("dir").isConstant());
     }
 
     @Test

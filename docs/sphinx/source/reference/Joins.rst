@@ -4,11 +4,13 @@ Joins
 
 .. _joins:
 
-Joins combine rows from two or more tables based on a related column. FDB Record Layer supports joins using comma-separated table references in the FROM clause with join conditions specified in the WHERE clause.
+Joins combine rows from two or more tables based on related column. FDB Record Layer supports INNER JOIN and joins using comma-separated table references in the FROM clause with join conditions specified in the WHERE clause.
 
 .. important::
 
-   FDB Record Layer **does not support** standard SQL JOIN keywords (``INNER JOIN``, ``LEFT JOIN``, ``RIGHT JOIN``, ``OUTER JOIN``, etc.). Use comma-separated FROM clause instead.
+   FDB Record Layer **supports** only one standard SQL JOIN keyword ``INNER JOIN`` (or just ``JOIN``).
+
+   FDB Record Layer **does not support** other standard SQL JOIN keywords (``LEFT JOIN``, ``RIGHT JOIN``, ``OUTER JOIN``, etc.). Use the comma-separated FROM clause instead.
 
 Basic Join Syntax
 =================
@@ -16,7 +18,8 @@ Basic Join Syntax
 Cross Join (Cartesian Product)
 -------------------------------
 
-List multiple tables separated by commas:
+FDB Record Layer **does not support** ``CROSS JOIN`` keyword.
+List multiple tables separated by commas instead:
 
 .. code-block:: sql
 
@@ -24,10 +27,18 @@ List multiple tables separated by commas:
 
 This produces a Cartesian product of all rows from both tables.
 
-Equijoin with WHERE Clause
+Inner Join On Condition
 ---------------------------
 
-Use WHERE clause to specify join conditions:
+Use ON clause to specify join conditions:
+
+.. code-block:: sql
+
+    SELECT columns
+    FROM table1 INNER JOIN table2
+    ON table1.column = table2.column
+
+This is equivalent to SELECT FROM comma-separated sources with WHERE Clause:
 
 .. code-block:: sql
 
@@ -35,7 +46,89 @@ Use WHERE clause to specify join conditions:
     FROM table1, table2
     WHERE table1.column = table2.column
 
-This is equivalent to an INNER JOIN in standard SQL.
+Inner Join Using(Column)
+---------------------------
+
+The special case is used when joining tables have the same name column(s).
+The column(s) are specified in the USING() clause:
+
+.. code-block:: sql
+
+    CREATE TABLE a(c1, c2)
+    CREATE TABLE b(c1, c3)
+
+    SELECT columns
+    FROM a INNER JOIN b USING(c1)
+
+It is equivalent to:
+
+.. code-block:: sql
+
+    SELECT columns
+    FROM a INNER JOIN b ON a.c1 = b.c1
+
+And also equivalent to:
+
+.. code-block:: sql
+
+    SELECT columns
+    FROM a, b WHERE a.c1 = b.c1
+
+An important feature of ``INNER JOIN USING`` is that it hides duplicated columns from the output:
+
+.. code-block:: sql
+
+    CREATE TABLE a(c1, c2)
+    CREATE TABLE b(c1, c3)
+
+    SELECT *
+    FROM a INNER JOIN b USING(c1)
+
+In this case ``SELECT *`` returns only three columns:
+
+.. list-table::
+    :header-rows: 0
+
+    * - `c1`
+      - `c2`
+      - `c3`
+
+However, the joining columns can be accessed directly using qualified names:
+
+.. code-block:: sql
+
+    SELECT a.c1, b.c1
+    FROM a INNER JOIN b USING(c1)
+
+This returns two identical columns:
+
+.. list-table::
+    :header-rows: 0
+
+    * - `a.c1`
+      - `b.c1`
+
+``INNER JOIN USING`` maintains the standard order of the output from left to right excluding duplicates:
+
+.. code-block:: sql
+
+    CREATE TABLE a(c1, c2, c5, c6)
+    CREATE TABLE b(c1, c3, c5, c7)
+
+    SELECT *
+    FROM a INNER JOIN b USING(c1, c5)
+
+Returns 6 columns: all columns from ``a`` (c1, c2, c5, c6) and all columns from ``b`` excluding duplicates (c3, c7):
+
+.. list-table::
+    :header-rows: 0
+
+    * - `c1`
+      - `c2`
+      - `c5`
+      - `c6`
+      - `c3`
+      - `c7`
 
 Examples
 ========
@@ -94,8 +187,8 @@ Join employees with their departments:
 .. code-block:: sql
 
     SELECT fname, lname
-    FROM emp, dept
-    WHERE emp.dept_id = dept.id
+    FROM emp INNER JOIN dept
+    ON emp.dept_id = dept.id
       AND dept.name = 'Engineering'
 
 .. list-table::
@@ -110,7 +203,7 @@ Join employees with their departments:
     * - :json:`"Emily"`
       - :json:`"Martinez"`
 
-Three-Way Join
+Consecutive Join
 --------------
 
 Join across three tables to find departments and their projects:
@@ -118,9 +211,8 @@ Join across three tables to find departments and their projects:
 .. code-block:: sql
 
     SELECT dept.name, project.name
-    FROM emp, dept, project
-    WHERE emp.dept_id = dept.id
-      AND project.emp_id = emp.id
+    FROM emp INNER JOIN dept ON emp.dept_id = dept.id
+    INNER JOIN project ON project.emp_id = emp.id
 
 .. list-table::
     :header-rows: 1
@@ -134,7 +226,7 @@ Join across three tables to find departments and their projects:
     * - :json:`"Marketing"`
       - :json:`"SEO"`
 
-The join conditions create relationships: employees are linked to departments via ``dept_id``, and projects are linked to employees via ``emp_id``.
+Joining the result of first join (employees and departments) to projects;
 
 Join with Subquery
 ------------------
@@ -148,8 +240,8 @@ Use a derived table (subquery) in a join:
         SELECT fname, lname, dept_id
         FROM emp
         WHERE EXISTS (SELECT * FROM project WHERE emp_id = emp.id)
-    ) AS sq, dept
-    WHERE sq.dept_id = dept.id
+    ) AS sq INNER JOIN dept
+    ON sq.dept_id = dept.id
       AND dept.name = 'Sales'
 
 .. list-table::
@@ -172,10 +264,10 @@ Join subqueries that themselves contain joins:
     SELECT sq.name, project.name
     FROM (
         SELECT dept.name, emp.id
-        FROM emp, dept
-        WHERE emp.dept_id = dept.id
-    ) AS sq, project
-    WHERE project.emp_id = sq.id
+        FROM emp INNER JOIN dept
+        ON emp.dept_id = dept.id
+    ) AS sq INNER JOIN project
+    ON project.emp_id = sq.id
 
 .. list-table::
     :header-rows: 1
@@ -283,15 +375,15 @@ Use aliases to:
 Join Conditions
 ---------------
 
-- Join conditions should be specified in the WHERE clause
+- Join conditions should be specified in the WHERE clause (for comma-separated tables) or the ON clause (for INNER JOIN)
 - Use ``AND`` to combine multiple join conditions and filters
 - Missing join conditions result in a Cartesian product (all combinations)
 
 See Also
 ========
 
+* :doc:`sql_commands/DQL/INNER_JOIN` - INNER JOIN syntax
 * :doc:`sql_commands/DQL/SELECT` - SELECT statement syntax
 * :doc:`sql_commands/DQL/WHERE` - WHERE clause filtering
 * :doc:`Subqueries` - Subqueries and correlated subqueries
 * :doc:`sql_commands/DQL/WITH` - Common Table Expressions
-

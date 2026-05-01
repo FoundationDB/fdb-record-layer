@@ -155,6 +155,8 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
                 .put("__pattern_for_like", argumentsCount -> BuiltInFunctionCatalog.resolve("patternForLike", argumentsCount))
                 .put("__internal_array", argumentsCount -> BuiltInFunctionCatalog.resolve("array", argumentsCount))
                 .put("__pick_value", argumentsCount -> BuiltInFunctionCatalog.resolve("pick", argumentsCount))
+                .put("get_versionstamp_incarnation", argumentsCount -> BuiltInFunctionCatalog.resolve("get_versionstamp_incarnation", argumentsCount))
+                .put("cardinality", argumentsCount -> BuiltInFunctionCatalog.resolve("cardinality", argumentsCount))
                 .build();
     }
 

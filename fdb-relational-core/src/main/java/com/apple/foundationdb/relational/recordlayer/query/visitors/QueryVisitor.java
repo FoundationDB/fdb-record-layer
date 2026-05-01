@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -64,6 +65,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.relational.generated.RelationalParser.ALL;
 
@@ -103,8 +105,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public LogicalOperator visitQuery(@Nonnull RelationalParser.QueryContext ctx) {
         if (ctx.ctes() != null) {
-            final var currentPlanFragment = getDelegate().pushPlanFragment();
-            visitCtes(ctx.ctes()).forEach(currentPlanFragment::addOperator);
+            getDelegate().pushPlanFragment();
+            visitCtes(ctx.ctes());
             final var result = Assert.castUnchecked(ctx.queryExpressionBody().accept(this), LogicalOperator.class);
             getDelegate().popPlanFragment();
             return getDelegate().isTopLevel() ? LogicalOperator.generateSort(result, ImmutableList.of(), ImmutableSet.of(), Optional.empty()) : result;
@@ -112,9 +114,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return Assert.castUnchecked(ctx.queryExpressionBody().accept(this), LogicalOperator.class);
     }
 
-    @Nonnull
+    @Nullable
     @Override
-    public LogicalOperators visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
+    public Void visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
+        final var currentPlanFragment = getDelegate().getCurrentPlanFragment();
         if (ctx.RECURSIVE() != null) {
             final RecursiveUnionExpression.TraversalStrategy traversalStrategy;
             if (ctx.traversalOrderClause() != null) {
@@ -132,11 +135,17 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             } else {
                 traversalStrategy = RecursiveUnionExpression.TraversalStrategy.ANY;
             }
-            return LogicalOperators.of(ctx.namedQuery().stream().map(namedQuery -> handleRecursiveNamedQuery(namedQuery, traversalStrategy)).collect(ImmutableList.toImmutableList()));
-        } else {
-            Assert.thatUnchecked(ctx.traversalOrderClause() == null, ErrorCode.SYNTAX_ERROR, "traversal order clause can only be defined with recursive CTE");
+
+            for (final var namedQuery : ctx.namedQuery()) {
+                currentPlanFragment.addOperator(handleRecursiveNamedQuery(namedQuery, traversalStrategy));
+            }
+            return null;
         }
-        return LogicalOperators.of(ctx.namedQuery().stream().map(this::visitNamedQuery).collect(ImmutableList.toImmutableList()));
+        Assert.thatUnchecked(ctx.traversalOrderClause() == null, ErrorCode.SYNTAX_ERROR, "traversal order clause can only be defined with recursive CTE");
+        for (final var namedQuery : ctx.namedQuery()) {
+            currentPlanFragment.addOperator(visitNamedQuery(namedQuery));
+        }
+        return null;
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -162,13 +171,13 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                                                      @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         final var queryName = visitFullId(recursiveQueryContext.name);
         final Optional<Type> recursiveQueryType;
-        final var memoized = MemoizedFunction.<ParserRuleContext, LogicalOperators>memoize(
+        final var memoized = MemoizedFunction.<ParserRuleContext, Optional<LogicalOperator>>memoize(
                 parserRuleContext -> {
                     final var result = parserRuleContext.accept(this);
-                    if (result instanceof LogicalOperator) {
-                        return LogicalOperators.ofSingle((LogicalOperator) result);
+                    if (result == null) {
+                        return Optional.empty();
                     }
-                    return Assert.castUnchecked(result, LogicalOperators.class);
+                    return Optional.of(Assert.castUnchecked(result, LogicalOperator.class));
                 });
         {
             getDelegate().pushPlanFragment();
@@ -340,9 +349,21 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nullable
     @Override
     public Void visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
-        Assert.isNullUnchecked(ctx.uidList(), ErrorCode.UNSUPPORTED_QUERY, "using is not yet supported for inner join");
-        getDelegate().getCurrentPlanFragment().addOperator(Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class));
-        getDelegate().getCurrentPlanFragment().addInnerJoinExpression(Assert.castUnchecked(ctx.expression().accept(this), Expression.class));
+        var rightTableSource = Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class);
+        if (ctx.uidList() != null && !ctx.uidList().isEmpty()) {    // JOIN with USING syntax
+            for (final var uidContext : ctx.uidList().uid()) {
+                final var uid = visitUid(uidContext);
+                final var leftExpression = getDelegate().getSemanticAnalyzer().resolveIdentifier(uid, getDelegate().getCurrentPlanFragment().getLogicalOperators());
+                final var rightExpressionOld = getDelegate().getSemanticAnalyzer().resolveIdentifier(uid, LogicalOperators.ofSingle(rightTableSource));
+                final var rightExpressionNew = rightExpressionOld.asHidden();
+                rightTableSource = rightTableSource.withOutput(Expressions.of(rightTableSource.getOutput().stream().map(e -> e == rightExpressionOld ? rightExpressionNew : e).collect(Collectors.toUnmodifiableList())));
+                getDelegate().getCurrentPlanFragment().addInnerJoinExpression(getDelegate().resolveFunction("=", leftExpression, rightExpressionNew));
+            }
+            getDelegate().getCurrentPlanFragment().addOperator(rightTableSource);
+        } else {    // JOIN with ON syntax
+            getDelegate().getCurrentPlanFragment().addOperator(rightTableSource);
+            getDelegate().getCurrentPlanFragment().addInnerJoinExpression(Assert.castUnchecked(ctx.expression().accept(this), Expression.class));
+        }
         return null;
     }
 
@@ -578,18 +599,16 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public QueryPlan.LogicalQueryPlan visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
-        getDelegate().getPlanGenerationContext().setForExplain(ctx.EXPLAIN() != null);
-        final var logicalOperator = Assert.castUnchecked(ctx.describeObjectClause().accept(this), LogicalOperator.class);
-        // Capture semantic type structure as StructType with field names
-        final var semanticStructType = logicalOperator.getOutput().getStructType();
-        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(),
-                getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticStructType);
+        throw new RelationalException("Explain/Describe statement should not appear at the parser level", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
     }
 
     @Nonnull
     @Override
-    public LogicalOperator visitDescribeStatements(@Nonnull RelationalParser.DescribeStatementsContext ctx) {
-        return parseChild(ctx);
+    public QueryPlan.LogicalQueryPlan visitDescribeStatements(@Nonnull RelationalParser.DescribeStatementsContext ctx) {
+        final var logicalOperator =  parseChild(ctx);
+        final var semanticStructType = logicalOperator.getOutput().getStructType();
+        return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(),
+                getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticStructType);
     }
 
     @Nonnull

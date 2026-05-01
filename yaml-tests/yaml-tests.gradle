@@ -155,17 +155,50 @@ ext.resolveManyServers = { ->
     while (selectedServers.size() < 10) {
         def serverFile = resolveOtherServer(rejectedVersions)
         def attributes = getAttributesFromJar(serverFile)
-        // 4.0.559.0 is the first version that introduced the server, so we won't be able to find anything
-        // older than that. Eventually we can remove this check because we'll be long enough away in terms of versions
-        // and times.
-        if (attributes.version == "4.0.559.0") {
-            break
-        }
         rejectedVersions.add(attributes.version)
         selectedServers.add(serverFile)
     }
     println("Found ${selectedServers.size()} to test against")
     return selectedServers
+}
+
+// Resolves a specific version of the relational-server by exact version string.
+ext.resolveSpecificServer = { String version ->
+    def configurationName = "resolveArtifact-specific-${UUID.randomUUID()}"
+    return rootProject.with {
+        configurations.create(configurationName, {
+            resolutionStrategy {
+                cacheDynamicVersionsFor 10, 'minutes'
+            }
+        })
+        dependencies.add(configurationName,
+                ['group': 'org.foundationdb',
+                 'name': 'fdb-relational-server',
+                 'classifier': 'all'],
+                {
+                    it.version {
+                        strictly version
+                    }
+                    transitive = false
+                })
+        def configuration = configurations.getByName(configurationName, { })
+        File resolution = configuration.resolve()[0]
+        println("Downloaded specific external server: " + resolution.getName())
+        return resolution
+    }
+}
+
+// Resolves the n most-recent released version strings in descending order (most recent first).
+ext.resolveRecentVersionStrings = { int n ->
+    List<String> resolvedVersions = new ArrayList<>()
+    Set<String> rejectedVersions = new HashSet<>()
+    while (resolvedVersions.size() < n) {
+        def serverFile = resolveOtherServer(rejectedVersions)
+        def attributes = getAttributesFromJar(serverFile)
+        rejectedVersions.add(attributes.version)
+        resolvedVersions.add(attributes.version)
+    }
+    return resolvedVersions
 }
 
 task cleanExternalServerDirectory(type: Delete) {
@@ -175,7 +208,7 @@ task cleanExternalServerDirectory(type: Delete) {
 task serverJars(type: Copy) {
     dependsOn ":fdb-relational-server:package", "cleanExternalServerDirectory"
     into project.layout.buildDirectory.dir('externalServer')
-    from resolveOtherServer(["4.2.3.0", "4.2.4.0"].toSet())
+    from { resolveOtherServer(["4.2.3.0", "4.2.4.0"].toSet()) }
     from (rootProject.project("fdb-relational-server").layout.files('.dist')) {
         include("fdb-relational-server-${rootProject.version}-all.jar")
     }
@@ -183,15 +216,60 @@ task serverJars(type: Copy) {
 
 task downloadManyExternalServers(type: Copy) {
     dependsOn "cleanExternalServerDirectory"
-    from resolveManyServers()
+    from { resolveManyServers() }
     into project.layout.buildDirectory.dir('externalServer')
 }
 
+// Resolves the n most-recent released version strings and writes them to a file, comma-separated.
+// n defaults to 10 and can be overridden with -Ptests.listVersionsCount=<n>.
+// Output file: <buildDir>/recentVersions.txt
+task listRecentVersions {
+    doLast {
+        int count = project.hasProperty('tests.listVersionsCount')
+            ? Integer.parseInt(project.getProperty('tests.listVersionsCount'))
+            : 10
+        def versions = resolveRecentVersionStrings(count)
+        // we don't want the output to be a declared output, otherwise gradle will conclude that it doesn't need to
+        // rerun this when the property changes.
+        def outputFile = project.layout.buildDirectory.file('recentVersions.txt').get().asFile
+        outputFile.parentFile.mkdirs()
+        String jsonArray = '["' + versions.join('", "') + '"]'
+        outputFile.text = "versions=" + jsonArray
+        println("Recent versions: " + jsonArray)
+    }
+}
+
+// Downloads exactly one external server version for running mixedModeTest against a
+// single version.  The version is chosen by the following property:
+//
+//   -Ptests.mixedModeVersion=4.10.3.0
+//
+task downloadSpecificExternalServer(type: Copy) {
+    dependsOn "cleanExternalServerDirectory"
+    into project.layout.buildDirectory.dir('externalServer')
+    // Resolve which JAR to download only when the task is actually executed.
+    // Using from(Callable) defers evaluation to execution time, which avoids
+    // failing at configuration time when neither property is set and this task
+    // is not part of the requested task graph.
+    from({
+        if (project.hasProperty('tests.mixedModeVersion')) {
+            def exactVersion = project.getProperty('tests.mixedModeVersion')
+            println("Using explicitly specified external server version: ${exactVersion}")
+            return resolveSpecificServer(exactVersion)
+        } else {
+            throw new GradleException(
+                "downloadSpecificExternalServer requires either -Ptests.mixedModeVersion=<version> ")
+        }
+    })
+}
+
 mixedModeTest {
-    dependsOn("downloadManyExternalServers")
+    if (project.hasProperty('tests.mixedModeVersion')) {
+        dependsOn("downloadSpecificExternalServer")
+    } else {
+        dependsOn("downloadManyExternalServers")
+    }
     systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
-    // this is specified in testing.gradle, but it looks like it needs to be repeated here.
-    ignoreFailures = true
 }
 
 singleVersionTest {

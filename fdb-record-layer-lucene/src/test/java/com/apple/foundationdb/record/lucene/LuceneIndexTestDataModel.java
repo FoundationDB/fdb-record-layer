@@ -555,9 +555,9 @@ public class LuceneIndexTestDataModel {
     private CompletableFuture<Void> updateRecord(final FDBRecordStore recordStore,
                                                  Tuple primaryKey,
                                                  Function<Message, Message> updateMessage) {
-        return recordStore.loadRecordAsync(primaryKey).thenAccept(existingRecord -> {
-            recordStore.saveRecord(updateMessage.apply(existingRecord.getRecord()));
-        });
+        return recordStore.loadRecordAsync(primaryKey).thenCompose(existingRecord ->
+                recordStore.saveRecordAsync(updateMessage.apply(existingRecord.getRecord()))
+                        .thenApply(rec -> null));
     }
 
     /**

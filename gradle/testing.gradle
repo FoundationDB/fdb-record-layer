@@ -268,10 +268,12 @@ tasks.withType(Test) { theTask ->
         }
     }
     afterSuite { descriptor, result ->
-        // Very few subprojects acutally have destructive tests, so strip those out of the summary.
+        // Very few subprojects acutally have destructive or mixed-mode tests, so strip those out of the summary.
         // We leave the ones that have nothing under test, because that would be suspicious if a subproject had
         // no tests
-        if (descriptor.parent == null && !(descriptor.toString().endsWith(":destructiveTest") && result.getTestCount() == 0)) {
+        if (descriptor.parent == null
+            && !(descriptor.toString().endsWith(":destructiveTest") && result.getTestCount() == 0)
+            && !(descriptor.toString().endsWith(":mixedModeTest") && result.getTestCount() == 0)) {
             def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
             def description = descriptor.toString().replaceFirst("Gradle Test Run ", "")
             summary.append(

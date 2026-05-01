@@ -39,12 +39,12 @@ test_block:
       - result: [{42}]
     -
       - query: select * from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
-      - explain: "EXPLODE array((@c6 AS B, @c8 AS C, (@c11 AS X, promote(@c13 AS DOUBLE) AS Y, @c15 AS Z) AS W), (@c20 AS B, @c22 AS C, (@c25 AS X, @c27 AS Y, @c29 AS Z) AS W))"
+      - explain: "EXPLODE array((@c5 AS B, @c7 AS C, (@c10 AS X, promote(@c12 AS DOUBLE) AS Y, @c14 AS Z) AS W), (@c19 AS B, @c21 AS C, (@c24 AS X, @c26 AS Y, @c28 AS Z) AS W))"
       - result: [{B: 1, C: 2.0, W: {X: 3, Y: 4.0, Z: 'foo'}},
                  {B: 10, C: 90.2, W: {X: 5, Y: 6.0, Z: 'bar'}}]
     -
       - query: select B, C, W from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
-      - explain: "EXPLODE array((@c10 AS B, @c12 AS C, (@c15 AS X, promote(@c17 AS DOUBLE) AS Y, @c19 AS Z) AS W), (@c24 AS B, @c26 AS C, (@c29 AS X, @c31 AS Y, @c33 AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)"
+      - explain: "EXPLODE array((@c9 AS B, @c11 AS C, (@c14 AS X, promote(@c16 AS DOUBLE) AS Y, @c18 AS Z) AS W), (@c23 AS B, @c25 AS C, (@c28 AS X, @c30 AS Y, @c32 AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)"
       - result: [{B: 1, C: 2.0, W: {X: 3, Y: 4.0, Z: 'foo'}},
                  {B: 10, C: 90.2, W: {X: 5, Y: 6.0, Z: 'bar'}}]
     -
@@ -57,22 +57,22 @@ test_block:
                  {B: 11, C: 3.0, W: [{X: 'd', Y: 'e', Z: [10, 20, 30]}]}]
     -
       - query: select A.B, C, W from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
-      - explain: "EXPLODE array((@c12 AS B, @c14 AS C, (@c17 AS X, promote(@c19 AS DOUBLE) AS Y, @c21 AS Z) AS W), (@c26 AS B, @c28 AS C, (@c31 AS X, @c33 AS Y, @c35 AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)"
+      - explain: "EXPLODE array((@c11 AS B, @c13 AS C, (@c16 AS X, promote(@c18 AS DOUBLE) AS Y, @c20 AS Z) AS W), (@c25 AS B, @c27 AS C, (@c30 AS X, @c32 AS Y, @c34 AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)"
       - result: [{B: 1, C: 2.0, W: {X: 3, Y: 4.0, Z: 'foo'}},
                  {B: 10, C: 90.2, W: {X: 5, Y: 6.0, Z: 'bar'}}]
     -
       - query: select A.B, C as Q, W.X from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
-      - explain: "EXPLODE array((@c16 AS B, @c18 AS C, (@c21 AS X, promote(@c23 AS DOUBLE) AS Y, @c25 AS Z) AS W), (@c30 AS B, @c32 AS C, (@c35 AS X, @c37 AS Y, @c39 AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)"
+      - explain: "EXPLODE array((@c15 AS B, @c17 AS C, (@c20 AS X, promote(@c22 AS DOUBLE) AS Y, @c24 AS Z) AS W), (@c29 AS B, @c31 AS C, (@c34 AS X, @c36 AS Y, @c38 AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)"
       - result: [{B: 1, Q: 2.0, X: 3},
                  {B: 10, Q: 90.2, X: 5}]
     -
       - query: select * from (select A.B, C as Q, W.X from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))) as u
-      - explain: "EXPLODE array((@c20 AS B, @c22 AS C, (@c25 AS X, promote(@c27 AS DOUBLE) AS Y, @c29 AS Z) AS W), (@c34 AS B, @c36 AS C, (@c39 AS X, @c41 AS Y, @c43 AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)"
+      - explain: "EXPLODE array((@c19 AS B, @c21 AS C, (@c24 AS X, promote(@c26 AS DOUBLE) AS Y, @c28 AS Z) AS W), (@c33 AS B, @c35 AS C, (@c38 AS X, @c40 AS Y, @c42 AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)"
       - result: [{B: 1, Q: 2.0, X: 3},
                  {B: 10, Q: 90.2, X: 5}]
     -
       - query: select * from (select A.B, C as Q, W.X from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))) as u where b < 8
-      - explain: "EXPLODE array((@c20 AS B, @c22 AS C, (@c25 AS X, promote(@c27 AS DOUBLE) AS Y, @c29 AS Z) AS W), (@c34 AS B, @c36 AS C, (@c39 AS X, @c41 AS Y, @c43 AS Z) AS W)) | FILTER _.B LESS_THAN @c68 | MAP (_.B AS B, _.C AS Q, _.W.X AS X)"
+      - explain: "EXPLODE array((@c19 AS B, @c21 AS C, (@c24 AS X, promote(@c26 AS DOUBLE) AS Y, @c28 AS Z) AS W), (@c33 AS B, @c35 AS C, (@c38 AS X, @c40 AS Y, @c42 AS Z) AS W)) | FILTER _.B LESS_THAN @c67 | MAP (_.B AS B, _.C AS Q, _.W.X AS X)"
       - result: [{B: 1, Q: 2.0, X: 3}]
     -
       - query: select * from range(1, 4)
@@ -94,19 +94,19 @@ test_block:
       - result: [{ID: 0}, {ID: 5}, {ID: 10}]
     -
       - query: select * from range(0, 11, 5)
-      - explain: "TF range(promote(@c6 AS LONG), promote(@c8 AS LONG), STEP promote(@c10 AS LONG))"
+      - explain: "TF range(promote(@c5 AS LONG), promote(@c7 AS LONG), STEP promote(@c9 AS LONG))"
       - result: [{ID: 0}, {ID: 5}, {ID: 10}]
     -
       - query: select * from range(6 - 6, 14 + 6 + 1, 20 - 10)
-      - explain: "TF range(promote(@c6 - @c6 AS LONG), promote(@c10 + @c6 + @c14 AS LONG), STEP promote(@c16 - @c18 AS LONG))"
+      - explain: "TF range(promote(@c5 - @c5 AS LONG), promote(@c9 + @c5 + @c13 AS LONG), STEP promote(@c15 - @c17 AS LONG))"
       - result: [{ID: 0}, {ID: 10}, {ID: 20}]
     -
       - query: select ID as X from range(3) as Y
-      - explain: "TF range(0l, promote(@c8 AS LONG), STEP 1l) | MAP (_.ID AS X)"
+      - explain: "TF range(0l, promote(@c7 AS LONG), STEP 1l) | MAP (_.ID AS X)"
       - result: [{X: 0}, {X: 1}, {X: 2}]
     -
       - query: select X.ID as A, Y.ID as B from range(3) as X, range(4) as Y
-      - explain: "TF range(0l, promote(@c16 AS LONG), STEP 1l) | FLATMAP q0 -> { TF range(0l, promote(@c23 AS LONG), STEP 1l) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }"
+      - explain: "TF range(0l, promote(@c15 AS LONG), STEP 1l) | FLATMAP q0 -> { TF range(0l, promote(@c22 AS LONG), STEP 1l) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }"
       - result: [{A: 0, B: 0},
                  {A: 0, B: 1},
                  {A: 0, B: 2},
@@ -121,7 +121,7 @@ test_block:
                  {A: 2, B: 3}]
     -
       - query: select a.id as x, a.col1 as y, b.id as z from t1 as a, range(a.id) as b
-      - explain: "SCAN(<,>) | FLATMAP q0 -> { TF range(0l, q0.ID, STEP 1l) AS q1 RETURN (q0.ID AS X, q0.COL1 AS Y, q1.ID AS Z) }"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { TF range(0l, q0.ID, STEP 1l) AS q1 RETURN (q0.ID AS X, q0.COL1 AS Y, q1.ID AS Z) }"
       - result: [{X: 1, Y: 'a', Z: 0},
                  {X: 2, Y: 'b', Z: 0},
                  {X: 2, Y: 'b', Z: 1},

@@ -116,6 +116,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -603,7 +604,7 @@ public class ExplainPlanVisitorTest {
         final var minLength = explainTokens.getMinLength(ExplainLevel.STRUCTURE);
         final var withoutUnstringable =
                 explainTokens.render(ExplainLevel.STRUCTURE,
-                        new DefaultExplainFormatter(DefaultExplainSymbolMap::new),
+                        DefaultExplainFormatter.create(DefaultExplainSymbolMap::new),
                         Integer.MAX_VALUE).toString();
 
         plans.add(new UnstringableQueryPlan());
@@ -627,7 +628,7 @@ public class ExplainPlanVisitorTest {
         final QueryPredicate randomPredicate = randomPredicateGenerator.generate().getPredicateUnderTest();
         final var explainTokens = randomPredicate.explain().getExplainTokens();
         final String predicateString = explainTokens.render(formatter).toString();
-        final String defaultExplainPredicateString = explainTokens.render(new DefaultExplainFormatter(DefaultExplainSymbolMap::new)).toString();
+        final String defaultExplainPredicateString = explainTokens.render(DefaultExplainFormatter.create(DefaultExplainSymbolMap::new)).toString();
         assertEquals(defaultExplainPredicateString.replaceAll("\\s+", ""),
                 predicateString.replaceAll("\\s+", ""));
     }
@@ -642,13 +643,11 @@ public class ExplainPlanVisitorTest {
                         new Comparisons.ValueComparison(Comparisons.Type.EQUALS, LiteralValue.ofScalar(0L)));
         final var explainTokens = valuePredicate.explain().getExplainTokens();
         final String defaultExplainPredicateString =
-                explainTokens.render(new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, 0,
-                        50, 4)).toString();
+                explainTokens.render(getIndentingFormatter(DefaultExplainSymbolMap::new)).toString();
         assertEquals("a.x EQUALS 0l", defaultExplainPredicateString); // triggers an alias rendering case
 
         String selfContainedExplainPredicateString =
-                explainTokens.render(new WithIndentationsExplainFormatter(ExplainSelfContainedSymbolMap::new, 0,
-                        50, 4)).toString();
+                explainTokens.render(getIndentingFormatter(ExplainSelfContainedSymbolMap::new)).toString();
         assertEquals("?a?.x EQUALS 0l", selfContainedExplainPredicateString); // triggers an error case
 
         final ExplainTokens explainTokensWithAliasDefinition =
@@ -656,9 +655,15 @@ public class ExplainPlanVisitorTest {
                         .addAliasDefinition(a).addWhitespace().addNested(explainTokens);
         selfContainedExplainPredicateString =
                 explainTokensWithAliasDefinition.render(
-                        new WithIndentationsExplainFormatter(ExplainSelfContainedSymbolMap::new, 0,
-                                50, 4)).toString();
+                        getIndentingFormatter(ExplainSelfContainedSymbolMap::new)).toString();
         assertEquals("defined:q0 q0.x EQUALS 0l", selfContainedExplainPredicateString);
+    }
+
+    @Nonnull
+    private static WithIndentationsExplainFormatter getIndentingFormatter(@Nonnull final Supplier<ExplainSymbolMap> symbolMapSupplier) {
+        final WithIndentationsExplainFormatter formatter = new WithIndentationsExplainFormatter(symbolMapSupplier, 0, 50, 4);
+        formatter.register();
+        return formatter;
     }
 
     /**

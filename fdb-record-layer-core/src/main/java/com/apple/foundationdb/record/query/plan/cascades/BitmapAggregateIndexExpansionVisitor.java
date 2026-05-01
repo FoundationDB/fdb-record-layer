@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
@@ -82,7 +83,7 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
                 throw new RecordCoreException("could not pull grouped value " + groupedValue)
                         .addLogInfo(LogMessageKeys.VALUE, groupedValue);
             }
-            argument = result.get(groupedValue);
+            argument = Iterables.getOnlyElement(result.get(groupedValue));
         } else {
             throw new UnsupportedOperationException("unable to plan group by with non-field value " + groupedValue);
         }
@@ -114,7 +115,7 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
                 throw new RecordCoreException("could not pull grouping value " + groupingValue)
                         .addLogInfo(LogMessageKeys.VALUE, groupingValue);
             }
-            return pulledUpGroupingValuesMap.get(groupingValue);
+            return Iterables.getOnlyElement(pulledUpGroupingValuesMap.get(groupingValue));
         }).collect(ImmutableList.toImmutableList());
 
         final var pulledUpGroupingValues = ImmutableList.<Value>builder().addAll(explicitPulledUpGroupingValues).add(implicitGroupingValue).build();

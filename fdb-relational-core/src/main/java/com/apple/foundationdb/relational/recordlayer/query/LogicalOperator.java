@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnio
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -249,7 +250,7 @@ public class LogicalOperator {
         }
         final String storageName = type.getStorageName();
         Assert.thatUnchecked(storageName != null, "storage name for table access must not be null");
-        final var typeFilterExpression = new LogicalTypeFilterExpression(ImmutableSet.of(storageName), scanExpression, type);
+        final var typeFilterExpression = LogicalTypeFilterExpression.of(ImmutableSet.of(storageName), scanExpression, type);
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(typeFilterExpression));
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
         int colCount = 0;
@@ -261,6 +262,12 @@ public class LogicalOperator {
                     FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(fieldType, colCount)));
             attributesBuilder.add(new Expression(Optional.of(attributeName), attributeType, attributeExpression));
             colCount++;
+        }
+        if (semanticAnalyzer.getMetadataCatalog().isStoreRowVersions()
+                && table.getColumns().stream().noneMatch(column -> column.getName().equals(PseudoField.ROW_VERSION.getFieldName()))) {
+            final var pseudoFieldValue = FieldValue.ofFieldName(resultingQuantifier.getFlowedObjectValue(), PseudoField.ROW_VERSION.getFieldName());
+            final Expression pseudoExpression = new Expression(Optional.of(Identifier.of(PseudoField.ROW_VERSION.getFieldName())), DataType.VersionType.nullable(), pseudoFieldValue);
+            attributesBuilder.add(pseudoExpression.asEphemeral());
         }
         final var attributes = Expressions.of(attributesBuilder.build());
         return LogicalOperator.newNamedOperator(tableId, attributes, resultingQuantifier);
@@ -283,7 +290,27 @@ public class LogicalOperator {
         } else {
             outputAttributes = Expressions.of(convertToExpressions(resultingQuantifier));
         }
-        return LogicalOperator.newOperator(alias, outputAttributes, resultingQuantifier);
+        final var operator = LogicalOperator.newOperator(alias, outputAttributes, resultingQuantifier);
+        // For struct array elements, prepend a whole-struct EphemeralExpression named by the alias.
+        // This allows UDFs to receive the entire struct element as an argument.
+        // An example query: select T.a, item.b from T, T.item_array as item where get_price(item) = blah.
+        // For this example, get_price(item) resolving item:
+        //  - SemanticAnalyzer.lookup("item", ..., matchQualifiedOnly=false), iterates [EphemeralExpression(item), item.b, item.c, ...]
+        //  - EphemeralExpression(item) match item.
+        // select item.b ... resolving item.b:
+        //  - lookup("item.price", ..., matchQualifiedOnly=true) iterates [EphemeralExpression(item), item.b, item.c, ...]
+        //  - EphemeralExpression(item): exact match fails; lookupNestedField → skipped
+        //  - item.b: exact match item.b.
+        if (alias.isPresent() && resultingQuantifier.getFlowedObjectType().isRecord()) {
+            final var elementType = DataTypeUtils.toRelationalType(resultingQuantifier.getFlowedObjectType());
+            final var wholeStructExpr = new EphemeralExpression(alias, elementType,
+                    resultingQuantifier.getFlowedObjectValue(), Expression.Visibility.VISIBLE);
+            return operator.withOutput(Expressions.of(ImmutableList.<Expression>builder()
+                    .add(wholeStructExpr)
+                    .addAll(operator.getOutput().asList())
+                    .build()));
+        }
+        return operator;
     }
 
     @Nonnull

@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.BuildVersion;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.google.common.base.Verify;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -54,7 +55,7 @@ import java.util.jar.Manifest;
 /**
  * Class to manage running an external server.
  */
-public class ExternalServer {
+public class ExternalServer implements Clusters.BoundToCluster {
 
     private static final Logger logger = LogManager.getLogger(ExternalServer.class);
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
@@ -65,7 +66,7 @@ public class ExternalServer {
     private int httpPort;
     private final SemanticVersion version;
     private Process serverProcess;
-    @Nullable
+    @Nonnull
     private final String clusterFile;
 
     /**
@@ -74,7 +75,7 @@ public class ExternalServer {
      * @param serverJar the path to the jar to run
      */
     public ExternalServer(@Nonnull final File serverJar,
-                          @Nullable final String clusterFile) throws IOException {
+                          @Nonnull final String clusterFile) throws IOException {
         this.clusterFile = clusterFile;
 
         this.serverJar = serverJar;
@@ -128,7 +129,9 @@ public class ExternalServer {
         return version;
     }
 
-    public String getClusterFile() {
+    @Nonnull
+    @Override
+    public String clusterFile() {
         return clusterFile;
     }
 
@@ -146,8 +149,12 @@ public class ExternalServer {
         @Nullable
         File errFile;
         if (saveServerLogs) {
-            outFile = File.createTempFile("fdb-relational-server-" + version + "-" + grpcPort + "-out.", ".log");
-            errFile = File.createTempFile("fdb-relational-server-" + version + "-" + grpcPort + "-err.", ".log");
+            // Include current time in file names so that things sort nicely. We want the out and err logs
+            // for the same server start to be adjacent, and it would be nice for the log files to sort
+            // chronologically
+            long currentTime = System.currentTimeMillis();
+            outFile = File.createTempFile("fdb-relational-server-" + version + "-" + currentTime + "-" + grpcPort + "-out.", ".log");
+            errFile = File.createTempFile("fdb-relational-server-" + version + "-" + currentTime + "-" + grpcPort + "-err.", ".log");
         } else {
             outFile = null;
             errFile = null;
@@ -161,6 +168,15 @@ public class ExternalServer {
         }
 
         if (!startServer(processBuilder)) {
+            if (logger.isWarnEnabled()) {
+                logger.warn(KeyValueLogMessage.of("Failed to start external server",
+                        "jar", serverJar,
+                        LogMessageKeys.VERSION, version,
+                        "grpc_port", grpcPort,
+                        "http_port", httpPort,
+                        "out_file", outFile,
+                        "err_file", errFile));
+            }
             Assertions.fail("Failed to start the external server");
         }
 
@@ -217,7 +233,7 @@ public class ExternalServer {
     }
 
     private boolean attemptConnectionWithRetry() throws SQLException, InterruptedException {
-        final int maxAttempts = 10;
+        final int maxAttempts = 20;
         boolean started = false;
         int attempts = 0;
         while (!started && attempts < maxAttempts) {
@@ -225,6 +241,13 @@ public class ExternalServer {
             Thread.sleep(delay);
             started = attemptConnection();
             attempts++;
+            if (logger.isDebugEnabled()) {
+                logger.debug(KeyValueLogMessage.of("Attempted to connect to external server",
+                        LogMessageKeys.VERSION, version,
+                        "grpc_port", getPort(),
+                        "attempt", attempts,
+                        "success", started));
+            }
         }
         return started;
     }

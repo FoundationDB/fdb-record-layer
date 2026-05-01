@@ -26,17 +26,17 @@ import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.util.pair.ImmutablePair;
 import com.apple.foundationdb.record.util.pair.Pair;
-import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.yamltests.tags.IgnoreTag;
-import com.apple.foundationdb.relational.yamltests.tags.Matchable;
-import com.apple.foundationdb.relational.yamltests.tags.IsNullTag;
-import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
+import com.apple.foundationdb.relational.yamltests.tags.IgnoreTag;
+import com.apple.foundationdb.relational.yamltests.tags.IsNullTag;
+import com.apple.foundationdb.relational.yamltests.tags.Matchable;
+import com.apple.foundationdb.relational.yamltests.tags.PosTag;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
@@ -382,7 +382,7 @@ public class Matchers {
             } else if (cell instanceof byte[]) {
                 cellString = ByteArrayUtil2.loggable((byte[]) cell);
             } else {
-                cellString = cell.toString();
+                cellString = limitString(cell.toString());
             }
             resultSet.get(resultSet.size() - 1).add(cellString);
         }
@@ -419,6 +419,17 @@ public class Matchers {
                 return at.render();
             }
         }
+    }
+
+    public static String limitString(String input) {
+        if (input == null) {
+            return "<NULL>";
+        }
+        final int maxLength = 400;
+        if (input.length() > maxLength) {
+            return input.substring(0, maxLength) + "...(" + (input.length() - maxLength) + " more chars)";
+        }
+        return input;
     }
 
     public static Pair<ResultSetMatchResult, ResultSetPrettyPrinter> matchResultSet(final Object expected, final RelationalResultSet actual, final boolean isExpectedOrdered) throws SQLException {
@@ -559,8 +570,11 @@ public class Matchers {
         }
         for (final var entry : expected.entrySet()) {
             final var expectedField = valueElseKey(entry);
-            final var actualField = entry.getValue() == null ? entryByNumberAccessor.apply(counter) : entryByNameAccessor.apply(string(entry.getKey()));
-            final var currentCellRef = entry.getValue() == null ? "pos<" + counter + ">" : string(entry.getKey());
+            final var isUserDefinedColPos = entry.getKey() instanceof PosTag.ColumnPosition;
+            final var effectiveColumnPos = isUserDefinedColPos ? ((PosTag.ColumnPosition)entry.getKey()).getValue() : counter;
+            final var actualField = entry.getValue() == null || isUserDefinedColPos ?
+                                    entryByNumberAccessor.apply(effectiveColumnPos) : entryByNameAccessor.apply(string(entry.getKey()));
+            final var currentCellRef = entry.getValue() == null ? "pos<" + effectiveColumnPos + ">" : entry.getKey().toString();
             final var matchResult = matchField(expectedField, actualField, rowNumber, cellRef + (cellRef.isEmpty() ? "" : ".") + currentCellRef);
             if (!matchResult.equals(ResultSetMatchResult.success())) {
                 return matchResult; // propagate failure.
@@ -644,6 +658,11 @@ public class Matchers {
             return matchIntField((Integer) expected, actual, rowNumber, cellRef);
         }
 
+        // float comparison (with possible promotion to double)
+        if (expected instanceof Float) {
+            return matchFloatField((Float) expected, actual, rowNumber, cellRef);
+        }
+
         if (expected instanceof String && actual instanceof byte[]) {
             if (Objects.equals(expected, new String((byte[]) actual, StandardCharsets.UTF_8))) {
                 return ResultSetMatchResult.success();
@@ -658,6 +677,12 @@ public class Matchers {
                 }
             } else if (((String) expected).toLowerCase(Locale.ROOT).startsWith("x'") && ((String) expected).endsWith("'") &&
                     Arrays.equals(ParseHelpers.parseBytes((String) expected), (byte[]) actual)) {
+                return ResultSetMatchResult.success();
+            }
+        }
+
+        if (expected instanceof byte[] && actual instanceof byte[]) {
+            if (Arrays.equals((byte[]) expected, (byte[]) actual)) {
                 return ResultSetMatchResult.success();
             }
         }
@@ -689,6 +714,27 @@ public class Matchers {
             }
         }
         return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 does not match 🟡.%n🟢 %s (Integer) %n🟡 %s (%s)", rowNumber, cellRef, expected, actual, actual.getClass().getSimpleName()));
+    }
+
+    /**
+     * Performs float matching against float, or against double (with promotion).
+     * @param expected expected value.
+     * @param actual actual value.
+     * @return success if {@code expected} matches {@code actual}, otherwise fail.
+     */
+    @Nonnull
+    private static ResultSetMatchResult matchFloatField(@Nonnull final Float expected, @Nonnull final Object actual, int rowNumber, @Nonnull String cellRef) {
+        if (actual instanceof Float) {
+            if (Objects.equals(expected, actual)) {
+                return ResultSetMatchResult.success();
+            }
+        }
+        if (actual instanceof Double) {
+            if (Objects.equals(expected.doubleValue(), actual)) {
+                return ResultSetMatchResult.success();
+            }
+        }
+        return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 does not match 🟡.%n🟢 %s (Float) %n🟡 %s (%s)", rowNumber, cellRef, expected, actual, actual.getClass().getSimpleName()));
     }
 
     @Nonnull
@@ -724,5 +770,10 @@ public class Matchers {
             default:
                 throw new IllegalArgumentException("Unsupported vector precision: " + precision + ". Expected 16, 32, or 64.");
         }
+    }
+
+    @Nonnull
+    public static String constructRandomString(@Nonnull final ScalarNode yamlElementsNode) {
+        return RandomStringParser.parse(yamlElementsNode.getValue());
     }
 }

@@ -280,8 +280,8 @@ class ValueSimplificationTest {
         // _._0.b
         final var bFieldPulledUp = FieldValue.ofFieldNameAndFuseIfPossible(zeroFieldPulledUp, "b");
 
-        Assertions.assertEquals(iFieldPulledUp, pulledUpValuesMap.get(iField));
-        Assertions.assertEquals(bFieldPulledUp, pulledUpValuesMap.get(bField));
+        Assertions.assertEquals(ImmutableList.of(iFieldPulledUp), pulledUpValuesMap.get(iField));
+        Assertions.assertEquals(ImmutableList.of(bFieldPulledUp), pulledUpValuesMap.get(bField));
     }
 
     @Nonnull

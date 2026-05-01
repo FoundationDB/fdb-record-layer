@@ -30,13 +30,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
-import com.apple.foundationdb.record.locking.AsyncLock;
-import com.apple.foundationdb.record.locking.LockRegistry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.locking.AsyncLock;
 import com.apple.foundationdb.record.locking.LockIdentifier;
+import com.apple.foundationdb.record.locking.LockRegistry;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.apple.foundationdb.util.CallbackUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Utf8;
@@ -173,7 +174,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nullable
     private List<Range> notCommittedConflictingKeys = null;
     @Nonnull
-    private final LockRegistry lockRegistry = new LockRegistry(this.getTimer());
+    private final LockRegistry lockRegistry;
     @Nonnull
     private final TempTable.Factory tempTableFactory = TempTable.Factory.instance();
 
@@ -190,43 +191,43 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         this.transactionId = getSanitizedId(config);
         this.openStackTrace = config.isSaveOpenStackTrace() ? new Throwable("Not really thrown") : null;
 
-        @Nonnull Transaction tr = ensureActive();
         if (this.transactionId != null) {
-            tr.options().setDebugTransactionIdentifier(this.transactionId);
+            transaction.options().setDebugTransactionIdentifier(this.transactionId);
             if (config.isLogTransaction()) {
-                logTransaction();
+                transaction.options().setLogTransaction();
+                logged = true;
             }
         }
         if (config.isServerRequestTracing()) {
-            tr.options().setServerRequestTracing();
+            transaction.options().setServerRequestTracing();
         }
 
         if (!config.getTags().isEmpty()) {
             for (String tag : config.getTags()) {
-                tr.options().setTag(tag);
+                transaction.options().setTag(tag);
             }
         }
 
         if (config.isReportConflictingKeys()) {
-            tr.options().setReportConflictingKeys();
+            transaction.options().setReportConflictingKeys();
         }
 
         this.config = config;
 
         // If a causal read risky is requested, we set the corresponding transaction option
         if (config.getWeakReadSemantics() != null && config.getWeakReadSemantics().isCausalReadRisky()) {
-            tr.options().setCausalReadRisky();
+            transaction.options().setCausalReadRisky();
         }
 
         switch (config.getPriority()) {
             case BATCH:
-                tr.options().setPriorityBatch();
+                transaction.options().setPriorityBatch();
                 break;
             case DEFAULT:
                 // Default priority does not need to set any option
                 break;
             case SYSTEM_IMMEDIATE:
-                tr.options().setPrioritySystemImmediate();
+                transaction.options().setPrioritySystemImmediate();
                 break;
             default:
                 throw new RecordCoreArgumentException("unknown priority level " + config.getPriority());
@@ -236,8 +237,10 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         this.timeoutMillis = getTimeoutMillisToSet(fdb, config);
         if (timeoutMillis != FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS) {
             // If the value is DEFAULT_TR_TIMEOUT_MILLIS, then this uses the system default and does not need to be set here
-            tr.options().setTimeout(timeoutMillis);
+            transaction.options().setTimeout(timeoutMillis);
         }
+
+        lockRegistry = new LockRegistry(timer);
 
         this.dirtyStoreState = false;
     }
@@ -369,11 +372,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @see com.apple.foundationdb.TransactionOptions#setLogTransaction()
      * @see FDBRecordContextConfig.Builder#setLogTransaction(boolean)
      */
+    // TODO: Consider deprecating this method, as now called inline when constructing.
     public final void logTransaction() {
         if (transactionId == null) {
             throw new RecordCoreException("Cannot log transaction as ID is not set");
         }
-        // TODO: Consider deprecating this method and moving this inline.
         ensureActive().options().setLogTransaction();
         logged = true;
     }
@@ -426,6 +429,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         try {
             closeTransaction(false);
         } finally {
+            // This may throw exception when any/some of the callbacks failed, and that exception should be propagated
             asyncToSync(FDBStoreTimer.Waits.WAIT_RUN_CLOSE_HOOKS, runPostClose());
         }
     }
@@ -1041,28 +1045,48 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
     }
 
+    /**
+     * Run all post-commit callbacks.
+     * This method does its best to ensure all callbacks are invoked, regardless if some throw exceptions.
+     * @return a future that completes when all callbacks were invoked and all futures have completed
+     */
     @Nonnull
     private CompletableFuture<Void> runPostCommits() {
-        return runPostCommits(postCommits);
+        synchronized (postCommits) {
+            return runPostCommits(postCommits);
+        }
     }
 
+    /**
+     * Run all post-close callbacks.
+     * This method does its best to ensure all callbacks are invoked, regardless if some throw exceptions.
+     * @return a future that completes when all callbacks were invoked and all futures have completed
+     */
     @Nonnull
     private CompletableFuture<Void> runPostClose() {
-        return runPostCommits(postClose);
+        synchronized (postClose) {
+            return runPostCommits(postClose);
+        }
     }
 
     @Nonnull
     private CompletableFuture<Void> runPostCommits(Map<String, PostCommit> hooksToRun) {
-        synchronized (hooksToRun) {
-            if (hooksToRun.isEmpty()) {
-                return AsyncUtil.DONE;
-            }
-            List<CompletableFuture<Void>> work = hooksToRun.values().stream()
-                    .map(PostCommit::get)
-                    .collect(Collectors.toList());
-            hooksToRun.clear();
-            return AsyncUtil.whenAll(work);
+        if (hooksToRun.isEmpty()) {
+            return AsyncUtil.DONE;
         }
+        try {
+            List<Supplier<CompletableFuture<Void>>> callbacks = hooksToRun.values().stream()
+                    .map(this::postCommitCallback)
+                    .collect(Collectors.toList());
+            // This would ensure best-effort in calling all suppliers and waiting for all the futures
+            return CallbackUtils.invokeAllFutures(callbacks);
+        } finally {
+            hooksToRun.clear();
+        }
+    }
+
+    private Supplier<CompletableFuture<Void>> postCommitCallback(PostCommit pc) {
+        return pc::get;
     }
 
     private void checkCommitHookName(@Nonnull String name) {

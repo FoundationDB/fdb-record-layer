@@ -90,7 +90,7 @@ class KeySpacePathImpl implements KeySpacePath {
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public KeySpacePath add(@Nonnull String dirName) {
         KeySpaceDirectory nextDir = directory.getSubdirectory(dirName);
-        if (nextDir.getValue() == KeySpaceDirectory.ANY_VALUE) {
+        if (!nextDir.isConstant()) {
             throw new RecordCoreArgumentException("Directory requires an explicit value",
                     "dir_name", nextDir.getName());
         }

@@ -315,6 +315,21 @@ message ValuePredicate {
   optional Comparison comparison = 2;
 }
 
+message RowNumberWindowPredicate {
+  repeated string ordering_field = 1;
+  required int32 size = 2;
+  enum Direction {
+    ASC = 1;
+    DESC = 2;
+  }
+  required Direction direction = 3;
+  repeated FieldPath partition_fields = 4;
+}
+
+message FieldPath {
+  repeated string field = 1;
+}
+
 message Predicate {
   // exactly one of the following
   optional AndPredicate and_predicate = 1;
@@ -322,4 +337,5 @@ message Predicate {
   optional ConstantPredicate constant_predicate = 3;
   optional NotPredicate not_predicate = 4;
   optional ValuePredicate value_predicate = 5;
+  optional RowNumberWindowPredicate row_number_window_predicate = 6;
 }

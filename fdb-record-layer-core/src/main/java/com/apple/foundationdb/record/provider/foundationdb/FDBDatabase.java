@@ -784,6 +784,9 @@ public class FDBDatabase {
         Transaction transaction = database.createTransaction(executor, new EventKeeperTranslator(timer));
         if (timer != null || enableAssertions) {
             transaction = new InstrumentedTransaction(timer, delayedTimer, this, listener, transaction, enableAssertions);
+            if (listener != null) {
+                listener.create(this, transaction);
+            }
         }
 
         if (config.getKeyChecker() != null) {

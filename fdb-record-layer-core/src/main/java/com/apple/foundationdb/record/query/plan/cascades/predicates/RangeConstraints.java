@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.IndexComparison;
 import com.apple.foundationdb.record.planprotos.PCompilableRange;
 import com.apple.foundationdb.record.planprotos.PRangeConstraints;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
@@ -228,60 +229,55 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      * checks whether the range is known to be empty at compile-time or not.
      * @param evaluationContext The evaluation context required for compiling this range.
      * @return if the range is compile-time it returns {@code true} if it is empty or {@code false} if it is not
-     * otherwise {@code unknown}, under a given evaluation context.
+     * otherwise {@code false}, under a given evaluation context.
      */
-    @Nonnull
-    public Proposition isEmpty(@Nonnull final EvaluationContext evaluationContext) {
+    public boolean isEmpty(@Nonnull final EvaluationContext evaluationContext) {
         if (deferredRanges.isEmpty()) {
             final var range = Objects.requireNonNull(evaluableRange).compile(evaluationContext);
             if (range != null && range.isEmpty()) {
-                return Proposition.TRUE;
+                return true;
             } else {
-                return Proposition.FALSE;
+                return false;
             }
         }
-        return Proposition.UNKNOWN;
+        return false;
     }
 
     /**
      * checks whether {@code this} range encloses another {@link RangeConstraints} under an {@link EvaluationContext}.
-     * Both ranges <b>must</b> be compile-time.
      * <br>
      * <b>Examples</b>:
      * <ul>
-     * <li>{@code this = [1, 10), other = (2, 5) => this.encloses(other) = TRUE}</li>
-     * <li>{@code this = [1, 10), other = (0, 5) => this.encloses(other) = FALSE}</li>
-     * <li>{@code this = [1, 10), other = [1, 10) => this.encloses(other) = TRUE}</li>
-     * <li>{@code this = [1, 10), other = (1, 10) => this.encloses(other) = TRUE}</li>
-     * <li>{@code this = [1, 10), other = () => this.encloses(other) = FALSE}</li>
-     * <li>{@code this = {[1, 10), deferred = STARTS_WITH}, other = (2, 5) => this.encloses(other) = UNKNOWN}</li>
+     * <li>{@code this = [1, 10), other = (2, 5) => this.encloses(other) = true}</li>
+     * <li>{@code this = [1, 10), other = (0, 5) => this.encloses(other) = false}</li>
+     * <li>{@code this = [1, 10), other = [1, 10) => this.encloses(other) = true}</li>
+     * <li>{@code this = [1, 10), other = (1, 10) => this.encloses(other) = true}</li>
+     * <li>{@code this = [1, 10), other = () => this.encloses(other) = false}</li>
+     * <li>{@code this = {[1, 10), deferred = STARTS_WITH}, other = (2, 5) => this.encloses(other) = false}</li>
+     * <li>{@code this = {[1, 10), other = (2, 5), deferred = STARTS_WITH} => this.encloses(other) = true}</li>
      * </ul>
      *
      * @param other The other range to compare against.
      * @param evaluationContext The evaluation context for compiling {@code this} and {@code other} range constraints.
      * @return {@code true} if the range is known, at compile-time, to enclose {@code other} or {@code false} if not.
-     * Otherwise, it returns {@code unknown}.
      */
-    @Nonnull
-    public Proposition encloses(@Nonnull final RangeConstraints other, @Nonnull final EvaluationContext evaluationContext) {
-        if (!isCompileTimeEvaluable() || !other.isCompileTimeEvaluable()) {
-            return Proposition.UNKNOWN;
+    public boolean encloses(@Nonnull final RangeConstraints other, @Nonnull final EvaluationContext evaluationContext) {
+        if (!isCompileTimeEvaluable()) {
+            return false; // candidate range is not compile-time evaluable, it is impossible to determine potential implication -> bailout.
         } else if (evaluableRange == null) { // full range implies everything
-            return Proposition.TRUE;
+            return true;
         } else if (other.evaluableRange == null) { // other is full range, we are not -> false
-            return Proposition.FALSE;
+            return false;
         } else {
             final var thisRange = evaluableRange.compile(evaluationContext);
             if (thisRange == null) {
-                return Proposition.TRUE; // full range implies everything
+                return true; // full range implies everything
             }
             final var otherRange = other.evaluableRange.compile(evaluationContext);
             if (otherRange == null) {
-                return Proposition.FALSE;
-            } else if (thisRange.encloses(otherRange)) {
-                return Proposition.TRUE;
+                return false;
             } else {
-                return Proposition.FALSE;
+                return thisRange.encloses(otherRange);
             }
         }
     }
@@ -302,7 +298,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         }
 
         if (!deferredRanges.isEmpty()) {
-            resultExplainTokens.addSequence(() -> new ExplainTokens().addWhitespace()
+            resultExplainTokens.addWhitespace().addKeyword("AND").addWhitespace().addSequence(() -> new ExplainTokens().addWhitespace()
                             .addKeyword("AND").addWhitespace(),
                     () -> deferredRanges.stream().map(Comparisons.Comparison::explain)
                             .map(Precedence.AND::parenthesizeChild).iterator());
@@ -573,6 +569,9 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         @Nonnull
         private static Tuple toTuple(@Nonnull final Comparisons.Comparison comparison, @Nonnull final EvaluationContext evaluationContext) {
             final List<Object> items = new ArrayList<>();
+            if (comparison instanceof RecordTypeKeyComparison.RecordTypeComparison) {
+                return Tuple.from(((RecordTypeKeyComparison.RecordTypeComparison)comparison).getRecordTypeName());
+            }
             var comparand = comparison.getComparand(null, evaluationContext);
             if (comparison.hasMultiColumnComparand()) {
                 items.addAll(((Tuple)comparand).getItems());
@@ -750,7 +749,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         }
 
         private boolean isCompileTime(@Nonnull final Comparisons.Comparison comparison) {
-            return IndexComparison.isSupported(comparison) && allowedComparisonTypes.contains(comparison.getType());
+            return (comparison instanceof RecordTypeKeyComparison.RecordTypeComparison || IndexComparison.isSupported(comparison))
+                    && allowedComparisonTypes.contains(comparison.getType());
         }
 
         private boolean canBeUsedInScanPrefix(@Nonnull final Comparisons.Comparison comparison) {

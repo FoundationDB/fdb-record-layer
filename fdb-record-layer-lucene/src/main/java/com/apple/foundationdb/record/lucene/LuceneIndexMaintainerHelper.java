@@ -83,6 +83,7 @@ public final class LuceneIndexMaintainerHelper {
                 context.ensureActive().clear(documentIndexEntry.entryKey); // TODO: Only if valid?
                 long valid = indexWriter.tryDeleteDocument(documentIndexEntry.indexReader, documentIndexEntry.docId);
                 if (valid > 0) {
+                    // Note: this function is only called from the maintainer, hence the context is NOT an agility context and can be used to record events.
                     context.record(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY, System.nanoTime() - startTime);
                     return 1;
                 } else if (LOG.isDebugEnabled()) {
@@ -171,14 +172,12 @@ public final class LuceneIndexMaintainerHelper {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    public static void writeDocument(FDBRecordContext context,
-                                     IndexWriter newWriter,
+    public static void writeDocument(IndexWriter newWriter,
                                      Index index,
                                      Tuple primaryKey,
                                      List<LuceneDocumentFromRecord.DocumentField> fields
                                      ) throws IOException {
         // Partition count was increased preemptively by the index maintainer
-        final long startTime = System.nanoTime();
         Document document = new Document();
         String formatString = index.getOption(LuceneIndexOptions.PRIMARY_KEY_SERIALIZATION_FORMAT);
         LuceneIndexKeySerializer keySerializer = LuceneIndexKeySerializer.fromStringFormat(formatString);
@@ -207,8 +206,6 @@ public final class LuceneIndexMaintainerHelper {
             }
         }
         newWriter.addDocument(document);
-        context.record(LuceneEvents.Events.LUCENE_ADD_DOCUMENT, System.nanoTime() - startTime);
-
     }
 
     @Nonnull

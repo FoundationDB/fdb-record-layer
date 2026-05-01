@@ -121,8 +121,8 @@ public interface MatchInfo {
                                     candidateLowerExpression.getCorrelatedTo()),
                             candidateAlias);
             final var pulledUpCandidateAggregateValue = candidatePullUpMap.get(candidateAggregateValue);
-            if (pulledUpCandidateAggregateValue != null) {
-                adjustedMatchedAggregateMapBuilder.put(queryAggregateValue, pulledUpCandidateAggregateValue);
+            if (!pulledUpCandidateAggregateValue.isEmpty()) {
+                adjustedMatchedAggregateMapBuilder.put(queryAggregateValue, Iterables.getOnlyElement(pulledUpCandidateAggregateValue));
             }
         }
         return adjustedMatchedAggregateMapBuilder.build();
@@ -487,8 +487,9 @@ public interface MatchInfo {
             final var queryExpression = partialMatch.getQueryExpression();
             final var resultValue = queryExpression.getResultValue();
             final var groupByMappings = matchInfo.getGroupByMappings();
-            final var constantAliases = Sets.difference(resultValue.getCorrelatedTo(),
-                    queryExpression.getCorrelatedTo());
+            final var constantAliases =
+                    Sets.intersection(resultValue.getCorrelatedTo(),
+                            queryExpression.getCorrelatedTo());
             final var matchedGroupingsMap =
                     pullUpMatchedValueMap(partialMatch, groupByMappings.getMatchedGroupingsMap(), resultValue,
                             queryAlias, candidateAlias, constantAliases);
@@ -500,16 +501,22 @@ public interface MatchInfo {
             final var unmatchedAggregateMapBuilder = ImmutableBiMap.<CorrelationIdentifier, Value>builder();
             for (final var unmatchedAggregateMapEntry : groupByMappings.getUnmatchedAggregatesMap().entrySet()) {
                 final var queryAggregateValue = unmatchedAggregateMapEntry.getValue();
+                // https://github.com/FoundationDB/fdb-record-layer/issues/3830
                 final var pullUpMap =
                         resultValue.pullUp(ImmutableList.of(queryAggregateValue), EvaluationContext.empty(),
                                 AliasMap.emptyMap(),
                                 Sets.difference(queryAggregateValue.getCorrelatedToWithoutChildren(),
                                         queryExpression.getCorrelatedTo()), queryAlias);
                 final var pulledUpQueryAggregateValue = pullUpMap.get(queryAggregateValue);
-                if (pulledUpQueryAggregateValue == null) {
+                if (pulledUpQueryAggregateValue.isEmpty()) {
                     return GroupByMappings.empty();
                 }
-                unmatchedAggregateMapBuilder.put(unmatchedAggregateMapEntry.getKey(), pulledUpQueryAggregateValue);
+                // Here, we make a careless assumption that the query and the candidate values cannot be ambiguous.
+                // This is not entirely true as the respected result value could have aliasing, and hence this would
+                // not work as expected. The bigger issue is that ambiguity is not well represented in the
+                // `GroupByMappings` to which this builder pours to.
+                // See: https://github.com/FoundationDB/fdb-record-layer/issues/3830
+                unmatchedAggregateMapBuilder.put(unmatchedAggregateMapEntry.getKey(), Iterables.getOnlyElement(pulledUpQueryAggregateValue));
             }
 
             return GroupByMappings.of(matchedGroupingsMap, matchedAggregatesMap, unmatchedAggregateMapBuilder.build());
@@ -527,8 +534,8 @@ public interface MatchInfo {
                 final var pullUpMap =
                         queryResultValue.pullUp(ImmutableList.of(queryValue), EvaluationContext.empty(),
                                 AliasMap.emptyMap(), constantAliases, queryAlias);
-                final Value pulledUpQueryValue = pullUpMap.get(queryValue);
-                if (pulledUpQueryValue == null) {
+                final var pulledUpQueryValue = pullUpMap.get(queryValue);
+                if (pulledUpQueryValue.isEmpty()) {
                     continue;
                 }
 
@@ -544,10 +551,15 @@ public interface MatchInfo {
                                         candidateLowerExpression.getCorrelatedTo()),
                                 candidateAlias);
                 final var pulledUpCandidateAggregateValue = candidatePullUpMap.get(candidateAggregateValue);
-                if (pulledUpCandidateAggregateValue == null) {
+                if (pulledUpCandidateAggregateValue.isEmpty()) {
                     continue;
                 }
-                matchedAggregatesMapBuilder.put(pulledUpQueryValue, pulledUpCandidateAggregateValue);
+                // Here, we make a careless assumption that the query and the candidate values cannot be ambiguous.
+                // This is not entirely true as the respected result value could have aliasing, and hence this would
+                // not work as expected. The bigger issue is that ambiguity is not well represented in the
+                // `GroupByMappings` to which this builder pours to.
+                // See: https://github.com/FoundationDB/fdb-record-layer/issues/3830
+                matchedAggregatesMapBuilder.put(Iterables.getOnlyElement(pulledUpQueryValue), Iterables.getOnlyElement(pulledUpCandidateAggregateValue));
             }
             return matchedAggregatesMapBuilder.build();
         }

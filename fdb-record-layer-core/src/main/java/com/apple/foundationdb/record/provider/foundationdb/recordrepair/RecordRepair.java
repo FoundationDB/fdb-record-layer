@@ -98,6 +98,7 @@ public abstract class RecordRepair implements AutoCloseable {
     private final ThrottledRetryingIterator<Tuple> throttledIterator;
     private final boolean allowRepair;
 
+    @SuppressWarnings("this-escape")
     protected RecordRepair(@Nonnull final Builder config, boolean allowRepair) {
         this.database = config.database;
         this.storeBuilder = config.getStoreBuilder();

@@ -247,8 +247,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         if (callerTimer == null && LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.of("oneThreadIndexing",
                     LogMessageKeys.RECORDS_SCANNED, numScanned,
-                    "tid", Thread.currentThread().getId()
-            ));
+                    "thread", Thread.currentThread().getName()));
         }
         return numScanned;
     }

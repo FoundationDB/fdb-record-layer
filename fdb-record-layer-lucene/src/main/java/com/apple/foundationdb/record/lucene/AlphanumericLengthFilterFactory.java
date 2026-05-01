@@ -29,7 +29,7 @@ import java.util.Map;
 /**
  * A TokenFilterFactory that creates Alphanumeric Length filters.
  */
-public class AlphanumericLengthFilterFactory extends TokenFilterFactory {
+public final class AlphanumericLengthFilterFactory extends TokenFilterFactory {
 
     final int min;
     final int max;

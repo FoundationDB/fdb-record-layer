@@ -54,9 +54,11 @@ import java.util.function.Function;
 public class UpdateTest {
 
     private static final String schemaTemplate =
-            "CREATE TYPE AS STRUCT LatLong (latitude double, longitude double)" +
-                    " CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)" +
-                    " CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, secrets bytes array, PRIMARY KEY(id))";
+            """
+            CREATE TYPE AS STRUCT LatLong (latitude double, longitude double)
+            CREATE TYPE AS STRUCT ReviewerStats (start_date bigint, school_name string, hometown string)
+            CREATE TABLE RestaurantReviewer (id bigint, name string, email string, stats ReviewerStats, secrets bytes array, PRIMARY KEY(id))
+            """;
 
     @RegisterExtension
     @Order(0)

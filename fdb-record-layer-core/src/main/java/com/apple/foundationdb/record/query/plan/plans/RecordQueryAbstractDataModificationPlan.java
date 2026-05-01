@@ -119,7 +119,8 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
     private final CorrelationIdentifier currentModifiedRecordAlias;
 
     @Nonnull
-    private final Supplier<Integer> planHashForContinuationSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Integer> planHashForContinuationSupplier = Suppliers.memoize(this::computePlanHashForContinuation);
 
     protected RecordQueryAbstractDataModificationPlan(@Nonnull final PlanSerializationContext serializationContext,
                                                       @Nonnull final PRecordQueryAbstractDataModificationPlan recordQueryAbstractDataModificationPlanProto) {
@@ -152,7 +153,6 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
         this.computationValue = computationValue;
         this.resultValue = new QueriedValue(computationValue.getResultType());
         this.currentModifiedRecordAlias = currentModifiedRecordAlias;
-        this.planHashForContinuationSupplier = Suppliers.memoize(this::computePlanHashForContinuation);
     }
 
     @Nonnull

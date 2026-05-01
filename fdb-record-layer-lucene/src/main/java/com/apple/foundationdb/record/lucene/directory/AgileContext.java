@@ -69,6 +69,7 @@ public class AgileContext implements AgilityContext {
     private Function<FDBRecordContext, CompletableFuture<Void>> commitCheck;
     private Throwable lastException = null;
 
+    @SuppressWarnings("this-escape")
     protected AgileContext(FDBRecordContext callerContext, @Nullable FDBRecordContextConfig.Builder contextBuilder, final long timeQuotaMillis, final long sizeQuotaBytes) {
         this.callerContext = callerContext;
         contextConfigBuilder = contextBuilder != null ? contextBuilder : callerContext.getConfig().toBuilder();

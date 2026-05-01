@@ -108,7 +108,7 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if the provided value constant value is not valid for the
      * type of directory being created
      */
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @SuppressWarnings({"PMD.CompareObjectsWithEquals", "this-escape"})
     public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType, @Nullable Object value,
                              @Nullable Function<KeySpacePath, KeySpacePath> wrapper) {
 
@@ -118,6 +118,8 @@ public class KeySpaceDirectory {
         this.wrapper = wrapper;
 
         if (value != keyType.getAnyValue()) {
+            // NOTE: this method actually _is_ overridden by DirectoryLayerDirectory, but not in a way that depends
+            // on its constructor having been called.
             validateConstant(value);
         }
     }
@@ -353,7 +355,7 @@ public class KeySpaceDirectory {
             }
 
             if (existingSubdir.getKeyType() == subdirectory.getKeyType()) {
-                if (existingSubdir.getValue() == ANY_VALUE || subdirectory.getValue() == ANY_VALUE) {
+                if (!existingSubdir.isConstant() || !subdirectory.isConstant()) {
                     throw new RecordCoreArgumentException("Cannot add directory due to overlapping type",
                             LogMessageKeys.PARENT_DIR, getName(),
                             LogMessageKeys.DIR_NAME, existingSubdir.getName(),
@@ -535,7 +537,7 @@ public class KeySpaceDirectory {
         final EndpointType startType;
         final EndpointType stopType;
 
-        if (getValue() == KeySpaceDirectory.ANY_VALUE) {
+        if (!isConstant()) {
             if (valueRange != null && valueRange.getLowEndpoint() != EndpointType.TREE_START) {
                 if (KeyType.typeOf(valueRange.getLow()) != getKeyType()) {
                     throw invalidValueTypeException(KeyType.typeOf(valueRange.getLow()), getKeyType(), getName(), valueRange);
@@ -681,7 +683,7 @@ public class KeySpaceDirectory {
      */
     @Nonnull
     protected CompletableFuture<PathValue> toTupleValueAsyncImpl(@Nonnull FDBRecordContext context, @Nullable Object value) {
-        if (this.value != ANY_VALUE && !areEqual(this.value, value)) {
+        if (this.isConstant() && !areEqual(this.value, value)) {
             throw new RecordCoreArgumentException("Illegal value provided",
                     "provided_value", value,
                     "expected_value", this.value);
@@ -750,11 +752,20 @@ public class KeySpaceDirectory {
      * Returns the constant value that this directory stores.
      * A return value of {@link #ANY_VALUE} indicates
      * that this directory may contain any value of the type indicated by {@link #getKeyType()}
+     * (see also {@link #isConstant()}.
      * @return the constant value that this directory stores
      */
     @Nullable
     public Object getValue() {
         return value;
+    }
+
+    /**
+     * Whether this directory has a constant value, or can be any value.
+     * @return {@code true} if this directory has a constant value, or {@code false} if it can accept any value.
+     */
+    public boolean isConstant() {
+        return value != ANY_VALUE;
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // we use ref

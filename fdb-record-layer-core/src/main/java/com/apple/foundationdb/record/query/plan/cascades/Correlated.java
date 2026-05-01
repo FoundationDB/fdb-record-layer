@@ -40,7 +40,7 @@ import java.util.Set;
  * Distinguishing the correlation identifier from the identity of the quantifier object simplifies modifications of the
  * graph, for example while applying transformations during query planning.
 
- * An correlated object can be <em>rebased</em> using {@link #rebase} and a map of translations from one
+ * A correlated object can be <em>rebased</em> using {@link #rebase} and a map of translations from one
  * correlation identifier to another, resulting in a new object of type {@code S} that is
  * identical to {@code this} except that all correlated references in the subtree rooted at this entity
  * (i.e., this object's relational children, predicates, etc.) are replaced with their corresponding identifiers

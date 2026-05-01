@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventStatsCollector;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -150,18 +151,22 @@ public final class PlanGenerator {
             final Set<PlanHashable.PlanHashMode> validPlanHashModes = OptionsUtils.getValidPlanHashModes(options);
             final PlanHashable.PlanHashMode currentPlanHashMode = OptionsUtils.getCurrentPlanHashMode(options);
             final var astHashResult = AstNormalizer.normalizeQuery(planContext, query, isCaseSensitive(), currentPlanHashMode);
-            RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().getHash(),
+            RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().hashCode(),
                     astHashResult.getQueryCacheKey().getCanonicalQueryString());
             options = options.withChild(astHashResult.getQueryOptions());
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
-                Plan<?> plan = generatePhysicalPlan(astHashResult, validPlanHashModes, currentPlanHashMode);
-                RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros(), 0);
-                return plan;
+                return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_BYPASS, () -> {
+                    planContext.getMetricsCollector().increment(RelationalMetric.RelationalCount.PLAN_CACHE_SKIP);
+                    Plan<?> plan = generatePhysicalPlan(astHashResult, validPlanHashModes, currentPlanHashMode);
+                    RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros(), 0);
+                    return plan;
+                });
             }
 
-            // Default is to cache hit. This is modified later if we cache miss
+            // Default is to cache hit. This is modified later if we cache miss. Also log the number of entries that
+            // currently exists in the cache.
             RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.HIT, -1, cache.get().getStats().numEntries());
 
             // otherwise, lookup the query in the cache
@@ -196,7 +201,7 @@ public final class PlanGenerator {
                                     return candidate;
                                 }
                             }),
-                            e -> planContext.getMetricsCollector().increment(e)
+                            planContext.getMetricsCollector()
                     )
             );
         } catch (UncheckedRelationalException uve) {
@@ -229,6 +234,7 @@ public final class PlanGenerator {
     }
 
     @Nonnull
+    @SuppressWarnings("try")
     private Plan<?> generatePhysicalPlanForCompilableStatement(@Nonnull AstNormalizer.NormalizationResult ast,
                                                                boolean caseSensitive,
                                                                @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) {
@@ -238,8 +244,9 @@ public final class PlanGenerator {
 
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
                 currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash);
+        planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
         final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
-        try {
+        try (var ignored = new PlannerEventStatsCollector.DefaultStatsCollectorController()) {
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
                     new BaseVisitor(planGenerationContext, metadata, planContext.getDdlQueryFactory(),
                             planContext.getConstantActionFactory(), planContext.getDbUri(), caseSensitive)

@@ -165,8 +165,10 @@ public class StatementBuilderTests {
                 Arguments.of("options (dry run)", Set.of(StructuredQuery.QueryOptions.DRY_RUN)),
                 Arguments.of("options (log query)", Set.of(StructuredQuery.QueryOptions.LOG_QUERY)),
                 Arguments.of("options (nocache)", Set.of(StructuredQuery.QueryOptions.NOCACHE)),
+                Arguments.of("options (plan right deep)", Set.of(StructuredQuery.QueryOptions.PLAN_RIGHT_DEEP)),
                 Arguments.of("options (nocache, dry run)", Set.of(StructuredQuery.QueryOptions.NOCACHE, StructuredQuery.QueryOptions.DRY_RUN)),
-                Arguments.of("options (nocache, dry run, log query)", Set.of(StructuredQuery.QueryOptions.NOCACHE, StructuredQuery.QueryOptions.DRY_RUN, StructuredQuery.QueryOptions.LOG_QUERY)));
+                Arguments.of("options (nocache, dry run, log query)", Set.of(StructuredQuery.QueryOptions.NOCACHE, StructuredQuery.QueryOptions.DRY_RUN, StructuredQuery.QueryOptions.LOG_QUERY)),
+                Arguments.of("options (nocache, dry run, log query, plan right deep)", Set.of(StructuredQuery.QueryOptions.NOCACHE, StructuredQuery.QueryOptions.DRY_RUN, StructuredQuery.QueryOptions.LOG_QUERY, StructuredQuery.QueryOptions.PLAN_RIGHT_DEEP)));
     }
 
     @DisplayName("examining query options")

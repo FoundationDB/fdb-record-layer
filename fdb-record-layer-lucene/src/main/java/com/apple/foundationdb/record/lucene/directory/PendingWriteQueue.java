@@ -23,13 +23,14 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreInternalException;
+import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
@@ -37,13 +38,16 @@ import com.apple.foundationdb.record.lucene.LuceneIndexMaintainerHelper;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.lucene.index.IndexWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,6 +55,8 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -74,11 +80,16 @@ import java.util.concurrent.CompletableFuture;
  * </pre>
  * <p>Although, non-grouped or non-partitioned indexes would not include all of these components.</p>
  * <p>The key of each K/V queue entry will be a versionStamp to ensure uniqueness and ordering of the queue entries, which
- * should allow for conflict free insertion and removal of items. The value of the K/V will be an instance of PendingWriteItem proto.</p>
+ * should allow for conflict free insertion and removal of items. The value of the K/V will be an instance of
+ * LucenePendingWriteQueueProto.PendingWriteItem.</p>
+ * <p>The queue maintains a counter (in a separate subspace) for the number of entries it contains. The counter starts as
+ * uninitialized and is atomically mutated upon enqueues and clear operations. The queue can (optionally) reject enqueues
+ * if the number of entries is larger than (configurable) limit.</p>
  */
 @API(API.Status.INTERNAL)
 public class PendingWriteQueue {
-    public static final int MAX_PENDING_ENTRIES_TO_REPLAY = 0;
+    public static final int DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY = 0;
+    public static final int DEFAULT_MAX_PENDING_QUEUE_SIZE = 10_000;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PendingWriteQueue.class);
 
@@ -88,59 +99,81 @@ public class PendingWriteQueue {
      * protection against a query attempt taking too long to replay a huge number of elements.
      * Default: 0 (unlimited)
      */
-    private int maxEntriesToReplay;
+    private final int maxEntriesToReplay;
+    /**
+     * The maximum size of the Pending Writes queue.
+     * In case more items than the maximum number allowed in the queue are attempted to get inserted, the operation
+     * will fail.
+     * This option is meant to limit the queue size such that in case of errors the queue won't grow boundlessly.
+     * Default: 10,000. Value of 0 means unlimited.
+     */
+    private final long maxQueueSize;
+    private LuceneSerializer serializer;
 
     private final Subspace queueSubspace;
+    private final Subspace queueSizeSubspace;
+    private final boolean allowIncarnation;
 
     /**
      * Create a pending write queue.
      *
-     * @param queueSubspace the subspace for this partition's queue, should include the partition ID and grouping key,
-     * as necessary
+     * @param queueSubspace the subspace for this partition's queue, should include the partition ID and grouping key, as necessary
+     * @param queueSizeSubspace the subspace for storing the queue size counter
+     * @param maxEntriesToReplay the maximum number of pending entries to replay on read
+     * @param maxQueueSize the maximum number of entries allowed in the queue
+     * @param serializer the serializer for encoding and decoding queue entries
+     * @param allowIncarnation whether to prefix queue keys with an incarnation value, ensuring entries from newer
+     * incarnations sort after older ones. See {@link FDBRecordStore#getIncarnation()}
      */
-    public PendingWriteQueue(@Nonnull Subspace queueSubspace) {
-        this(queueSubspace, MAX_PENDING_ENTRIES_TO_REPLAY);
-    }
-
-    public PendingWriteQueue(@Nonnull Subspace queueSubspace, int maxEntriesToReplay) {
+    public PendingWriteQueue(@Nonnull Subspace queueSubspace, @Nonnull Subspace queueSizeSubspace, int maxEntriesToReplay, int maxQueueSize, LuceneSerializer serializer, boolean allowIncarnation) {
         this.queueSubspace = queueSubspace;
+        this.queueSizeSubspace = queueSizeSubspace;
         this.maxEntriesToReplay = maxEntriesToReplay;
+        this.maxQueueSize = maxQueueSize;
+        this.serializer = serializer;
+        this.allowIncarnation = allowIncarnation;
     }
 
     /**
      * Enqueue an INSERT operation.
      *
-     * @param context the record context to use for the operation
+     * @param context the record context
      * @param primaryKey the record's primary key
      * @param fields the document fields to index
+     * @param incarnationValue the incarnation value to prefix queue keys with (see {@link FDBRecordStore#getIncarnation()})
      */
     public void enqueueInsert(
             @Nonnull FDBRecordContext context,
             @Nonnull Tuple primaryKey,
-            @Nonnull List<LuceneDocumentFromRecord.DocumentField> fields) {
+            @Nonnull List<LuceneDocumentFromRecord.DocumentField> fields,
+            int incarnationValue) {
 
         enqueueOperationInternal(
                 context,
                 LucenePendingWriteQueueProto.PendingWriteItem.OperationType.INSERT,
                 primaryKey,
-                fields);
+                fields,
+                incarnationValue);
     }
 
     /**
      * Enqueue a DELETE operation.
      *
-     * @param context the record context to use for the operation
+     * @param context the record context
      * @param primaryKey the record's primary key to delete
+     * @param incarnationValue the incarnation value to prefix queue keys with (see {@link FDBRecordStore#getIncarnation()})
      */
     public void enqueueDelete(
             @Nonnull FDBRecordContext context,
-            @Nonnull Tuple primaryKey) {
+            @Nonnull Tuple primaryKey,
+            int incarnationValue) {
 
         enqueueOperationInternal(
                 context,
                 LucenePendingWriteQueueProto.PendingWriteItem.OperationType.DELETE,
                 primaryKey,
-                null);
+                null,
+                incarnationValue);
     }
 
     /**
@@ -157,13 +190,37 @@ public class PendingWriteQueue {
             @Nonnull FDBRecordContext context,
             @Nonnull ScanProperties scanProperties,
             @Nullable byte[] continuation) {
-
-        final KeyValueCursor cursor = KeyValueCursor.Builder.newBuilder(queueSubspace)
+        KeyValueCursor inner = KeyValueCursor.Builder.newBuilder(queueSubspace)
                 .setContext(context)
-                .setScanProperties(scanProperties)
+                .setScanProperties(scanProperties
+                        .with(ExecuteProperties::clearRowAndTimeLimits)
+                        .with(ExecuteProperties::clearSkipAndLimit)
+                        .with(ExecuteProperties::clearState))
                 .setContinuation(continuation)
                 .build();
-        return cursor.map(kv -> PendingWritesQueueHelper.toQueueEntry(queueSubspace, kv));
+        RecordCursor<FDBRawRecord> unsplitter = new SplitHelper.KeyValueUnsplitter(
+                context, queueSubspace, inner,
+                false, null, scanProperties)
+                .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
+
+        return unsplitter.map(rawRecord ->
+                toQueueEntry(context, rawRecord.getPrimaryKey(), rawRecord.getRawRecord()));
+    }
+
+    /**
+     * Convert a raw record back to a queue entry.
+     */
+    private QueueEntry toQueueEntry(FDBRecordContext context, Tuple keyTuple, byte[] valueBytes) {
+        try {
+            long startTime = System.nanoTime();
+            final byte[] value = serializer.decode(valueBytes);
+            context.record(LuceneEvents.Waits.WAIT_LUCENE_DESERIALIZE, System.nanoTime() - startTime);
+            LucenePendingWriteQueueProto.PendingWriteItem item = LucenePendingWriteQueueProto.PendingWriteItem.parseFrom(value);
+            return new QueueEntry(keyTuple, item, allowIncarnation);
+        } catch (InvalidProtocolBufferException e) {
+            throw new RecordCoreStorageException("Failed to parse queue item", e)
+                    .addLogInfo("key", keyTuple);
+        }
     }
 
     /**
@@ -177,12 +234,10 @@ public class PendingWriteQueue {
      * @param entry the entry to remove
      */
     public void clearEntry(@Nonnull FDBRecordContext context, @Nonnull QueueEntry entry) {
-        // for sanity,
-        if (!entry.getVersionstamp().isComplete()) {
-            throw new RecordCoreArgumentException("Queue item should have complete version stamp");
-        }
+        SplitHelper.deleteSplit(context, queueSubspace, entry.getKeyTuple(), true, false, false, null);
 
-        context.ensureActive().clear(queueSubspace.pack(entry.versionstamp));
+        // Atomically decrement the queue size counter
+        mutateQueueSizeCounter(context, -1);
 
         // Record metrics
         context.increment(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_CLEAR);
@@ -200,7 +255,8 @@ public class PendingWriteQueue {
      */
     @Nonnull
     public CompletableFuture<Boolean> isQueueEmpty(@Nonnull FDBRecordContext context) {
-
+        // This is using direct count as it is still efficient, and is accurate in all cases, even when the counter is
+        // uninitialized or has drifted
         // Return true if empty
         return context.ensureActive()
                 .getRange(queueSubspace.range(), 1)
@@ -231,7 +287,7 @@ public class PendingWriteQueue {
         // There is no need to replay with a continuation as all the replayed items need to make it into the
         // current writer in the given transaction to be queried
         return getQueueCursor(context, scanProperties, null).forEachResult(entry -> {
-            replayOperation(context, entry.get(), indexWriter, index);
+            replayOperation(entry.get(), indexWriter, index);
         }).thenAccept(lastResult -> {
             if (lastResult.getNoNextReason().equals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED)) {
                 // Reached the row limit
@@ -243,7 +299,7 @@ public class PendingWriteQueue {
     /**
      * Replay a single queued operation directly to the IndexWriter.
      */
-    private void replayOperation(FDBRecordContext context, @Nonnull QueueEntry entry, @Nonnull IndexWriter indexWriter, @Nonnull Index index) {
+    private void replayOperation(@Nonnull QueueEntry entry, @Nonnull IndexWriter indexWriter, @Nonnull Index index) {
         LucenePendingWriteQueueProto.PendingWriteItem.OperationType opType = entry.getOperationType();
 
         try {
@@ -251,7 +307,7 @@ public class PendingWriteQueue {
             switch (opType) {
                 case INSERT:
                     List<LuceneDocumentFromRecord.DocumentField> fields = PendingWritesQueueHelper.fromProtoFields(entry.getDocumentFields());
-                    LuceneIndexMaintainerHelper.writeDocument(context, indexWriter, index, primaryKey, fields);
+                    LuceneIndexMaintainerHelper.writeDocument(indexWriter, index, primaryKey, fields);
                     break;
 
                 case DELETE:
@@ -277,7 +333,15 @@ public class PendingWriteQueue {
             @Nonnull FDBRecordContext context,
             @Nonnull LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType,
             @Nonnull Tuple primaryKey,
-            @Nullable List<LuceneDocumentFromRecord.DocumentField> fields) {
+            @Nullable List<LuceneDocumentFromRecord.DocumentField> fields,
+            int incarnation) {
+
+        // Check if queue size limit is exceeded (if maxQueueSize > 0)
+        if (maxQueueSize > 0) {
+            if (isQueueTooLarge(context, maxQueueSize)) {
+                throw new PendingWritesQueueTooLargeException("Queue size too large, cannot enqueue items", (int)maxQueueSize);
+            }
+        }
 
         // Build queue entry protobuf
         LucenePendingWriteQueueProto.PendingWriteItem.Builder builder =
@@ -293,22 +357,20 @@ public class PendingWriteQueue {
             }
         }
 
-        // Build key with incomplete versionStamp with a new local version
+        // Build key with incarnation prefix and incomplete versionStamp (to become a local version)
         FDBRecordVersion recordVersion = FDBRecordVersion.incomplete(context.claimLocalVersion());
-        Tuple keyTuple = Tuple.from(recordVersion.toVersionstamp());
-        byte[] queueKey = queueSubspace.packWithVersionstamp(keyTuple);
-        byte[] value = builder.build().toByteArray();
+        // incarnation sorts first so newer incarnations always order after older ones
+        Tuple keyTuple = allowIncarnation
+                         ? Tuple.from(incarnation, recordVersion.toVersionstamp())
+                         : Tuple.from(recordVersion.toVersionstamp());
+        long startTime = System.nanoTime();
+        byte[] value = serializer.encode(builder.build().toByteArray());
+        context.record(LuceneEvents.Waits.WAIT_LUCENE_SERIALIZE, System.nanoTime() - startTime);
+        // save with splits
+        SplitHelper.saveWithSplit(context, queueSubspace, keyTuple, value, null, true, false, false, null, null);
 
-        // Use addVersionMutation to let FDB assign the versionStamp
-        final byte[] current = context.addVersionMutation(
-                MutationType.SET_VERSIONSTAMPED_KEY,
-                queueKey,
-                value);
-
-        if (current != null) {
-            // This should never happen
-            throw new RecordCoreInternalException("Pending queue item overwritten");
-        }
+        // Atomically increment the queue size counter
+        mutateQueueSizeCounter(context, 1);
 
         // Record metrics
         context.increment(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_WRITE);
@@ -317,6 +379,7 @@ public class PendingWriteQueue {
             LOGGER.debug(getLogMessage("Enqueued operation")
                     .addKeyAndValue(LuceneLogMessageKeys.OPERATION_TYPE, operationType)
                     .addKeyAndValue(LogMessageKeys.SUBSPACE, queueSubspace)
+                    .addKeyAndValue(LogMessageKeys.VALUE_SIZE, value.length)
                     .toString());
         }
     }
@@ -327,22 +390,83 @@ public class PendingWriteQueue {
     }
 
     /**
+     * Atomically mutate the queue size counter.
+     * This would increment/decrement the queue size counter by the given amount. If the queue counter is not initialized
+     * (key does not exist), FDB's ADD mutation treats it as 0, so the counter will be initialized to the given amount.
+     * This is standard FDB behavior: ADD mutation on a non-existent key treats the original value as 0.
+     * @param context the context to use
+     * @param amount the amount by which to mutate the counter
+     */
+    private void mutateQueueSizeCounter(final @Nonnull FDBRecordContext context, final int amount) {
+        context.ensureActive().mutate(MutationType.ADD, queueSizeSubspace.pack(), encodeQueueSize(amount));
+    }
+
+    /**
+     * Return TRUE if the queue has no room for new entries.
+     * This method uses the queue size counter to get the queue size, defaulting to FALSE when the counter does not exist.
+     * @param context the context to use to read the counter
+     * @param maxQueueSize the size to check
+     * @return {@code true} is the queue size is larger than or equals the given size, {@code false} if smaller or not initialized
+     */
+    private boolean isQueueTooLarge(FDBRecordContext context, long maxQueueSize) {
+        Long currentSize = LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_QUEUE_SIZE, getQueueSize(context), context);
+        // in case there is no value in the queue size subspace, we are not enforcing size yet (pre-initialization compatibility)
+        return ((currentSize != null) && (currentSize >= maxQueueSize));
+    }
+
+    /**
+     * Get the current size of the pending write queue.
+     * Uses the atomic counter for efficiency. In case there is no counter available (e.g. the counter was not initialized),
+     * null is returned.
+     * This method uses a SNAPSHOT read to get the value in order to prevent conflicts on the counter in case another transaction
+     * is mutating the value. This is OK in our case since pure serializability is not required (other than in the case
+     * of {@link #isQueueEmpty(FDBRecordContext)}, in which case we use counting to see if the size is greater than 0).
+     *
+     * @param context the record context to use
+     *
+     * @return a future that resolves to the queue size, or {@code null} if the counter does not exist
+     */
+    @Nonnull
+    public CompletableFuture<Long> getQueueSize(@Nonnull FDBRecordContext context) {
+        return context.readTransaction(true).get(queueSizeSubspace.pack())
+                .thenApply(size -> {
+                    if (size == null) {
+                        return null;
+                    } else {
+                        final Long actualSize = decodeQueueSize(size);
+                        context.recordSize(LuceneEvents.SizeEvents.LUCENE_QUEUE_SIZE, actualSize);
+                        return actualSize;
+                    }
+                });
+    }
+
+    private byte[] encodeQueueSize(long count) {
+        return ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(count).array();
+    }
+
+    private Long decodeQueueSize(@Nullable byte[] bytes) {
+        return bytes == null ? null : ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getLong();
+    }
+
+    /**
      * Wrapper class for a queued entry.
      * Gives access to the queued item and its VersionStamp ID.
      */
     public static class QueueEntry {
-        private final Versionstamp versionstamp;
+        private final Tuple keyTuple;
         private final LucenePendingWriteQueueProto.PendingWriteItem item;
 
-        public QueueEntry(
-                Versionstamp versionstamp,
-                LucenePendingWriteQueueProto.PendingWriteItem item) {
-            this.versionstamp = versionstamp;
+        public QueueEntry(Tuple keyTuple,
+                          LucenePendingWriteQueueProto.PendingWriteItem item,
+                          boolean allowIncarnation) {
+            this.keyTuple = keyTuple;
+            final int expectedKeySize = allowIncarnation ? 2 : 1;
+            if (keyTuple.size() != expectedKeySize) {
+                throw new RecordCoreInternalException("Unexpected keyTuple size",
+                        LogMessageKeys.KEY_TUPLE, keyTuple,
+                        LuceneLogMessageKeys.ALLOW_INCARNATION, allowIncarnation);
+            }
             this.item = item;
-        }
-
-        public Versionstamp getVersionstamp() {
-            return versionstamp;
         }
 
         public LucenePendingWriteQueueProto.PendingWriteItem.OperationType getOperationType() {
@@ -361,6 +485,10 @@ public class PendingWriteQueue {
             return item.getEnqueueTimestamp();
         }
 
+        public Tuple getKeyTuple() {
+            return keyTuple;
+        }
+
         public List<LucenePendingWriteQueueProto.DocumentField> getDocumentFields() {
             return item.getFieldsList();
         }
@@ -371,10 +499,18 @@ public class PendingWriteQueue {
     }
 
     @SuppressWarnings("serial")
-    public static class TooManyPendingWritesException extends RecordCoreException {
+    public static final class TooManyPendingWritesException extends RecordCoreException {
         protected TooManyPendingWritesException(final String message, int itemCount) {
             super(message);
             addLogInfo(LuceneLogMessageKeys.MAX_ENTRIES_TO_REPLAY, itemCount);
+        }
+    }
+
+    @SuppressWarnings("serial")
+    public static final class PendingWritesQueueTooLargeException extends RecordCoreException {
+        protected PendingWritesQueueTooLargeException(final String message, long itemCount) {
+            super(message);
+            addLogInfo(LuceneLogMessageKeys.MAX_QUEUE_SIZE, itemCount);
         }
     }
 }

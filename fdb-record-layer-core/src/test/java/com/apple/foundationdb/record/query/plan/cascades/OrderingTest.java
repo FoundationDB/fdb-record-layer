@@ -47,9 +47,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OrderingTest {
     @Test
@@ -328,6 +330,332 @@ class OrderingTest {
     }
 
     @Test
+    void testPullUp5() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var innerOrderedSet = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a));
+        final var innerOrdering =
+                Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING), innerOrderedSet, false);
+
+        final var rcv2 = RecordConstructorValue.ofColumns(ImmutableList.of(
+                Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a_1")), FieldValue.ofFieldNames(ValueTestHelpers.qov(), ImmutableList.of("a"))),
+                Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b_1")), FieldValue.ofFieldNames(ValueTestHelpers.qov(), ImmutableList.of("b"))),
+                Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a_2")), FieldValue.ofFieldNames(ValueTestHelpers.qov(), ImmutableList.of("a"))),
+                Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b_2")), FieldValue.ofFieldNames(ValueTestHelpers.qov(), ImmutableList.of("b")))
+        ));
+        final var pulledUpOrdering =
+                innerOrdering.pullUp(rcv2, EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
+
+        final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
+        final var ap1 = ValueTestHelpers.field(qovCurrent, "a_1");
+        final var bp1 = ValueTestHelpers.field(qovCurrent, "b_1");
+        final var ap2 = ValueTestHelpers.field(qovCurrent, "a_2");
+        final var bp2 = ValueTestHelpers.field(qovCurrent, "b_2");
+
+        final var expectedOrdering =
+                Ordering.ofOrderingSet(bindingMap(ap1, ProvidedSortOrder.ASCENDING,
+                                bp1, ProvidedSortOrder.ASCENDING,
+                                ap2, ProvidedSortOrder.ASCENDING,
+                                bp2, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(ap1, ap2, bp1, bp2), ImmutableSetMultimap.of(bp2, ap1, bp2, ap2, bp1, ap1, bp1, ap2)),
+                        false);
+
+        assertEquals(expectedOrdering, pulledUpOrdering);
+    }
+
+    @Test
+    void testSatisfiesGroupingValues() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var d = ValueTestHelpers.field(qov, "d");
+        final var e = ValueTestHelpers.field(qov, "e");
+        final var x = ValueTestHelpers.field(qov, "x");
+
+        // a < c, b < c, c < d, d < e, d < x
+        final var ordering = Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, ProvidedSortOrder.ASCENDING,
+                        e, ProvidedSortOrder.ASCENDING,
+                        x, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d, e, x), ImmutableSetMultimap.of(c, a, c, b, d, c, e, d, x, d)),
+                        false);
+
+        Stream.of(
+                ImmutableSet.of(a),
+                ImmutableSet.of(b),
+                ImmutableSet.of(a, c),
+                ImmutableSet.of(a, b),
+                ImmutableSet.of(b, c),
+                ImmutableSet.of(a, b, c),
+                ImmutableSet.of(a, c, d),
+                ImmutableSet.of(a, c, d, e),
+                ImmutableSet.of(b, c, d, x),
+                ImmutableSet.of(b, c, d, x, e)
+        ).forEach(valueSet -> assertTrue(ordering.satisfiesGroupingValues(valueSet)));
+
+        Stream.of(
+                ImmutableSet.of(c),
+                ImmutableSet.of(d),
+                ImmutableSet.of(e),
+                ImmutableSet.of(x),
+                ImmutableSet.of(a, d, x),
+                ImmutableSet.of(c, d, x),
+                ImmutableSet.of(e, d, x),
+                ImmutableSet.of(a, c, e),
+                ImmutableSet.of(b, c, x),
+                ImmutableSet.of(a, b, e, x)
+        ).forEach(valueSet -> assertFalse(ordering.satisfiesGroupingValues(valueSet)));
+    }
+
+    @Test
+    void testSatisfiesGroupingValues2() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var d = ValueTestHelpers.field(qov, "d");
+        final var e = ValueTestHelpers.field(qov, "e");
+        final var x = ValueTestHelpers.field(qov, "x");
+
+        //
+        // a < c, b < c, c < d, e < d, x < d
+        // graph: a ←  c ←- d
+        //        b ←-/    /
+        //        e ←-----/
+        //        x ←----/
+        //
+        final var ordering = Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, ProvidedSortOrder.ASCENDING,
+                        e, ProvidedSortOrder.ASCENDING,
+                        x, ProvidedSortOrder.ASCENDING),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d, e, x), ImmutableSetMultimap.of(c, a, c, b, d, c, d, e, d, x)),
+                false);
+
+        Stream.of(
+                ImmutableSet.of(a),
+                ImmutableSet.of(b),
+                ImmutableSet.of(e),
+                ImmutableSet.of(x),
+                ImmutableSet.of(a, c),
+                ImmutableSet.of(a, b),
+                ImmutableSet.of(b, c),
+                ImmutableSet.of(a, b, c),
+                ImmutableSet.of(a, c, d),
+                ImmutableSet.of(a, d, x),
+                ImmutableSet.of(e, d, x),
+                ImmutableSet.of(a, c, d, e),
+                ImmutableSet.of(b, c, d, x)
+        ).forEach(valueSet -> assertTrue(ordering.satisfiesGroupingValues(valueSet)));
+
+        Stream.of(
+                ImmutableSet.of(c),
+                ImmutableSet.of(d),
+                ImmutableSet.of(c, d),
+                ImmutableSet.of(c, d, x)
+        ).forEach(valueSet -> assertFalse(ordering.satisfiesGroupingValues(valueSet)));
+    }
+
+    @Test
+    void testSatisfiesRequiredOrdering() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var d = ValueTestHelpers.field(qov, "d");
+        final var e = ValueTestHelpers.field(qov, "e");
+        final var x = ValueTestHelpers.field(qov, "x");
+
+        // a < c, b < c, c < d, d < e, d < x
+        final var ordering = Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, ProvidedSortOrder.ASCENDING,
+                        e, ProvidedSortOrder.ASCENDING,
+                        x, ProvidedSortOrder.ASCENDING),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d, e, x), ImmutableSetMultimap.of(c, a, c, b, d, c, e, d, x, d)),
+                false);
+
+        Stream.of(
+                RequestedOrdering.ofParts(requested(a), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(b), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, c), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, b), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(b, c), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, c, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, c, d, e), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(b, c, d, x), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(b, c, d, x, e), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of())
+        ).forEach(requestedOrdering -> assertTrue(ordering.satisfies(requestedOrdering)));
+
+        Stream.of(
+                RequestedOrdering.ofParts(requested(c), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(e), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(x), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(c, a), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(c, b), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, d, c), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, d, x), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(c, d, x), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(e, d, x), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, c, e, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(b, c, x, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(b, c, x, d, e), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of())
+        ).forEach(requestedOrdering -> assertFalse(ordering.satisfies(requestedOrdering)));
+    }
+
+    @Test
+    void testSatisfiesRequiredOrdering2() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var d = ValueTestHelpers.field(qov, "d");
+        final var e = ValueTestHelpers.field(qov, "e");
+        final var x = ValueTestHelpers.field(qov, "x");
+
+        //
+        // a < c, b < c, c < d, e < d, x < d
+        // graph: a ←  c ←- d
+        //        b ←-/    /
+        //        e ←-----/
+        //        x ←----/
+        //
+        final var ordering = Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, ProvidedSortOrder.ASCENDING,
+                        e, ProvidedSortOrder.ASCENDING,
+                        x, ProvidedSortOrder.ASCENDING),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d, e, x), ImmutableSetMultimap.of(c, a, c, b, d, c, d, e, d, x)),
+                false);
+
+        Stream.of(
+                RequestedOrdering.ofParts(requested(a), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(b), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(e), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(x), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, c), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, b), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(b, c), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, c, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(x, a, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, x, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(e, x, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(x, e, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, c, e, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(a, e, c, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(e, a, c, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(b, c, x, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of())
+        ).forEach(requestedOrdering -> assertTrue(ordering.satisfies(requestedOrdering)));
+
+        Stream.of(
+                RequestedOrdering.ofParts(requested(c), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(c, d), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of()),
+                RequestedOrdering.ofParts(requested(c, d, x), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of())
+        ).forEach(requestedOrdering -> assertFalse(ordering.satisfies(requestedOrdering)));
+    }
+
+    @Test
+    void testEnumerateCompatibleRequestedOrderings() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var d = ValueTestHelpers.field(qov, "d");
+        final var e = ValueTestHelpers.field(qov, "e");
+        final var x = ValueTestHelpers.field(qov, "x");
+
+        // a < c, b < c, c < d, e < d, x < d
+        final var ordering = Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, ProvidedSortOrder.ASCENDING,
+                        e, ProvidedSortOrder.ASCENDING,
+                        x, ProvidedSortOrder.ASCENDING),
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d, e, x), ImmutableSetMultimap.of(c, a, c, b, d, c, d, e, d, x)),
+                false);
+
+
+        var requestedOrdering = RequestedOrdering.ofParts(requested(), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of());
+        // #pattern of _, _, c, _, _, d = 2!*2! = 4
+        // #pattern of _, _, _, c, _, d = 2*3!*1! = 12
+        // #pattern of _, _, _, _, c, d = 4! = 24
+        assertEquals(40, ImmutableList.copyOf(ordering.enumerateCompatibleRequestedOrderings(requestedOrdering)).size());
+
+        requestedOrdering = RequestedOrdering.ofParts(requested(a), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of());
+        // #pattern of a, _, c, _, _, d = 1!*2! = 2
+        // #pattern of a, _, _, c, _, d = 2*2!*1! = 4
+        // #pattern of a, _, _, _, c, d = 3! = 6
+        assertEquals(12, ImmutableList.copyOf(ordering.enumerateCompatibleRequestedOrderings(requestedOrdering)).size());
+
+        requestedOrdering = RequestedOrdering.ofParts(requested(e, a), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of());
+        // #pattern of e, a, _, c, _, d = 1
+        // #pattern of e, a, _, _, c, d = 2! = 2
+        assertEquals(3, ImmutableList.copyOf(ordering.enumerateCompatibleRequestedOrderings(requestedOrdering)).size());
+    }
+
+    @Test
+    void testPushDown1() {
+        final var rcv = select("a", "b", "c");
+
+        final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv.getResultType());
+        final var ap = ValueTestHelpers.field(qovCurrent, "ap");
+        final var ordering =
+                Ordering.ofOrderingSet(bindingMap(ap, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(ap), ImmutableSetMultimap.of()),
+                        false);
+
+        final var pushedDownOrdering = ordering.pushDown(rcv, EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
+
+        final var a = ValueTestHelpers.field(ValueTestHelpers.qov(), "a");
+        final var expectedOrdering =
+                Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(a), ImmutableSetMultimap.of()),
+                        false);
+
+        assertEquals(expectedOrdering, pushedDownOrdering);
+    }
+
+    @Test
+    void testPushDown2() {
+        final var rcv = select("a", "b", "c");
+
+        final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv.getResultType());
+        final var ap = ValueTestHelpers.field(qovCurrent, "ap");
+        final var bp = ValueTestHelpers.field(qovCurrent, "bp");
+        final var ordering =
+                Ordering.ofOrderingSet(bindingMap(ap, ProvidedSortOrder.ASCENDING,
+                                bp, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(ap, bp), ImmutableSetMultimap.of(bp, ap)),
+                        false);
+
+        final var pushedDownOrdering = ordering.pushDown(rcv, EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
+
+        final var a = ValueTestHelpers.field(ValueTestHelpers.qov(), "a");
+        final var b = ValueTestHelpers.field(ValueTestHelpers.qov(), "b");
+        final var expectedOrdering =
+                Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                                b, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(a, b), ImmutableSetMultimap.of(b, a)),
+                        false);
+
+        assertEquals(expectedOrdering, pushedDownOrdering);
+    }
+
+    @Test
     void testMergePartialOrdersNAry() {
         final var qov = ValueTestHelpers.qov();
         final var a = ValueTestHelpers.field(qov, "a");
@@ -540,7 +868,7 @@ class OrderingTest {
                 RequestedOrdering.ofPrimitiveParts(requested(a, b, x),
                         RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS, false);
 
-        assertFalse(mergedOrdering.satisfies(requestedOrdering));
+        assertTrue(mergedOrdering.satisfies(requestedOrdering));
     }
 
     @Nonnull

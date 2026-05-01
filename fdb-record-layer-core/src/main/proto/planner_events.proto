@@ -1,0 +1,146 @@
+/*
+ * planner_events.proto
+ *
+ * This source file is part of the FoundationDB open source projectsour
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+package com.apple.foundationdb.record.query.plan.cascades.events.eventprotos;
+import "google/protobuf/descriptor.proto";
+
+option java_outer_classname = "PlannerEventProto";
+option java_multiple_files = true;
+
+message PPlannerEvent {
+  optional string description = 1;
+  optional string shorthand = 2;
+
+  oneof specific_event {
+    POptimizeInputsPlannerEvent optimize_inputs_planner_event = 3;
+    PAdjustMatchPlannerEvent adjust_match_planner_event = 4;
+    PExploreGroupPlannerEvent explore_group_planner_event = 5;
+    POptimizeGroupPlannerEvent optimize_group_planner_event = 6;
+    PExploreExpressionPlannerEvent explore_expression_planner_event = 7;
+    PTransformPlannerEvent transform_planner_event = 8;
+    PTransformRuleCallPlannerEvent transform_rule_call_planner_event = 9;
+    PExecutingTaskPlannerEvent executing_task_planner_event = 10;
+    PInsertIntoMemoPlannerEvent insert_into_memo_planner_event = 11;
+    PTranslateCorrelationsPlannerEvent translate_correlations_planner_event = 12;
+    PInitiatePhasePlannerEvent initiate_phase_planner_event = 13;
+  }
+}
+
+enum PPlannerPhase {
+  REWRITING = 1;
+  PLANNING = 2;
+}
+
+message PAbstractPlannerEventWithState {
+  optional PReference root_reference = 1;
+  optional string location = 2;
+  optional PPlannerPhase planner_phase = 3;
+}
+
+message POptimizeInputsPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
+  optional PReference current_group_reference = 2;
+  optional PExpression expression = 3;
+}
+
+message PAdjustMatchPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
+  optional PReference current_group_reference = 2;
+  optional PExpression expression = 3;
+}
+
+message PExploreGroupPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
+  optional PReference current_group_reference = 2;
+}
+
+message POptimizeGroupPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
+  optional PReference current_group_reference = 2;
+}
+
+message PExploreExpressionPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
+  optional PReference current_group_reference = 2;
+  optional PExpression expression = 3;
+}
+
+message PTransformPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
+  optional PReference current_group_reference = 2;
+  optional PBindable bindable = 3;
+  optional string rule = 4;
+}
+
+message PTransformRuleCallPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
+  optional PReference current_group_reference = 2;
+  optional PBindable bindable = 3;
+  optional string rule = 4;
+}
+
+message PExecutingTaskPlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
+}
+
+message PInitiatePhasePlannerEvent {
+  optional PAbstractPlannerEventWithState super = 1;
+}
+
+message PInsertIntoMemoPlannerEvent {
+  optional string location = 1;
+  optional PExpression expression = 2;
+  repeated PReference reusedExpressionReferences = 3;
+}
+
+message PTranslateCorrelationsPlannerEvent {
+  optional PExpression expression = 1;
+  optional string location = 2;
+}
+
+message PReference {
+  optional string name = 1;
+  repeated PExpression expressions = 2;
+}
+
+message PExpression {
+  optional string name = 1;
+  optional int32 semantic_hash_code = 2;
+}
+
+message PBindable {
+  oneof specific_bindable {
+    PExpression expression = 1;
+    PPartialMatch partial_match = 2;
+    PMatchPartition match_partition = 3;
+  }
+}
+
+message PPartialMatch {
+  optional string match_candidate = 1;
+  optional PReference query_ref = 2;
+  optional PExpression query_expression = 3;
+  optional PReference candidate_ref = 4;
+}
+
+message PMatchPartition {
+  repeated PPartialMatch partial_matches = 2;
+}

@@ -72,6 +72,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -165,6 +166,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     @VisibleForTesting
+    @SuppressWarnings("this-escape")
     public FDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
                                @Nonnull final FDBDirectory directory,
                                @Nonnull final Tuple key,
@@ -312,20 +314,18 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     private IndexWriter createIndexWriterWithReplayedQueue() throws IOException {
-        final AgilityContext readOnlyContext = replayedQueueContext.get().getAgilityContext();
+        final AgilityContext agilityContextReadOnly = replayedQueueContext.get().getAgilityContext();
         // Create a read-only directory with read-only context and no-op lock factory
-        final FDBDirectory readOnlyDirectory = createFDBDirectory(state, key, readOnlyContext, NoLockFactory.INSTANCE, blockCacheMaximumSize);
+        final FDBDirectory readOnlyDirectory = createFDBDirectory(state, key, agilityContextReadOnly, NoLockFactory.INSTANCE, blockCacheMaximumSize);
         IndexWriterConfig config = createIndexWriterConfig(null);
         IndexWriter readOnlyIndexWriter = new IndexWriter(readOnlyDirectory, config);
 
         // Get the queue and apply changes
         // This is using the read-only agility context as this is the one to be used for the query that is to be executed
-        readOnlyContext.accept(context -> {
-            LuceneConcurrency.asyncToSync(
-                    LuceneEvents.Waits.WAIT_LUCENE_REPLAY_QUEUE,
-                    getPendingWriteQueue().replayQueuedOperations(context, readOnlyIndexWriter, state.index),
-                    context);
-        });
+        agilityContextReadOnly.asyncToSync(
+                LuceneEvents.Waits.WAIT_LUCENE_REPLAY_QUEUE,
+                        agilityContextReadOnly.apply(aContext ->
+                                getPendingWriteQueue().replayQueuedOperations(aContext, readOnlyIndexWriter, state.index)));
         return readOnlyIndexWriter;
     }
 
@@ -545,59 +545,68 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         getWriter().maybeMerge();
     }
 
-    public void clearOngoingMergeIndicator() {
-        getDirectory().clearOngoingMergeIndicatorButFailIfNonEmpty();
+    public CompletableFuture<Void> clearOngoingMergeIndicator() {
+        return getDirectory().clearOngoingMergeIndicatorIfQueueEmptyAsync();
     }
 
-    public void drainPendingQueue(@Nonnull final Tuple groupingKey,
-                                  @Nullable final Integer partitionId) {
+    public CompletableFuture<Void> drainPendingQueue(@Nonnull final Tuple groupingKey,
+                                                     @Nullable final Integer partitionId) {
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.of("Drain pending queue",
                     LogMessageKeys.GROUPING_KEY, groupingKey,
                     LogMessageKeys.PARTITION_ID, partitionId));
         }
         final int maxRetries = 20;
-        for (int retries = 0; ; retries ++) {
-            // while draining the pending queue new updates may "refill" it and cause the clearance of the ongoing merge
-            // indicator to fail. Hence, the draining/indicator clearing process should be retried.
-            try {
-                agilityContext.flush(); // before potentially long drain (Note that the drain iteration does not use agilityContext)
-                drainPendingQueueNow(groupingKey, partitionId);
-                clearOngoingMergeIndicator();
-                agilityContext.flush(); // commit clear indicator
-                return;
-            } catch (RuntimeException ex) {
-                if (retries >= maxRetries) {
-                    throw new PendingQueueDrainException(ex);
-                }
-                if (LOGGER.isWarnEnabled()) {
-                    LOGGER.warn(KeyValueLogMessage.of("Failed to drain queue, retrying",
-                            LogMessageKeys.RETRY_COUNT, retries,
-                            LogMessageKeys.GROUPING_KEY, groupingKey,
-                            LogMessageKeys.PARTITION_ID, partitionId
-                    ), ex);
-                }
-            }
-        }
+        final AtomicInteger retries = new AtomicInteger(0);
+        // while draining the pending queue new updates may "refill" it and cause the clearance of the ongoing merge
+        // indicator to fail. Hence, the draining/indicator clearing process should be retried.
+        return AsyncUtil.whileTrue(() -> {
+            agilityContext.flush(); // before potentially long drain (Note that the drain iteration does not use agilityContext)
+            return drainPendingQueueNow(groupingKey, partitionId)
+                    .thenCompose(vIgnore -> clearOngoingMergeIndicator())
+                    .thenApply(vIgnore -> {
+                        agilityContext.flush(); // commit clear indicator
+                        return false; // done, stop looping
+                    })
+                    .handle((result, ex) -> {
+                        if (ex == null) {
+                            return result;
+                        }
+                        if (retries.getAndIncrement() >= maxRetries) {
+                            throw new PendingQueueDrainException(ex);
+                        }
+                        if (LOGGER.isWarnEnabled()) {
+                            LOGGER.warn(KeyValueLogMessage.of("Failed to drain queue, retrying",
+                                    LogMessageKeys.RETRY_COUNT, retries.get() - 1,
+                                    LogMessageKeys.GROUPING_KEY, groupingKey,
+                                    LogMessageKeys.PARTITION_ID, partitionId
+                            ), ex);
+                        }
+                        return true; // retry
+                    });
+        });
     }
 
-    private void drainPendingQueueNow(@Nonnull final Tuple groupingKey,
-                                      @Nullable final Integer partitionId) {
+    @SuppressWarnings("PMD.CloseResource")
+    private CompletableFuture<Void> drainPendingQueueNow(@Nonnull final Tuple groupingKey,
+                                                         @Nullable final Integer partitionId) {
         // Note - since this directory wrapper was already created, agility context should be unused in the next line's path
         final PendingWriteQueue writeQueue = getPendingWriteQueue();
-        try (ThrottledRetryingIterator<PendingWriteQueue.QueueEntry> iterator = ThrottledRetryingIterator.builder(
+        final ThrottledRetryingIterator<PendingWriteQueue.QueueEntry> iterator = ThrottledRetryingIterator.builder(
                         agilityContext.getCallerContext().getDatabase(),
                         agilityContext.getCallerContext().getConfig().toBuilder(),
                         cursorFactory(writeQueue),
                         handleOneItemFactory(writeQueue, groupingKey, partitionId))
                 .withCommitWhenDone(true)
-                .build()) {
-            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_DRAIN_PENDING_QUEUE,
-                    iterator.iterateAll(state.store.asBuilder()));
-        } catch (CloseException e) {
-            throw new PendingQueueDrainException(e);
-        }
-
+                .build();
+        return iterator.iterateAll(state.store.asBuilder())
+                .whenComplete((v, e) -> {
+                    try {
+                        iterator.close();
+                    } catch (CloseException closeEx) {
+                        throw new PendingQueueDrainException(closeEx);
+                    }
+                });
     }
 
     private CursorFactory<PendingWriteQueue.QueueEntry> cursorFactory(PendingWriteQueue pendingWriteQueue) {

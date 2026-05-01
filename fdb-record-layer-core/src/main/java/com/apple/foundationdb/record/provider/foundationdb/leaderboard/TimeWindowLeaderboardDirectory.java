@@ -36,7 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * The persisted set of active leaderboard ranked sets.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TimeWindowLeaderboardDirectory {
+public final class TimeWindowLeaderboardDirectory {
     private final boolean highScoreFirst;
     private long updateTimestamp;
     private int nextKey;
@@ -47,7 +47,7 @@ public class TimeWindowLeaderboardDirectory {
         this.highScoreFirst = highScoreFirst;
     }
 
-    protected TimeWindowLeaderboardDirectory(TimeWindowLeaderboardProto.TimeWindowLeaderboardDirectory proto) {
+    TimeWindowLeaderboardDirectory(TimeWindowLeaderboardProto.TimeWindowLeaderboardDirectory proto) {
         highScoreFirst = proto.getHighScoreFirst();
         updateTimestamp = proto.getUpdateTimestamp();
         nextKey = proto.getNextKey();
@@ -105,7 +105,7 @@ public class TimeWindowLeaderboardDirectory {
         addLeaderboard(new TimeWindowLeaderboard(this, type, startTimestamp, endTimestamp, Tuple.from(nextKey++), nlevels));
     }
 
-    protected void addLeaderboard(TimeWindowLeaderboard leaderboard) {
+    private void addLeaderboard(TimeWindowLeaderboard leaderboard) {
         leaderboards.compute(leaderboard.getType(), (iignore, collection) -> {
             if (collection == null) {
                 collection = new TreeSet<>();

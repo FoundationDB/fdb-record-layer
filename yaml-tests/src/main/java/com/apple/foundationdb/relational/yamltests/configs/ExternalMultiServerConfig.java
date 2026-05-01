@@ -22,9 +22,11 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.ExternalServerYamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -36,14 +38,18 @@ import java.util.List;
 public class ExternalMultiServerConfig implements YamlTestConfig {
 
     private final int initialConnection;
-    private final ExternalServer server0;
-    private final ExternalServer server1;
+    @Nonnull
+    private final Clusters<ExternalServer> servers0;
+    @Nonnull
+    private final Clusters<ExternalServer> servers1;
 
-    public ExternalMultiServerConfig(final int initialConnection, ExternalServer server0, ExternalServer server1) {
+    public ExternalMultiServerConfig(final int initialConnection,
+                                     @Nonnull Clusters<ExternalServer> servers0,
+                                     @Nonnull Clusters<ExternalServer> servers1) {
         super();
         this.initialConnection = initialConnection;
-        this.server0 = server0;
-        this.server1 = server1;
+        this.servers0 = servers0;
+        this.servers1 = servers1;
     }
 
     @Override
@@ -59,16 +65,18 @@ public class ExternalMultiServerConfig implements YamlTestConfig {
         return new MultiServerConnectionFactory(
                 MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
                 initialConnection,
-                new ExternalServerYamlConnectionFactory(server0),
-                List.of(new ExternalServerYamlConnectionFactory(server1)));
+                new ExternalServerYamlConnectionFactory(servers0),
+                List.of(new ExternalServerYamlConnectionFactory(servers1)));
     }
 
     @Override
     public String toString() {
+        final SemanticVersion version0 = servers0.getInfo(ExternalServer::getVersion);
+        final SemanticVersion version1 = servers1.getInfo(ExternalServer::getVersion);
         if (initialConnection == 0) {
-            return "MultiServer (" + server0.getVersion() + " then " + server1.getVersion() + ")";
+            return "MultiServer (" + version0 + " then " + version1 + ")";
         } else {
-            return "MultiServer (" + server1.getVersion() + " then " + server0.getVersion() + ")";
+            return "MultiServer (" + version1 + " then " + version0 + ")";
         }
     }
 

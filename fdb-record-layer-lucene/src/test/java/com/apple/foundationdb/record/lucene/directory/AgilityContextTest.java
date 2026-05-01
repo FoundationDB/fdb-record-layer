@@ -37,6 +37,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -46,6 +47,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -120,7 +122,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     }
 
     private void agilityContextTestSingleThread(int loop, int i, AgilityContext agilityContext, boolean explicityFlush) throws ExecutionException, InterruptedException {
-        byte[] key = Tuple.from(500, loop, i).pack();
+        byte[] key = getSubspace(agilityContext).pack(Tuple.from(500, loop, i));
         byte[] val = Tuple.from(loop, i).pack();
 
         agilityContext.set(key, val);
@@ -137,16 +139,47 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         }
     }
 
+    /**
+     * Utility to create a subspace from an AgilityContext and path.
+     * This is similar to path.toSubspace(context), except that it uses the agility context instead of the caller
+     * context
+     *
+     * @param agilityContext the agility context to use
+     *
+     * @return the produced subspace
+     */
+    private Subspace getSubspace(final AgilityContext agilityContext) {
+        return agilityContext
+                .apply(context -> CompletableFuture.completedFuture(path.toSubspace(context)))
+                .join();
+    }
+
     private void assertLoopThreadsValues() {
         try (FDBRecordContext context = fdb.openContext()) {
+            final Subspace subspace = path.toSubspace(context);
             for (int loop = 0; loop < loopCount; loop++) {
                 final AgilityContext agilityContext = getAgilityContext(context, AgilityContextType.NON_AGILE);
                 for (int i = 0; i < threadCount; i++) {
-                    byte[] key = Tuple.from(500, loop, i).pack();
+                    byte[] key = subspace.pack(Tuple.from(500, loop, i));
                     final byte[] bytes = agilityContext.get(key).join();
                     final Tuple retTuple = Tuple.fromBytes(bytes);
                     assertEquals(retTuple.getLong(0), loop);
                     assertEquals(retTuple.getLong(1), i);
+                }
+            }
+            context.commit();
+        }
+    }
+
+    private void assertLoopNoValues() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            final Subspace subspace = path.toSubspace(context);
+            for (int loop = 0; loop < loopCount; loop++) {
+                final AgilityContext agilityContext = getAgilityContext(context, AgilityContextType.NON_AGILE);
+                for (int i = 0; i < threadCount; i++) {
+                    byte[] key = subspace.pack(Tuple.from(500, loop, i));
+                    final byte[] bytes = agilityContext.get(key).join();
+                    assertNull(bytes);
                 }
             }
             context.commit();
@@ -165,35 +198,42 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         assertLoopThreadsValues();
     }
 
-    @ParameterizedTest
-    @EnumSource
-    void testAgilityContextConcurrentNonExplicitCommits(AgilityContextType contextType) throws ExecutionException, InterruptedException {
-        for (int sizeQuota : new int[] {1, 2, 7, 21, 100, 10000}) {
-            final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
-                    .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, sizeQuota);
+    public static Stream<Arguments> contextTypeAndSize() {
+        return ParameterizedTestUtils.cartesianProduct(
+                Arrays.stream(AgilityContextType.values()),
+                Stream.of(1, 2, 7, 21, 100, 10000));
+    }
 
-            try (FDBRecordContext context = openContext(insertProps)) {
-                final AgilityContext agilityContext = getAgilityContext(context, contextType);
-                testAgilityContextConcurrentSingleObject(agilityContext, false);
-                context.commit();
-                if (contextType.equals(AgilityContextType.READ_ONLY)) {
-                    agilityContext.abortAndClose();
-                }
+    @ParameterizedTest
+    @MethodSource("contextTypeAndSize")
+    void testAgilityContextConcurrentNonExplicitCommits(AgilityContextType contextType, int sizeQuota) throws ExecutionException, InterruptedException {
+        final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, sizeQuota);
+
+        try (FDBRecordContext context = openContext(insertProps)) {
+            final AgilityContext agilityContext = getAgilityContext(context, contextType);
+            testAgilityContextConcurrentSingleObject(agilityContext, false);
+            context.commit();
+            if (contextType.equals(AgilityContextType.READ_ONLY)) {
+                // READ_ONLY context does not automatically close when caller context closes
+                agilityContext.abortAndClose();
             }
         }
-        if (!contextType.equals(AgilityContextType.READ_ONLY)) {
+        if (contextType.equals(AgilityContextType.READ_ONLY)) {
+            // READ_ONLY should see no values written
+            assertLoopNoValues();
+        } else {
             assertLoopThreadsValues();
         }
     }
 
-    @Test
-    void testAgilityContextConcurrentNonExplicitCommitsExplicitParams() throws ExecutionException, InterruptedException {
-        for (int sizeQuota : new int[] {1, 2, 7, 21, 100, 10000}) {
-            try (FDBRecordContext context = openContext()) {
-                final AgilityContext agilityContext = AgilityContext.agile(context, 10000, sizeQuota);
-                testAgilityContextConcurrentSingleObject(agilityContext, false);
-                context.commit();
-            }
+    @ParameterizedTest
+    @CsvSource({"1", "2", "7", "21", "100", "10000"})
+    void testAgilityContextConcurrentNonExplicitCommitsExplicitParams(int sizeQuota) throws ExecutionException, InterruptedException {
+        try (FDBRecordContext context = openContext()) {
+            final AgilityContext agilityContext = AgilityContext.agile(context, 10000, sizeQuota);
+            testAgilityContextConcurrentSingleObject(agilityContext, false);
+            context.commit();
         }
         assertLoopThreadsValues();
     }
@@ -426,6 +466,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
 
             IntStream.rangeClosed(0, threadCount).parallel().forEach(threadNum -> {
                 try (FDBRecordContext context = openContext(insertProps)) {
+                    final Subspace subspace = path.toSubspace(context);
                     final AgilityContext agilityContext = getAgilityContext(context, contextType);
                     for (int i = 1700; i < 1900; i += 17) {
                         final long iFinal = i;
@@ -435,7 +476,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                             agilityContext.accept(aContext -> {
                                 final Transaction tr = aContext.ensureActive();
                                 for (int j = 0; j < 5; j++) {
-                                    tr.set(Tuple.from(prefix, iFinal, j).pack(),
+                                    tr.set(subspace.pack(Tuple.from(prefix, iFinal, j)),
                                             Tuple.from(iFinal).pack());
                                     napTime(1);
                                 }
@@ -447,7 +488,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                                 long[] values = new long[5];
                                 final Transaction tr = aContext.ensureActive();
                                 for (int j = 4; j >= 0; j--) {
-                                    byte[] val = tr.get(Tuple.from(prefix, iFinal, j).pack()).join();
+                                    byte[] val = tr.get(subspace.pack(Tuple.from(prefix, iFinal, j))).join();
                                     values[j] = val == null ? 0 : Tuple.fromBytes(val).getLong(0);
                                 }
                                 for (int j = 1; j < 5; j++) {
@@ -645,10 +686,11 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 if (threadNum < numWriters) {
                     try (FDBRecordContext context = openContext()) {
                         final AgilityContext agilityContext = getAgilityContext(context, contextType);
+                        final Subspace subspace = getSubspace(agilityContext);
                         agilityContext.accept(aContext -> {
                             for (int j = 0; j < 5; j++) {
                                 final Transaction tr = aContext.ensureActive();
-                                tr.set(Tuple.from(prefix, iFinal, j).pack(),
+                                tr.set(subspace.pack(Tuple.from(prefix, iFinal, j)),
                                         Tuple.from(iFinal).pack());
                                 napTime(1);
                             }
@@ -660,11 +702,12 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                     napTime(3);
                     try (FDBRecordContext context = openContext()) {
                         final AgilityContext agilityContext = getAgilityContext(context, contextType);
+                        final Subspace subspace = getSubspace(agilityContext);
                         agilityContext.accept(aContext -> {
                             long[] values = new long[5];
                             final Transaction tr = aContext.ensureActive();
                             for (int j = 4; j >= 0; j--) {
-                                byte[] val = tr.get(Tuple.from(prefix, iFinal, j).pack()).join();
+                                byte[] val = tr.get(subspace.pack(Tuple.from(prefix, iFinal, j))).join();
                                 values[j] = val == null ? 0 : Tuple.fromBytes(val).getLong(0);
                             }
                             for (int j = 1; j < 5; j++) {
@@ -768,20 +811,29 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
 
     @Test
     void testAutoCommitVersionStampOuterSleepUseApply() throws InterruptedException {
+        int timeQuota = 10;
         final byte[] key;
         try (FDBRecordContext userContext = openContext()) {
             key = this.path.toSubspace(userContext).pack(Tuple.from(prefix, "a").pack());
-            final AgilityContext agilityContext = AgilityContext.agile(userContext, 2, 10000);
+            final AgilityContext agilityContext = AgilityContext.agile(userContext, timeQuota, 10000);
             AtomicReference<FDBRecordContext> firstOperation = new AtomicReference<>();
+            AtomicInteger timeCommit = new AtomicInteger(0);
             agilityContext.apply(context -> context.ensureActive()
                     .get(key).thenApply(oldVal -> {
                         context.ensureActive().set(key, Tuple.from(1).pack());
                         firstOperation.set(context);
                         return oldVal;
                     })).join();
-            Thread.sleep(5);
+            // There can be a case where the get() above takes too long and so the transaction commits during the thenApply()
+            // In this case, the test won't fail but the assertion below would be moot since the transaction commited before
+            // the sleep
+            // This would make sure that if the transaction did not commit, the sleep would not make it so
+            timeCommit.set(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA));
+
+            Thread.sleep(timeQuota * 2);
+
             assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA), Matchers.equalTo(0));
-            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA), Matchers.equalTo(0));
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA), Matchers.equalTo(timeCommit.get()));
             // Here: after this operation, the first auto-context should be committed
             AtomicReference<FDBRecordContext> secondOperation = new AtomicReference<>();
             agilityContext.apply(context -> context.ensureActive()

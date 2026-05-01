@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,12 +48,13 @@ import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstra
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
+
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -469,7 +470,7 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
                 boolean hasCommonOrderingForK = false;
                 for (final var kPartition : ChooseK.chooseK(bestMaximumCoverageMatches, k)) {
                     numCombinations ++;
-                    call.emitEvent(Debugger.Location.ALL_INTERSECTION_COMBINATIONS);
+                    call.emitEvent(Location.ALL_INTERSECTION_COMBINATIONS);
 
                     //
                     // For a combination of n orderings we enumerate find all the positions in that the combination
@@ -490,7 +491,7 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
 
                     if (!hasCommonOrdering(sieveBitMatrix, checkBitMatrix)) {
                         numDiscardedCombinations ++;
-                        call.emitEvent(Debugger.Location.DISCARDED_INTERSECTION_COMBINATIONS);
+                        call.emitEvent(Location.DISCARDED_INTERSECTION_COMBINATIONS);
                         continue;
                     }
 
@@ -1060,15 +1061,35 @@ public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition
         final var partialMatch = singleMatchedAccess.getPartialMatch();
         final var boundParametersPrefixMap =
                 partialMatch.getBoundParameterPrefixMap();
-        final List<MatchedOrderingPart> adjustedMatchOrderingParts =
-                partialMatch.getMatchInfo()
-                        .getMatchedOrderingParts()
+        final var adjustedMatchOrderingPartsBuilder = ImmutableList.<MatchedOrderingPart>builder();
+
+        //
+        // Reorganize the matched ordering parts so that implicit equality-bound parts (e.g. the record type key)
+        // are placed first, followed by the remaining matched ordering parts. The implicit parts are always
+        // equality-bound and must precede the rest to correctly reflect the scan order. Any matched ordering part
+        // that duplicates an implicit part is filtered out to avoid repetition. Additionally, matched parts that
+        // are equality-bound but not present in the bound parameters prefix map are demoted, since they cannot
+        // contribute to the ordering guarantee.
+        //
+        final var equalityBoundImplicitOrderingParts = partialMatch.getMatchCandidate().computeEqualityBoundImplicitOrderingParts();
+        final var equalityBoundImplicitOrderingValues = equalityBoundImplicitOrderingParts.stream().map(OrderingPart::getValue)
+                .collect(ImmutableSet.toImmutableSet());
+
+        final var matchedOrderingParts = partialMatch.getMatchInfo()
+                .getMatchedOrderingParts()
+                .stream()
+                .filter(part -> !(equalityBoundImplicitOrderingValues.contains(part.getValue())))
+                .collect(ImmutableList.toImmutableList());
+
+        adjustedMatchOrderingPartsBuilder
+                .addAll(equalityBoundImplicitOrderingParts)
+                .addAll(matchedOrderingParts
                         .stream()
                         .map(matchedOrderingPart -> matchedOrderingPart.getComparisonRange().isEquality() &&
                                                             !boundParametersPrefixMap.containsKey(matchedOrderingPart.getParameterId())
                                                     ? matchedOrderingPart.demote() : matchedOrderingPart)
-                        .collect(ImmutableList.toImmutableList());
-        return NonnullPair.of(adjustedMatchOrderingParts, singleMatchedAccess.isReverseScanOrder());
+                        .collect(ImmutableList.toImmutableList()));
+        return NonnullPair.of(adjustedMatchOrderingPartsBuilder.build(), singleMatchedAccess.isReverseScanOrder());
     }
 
     /**

@@ -43,9 +43,11 @@ import java.util.Locale;
  * and thus different types share the same extent.
  */
 public class IntermingledTablesTest {
-    private static final String SCHEMA_TEMPLATE = " " +
-            "CREATE TABLE t1 (group bigint, id string, val bigint, PRIMARY KEY(group, id)) " +
-            "CREATE TABLE t2 (group bigint, id string, val2 string, PRIMARY KEY(group, id))";
+    private static final String SCHEMA_TEMPLATE =
+            """
+            CREATE TABLE t1 (group bigint, id string, val bigint, PRIMARY KEY(group, id))
+            CREATE TABLE t2 (group bigint, id string, val2 string, PRIMARY KEY(group, id))
+            """;
 
     @RegisterExtension
     @Order(0)

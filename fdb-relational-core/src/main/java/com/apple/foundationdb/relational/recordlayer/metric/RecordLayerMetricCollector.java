@@ -53,8 +53,8 @@ public class RecordLayerMetricCollector implements MetricCollector {
     }
 
     @Override
-    public void increment(@Nonnull RelationalMetric.RelationalCount count) {
-        context.increment(count);
+    public void increment(@Nonnull RelationalMetric.RelationalCount count, int val) {
+        context.increment(count, val);
     }
 
     @Override

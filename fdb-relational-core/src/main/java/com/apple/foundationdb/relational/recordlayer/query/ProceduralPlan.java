@@ -27,8 +27,10 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
 public final class ProceduralPlan extends Plan<Void> {
@@ -53,8 +55,11 @@ public final class ProceduralPlan extends Plan<Void> {
 
     @Override
     public Void executeInternal(@Nonnull final ExecutionContext context) throws RelationalException {
-        action.executeAction(context.transaction);
-        return null;
+        final var metricCollector = Objects.requireNonNull(context.metricCollector);
+        return metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_PROCEDURAL_PLAN_ACTION, () -> {
+            action.executeAction(context.transaction);
+            return null;
+        });
     }
 
     @Nonnull

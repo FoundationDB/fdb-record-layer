@@ -338,4 +338,68 @@ class ExpressionTests {
                     .isEqualTo(expression.getClass());
         }
     }
+
+    @Nonnull
+    static Stream<Arguments> namedArgumentExpressionCreateNew() {
+        final Expression.NamedArgumentExpression namedArg = FOO.toNamedArgument();
+        final Identifier newName = Identifier.of("newName");
+        final Value newValue = LiteralValue.ofScalar("newValue");
+
+        return Stream.of(
+                Arguments.of(namedArg.withName(newName)),
+                Arguments.of(namedArg.withUnderlying(newValue)),
+                Arguments.of(namedArg.withQualifier(List.of("q1", "q2"))),
+                Arguments.of(namedArg.clearQualifier()),
+                Arguments.of(namedArg.asHidden())
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void namedArgumentExpressionCreateNew(@Nonnull Expression result) {
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            softly.assertThat(result)
+                    .isInstanceOf(Expression.NamedArgumentExpression.class)
+                    .matches(Expression::isNamedArgument, "should be a named argument");
+        }
+    }
+
+    @Nonnull
+    static Stream<Arguments> toNamedArgument() {
+        return Stream.of(
+                Arguments.of(FOO, Identifier.of("id")),
+                Arguments.of(FOO, Identifier.of("foo")),
+                Arguments.of(Expression.ofUnnamed(LiteralValue.ofScalar(true)), Identifier.of("id"))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void toNamedArgument(@Nonnull Expression expression, @Nonnull Identifier argumentName) {
+        final Expression.NamedArgumentExpression namedArg = expression.toNamedArgument(argumentName);
+
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            softly.assertThat(namedArg)
+                    .isInstanceOf(Expression.NamedArgumentExpression.class)
+                    .matches(Expression::isNamedArgument, "should be a named argument");
+
+            softly.assertThat(namedArg.getName())
+                    .isPresent()
+                    .get()
+                    .isEqualTo(argumentName);
+
+            softly.assertThat(namedArg.getArgumentName())
+                    .isEqualTo(argumentName);
+
+            softly.assertThat(namedArg.getDataType())
+                    .isEqualTo(expression.getDataType());
+
+            softly.assertThat(namedArg.getUnderlying())
+                    .isSameAs(expression.getUnderlying());
+
+            final Expression.NamedArgumentExpression sameNamedArg = namedArg.toNamedArgument(argumentName);
+            softly.assertThat(sameNamedArg)
+                    .isSameAs(namedArg);
+        }
+    }
 }

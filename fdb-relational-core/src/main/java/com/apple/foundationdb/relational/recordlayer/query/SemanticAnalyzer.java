@@ -309,7 +309,7 @@ public class SemanticAnalyzer {
         final var forEachOperators = operators.forEachOnly();
         // Case 1: no qualifier, e.g. SELECT * FROM T, R;
         if (optionalQualifier.isEmpty()) {
-            final var expansion = forEachOperators.getExpressions().nonEphemeral();
+            final var expansion = forEachOperators.getExpressions().nonEphemeralVisible();
             return Star.overQuantifiers(Optional.empty(), Streams.stream(forEachOperators).map(LogicalOperator::getQuantifier)
                     .map(Quantifier::getFlowedObjectValue).collect(ImmutableList.toImmutableList()), "unknown", expansion);
         }
@@ -320,7 +320,7 @@ public class SemanticAnalyzer {
                 .findFirst();
         if (logicalTableMaybe.isPresent()) {
             return Star.overQuantifier(optionalQualifier, logicalTableMaybe.get().getQuantifier().getFlowedObjectValue(),
-                    qualifier.getName(), logicalTableMaybe.get().getOutput().nonEphemeral());
+                    qualifier.getName(), logicalTableMaybe.get().getOutput().nonEphemeralVisible());
         }
         // Case 2.1: represents a rare case where a logical operator contains a mix of columns that are qualified
         // differently.
@@ -338,7 +338,7 @@ public class SemanticAnalyzer {
         final var expression = resolveIdentifier(qualifier, forEachOperators);
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.STRUCT, ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "attempt to expand non-struct column %s", qualifier));
-        final var expressions = expandStructExpression(expression).nonEphemeral();
+        final var expressions = expandStructExpression(expression).nonEphemeralVisible();
         return Star.overQuantifier(optionalQualifier, expression.getUnderlying(), qualifier.getName(), expressions);
     }
 
@@ -392,27 +392,6 @@ public class SemanticAnalyzer {
         return Optional.of(attributes.get(0));
     }
 
-    private static Optional<Expression> lookupPseudoField(@Nonnull LogicalOperator logicalOperator,
-                                                          @Nonnull Identifier identifier,
-                                                          boolean matchQualifiedOnly) {
-        if (matchQualifiedOnly && (!identifier.isQualified() || logicalOperator.getName().isEmpty())) {
-            return Optional.empty();
-        }
-        if (matchQualifiedOnly && identifier.isQualified() && identifier.fullyQualifiedName().size() != 2) {
-            return Optional.empty();
-        }
-        if (!identifier.isQualified()) {
-            return PseudoColumn.mapToExpressionMaybe(logicalOperator, identifier.getName());
-        }
-        if (logicalOperator.getName().isEmpty()) {
-            return Optional.empty();
-        }
-        if (!identifier.prefixedWith(logicalOperator.getName().get())) {
-            return Optional.empty();
-        }
-        return PseudoColumn.mapToExpressionMaybe(logicalOperator, identifier.getName());
-    }
-
     @Nonnull
     private List<Expression> lookup(@Nonnull Identifier referenceIdentifier,
                                     @Nonnull LogicalOperators operators,
@@ -420,46 +399,69 @@ public class SemanticAnalyzer {
         if (matchQualifiedOnly && !referenceIdentifier.isQualified()) {
             return ImmutableList.of();
         }
-        final ImmutableList.Builder<Expression> matchedAttributes = ImmutableList.builder();
+        // Separate direct matches from nested-field results derived from an EphemeralExpression.
+        // When the same field is reachable both ways (e.g. NEST.F exists directly in the output
+        // because of addAll, AND lookupNestedField on EphemeralExpression(NEST) also resolves to
+        // NEST.F), the direct match takes priority and the ephemeral-derived duplicate is dropped.
+        final ImmutableList.Builder<Expression> directMatchesBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<Expression> ephemeralDerivedBuilder = ImmutableList.builder();
         for (final var operator : operators) {
             if (operator.getQuantifier() instanceof Quantifier.Existential) {
                 continue;
             }
             final var operatorNameMaybe = operator.getName();
-            boolean checkForPseudoColumns = true;
             for (final var attribute : operator.getOutput()) {
                 if (attribute.getName().isEmpty()) {
                     continue;
                 }
                 final var attributeIdentifier = attribute.getName().get();
                 if (attributeIdentifier.equals(referenceIdentifier)) {
-                    matchedAttributes.add(attribute);
-                    checkForPseudoColumns = false;
+                    directMatchesBuilder.add(attribute);
                     continue;
-                } else if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
-                    matchedAttributes.add(attribute);
-                    checkForPseudoColumns = false;
+                }
+                if (!referenceIdentifier.isQualified() && !attribute.isVisible()) {
+                    continue;
+                }
+                if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
+                    directMatchesBuilder.add(attribute);
                     continue;
                 }
                 if (matchQualifiedOnly && operatorNameMaybe.isPresent()) {
                     if (attributeIdentifier.withQualifier(operatorNameMaybe.get().getName()).equals(referenceIdentifier)) {
-                        matchedAttributes.add(attribute);
-                        checkForPseudoColumns = false;
+                        directMatchesBuilder.add(attribute);
                         continue;
                     }
                 }
                 final var nestedFieldMaybe = lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
                 if (nestedFieldMaybe.isPresent()) {
-                    matchedAttributes.add(nestedFieldMaybe.get());
-                    checkForPseudoColumns = false;
+                    if (attribute instanceof EphemeralExpression) {
+                        ephemeralDerivedBuilder.add(nestedFieldMaybe.get());
+                    } else {
+                        directMatchesBuilder.add(nestedFieldMaybe.get());
+                    }
                 }
             }
-            if (checkForPseudoColumns) {
-                lookupPseudoField(operator, referenceIdentifier, matchQualifiedOnly)
-                        .ifPresent(matchedAttributes::add);
-            }
         }
-        return matchedAttributes.build();
+        final var directMatches = directMatchesBuilder.build();
+        final var ephemeralDerived = ephemeralDerivedBuilder.build();
+        if (ephemeralDerived.isEmpty()) {
+            return directMatches;
+        }
+        if (directMatches.isEmpty()) {
+            return ephemeralDerived;
+        }
+        // At least one direct match and at least one ephemeral-derived match: suppress any
+        // ephemeral-derived result whose identifier is already covered by a direct match.
+        final var directNames = directMatches.stream()
+                .flatMap(e -> e.getName().stream())
+                .collect(ImmutableSet.toImmutableSet());
+        final var uniqueEphemeralDerived = ephemeralDerived.stream()
+                .filter(e -> e.getName().isEmpty() || !directNames.contains(e.getName().get()))
+                .collect(ImmutableList.toImmutableList());
+        return ImmutableList.<Expression>builder()
+                .addAll(directMatches)
+                .addAll(uniqueEphemeralDerived)
+                .build();
     }
 
     @Nonnull
@@ -862,8 +864,15 @@ public class SemanticAnalyzer {
     }
 
     public static void validateDatabaseUri(@Nonnull Identifier path) {
-        Assert.thatUnchecked(Objects.requireNonNull(path.getName()).matches("/\\w[a-zA-Z0-9_/]*\\w"),
-                ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", path));
+        validateDatabaseUri(path.getName());
+    }
+
+    public static void validateDatabaseUri(String pathName) {
+        // TODO this should probably follow the same rules as other quoted identifiers:
+        //      https://github.com/FoundationDB/fdb-record-layer/issues/4004
+        // It can end with `/` if the schema is the default (null) schema
+        Assert.thatUnchecked(Objects.requireNonNull(pathName).matches("/\\w[-a-zA-Z0-9_/]*\\w"),
+                ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", pathName));
     }
 
     public static void validateCteColumnAliases(@Nonnull LogicalOperator logicalOperator, @Nonnull List<Identifier> columnAliases) {
@@ -874,10 +883,14 @@ public class SemanticAnalyzer {
 
     @Nonnull
     public static NonnullPair<Optional<URI>, String> parseSchemaIdentifier(@Nonnull final Identifier schemaIdentifier) {
-        final var id = schemaIdentifier.getName();
+        return parseSchemaURI(schemaIdentifier.getName());
+    }
+
+    @Nonnull
+    public static NonnullPair<Optional<URI>, String> parseSchemaURI(@Nonnull final String id) {
         Assert.notNullUnchecked(id);
         if (id.startsWith("/")) {
-            validateDatabaseUri(schemaIdentifier);
+            validateDatabaseUri(id);
             int separatorIdx = id.lastIndexOf("/");
             Assert.thatUnchecked(separatorIdx < id.length() - 1);
             return NonnullPair.of(Optional.of(URI.create(id.substring(0, separatorIdx))), id.substring(separatorIdx + 1));
@@ -1163,7 +1176,7 @@ public class SemanticAnalyzer {
     public Optional<Type> getRecursiveCteType(@Nonnull final RelationalParser.QueryContext namedQueryBody,
                                               @Nonnull final Identifier queryName,
                                               @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser,
-                                              @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                              @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
                                               @Nonnull final QueryVisitor queryVisitor) {
         final AtomicReference<Optional<Type>> result = new AtomicReference<>(Optional.empty());
         recursiveQueryTraversal(namedQueryBody, queryName, idParser,
@@ -1193,7 +1206,7 @@ public class SemanticAnalyzer {
     public NonnullPair<List<LogicalOperator>, List<LogicalOperator>> partitionRecursiveQuery(@Nonnull final RelationalParser.QueryContext namedQueryBody,
                                                                                              @Nonnull final Identifier queryName,
                                                                                              @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser,
-                                                                                             @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                                                                             @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
                                                                                              @Nonnull final QueryVisitor queryVisitor) {
         final var nonRecursiveBranchesBuilder = ImmutableList.<LogicalOperator>builder();
         final var recursiveBranchesBuilder = ImmutableList.<LogicalOperator>builder();
@@ -1294,17 +1307,17 @@ public class SemanticAnalyzer {
     @Nonnull
     private static LogicalOperator handleQueryFragment(@Nonnull final ParserRuleContext queryFragment,
                                                        @Nonnull final RelationalParser.QueryContext namedQueryBody,
-                                                       @Nonnull final Function<ParserRuleContext, LogicalOperators> memoizer,
+                                                       @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
                                                        @Nonnull final QueryVisitor queryVisitor) {
         LogicalOperator logicalOperator;
         if (namedQueryBody.ctes() != null) {
             final var ctes = namedQueryBody.ctes();
-            final var currentPlanFragment = queryVisitor.getDelegate().pushPlanFragment();
-            memoizer.apply(ctes).forEach(currentPlanFragment::addOperator);
-            logicalOperator = memoizer.apply(queryFragment).first();
+            queryVisitor.getDelegate().pushPlanFragment();
+            memoizer.apply(ctes);
+            logicalOperator = Assert.optionalUnchecked(memoizer.apply(queryFragment));
             queryVisitor.getDelegate().popPlanFragment();
         } else {
-            logicalOperator = memoizer.apply(queryFragment).first();
+            logicalOperator = Assert.optionalUnchecked(memoizer.apply(queryFragment));
         }
         return logicalOperator;
     }

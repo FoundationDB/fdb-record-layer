@@ -89,31 +89,9 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
                     final Plan<?> plan = planGenerator.getPlan(sql);
                     final var executionContext = Plan.ExecutionContext.of(conn.getTransaction(), planGenerator.getOptions(), conn, metricCollector);
                     if (plan instanceof QueryPlan) {
-                        currentResultSet = new ErrorCapturingResultSet(((QueryPlan) plan).execute(executionContext));
-                        resultSetRetrieved = false;
-                        if (plan.isUpdatePlan()) {
-                            //this is an update statement, so generate the row count and set the update clause
-                            try (ResultSet updateResultSet = currentResultSet) {
-                                currentResultSet = null;
-                                resultSetRetrieved = true;
-                                currentRowCount = countUpdates(updateResultSet);
-                                return false;
-                            }
-                        } else {
-                            //result set statements get a -1 for update count
-                            currentRowCount = -1;
-                            return true;
-                        }
+                        return clockAndExecuteQueryPlan((QueryPlan) plan, executionContext);
                     } else {
-                        plan.execute(executionContext);
-                        currentResultSet = null;
-                        resultSetRetrieved = true;
-                        //ddl statements are updates that don't return results, so they get 0 for row count
-                        currentRowCount = 0;
-                        if (conn.canCommit()) {
-                            conn.commitInternal();
-                        }
-                        return false;
+                        return clockAndExecuteNonQueryPlan(plan, executionContext);
                     }
                 }
             } catch (RelationalException | SQLException | RuntimeException ex) {
@@ -127,6 +105,48 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
                 }
                 throw ExceptionUtil.toRelationalException(ex);
             }
+        });
+    }
+
+    private boolean clockAndExecuteQueryPlan(@Nonnull final QueryPlan plan, @Nonnull final Plan.ExecutionContext executionContext) throws RelationalException {
+        final var metricCollector = Assert.notNullUnchecked(conn.getMetricCollector());
+        return metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_QUERY_PLAN, () -> {
+            currentResultSet = new ErrorCapturingResultSet(plan.execute(executionContext));
+            resultSetRetrieved = false;
+            if (plan.isUpdatePlan()) {
+                //this is an update statement, so generate the row count and set the update clause
+                try (ResultSet updateResultSet = currentResultSet) {
+                    currentResultSet = null;
+                    resultSetRetrieved = true;
+                    currentRowCount = countUpdates(updateResultSet);
+                    return false;
+                } catch (SQLException sqlException) {
+                    throw ExceptionUtil.toRelationalException(sqlException);
+                }
+            } else {
+                //result set statements get a -1 for update count
+                currentRowCount = -1;
+                return true;
+            }
+        });
+    }
+
+    private boolean clockAndExecuteNonQueryPlan(@Nonnull final Plan<?> plan, @Nonnull final Plan.ExecutionContext executionContext) throws RelationalException {
+        final var metricCollector = Assert.notNullUnchecked(conn.getMetricCollector());
+        return metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_NON_QUERY_PLAN, () -> {
+            plan.execute(executionContext);
+            currentResultSet = null;
+            resultSetRetrieved = true;
+            //ddl statements are updates that don't return results, so they get 0 for row count
+            currentRowCount = 0;
+            try {
+                if (conn.canCommit()) {
+                    conn.commitInternal();
+                }
+            } catch (SQLException sqlException) {
+                throw ExceptionUtil.toRelationalException(sqlException);
+            }
+            return false;
         });
     }
 

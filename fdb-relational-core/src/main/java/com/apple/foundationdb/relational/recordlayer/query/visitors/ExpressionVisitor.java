@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConditionSelectorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -36,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -300,7 +300,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final Expressions partitions = partitionClause == null ? Expressions.empty() : getDelegate().visitPartitionClause(partitionClause);
 
         @Nullable final var orderByClause = ctx.windowSpec().orderByClause();
-        final List<OrderByExpression> orderByExpressions = orderByClause == null ? ImmutableList.of() : visitOrderByClause(orderByClause);
+        // Parse ORDER BY expressions directly — the isTopLevel() check in visitOrderByClause
+        // is for query-level ORDER BY and does not apply inside OVER clauses.
+        final List<OrderByExpression> orderByExpressions = orderByClause == null ? ImmutableList.of()
+                : orderByClause.orderByExpression().stream().map(this::visitOrderByExpression)
+                        .collect(ImmutableList.toImmutableList());
 
         @Nullable final var windowOptionsClause = ctx.windowSpec().windowOptionsClause();
         final Expressions windowOptions = windowOptionsClause == null ? Expressions.empty() : getDelegate().visitWindowOptionsClause(windowOptionsClause);
@@ -391,7 +395,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
         final var functionName = Identifier.of(getDelegate().normalizeString(ctx.userDefinedScalarFunctionName().getText()));
 
-        // final var functionName = ctx.userDefinedScalarFunctionName().getText();
         Expressions arguments = visitFunctionArgs(ctx.functionArgs());
         return getDelegate().resolveFunction(functionName.getName(), arguments.asList().toArray(new Expression[0]));
     }
@@ -453,8 +456,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public Expressions visitFunctionArgs(@Nonnull RelationalParser.FunctionArgsContext ctx) {
-        return Expressions.of(ctx.functionArg().stream().map(this::visitFunctionArg).collect(ImmutableList.toImmutableList()));
+    public Expressions visitFunctionArgs(@Nullable RelationalParser.FunctionArgsContext ctx) {
+        if (ctx == null) {
+            return Expressions.of(List.of());
+        } else {
+            return Expressions.of(ctx.functionArg().stream().map(this::visitFunctionArg).collect(ImmutableList.toImmutableList()));
+        }
     }
 
     @Nonnull
@@ -597,10 +604,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         } else {
             escapeValue = new LiteralValue<>(null);
         }
-        final var pattern = Assert.notNullUnchecked(getDelegate().normalizeString(ctx.pattern.getText()));
-        final var patternValueBinding = getDelegate().getPlanGenerationContext().processQueryLiteral(
-                Type.primitiveType(Type.TypeCode.STRING), pattern, ctx.pattern.getTokenIndex());
-        final var patternFunction = getDelegate().resolveFunction("__pattern_for_like", Expression.ofUnnamed(patternValueBinding),
+        final var patternValueBinding = Assert.castUnchecked(ctx.pattern.accept(this), Expression.class);
+        final var patternFunction = getDelegate().resolveFunction("__pattern_for_like", patternValueBinding,
                 Expression.ofUnnamed(escapeValue));
         final var likeFunction = getDelegate().resolveFunction(ctx.LIKE().getText(), operand, patternFunction);
         if (ctx.NOT() != null) {

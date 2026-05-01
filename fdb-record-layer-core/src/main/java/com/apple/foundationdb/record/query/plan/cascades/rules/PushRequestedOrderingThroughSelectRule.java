@@ -66,19 +66,9 @@ public class PushRequestedOrderingThroughSelectRule extends CascadesRule<SelectE
         final var innerQuantifier = bindings.get(innerQuantifierMatcher);
         final var lowerRef = bindings.get(lowerRefMatcher);
 
-        final var isInnerQuantifierOnlyForEach =
-                selectExpression.getQuantifiers()
-                        .stream()
-                        .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
-                        .allMatch(quantifier -> quantifier == innerQuantifier);
-
         final var requestedOrderings =
                 call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING)
                         .orElse(ImmutableSet.of());
-
-        if (!isInnerQuantifierOnlyForEach && requestedOrderings.stream().anyMatch(requestedOrdering -> !requestedOrdering.isPreserve())) {
-            return;
-        }
 
         final var resultValue = selectExpression.getResultValue();
         final var toBePushedRequestedOrderingsBuilder = ImmutableSet.<RequestedOrdering>builder();

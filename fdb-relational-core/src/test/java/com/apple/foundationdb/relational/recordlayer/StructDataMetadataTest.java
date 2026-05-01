@@ -68,7 +68,6 @@ public class StructDataMetadataTest {
                     " CREATE TABLE t3(id bigint, m m, PRIMARY KEY(id)) " +
                     " CREATE TABLE t4(id bigint, n1 n1, n2 n2, PRIMARY KEY(id)) ";
 
-
     /*
     message at {
       string a_name = 1;
