@@ -68,13 +68,17 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexE
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
@@ -83,7 +87,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -91,6 +97,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
@@ -99,8 +107,10 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -108,15 +118,18 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.indexEntryKey;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.both;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -1395,59 +1408,390 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void failureToMarkIndexReadableShouldNotBlockCheckVersion() {
-        // Deleting an index does not remove it from the disabled list
-        // (https://github.com/FoundationDB/fdb-record-layer/issues/515) may cause a new index with the same name
-        // unable to use rebuildIndexWithNoRecord (which tries to mark index on new record type readable), but this
-        // should not block check version.
+    @ParameterizedTest
+    @BooleanSource("useNumericSubspaceKeys")
+    void removingFormerIndexClearsIndexState(boolean useNumericSubspaceKeys) {
+        final String indexName = "creativeIndexName";
+        final RecordMetaDataHook hook1 = builder -> {
+            final Index index = new Index(indexName, "num_value_2");
+            if (useNumericSubspaceKeys) {
+                index.setSubspaceKey(42L);
+            }
+            builder.addIndex("MySimpleRecord", index);
+        };
 
+        // Create the store and manually set the index state
+        int metaDataVersion1;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook1);
+            metaDataVersion1 = recordStore.getRecordMetaData().getVersion();
+            assertTrue(recordStore.isIndexReadable(indexName));
+            recordStore.markIndexDisabled(indexName).join();
+            commit(context);
+        }
+
+        // Remove the index from the meta-data
+        final RecordMetaDataHook hook2 = hook1.andThen(builder -> {
+            builder.removeIndex(indexName);
+        });
+
+        // Assert that the index state is cleared out
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook2);
+            int metaDataVersion2 = recordStore.getRecordMetaData().getVersion();
+            assertThat(metaDataVersion2, greaterThan(metaDataVersion1));
+            assertThat(recordStore.getRecordMetaData().getFormerIndexesSince(metaDataVersion1),
+                    contains(new FormerIndex(useNumericSubspaceKeys ? 42L : indexName, metaDataVersion1, metaDataVersion2, indexName)));
+            // assertThat(recordStore.getRecordStoreState().getIndexStates(), not(hasKey(indexName)));
+            assertThrows(MetaDataException.class, () -> recordStore.getIndexState(indexName));
+            commit(context);
+        }
+
+        // Validate that the change to the index state is persisted across a commit
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook2);
+            assertThat(recordStore.getRecordStoreState().getIndexStates(), not(hasKey(indexName)));
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource("useNumericSubspaceKeys")
+    void formerIndexMissingFormerNameDoesNotClearOutState(boolean useNumericSubspaceKeys) {
+        final String indexName = "indexToBeRemoved";
+        final Object indexSubspaceKey = useNumericSubspaceKeys ? 1066L : indexName;
+        final RecordMetaDataHook hook1 = builder -> {
+            final Index index = new Index(indexName, "num_value_2");
+            index.setSubspaceKey(indexSubspaceKey);
+            builder.addIndex("MySimpleRecord", index);
+        };
+
+        int metaDataVersion1;
+        Subspace indexSubspace;
+        TestRecords1Proto.MySimpleRecord saved;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook1);
+            metaDataVersion1 = recordStore.getRecordMetaData().getVersion();
+            recordStore.markIndexWriteOnly(indexName).join();
+            saved = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1863L)
+                    .setNumValue2(10)
+                    .build();
+            recordStore.saveRecord(saved);
+
+            // Validate that the index is not empty
+            indexSubspace = recordStore.getSubspace().subspace(Tuple.from(FDBRecordStoreKeyspace.INDEX.key(), indexSubspaceKey));
+            assertThat(context.ensureActive().getRange(indexSubspace.range()).asList().join(), not(empty()));
+
+            commit(context);
+        }
+
+        final RecordMetaDataHook hook2 = builder -> {
+            final FormerIndex formerIndexMissingName = new FormerIndex(indexSubspaceKey, metaDataVersion1, metaDataVersion1 + 1, null);
+            builder.addFormerIndex(formerIndexMissingName);
+            builder.setVersion(metaDataVersion1 + 1);
+        };
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook2);
+
+            // Validate that the saved record is there but that the index is cleared out.
+            // This assertion is there to show that the former index was selected by check version
+            // and its data was actually cleared out
+            final FDBStoredRecord<Message> storedRecord = recordStore.loadRecord(Tuple.from(saved.getRecNo()));
+            assertNotNull(storedRecord);
+            assertEquals(saved, storedRecord.getRecord());
+            assertThat(context.ensureActive().getRange(indexSubspace.range()).asList().join(), empty());
+
+            // The index state is still present. This cannot be cleared because we do not have the former index name
+            assertThat(recordStore.getRecordStoreState().getIndexStates(), hasKey(indexName));
+
+            commit(context);
+        }
+
+        // Re-open the store and validate that the changes were persisted
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook2);
+            assertThat(recordStore.getRecordStoreState().getIndexStates(), hasKey(indexName));
+        }
+    }
+
+    @Nonnull
+    static Stream<Arguments> resetIndexStateOnIndexRecreation() {
+        return ParameterizedTestUtils.cartesianProduct(
+                Stream.of(IndexState.values()),
+                ParameterizedTestUtils.booleans("useNumericSubspaceKeys"),
+                ParameterizedTestUtils.booleans("onNewType")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void resetIndexStateOnIndexRecreation(@Nonnull IndexState desiredIndexState, boolean useNumericSubspaceKeys, boolean onNewType) {
         final String reusedIndexName = "reused_index_name";
 
-        // Add index and disable it.
-        RecordMetaDataHook metaData2 = builder -> {
-            builder.addIndex("MySimpleRecord", new Index(reusedIndexName, "str_value_indexed"));
-            builder.setVersion(200);
+        // Add the index and disable it.
+        final RecordMetaDataHook hook1 = builder -> {
+            final Index index = new Index(reusedIndexName, "str_value_indexed");
+            if (useNumericSubspaceKeys) {
+                index.setSubspaceKey(42L);
+            }
+            builder.addIndex("MySimpleRecord", index);
         };
+        final int metaDataVersion1;
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, metaData2);
-            assertTrue(recordStore.isIndexReadable(reusedIndexName));
-            recordStore.markIndexDisabled(reusedIndexName).join();
-            assertTrue(recordStore.isIndexDisabled(reusedIndexName));
-            commit(context);
-        }
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, metaData2);
-            assertTrue(recordStore.isIndexDisabled(reusedIndexName));
-        }
-
-        // Remove index.
-        RecordMetaDataHook metaData3 = builder -> {
-            builder.setVersion(300);
-        };
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, metaData3);
-            assertFalse(recordStore.getRecordMetaData().hasIndex(reusedIndexName));
+            openSimpleRecordStore(context, hook1);
+            metaDataVersion1 = recordStore.getRecordMetaData().getVersion();
+            recordStore.markIndexWriteOnly(reusedIndexName).join();
+            assertTrue(recordStore.isIndexWriteOnly(reusedIndexName));
             commit(context);
         }
 
-        RecordMetaDataHook metaData4 = builder -> {
-            builder.setVersion(300);
-            // Add another record type: AnotherRecord.
+        // Replace the index with a new one with the same name
+        final RecordMetaDataHook hook2 = hook1.andThen(builder -> {
+            // Remove the index
+            builder.removeIndex(reusedIndexName);
+
+            // Evolve the record descriptor
             builder.updateRecords(TestRecords1EvolvedProto.getDescriptor());
-            // Add an index on the new record type with the old name. The index should have an added version greater
-            // than 300.
-            builder.addIndex("AnotherRecord", new Index(reusedIndexName, "num_value_2"));
-            builder.setVersion(400);
+            assertThat(builder.getRecordType("AnotherRecord").getSinceVersion(), greaterThan(metaDataVersion1));
+
+            // Create a new index with the same name
+            final Index index = new Index(reusedIndexName, "num_value_2");
+            if (useNumericSubspaceKeys) {
+                index.setSubspaceKey(43L);
+            } else {
+                // Indexes and former indexes cannot share subspace keys
+                index.setSubspaceKey(reusedIndexName + "_bis");
+            }
+            final String recordType = onNewType ? "AnotherRecord" : "MySimpleRecord";
+            builder.addIndex(recordType, index);
+        });
+
+        // Call check version. After the update, the index state should reflect the desired state, with a few caveats:
+        //  1. If the index is on a new type, then unless we mark the index as DISABLED, the index should be READABLE
+        //     (because it can be marked as READABLE without building the index)
+        //  2. If the desired index state is READABLE_UNIQUE_PENDING, then that also gets upgraded to READABLE as the
+        //     index is not unique
+        final IndexState expectedIndexState;
+        if (onNewType && desiredIndexState != IndexState.DISABLED || desiredIndexState == IndexState.READABLE_UNIQUE_PENDING) {
+            expectedIndexState = IndexState.READABLE;
+        } else {
+            expectedIndexState = desiredIndexState;
+        }
+        try (FDBRecordContext context = openContext()) {
+            final RecordMetaData metaData = simpleMetaData(hook2);
+            assertThat(metaData.getVersion(), greaterThan(metaDataVersion1));
+            final Set<String> checkVersionUpdatedIndexes = new HashSet<>();
+            final FDBRecordStore.Builder builder = getStoreBuilder(context, metaData, Objects.requireNonNull(path))
+                    .setUserVersionChecker(new FDBRecordStoreBase.UserVersionChecker() {
+                        @Deprecated
+                        @Override
+                        public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
+                            return fail("should not call deprecated checkUserVersion method");
+                        }
+
+                        @Override
+                        public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+                            return CompletableFuture.completedFuture(storeHeader.getUserVersion());
+                        }
+
+                        @Nonnull
+                        @Override
+                        public CompletableFuture<IndexState> needRebuildIndex(final Index index, final Supplier<CompletableFuture<Long>> lazyRecordCount, final Supplier<CompletableFuture<Long>> lazyEstimatedSize, final boolean indexOnNewRecordTypes) {
+                            checkVersionUpdatedIndexes.add(index.getName());
+                            return CompletableFuture.completedFuture(desiredIndexState);
+                        }
+                    });
+            recordStore = builder.open();
+            assertThat(checkVersionUpdatedIndexes, contains(reusedIndexName));
+
+            // The index state should now reflect the state desired by the user-version checker, not the old index state
+            assertEquals(expectedIndexState, recordStore.getIndexState(reusedIndexName));
+            commit(context);
+        }
+
+        // Re-open the store. The index state change should have been persisted
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook2);
+            assertEquals(expectedIndexState, recordStore.getIndexState(reusedIndexName));
+        }
+    }
+
+    static Stream<Arguments> reuseIndexNameWhenFormerIndexMissesFormerName() {
+        return ParameterizedTestUtils.cartesianProduct(
+                ParameterizedTestUtils.booleans("useNumericSubspaceKeys"),
+                ParameterizedTestUtils.booleans("onNewType")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void reuseIndexNameWhenFormerIndexMissesFormerName(boolean useNumericSubspaceKeys, boolean onNewType) throws InvalidProtocolBufferException {
+        final String reusedIndexName = "reused_index_name";
+        final Object originalSubspaceKey = useNumericSubspaceKeys ? 42L : reusedIndexName;
+
+        // Add the index and mark it write-only
+        final RecordMetaDataHook hook1 = builder -> {
+            final Index index = new Index(reusedIndexName, "str_value_indexed");
+            index.setSubspaceKey(originalSubspaceKey);
+            builder.addIndex("MySimpleRecord", index);
+        };
+        final int metaDataVersion1;
+        final TestRecords1Proto.MySimpleRecord saved;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook1);
+            metaDataVersion1 = recordStore.getRecordMetaData().getVersion();
+
+            saved = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1215L)
+                    .setNumValue2(10)
+                    .setStrValueIndexed("odd")
+                    .build();
+            recordStore.saveRecord(saved);
+            final List<FDBIndexedRecord<Message>> records = recordStore.scanIndexRecords(reusedIndexName)
+                    .asList()
+                    .join();
+            assertThat(records, hasSize(1));
+            FDBIndexedRecord<Message> indexedRecord = records.get(0);
+            assertEquals(saved, indexedRecord.getRecord());
+            assertEquals(Tuple.from(saved.getStrValueIndexed(), saved.getRecNo()), indexedRecord.getIndexEntry().getKey());
+
+            recordStore.markIndexWriteOnly(reusedIndexName).join();
+            assertTrue(recordStore.isIndexWriteOnly(reusedIndexName));
+
+            commit(context);
+        }
+
+        // Replace the index with a new one with the same name
+        final RecordMetaDataHook hook2 = builder -> {
+            // Create a former index that is missing the former name
+            builder.addFormerIndex(new FormerIndex(originalSubspaceKey, metaDataVersion1, metaDataVersion1 + 1, null));
+            builder.setVersion(metaDataVersion1 + 1);
+
+            // Update the records descriptor so that we have access to AnotherType
+            builder.updateRecords(TestRecords1EvolvedProto.getDescriptor());
+            assertThat(builder.getRecordType("AnotherRecord").getSinceVersion(), greaterThan(metaDataVersion1));
+
+            // Create a new index with the same name
+            final Index index = new Index(reusedIndexName, "num_value_2");
+            if (useNumericSubspaceKeys) {
+                index.setSubspaceKey(43L);
+            } else {
+                // Indexes and former indexes cannot share subspace keys
+                index.setSubspaceKey(reusedIndexName + "_bis");
+            }
+            final String recordTypeName = onNewType ? "AnotherRecord" : "MySimpleRecord";
+            builder.addIndex(recordTypeName, index);
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook2);
+            if (onNewType) {
+                // There's an issue here when the index is on a new type, which is that marking the
+                // index as read only (with no data) is confused by the index state not being set.
+                // This results in it falling back to alternative logic, which sets the index state
+                // to DISABLED just to get things to a more defined state.
+                assertTrue(recordStore.isIndexDisabled(reusedIndexName));
+            } else {
+                assertTrue(recordStore.isIndexReadable(reusedIndexName));
+
+                // Validate that we can scan the index, and that it contains the saved record with the new index's entry
+                final List<FDBIndexedRecord<Message>> records = recordStore.scanIndexRecords(reusedIndexName)
+                        .asList()
+                        .join();
+                assertThat(records, hasSize(1));
+                FDBIndexedRecord<Message> indexedRecord = records.get(0);
+                final TestRecords1EvolvedProto.MySimpleRecord evolvedSaved = TestRecords1EvolvedProto.MySimpleRecord.parseFrom(saved.toByteString());
+                assertEquals(evolvedSaved, indexedRecord.getRecord());
+                assertEquals(Tuple.from(saved.getNumValue2(), saved.getRecNo()), indexedRecord.getIndexEntry().getKey());
+            }
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource("includeNameInFormerIndex")
+    void removeIndexWithSubspaceKeyEqualToOtherIndexName(boolean includeNameInFormerIndex) {
+        final String indexName1 = "index_one";
+        final String indexName2 = "index_two";
+
+        // Add both indexes to the meta-data and then mark them as WRITE_ONLY
+        final RecordMetaDataHook hook1 = builder -> {
+            // Create two indexes. For each of them, the subspace key is the other's name.
+            // There's not a great reason for doing this, though there are some almost
+            // plausible scenarios when one index's name may be another index's subspace
+            // key, e.g., an index is added with one name and subspace key, and then a future
+            // index is created with the same name (but a different key) as a replacement,
+            // at which point, the old index may be renamed
+            final Index index1 = new Index(indexName1, "num_value_2");
+            index1.setSubspaceKey(indexName2);
+            final Index index2 = new Index(indexName2, "str_value_indexed");
+            index2.setSubspaceKey(indexName1);
+
+            builder.addIndex("MySimpleRecord", index1);
+            builder.addIndex("MySimpleRecord", index2);
+        };
+        final int metaDataVersion1;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook1);
+            metaDataVersion1 = recordStore.getRecordMetaData().getVersion();
+            recordStore.markIndexWriteOnly(indexName1).join();
+            recordStore.markIndexWriteOnly(indexName2).join();
+            commit(context);
+        }
+
+        // Remove index1
+        final RecordMetaDataHook hook2 = builder -> {
+            if (includeNameInFormerIndex) {
+                hook1.apply(builder);
+                builder.removeIndex(indexName1);
+            } else {
+                // Simulate a situation where we add both indexes, then remove one of them.
+                // We don't call the old RecordMetaDataHook here because we then the only way
+                // to remove the index introduces a FormerIndex that includes the name
+                final Index index2 = new Index(indexName2, "str_value_indexed");
+                index2.setSubspaceKey(indexName1);
+                builder.addIndex("MySimpleRecord", index2);
+
+                builder.addFormerIndex(new FormerIndex(indexName2, metaDataVersion1, metaDataVersion1 + 1, null));
+                builder.setVersion(metaDataVersion1 + 1);
+            }
         };
         try (FDBRecordContext context = openContext()) {
-            // It should pass checkVersion even if it failed to rebuildIndexWithNoRecord, and the index is disabled.
-            // Also manually checked that there is a log titled with "unable to build index", and the index_name is
-            // "reused_index_name".
-            openSimpleRecordStore(context, metaData4);
-            // The index is disabled
-            assertTrue(recordStore.isIndexDisabled(reusedIndexName));
+            openSimpleRecordStore(context, hook2);
+
+            // Validate that the former index would have been selected during check version
+            final int metaDataVersion2 = recordStore.getRecordMetaData().getVersion();
+            assertThat(metaDataVersion2, greaterThan(metaDataVersion1));
+            final FormerIndex formerIndex = Iterables.getOnlyElement(recordStore.getRecordMetaData().getFormerIndexesSince(metaDataVersion1));
+            assertEquals(indexName2, formerIndex.getSubspaceKey());
+            assertThat(formerIndex.getAddedVersion(), lessThanOrEqualTo(metaDataVersion1));
+            assertThat(formerIndex.getRemovedVersion(), both(greaterThan(metaDataVersion1)).and(lessThanOrEqualTo(metaDataVersion2)));
+            assertEquals(includeNameInFormerIndex ? indexName1 : null, formerIndex.getFormerName());
+
+            // After the update, index 1 should no longer be accessible in the meta-data, hence the exception.
+            // The state for index 2 should be preserved.
+            assertThrows(MetaDataException.class, () -> recordStore.getIndexState(indexName1));
+            assertEquals(IndexState.WRITE_ONLY, recordStore.getIndexState(indexName2));
+
+            // The map should definitely contain an entry for indexName2, as we haven't built the index yet.
+            // If we have the index name available, the indexName1 entry should be cleared
+            final Map<String, IndexState> indexStateMap = recordStore.getRecordStoreState().getIndexStates();
+            assertThat(indexStateMap, hasEntry(indexName2, IndexState.WRITE_ONLY));
+            assertThat(indexStateMap, includeNameInFormerIndex ? not(hasKey(indexName1)) : hasEntry(indexName1, IndexState.WRITE_ONLY));
+
             commit(context);
+        }
+
+        // Validate that the states are preserved after committing
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook2);
+
+            assertThrows(MetaDataException.class, () -> recordStore.getIndexState(indexName1));
+            assertEquals(IndexState.WRITE_ONLY, recordStore.getIndexState(indexName2));
+
+            final Map<String, IndexState> indexStateMap = recordStore.getRecordStoreState().getIndexStates();
+            assertThat(indexStateMap, hasEntry(indexName2, IndexState.WRITE_ONLY));
+            assertThat(indexStateMap, includeNameInFormerIndex ? not(hasKey(indexName1)) : hasEntry(indexName1, IndexState.WRITE_ONLY));
         }
     }
 
@@ -1638,7 +1982,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context1 = openContext(); FDBRecordContext context2 = openContext()) {
             openSimpleRecordStore(context1);
-            recordStore.markIndexWriteOnly(indexName);
+            recordStore.markIndexWriteOnly(indexName).get();
 
             openSimpleRecordStore(context2);
             recordStore.saveRecord(record);

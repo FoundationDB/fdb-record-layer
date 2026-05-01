@@ -117,6 +117,6 @@ public class BitmapValueIndexMaintainerFactory implements IndexMaintainerFactory
         final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, reverse);
         final ExpansionVisitor<?> expansionVisitor = new BitmapAggregateIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes());
         return MatchCandidateExpansion.optionalToIterable(
-                MatchCandidateExpansion.expandIndexMatchCandidate(info, null, expansionVisitor));
+                MatchCandidateExpansion.expandIndexMatchCandidate(info, false, null, expansionVisitor));
     }
 }

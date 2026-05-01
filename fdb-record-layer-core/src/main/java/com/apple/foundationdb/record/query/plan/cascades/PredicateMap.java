@@ -21,10 +21,13 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 
 import javax.annotation.Nonnull;
+import java.util.Iterator;
 import java.util.Optional;
 import java.util.Set;
 
@@ -56,13 +59,47 @@ public class PredicateMap extends PredicateMultiMap {
     }
 
     private static Optional<SetMultimap<QueryPredicate, PredicateMapping>> checkUniqueness(@Nonnull final SetMultimap<QueryPredicate, PredicateMapping> map) {
+        final ImmutableSetMultimap.Builder<QueryPredicate, PredicateMapping> dedupedBuilder = ImmutableSetMultimap.builder();
         for (final QueryPredicate queryPredicate : map.keySet()) {
             final Set<PredicateMapping> candidatePredicateMappings = map.get(queryPredicate);
-            if (candidatePredicateMappings.size() != 1) {
-                return Optional.empty();
+            if (candidatePredicateMappings.size() == 1) {
+                dedupedBuilder.put(queryPredicate, Iterables.getOnlyElement(candidatePredicateMappings));
+            } else {
+                final Iterator<PredicateMapping> iterator = candidatePredicateMappings.iterator();
+                final PredicateMapping first = iterator.next();
+                while (iterator.hasNext()) {
+                    if (!mappingsAreEquivalent(first, iterator.next())) {
+                        return Optional.empty();
+                    }
+                }
+                dedupedBuilder.put(queryPredicate, first);
             }
         }
-        return Optional.of(map);
+        return Optional.of(dedupedBuilder.build());
+    }
+
+    private static boolean mappingsAreEquivalent(@Nonnull final PredicateMapping mapping1,
+                                                 @Nonnull final PredicateMapping mapping2) {
+        if (!mapping1.getMappingKind().equals(mapping2.getMappingKind())) {
+            return false;
+        }
+        if (!mapping1.getParameterAliasOptional().equals(mapping2.getParameterAliasOptional())) {
+            return false;
+        }
+        if (!mapping1.getComparisonRangeOptional().equals(mapping2.getComparisonRangeOptional())) {
+            return false;
+        }
+        if (!mapping1.getConstraint().equals(mapping2.getConstraint())) {
+            return false;
+        }
+        final var candidatePredicate1 = mapping1.getMappingKey().getCandidatePredicate();
+        final var candidatePredicate2 = mapping2.getMappingKey().getCandidatePredicate();
+        if (candidatePredicate1.getCorrelatedTo().size() != candidatePredicate2.getCorrelatedTo().size()) {
+            return false;
+        }
+        final var equivalenceMap = AliasMap.builder().zip(ImmutableList.copyOf(candidatePredicate1.getCorrelatedTo()),
+                ImmutableList.copyOf(candidatePredicate2.getCorrelatedTo()));
+        return candidatePredicate1.semanticEquals(candidatePredicate2, equivalenceMap.build());
     }
 
     /**

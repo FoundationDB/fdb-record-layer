@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowIndexMaintainerFactory;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,6 +79,10 @@ public class IndexMaintainerFactoryRegistryImpl implements IndexMaintainerFactor
         final IndexMaintainerFactory factory = registry.get(index.getType());
         if (factory == null) {
             throw new MetaDataException("Unknown index type for " + index);
+        }
+        // sliding window indexes are not composable
+        if (SlidingWindowIndexMaintainerFactory.isSlidingWindowIndex(index)) {
+            return new SlidingWindowIndexMaintainerFactory(factory);
         }
         return factory;
     }
