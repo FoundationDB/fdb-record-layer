@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.provider.foundationdb.IndexGeneralAttributes;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -54,6 +55,8 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
     static final String[] TYPES = { IndexTypes.VECTOR };
+    @Nonnull
+    private static final IndexGeneralAttributes VECTOR_INDEX_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     @Override
     @Nonnull
@@ -80,6 +83,12 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
         final ExpansionVisitor<?> expansionVisitor = new VectorIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes());
         return MatchCandidateExpansion.optionalToIterable(
                 MatchCandidateExpansion.expandIndexMatchCandidate(info, false, info.getCommonPrimaryKeyForTypes(), expansionVisitor));
+    }
+
+    @Nonnull
+    @Override
+    public IndexGeneralAttributes getIndexGeneralAttributes() {
+        return VECTOR_INDEX_ATTRIBUTES;
     }
 
     /**

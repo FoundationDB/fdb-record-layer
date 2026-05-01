@@ -567,4 +567,10 @@ class VectorIndexTest extends VectorIndexTestBase {
                             assertThat((double)recallCounter / k).isGreaterThan(0.9));
         }
     }
+
+    @Test
+    void vectorIndexAttributesNotOptimizedForMutualIndexing() {
+        final VectorIndexMaintainerFactory factory = new VectorIndexMaintainerFactory();
+        Assertions.assertThat(factory.getIndexGeneralAttributes().isOptimizedForMutualIndexing()).isFalse();
+    }
 }

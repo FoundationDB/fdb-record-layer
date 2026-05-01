@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexGeneralAttributes;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -52,6 +53,8 @@ import java.util.Set;
 public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
     @Nonnull
     private static final List<String> TYPES = Collections.singletonList(IndexTypes.TEXT);
+    @Nonnull
+    private static final IndexGeneralAttributes TEXT_INDEX_ATTRIBUTES = new IndexGeneralAttributes(false);
     @Nonnull
     private static final Set<String> TEXT_OPTIONS = ImmutableSet.of(
             IndexOptions.TEXT_TOKENIZER_NAME_OPTION,
@@ -196,5 +199,11 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
     @Override
     public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new TextIndexMaintainer(state);
+    }
+
+    @Nonnull
+    @Override
+    public IndexGeneralAttributes getIndexGeneralAttributes() {
+        return TEXT_INDEX_ATTRIBUTES;
     }
 }

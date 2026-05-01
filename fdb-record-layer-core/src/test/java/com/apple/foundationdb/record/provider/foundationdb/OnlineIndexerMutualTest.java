@@ -36,6 +36,11 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.AtomicMutationIndexMaintainerFactory;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.MultidimensionalIndexMaintainerFactory;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.RankIndexMaintainerFactory;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainerFactory;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VersionIndexMaintainerFactory;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -1768,6 +1773,21 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                         .build())
                 .build()) {
             assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+        }
+    }
+
+    @Test
+    void standardIndexAttributesOptimizedForMutualIndexing() {
+        List<IndexMaintainerFactory> factories = List.of(
+                new ValueIndexMaintainerFactory(),
+                new AtomicMutationIndexMaintainerFactory(),
+                new VersionIndexMaintainerFactory(),
+                new MultidimensionalIndexMaintainerFactory(),
+                new RankIndexMaintainerFactory()
+        );
+        for (IndexMaintainerFactory factory : factories) {
+            assertTrue(factory.getIndexGeneralAttributes().isOptimizedForMutualIndexing(),
+                    factory.getClass().getSimpleName() + " should be optimized for mutual indexing");
         }
     }
 }

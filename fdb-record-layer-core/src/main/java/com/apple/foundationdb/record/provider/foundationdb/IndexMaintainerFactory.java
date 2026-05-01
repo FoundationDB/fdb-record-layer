@@ -116,4 +116,15 @@ public interface IndexMaintainerFactory {
     default Iterable<MatchCandidate> createMatchCandidates(@Nonnull RecordMetaData metaData, @Nonnull Index index, boolean reverse) {
         return Collections.emptyList();
     }
+
+    /**
+     * Get the {@link IndexGeneralAttributes} for this factory's index type. The attributes provide general information
+     * and guidelines about the index.
+     *
+     * @return the index attributes for this factory's index type
+     */
+    @Nonnull
+    default IndexGeneralAttributes getIndexGeneralAttributes() {
+        return IndexGeneralAttributes.DEFAULT;
+    }
 }
