@@ -473,10 +473,14 @@ public class MetaDataEvolutionValidator {
     }
 
     private void validateSyntheticType(@Nonnull SyntheticRecordType<?> oldType, @Nonnull SyntheticRecordType<?> newType, @Nonnull Map<String, String> typeRenames) {
-        if (disallowTypeRenames && !oldType.getName().equals(newType.getName())) {
-            throw new MetaDataException("synthetic record type name changed",
-                    LogMessageKeys.OLD_RECORD_TYPE, oldType.getName(),
-                    LogMessageKeys.NEW_RECORD_TYPE, newType.getName());
+        if (!oldType.getName().equals(newType.getName())) {
+            if (disallowTypeRenames) {
+                throw new MetaDataException("synthetic record type name changed",
+                        LogMessageKeys.OLD_RECORD_TYPE, oldType.getName(),
+                        LogMessageKeys.NEW_RECORD_TYPE, newType.getName());
+            } else {
+                typeRenames.put(oldType.getName(), newType.getName());
+            }
         }
         if (!(oldType.getClass().equals(newType.getClass()))) {
             throw new MetaDataException("synthetic record type changed type",

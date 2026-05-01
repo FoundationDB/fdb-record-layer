@@ -1685,6 +1685,40 @@ class MetaDataEvolutionValidatorTest {
     }
 
     @Test
+    void renameJoinedType() {
+        final RecordMetaData metaData1 = createSimpleMetaData(this::addNumValue2Join);
+
+        final RecordMetaData metaData2 = updateMetaData(metaData1, metaDataBuilder -> {
+            RecordMetaDataProto.JoinedRecordType.Builder joinedTypeBuilder = metaDataBuilder.getJoinedRecordTypesBuilder(0);
+
+            // Add a copy with the same name but an additional join that indexes will point to
+            metaDataBuilder.addJoinedRecordTypes(joinedTypeBuilder.build().toBuilder()
+                    .setRecordTypeKey(RecordKeyExpressionProto.Value.newBuilder().setLongValue(-2))
+                    .addJoins(RecordMetaDataProto.JoinedRecordType.Join.newBuilder()
+                            .setLeft("l")
+                            .setLeftExpression(Key.Expressions.field("num_value_unique").toKeyExpression())
+                            .setRight("r")
+                            .setRightExpression(Key.Expressions.field("num_value_3_indexed").toKeyExpression())
+                    )
+            );
+
+            // Rename the original type
+            joinedTypeBuilder.setName("join_nv2_old");
+        });
+
+        assertInvalid("new index removes record type", metaData1, metaData2);
+        final MetaDataEvolutionValidator stricterValidator = validator.asBuilder()
+                .setDisallowTypeRenames(true)
+                .build();
+        assertInvalid("synthetic record type name changed", stricterValidator, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateIndex(metaData2, "joined$l.num_value_unique", indexBuilder ->
+                indexBuilder.clearRecordType().addRecordType("join_nv2_old"));
+        validator.validate(metaData1, metaData3);
+        assertInvalid("synthetic record type name changed", stricterValidator, metaData1, metaData3);
+    }
+
+    @Test
     void swapJoinTypeDefinitions() {
         final RecordMetaData metaData1 = createSimpleMetaData(metaDataBuilder -> {
             addNumValue2Join(metaDataBuilder);
@@ -2142,6 +2176,40 @@ class MetaDataEvolutionValidatorTest {
     }
 
     @Test
+    void renameUnnestedRecordType() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        final RecordMetaData metaData2 = updateMetaData(metaData1, metaDataBuilder -> {
+            RecordMetaDataProto.UnnestedRecordType.Builder unnestedTypeBuilder = metaDataBuilder.getUnnestedRecordTypesBuilder(0);
+
+            // Make a copy with the old name and an additional constituent that old indexes will point to
+            metaDataBuilder.addUnnestedRecordTypes(
+                    unnestedTypeBuilder.build().toBuilder()
+                            .setRecordTypeKey(RecordKeyExpressionProto.Value.newBuilder().setLongValue(-2))
+                            .addNestedConstituents(RecordMetaDataProto.UnnestedRecordType.NestedConstituent.newBuilder()
+                                    .setName("inner")
+                                    .setParent("middle")
+                                    .setTypeName(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor().getFullName())
+                                    .setNestingExpression(Key.Expressions.field("inner", KeyExpression.FanType.FanOut).toKeyExpression())
+                            )
+            );
+            // Update the name of the old one
+            unnestedTypeBuilder.setName("unnest_type_old");
+        });
+
+        assertInvalid("new index removes record type", metaData1, metaData2);
+        final MetaDataEvolutionValidator stricterValidator = validator.asBuilder()
+                .setDisallowTypeRenames(true)
+                .build();
+        assertInvalid("synthetic record type name changed", stricterValidator, metaData1, metaData2);
+
+        final RecordMetaData metaData3 = mutateIndex(metaData2, "unnest$other_int", indexBuilder ->
+                indexBuilder.clearRecordType().addRecordType("unnest_type_old"));
+        validator.validate(metaData1, metaData3);
+        assertInvalid("synthetic record type name changed", stricterValidator, metaData1, metaData3);
+    }
+
+    @Test
     void addUnnestedConstituent() {
         final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
 
@@ -2183,6 +2251,21 @@ class MetaDataEvolutionValidatorTest {
                 ).toKeyExpression()));
         assertInvalid("nested constituent name changed", metaData1, metaData3);
         laxerValidator.validate(metaData1, metaData3);
+    }
+
+    @Test
+    void swapParentAndChildConstituents() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        // Swapping the parent and child is not allowed as the parent has to come first. But if we ever loosen that, we
+        // should update this test to validate that the validator rejects this change
+        assertThrows(MetaDataException.class, () -> mutateUnnestedRecordType(metaData1, "unnest_many_middle", unnestedTypeBuilder -> {
+            RecordMetaDataProto.UnnestedRecordType.NestedConstituent parentConstituent = unnestedTypeBuilder.getNestedConstituents(0);
+            RecordMetaDataProto.UnnestedRecordType.NestedConstituent childConstituent = unnestedTypeBuilder.getNestedConstituents(1);
+            unnestedTypeBuilder.clearNestedConstituents();
+            unnestedTypeBuilder.addNestedConstituents(childConstituent);
+            unnestedTypeBuilder.addNestedConstituents(parentConstituent);
+        }));
     }
 
     @Test
@@ -2291,6 +2374,41 @@ class MetaDataEvolutionValidatorTest {
     }
 
     @Test
+    void evolveNestedConstituentType() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        // Make a valid change to a field mentioned in by an unnested record type
+        FileDescriptor updatedDescriptor = mutateMessageType("OuterRecord", TestRecordsDoubleNestedProto.getDescriptor(), messageBuilder -> {
+            final DescriptorProtos.DescriptorProto.Builder middleRecordBuilder = messageBuilder.getNestedTypeBuilder(0);
+            addField(middleRecordBuilder)
+                    .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                    .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
+                    .setName("blah");
+        });
+        RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, updatedDescriptor, metaDataBuilder ->
+                metaDataBuilder.addIndexesBuilder()
+                        .setName("unnest$blah")
+                        .addRecordType("unnest_many_middle")
+                        .setRootExpression(Key.Expressions.concat(Key.Expressions.field("outer").nest("other_int"), Key.Expressions.field("middle").nest("blah")).toKeyExpression())
+                        .setType(IndexTypes.VALUE)
+                        .setAddedVersion(metaDataBuilder.getVersion())
+                        .setLastModifiedVersion(metaDataBuilder.getVersion()));
+        validator.validate(metaData1, metaData2);
+
+        // Make an invalid change
+        FileDescriptor updatedAgainDescriptor = mutateMessageType("OuterRecord", updatedDescriptor, messageBuilder -> {
+            final DescriptorProtos.DescriptorProto.Builder middleRecordBuilder = messageBuilder.getNestedTypeBuilder(0);
+            for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : middleRecordBuilder.getFieldBuilderList()) {
+                if (fieldBuilder.getName().equals("blah")) {
+                    fieldBuilder.setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES);
+                }
+            }
+        });
+        RecordMetaData metaData3 = replaceRecordsDescriptor(metaData2, updatedAgainDescriptor);
+        assertInvalid("field type changed", metaData2, metaData3);
+    }
+
+    @Test
     void changeNestedConstituentTypeName() {
         final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleAndInnerType);
 
@@ -2357,6 +2475,44 @@ class MetaDataEvolutionValidatorTest {
         final RecordMetaData metaData3 = mutateUnnestedRecordType(metaData2, "unnest_many_middle", unnestedTypeBuilder ->
                 unnestedTypeBuilder.getNestedConstituentsBuilder(1).setNestingExpression(Key.Expressions.field("many_middle_old", KeyExpression.FanType.FanOut).toKeyExpression()));
         fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
+    }
+
+    @Test
+    void unnestedTypeBecomesJoinedRecordType() {
+        final RecordMetaData metaData1 = createDoubleNestedMetaData(this::addUnnestedManyMiddleType);
+
+        // Update the meta-data so that we now have a joined type instead of an unnested record type with the same key
+        final RecordMetaData metaData2 = updateMetaData(metaData1, metaDataBuilder -> {
+            final RecordMetaDataProto.UnnestedRecordType unnestedType = metaDataBuilder.getUnnestedRecordTypes(0);
+            metaDataBuilder.clearUnnestedRecordTypes();
+
+            // Copy the same constituent name, record type key, and constituent names from the unnested type so that
+            // any indexes defined on it pass local validation
+            final RecordMetaDataProto.UnnestedRecordType.NestedConstituent outer = unnestedType.getNestedConstituents(0);
+            final RecordMetaDataProto.UnnestedRecordType.NestedConstituent middle = unnestedType.getNestedConstituents(1);
+            metaDataBuilder.addJoinedRecordTypesBuilder()
+                    .setName(unnestedType.getName())
+                    .setRecordTypeKey(unnestedType.getRecordTypeKey())
+                    .addJoinConstituents(RecordMetaDataProto.JoinedRecordType.JoinConstituent.newBuilder()
+                            .setName(outer.getName())
+                            .setRecordType(outer.getTypeName())
+                            .setOuterJoined(false))
+                    .addJoinConstituents(RecordMetaDataProto.JoinedRecordType.JoinConstituent.newBuilder()
+                            .setName(middle.getName())
+                            .setRecordType("MiddleRecord")
+                            .setOuterJoined(false))
+                    .addJoins(RecordMetaDataProto.JoinedRecordType.Join.newBuilder()
+                            .setLeft(outer.getName())
+                            .setLeftExpression(Key.Expressions.field("middle").nest("other_int").toKeyExpression())
+                            .setRight(middle.getName())
+                            .setRightExpression(Key.Expressions.field("other_middle").nest("other_int").toKeyExpression()));
+        });
+
+        assertInvalid("synthetic record type changed type", metaData1, metaData2);
+
+        // Should also be a problem if we change back
+        final RecordMetaData metaData3 = updateMetaData(metaData1, metaDataBuilder -> metaDataBuilder.setVersion(metaData2.getVersion() + 1));
+        assertInvalid("synthetic record type changed type", metaData2, metaData3);
     }
 
     // Former index tests
