@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -56,8 +55,7 @@ public abstract class UdfFunction extends BuiltInFunction<Value> {
 
     @Nonnull
     @Override
-    public final Typed encapsulate(@Nonnull final List<? extends Typed> arguments) {
-        arguments.forEach(argument -> Verify.verify(argument instanceof Value));
+    public final Typed encapsulate(@Nonnull final List<Value> arguments) {
         final List<Type> parameterTypes = getParameterTypes();
         if (arguments.size() != parameterTypes.size()) {
             final String udfName = getFunctionName();
@@ -73,9 +71,9 @@ public abstract class UdfFunction extends BuiltInFunction<Value> {
             // Incompatible types
             SemanticException.check(maxType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             if (!argument.getResultType().equals(maxType)) {
-                promotedArgumentsList.add(PromoteValue.inject((Value)argument, maxType));
+                promotedArgumentsList.add(PromoteValue.inject(argument, maxType));
             } else {
-                promotedArgumentsList.add((Value)argument);
+                promotedArgumentsList.add(argument);
             }
         }
 

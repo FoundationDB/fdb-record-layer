@@ -57,7 +57,7 @@ final class UserDefinedFunctionCatalog {
     }
 
     @Nonnull
-    public Optional<? extends CatalogedFunction> lookup(@Nonnull final String functionName, Expressions arguments) {
+    public Optional<? extends CatalogedFunction<Value>> lookup(@Nonnull final String functionName, Expressions arguments) {
         final var functionSupplier = functionsMap.get(functionName);
         if (functionSupplier == null) {
             return Optional.empty();

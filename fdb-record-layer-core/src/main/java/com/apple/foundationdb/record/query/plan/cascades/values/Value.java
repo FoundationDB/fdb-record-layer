@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -887,7 +888,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
         @Nullable
         @Override
-        BuiltInFunction<? extends Value> evalWithoutStore(@Nonnull EvaluationContext context);
+        CatalogedFunction<?> evalWithoutStore(@Nonnull EvaluationContext context);
     }
 
     /**

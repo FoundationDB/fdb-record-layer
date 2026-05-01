@@ -1402,7 +1402,7 @@ message PFrameSpecification {
   enum PFrameType {
     ROW = 1;
     RANGE = 2;
-    WINDOW = 3;
+    GROUPS = 3;
   }
 
   enum PExclusion {
@@ -1415,7 +1415,7 @@ message PFrameSpecification {
   message PFrameBoundary {
     oneof boundary {
       bool unbounded = 1;
-      int32 bounded_limit = 2;
+      int64 bounded_limit = 2;
       bool current_row = 3;
     }
   }

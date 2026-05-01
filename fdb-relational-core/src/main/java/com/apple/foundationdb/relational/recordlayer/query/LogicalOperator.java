@@ -355,6 +355,7 @@ public class LogicalOperator {
             final var sortOperator = generateSort(selectWithExtraOrderBy, orderBys, outerCorrelations, Optional.empty());
             final var pulledOutput = output.expanded().rewireQov(selectWithExtraOrderBy.getQuantifier().getFlowedObjectValue())
                     .rewireQov(sortOperator.getQuantifier().getFlowedObjectValue()).clearQualifier();
+            // TODO, we may have to rewire QOV for ORDER BY within WINDOW functions (if any).
             return generateSimpleSelect(pulledOutput, LogicalOperators.ofSingle(sortOperator), Optional.empty(), alias, outerCorrelations, isForDdl);
         }
     }

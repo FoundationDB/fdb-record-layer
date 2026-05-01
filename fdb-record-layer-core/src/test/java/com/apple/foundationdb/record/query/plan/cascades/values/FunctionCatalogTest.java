@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -28,13 +28,13 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 /**
- * Tests for {@link BuiltInFunctionCatalog}.
+ * Tests for {@link FunctionCatalog}.
  */
-class BuiltInFunctionCatalogTest {
+class FunctionCatalogTest {
 
     @Test
     void testResolveExistentFunction() {
-        final Optional<BuiltInFunction<? extends Typed>> function = BuiltInFunctionCatalog.resolve("euclidean_distance", 2);
+        final Optional<CatalogedFunction<?>> function = FunctionCatalog.resolve("euclidean_distance", 2);
 
         Assertions.assertTrue(function.isPresent(), "euclidean_distance function with 2 arguments should be found");
         Assertions.assertEquals("euclidean_distance", function.get().getFunctionName(),
@@ -43,7 +43,7 @@ class BuiltInFunctionCatalogTest {
 
     @Test
     void testResolveNonExistentFunction() {
-        final Optional<BuiltInFunction<? extends Typed>> function = BuiltInFunctionCatalog.resolve("NON_EXISTENT_FUNCTION", 2);
+        final Optional<CatalogedFunction<?>> function = FunctionCatalog.resolve("NON_EXISTENT_FUNCTION", 2);
 
         Assertions.assertFalse(function.isPresent(), "Non-existent function should not be found");
     }
@@ -51,21 +51,21 @@ class BuiltInFunctionCatalogTest {
     @Test
     void testResolveWithWrongArgumentCount() {
         // Distance functions expect exactly 2 arguments
-        final Optional<BuiltInFunction<? extends Typed>> function = BuiltInFunctionCatalog.resolve("euclidean_distance", 3);
+        final Optional<CatalogedFunction<?>> function = FunctionCatalog.resolve("euclidean_distance", 3);
 
         Assertions.assertFalse(function.isPresent(), "euclidean_distance with 3 arguments should not be found");
     }
 
     @Test
     void testResolveWithZeroArguments() {
-        final Optional<BuiltInFunction<? extends Typed>> function = BuiltInFunctionCatalog.resolve("euclidean_distance", 0);
+        final Optional<CatalogedFunction<?>> function = FunctionCatalog.resolve("euclidean_distance", 0);
 
         Assertions.assertFalse(function.isPresent(), "euclidean_distance with 0 arguments should not be found");
     }
 
     @Test
-    void testGetFunctionSingletonForEuclideanDistance() {
-        final Optional<BuiltInFunction<? extends Typed>> singleton = BuiltInFunctionCatalog.getFunctionSingleton(DistanceValue.EuclideanDistanceFn.class);
+    void testGetCatalogedFunctionForEuclideanDistance() {
+        final Optional<CatalogedFunction<?>> singleton = FunctionCatalog.getCatalogedFunction(DistanceValue.EuclideanDistanceFn.class);
 
         Assertions.assertTrue(singleton.isPresent(), "EuclideanDistanceFn singleton should be found");
         Assertions.assertInstanceOf(DistanceValue.EuclideanDistanceFn.class, singleton.get(),
@@ -75,8 +75,8 @@ class BuiltInFunctionCatalogTest {
     }
 
     @Test
-    void testGetFunctionSingletonForCosineDistance() {
-        final Optional<BuiltInFunction<? extends Typed>> singleton = BuiltInFunctionCatalog.getFunctionSingleton(DistanceValue.CosineDistanceFn.class);
+    void testGetCatalogedFunctionForCosineDistance() {
+        final Optional<CatalogedFunction<?>> singleton = FunctionCatalog.getCatalogedFunction(DistanceValue.CosineDistanceFn.class);
 
         Assertions.assertTrue(singleton.isPresent(), "CosineDistanceFn singleton should be found");
         Assertions.assertInstanceOf(DistanceValue.CosineDistanceFn.class, singleton.get(),
@@ -86,8 +86,8 @@ class BuiltInFunctionCatalogTest {
     }
 
     @Test
-    void testGetFunctionSingletonForEuclideanSquareDistance() {
-        final Optional<BuiltInFunction<? extends Typed>> singleton = BuiltInFunctionCatalog.getFunctionSingleton(DistanceValue.EuclideanSquareDistanceFn.class);
+    void testGetCatalogedFunctionForEuclideanSquareDistance() {
+        final Optional<CatalogedFunction<?>> singleton = FunctionCatalog.getCatalogedFunction(DistanceValue.EuclideanSquareDistanceFn.class);
 
         Assertions.assertTrue(singleton.isPresent(), "EuclideanSquareDistanceFn singleton should be found");
         Assertions.assertInstanceOf(DistanceValue.EuclideanSquareDistanceFn.class, singleton.get(),
@@ -97,8 +97,8 @@ class BuiltInFunctionCatalogTest {
     }
 
     @Test
-    void testGetFunctionSingletonForDotProductDistance() {
-        final Optional<BuiltInFunction<? extends Typed>> singleton = BuiltInFunctionCatalog.getFunctionSingleton(DistanceValue.DotProductDistanceFn.class);
+    void testGetCatalogedFunctionForDotProductDistance() {
+        final Optional<CatalogedFunction<?>> singleton = FunctionCatalog.getCatalogedFunction(DistanceValue.DotProductDistanceFn.class);
 
         Assertions.assertTrue(singleton.isPresent(), "DotProductDistanceFn singleton should be found");
         Assertions.assertInstanceOf(DistanceValue.DotProductDistanceFn.class, singleton.get(),
@@ -109,8 +109,8 @@ class BuiltInFunctionCatalogTest {
 
     @Test
     void testSameInstanceReturnedMultipleTimes() {
-        final Optional<BuiltInFunction<? extends Typed>> singleton1 = BuiltInFunctionCatalog.getFunctionSingleton(DistanceValue.EuclideanDistanceFn.class);
-        final Optional<BuiltInFunction<? extends Typed>> singleton2 = BuiltInFunctionCatalog.getFunctionSingleton(DistanceValue.EuclideanDistanceFn.class);
+        final Optional<CatalogedFunction<?>> singleton1 = FunctionCatalog.getCatalogedFunction(DistanceValue.EuclideanDistanceFn.class);
+        final Optional<CatalogedFunction<?>> singleton2 = FunctionCatalog.getCatalogedFunction(DistanceValue.EuclideanDistanceFn.class);
 
         Assertions.assertTrue(singleton1.isPresent() && singleton2.isPresent(),
                 "Both lookups should find the singleton");
@@ -120,8 +120,8 @@ class BuiltInFunctionCatalogTest {
 
     @Test
     void testResolveAndGetSingletonReturnSameInstance() {
-        final Optional<BuiltInFunction<? extends Typed>> resolved = BuiltInFunctionCatalog.resolve("euclidean_distance", 2);
-        final Optional<BuiltInFunction<? extends Typed>> singleton = BuiltInFunctionCatalog.getFunctionSingleton(DistanceValue.EuclideanDistanceFn.class);
+        final Optional<CatalogedFunction<?>> resolved = FunctionCatalog.resolve("euclidean_distance", 2);
+        final Optional<CatalogedFunction<?>> singleton = FunctionCatalog.getCatalogedFunction(DistanceValue.EuclideanDistanceFn.class);
 
         Assertions.assertTrue(resolved.isPresent() && singleton.isPresent(),
                 "Both methods should find the function");
@@ -131,7 +131,7 @@ class BuiltInFunctionCatalogTest {
 
     @Test
     void testToStringOnResolvedFunction() {
-        final Optional<BuiltInFunction<? extends Typed>> function = BuiltInFunctionCatalog.resolve("euclidean_distance", 2);
+        final Optional<CatalogedFunction<?>> function = FunctionCatalog.resolve("euclidean_distance", 2);
 
         Assertions.assertTrue(function.isPresent(), "Function should be found");
         final String toString = function.get().toString();
@@ -143,7 +143,7 @@ class BuiltInFunctionCatalogTest {
 
     @Test
     void testFunctionHasCorrectParameterCount() {
-        final Optional<BuiltInFunction<? extends Typed>> function = BuiltInFunctionCatalog.resolve("euclidean_distance", 2);
+        final Optional<CatalogedFunction<?>> function = FunctionCatalog.resolve("euclidean_distance", 2);
 
         Assertions.assertTrue(function.isPresent(), "Function should be found");
         Assertions.assertEquals(2, function.get().getParameterTypes().size(),
@@ -153,8 +153,8 @@ class BuiltInFunctionCatalogTest {
     @Test
     void testCaseInsensitiveFunctionNameLookup() {
         // Test that function names are case-sensitive (most likely the implementation)
-        final Optional<BuiltInFunction<? extends Typed>> lowerCase = BuiltInFunctionCatalog.resolve("euclidean_distance", 2);
-        final Optional<BuiltInFunction<? extends Typed>> upperCase = BuiltInFunctionCatalog.resolve("EUCLIDEAN_DISTANCE", 2);
+        final Optional<CatalogedFunction<?>> lowerCase = FunctionCatalog.resolve("euclidean_distance", 2);
+        final Optional<CatalogedFunction<?>> upperCase = FunctionCatalog.resolve("EUCLIDEAN_DISTANCE", 2);
 
         Assertions.assertTrue(lowerCase.isPresent(), "Lowercase lookup should succeed");
         // Note: This assertion assumes case-sensitive lookups. If the implementation is case-insensitive,
@@ -164,9 +164,9 @@ class BuiltInFunctionCatalogTest {
 
     @Test
     void testMultipleFunctionsCanBeResolved() {
-        final Optional<BuiltInFunction<? extends Typed>> euclidean = BuiltInFunctionCatalog.resolve("euclidean_distance", 2);
-        final Optional<BuiltInFunction<? extends Typed>> cosine = BuiltInFunctionCatalog.resolve("cosine_distance", 2);
-        final Optional<BuiltInFunction<? extends Typed>> euclideanSquare = BuiltInFunctionCatalog.resolve("euclidean_square_distance", 2);
+        final Optional<CatalogedFunction<?>> euclidean = FunctionCatalog.resolve("euclidean_distance", 2);
+        final Optional<CatalogedFunction<?>> cosine = FunctionCatalog.resolve("cosine_distance", 2);
+        final Optional<CatalogedFunction<?>> euclideanSquare = FunctionCatalog.resolve("euclidean_square_distance", 2);
 
         Assertions.assertTrue(euclidean.isPresent(), "euclidean_distance should be found");
         Assertions.assertTrue(cosine.isPresent(), "cosine_distance should be found");
@@ -185,8 +185,8 @@ class BuiltInFunctionCatalogTest {
 
     @Test
     void testFunctionKeyInvocationToStringWithZeroArguments() {
-        final BuiltInFunctionCatalog.FunctionKey functionKey =
-                BuiltInFunctionCatalog.FunctionKey.invocation("test_func", 0);
+        final FunctionCatalog.FunctionKey functionKey =
+                FunctionCatalog.FunctionKey.invocation("test_func", 0);
         final String toString = functionKey.toString();
 
         Assertions.assertEquals("test_func()", toString,
@@ -195,8 +195,8 @@ class BuiltInFunctionCatalogTest {
 
     @Test
     void testFunctionKeyInvocationToStringWithOneArgument() {
-        final BuiltInFunctionCatalog.FunctionKey functionKey =
-                BuiltInFunctionCatalog.FunctionKey.invocation("my_function", 1);
+        final FunctionCatalog.FunctionKey functionKey =
+                FunctionCatalog.FunctionKey.invocation("my_function", 1);
         final String toString = functionKey.toString();
 
         Assertions.assertEquals("my_function(arg1)", toString,
@@ -205,8 +205,8 @@ class BuiltInFunctionCatalogTest {
 
     @Test
     void testFunctionKeyInvocationToStringWithTwoArguments() {
-        final BuiltInFunctionCatalog.FunctionKey functionKey =
-                BuiltInFunctionCatalog.FunctionKey.invocation("euclidean_distance", 2);
+        final FunctionCatalog.FunctionKey functionKey =
+                FunctionCatalog.FunctionKey.invocation("euclidean_distance", 2);
         final String toString = functionKey.toString();
 
         Assertions.assertEquals("euclidean_distance(arg1, arg2)", toString,
@@ -215,8 +215,8 @@ class BuiltInFunctionCatalogTest {
 
     @Test
     void testFunctionKeyInvocationToStringWithMultipleArguments() {
-        final BuiltInFunctionCatalog.FunctionKey functionKey =
-                BuiltInFunctionCatalog.FunctionKey.invocation("complex_func", 5);
+        final FunctionCatalog.FunctionKey functionKey =
+                FunctionCatalog.FunctionKey.invocation("complex_func", 5);
         final String toString = functionKey.toString();
 
         Assertions.assertEquals("complex_func(arg1, arg2, arg3, arg4, arg5)", toString,
@@ -226,8 +226,8 @@ class BuiltInFunctionCatalogTest {
     @Test
     void testFunctionKeyEntryToStringWithFixedParameters() {
         // Entry with 2 parameters, 0 defaults, not variadic
-        final BuiltInFunctionCatalog.FunctionKey functionKey =
-                BuiltInFunctionCatalog.FunctionKey.entry("fixed_func", 2, 0, false);
+        final FunctionCatalog.FunctionKey functionKey =
+                FunctionCatalog.FunctionKey.entry("fixed_func", 2, 0, false);
         final String toString = functionKey.toString();
 
         Assertions.assertEquals("fixed_func(param1, param2)", toString,
@@ -237,8 +237,8 @@ class BuiltInFunctionCatalogTest {
     @Test
     void testFunctionKeyEntryToStringWithZeroParameters() {
         // Entry with 0 parameters, 0 defaults, not variadic
-        final BuiltInFunctionCatalog.FunctionKey functionKey =
-                BuiltInFunctionCatalog.FunctionKey.entry("no_param_func", 0, 0, false);
+        final FunctionCatalog.FunctionKey functionKey =
+                FunctionCatalog.FunctionKey.entry("no_param_func", 0, 0, false);
         final String toString = functionKey.toString();
 
         Assertions.assertEquals("no_param_func()", toString,
@@ -248,8 +248,8 @@ class BuiltInFunctionCatalogTest {
     @Test
     void testFunctionKeyEntryToStringWithOneParameter() {
         // Entry with 1 parameter, 0 defaults, not variadic
-        final BuiltInFunctionCatalog.FunctionKey functionKey =
-                BuiltInFunctionCatalog.FunctionKey.entry("single_param", 1, 0, false);
+        final FunctionCatalog.FunctionKey functionKey =
+                FunctionCatalog.FunctionKey.entry("single_param", 1, 0, false);
         final String toString = functionKey.toString();
 
         Assertions.assertEquals("single_param(param1)", toString,
@@ -259,8 +259,8 @@ class BuiltInFunctionCatalogTest {
     @Test
     void testFunctionKeyEntryToStringWithDefaultParameters() {
         // Entry with 3 parameters total, 2 with defaults, not variadic
-        final BuiltInFunctionCatalog.FunctionKey functionKey =
-                BuiltInFunctionCatalog.FunctionKey.entry("func_with_defaults", 3, 2, false);
+        final FunctionCatalog.FunctionKey functionKey =
+                FunctionCatalog.FunctionKey.entry("func_with_defaults", 3, 2, false);
         final String toString = functionKey.toString();
 
         Assertions.assertEquals("func_with_defaults(param1, param2 (with default), param3 (with default))", toString,
@@ -270,8 +270,8 @@ class BuiltInFunctionCatalogTest {
     @Test
     void testFunctionKeyEntryToStringWithAllDefaultParameters() {
         // Entry with 2 parameters, all have defaults, not variadic
-        final BuiltInFunctionCatalog.FunctionKey functionKey =
-                BuiltInFunctionCatalog.FunctionKey.entry("all_defaults", 2, 2, false);
+        final FunctionCatalog.FunctionKey functionKey =
+                FunctionCatalog.FunctionKey.entry("all_defaults", 2, 2, false);
         final String toString = functionKey.toString();
 
         Assertions.assertEquals("all_defaults(param1 (with default), param2 (with default))", toString,
@@ -281,8 +281,8 @@ class BuiltInFunctionCatalogTest {
     @Test
     void testFunctionKeyEntryToStringWithVariadicAndNoRequiredParams() {
         // Entry with 0 required parameters, variadic
-        final BuiltInFunctionCatalog.FunctionKey functionKey =
-                BuiltInFunctionCatalog.FunctionKey.entry("variadic_func", 0, 0, true);
+        final FunctionCatalog.FunctionKey functionKey =
+                FunctionCatalog.FunctionKey.entry("variadic_func", 0, 0, true);
         final String toString = functionKey.toString();
 
         Assertions.assertEquals("variadic_func(...)", toString,
@@ -292,8 +292,8 @@ class BuiltInFunctionCatalogTest {
     @Test
     void testFunctionKeyEntryToStringWithVariadicAndRequiredParams() {
         // Entry with 2 required parameters, variadic
-        final BuiltInFunctionCatalog.FunctionKey functionKey =
-                BuiltInFunctionCatalog.FunctionKey.entry("variadic_with_required", 2, 0, true);
+        final FunctionCatalog.FunctionKey functionKey =
+                FunctionCatalog.FunctionKey.entry("variadic_with_required", 2, 0, true);
         final String toString = functionKey.toString();
 
         Assertions.assertEquals("variadic_with_required(param1, param2, ...)", toString,
@@ -303,8 +303,8 @@ class BuiltInFunctionCatalogTest {
     @Test
     void testFunctionKeyEntryToStringWithVariadicAndOneRequiredParam() {
         // Entry with 1 required parameter, variadic
-        final BuiltInFunctionCatalog.FunctionKey functionKey =
-                BuiltInFunctionCatalog.FunctionKey.entry("variadic_one_req", 1, 0, true);
+        final FunctionCatalog.FunctionKey functionKey =
+                FunctionCatalog.FunctionKey.entry("variadic_one_req", 1, 0, true);
         final String toString = functionKey.toString();
 
         Assertions.assertEquals("variadic_one_req(param1, ...)", toString,
@@ -315,8 +315,8 @@ class BuiltInFunctionCatalogTest {
     void testFunctionKeyEntryToStringWithDefaultsAndVariadic() {
         // Entry with 3 total params, 1 with default, and variadic
         // This means min required = 3 - 1 = 2, and it's variadic
-        final BuiltInFunctionCatalog.FunctionKey functionKey =
-                BuiltInFunctionCatalog.FunctionKey.entry("complex_variadic", 3, 1, true);
+        final FunctionCatalog.FunctionKey functionKey =
+                FunctionCatalog.FunctionKey.entry("complex_variadic", 3, 1, true);
         final String toString = functionKey.toString();
 
         Assertions.assertEquals("complex_variadic(param1, param2, ...)", toString,
@@ -325,26 +325,26 @@ class BuiltInFunctionCatalogTest {
 
     @Test
     void testFunctionKeyToStringIsNotNull() {
-        final BuiltInFunctionCatalog.FunctionKey invocationKey =
-                BuiltInFunctionCatalog.FunctionKey.invocation("test", 1);
+        final FunctionCatalog.FunctionKey invocationKey =
+                FunctionCatalog.FunctionKey.invocation("test", 1);
         Assertions.assertNotNull(invocationKey.toString(),
                 "FunctionKey.toString() should never return null");
 
-        final BuiltInFunctionCatalog.FunctionKey entryKey =
-                BuiltInFunctionCatalog.FunctionKey.entry("test", 1, 0, false);
+        final FunctionCatalog.FunctionKey entryKey =
+                FunctionCatalog.FunctionKey.entry("test", 1, 0, false);
         Assertions.assertNotNull(entryKey.toString(),
                 "FunctionKey.toString() should never return null");
     }
 
     @Test
     void testFunctionKeyToStringIsNotEmpty() {
-        final BuiltInFunctionCatalog.FunctionKey invocationKey =
-                BuiltInFunctionCatalog.FunctionKey.invocation("test", 0);
+        final FunctionCatalog.FunctionKey invocationKey =
+                FunctionCatalog.FunctionKey.invocation("test", 0);
         Assertions.assertFalse(invocationKey.toString().isEmpty(),
                 "FunctionKey.toString() should never return empty string");
 
-        final BuiltInFunctionCatalog.FunctionKey entryKey =
-                BuiltInFunctionCatalog.FunctionKey.entry("test", 0, 0, false);
+        final FunctionCatalog.FunctionKey entryKey =
+                FunctionCatalog.FunctionKey.entry("test", 0, 0, false);
         Assertions.assertFalse(entryKey.toString().isEmpty(),
                 "FunctionKey.toString() should never return empty string");
     }
@@ -352,13 +352,13 @@ class BuiltInFunctionCatalogTest {
     @Test
     void testFunctionKeyToStringContainsFunctionName() {
         final String functionName = "my_special_function";
-        final BuiltInFunctionCatalog.FunctionKey invocationKey =
-                BuiltInFunctionCatalog.FunctionKey.invocation(functionName, 2);
+        final FunctionCatalog.FunctionKey invocationKey =
+                FunctionCatalog.FunctionKey.invocation(functionName, 2);
         Assertions.assertTrue(invocationKey.toString().contains(functionName),
                 "Invocation toString() should contain the function name");
 
-        final BuiltInFunctionCatalog.FunctionKey entryKey =
-                BuiltInFunctionCatalog.FunctionKey.entry(functionName, 2, 0, false);
+        final FunctionCatalog.FunctionKey entryKey =
+                FunctionCatalog.FunctionKey.entry(functionName, 2, 0, false);
         Assertions.assertTrue(entryKey.toString().contains(functionName),
                 "Entry toString() should contain the function name");
     }

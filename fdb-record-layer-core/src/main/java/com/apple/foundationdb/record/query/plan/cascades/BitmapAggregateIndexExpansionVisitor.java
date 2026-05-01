@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpr
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.BuiltInFunctionCatalog;
+import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -88,13 +88,14 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
             throw new UnsupportedOperationException("unable to plan group by with non-field value " + groupedValue);
         }
 
-        final var bitmapConstructAggFunc = BuiltInFunctionCatalog.getFunctionSingleton(NumericAggregationValue.BitmapConstructAggFn.class).orElseThrow();
-        final var bitmapBitPositionFunc = BuiltInFunctionCatalog.getFunctionSingleton(ArithmeticValue.BitmapBitPositionFn.class).orElseThrow();
         final String sizeArgument = index.getOption(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION);
         final int entrySize = sizeArgument != null ? Integer.parseInt(sizeArgument) : BitmapValueIndexMaintainer.DEFAULT_ENTRY_SIZE;
         final var entrySizeValue = LiteralValue.ofScalar(entrySize);
+        final var bitmapBitPositionFunc = FunctionCatalog.getBuiltInFunction(ArithmeticValue.BitmapBitPositionFn.class).orElseThrow();
+        final var bitPositionCallsite = (Value)bitmapBitPositionFunc.encapsulate(ImmutableList.of(argument, entrySizeValue));
 
-        final var aggregateValue = (Value)bitmapConstructAggFunc.encapsulate(ImmutableList.of(bitmapBitPositionFunc.encapsulate(ImmutableList.of(argument, entrySizeValue))));
+        final var bitmapConstructAggFunc = new NumericAggregationValue.BitmapConstructAggFn();
+        final var aggregateValue = (Value)bitmapConstructAggFunc.encapsulatePureAggregate().encapsulate(ImmutableList.of(bitPositionCallsite));
         // add an RCV column representing the grouping columns as the first result set column
         // also, make sure to set the field type names correctly for each field value in the grouping keys RCV.
 
@@ -102,7 +103,7 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
                 .stream()
                 .map(Column::getValue)
                 .collect(ImmutableList.toImmutableList());
-        final var bitmapBitPosition = BuiltInFunctionCatalog.getFunctionSingleton(ArithmeticValue.BitmapBucketOffsetFn.class).orElseThrow();
+        final var bitmapBitPosition = FunctionCatalog.getBuiltInFunction(ArithmeticValue.BitmapBucketOffsetFn.class).orElseThrow();
         final var implicitGroupingValue = (Value)bitmapBitPosition.encapsulate(ImmutableList.of(argument, entrySizeValue));
         final var placeHolder = Placeholder.newInstanceWithoutRanges(implicitGroupingValue, newParameterAlias());
 

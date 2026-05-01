@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -35,7 +35,7 @@ import java.util.Optional;
  * note: user defined functions do not currently support variadic parameters.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class UserDefinedFunction extends CatalogedFunction {
+public abstract class UserDefinedFunction extends CatalogedFunction<Value> {
 
     /**
      * Creates a new instance of {@link UserDefinedFunction}.
@@ -56,7 +56,7 @@ public abstract class UserDefinedFunction extends CatalogedFunction {
      */
     public UserDefinedFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                                 @Nonnull final List<Type> parameterTypes,
-                                @Nonnull final List<Optional<? extends Typed>> parameterDefaults) {
+                                @Nonnull final List<Optional<Value>> parameterDefaults) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
     }
 

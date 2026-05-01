@@ -360,7 +360,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     /**
      * The {@code min_ever} function.
      */
-    @AutoService(BuiltInFunction.class)
+    @AutoService(BuiltInWindowFunction.class)
     public static class MinEverFn extends BuiltInWindowFunction<AggregateValue> {
         public MinEverFn() {
             super("MIN_EVER", ImmutableList.of(new Type.Any()), (ignored, frameSpecification, sortOrder, arguments) -> {
@@ -374,7 +374,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     /**
      * The {@code max_ever} function.
      */
-    @AutoService(BuiltInFunction.class)
+    @AutoService(BuiltInWindowFunction.class)
     public static class MaxEverFn extends BuiltInWindowFunction<AggregateValue> {
         public MaxEverFn() {
             super("MAX_EVER", ImmutableList.of(new Type.Any()), (ignored, frameSpecification, sortOrder, arguments) -> {

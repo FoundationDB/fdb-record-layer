@@ -30,8 +30,9 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.values.BuiltInFunctionCatalog;
+import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.google.common.collect.ImmutableList;
@@ -275,10 +276,13 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
     @Nonnull
     protected Value resolveAndEncapsulateFunction(@Nonnull final String functionName,
                                                   @Nonnull final List<? extends Value> argumentValues) {
-        final BuiltInFunction<?> builtInFunction =
-                BuiltInFunctionCatalog.resolve(functionName, argumentValues.size())
+        final CatalogedFunction<?> catalogedFunction =
+                FunctionCatalog.resolve(functionName, argumentValues.size())
                         .orElseThrow(() -> new RecordCoreArgumentException("unknown function",
                                 LogMessageKeys.FUNCTION, getName()));
+        if (!(catalogedFunction instanceof final BuiltInFunction<?> builtInFunction)) {
+            throw new RecordCoreArgumentException("unknown function", LogMessageKeys.FUNCTION, getName());
+        }
         return (Value)builtInFunction.encapsulate(ImmutableList.copyOf(argumentValues));
     }
 

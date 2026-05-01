@@ -585,7 +585,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * The {@code sum} function.
      */
-    @AutoService(BuiltInFunction.class)
+    @AutoService(BuiltInWindowFunction.class)
     public static class SumFn extends BuiltInWindowFunction<AggregateValue> {
         public SumFn() {
             super("SUM",
@@ -596,7 +596,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * The {@code bitmap} function.
      */
-    @AutoService(BuiltInFunction.class)
+    @AutoService(BuiltInWindowFunction.class)
     public static class BitmapConstructAggFn extends BuiltInWindowFunction<AggregateValue> {
         public BitmapConstructAggFn() {
             super("BITMAP_CONSTRUCT_AGG",
@@ -607,7 +607,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * The {@code avg} function.
      */
-    @AutoService(BuiltInFunction.class)
+    @AutoService(BuiltInWindowFunction.class)
     public static class AvgFn extends BuiltInWindowFunction<AggregateValue> {
         public AvgFn() {
             super("AVG",
@@ -618,7 +618,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * The {@code min} function.
      */
-    @AutoService(BuiltInFunction.class)
+    @AutoService(BuiltInWindowFunction.class)
     public static class MinFn extends BuiltInWindowFunction<AggregateValue> {
         public MinFn() {
             super("MIN",
@@ -629,7 +629,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * The {@code max} function.
      */
-    @AutoService(BuiltInFunction.class)
+    @AutoService(BuiltInWindowFunction.class)
     public static class MaxFn extends BuiltInWindowFunction<AggregateValue> {
         public MaxFn() {
             super("MAX",

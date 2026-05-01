@@ -45,7 +45,7 @@ public class JavaCallFunction extends BuiltInFunction<Value> {
     }
 
     @Nonnull
-    private static Value findFunction(@Nonnull final BuiltInFunction<Value> ignored, final List<? extends Typed> arguments) {
+    private static Value findFunction(@Nonnull final BuiltInFunction<Value> ignored, final List<Value> arguments) {
         Verify.verify(!arguments.isEmpty());
         Verify.verify(arguments.get(0).getResultType().getTypeCode().equals(Type.TypeCode.STRING));
         // dispatching happens at query-building time, therefore, the argument must be literal

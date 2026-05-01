@@ -37,9 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 
 import javax.annotation.Nonnull;
@@ -103,7 +101,6 @@ public abstract class WindowedValue extends AbstractValue {
                             @Nonnull Iterable<? extends Value> argumentValues,
                             @Nonnull Iterable<OrderingPart.RequestedOrderingPart> orderingParts,
                             @Nonnull FrameSpecification windowFrameSpecification) {
-        Preconditions.checkArgument(!Iterables.isEmpty(argumentValues));
         this.partitioningValues = ImmutableList.copyOf(partitioningValues);
         this.argumentValues = ImmutableList.copyOf(argumentValues);
         this.orderingParts = ImmutableList.copyOf(orderingParts);
@@ -118,6 +115,16 @@ public abstract class WindowedValue extends AbstractValue {
     @Nonnull
     public List<Value> getArgumentValues() {
         return argumentValues;
+    }
+
+    @Nonnull
+    public List<OrderingPart.RequestedOrderingPart> getOrderingParts() {
+        return orderingParts;
+    }
+
+    @Nonnull
+    public FrameSpecification getWindowFrameSpecification() {
+        return windowFrameSpecification;
     }
 
     @Nonnull
@@ -336,7 +343,7 @@ public abstract class WindowedValue extends AbstractValue {
         return switch (frameType) {
             case Row -> PFrameSpecification.PFrameType.ROW;
             case Range -> PFrameSpecification.PFrameType.RANGE;
-            case Window -> PFrameSpecification.PFrameType.WINDOW;
+            case Groups -> PFrameSpecification.PFrameType.GROUPS;
         };
     }
 
@@ -345,7 +352,7 @@ public abstract class WindowedValue extends AbstractValue {
         return switch (proto) {
             case ROW -> FrameSpecification.FrameType.Row;
             case RANGE -> FrameSpecification.FrameType.Range;
-            case WINDOW -> FrameSpecification.FrameType.Window;
+            case GROUPS -> FrameSpecification.FrameType.Groups;
         };
     }
 
@@ -439,7 +446,7 @@ public abstract class WindowedValue extends AbstractValue {
         public enum FrameType {
             Row,
             Range,
-            Window
+            Groups
         }
 
         public sealed interface FrameBoundary permits Unbounded, Bounded, CurrentRow  {
@@ -449,7 +456,7 @@ public abstract class WindowedValue extends AbstractValue {
             INSTANCE
         }
 
-        public record Bounded(int limit) implements FrameBoundary {
+        public record Bounded(long limit) implements FrameBoundary {
         }
 
         public record CurrentRow() implements FrameBoundary {

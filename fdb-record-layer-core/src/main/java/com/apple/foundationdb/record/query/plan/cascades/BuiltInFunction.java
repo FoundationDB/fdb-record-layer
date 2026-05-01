@@ -70,7 +70,7 @@ public class BuiltInFunction<T extends Typed> extends CatalogedFunction<Value> {
     protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                               @Nonnull final List<Type> parameterTypes,
                               @Nonnull final List<Optional<Value>> parameterDefaults,
-                              @Nonnull final EncapsulationFunction<T, Value> encapsulationFunction) {
+                              @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
         this.encapsulationFunction = encapsulationFunction;
     }

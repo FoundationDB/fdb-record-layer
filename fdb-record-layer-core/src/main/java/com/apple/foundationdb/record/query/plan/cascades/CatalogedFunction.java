@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Functions;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -184,7 +185,7 @@ public abstract class CatalogedFunction<S> implements Typed {
      * and empty {@link Optional}.
      */
     @Nonnull
-    public Optional<? extends CatalogedFunction> validateCall(@Nonnull final Map<String, ? extends Typed> namedArgumentsTypeMap) {
+    public Optional<? extends CatalogedFunction<S>> validateCall(@Nonnull final Map<String, Value> namedArgumentsTypeMap) {
         if (parameterNamesMap.isEmpty()) {
             return Optional.empty();
         }

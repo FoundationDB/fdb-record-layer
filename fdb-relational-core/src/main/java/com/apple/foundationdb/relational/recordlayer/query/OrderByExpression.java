@@ -28,7 +28,9 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -127,6 +129,13 @@ public final class OrderByExpression {
             final var sortOrder = orderBy.toSortOrder();
             return new OrderingPart.RequestedOrderingPart(rebased, sortOrder);
         });
+    }
+
+    @Nonnull
+    public static Set<CorrelationIdentifier> getCorrelatedTo(@Nonnull Stream<OrderByExpression> orderBys,
+                                                             @Nonnull final Set<CorrelationIdentifier> constantCorrelations) {
+        final var correlatedTo = orderBys.map(orderByExp -> orderByExp.getExpression().getUnderlying().getCorrelatedTo()).flatMap(Set::stream).collect(ImmutableSet.toImmutableSet());
+        return ImmutableSet.copyOf(Sets.difference(correlatedTo, constantCorrelations));
     }
 
     @Override

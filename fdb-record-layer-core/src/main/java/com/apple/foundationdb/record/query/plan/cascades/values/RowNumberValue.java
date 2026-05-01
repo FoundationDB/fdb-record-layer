@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
@@ -187,10 +188,11 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
     }
 
     public RowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
-                          @Nonnull Iterable<? extends Value> argumentValues,
+                          @Nonnull Iterable<OrderingPart.RequestedOrderingPart> orderingParts,
+                          @Nonnull FrameSpecification windowFrameSpecification,
                           @Nullable final Integer efSearch,
                           @Nullable final Boolean isReturningVectors) {
-        super(partitioningValues, argumentValues);
+        super(partitioningValues, ImmutableList.of(), orderingParts, windowFrameSpecification);
         this.efSearch = efSearch;
         this.isReturningVectors = isReturningVectors;
     }
@@ -216,7 +218,9 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
     @Override
     public Value withChildren(final Iterable<? extends Value> newChildren) {
         final var childrenPair = splitNewChildren(newChildren);
-        return new RowNumberValue(childrenPair.getKey(), childrenPair.getValue(), efSearch, isReturningVectors);
+        Verify.verify(childrenPair.getValue().isEmpty());
+        return new RowNumberValue(childrenPair.getKey(), getOrderingParts(), getWindowFrameSpecification(), efSearch,
+                isReturningVectors);
     }
 
     /**
@@ -436,7 +440,7 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
 
         @Nonnull
         @Override
-        public HighOrderValue encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+        public HighOrderValue encapsulate(@Nonnull final Map<String, Value> namedArguments) {
             SemanticException.check(namedArguments.size() <= 2,
                     SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
             // Validate that namedArguments only contains EF_SEARCH_ARGUMENT or INDEX_RETURNS_VECTORS_ARGUMENT (or is empty)
@@ -456,7 +460,7 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
 
         @Nonnull
         private static RowNumberHighOrderValue encapsulateInternal(@Nonnull final BuiltInFunction<RowNumberHighOrderValue> ignored,
-                                                                   @Nonnull final List<? extends Typed> arguments) {
+                                                                   @Nonnull final List<Value> arguments) {
             SemanticException.check(arguments.size() <= 2,
                     SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
 

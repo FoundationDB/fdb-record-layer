@@ -221,7 +221,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
     /**
      * The {@code count(x)} function.
      */
-    @AutoService(BuiltInFunction.class)
+    @AutoService(BuiltInWindowFunction.class)
     @SuppressWarnings("PMD.UnusedFormalParameter")
     public static class CountFn extends BuiltInWindowFunction<AggregateValue> {
         public CountFn() {

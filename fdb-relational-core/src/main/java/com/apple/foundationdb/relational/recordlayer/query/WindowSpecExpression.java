@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
+
 import javax.annotation.Nonnull;
 
 /**
@@ -45,13 +47,18 @@ public final class WindowSpecExpression {
     private final Iterable<OrderByExpression> orderByExpressions;
 
     @Nonnull
+    private final WindowedValue.FrameSpecification frameSpecification;
+
+    @Nonnull
     private final Expressions windowOptions;
 
     private WindowSpecExpression(@Nonnull final Expressions partitions,
                                  @Nonnull final Iterable<OrderByExpression> orderByExpressions,
+                                 @Nonnull final WindowedValue.FrameSpecification frameSpecification,
                                  @Nonnull final Expressions windowOptions) {
         this.partitions = partitions;
         this.orderByExpressions = orderByExpressions;
+        this.frameSpecification = frameSpecification;
         this.windowOptions = windowOptions;
     }
 
@@ -65,8 +72,9 @@ public final class WindowSpecExpression {
     @Nonnull
     public static WindowSpecExpression of(@Nonnull final Expressions partitions,
                                           @Nonnull final Iterable<OrderByExpression> orderByExpressions,
+                                          @Nonnull final WindowedValue.FrameSpecification frameSpecification,
                                           @Nonnull final Expressions windowOptions) {
-        return new WindowSpecExpression(partitions, orderByExpressions, windowOptions);
+        return new WindowSpecExpression(partitions, orderByExpressions, frameSpecification, windowOptions);
     }
 
     /**
@@ -87,6 +95,11 @@ public final class WindowSpecExpression {
     @Nonnull
     public Iterable<OrderByExpression> getOrderByExpressions() {
         return orderByExpressions;
+    }
+
+    @Nonnull
+    public WindowedValue.FrameSpecification getFrameSpecification() {
+        return frameSpecification;
     }
 
     @Nonnull
