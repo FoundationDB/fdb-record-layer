@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.planprotos.PCountValue.PPhysicalOperator;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;

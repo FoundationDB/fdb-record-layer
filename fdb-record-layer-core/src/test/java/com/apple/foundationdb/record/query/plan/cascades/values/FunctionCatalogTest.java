@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

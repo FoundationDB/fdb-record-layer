@@ -41,6 +41,7 @@ import com.google.common.collect.Iterators;
 import javax.annotation.Nonnull;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
 
 /**
@@ -179,7 +180,7 @@ public abstract class WindowedValue extends AbstractValue {
         return new ExplainTokens()
                 .addKeyword(getName())
                 .addWhitespace()
-                .addNested(windowFrameSpecification.describe());
+                .addNested(windowFrameSpecification.explain());
     }
 
     @Nonnull
@@ -229,7 +230,7 @@ public abstract class WindowedValue extends AbstractValue {
 
     private static void explainFrameSpecification(@Nonnull final ExplainTokens tokens,
                                                    @Nonnull final FrameSpecification spec) {
-        tokens.addWhitespace().addNested(spec.describe());
+        tokens.addWhitespace().addNested(spec.explain());
     }
 
     @Nonnull
@@ -246,9 +247,9 @@ public abstract class WindowedValue extends AbstractValue {
     @Nonnull
     private static String explainExclusion(@Nonnull final FrameSpecification.Exclusion exclusion) {
         return switch (exclusion) {
-            case CurrentRow -> "CURRENT ROW";
-            case Group -> "GROUP";
-            case Ties -> "TIES";
+            case CURRENT_ROW -> "CURRENT ROW";
+            case GROUP -> "GROUP";
+            case TIES -> "TIES";
             default -> "NO OTHERS";
         };
     }
@@ -341,18 +342,18 @@ public abstract class WindowedValue extends AbstractValue {
     @Nonnull
     private static PFrameSpecification.PFrameType frameTypeToProto(@Nonnull final FrameSpecification.FrameType frameType) {
         return switch (frameType) {
-            case Row -> PFrameSpecification.PFrameType.ROW;
-            case Range -> PFrameSpecification.PFrameType.RANGE;
-            case Groups -> PFrameSpecification.PFrameType.GROUPS;
+            case ROW -> PFrameSpecification.PFrameType.ROW;
+            case RANGE -> PFrameSpecification.PFrameType.RANGE;
+            case GROUPS -> PFrameSpecification.PFrameType.GROUPS;
         };
     }
 
     @Nonnull
     private static FrameSpecification.FrameType frameTypeFromProto(@Nonnull final PFrameSpecification.PFrameType proto) {
         return switch (proto) {
-            case ROW -> FrameSpecification.FrameType.Row;
-            case RANGE -> FrameSpecification.FrameType.Range;
-            case GROUPS -> FrameSpecification.FrameType.Groups;
+            case ROW -> FrameSpecification.FrameType.ROW;
+            case RANGE -> FrameSpecification.FrameType.RANGE;
+            case GROUPS -> FrameSpecification.FrameType.GROUPS;
         };
     }
 
@@ -387,36 +388,35 @@ public abstract class WindowedValue extends AbstractValue {
     @Nonnull
     private static PFrameSpecification.PExclusion exclusionToProto(@Nonnull final FrameSpecification.Exclusion exclusion) {
         return switch (exclusion) {
-            case NoOther -> PFrameSpecification.PExclusion.NO_OTHER;
-            case CurrentRow -> PFrameSpecification.PExclusion.CURRENT_ROW;
-            case Group -> PFrameSpecification.PExclusion.GROUP;
-            case Ties -> PFrameSpecification.PExclusion.TIES;
+            case NO_OTHER -> PFrameSpecification.PExclusion.NO_OTHER;
+            case CURRENT_ROW -> PFrameSpecification.PExclusion.CURRENT_ROW;
+            case GROUP -> PFrameSpecification.PExclusion.GROUP;
+            case TIES -> PFrameSpecification.PExclusion.TIES;
         };
     }
 
     @Nonnull
     private static FrameSpecification.Exclusion exclusionFromProto(@Nonnull final PFrameSpecification.PExclusion proto) {
         return switch (proto) {
-            case NO_OTHER -> FrameSpecification.Exclusion.NoOther;
-            case CURRENT_ROW -> FrameSpecification.Exclusion.CurrentRow;
-            case GROUP -> FrameSpecification.Exclusion.Group;
-            case TIES -> FrameSpecification.Exclusion.Ties;
+            case NO_OTHER -> FrameSpecification.Exclusion.NO_OTHER;
+            case CURRENT_ROW -> FrameSpecification.Exclusion.CURRENT_ROW;
+            case GROUP -> FrameSpecification.Exclusion.GROUP;
+            case TIES -> FrameSpecification.Exclusion.TIES;
         };
     }
 
     public record FrameSpecification(@Nonnull FrameType frameType, @Nonnull FrameBoundary left,
                                      @Nonnull FrameBoundary right, @Nonnull Exclusion exclusion) {
 
-
         @Nonnull
-        public ExplainTokens describe() {
+        public ExplainTokens explain() {
             final var tokens = new ExplainTokens();
-            tokens.addKeyword(frameType.name().toUpperCase());
+            tokens.addKeyword(frameType.name().toUpperCase(Locale.ROOT));
             tokens.addWhitespace().addKeyword("BETWEEN");
             describeBoundary(tokens, left, true);
             tokens.addWhitespace().addKeyword("AND");
             describeBoundary(tokens, right, false);
-            if (exclusion != Exclusion.NoOther) {
+            if (exclusion != Exclusion.NO_OTHER) {
                 tokens.addWhitespace().addKeyword("EXCLUDE").addWhitespace()
                         .addKeyword(explainExclusion(exclusion));
             }
@@ -438,9 +438,9 @@ public abstract class WindowedValue extends AbstractValue {
         }
 
         public enum FrameType {
-            Row,
-            Range,
-            Groups
+            ROW,
+            RANGE,
+            GROUPS
         }
 
         public sealed interface FrameBoundary permits Unbounded, Bounded, CurrentRow  {
@@ -462,15 +462,15 @@ public abstract class WindowedValue extends AbstractValue {
         }
 
         public enum Exclusion {
-            NoOther,
-            CurrentRow,
-            Group,
-            Ties
+            NO_OTHER,
+            CURRENT_ROW,
+            GROUP,
+            TIES
         }
 
         @Nonnull
         public static FrameSpecification defaultSpecification() {
-            return new FrameSpecification(FrameType.Row, Unbounded.INSTANCE, Unbounded.INSTANCE, Exclusion.NoOther);
+            return new FrameSpecification(FrameType.ROW, Unbounded.INSTANCE, Unbounded.INSTANCE, Exclusion.NO_OTHER);
         }
     }
 }

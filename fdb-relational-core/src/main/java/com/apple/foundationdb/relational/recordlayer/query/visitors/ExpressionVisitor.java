@@ -366,15 +366,15 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public WindowedValue.FrameSpecification visitFrameClause(final RelationalParser.FrameClauseContext ctx) {
-        var exclusion = WindowedValue.FrameSpecification.Exclusion.NoOther;
+        var exclusion = WindowedValue.FrameSpecification.Exclusion.NO_OTHER;
         if (ctx.frameExclusion() != null) {
             final var exc = ctx.frameExclusion();
             if (exc.CURRENT() != null) {
-                exclusion = WindowedValue.FrameSpecification.Exclusion.CurrentRow;
+                exclusion = WindowedValue.FrameSpecification.Exclusion.CURRENT_ROW;
             } else if (exc.GROUP() != null) {
-                exclusion = WindowedValue.FrameSpecification.Exclusion.Group;
+                exclusion = WindowedValue.FrameSpecification.Exclusion.GROUP;
             } else if (exc.TIES() != null) {
-                exclusion = WindowedValue.FrameSpecification.Exclusion.Ties;
+                exclusion = WindowedValue.FrameSpecification.Exclusion.TIES;
             } else {
                 Assert.thatUnchecked(exc.NO() != null);
             }
@@ -382,11 +382,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
         final WindowedValue.FrameSpecification.FrameType frameType;
         if (ctx.frameUnits().ROWS() != null) {
-            frameType = WindowedValue.FrameSpecification.FrameType.Row;
+            frameType = WindowedValue.FrameSpecification.FrameType.ROW;
         } else if (ctx.frameUnits().RANGE() != null) {
-            frameType = WindowedValue.FrameSpecification.FrameType.Range;
+            frameType = WindowedValue.FrameSpecification.FrameType.RANGE;
         } else {
-            frameType = WindowedValue.FrameSpecification.FrameType.Groups;
+            frameType = WindowedValue.FrameSpecification.FrameType.GROUPS;
         }
 
         final WindowedValue.FrameSpecification.FrameBoundary left;

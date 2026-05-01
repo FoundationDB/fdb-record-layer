@@ -120,6 +120,7 @@ public abstract class BuiltInWindowFunction<T extends Typed> extends CatalogedFu
     }
 
     @Nonnull
+    @Override
     public Typed encapsulate(@Nonnull final Map<String, Object> namedArguments) {
         throw new RecordCoreException("built-in window functions do not support named argument calling conventions");
     }

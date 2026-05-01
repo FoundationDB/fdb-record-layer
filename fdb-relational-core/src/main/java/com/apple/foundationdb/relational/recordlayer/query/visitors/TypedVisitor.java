@@ -891,7 +891,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    WindowedValue.FrameSpecification.FrameBoundary visitFrameRange(final RelationalParser.FrameRangeContext ctx);
+    WindowedValue.FrameSpecification.FrameBoundary visitFrameRange(RelationalParser.FrameRangeContext ctx);
 
     @Nonnull
     @Override
