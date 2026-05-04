@@ -474,7 +474,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             assertPrimaryKeys("text:nev\\*er", false, Set.of(2L, 4L));
             assertPrimaryKeys("text:nev\\:er", false, Set.of(3L));
             assertPrimaryKeys("text:nev\\\"er", false, Set.of(2L, 4L));
-            assertPrimaryKeys("text:nev\'er", false, Set.of(5L));
+            assertPrimaryKeys("text:nev'er", false, Set.of(5L));
         }
     }
 
