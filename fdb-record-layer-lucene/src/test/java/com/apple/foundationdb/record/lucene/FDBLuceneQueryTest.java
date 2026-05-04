@@ -435,8 +435,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
-    void testQueryWithSpecialCharacters() {
+    @ParameterizedTest
+    @BooleanSource("quotes")
+    void testQueryWithSpecialCharacters(boolean quotes) {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             TestRecordsTextProto.SimpleDocument document1 = TestRecordsTextProto.SimpleDocument.newBuilder()
@@ -470,12 +471,17 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             recordStore.saveRecord(document5);
 
-            assertPrimaryKeys("text:never", false, Set.of(1L, 2L, 3L, 4L, 5L));
-            assertPrimaryKeys("text:nev\\*er", false, Set.of(2L, 4L));
-            assertPrimaryKeys("text:nev\\:er", false, Set.of(3L));
-            assertPrimaryKeys("text:nev\\\"er", false, Set.of(2L, 4L));
-            assertPrimaryKeys("text:nev'er", false, Set.of(5L));
+            assertPrimaryKeys(quote(quotes, "never"), false, Set.of(1L, 2L, 3L, 4L, 5L));
+            assertPrimaryKeys(quote(quotes, "nev\\*er"), false, Set.of(2L, 4L));
+            assertPrimaryKeys(quote(quotes, "nev\\:er"), false, Set.of(3L));
+            assertPrimaryKeys(quote(quotes, "nev\\\"er"), false, Set.of(2L, 4L));
+            assertPrimaryKeys(quote(quotes, "nev'er"), false, Set.of(5L));
         }
+    }
+
+    @Nonnull
+    private static String quote(final boolean quotes, final String term) {
+        return "text:" + (quotes ? "\"" + term + "\"" : term);
     }
 
     /**
