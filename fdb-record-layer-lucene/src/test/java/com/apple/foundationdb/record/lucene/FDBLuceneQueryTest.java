@@ -435,6 +435,49 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @Test
+    void testQueryWithSpecialCharacters() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            TestRecordsTextProto.SimpleDocument document1 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(1L)
+                    .setGroup(1)
+                    .setText("Never, never give up")
+                    .build();
+            recordStore.saveRecord(document1);
+            TestRecordsTextProto.SimpleDocument document2 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(2L)
+                    .setGroup(1)
+                    .setText("Never, nev*er give up")
+                    .build();
+            recordStore.saveRecord(document2);
+            TestRecordsTextProto.SimpleDocument document3 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(3L)
+                    .setGroup(1)
+                    .setText("Never, nev:er give up")
+                    .build();
+            recordStore.saveRecord(document3);
+            TestRecordsTextProto.SimpleDocument document4 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(4L)
+                    .setGroup(1)
+                    .setText("Never, nev\"er give up")
+                    .build();
+            recordStore.saveRecord(document4);
+            TestRecordsTextProto.SimpleDocument document5 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(5L)
+                    .setGroup(1)
+                    .setText("Never, nev'er give up")
+                    .build();
+            recordStore.saveRecord(document5);
+
+            assertPrimaryKeys("text:never", false, Set.of(1L, 2L, 3L, 4L, 5L));
+            assertPrimaryKeys("text:nev\\*er", false, Set.of(2L, 4L));
+            assertPrimaryKeys("text:nev\\:er", false, Set.of(3L));
+            assertPrimaryKeys("text:nev\\\"er", false, Set.of(2L, 4L));
+            assertPrimaryKeys("text:nev\'er", false, Set.of(5L));
+        }
+    }
+
     /**
      * Test that lucene doesn't break whene there's unicode in the text.
      * <p>
