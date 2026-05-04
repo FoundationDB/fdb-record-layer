@@ -509,7 +509,7 @@ public final class YamlExecutionContext {
         @Nonnull
         private final String actual;
 
-        AddExplainCorrection(@Nonnull final YamlReference queryReference, @Nonnull final String actual) {
+        public AddExplainCorrection(@Nonnull final YamlReference queryReference, @Nonnull final String actual) {
             this.queryReference = queryReference;
             this.actual = actual;
         }
