@@ -171,7 +171,10 @@ public class CopyBlock extends ReferencedBlock implements Block {
                 if (exportLimit > 0) {
                     stmt.setMaxRows(exportLimit);
                 }
-                try (RelationalResultSet rs = stmt.executeQuery("COPY " + sourcePath)) {
+                // Currently this only supports `INCREMENT INCARNATION`, because `PRESERVE INCARNATION` is intended for
+                // validating that the copy was done correctly, and thus would need to be a separate thing (either a
+                // separate block, or a separate step in this block that validates they are the same after copying)
+                try (RelationalResultSet rs = stmt.executeQuery("COPY " + sourcePath  + " INCREMENT INCARNATION")) {
                     Continuation continuation = collectExportBatch(rs, allData);
                     while (exportLimit > 0 && !continuation.atEnd()) {
                         continuation = executeContinuation(conn, continuation, allData);
