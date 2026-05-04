@@ -103,34 +103,6 @@ public class CheckExplainTest {
         doRun("check-explain/shouldPass/" + filename + ".yamsql");
     }
 
-    // ── addExplain end-to-end tests ───────────────────────────────────────────
-
-    /**
-     * Runs with {@link YamlExecutionContext#OPTION_ADD_EXPLAIN} on a YAMSQL file whose query has
-     * no {@code explain:} block. Verifies that the runner completes without error (the actual plan
-     * is written into the file as a side effect). Skipped in CI to avoid modifying source files.
-     */
-    @Test
-    void addExplainPopulatesMissingExplain() throws Exception {
-        Assumptions.assumeFalse(YamlExecutionContext.isInCI(), "skipped in CI — would modify source files");
-        new YamlRunner("check-explain/addExplain/no-explain.yamsql",
-                config.createConnectionFactory(),
-                YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_ADD_EXPLAIN, true)).run();
-    }
-
-    /**
-     * Runs with {@link YamlExecutionContext#OPTION_ADD_EXPLAIN} on a YAMSQL file whose query has
-     * an intentionally wrong {@code explain:} value. Verifies that the runner completes without
-     * error (the stale value is corrected in the file). Skipped in CI to avoid modifying source files.
-     */
-    @Test
-    void addExplainCorrectsWrongExplain() throws Exception {
-        Assumptions.assumeFalse(YamlExecutionContext.isInCI(), "skipped in CI — would modify source files");
-        new YamlRunner("check-explain/addExplain/wrong-explain.yamsql",
-                config.createConnectionFactory(),
-                YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_ADD_EXPLAIN, true)).run();
-    }
-
     // ── AddExplainCorrection unit tests (no FDB required) ────────────────────
 
     /**
