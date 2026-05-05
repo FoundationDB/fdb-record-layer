@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
@@ -182,7 +179,7 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
             for (final PlanPartition outerPlanPartition : outerMaxCardinalityOnePartitions) {
                 final Quantifier.Physical newOuterQuantifier = planPartitionToPhysical(call, outerQuantifier, outerReference, outerPredicates, outerPlanPartition);
                 for (final PlanPartition innerPlanPartition : rollUpIfSatisfyOrdering(requestedOrdering, innerQuantifier, bindings.getAll(innerPlanPartitionsMatcher), Ordering.empty(),
-                        o -> pullUpOrderingFromSelectChild(o, selectExpression, innerAlias))) {
+                        o -> o.pullUpForJoin(selectExpression.getResultValue(), innerAlias))) {
                     final Quantifier.Physical newInnerQuantifier = planPartitionToPhysical(call, innerQuantifier, innerReference, outerInnerPredicates, innerPlanPartition);
                     call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
                 }
@@ -191,7 +188,7 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
             // Case 2: Ordering is based on the outer
             final NonnullPair<List<PlanPartition>, Map<Ordering, PlanPartition>> satisfyingAndDistinctOuters = partitionOuterBySatisfyingAndDistinct(
                     requestedOrdering, outerMaxCardinalityNonOnePartitions,
-                    o -> pullUpOrderingFromSelectChild(o, selectExpression, outerAlias));
+                    o -> o.pullUpForJoin(selectExpression.getResultValue(), outerAlias));
 
             // Case 2a: Non-distinct ordering means that the ordering is based solely on the outer. Roll up the inners and return an outer which must satisfy the ordering
             for (final PlanPartition outerPlanPartition : satisfyingAndDistinctOuters.getLeft()) {
@@ -209,17 +206,12 @@ public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<Sele
                 final PlanPartition outerPlanPartition = distinctOrderingAndOuter.getValue();
                 final Quantifier.Physical newOuterQuantifier = planPartitionToPhysical(call, outerQuantifier, outerReference, outerPredicates, outerPlanPartition);
                 for (final PlanPartition innerPlanPartition : rollUpIfSatisfyOrdering(requestedOrdering, innerQuantifier, bindings.getAll(innerPlanPartitionsMatcher), outerOrdering,
-                        o -> pullUpOrderingFromSelectChild(o, selectExpression, innerAlias))) {
+                        o -> o.pullUpForJoin(selectExpression.getResultValue(), innerAlias))) {
                     final Quantifier.Physical newInnerQuantifier = planPartitionToPhysical(call, innerQuantifier, innerReference, outerInnerPredicates, innerPlanPartition);
                     call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
                 }
             }
         }
-    }
-
-    @Nonnull
-    private Ordering pullUpOrderingFromSelectChild(@Nonnull final Ordering ordering, @Nonnull final SelectExpression selectExpression, @Nonnull final CorrelationIdentifier childAlias) {
-        return ordering.pullUp(selectExpression.getResultValue(), EvaluationContext.empty(), AliasMap.ofAliases(childAlias, Quantifier.current()), selectExpression.getResultValue().getCorrelatedTo());
     }
 
     @Nonnull

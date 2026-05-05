@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,15 +22,20 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.OuterJoinExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -67,8 +72,19 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue.ofUnnamed;
 import static com.apple.foundationdb.relational.generated.RelationalParser.ALL;
 
+/**
+ * The main ANTLR visitor that translates a parsed SQL statement into a logical query plan. It walks the parse tree
+ * produced by {@link RelationalParser} and builds a graph of {@link LogicalOperator} objects, which are later lowered
+ * into Cascades relational expressions (such as {@code SelectExpression}).
+ *
+ * <p>Translation state is accumulated in a {@link LogicalPlanFragment}, a mutable container for the operators and
+ * pending join predicates of the current SQL scope. Fragments are managed as a stack on the {@link BaseVisitor}: Each
+ * {@code SELECT} block (including subqueries) pushes a new fragment, and pops it when done. See
+ * {@link BaseVisitor#pushPlanFragment()} for details.
+ */
 @API(API.Status.EXPERIMENTAL)
 public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
@@ -226,13 +242,14 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         getDelegate().pushPlanFragment();
         simpleTableContext.fromClause().accept(this);
 
-        var where = Optional.ofNullable(simpleTableContext.fromClause().whereExpr() == null ?
-                null :
-                visitWhereExpr(simpleTableContext.fromClause().whereExpr()));
+        // Visit the WHERE clause, if present.
+        final RelationalParser.WhereExprContext whereExpr = simpleTableContext.fromClause().whereExpr();
+        Optional<Expression> where = whereExpr != null ? Optional.of(visitWhereExpr(whereExpr)) : Optional.empty();
 
-        for (final var expression : getDelegate().getCurrentPlanFragment().getInnerJoinExpressions()) {
-            where = where.map(e -> getDelegate().resolveFunction("and", e, expression)).or(() -> Optional.of(expression));
-        }
+        // Absorb pending INNER JOIN … ON predicates into the WHERE clause. The quantifiers and predicates of INNER
+        // JOINs are collected in the fragment by `visitInnerJoin()`. Since inner joins are associative, they are
+        // deliberately not folded immediately there so we can merge them into a single `SelectExpression` here.
+        where = conjoinExpressions(where, getDelegate().getCurrentPlanFragment().getInnerJoinExpressions());
 
         Expressions selectExpressions;
         List<OrderByExpression> orderBys = List.of();
@@ -346,25 +363,281 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return null;
     }
 
+    /**
+     * Resolves the {@code USING (<uidList>)} clause of a {@code JOIN} into equality predicates. For each named column,
+     * the method resolves it on both the left and right sides, marks the right-side copy as hidden (so that it does not
+     * appear twice in {@code SELECT *} expansions), and builds a {@code =} predicate. Multiple {@code =} predicates are
+     * combined with {@code AND} into a single equality expression.
+     *
+     * @param leftOperators the left-side operators to resolve column names against
+     * @param rightTableSource the right-side table source
+     * @param uidList the parsed {@code <uidList>} list of identifiers (must be non-empty per the grammar)
+     *
+     * @return a pair of the (possibly updated) right table source and the combined equality expression
+     */
+    @Nonnull
+    private NonnullPair<LogicalOperator, Expression> resolveJoinUsingClause(
+            @Nonnull final LogicalOperators leftOperators,
+            @Nonnull LogicalOperator rightTableSource,
+            @Nonnull final RelationalParser.UidListContext uidList) {
+        Assert.thatUnchecked(!uidList.isEmpty());
+        final BaseVisitor delegate = getDelegate();
+        final SemanticAnalyzer analyzer = delegate.getSemanticAnalyzer();
+        final ImmutableList.Builder<Expression> equalities = ImmutableList.builder();
+        for (final RelationalParser.UidContext uidContext : uidList.uid()) {
+            final Identifier uid = visitUid(uidContext);
+            final Expression leftExpression = analyzer.resolveIdentifier(uid, leftOperators);
+            final Expression rightExpressionOld = analyzer.resolveIdentifier(uid,
+                    LogicalOperators.ofSingle(rightTableSource));
+            final Expression rightExpressionNew = rightExpressionOld.asHidden();
+            rightTableSource = rightTableSource.withOutput(
+                    Expressions.of(rightTableSource.getOutput()
+                            .stream()
+                            .map(e -> e == rightExpressionOld ? rightExpressionNew : e)
+                            .collect(Collectors.toUnmodifiableList())));
+            equalities.add(delegate.resolveFunction("=", leftExpression, rightExpressionNew));
+        }
+        final Expression expression = conjoinExpressions(Optional.empty(), equalities.build()).orElseThrow();
+        return NonnullPair.of(rightTableSource, expression);
+    }
+
+    /**
+     * Visits an {@code INNER JOIN} clause and adds the right-side table source and the join predicate to the current
+     * plan fragment.
+     *
+     * <p>This method handles both {@code ON} and {@code USING} syntax. For {@code USING} syntax, the right-side copy of
+     * each shared column is marked as hidden so that it does not appear twice in {@code SELECT *} expansions.
+     *
+     * <p>Since inner joins are associative and commutative, this method does <em>not</em> immediately fold the left and
+     * right sides into a single relational expression. Instead, it accumulates the right-side operator and the join
+     * predicate in the current plan fragment. All accumulated operators and predicates are later merged into a single
+     * flat {@link SelectExpression} with a suitable {@code WHERE} clause by {@link #visitSimpleTable}.
+     *
+     * @see #visitOuterJoin
+     * @see #visitSimpleTable
+     */
     @Nullable
     @Override
     public Void visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
-        var rightTableSource = Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class);
-        if (ctx.uidList() != null && !ctx.uidList().isEmpty()) {    // JOIN with USING syntax
-            for (final var uidContext : ctx.uidList().uid()) {
-                final var uid = visitUid(uidContext);
-                final var leftExpression = getDelegate().getSemanticAnalyzer().resolveIdentifier(uid, getDelegate().getCurrentPlanFragment().getLogicalOperators());
-                final var rightExpressionOld = getDelegate().getSemanticAnalyzer().resolveIdentifier(uid, LogicalOperators.ofSingle(rightTableSource));
-                final var rightExpressionNew = rightExpressionOld.asHidden();
-                rightTableSource = rightTableSource.withOutput(Expressions.of(rightTableSource.getOutput().stream().map(e -> e == rightExpressionOld ? rightExpressionNew : e).collect(Collectors.toUnmodifiableList())));
-                getDelegate().getCurrentPlanFragment().addInnerJoinExpression(getDelegate().resolveFunction("=", leftExpression, rightExpressionNew));
-            }
-            getDelegate().getCurrentPlanFragment().addOperator(rightTableSource);
-        } else {    // JOIN with ON syntax
-            getDelegate().getCurrentPlanFragment().addOperator(rightTableSource);
-            getDelegate().getCurrentPlanFragment().addInnerJoinExpression(Assert.castUnchecked(ctx.expression().accept(this), Expression.class));
+        LogicalOperator rightTableSource = Assert.castUnchecked(ctx.tableSourceItem().accept(this),
+                LogicalOperator.class);
+        final LogicalPlanFragment fragment = getDelegate().getCurrentPlanFragment();
+        final RelationalParser.UidListContext uidListCtx = ctx.uidList();
+        if (uidListCtx != null) {
+            // `USING ( <uidList> )` syntax
+            final NonnullPair<LogicalOperator, Expression> resolved =
+                    resolveJoinUsingClause(fragment.getLogicalOperators(), rightTableSource, uidListCtx);
+            fragment.addOperator(resolved.getLeft());
+            fragment.addInnerJoinExpression(resolved.getRight());
+        } else {
+            //  `ON <expression>` syntax.
+            // Add the right operator first, so that the ON expression can resolve columns from both the left (already
+            // in the fragment) and right tables.
+            fragment.addOperator(rightTableSource);
+            final RelationalParser.ExpressionContext expressionCtx = ctx.expression();
+            final Expression expression = Assert.castUnchecked(expressionCtx.accept(this), Expression.class);
+            fragment.addInnerJoinExpression(expression);
         }
         return null;
+    }
+
+    /**
+     * Extracts the {@link OuterJoinExpression.JoinType JoinType} from an {@code OuterJoinContext}.
+     */
+    @Nonnull
+    private static OuterJoinExpression.JoinType getJoinType(@Nonnull final RelationalParser.OuterJoinContext ctx) {
+        if (ctx.LEFT() != null) {
+            return OuterJoinExpression.JoinType.LEFT;
+        } else if (ctx.RIGHT() != null) {
+            return OuterJoinExpression.JoinType.RIGHT;
+        } else {
+            return OuterJoinExpression.JoinType.FULL;
+        }
+    }
+
+    /**
+     * Visits an {@code OUTER JOIN} clause and constructs an {@link OuterJoinExpression} in the query graph.
+     *
+     * <p>Only {@code LEFT} outer join is currently supported; {@code RIGHT} is rejected at parse time.
+     *
+     * <p>This method handles both {@code ON} and {@code USING} syntax. In either case:
+     * <ol>
+     * <li>The right table source is visited and temporarily added to the plan fragment so that column references in the
+     *     {@code ON}/{@code USING} clause can be resolved against it.</li>
+     * <li>The join condition is resolved into an {@link Expression}.</li>
+     * <li>{@link #wrapOperandsForOuterJoin} consumes the left and right operators from the fragment and replaces them
+     *     with a single operator backed by an {@link OuterJoinExpression}.</li>
+     * </ol>
+     *
+     * @see #visitInnerJoin
+     */
+    @Nullable
+    @Override
+    public Void visitOuterJoin(@Nonnull RelationalParser.OuterJoinContext ctx) {
+        final OuterJoinExpression.JoinType joinType = getJoinType(ctx);
+        Assert.thatUnchecked(joinType == OuterJoinExpression.JoinType.LEFT, ErrorCode.UNSUPPORTED_QUERY,
+                "only LEFT OUTER JOIN is currently supported");
+
+        // If the plan fragment holds multiple operators from preceding joins at this point, collapse them into a single
+        // operator before building the outer join. This must happen before resolving ON/USING columns, so that the
+        // output expressions of the collapsed operator are visible for column resolution. For example, for a query
+        // like `SELECT … FROM (T1 JOIN T2 ON expr1) LEFT JOIN T3 ON expr2`, the previous visitors will have
+        // produced two operators for T1 and T2, and stored the ON predicate as the inner join expression; see
+        // `visitInnerJoin()`; so `collapseLeftSideOperators()` collapses these two into a `SelectExpression`.
+        final LogicalPlanFragment fragment = getDelegate().getCurrentPlanFragment();
+        if (fragment.getLogicalOperators().size() > 1) {
+            collapseLeftSideOperators(fragment);
+        }
+
+        LogicalOperator rightTableSource = Assert.castUnchecked(ctx.tableSourceItem().accept(this),
+                LogicalOperator.class);
+
+        final RelationalParser.UidListContext uidListCtx = ctx.uidList();
+        if (uidListCtx != null) {
+            // `USING ( <uidList> )` syntax
+            final NonnullPair<LogicalOperator, Expression> resolved =
+                    resolveJoinUsingClause(fragment.getLogicalOperators(), rightTableSource, uidListCtx);
+            rightTableSource = resolved.getLeft();
+            fragment.addOperator(rightTableSource);
+            wrapOperandsForOuterJoin(joinType, rightTableSource, resolved.getRight());
+        } else {
+            //  `ON <expression>` syntax
+            // Add the right operator first, so that the ON expression can resolve columns from both the left (already
+            // in the fragment) and right tables.
+            fragment.addOperator(rightTableSource);
+            final RelationalParser.ExpressionContext expressionCtx = ctx.expression();
+            final Expression expression = Assert.castUnchecked(expressionCtx.accept(this), Expression.class);
+            wrapOperandsForOuterJoin(joinType, rightTableSource, expression);
+        }
+        return null;
+    }
+
+    /**
+     * Collapses all operators in the fragment into a single operator backed by a {@code SelectExpression}. This is used
+     * before an outer join when the fragment contains multiple operators from preceding inner joins (e.g.,
+     * {@code (T1 INNER JOIN T2 ON …) LEFT JOIN T3 ON …}). The collapsed operator flows all individual columns from the
+     * original operators, preserving qualified names for subsequent column resolution. Any pending inner join
+     * predicates are absorbed into the new {@code SelectExpression}.
+     */
+    private void collapseLeftSideOperators(@Nonnull final LogicalPlanFragment fragment) {
+        final LogicalOperators ops = fragment.getLogicalOperators();
+        final List<Quantifier> quns = ops.getQuantifiers();
+        final Expressions exprs = ops.getExpressions();
+
+        final GraphExpansion.Builder selectBuilder = GraphExpansion.builder();
+        selectBuilder.addAllQuantifiers(quns);
+        exprs.expanded().underlyingAsColumns().forEach(selectBuilder::addResultColumn);
+
+        // Absorb pending INNER JOIN … ON predicates into the WHERE clause. (See also `visitSimpleTable()`.)
+        final Optional<Expression> where = conjoinExpressions(Optional.empty(), fragment.getInnerJoinExpressions());
+        if (where.isPresent()) {
+            final var aliases = quns.stream()
+                    .map(Quantifier::getAlias).collect(ImmutableSet.toImmutableSet());
+            selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(
+                    where.get(), aliases, getDelegate().isForDdl()));
+        }
+
+        final SelectExpression selectExpression = selectBuilder.build().buildSelect();
+        final Quantifier.ForEach collapsedQun = Quantifier.forEach(Reference.initialOf(selectExpression));
+        final Expressions rewired = exprs.rewireQov(collapsedQun.getFlowedObjectValue());
+        final LogicalOperator collapsed = LogicalOperator.newOperatorWithPreservedExpressionNames(rewired, collapsedQun);
+
+        fragment.clearInnerJoinExpressions();
+        fragment.setOperator(collapsed);
+    }
+
+    /**
+     * Combines a seed expression with a list of additional expressions using {@code AND}. Returns the seed unchanged
+     * if {@code expressions} is empty, or an empty optional if both the seed and the list are empty.
+     */
+    @Nonnull
+    private Optional<Expression> conjoinExpressions(@Nonnull Optional<Expression> seed,
+                                                    @Nonnull final List<Expression> expressions) {
+        for (final Expression expression : expressions) {
+            if (seed.isPresent()) {
+                seed = Optional.of(getDelegate().resolveFunction("and", seed.get(), expression));
+            } else {
+                seed = Optional.of(expression);
+            }
+        }
+        return seed;
+    }
+
+    /**
+     * Consumes the two operands from the current plan fragment and replaces them with a single operator
+     * backed by an {@link OuterJoinExpression}.
+     *
+     * <p>The fragment is expected to contain exactly two operators at this point: the SQL-left side (preceding
+     * tables, possibly collapsed by {@link #collapseLeftSideOperators}) and the SQL-right side (the table
+     * just added by {@link #visitOuterJoin}). Which side is preserved vs. null-supplying is determined by
+     * {@code joinType}.
+     *
+     * <p>The resulting {@link OuterJoinExpression} stores:
+     * <ul>
+     * <li>The two quantifiers (left and right) — it owns them directly.</li>
+     * <li>The {@code ON} clause predicate(s) — kept separate from any {@code WHERE} predicates, which remain in the
+     *     enclosing {@link com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression SelectExpression}
+     *     built later by {@code visitSimpleTable()}.</li>
+     * <li>A result value that combines flowed values from both sides.</li>
+     * </ul>
+     *
+     * <p>After construction, the fragment’s operators are replaced with a single new operator whose quantifier
+     * ranges over the {@code OuterJoinExpression}. Output expressions from both sides are rewired by ordinal
+     * position through this new quantifier so that subsequent column resolution (SELECT clause, WHERE clause)
+     * works transparently.
+     *
+     * @param joinType the outer join type (LEFT or RIGHT)
+     * @param rightTableSource the SQL-right table operator, already present in the fragment
+     * @param onExpression the resolved ON-clause expression
+     */
+    private void wrapOperandsForOuterJoin(@Nonnull final OuterJoinExpression.JoinType joinType,
+                                          @Nonnull final LogicalOperator rightTableSource,
+                                          @Nonnull final Expression onExpression) {
+        final LogicalPlanFragment fragment = getDelegate().getCurrentPlanFragment();
+        final LogicalOperators operators = fragment.getLogicalOperators();
+        final List<Quantifier> quantifiers = operators.getQuantifiers();
+
+        // The SQL-left side is the second-to-last quantifier; the SQL-right side is the last (just added).
+        // Which one is preserved vs. null-supplying is determined by the join type, not by position.
+        Assert.thatUnchecked(quantifiers.size() >= 2);
+        final var leftQun = (Quantifier.ForEach)quantifiers.get(quantifiers.size() - 2);
+        final var rightQun = (Quantifier.ForEach)rightTableSource.getQuantifier();
+
+        // Convert the ON expression to a `QueryPredicate`, resolving column references against all aliases currently
+        // visible in the fragment.
+        final ImmutableSet<CorrelationIdentifier> aliases = quantifiers.stream()
+                .map(Quantifier::getAlias)
+                .collect(ImmutableSet.toImmutableSet());
+        final QueryPredicate onPredicate = Expression.Utils.toUnderlyingPredicate(onExpression,
+                aliases,
+                getDelegate().isForDdl());
+
+        // Build the result value: a flat record combining all flowed values from both sides (left then right).
+        final ImmutableList<Value> values = ImmutableList.<Value>builder()
+                .addAll(leftQun.getFlowedValues())
+                .addAll(rightQun.getFlowedValues())
+                .build();
+        final RecordConstructorValue resultValue = ofUnnamed(values);
+
+        final OuterJoinExpression outerJoinExpression = new OuterJoinExpression(
+                joinType, leftQun, rightQun,
+                ImmutableList.of(onPredicate),
+                resultValue);
+
+        // Wrap it in a `ForEach` quantifier, so the rest of the visitor can treat it like any other table source.
+        final Quantifier.ForEach outerJoinQun = Quantifier.forEach(Reference.initialOf(outerJoinExpression));
+
+        // Rewire output expressions: Collect left-side outputs (excluding right-side duplicates), append right-side
+        // outputs, then map each expression by ordinal to the flowed object value of the outer join quantifier. This
+        // preserves qualified names (e.g. "e"."fname", "d"."name") while pointing the underlying values at the new
+        // quantifier.
+        final Expressions leftOutput = operators.getExpressions()
+                .difference(rightTableSource.getOutput(), fragment.getOuterCorrelations());
+        final Expressions combinedOutput = leftOutput.concat(rightTableSource.getOutput());
+        final Expressions rewiredOutput = combinedOutput.rewireQov(outerJoinQun.getFlowedObjectValue());
+
+        // Replace all operators in the fragment with a single operator backed by the outer join.
+        fragment.setOperator(LogicalOperator.newOperatorWithPreservedExpressionNames(rewiredOutput, outerJoinQun));
     }
 
     @Nonnull

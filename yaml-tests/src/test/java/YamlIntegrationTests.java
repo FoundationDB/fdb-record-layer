@@ -207,6 +207,12 @@ public class YamlIntegrationTests {
         runner.runYamsql("join-tests.yamsql");
     }
 
+    //@MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPECTATIONS)
+    @TestTemplate
+    public void joinTestsOuter(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("join-tests-outer.yamsql");
+    }
+
     @TestTemplate
     public void joinRowVersionTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("join-tests-row-version.yamsql");

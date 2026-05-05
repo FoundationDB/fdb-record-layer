@@ -83,6 +83,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushSetOperationT
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushTypeFilterBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveProjectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveSortRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.RewriteOuterJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.SplitSelectExtractIndependentQuantifiersRule;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuesPlan;
@@ -110,7 +111,8 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new SplitSelectExtractIndependentQuantifiersRule(),
             new PullUpNullOnEmptyRule(),
             new PartitionSelectRule(),
-            new PartitionBinarySelectRule()
+            new PartitionBinarySelectRule(),
+            new RewriteOuterJoinRule()
             );
     private static final Set<CascadesRule<? extends RelationalExpression>> MATCHING_RULES = ImmutableSet.of(
             new MatchLeafRule(),
