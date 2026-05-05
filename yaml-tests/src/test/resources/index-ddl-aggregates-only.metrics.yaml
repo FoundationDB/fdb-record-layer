@@ -30,12 +30,12 @@ sum_aggregate_single_grouping:
     ref: index-ddl-aggregates-only.yamsql:152
     explain: 'AISCAN(IDX_MV_SUM_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
         | MAP (_._0 AS REGION, _._1 AS TOTAL)'
-    task_count: 558
-    task_total_time_ms: 352
-    transform_count: 182
-    transform_time_ms: 297
-    transform_yield_count: 119
-    insert_time_ms: 4
+    task_count: 528
+    task_total_time_ms: 223
+    transform_count: 173
+    transform_time_ms: 172
+    transform_yield_count: 104
+    insert_time_ms: 5
     insert_new_count: 36
     insert_reused_count: 3
 -   query: EXPLAIN select region, sum(amount) as total from sales_index_on group by
@@ -43,12 +43,12 @@ sum_aggregate_single_grouping:
     ref: index-ddl-aggregates-only.yamsql:156
     explain: 'AISCAN(IDX_IOT_SUM_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]])
         | MAP (_._0 AS REGION, _._1 AS TOTAL)'
-    task_count: 558
-    task_total_time_ms: 148
-    transform_count: 182
-    transform_time_ms: 120
-    transform_yield_count: 119
-    insert_time_ms: 1
+    task_count: 528
+    task_total_time_ms: 223
+    transform_count: 173
+    transform_time_ms: 172
+    transform_yield_count: 104
+    insert_time_ms: 10
     insert_new_count: 36
     insert_reused_count: 3
 sum_aggregate_multi_grouping:
@@ -253,11 +253,11 @@ max_aggregate:
     ref: index-ddl-aggregates-only.yamsql:260
     explain: 'AISCAN(IDX_MV_MAX_AMOUNT_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1:
         KEY:[1]]) | MAP (_._0 AS REGION, _._1 AS MAX_AMT)'
-    task_count: 558
-    task_total_time_ms: 86
-    transform_count: 180
-    transform_time_ms: 64
-    transform_yield_count: 111
+    task_count: 548
+    task_total_time_ms: 57
+    transform_count: 177
+    transform_time_ms: 36
+    transform_yield_count: 106
     insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 3
@@ -266,11 +266,11 @@ max_aggregate:
     ref: index-ddl-aggregates-only.yamsql:264
     explain: 'AISCAN(IDX_IOT_MAX_AMOUNT_BY_REGION <,> BY_GROUP -> [_0: KEY:[0], _1:
         KEY:[1]]) | MAP (_._0 AS REGION, _._1 AS MAX_AMT)'
-    task_count: 558
-    task_total_time_ms: 89
-    transform_count: 180
-    transform_time_ms: 67
-    transform_yield_count: 111
+    task_count: 548
+    task_total_time_ms: 57
+    transform_count: 177
+    transform_time_ms: 41
+    transform_yield_count: 106
     insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 3

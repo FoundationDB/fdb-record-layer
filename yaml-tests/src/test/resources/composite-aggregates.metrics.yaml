@@ -63,13 +63,13 @@ agg-empty-table-tests:
         <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2)
         GROUP BY (_._0 AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1
         AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0, _._0 AS COL2)'
-    task_count: 615
-    task_total_time_ms: 19
-    transform_count: 163
-    transform_time_ms: 15
-    transform_yield_count: 60
-    insert_time_ms: 0
-    insert_new_count: 56
+    task_count: 605
+    task_total_time_ms: 43
+    transform_count: 160
+    transform_time_ms: 32
+    transform_yield_count: 55
+    insert_time_ms: 2
+    insert_new_count: 53
     insert_reused_count: 2
 -   query: EXPLAIN select col2, sum(col1) / count(col1) from T1 where col2 < 2 group
         by col2 having sum(col1) = 17 order by col2;
@@ -80,12 +80,12 @@ agg-empty-table-tests:
         AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1
         AS _2) | FILTER _._1 EQUALS promote(@c27 AS LONG) | MAP (_._0 AS COL2, _._1
         / _._2 AS _1)'
-    task_count: 666
-    task_total_time_ms: 20
-    transform_count: 174
-    transform_time_ms: 15
-    transform_yield_count: 62
-    insert_time_ms: 0
+    task_count: 656
+    task_total_time_ms: 38
+    transform_count: 171
+    transform_time_ms: 29
+    transform_yield_count: 57
+    insert_time_ms: 1
     insert_new_count: 60
     insert_reused_count: 2
 -   query: EXPLAIN select col2, sum(col1) / count(col1) from T1 where col2 < 2 group
