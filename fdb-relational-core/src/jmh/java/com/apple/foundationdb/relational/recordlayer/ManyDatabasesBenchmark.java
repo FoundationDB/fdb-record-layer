@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -69,8 +68,8 @@ import java.util.stream.IntStream;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @API(API.Status.EXPERIMENTAL)
 public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
-    final String schema = "schema";
-    final int dbSize = 1000;
+    static final String schema = "schema";
+    static final int dbSize = 1000;
 
     @Param({"1", "10", "100", "1000", "10000"})
     int dbCount;
@@ -84,12 +83,11 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
         System.out.printf("Creating %s databases...%n", dbCount);
         long startTime = System.nanoTime();
         databases.createMultipleDatabases(
-                DatabaseTemplate.newBuilder()
-                        .withSchema(schema, schemaTemplateName)
-                        .build(),
+                schemaTemplateName,
                 dbCount,
                 this::dbName,
-                this::populateDatabase);
+                this::populateDatabase,
+                schema);
         long endTime = System.nanoTime();
         System.out.printf("Done in %s %n.", Duration.ofNanos(endTime - startTime));
     }
@@ -116,7 +114,8 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     private void populateDatabase(URI uri) {
-        try (RelationalConnection dbConn = DriverManager.getConnection(uri.toString()).unwrap(RelationalConnection.class)) {
+        try (java.sql.Connection rawConn = DriverManager.getConnection(uri.toString());
+                RelationalConnection dbConn = rawConn.unwrap(RelationalConnection.class)) {
             dbConn.setSchema(schema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 stmt.executeInsert(restaurantRecordTable, createRecords());

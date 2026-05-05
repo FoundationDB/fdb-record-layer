@@ -66,7 +66,7 @@ public class RelationalConnectionBenchmark extends EmbeddedRelationalBenchmark {
     @Param(value = {"true", "false"})
     boolean setSchemaAtConnTime;
 
-    final String schemaName = "testSchema";
+    static final String schemaName = "testSchema";
     URI dbUri = URI.create("/BENCHMARKS/connectionDb");
 
     @Setup(Level.Trial)
