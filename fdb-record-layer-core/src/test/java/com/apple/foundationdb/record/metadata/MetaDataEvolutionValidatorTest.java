@@ -140,7 +140,7 @@ class MetaDataEvolutionValidatorTest {
 
             noRenamesValidator = builder
                     .setAllowDeprecatedFieldRenames(false)
-                    .setAllowDeprecatedFieldRenames(false)
+                    .setAllowFieldRenames(false)
                     .build();
             assertFalse(noRenamesValidator.allowsAnyFieldRenames());
             assertFalse(noRenamesValidator.allowsDeprecatedFieldRenames());

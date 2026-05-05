@@ -1077,8 +1077,8 @@ public class MetaDataEvolutionValidator {
      * not allowed as it can result in unknown fields during Protobuf deserialization. For that reason,
      * deprecating fields should be preferred to deleting them. Once a field is deprecated and no longer
      * actively accessed, further modifications to the name of the now unused field may be safe.
-     * Note that this option will result in accepting a meta-data change if a field is deprecated
-     * in the same change that deprecates it. Additionally, if this validator {@link #allowsUndeprecatingFields()},
+     * Note that this option will result in accepting a meta-data change if a field is renamed
+     * and deprecated in the same change. Additionally, if this validator {@link #allowsUndeprecatingFields()},
      * then this also allows deprecated fields to be renamed in the same change in which they are
      * marked as no longer deprecated.
      *
@@ -1109,7 +1109,7 @@ public class MetaDataEvolutionValidator {
 
     /**
      * Whether this validator allows any kind of field renames. It captures whether either this validator
-     * {@link #allowsFieldRenames} or {@link #allowsDeprecatedFieldRenames()}. If this is false, then
+     * {@link #allowsFieldRenames()} or {@link #allowsDeprecatedFieldRenames()}. If this is false, then
      * this validator will throw if any kind of field changes its name. The exact set of field renames
      * that are allowed will depend on the values of the other two configuration parameters.
      *
