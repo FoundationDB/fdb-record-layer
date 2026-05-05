@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
+import com.apple.foundationdb.record.query.plan.cascades.costing.CascadesCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.cascades.events.AdjustMatchPlannerEvent;
@@ -631,20 +632,11 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public void execute() {
-            RelationalExpression bestFinalExpression = null;
-            final var costModel = plannerPhase.createCostModel(configuration);
-            for (final var finalExpression : group.getFinalExpressions()) {
-                if (bestFinalExpression == null || costModel.compare(finalExpression, bestFinalExpression) < 0) {
-                    if (bestFinalExpression != null) {
-                        // best member is being pruned
-                        traversal.removeExpression(group, bestFinalExpression);
-                    }
-                    bestFinalExpression = finalExpression;
-                } else {
-                    // member is being pruned
-                    traversal.removeExpression(group, finalExpression);
-                }
-            }
+            final CascadesCostModel<? extends RelationalExpression> costModel = plannerPhase.createCostModel(configuration);
+            final var bestFinalExpressionOptional =
+                    costModel.getBestExpression(group.getFinalExpressions(),
+                            removedExpression ->
+                                    traversal.removeExpression(group, removedExpression));
 
             //
             // In the past we would iterate through ALL members to find the cheapest plan.
@@ -666,10 +658,10 @@ public class CascadesPlanner implements QueryPlanner {
             // Thus, leaving the exploratory expressions around in the reference is not a problem for garbage
             // collection.
             //
-            if (bestFinalExpression == null) {
+            if (bestFinalExpressionOptional.isEmpty()) {
                 group.clearFinalExpressions();
             } else {
-                group.pruneWith(bestFinalExpression);
+                group.pruneWith(bestFinalExpressionOptional.get());
             }
         }
 
