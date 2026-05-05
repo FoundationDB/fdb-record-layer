@@ -45,7 +45,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -161,7 +160,6 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
      * @return an object that is either {@code field} if a copy could be avoided or a new copy of {@code field} whose
      *         constituent messages are {@link DynamicMessage}s based on dynamically-created descriptors.
      */
-    @VisibleForTesting
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static Object deepCopyIfNeeded(@Nonnull TypeRepository typeRepository,
