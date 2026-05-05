@@ -44,15 +44,26 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Take keys from a record field.
- * If <code>fieldName</code> is a <code>repeated</code> field, then <code>FanType.Concatenate</code> turns all the
- * field values into a single <code>Key.Evaluated</code>. If <code>FanType.FanOut</code>, there is one (singleton)
- * <code>Key.Evaluated</code> for each repeated value. If this is evaluated on the <code>null</code> record, then
- * it will the same value as if it were evaluated on a record where the field is either unset (in the case of scalar
- * fields) or empty (in the case of repeated fields). In particular, if <code>FanType.None</code>, then this returns
- * a single <code>Key.Evaluated</code> containing <code>null</code>; if <code>FanType.FanOut</code>, then
- * this returns no <code>Key.Evaluated</code>s; and if <code>FanType.Concatenate</code>, then this returns a single
- * <code>Key.Evaluated</code> containing the empty list.
+ * Takes keys from a record field.
+ *
+ * <p>On a record where the field carries a value, the result depends on the
+ * {@link com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType FanType}:
+ * <ul>
+ *   <li>{@code None} — Yields a single {@link Key.Evaluated} holding the scalar value.</li>
+ *   <li>{@code FanOut} — Yields one {@link Key.Evaluated} per element of the repeated field.</li>
+ *   <li>{@code Concatenate} — Yields a single {@link Key.Evaluated} holding the whole repeated field as a list.</li>
+ * </ul>
+ *
+ * <p>On a {@code null} record (or a record where the field is absent), the result is driven by the
+ * {@link Key.Evaluated.NullStandin} of this expression:
+ * <ul>
+ * <li>{@code FanOut} — Yields an empty list (no {@link Key.Evaluated} entries).</li>
+ * <li>{@code None} — Yields a single {@link Key.Evaluated} carrying the standin, which is the indexable NULL for
+ *     {@code NULL} and {@code NULL_UNIQUE}, or the type default for {@code NOT_NULL}.</li>
+ * <li>{@code Concatenate} — Yields a single {@link Key.Evaluated} carrying the standin, except for a
+ *     {@code NOT_NULL} standin where the proto default for a repeated field (namely, the empty list) is used
+ *     instead.</li>
+ * </ul>
  */
 @API(API.Status.UNSTABLE)
 public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
@@ -174,13 +185,24 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         }
     }
 
+    /**
+     * Evaluates the case where no value can be extracted for this field. This method is called from
+     * {@link #evaluateMessage} when either the input {@code message} is {@code null}, or the field is absent on the
+     * message and its {@link #nullStandin} is not {@code NOT_NULL} (i.e., the type-default substitution does not apply).
+     *
+     * <p>The result depends on the fan type and the null standin: {@code FanOut} emits no entries, {@code Concatenate}
+     * and {@code None} emit a single entry carrying either the {@code NullStandin} (indexable null) or, for
+     * {@code Concatenate} with a {@code NOT_NULL} standin, an empty list (the proto default for a repeated field).
+     */
     private List<Key.Evaluated> getNullResult() {
-        // As opposed to default value, in order to get indexable NULL.
         switch (fanType) {
             case FanOut:
                 return Collections.emptyList();
             case Concatenate:
-                return Collections.singletonList(Key.Evaluated.scalar(Collections.emptyList()));
+                Key.Evaluated result = (nullStandin == Key.Evaluated.NullStandin.NOT_NULL)
+                                       ? Key.Evaluated.scalar(Collections.emptyList())
+                                       : Key.Evaluated.scalar(nullStandin);
+                return Collections.singletonList(result);
             case None:
                 return Collections.singletonList(Key.Evaluated.scalar(nullStandin));
             default:
