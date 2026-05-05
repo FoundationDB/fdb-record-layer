@@ -19,7 +19,7 @@
 
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.12.1.0
 ---
 # Assorted tests for ARRAY unnesting (aka. "array joins"), with and without indexes.
 #
