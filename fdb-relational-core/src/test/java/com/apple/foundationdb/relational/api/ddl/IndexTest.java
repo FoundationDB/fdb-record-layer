@@ -530,6 +530,25 @@ public class IndexTest {
     }
 
     @Test
+    void createIndexWithCardinalityFunctionOnNonNullableArrayIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 BIGINT, int_arr INTEGER ARRAY NOT NULL, PRIMARY KEY(p1)) " +
+                "CREATE INDEX mv1 AS SELECT CARDINALITY(int_arr) FROM T1";
+        var exp = function("cardinality", field("INT_ARR", KeyExpression.FanType.Concatenate));
+        indexIs(stmt, exp, IndexTypes.VALUE);
+    }
+
+    @Test
+    void createIndexWithCardinalityFunctionOnNullableArrayIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 BIGINT, int_arr INTEGER ARRAY NULL, PRIMARY KEY(p1)) " +
+                "CREATE INDEX mv1 AS SELECT CARDINALITY(int_arr) FROM T1";
+        // Notice the nested "values" field that gets introduced when the array is nullable.
+        var exp = function("cardinality", field("INT_ARR").nest(field("values", KeyExpression.FanType.Concatenate)));
+        indexIs(stmt, exp, IndexTypes.VALUE);
+    }
+
+    @Test
     void createIndexWithFieldSumInProjectionIsSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(p1 bigint, a bigint, b bigint, primary key(p1)) " +
