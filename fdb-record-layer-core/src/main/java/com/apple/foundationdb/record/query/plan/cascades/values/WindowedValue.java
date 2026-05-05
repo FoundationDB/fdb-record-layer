@@ -25,20 +25,23 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.planprotos.PFrameSpecification;
+import com.apple.foundationdb.record.planprotos.PRequestedOrderingPart;
 import com.apple.foundationdb.record.planprotos.PWindowedValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 
 import javax.annotation.Nonnull;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
 
 /**
@@ -54,6 +57,12 @@ public abstract class WindowedValue extends AbstractValue {
     @Nonnull
     private final List<Value> argumentValues;
 
+    @Nonnull
+    private final List<OrderingPart.RequestedOrderingPart> orderingParts;
+
+    @Nonnull
+    private final FrameSpecification windowFrameSpecification;
+
     protected WindowedValue(@Nonnull final PlanSerializationContext serializationContext,
                             @Nonnull final PWindowedValue windowedValueProto) {
         this(windowedValueProto.getPartitioningValuesList()
@@ -63,14 +72,38 @@ public abstract class WindowedValue extends AbstractValue {
                 windowedValueProto.getArgumentValuesList()
                         .stream()
                         .map(valueProto -> Value.fromValueProto(serializationContext, valueProto))
-                        .collect(ImmutableList.toImmutableList()));
+                        .collect(ImmutableList.toImmutableList()),
+                windowedValueProto.hasFrameSpecification()
+                        ? windowedValueProto.getOrderingPartsList()
+                                .stream()
+                                .map(partProto -> new OrderingPart.RequestedOrderingPart(
+                                        Value.fromValueProto(serializationContext, partProto.getValue()),
+                                        sortOrderFromProto(partProto.getSortOrder())))
+                                .collect(ImmutableList.toImmutableList())
+                        : windowedValueProto.getArgumentValuesList()
+                                .stream()
+                                .map(valueProto -> new OrderingPart.RequestedOrderingPart(
+                                        Value.fromValueProto(serializationContext, valueProto),
+                                        RequestedSortOrder.ANY))
+                                .collect(ImmutableList.toImmutableList()),
+                windowedValueProto.hasFrameSpecification()
+                        ? frameSpecificationFromProto(serializationContext, windowedValueProto.getFrameSpecification())
+                        : FrameSpecification.defaultSpecification());
     }
 
     protected WindowedValue(@Nonnull Iterable<? extends Value> partitioningValues,
                             @Nonnull Iterable<? extends Value> argumentValues) {
-        Preconditions.checkArgument(!Iterables.isEmpty(argumentValues));
+        this(partitioningValues, argumentValues, ImmutableList.of(), FrameSpecification.defaultSpecification());
+    }
+
+    protected WindowedValue(@Nonnull Iterable<? extends Value> partitioningValues,
+                            @Nonnull Iterable<? extends Value> argumentValues,
+                            @Nonnull Iterable<OrderingPart.RequestedOrderingPart> orderingParts,
+                            @Nonnull FrameSpecification windowFrameSpecification) {
         this.partitioningValues = ImmutableList.copyOf(partitioningValues);
         this.argumentValues = ImmutableList.copyOf(argumentValues);
+        this.orderingParts = ImmutableList.copyOf(orderingParts);
+        this.windowFrameSpecification = windowFrameSpecification;
     }
 
     @Nonnull
@@ -81,6 +114,16 @@ public abstract class WindowedValue extends AbstractValue {
     @Nonnull
     public List<Value> getArgumentValues() {
         return argumentValues;
+    }
+
+    @Nonnull
+    public List<OrderingPart.RequestedOrderingPart> getOrderingParts() {
+        return orderingParts;
+    }
+
+    @Nonnull
+    public FrameSpecification getWindowFrameSpecification() {
+        return windowFrameSpecification;
     }
 
     @Nonnull
@@ -106,7 +149,7 @@ public abstract class WindowedValue extends AbstractValue {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, getName());
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, getName(), windowFrameSpecification);
     }
 
     /**
@@ -114,19 +157,30 @@ public abstract class WindowedValue extends AbstractValue {
      * This implementation makes each concrete subclass implement its own version of {@link #planHash(PlanHashMode)} so
      * that they are guided to add their own class modifier (See {@link ObjectPlanHash ObjectPlanHash}).
      * This implementation is meant to give subclasses common functionality for their own implementation.
+     *
      * @param mode the plan hash kind to use
      * @param baseHash the subclass' base hash (concrete identifier)
      * @param hashables the rest of the subclass' hashable parameters (if any)
+     *
      * @return the plan hash value calculated
      */
     protected int basePlanHash(@Nonnull final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-                return PlanHashable.objectsPlanHash(mode, baseHash, getName(), partitioningValues, argumentValues, hashables);
+                return PlanHashable.objectsPlanHash(mode, baseHash, getName(), partitioningValues, argumentValues, windowFrameSpecification, hashables);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
+    }
+
+    @Nonnull
+    @Override
+    public ExplainTokens describe() {
+        return new ExplainTokens()
+                .addKeyword(getName())
+                .addWhitespace()
+                .addNested(windowFrameSpecification.explain());
     }
 
     @Nonnull
@@ -136,7 +190,7 @@ public abstract class WindowedValue extends AbstractValue {
         int i = 0;
         final var partitioningBuilder = ImmutableList.<ExplainTokens>builder();
         final var iterator = explainSuppliers.iterator();
-        for (; i < partitioningValues.size(); i ++) {
+        for (; i < partitioningValues.size(); i++) {
             partitioningBuilder.add(iterator.next().get().getExplainTokens());
         }
         final var argumentsBuilder = ImmutableList.<ExplainTokens>builder();
@@ -153,7 +207,51 @@ public abstract class WindowedValue extends AbstractValue {
                     .addWhitespace().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(), partitioning);
         }
 
+        if (!orderingParts.isEmpty()) {
+            final var orderingTokens = orderingParts.stream()
+                    .map(part -> {
+                        final var partTokens = new ExplainTokens()
+                                .addNested(part.getValue().explain().getExplainTokens());
+                        final var sortOrder = part.getSortOrder();
+                        if (sortOrder != OrderingPart.RequestedSortOrder.ANY) {
+                            partTokens.addWhitespace().addKeyword(explainSortOrder(sortOrder));
+                        }
+                        return partTokens;
+                    })
+                    .collect(ImmutableList.toImmutableList());
+            allArgumentsExplainTokens.addWhitespace().addKeyword("ORDER").addWhitespace().addKeyword("BY")
+                    .addWhitespace().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(), orderingTokens);
+        }
+
+        explainFrameSpecification(allArgumentsExplainTokens, windowFrameSpecification);
+
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall(getName(), allArgumentsExplainTokens));
+    }
+
+    private static void explainFrameSpecification(@Nonnull final ExplainTokens tokens,
+                                                   @Nonnull final FrameSpecification spec) {
+        tokens.addWhitespace().addNested(spec.explain());
+    }
+
+    @Nonnull
+    private static String explainSortOrder(@Nonnull final OrderingPart.RequestedSortOrder sortOrder) {
+        return switch (sortOrder) {
+            case ASCENDING -> "ASC";
+            case DESCENDING -> "DESC";
+            case ASCENDING_NULLS_LAST -> "ASC NULLS LAST";
+            case DESCENDING_NULLS_FIRST -> "DESC NULLS FIRST";
+            default -> "";
+        };
+    }
+
+    @Nonnull
+    private static String explainExclusion(@Nonnull final FrameSpecification.Exclusion exclusion) {
+        return switch (exclusion) {
+            case CURRENT_ROW -> "CURRENT ROW";
+            case GROUP -> "GROUP";
+            case TIES -> "TIES";
+            default -> "NO OTHERS";
+        };
     }
 
     @Override
@@ -165,7 +263,11 @@ public abstract class WindowedValue extends AbstractValue {
     @Override
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other)
-                .filter(ignored -> getName().equals(((WindowedValue)other).getName()));
+                .filter(ignored -> {
+                    final var otherWindowValue = (WindowedValue)other;
+                    return getName().equals(otherWindowValue.getName()) &&
+                            windowFrameSpecification.equals(otherWindowValue.windowFrameSpecification);
+                });
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -184,6 +286,191 @@ public abstract class WindowedValue extends AbstractValue {
         for (final Value argumentValue : argumentValues) {
             builder.addArgumentValues(argumentValue.toValueProto(serializationContext));
         }
+        for (final OrderingPart.RequestedOrderingPart orderingPart : orderingParts) {
+            builder.addOrderingParts(PRequestedOrderingPart.newBuilder()
+                    .setValue(orderingPart.getValue().toValueProto(serializationContext))
+                    .setSortOrder(sortOrderToProto(orderingPart.getSortOrder()))
+                    .build());
+        }
+        builder.setFrameSpecification(frameSpecificationToProto(serializationContext, windowFrameSpecification));
         return builder.build();
+    }
+
+    @Nonnull
+    private static PRequestedOrderingPart.PSortOrder sortOrderToProto(@Nonnull final RequestedSortOrder sortOrder) {
+        return switch (sortOrder) {
+            case ASCENDING -> PRequestedOrderingPart.PSortOrder.ASCENDING;
+            case DESCENDING -> PRequestedOrderingPart.PSortOrder.DESCENDING;
+            case ASCENDING_NULLS_LAST -> PRequestedOrderingPart.PSortOrder.ASCENDING_NULLS_LAST;
+            case DESCENDING_NULLS_FIRST -> PRequestedOrderingPart.PSortOrder.DESCENDING_NULLS_FIRST;
+            case ANY -> PRequestedOrderingPart.PSortOrder.ANY;
+        };
+    }
+
+    @Nonnull
+    private static RequestedSortOrder sortOrderFromProto(@Nonnull final PRequestedOrderingPart.PSortOrder sortOrder) {
+        return switch (sortOrder) {
+            case ASCENDING -> RequestedSortOrder.ASCENDING;
+            case DESCENDING -> RequestedSortOrder.DESCENDING;
+            case ASCENDING_NULLS_LAST -> RequestedSortOrder.ASCENDING_NULLS_LAST;
+            case DESCENDING_NULLS_FIRST -> RequestedSortOrder.DESCENDING_NULLS_FIRST;
+            case ANY -> RequestedSortOrder.ANY;
+        };
+    }
+
+    @Nonnull
+    private static PFrameSpecification frameSpecificationToProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                @Nonnull final FrameSpecification spec) {
+        return PFrameSpecification.newBuilder()
+                .setFrameType(frameTypeToProto(spec.frameType()))
+                .setLeft(frameBoundaryToProto(serializationContext, spec.left()))
+                .setRight(frameBoundaryToProto(serializationContext, spec.right()))
+                .setExclusion(exclusionToProto(spec.exclusion()))
+                .build();
+    }
+
+    @Nonnull
+    private static FrameSpecification frameSpecificationFromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                 @Nonnull final PFrameSpecification proto) {
+        return new FrameSpecification(
+                frameTypeFromProto(proto.getFrameType()),
+                frameBoundaryFromProto(serializationContext, proto.getLeft()),
+                frameBoundaryFromProto(serializationContext, proto.getRight()),
+                exclusionFromProto(proto.getExclusion()));
+    }
+
+    @Nonnull
+    private static PFrameSpecification.PFrameType frameTypeToProto(@Nonnull final FrameSpecification.FrameType frameType) {
+        return switch (frameType) {
+            case ROW -> PFrameSpecification.PFrameType.ROW;
+            case RANGE -> PFrameSpecification.PFrameType.RANGE;
+            case GROUPS -> PFrameSpecification.PFrameType.GROUPS;
+        };
+    }
+
+    @Nonnull
+    private static FrameSpecification.FrameType frameTypeFromProto(@Nonnull final PFrameSpecification.PFrameType proto) {
+        return switch (proto) {
+            case ROW -> FrameSpecification.FrameType.ROW;
+            case RANGE -> FrameSpecification.FrameType.RANGE;
+            case GROUPS -> FrameSpecification.FrameType.GROUPS;
+        };
+    }
+
+    @Nonnull
+    private static PFrameSpecification.PFrameBoundary frameBoundaryToProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                          @Nonnull final FrameSpecification.FrameBoundary boundary) {
+        if (boundary instanceof FrameSpecification.Unbounded) {
+            return PFrameSpecification.PFrameBoundary.newBuilder().setUnbounded(true).build();
+        } else if (boundary instanceof FrameSpecification.Bounded) {
+            return PFrameSpecification.PFrameBoundary.newBuilder().setBoundedLimit(((FrameSpecification.Bounded)boundary).limit().toValueProto(serializationContext)).build();
+        } else if (boundary instanceof FrameSpecification.CurrentRow) {
+            return PFrameSpecification.PFrameBoundary.newBuilder().setCurrentRow(true).build();
+        } else {
+            throw new IllegalArgumentException("unknown frame boundary type: " + boundary.getClass());
+        }
+    }
+
+    @Nonnull
+    private static FrameSpecification.FrameBoundary frameBoundaryFromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                           @Nonnull final PFrameSpecification.PFrameBoundary proto) {
+        if (proto.hasUnbounded()) {
+            return FrameSpecification.Unbounded.INSTANCE;
+        } else if (proto.hasBoundedLimit()) {
+            return new FrameSpecification.Bounded(Value.fromValueProto(serializationContext, proto.getBoundedLimit()));
+        } else if (proto.hasCurrentRow()) {
+            return new FrameSpecification.CurrentRow();
+        } else {
+            throw new IllegalArgumentException("unknown frame boundary proto case");
+        }
+    }
+
+    @Nonnull
+    private static PFrameSpecification.PExclusion exclusionToProto(@Nonnull final FrameSpecification.Exclusion exclusion) {
+        return switch (exclusion) {
+            case NO_OTHER -> PFrameSpecification.PExclusion.NO_OTHER;
+            case CURRENT_ROW -> PFrameSpecification.PExclusion.CURRENT_ROW;
+            case GROUP -> PFrameSpecification.PExclusion.GROUP;
+            case TIES -> PFrameSpecification.PExclusion.TIES;
+        };
+    }
+
+    @Nonnull
+    private static FrameSpecification.Exclusion exclusionFromProto(@Nonnull final PFrameSpecification.PExclusion proto) {
+        return switch (proto) {
+            case NO_OTHER -> FrameSpecification.Exclusion.NO_OTHER;
+            case CURRENT_ROW -> FrameSpecification.Exclusion.CURRENT_ROW;
+            case GROUP -> FrameSpecification.Exclusion.GROUP;
+            case TIES -> FrameSpecification.Exclusion.TIES;
+        };
+    }
+
+    public record FrameSpecification(@Nonnull FrameType frameType, @Nonnull FrameBoundary left,
+                                     @Nonnull FrameBoundary right, @Nonnull Exclusion exclusion) {
+
+        @Nonnull
+        public ExplainTokens explain() {
+            final var tokens = new ExplainTokens();
+            tokens.addKeyword(frameType.name().toUpperCase(Locale.ROOT));
+            tokens.addWhitespace().addKeyword("BETWEEN");
+            describeBoundary(tokens, left, true);
+            tokens.addWhitespace().addKeyword("AND");
+            describeBoundary(tokens, right, false);
+            if (exclusion != Exclusion.NO_OTHER) {
+                tokens.addWhitespace().addKeyword("EXCLUDE").addWhitespace()
+                        .addKeyword(explainExclusion(exclusion));
+            }
+            return tokens;
+        }
+
+        private static void describeBoundary(@Nonnull final ExplainTokens tokens,
+                                             @Nonnull final FrameBoundary boundary,
+                                             final boolean isLeft) {
+            if (boundary instanceof Unbounded) {
+                tokens.addWhitespace().addKeyword("UNBOUNDED").addWhitespace()
+                        .addKeyword(isLeft ? "PRECEDING" : "FOLLOWING");
+            } else if (boundary instanceof Bounded bounded) {
+                tokens.addWhitespace().addNested(bounded.limit().explain().getExplainTokens()).addWhitespace()
+                        .addKeyword(isLeft ? "PRECEDING" : "FOLLOWING");
+            } else if (boundary instanceof CurrentRow) {
+                tokens.addWhitespace().addKeyword("CURRENT").addWhitespace().addKeyword("ROW");
+            }
+        }
+
+        public enum FrameType {
+            ROW,
+            RANGE,
+            GROUPS
+        }
+
+        public sealed interface FrameBoundary permits Unbounded, Bounded, CurrentRow  {
+        }
+
+        public enum Unbounded implements FrameBoundary {
+            INSTANCE
+        }
+
+        public record Bounded(@Nonnull Value limit) implements FrameBoundary {
+            public Bounded {
+                if (!limit.isConstant()) {
+                    throw new IllegalArgumentException("window frame boundary limit must be a constant value");
+                }
+            }
+        }
+
+        public record CurrentRow() implements FrameBoundary {
+        }
+
+        public enum Exclusion {
+            NO_OTHER,
+            CURRENT_ROW,
+            GROUP,
+            TIES
+        }
+
+        @Nonnull
+        public static FrameSpecification defaultSpecification() {
+            return new FrameSpecification(FrameType.ROW, Unbounded.INSTANCE, Unbounded.INSTANCE, Exclusion.NO_OTHER);
+        }
     }
 }

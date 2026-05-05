@@ -55,7 +55,7 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
 
     @Nonnull
     @Override
-    public Value encapsulate(@Nonnull List<? extends Typed> arguments) {
+    public Value encapsulate(@Nonnull List<Value> arguments) {
         // replace the QuantifiedObjectValue in body with arguments
         SemanticException.check(arguments.size() == parameterTypes.size(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument length doesn't match with function definition");
         final RegularTranslationMap.Builder translationMapBuilder = TranslationMap.regularBuilder();
@@ -63,7 +63,7 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
             // check that arguments[i] type matches with parameterTypes[i] ignoring nullability -- Nullability is not specified when a user defined function is defined.
             final int finalI = i;
             SemanticException.check(typeEquals(arguments.get(finalI).getResultType(), parameterTypes.get(i)), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument type doesn't match with function definition");
-            translationMapBuilder.when(parameterIdentifiers.get(finalI)).then((sourceAlias, leafValue) -> (Value)arguments.get(finalI));
+            translationMapBuilder.when(parameterIdentifiers.get(finalI)).then((sourceAlias, leafValue) -> arguments.get(finalI));
         }
         return bodyValue.translateCorrelations(translationMapBuilder.build());
     }
@@ -87,7 +87,7 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
 
     @Nonnull
     @Override
-    public Typed encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+    public Typed encapsulate(@Nonnull final Map<String, Value> namedArguments) {
         throw new RecordCoreException("user defined scalar functions do not support named argument calling conventions");
     }
 

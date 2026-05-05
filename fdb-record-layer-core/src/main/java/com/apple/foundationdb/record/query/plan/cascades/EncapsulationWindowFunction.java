@@ -22,15 +22,17 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
  * A functional interface that provides an encapsulation of a runtime computation against a set of arguments.
  * @param <T> The resulting type which carries the operation at runtime.
  */
-public interface EncapsulationFunction<T extends Typed> {
+public interface EncapsulationWindowFunction<T extends Typed> {
     /**
      * Produces a {@link Typed} object that is able to carry out a computation against a list of arguments.
      *
@@ -38,5 +40,8 @@ public interface EncapsulationFunction<T extends Typed> {
      * @param arguments The arguments needed by the computation.
      * @return A {@link Typed} object capable of doing a runtime computation against a list of arguments.
      */
-    T encapsulate(@Nonnull BuiltInFunction<T> builtInFunction, List<Value> arguments);
+    T encapsulate(@Nonnull BuiltInWindowFunction<T> builtInFunction,
+                  @Nullable WindowedValue.FrameSpecification frameSpecification,
+                  @Nullable List<OrderingPart.RequestedOrderingPart> requestedWindowOrder,
+                  @Nonnull List<Value> arguments);
 }

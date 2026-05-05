@@ -38,7 +38,8 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -357,20 +358,28 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     /**
      * The {@code min_ever} function.
      */
-    @AutoService(BuiltInFunction.class)
-    public static class MinEverFn extends BuiltInFunction<AggregateValue> {
+    @AutoService(BuiltInWindowFunction.class)
+    public static class MinEverFn extends BuiltInWindowFunction<AggregateValue> {
         public MinEverFn() {
-            super("MIN_EVER", ImmutableList.of(new Type.Any()), (ignored, arguments) -> MinEverValue.encapsulate(arguments));
+            super("MIN_EVER", ImmutableList.of(new Type.Any()), (ignored, frameSpecification, sortOrder, arguments) -> {
+                SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
+                SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
+                return MinEverValue.encapsulate(arguments);
+            });
         }
     }
 
     /**
      * The {@code max_ever} function.
      */
-    @AutoService(BuiltInFunction.class)
-    public static class MaxEverFn extends BuiltInFunction<AggregateValue> {
+    @AutoService(BuiltInWindowFunction.class)
+    public static class MaxEverFn extends BuiltInWindowFunction<AggregateValue> {
         public MaxEverFn() {
-            super("MAX_EVER", ImmutableList.of(new Type.Any()), (ignored, arguments) -> MaxEverValue.encapsulate(arguments));
+            super("MAX_EVER", ImmutableList.of(new Type.Any()), (ignored, frameSpecification, sortOrder, arguments) -> {
+                SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
+                SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
+                return MaxEverValue.encapsulate(arguments);
+            });
         }
     }
 }

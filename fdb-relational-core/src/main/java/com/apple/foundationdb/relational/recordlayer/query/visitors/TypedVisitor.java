@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -883,6 +884,14 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Expression visitWindowOption(RelationalParser.WindowOptionContext ctx);
+
+    @Nonnull
+    @Override
+    WindowedValue.FrameSpecification visitFrameClause(RelationalParser.FrameClauseContext ctx);
+
+    @Nonnull
+    @Override
+    WindowedValue.FrameSpecification.FrameBoundary visitFrameRange(RelationalParser.FrameRangeContext ctx);
 
     @Nonnull
     @Override

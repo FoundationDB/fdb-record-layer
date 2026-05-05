@@ -208,7 +208,7 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
         public ToOrderedBytesAscNullsFirstFn() {
             super("TO_ORDERED_BYTES_" + Direction.ASC_NULLS_FIRST,
                     ImmutableList.of(Type.any()),
-                    (builtInFunction, arguments) -> new ToOrderedBytesValue((Value)arguments.get(0), Direction.ASC_NULLS_FIRST));
+                    (builtInFunction, arguments) -> new ToOrderedBytesValue(arguments.get(0), Direction.ASC_NULLS_FIRST));
         }
     }
 
@@ -220,7 +220,7 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
         public ToOrderedBytesAscNullsLastFn() {
             super("TO_ORDERED_BYTES_" + Direction.ASC_NULLS_LAST,
                     ImmutableList.of(Type.any()),
-                    (builtInFunction, arguments) -> new ToOrderedBytesValue((Value)arguments.get(0), Direction.ASC_NULLS_LAST));
+                    (builtInFunction, arguments) -> new ToOrderedBytesValue(arguments.get(0), Direction.ASC_NULLS_LAST));
         }
     }
 
@@ -232,7 +232,7 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
         public ToOrderedBytesDescNullsFirstFn() {
             super("TO_ORDERED_BYTES_" + Direction.DESC_NULLS_FIRST,
                     ImmutableList.of(Type.any()),
-                    (builtInFunction, arguments) -> new ToOrderedBytesValue((Value)arguments.get(0), Direction.DESC_NULLS_FIRST));
+                    (builtInFunction, arguments) -> new ToOrderedBytesValue(arguments.get(0), Direction.DESC_NULLS_FIRST));
         }
     }
 
@@ -244,7 +244,7 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
         public ToOrderedBytesDescNullsLastFn() {
             super("TO_ORDERED_BYTES_" + Direction.DESC_NULLS_LAST,
                     ImmutableList.of(Type.any()),
-                    (builtInFunction, arguments) -> new ToOrderedBytesValue((Value)arguments.get(0), Direction.DESC_NULLS_LAST));
+                    (builtInFunction, arguments) -> new ToOrderedBytesValue(arguments.get(0), Direction.DESC_NULLS_LAST));
         }
     }
 

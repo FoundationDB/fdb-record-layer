@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PRowNumberHighOrderValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
@@ -65,7 +65,7 @@ public class RowNumberHighOrderValue extends AbstractValue implements Value.High
     @Nullable
     private final Boolean isReturningVectors;
 
-    private final Supplier<BuiltInFunction<RowNumberValue>> rowNumberFunctionSupplier;
+    private final Supplier<BuiltInWindowFunction<RowNumberValue>> rowNumberFunctionSupplier;
 
     public RowNumberHighOrderValue(@Nonnull final PRowNumberHighOrderValue rowNumberHighOrderValueProto) {
         this.efSearch = rowNumberHighOrderValueProto.hasEfSearch() ? rowNumberHighOrderValueProto.getEfSearch() : null;
@@ -94,7 +94,7 @@ public class RowNumberHighOrderValue extends AbstractValue implements Value.High
 
     @Nullable
     @Override
-    public BuiltInFunction<? extends Value> evalWithoutStore(@Nonnull final EvaluationContext context) {
+    public BuiltInWindowFunction<RowNumberValue> evalWithoutStore(@Nonnull final EvaluationContext context) {
         return rowNumberFunctionSupplier.get();
     }
 
@@ -152,19 +152,23 @@ public class RowNumberHighOrderValue extends AbstractValue implements Value.High
         }
     }
 
-    public static final class CurriedRowNumberFn extends BuiltInFunction<RowNumberValue> {
+    public static final class CurriedRowNumberFn extends BuiltInWindowFunction<RowNumberValue> {
         CurriedRowNumberFn(@Nullable final Integer efSearch, @Nullable final Boolean isReturningVectors) {
-            super("row_number", ImmutableList.of(Type.any(), Type.any()), (builtInFunction, arguments) -> {
-                SemanticException.check(arguments.size() == 2,
+            super("row_number", ImmutableList.of(Type.any(), Type.any()), (builtInFunction, frameSpecification, windowOrder, arguments) -> {
+                if (frameSpecification == null) {
+                    frameSpecification = WindowedValue.FrameSpecification.defaultSpecification();
+                }
+                if (windowOrder == null) {
+                    windowOrder = ImmutableList.of();
+                }
+
+                SemanticException.check(arguments.size() == 1,
                         SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
                 SemanticException.check(arguments.get(0) instanceof AbstractArrayConstructorValue,
                         SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-                SemanticException.check(arguments.get(1) instanceof AbstractArrayConstructorValue,
-                        SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
 
                 final var partitioningValuesList = (AbstractArrayConstructorValue)arguments.get(0);
-                final var argumentValuesList = (AbstractArrayConstructorValue)arguments.get(1);
-                return new RowNumberValue(partitioningValuesList.getChildren(), argumentValuesList.getChildren(),
+                return new RowNumberValue(partitioningValuesList.getChildren(), windowOrder, frameSpecification,
                         efSearch, isReturningVectors);
             });
         }

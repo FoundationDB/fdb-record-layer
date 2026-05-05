@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,10 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PRankValue;
 import com.apple.foundationdb.record.planprotos.PValue;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -49,6 +51,12 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
     public RankValue(@Nonnull Iterable<? extends Value> partitioningValues,
                      @Nonnull Iterable<? extends Value> argumentValues) {
         super(partitioningValues, argumentValues);
+    }
+
+    public RankValue(@Nonnull final Iterable<? extends Value> partitioningValues,
+                     @Nonnull final Iterable<OrderingPart.RequestedOrderingPart> orderingParts,
+                     @Nonnull final FrameSpecification frameSpecification) {
+        super(partitioningValues, ImmutableList.of(), orderingParts, frameSpecification);
     }
 
     @Nonnull

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -51,13 +52,13 @@ public class RawSqlFunction extends UserDefinedFunction {
 
     @Nonnull
     @Override
-    public Typed encapsulate(@Nonnull final List<? extends Typed> arguments) {
+    public Typed encapsulate(@Nonnull final List<Value> arguments) {
         throw new RecordCoreException("attempt to encapsulate raw sql function");
     }
 
     @Nonnull
     @Override
-    public Typed encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+    public Typed encapsulate(@Nonnull final Map<String, Value> namedArguments) {
         throw new RecordCoreException("attempt to encapsulate raw sql function");
     }
 

@@ -55,7 +55,8 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexAggregate;
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -2030,7 +2031,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private Quantifier groupAggregateByKey(@Nonnull Quantifier selectWhere, @Nonnull BuiltInFunction<AggregateValue> aggregate, @Nonnull Value argument) {
+    private Quantifier groupAggregateByKey(@Nonnull Quantifier selectWhere, @Nonnull BuiltInWindowFunction<AggregateValue> aggregate, @Nonnull Value argument) {
         final Value aggregateValue = (Value) aggregate.encapsulate(List.of(argument));
         final RecordConstructorValue groupingValue = RecordConstructorValue.ofColumns(List.of(
                 Column.unnamedOf(FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 1), "key"))

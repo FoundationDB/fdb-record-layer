@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
@@ -223,12 +224,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveScalarFunction(functionName, Expressions.of(arguments), true);
+        return getSemanticAnalyzer().resolveFunction(functionName, Expressions.of(arguments), true);
     }
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, boolean flattenSingleItemRecords, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveScalarFunction(functionName, Expressions.of(arguments), flattenSingleItemRecords);
+        return getSemanticAnalyzer().resolveFunction(functionName, Expressions.of(arguments), flattenSingleItemRecords);
     }
 
     @Nonnull
@@ -1541,6 +1542,18 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public Expression visitWindowOption(final RelationalParser.WindowOptionContext ctx) {
         return expressionVisitor.visitWindowOption(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public WindowedValue.FrameSpecification visitFrameClause(final RelationalParser.FrameClauseContext ctx) {
+        return expressionVisitor.visitFrameClause(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public WindowedValue.FrameSpecification.FrameBoundary visitFrameRange(final RelationalParser.FrameRangeContext ctx) {
+        return expressionVisitor.visitFrameRange(ctx);
     }
 
     @Nonnull

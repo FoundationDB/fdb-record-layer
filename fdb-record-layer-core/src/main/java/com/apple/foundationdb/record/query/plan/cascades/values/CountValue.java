@@ -35,7 +35,10 @@ import com.apple.foundationdb.record.planprotos.PCountValue.PPhysicalOperator;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -218,17 +221,21 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
     /**
      * The {@code count(x)} function.
      */
-    @AutoService(BuiltInFunction.class)
+    @AutoService(BuiltInWindowFunction.class)
     @SuppressWarnings("PMD.UnusedFormalParameter")
-    public static class CountFn extends BuiltInFunction<AggregateValue> {
+    public static class CountFn extends BuiltInWindowFunction<AggregateValue> {
         public CountFn() {
             super("COUNT",
                     ImmutableList.of(new Type.Any()), CountFn::encapsulate);
         }
 
         @Nonnull
-        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+        private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
+                                                  @Nullable final WindowedValue.FrameSpecification frameSpecification,
+                                                  @Nullable final List<OrderingPart.RequestedOrderingPart> sortOrder,
                                                   @Nonnull final List<? extends Typed> arguments) {
+            SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
+            SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
             final Typed arg0 = arguments.get(0);
             return new CountValue((Value)arg0);
         }

@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.record.query.plan.cascades.values.BuiltInFunctionCatalog;
+import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
@@ -44,7 +44,7 @@ import java.util.function.Function;
 final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
-    private static final ImmutableMap<String, Function<Integer, Optional<BuiltInFunction<? extends Typed>>>> builtInSynonyms = createSynonyms();
+    private static final ImmutableMap<String, Function<Integer, Optional<BuiltInFunction<Value>>>> builtInSynonyms = createSynonyms();
 
     @Nonnull
     private final UserDefinedFunctionCatalog userDefinedFunctionCatalog;
@@ -55,7 +55,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
     @Override
-    public CatalogedFunction lookupFunction(@Nonnull final String name, @Nonnull final Expressions arguments) {
+    public CatalogedFunction<Value> lookupFunction(@Nonnull final String name, @Nonnull final Expressions arguments) {
         final var builtInFunctionMaybe = lookupBuiltInFunction(name, arguments);
         final var userDefinedFunctionMaybe = lookupUserDefinedFunction(name, arguments);
         if (builtInFunctionMaybe.isPresent() && userDefinedFunctionMaybe.isPresent()) {
@@ -72,7 +72,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     }
 
     @Nonnull
-    private Optional<? extends CatalogedFunction> lookupBuiltInFunction(@Nonnull final String name,
+    private Optional<? extends CatalogedFunction<Value>> lookupBuiltInFunction(@Nonnull final String name,
                                                                         @Nonnull final Expressions expressions) {
         final var functionValidator = builtInSynonyms.get(name.toLowerCase(Locale.ROOT));
         if (functionValidator == null) {
@@ -83,8 +83,8 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     }
 
     @Nonnull
-    private Optional<? extends CatalogedFunction> lookupUserDefinedFunction(@Nonnull final String name,
-                                                                            @Nonnull final Expressions expressions) {
+    private Optional<? extends CatalogedFunction<Value>> lookupUserDefinedFunction(@Nonnull final String name,
+                                                                                   @Nonnull final Expressions expressions) {
         return userDefinedFunctionCatalog.lookup(name, expressions);
     }
 
@@ -105,58 +105,58 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     }
 
     @Nonnull
-    private static ImmutableMap<String, Function<Integer, Optional<BuiltInFunction<? extends Typed>>>> createSynonyms() {
-        return ImmutableMap.<String, Function<Integer, Optional<BuiltInFunction<? extends Typed>>>>builder()
-                .put("+", argumentsCount -> BuiltInFunctionCatalog.resolve("add", argumentsCount))
-                .put("-", argumentsCount -> BuiltInFunctionCatalog.resolve("sub", argumentsCount))
-                .put("*", argumentsCount -> BuiltInFunctionCatalog.resolve("mul", argumentsCount))
-                .put("/", argumentsCount -> BuiltInFunctionCatalog.resolve("div", argumentsCount))
-                .put("%", argumentsCount -> BuiltInFunctionCatalog.resolve("mod", argumentsCount))
-                .put(">", argumentsCount -> BuiltInFunctionCatalog.resolve("gt", argumentsCount))
-                .put(">=", argumentsCount -> BuiltInFunctionCatalog.resolve("gte", argumentsCount))
-                .put("<", argumentsCount -> BuiltInFunctionCatalog.resolve("lt", argumentsCount))
-                .put("<=", argumentsCount -> BuiltInFunctionCatalog.resolve("lte", argumentsCount))
-                .put("=", argumentsCount -> BuiltInFunctionCatalog.resolve("equals", argumentsCount))
-                .put("<>", argumentsCount -> BuiltInFunctionCatalog.resolve("notEquals", argumentsCount))
-                .put("!=", argumentsCount -> BuiltInFunctionCatalog.resolve("notEquals", argumentsCount))
-                .put("&", argumentsCount -> BuiltInFunctionCatalog.resolve("bitand", argumentsCount))
-                .put("|", argumentsCount -> BuiltInFunctionCatalog.resolve("bitor", argumentsCount))
-                .put("^", argumentsCount -> BuiltInFunctionCatalog.resolve("bitxor", argumentsCount))
-                .put("[]", argumentsCount -> BuiltInFunctionCatalog.resolve("subscript", argumentsCount))
-                .put("bitmap_bit_position", argumentsCount -> BuiltInFunctionCatalog.resolve("bitmap_bit_position", 1 + argumentsCount))
-                .put("bitmap_bucket_offset", argumentsCount -> BuiltInFunctionCatalog.resolve("bitmap_bucket_offset", 1 + argumentsCount))
-                .put("bitmap_construct_agg", argumentsCount -> BuiltInFunctionCatalog.resolve("BITMAP_CONSTRUCT_AGG", argumentsCount))
-                .put("euclidean_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("euclidean_distance", argumentsCount))
-                .put("euclidean_square_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("euclidean_square_distance", argumentsCount))
-                .put("cosine_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("cosine_distance", argumentsCount))
-                .put("dot_product_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("dot_product_distance", argumentsCount))
-                .put("not", argumentsCount -> BuiltInFunctionCatalog.resolve("not", argumentsCount))
-                .put("and", argumentsCount -> BuiltInFunctionCatalog.resolve("and", argumentsCount))
-                .put("or", argumentsCount -> BuiltInFunctionCatalog.resolve("or", argumentsCount))
-                .put("count", argumentsCount -> BuiltInFunctionCatalog.resolve("COUNT", argumentsCount))
-                .put("max", argumentsCount -> BuiltInFunctionCatalog.resolve("MAX", argumentsCount))
-                .put("min", argumentsCount -> BuiltInFunctionCatalog.resolve("MIN", argumentsCount))
-                .put("avg", argumentsCount -> BuiltInFunctionCatalog.resolve("AVG", argumentsCount))
-                .put("sum", argumentsCount -> BuiltInFunctionCatalog.resolve("SUM", argumentsCount))
-                .put("max_ever", argumentsCount -> BuiltInFunctionCatalog.resolve("MAX_EVER", argumentsCount))
-                .put("min_ever", argumentsCount -> BuiltInFunctionCatalog.resolve("MIN_EVER", argumentsCount))
-                .put("java_call", argumentsCount -> BuiltInFunctionCatalog.resolve("java_call", argumentsCount))
-                .put("greatest", argumentsCount -> BuiltInFunctionCatalog.resolve("greatest", argumentsCount))
-                .put("least", argumentsCount -> BuiltInFunctionCatalog.resolve("least", argumentsCount))
-                .put("like", argumentsCount -> BuiltInFunctionCatalog.resolve("like", argumentsCount))
-                .put("in", argumentsCount -> BuiltInFunctionCatalog.resolve("in", argumentsCount))
-                .put("coalesce", argumentsCount -> BuiltInFunctionCatalog.resolve("coalesce", argumentsCount))
-                .put("is null", argumentsCount -> BuiltInFunctionCatalog.resolve("isNull", argumentsCount))
-                .put("is not null", argumentsCount -> BuiltInFunctionCatalog.resolve("notNull", argumentsCount))
-                .put("isdistinctfrom", argumentsCount -> BuiltInFunctionCatalog.resolve("isDistinctFrom", argumentsCount))
-                .put("isnotdistinctfrom", argumentsCount -> BuiltInFunctionCatalog.resolve("notDistinctFrom", argumentsCount))
-                .put("range", argumentsCount -> BuiltInFunctionCatalog.resolve("range", argumentsCount))
-                .put("row_number", argumentsCount -> BuiltInFunctionCatalog.resolve("row_number", argumentsCount))
-                .put("__pattern_for_like", argumentsCount -> BuiltInFunctionCatalog.resolve("patternForLike", argumentsCount))
-                .put("__internal_array", argumentsCount -> BuiltInFunctionCatalog.resolve("array", argumentsCount))
-                .put("__pick_value", argumentsCount -> BuiltInFunctionCatalog.resolve("pick", argumentsCount))
-                .put("get_versionstamp_incarnation", argumentsCount -> BuiltInFunctionCatalog.resolve("get_versionstamp_incarnation", argumentsCount))
-                .put("cardinality", argumentsCount -> BuiltInFunctionCatalog.resolve("cardinality", argumentsCount))
+    private static ImmutableMap<String, Function<Integer, Optional<BuiltInFunction<Value>>>> createSynonyms() {
+        return ImmutableMap.<String, Function<Integer, Optional<BuiltInFunction<Value>>>>builder()
+                .put("+", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("add", argumentsCount))
+                .put("-", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("sub", argumentsCount))
+                .put("*", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("mul", argumentsCount))
+                .put("/", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("div", argumentsCount))
+                .put("%", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("mod", argumentsCount))
+                .put(">", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("gt", argumentsCount))
+                .put(">=", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("gte", argumentsCount))
+                .put("<", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("lt", argumentsCount))
+                .put("<=", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("lte", argumentsCount))
+                .put("=", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("equals", argumentsCount))
+                .put("<>", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("notEquals", argumentsCount))
+                .put("!=", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("notEquals", argumentsCount))
+                .put("&", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("bitand", argumentsCount))
+                .put("|", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("bitor", argumentsCount))
+                .put("^", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("bitxor", argumentsCount))
+                .put("[]", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("subscript", argumentsCount))
+                .put("bitmap_bit_position", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("bitmap_bit_position", 1 + argumentsCount))
+                .put("bitmap_bucket_offset", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("bitmap_bucket_offset", 1 + argumentsCount))
+                .put("bitmap_construct_agg", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("BITMAP_CONSTRUCT_AGG", argumentsCount))
+                .put("euclidean_distance", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("euclidean_distance", argumentsCount))
+                .put("euclidean_square_distance", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("euclidean_square_distance", argumentsCount))
+                .put("cosine_distance", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("cosine_distance", argumentsCount))
+                .put("dot_product_distance", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("dot_product_distance", argumentsCount))
+                .put("not", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("not", argumentsCount))
+                .put("and", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("and", argumentsCount))
+                .put("or", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("or", argumentsCount))
+                .put("count", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("COUNT", argumentsCount))
+                .put("max", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("MAX", argumentsCount))
+                .put("min", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("MIN", argumentsCount))
+                .put("avg", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("AVG", argumentsCount))
+                .put("sum", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("SUM", argumentsCount))
+                .put("max_ever", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("MAX_EVER", argumentsCount))
+                .put("min_ever", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("MIN_EVER", argumentsCount))
+                .put("java_call", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("java_call", argumentsCount))
+                .put("greatest", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("greatest", argumentsCount))
+                .put("least", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("least", argumentsCount))
+                .put("like", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("like", argumentsCount))
+                .put("in", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("in", argumentsCount))
+                .put("coalesce", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("coalesce", argumentsCount))
+                .put("is null", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("isNull", argumentsCount))
+                .put("is not null", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("notNull", argumentsCount))
+                .put("isdistinctfrom", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("isDistinctFrom", argumentsCount))
+                .put("isnotdistinctfrom", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("notDistinctFrom", argumentsCount))
+                .put("range", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("range", argumentsCount))
+                .put("row_number", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("row_number", argumentsCount))
+                .put("__pattern_for_like", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("patternForLike", argumentsCount))
+                .put("__internal_array", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("array", argumentsCount))
+                .put("__pick_value", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("pick", argumentsCount))
+                .put("get_versionstamp_incarnation", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("get_versionstamp_incarnation", argumentsCount))
+                .put("cardinality", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("cardinality", argumentsCount))
                 .build();
     }
 

@@ -259,7 +259,7 @@ class RowNumberHighOrderValueTest {
                 ImmutableList.of(LiteralValue.ofScalar(2)));
         final List<Value> arguments = ImmutableList.of(partitioningValues, argumentValues);
 
-        final var rowNumberValue = curriedFn.encapsulate(arguments);
+        final var rowNumberValue = curriedFn.encapsulate(List.of()).encapsulate(arguments);
 
         Assertions.assertNotNull(rowNumberValue, "Encapsulated value should not be null");
         Assertions.assertInstanceOf(RowNumberValue.class, rowNumberValue,
@@ -275,7 +275,7 @@ class RowNumberHighOrderValueTest {
         final List<Value> invalidArguments = ImmutableList.of(LiteralValue.ofScalar(1));
 
         Assertions.assertThrows(SemanticException.class,
-                () -> curriedFn.encapsulate(invalidArguments),
+                () -> curriedFn.encapsulate(ImmutableList.of()).encapsulate(invalidArguments),
                 "Should throw SemanticException for invalid argument count");
     }
 
@@ -291,7 +291,7 @@ class RowNumberHighOrderValueTest {
         );
 
         Assertions.assertThrows(SemanticException.class,
-                () -> curriedFn.encapsulate(invalidArguments),
+                () -> curriedFn.encapsulate(ImmutableList.of()).encapsulate(invalidArguments),
                 "Should throw SemanticException for invalid argument types");
     }
 

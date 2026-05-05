@@ -21,12 +21,15 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,30 +43,31 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * A catalog of functions that provides {@link BuiltInFunction}s.
+ * A catalog of scalar functions that provides {@link CatalogedFunction}s.
  */
-public class BuiltInFunctionCatalog {
-    private static final Logger logger = LoggerFactory.getLogger(BuiltInFunctionCatalog.class);
+public class FunctionCatalog {
+    private static final Logger logger = LoggerFactory.getLogger(FunctionCatalog.class);
 
-    private static final Supplier<Map<FunctionKey, BuiltInFunction<? extends Typed>>> catalogSupplier =
-            Suppliers.memoize(BuiltInFunctionCatalog::loadFunctions);
+    private static final Supplier<Map<FunctionKey, CatalogedFunction<?>>> catalogSupplier =
+            Suppliers.memoize(FunctionCatalog::loadFunctions);
 
-    private static final Supplier<Map<Class<BuiltInFunction<? extends Typed>>, BuiltInFunction<? extends Typed>>> functionsByClassSupplier =
-            Suppliers.memoize(BuiltInFunctionCatalog::computeFunctionsByClass);
+    private static final Supplier<Map<Class<CatalogedFunction<?>>, CatalogedFunction<?>>> functionsByClassSupplier =
+            Suppliers.memoize(FunctionCatalog::computeFunctionsByClass);
     
-    private BuiltInFunctionCatalog() {
+    private FunctionCatalog() {
         // prevent instantiation
     }
 
-    private static Map<FunctionKey, BuiltInFunction<? extends Typed>> getFunctionCatalog() {
+    private static Map<FunctionKey, CatalogedFunction<?>> getFunctionCatalog() {
         return catalogSupplier.get();
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes", "java:S3457"})
-    private static Map<FunctionKey, BuiltInFunction<? extends Typed>> loadFunctions() {
-        final ImmutableMap.Builder<FunctionKey, BuiltInFunction<? extends Typed>> catalogBuilder = ImmutableMap.builder();
-        final Iterable<BuiltInFunction> loader
-                = ServiceLoaderProvider.load(BuiltInFunction.class);
+    @SuppressWarnings({"rawtypes", "java:S3457"})
+    @Nonnull
+    private static Map<FunctionKey, CatalogedFunction<?>> loadFunctions() {
+        final ImmutableMap.Builder<FunctionKey, CatalogedFunction<?>> catalogBuilder = ImmutableMap.builder();
+        final Iterable<CatalogedFunction> loader = Iterables.concat(ServiceLoaderProvider.load(BuiltInFunction.class),
+                ServiceLoaderProvider.load(BuiltInWindowFunction.class));
 
         loader.forEach(builtInFunction -> {
             catalogBuilder.put(FunctionKey.entry(builtInFunction.getFunctionName(), builtInFunction.getParameterTypes().size(),
@@ -78,23 +82,39 @@ public class BuiltInFunctionCatalog {
 
     @Nonnull
     @SuppressWarnings("java:S1066")
-    public static Optional<BuiltInFunction<? extends Typed>> resolve(@Nonnull final String functionName, int numberOfArguments) {
-        BuiltInFunction<? extends Typed> builtInFunction = getFunctionCatalog().get(FunctionKey.invocation(functionName, numberOfArguments));
+    public static Optional<CatalogedFunction<?>> resolve(@Nonnull final String functionName, int numberOfArguments) {
+        CatalogedFunction<?> builtInFunction = getFunctionCatalog().get(FunctionKey.invocation(functionName, numberOfArguments));
         return Optional.ofNullable(builtInFunction);
     }
 
     @Nonnull
-    private static Map<Class<BuiltInFunction<? extends Typed>>, BuiltInFunction<? extends Typed>> getFunctionsByClass() {
+    @SuppressWarnings({"java:S1066", "unchecked"})
+    public static Optional<BuiltInFunction<Value>> resolveBuiltInFunction(@Nonnull final String functionName, int numberOfArguments) {
+        CatalogedFunction<?> builtInFunction = getFunctionCatalog().get(FunctionKey.invocation(functionName, numberOfArguments));
+        Verify.verify(builtInFunction == null || builtInFunction instanceof BuiltInFunction<?>);
+        return Optional.ofNullable((BuiltInFunction<Value>)builtInFunction);
+    }
+
+    @Nonnull
+    @SuppressWarnings({"java:S1066", "unchecked"})
+    public static Optional<BuiltInWindowFunction<Value>> resolveBuiltInWindowFunction(@Nonnull final String functionName, int numberOfArguments) {
+        CatalogedFunction<?> builtInFunction = getFunctionCatalog().get(FunctionKey.invocation(functionName, numberOfArguments));
+        Verify.verify(builtInFunction == null || builtInFunction instanceof BuiltInWindowFunction<?>);
+        return Optional.ofNullable((BuiltInWindowFunction<Value>)builtInFunction);
+    }
+
+    @Nonnull
+    private static Map<Class<CatalogedFunction<?>>, CatalogedFunction<?>> getFunctionsByClass() {
         return functionsByClassSupplier.get();
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    private static Map<Class<BuiltInFunction<? extends Typed>>, BuiltInFunction<? extends Typed>> computeFunctionsByClass() {
+    private static Map<Class<CatalogedFunction<?>>, CatalogedFunction<?>> computeFunctionsByClass() {
         final var functionCatalog = getFunctionCatalog();
-        final var resultBuilder = ImmutableMap.<Class<BuiltInFunction<? extends Typed>>, BuiltInFunction<? extends Typed>>builder();
+        final var resultBuilder = ImmutableMap.<Class<CatalogedFunction<?>>, CatalogedFunction<?>>builder();
         for (final var singleton : functionCatalog.values()) {
-            resultBuilder.put((Class<BuiltInFunction<? extends Typed>>)singleton.getClass(), singleton);
+            resultBuilder.put((Class<CatalogedFunction<?>>)singleton.getClass(), singleton);
         }
         return resultBuilder.build();
     }
@@ -105,8 +125,24 @@ public class BuiltInFunctionCatalog {
      * @return an {@link Optional} containing the function singleton or {@code Optional.empty()}
      */
     @Nonnull
-    public static Optional<BuiltInFunction<? extends Typed>> getFunctionSingleton(@Nonnull final Class<? extends BuiltInFunction<? extends Typed>> clazz) {
+    public static Optional<CatalogedFunction<?>> getCatalogedFunction(@Nonnull final Class<? extends CatalogedFunction<? extends Typed>> clazz) {
         return Optional.ofNullable(getFunctionsByClass().get(clazz));
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static Optional<BuiltInFunction<Value>> getBuiltInFunction(@Nonnull final Class<? extends BuiltInFunction<Value>> clazz) {
+        final var result = getFunctionsByClass().get(clazz);
+        Verify.verify(result == null || result instanceof BuiltInFunction<?>);
+        return Optional.ofNullable((BuiltInFunction<Value>)(result));
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static Optional<BuiltInWindowFunction<Value>> getBuiltInWindowFunction(@Nonnull final Class<? extends BuiltInWindowFunction<Value>> clazz) {
+        final var result = getFunctionsByClass().get(clazz);
+        Verify.verify(result == null || result instanceof BuiltInWindowFunction<?>);
+        return Optional.ofNullable((BuiltInWindowFunction<Value>)(result));
     }
 
     /**
@@ -198,10 +234,9 @@ public class BuiltInFunctionCatalog {
             if (this == o) {
                 return true;
             }
-            if (!(o instanceof FunctionKey)) {
+            if (!(o instanceof final FunctionKey that)) {
                 return false;
             }
-            final FunctionKey that = (FunctionKey)o;
 
             if (!getFunctionName().equals(that.getFunctionName())) {
                 return false;
