@@ -40,6 +40,7 @@ import com.google.protobuf.Descriptors.EnumDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -100,6 +101,8 @@ public class MetaDataEvolutionValidator {
     private final boolean allowNoVersionChange;
     private final boolean allowNoSinceVersion;
     private final boolean allowFieldRenames;
+    private final boolean allowDeprecatedFieldRenames;
+    private final boolean allowUndeprecatingFields;
     private final boolean allowIndexRebuilds;
     private final boolean allowMissingFormerIndexNames;
     private final boolean allowOlderFormerIndexAddedVersions;
@@ -111,6 +114,8 @@ public class MetaDataEvolutionValidator {
         this.allowNoVersionChange = false;
         this.allowNoSinceVersion = false;
         this.allowFieldRenames = false;
+        this.allowDeprecatedFieldRenames = false;
+        this.allowUndeprecatingFields = false;
         this.allowIndexRebuilds = false;
         this.allowMissingFormerIndexNames = false;
         this.allowOlderFormerIndexAddedVersions = false;
@@ -123,6 +128,8 @@ public class MetaDataEvolutionValidator {
         this.allowNoVersionChange = builder.allowNoVersionChange;
         this.allowNoSinceVersion = builder.allowNoSinceVersion;
         this.allowFieldRenames = builder.allowFieldRenames;
+        this.allowDeprecatedFieldRenames = builder.allowDeprecatedFieldRenames;
+        this.allowUndeprecatingFields = builder.allowUndeprecatingFields;
         this.allowIndexRebuilds = builder.allowIndexRebuilds;
         this.allowMissingFormerIndexNames = builder.allowMissingFormerIndexNames;
         this.allowOlderFormerIndexAddedVersions = builder.allowOlderFormerIndexAddedVersions;
@@ -148,6 +155,7 @@ public class MetaDataEvolutionValidator {
         validateUnion(oldMetaData.getUnionDescriptor(), newMetaData.getUnionDescriptor());
         Map<String, String> typeRenames = getTypeRenames(oldMetaData.getUnionDescriptor(), newMetaData.getUnionDescriptor());
         validateRecordTypes(oldMetaData, newMetaData, typeRenames);
+        validateSyntheticTypes(oldMetaData, newMetaData, typeRenames);
         validateCurrentAndFormerIndexes(oldMetaData, newMetaData, typeRenames);
     }
 
@@ -271,12 +279,25 @@ public class MetaDataEvolutionValidator {
 
     private void validateField(@Nonnull FieldDescriptor oldFieldDescriptor, @Nonnull FieldDescriptor newFieldDescriptor,
                                @Nonnull Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors) {
+        final boolean oldDeprecated = oldFieldDescriptor.getOptions().getDeprecated();
+        final boolean newDeprecated = newFieldDescriptor.getOptions().getDeprecated();
         if (!oldFieldDescriptor.getName().equals(newFieldDescriptor.getName())) {
-            if (!allowFieldRenames) {
+            // Field renames are allowed if either:
+            //  1. We allow all field renames (allowFieldRenames is true)
+            //  2. We allow deprecated field renames and the field is deprecated, here determined by whether the old
+            //     or new field is deprecated. (Using both the old and new fields means it is okay to change the
+            //     name both when deprecating it and un-deprecating it.)
+            // We want to throw an error if neither of those is true, hence the statement below. We could theoretically
+            // use DeMorgan's to rewrite some of that, but at the cost of legibility
+            if (!(allowFieldRenames || (allowDeprecatedFieldRenames && (oldDeprecated || newDeprecated)))) {
                 throw new MetaDataException("field renamed",
                         LogMessageKeys.OLD_FIELD_NAME, oldFieldDescriptor.getName(),
                         LogMessageKeys.NEW_FIELD_NAME, newFieldDescriptor.getName());
             }
+        }
+        if (!allowUndeprecatingFields && oldDeprecated && !newDeprecated) {
+            throw new MetaDataException("field is no longer deprecated",
+                    LogMessageKeys.FIELD_NAME, oldFieldDescriptor.getName());
         }
         if (!oldFieldDescriptor.getType().equals(newFieldDescriptor.getType())) {
             validateTypeChange(oldFieldDescriptor, newFieldDescriptor);
@@ -376,7 +397,7 @@ public class MetaDataEvolutionValidator {
                         LogMessageKeys.NEW_VERSION, newRecordType.getSinceVersion());
             }
             final KeyExpression expectedPrimaryKey;
-            if (allowFieldRenames) {
+            if (allowsAnyFieldRenames()) {
                 expectedPrimaryKey = RenameFieldsVisitor.renameFields(oldRecordType.getPrimaryKey(), oldRecordType.getDescriptor(), newRecordType.getDescriptor());
             } else {
                 expectedPrimaryKey = oldRecordType.getPrimaryKey();
@@ -419,6 +440,259 @@ public class MetaDataEvolutionValidator {
                 }
             }
         }
+    }
+
+    private void validateSyntheticTypes(@Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData,
+                                        @Nonnull Map<String, String> typeRenames) {
+        final Map<Object, SyntheticRecordType<?>> oldSyntheticTypes = getSyntheticTypesByRecordTypeKey(oldMetaData);
+        if (oldSyntheticTypes.isEmpty()) {
+            return;
+        }
+        final Map<Object, SyntheticRecordType<?>> newSyntheticTypes = getSyntheticTypesByRecordTypeKey(newMetaData);
+        for (Map.Entry<Object, SyntheticRecordType<?>> oldEntry : oldSyntheticTypes.entrySet()) {
+            Object recordTypeKey = oldEntry.getKey();
+            final SyntheticRecordType<?> oldSyntheticType = oldEntry.getValue();
+            @Nullable SyntheticRecordType<?> newSyntheticType = newSyntheticTypes.get(recordTypeKey);
+            if (newSyntheticType == null) {
+                // If the newSyntheticType is null, then it has been removed. This would mean that all the
+                // indexes that reference it have likewise been removed (or the meta-data validator would fail).
+                // So, we can ignore it
+                continue;
+            }
+            validateSyntheticType(oldSyntheticType, newSyntheticType, typeRenames);
+        }
+    }
+
+    @Nonnull
+    private Map<Object, SyntheticRecordType<?>> getSyntheticTypesByRecordTypeKey(@Nonnull RecordMetaData metaData) {
+        final Map<Object, SyntheticRecordType<?>> byTypeKeyMap = new HashMap<>();
+        for (SyntheticRecordType<?> syntheticType : metaData.getSyntheticRecordTypes().values()) {
+            byTypeKeyMap.put(syntheticType.getRecordTypeKey(), syntheticType);
+        }
+        return byTypeKeyMap;
+    }
+
+    private void validateSyntheticType(@Nonnull SyntheticRecordType<?> oldType, @Nonnull SyntheticRecordType<?> newType, @Nonnull Map<String, String> typeRenames) {
+        if (!oldType.getName().equals(newType.getName())) {
+            if (disallowTypeRenames) {
+                throw new MetaDataException("synthetic record type name changed",
+                        LogMessageKeys.OLD_RECORD_TYPE, oldType.getName(),
+                        LogMessageKeys.NEW_RECORD_TYPE, newType.getName());
+            } else {
+                typeRenames.put(oldType.getName(), newType.getName());
+            }
+        }
+        if (!(oldType.getClass().equals(newType.getClass()))) {
+            throw new MetaDataException("synthetic record type changed type",
+                    LogMessageKeys.EXPECTED, oldType.getName(),
+                    LogMessageKeys.ACTUAL, newType.getClass().getName(),
+                    LogMessageKeys.RECORD_TYPE, newType.getName());
+        }
+        if (oldType instanceof JoinedRecordType) {
+            validateJoinedRecordType((JoinedRecordType) oldType, (JoinedRecordType) newType, typeRenames);
+        } else if (oldType instanceof UnnestedRecordType) {
+            validateUnnestedRecordType((UnnestedRecordType) oldType, (UnnestedRecordType) newType, typeRenames);
+        } else {
+            throw new MetaDataException("unknown synthetic record type",
+                    LogMessageKeys.OLD_RECORD_TYPE, oldType.getName(),
+                    LogMessageKeys.NEW_RECORD_TYPE, newType.getName(),
+                    LogMessageKeys.RECORD_TYPE, oldType.getClass().getName());
+        }
+    }
+
+    private void validateJoinedRecordType(@Nonnull JoinedRecordType oldType, @Nonnull JoinedRecordType newType, @Nonnull Map<String, String> typeRenames) {
+        // Validate constituents
+        final List<JoinedRecordType.JoinConstituent> oldConstituents = oldType.getConstituents();
+        final List<JoinedRecordType.JoinConstituent> newConstituents = newType.getConstituents();
+        if (oldConstituents.size() != newConstituents.size()) {
+            throw new MetaDataException("join constituent count changed",
+                    LogMessageKeys.EXPECTED, oldConstituents.size(),
+                    LogMessageKeys.ACTUAL, newConstituents.size(),
+                    LogMessageKeys.RECORD_TYPE, newType.getName());
+        }
+
+        for (int i = 0; i < oldConstituents.size(); i++) {
+            // We use the definition order of join constituents here to find a correspondence between
+            // old and new types. This is important because the position in the definition is how the
+            // logic within the code identifies different constituents (e.g., the primary key component
+            // at position i + 1 is the nested primary key of the i'th constituent).
+            JoinedRecordType.JoinConstituent oldConstituent = oldConstituents.get(i);
+            JoinedRecordType.JoinConstituent newConstituent = newConstituents.get(i);
+
+            if (!allowFieldRenames && !oldConstituent.getName().equals(newConstituent.getName())) {
+                // The join constituent names are used in things like index field declarations, so changing
+                // them is analogous to a field change. Unlike regular field names, the name shouldn't appear
+                // in queries (only internal data structures like index definitions), so it may be okay to
+                // loosen this.
+                throw new MetaDataException("join constituent name changed",
+                        LogMessageKeys.EXPECTED, oldConstituent.getName(),
+                        LogMessageKeys.ACTUAL, newConstituent.getName(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+            final String expectedTypeName = typeRenames.getOrDefault(oldConstituent.getRecordType().getName(), oldConstituent.getRecordType().getName());
+            if (!expectedTypeName.equals(newConstituent.getRecordType().getName())) {
+                throw new MetaDataException("join constituent type changed",
+                        LogMessageKeys.OLD_RECORD_TYPE, oldConstituent.getName(),
+                        LogMessageKeys.NEW_RECORD_TYPE, newConstituent.getName(),
+                        LogMessageKeys.NAME, newConstituent.getName(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+            if (oldConstituent.isOuterJoined() != newConstituent.isOuterJoined()) {
+                throw new MetaDataException("join constituent outer-joined property changed",
+                        LogMessageKeys.EXPECTED, oldConstituent.isOuterJoined(),
+                        LogMessageKeys.ACTUAL, newConstituent.isOuterJoined(),
+                        LogMessageKeys.NAME, newConstituent.getName(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+        }
+
+        // Validate joins
+        final List<JoinedRecordType.Join> oldJoins = oldType.getJoins();
+        final List<JoinedRecordType.Join> newJoins = newType.getJoins();
+        if (oldJoins.size() != newJoins.size()) {
+            throw new MetaDataException("join type join count changed",
+                    LogMessageKeys.EXPECTED, oldConstituents.size(),
+                    LogMessageKeys.ACTUAL, newConstituents.size(),
+                    LogMessageKeys.RECORD_TYPE, newType.getClass().getName());
+        }
+        final Map<String, Integer> oldNameToConstituentPosMap = constituentNameToPositionMap(oldConstituents);
+        final Map<String, Integer> newNameToConstituentPosMap = constituentNameToPositionMap(newConstituents);
+        for (int i = 0; i < oldJoins.size(); i++) {
+            // Technically, these aren't ordered, but we'd otherwise need to enumerate the different joins by constituent
+            // pair and then search for ones that match. It is simpler here to just require that the joins be in the
+            // same order
+            JoinedRecordType.Join oldJoin = oldJoins.get(i);
+            JoinedRecordType.Join newJoin = newJoins.get(i);
+
+            // Validate the left and right constituents are the same
+            int oldLeftPos = oldNameToConstituentPosMap.get(oldJoin.getLeft().getName());
+            int newLeftPos = newNameToConstituentPosMap.get(newJoin.getLeft().getName());
+            if (oldLeftPos != newLeftPos) {
+                throw new MetaDataException("join changed left constituent",
+                        LogMessageKeys.EXPECTED, newConstituents.get(oldLeftPos).getName(),
+                        LogMessageKeys.ACTUAL, newConstituents.get(newLeftPos).getName(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+            final KeyExpression expectedLeftExpression;
+            if (allowsAnyFieldRenames()) {
+                Descriptors.Descriptor oldDescriptor = oldConstituents.get(oldLeftPos).getRecordType().getDescriptor();
+                Descriptors.Descriptor newDescriptor = newConstituents.get(newLeftPos).getRecordType().getDescriptor();
+                expectedLeftExpression = RenameFieldsVisitor.renameFields(oldJoin.getLeftExpression(), oldDescriptor, newDescriptor);
+            } else {
+                expectedLeftExpression = oldJoin.getLeftExpression();
+            }
+            if (!expectedLeftExpression.equals(newJoin.getLeftExpression())) {
+                throw new MetaDataException("join changed left expression",
+                        LogMessageKeys.EXPECTED, expectedLeftExpression,
+                        LogMessageKeys.ACTUAL, newJoin.getLeftExpression(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+
+            int oldRightPos = oldNameToConstituentPosMap.get(oldJoin.getRight().getName());
+            int newRightPos = newNameToConstituentPosMap.get(newJoin.getRight().getName());
+            if (oldRightPos != newRightPos) {
+                throw new MetaDataException("join changed right constituent",
+                        LogMessageKeys.EXPECTED, newConstituents.get(oldRightPos).getName(),
+                        LogMessageKeys.ACTUAL, newConstituents.get(newRightPos).getName(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+            final KeyExpression expectedRightExpression;
+            if (allowsAnyFieldRenames()) {
+                Descriptors.Descriptor oldDescriptor = oldConstituents.get(oldRightPos).getRecordType().getDescriptor();
+                Descriptors.Descriptor newDescriptor = newConstituents.get(newRightPos).getRecordType().getDescriptor();
+                expectedRightExpression = RenameFieldsVisitor.renameFields(oldJoin.getRightExpression(), oldDescriptor, newDescriptor);
+            } else {
+                expectedRightExpression = oldJoin.getLeftExpression();
+            }
+            if (!expectedRightExpression.equals(newJoin.getRightExpression())) {
+                throw new MetaDataException("join changed right expression",
+                        LogMessageKeys.EXPECTED, expectedRightExpression,
+                        LogMessageKeys.ACTUAL, newJoin.getRightExpression(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+        }
+    }
+
+    private void validateUnnestedRecordType(@Nonnull UnnestedRecordType oldType, @Nonnull UnnestedRecordType newType, @Nonnull Map<String, String> typeRenames) {
+        // Validate constituents
+        final List<UnnestedRecordType.NestedConstituent> oldConstituents = oldType.getConstituents();
+        final List<UnnestedRecordType.NestedConstituent> newConstituents = newType.getConstituents();
+        if (oldConstituents.size() != newConstituents.size()) {
+            throw new MetaDataException("unnested type constituent count changed",
+                    LogMessageKeys.EXPECTED, oldConstituents.size(),
+                    LogMessageKeys.ACTUAL, newConstituents.size(),
+                    LogMessageKeys.RECORD_TYPE, newType.getName());
+        }
+
+        // We will need this to validate that the parent constituents refer to the same entity, even in the presence of renames
+        final Map<String, Integer> oldNameToConstituentPosMap = constituentNameToPositionMap(oldConstituents);
+        final Map<String, Integer> newNameToConstituentPosMap = constituentNameToPositionMap(newConstituents);
+
+        for (int i = 0; i < oldConstituents.size(); i++) {
+            UnnestedRecordType.NestedConstituent oldConstituent = oldConstituents.get(i);
+            UnnestedRecordType.NestedConstituent newConstituent = newConstituents.get(i);
+
+            if (!allowFieldRenames && !oldConstituent.getName().equals(newConstituent.getName())) {
+                throw new MetaDataException("nested constituent name changed",
+                        LogMessageKeys.EXPECTED, oldConstituent.getName(),
+                        LogMessageKeys.ACTUAL, newConstituent.getName(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+
+            if (oldConstituent.isParent() != newConstituent.isParent()) {
+                throw new MetaDataException("nested constituent parent property changed",
+                        LogMessageKeys.EXPECTED, oldConstituent.isParent(),
+                        LogMessageKeys.ACTUAL, newConstituent.isParent(),
+                        LogMessageKeys.RECORD_TYPE, newType.getName());
+            }
+
+            if (oldConstituent.isParent()) {
+                // Make sure the overall parent has the same record type (subject to renames)
+                final String oldRecordType = oldConstituent.getRecordType().getName();
+                final String expectedTypeName = typeRenames.getOrDefault(oldRecordType, oldRecordType);
+                if (!expectedTypeName.equals(newConstituent.getRecordType().getName())) {
+                    throw new MetaDataException("unnested type parent record type changed",
+                            LogMessageKeys.EXPECTED, expectedTypeName,
+                            LogMessageKeys.ACTUAL, newConstituent.getRecordType().getName(),
+                            LogMessageKeys.RECORD_TYPE, newType.getName());
+                }
+            } else {
+                // Make sure we are pointing to the same parent
+                final UnnestedRecordType.NestedConstituent oldParent = Objects.requireNonNull(oldConstituent.getParent());
+                final UnnestedRecordType.NestedConstituent newParent = Objects.requireNonNull(newConstituent.getParent());
+                int oldParentPos = oldNameToConstituentPosMap.get(oldParent.getName());
+                int newParentPos = newNameToConstituentPosMap.get(newParent.getName());
+                if (oldParentPos != newParentPos) {
+                    throw new MetaDataException("nested constituent changed parent",
+                            LogMessageKeys.EXPECTED, newConstituents.get(oldParentPos).getName(),
+                            LogMessageKeys.ACTUAL, newConstituent.getParentName(),
+                            LogMessageKeys.RECORD_TYPE, newType.getName());
+                }
+
+                // Make sure the nesting expression is still the same, possibly accounting for field renames
+                final KeyExpression expectedNestingExpression;
+                if (allowsAnyFieldRenames()) {
+                    expectedNestingExpression = RenameFieldsVisitor.renameFields(oldConstituent.getNestingExpression(), oldParent.getRecordType().getDescriptor(), newParent.getRecordType().getDescriptor());
+                } else {
+                    expectedNestingExpression = oldConstituent.getNestingExpression();
+                }
+                if (!expectedNestingExpression.equals(newConstituent.getNestingExpression())) {
+                    throw new MetaDataException("nested constituent nesting expression changed",
+                            LogMessageKeys.EXPECTED, expectedNestingExpression,
+                            LogMessageKeys.ACTUAL, newConstituent.getNestingExpression(),
+                            LogMessageKeys.RECORD_TYPE, newType.getName());
+                }
+            }
+        }
+    }
+
+    @Nonnull
+    private Map<String, Integer> constituentNameToPositionMap(@Nonnull List<? extends SyntheticRecordType.Constituent> constituents) {
+        final Map<String, Integer> nameToPositionMap = new HashMap<>();
+        for (int i = 0; i < constituents.size(); i++) {
+            nameToPositionMap.put(constituents.get(i).getName(), i);
+        }
+        return nameToPositionMap;
     }
 
     @Nonnull
@@ -669,10 +943,10 @@ public class MetaDataEvolutionValidator {
         }
         // The index root expression must be the same, modulo field renames
         KeyExpression expectedKeyExpression = null;
-        if (allowFieldRenames) {
+        if (allowsAnyFieldRenames()) {
             for (String oldRecordTypeName : oldRecordTypeNames) {
-                final Descriptor oldDescriptor = oldMetaData.getRecordType(oldRecordTypeName).getDescriptor();
-                final Descriptor newDescriptor = newMetaData.getRecordType(typeRenames.getOrDefault(oldRecordTypeName, oldRecordTypeName)).getDescriptor();
+                final Descriptor oldDescriptor = oldMetaData.getIndexableRecordType(oldRecordTypeName).getDescriptor();
+                final Descriptor newDescriptor = newMetaData.getIndexableRecordType(typeRenames.getOrDefault(oldRecordTypeName, oldRecordTypeName)).getDescriptor();
                 final KeyExpression renamedKeyExpression = RenameFieldsVisitor.renameFields(oldIndex.getRootExpression(), oldDescriptor, newDescriptor);
                 if (expectedKeyExpression == null) {
                     expectedKeyExpression = renamedKeyExpression;
@@ -783,10 +1057,82 @@ public class MetaDataEvolutionValidator {
      * update those definitions.
      * </p>
      *
+     * <p>
+     * Note that this is a strictly more permissive setting than
+     * {@linkplain #allowsDeprecatedFieldRenames() allowing deprecated field renames}. If this is set to {@code true},
+     * then that other setting is effectively ignored.
+     * </p>
+     *
      * @return whether this validator allows field names to change
+     * @see #allowsDeprecatedFieldRenames()
      */
     public boolean allowsFieldRenames() {
         return allowFieldRenames;
+    }
+
+    /**
+     * Whether this validator allows deprecated fields to be renamed. If this is {@code true}, then
+     * this behaves in an analogous fashion to if {@link #allowsFieldRenames()} returns {@code true}, but
+     * it only allows the change if the field has been deprecated. In general, removing fields is
+     * not allowed as it can result in unknown fields during Protobuf deserialization. For that reason,
+     * deprecating fields should be preferred to deleting them. Once a field is deprecated and no longer
+     * actively accessed, further modifications to the name of the now unused field may be safe.
+     * Note that this option will result in accepting a meta-data change if a field is renamed
+     * and deprecated in the same change. Additionally, if this validator {@link #allowsUndeprecatingFields()},
+     * then this also allows deprecated fields to be renamed in the same change in which they are
+     * marked as no longer deprecated.
+     *
+     * <p>
+     * One reason that a user may want to allow renaming deprecating fields is to support recreating
+     * an existing field. For example, there are certain incompatible changes that a user may want
+     * to make to a field (e.g., modifying its Protobuf type from {@code sfixed32} to {@code sfixed64}).
+     * To accomplish this, the user can deprecate the old field, rename it, and then create a new field
+     * with the original field's name. This is not an operation that is without cost (the user must,
+     * for example, delete or at least bump the {@linkplain Index#getLastModifiedVersion() last modified version} of
+     * any index referencing the field, and they may need to populate the new field with data from the
+     * deprecated field), but it may be something that a user wants to do while iterating on a test
+     * meta-data. However, this should generally be avoided in production use cases.
+     * </p>
+     *
+     * <p>
+     * Note that this is a strictly less permissive setting than more generally
+     * {@linkplain #allowsFieldRenames() allowing field renames}. If that configuration is set to {@code true}, then
+     * this configuration option is effectively ignored.
+     * </p>
+     *
+     * @return whether this validator allows deprecated fields to be renamed
+     * @see #allowsFieldRenames()
+     */
+    public boolean allowsDeprecatedFieldRenames() {
+        return allowDeprecatedFieldRenames;
+    }
+
+    /**
+     * Whether this validator allows any kind of field renames. It captures whether either this validator
+     * {@link #allowsFieldRenames()} or {@link #allowsDeprecatedFieldRenames()}. If this is false, then
+     * this validator will throw if any kind of field changes its name. The exact set of field renames
+     * that are allowed will depend on the values of the other two configuration parameters.
+     *
+     * @return whether this validator allows any kind of field renames
+     * @see #allowsFieldRenames()
+     * @see #allowsDeprecatedFieldRenames()
+     */
+    public boolean allowsAnyFieldRenames() {
+        return allowFieldRenames || allowDeprecatedFieldRenames;
+    }
+
+    /**
+     * Whether this validator allows fields that were previously deprecated to be marked as not
+     * deprecated. Deprecating a field should generally be a one-way operation, as it represents
+     * deleting a field from the meta-data. By default, validators will therefore reject any meta-data
+     * change where a field goes from deprecated to not deprecated. However, especially when iterating
+     * on a meta-data used only in testing, there may be times when a user wants to un-delete a field.
+     * This option provides the flexibility for the user to allow that.
+     *
+     * @return whether this validator allows fields to be undeprecated
+     */
+    public boolean allowsUndeprecatingFields() {
+        return allowUndeprecatingFields;
     }
 
     /**
@@ -905,6 +1251,8 @@ public class MetaDataEvolutionValidator {
         private boolean allowNoVersionChange;
         private boolean allowNoSinceVersion;
         private boolean allowFieldRenames;
+        private boolean allowDeprecatedFieldRenames;
+        private boolean allowUndeprecatingFields;
         private boolean allowIndexRebuilds;
         private boolean allowMissingFormerIndexNames;
         private boolean allowOlderFormerIndexAddedVersions;
@@ -916,6 +1264,8 @@ public class MetaDataEvolutionValidator {
             this.allowNoVersionChange = validator.allowNoVersionChange;
             this.allowNoSinceVersion = validator.allowNoSinceVersion;
             this.allowFieldRenames = validator.allowFieldRenames;
+            this.allowDeprecatedFieldRenames = validator.allowDeprecatedFieldRenames;
+            this.allowUndeprecatingFields = validator.allowUndeprecatingFields;
             this.allowIndexRebuilds = validator.allowIndexRebuilds;
             this.allowMissingFormerIndexNames = validator.allowMissingFormerIndexNames;
             this.allowOlderFormerIndexAddedVersions = validator.allowOlderFormerIndexAddedVersions;
@@ -1018,6 +1368,54 @@ public class MetaDataEvolutionValidator {
          */
         public boolean allowsFieldRenames() {
             return allowFieldRenames;
+        }
+
+        /**
+         * Set whether the validator will allow deprecated fields to be renamed.
+         *
+         * @param allowDeprecatedFieldRenames whether the validator will allow deprecated fields to be renamed
+         * @return this builder
+         * @see MetaDataEvolutionValidator#allowsDeprecatedFieldRenames()
+         */
+        @CanIgnoreReturnValue
+        @Nonnull
+        public Builder setAllowDeprecatedFieldRenames(boolean allowDeprecatedFieldRenames) {
+            this.allowDeprecatedFieldRenames = allowDeprecatedFieldRenames;
+            return this;
+        }
+
+        /**
+         * Whether the validator will allow deprecated fields to be renamed.
+         *
+         * @return whether the validator will allow deprecated fields to be renamed
+         * @see MetaDataEvolutionValidator#allowsDeprecatedFieldRenames()
+         */
+        public boolean allowsDeprecatedFieldRenames() {
+            return allowDeprecatedFieldRenames;
+        }
+
+        /**
+         * Set whether the validator will allow deprecated fields to be marked as not deprecated.
+         *
+         * @param allowUndeprecatingFields whether the validator will allow deprecated fields to be un-deprecated
+         * @return this builder
+         * @see MetaDataEvolutionValidator#allowsUndeprecatingFields()
+         */
+        @CanIgnoreReturnValue
+        @Nonnull
+        public Builder setAllowUndeprecatingFields(boolean allowUndeprecatingFields) {
+            this.allowUndeprecatingFields = allowUndeprecatingFields;
+            return this;
+        }
+
+        /**
+         * Whether the validator will allow deprecated fields to be marked as not deprecated.
+         *
+         * @return whether the validator will allow deprecated fields to be un-deprecated
+         * @see MetaDataEvolutionValidator#allowsUndeprecatingFields()
+         */
+        public boolean allowsUndeprecatingFields() {
+            return allowUndeprecatingFields;
         }
 
         /**
