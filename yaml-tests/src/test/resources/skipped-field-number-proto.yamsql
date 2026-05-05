@@ -1,0 +1,73 @@
+#
+# skipped-field-number-proto.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2027 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Tests that inserting into and selecting from a table whose proto schema skips
+# field numbers works correctly, both at the top level (first_name=1, <2 skipped>,
+# last_name=3, id=4, address=5) and inside a nested struct (street=1, <2 skipped>,
+# city=3). The gaps must not cause column values to be shifted or misrouted.
+
+---
+options:
+  supported_version: !current_version
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists skipped_field_number_proto_template
+    - query: drop database if exists /FRL/SKIPPED_FIELD_NUMBER_PROTO_YAML
+    - query: create database /FRL/SKIPPED_FIELD_NUMBER_PROTO_YAML
+    - load schema template: SKIPPED_FIELD_NUMBER_PROTO_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.testpersonskippedfield.TestPersonSkippedFieldProto
+    - query: create schema /FRL/SKIPPED_FIELD_NUMBER_PROTO_YAML/test with template SKIPPED_FIELD_NUMBER_PROTO_TEMPLATE
+---
+setup:
+  connect: "jdbc:embed:/FRL/SKIPPED_FIELD_NUMBER_PROTO_YAML?schema=TEST"
+  steps:
+    - query: INSERT INTO Person("first_name", "last_name", "id", "address")
+        VALUES ('Alice', 'Smith', 1, ('123 Main St', 'Springfield')),
+               ('Bob',   'Jones', 2, ('456 Oak Ave', 'Shelbyville')),
+               ('Carol', 'White', 3, null)
+---
+test_block:
+  connect: "jdbc:embed:/FRL/SKIPPED_FIELD_NUMBER_PROTO_YAML?schema=TEST"
+  name: skipped-field-number-proto
+  tests:
+    -
+      - query: select * from Person order by "id"
+      - result: [{FIRST_NAME: 'Alice', LAST_NAME: 'Smith', ID: !l 1, ADDRESS: {STREET: '123 Main St', CITY: 'Springfield'}},
+                 {FIRST_NAME: 'Bob',   LAST_NAME: 'Jones', ID: !l 2, ADDRESS: {STREET: '456 Oak Ave', CITY: 'Shelbyville'}},
+                 {FIRST_NAME: 'Carol', LAST_NAME: 'White', ID: !l 3, ADDRESS: !null }]
+    -
+      - query: select "first_name", "last_name" from Person where "id" = 2
+      - result: [{FIRST_NAME: 'Bob', LAST_NAME: 'Jones'}]
+    -
+      - query: select "id", "first_name" from Person where "last_name" = 'White'
+      - result: [{ID: !l 3, FIRST_NAME: 'Carol'}]
+    -
+      - query: select "address" from Person where "id" = 1
+      - result: [{ADDRESS: {STREET: '123 Main St', CITY: 'Springfield'}}]
+    -
+      - query: select "address"."street", "address"."city" from Person where "id" = 2
+      - result: [{STREET: '456 Oak Ave', CITY: 'Shelbyville'}]
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template skipped_field_number_proto_template
+    - query: drop database /FRL/SKIPPED_FIELD_NUMBER_PROTO_YAML
+...
