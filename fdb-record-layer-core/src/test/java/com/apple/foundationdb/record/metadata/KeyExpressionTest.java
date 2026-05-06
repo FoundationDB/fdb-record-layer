@@ -73,6 +73,9 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.list;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression.EMPTY;
+import static com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType.Concatenate;
+import static com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType.FanOut;
+import static com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType.None;
 import static com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression.VERSION;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
@@ -304,7 +307,7 @@ public class KeyExpressionTest {
 
     @Test
     void testSubstrFunctionStaticFanout() {
-        final KeyExpression expression = function("substr", concat(field("repeat_me", FanType.FanOut), value(0), value(3)));
+        final KeyExpression expression = function("substr", concat(field("repeat_me", FanOut), value(0), value(3)));
         expression.validate(TestScalarFieldAccess.getDescriptor());
         List<Key.Evaluated> results = evaluate(expression, plantsBoxesAndBowls);
         assertEquals(2, results.size(), "Wrong number of results");
@@ -314,7 +317,7 @@ public class KeyExpressionTest {
     @Test
     void testSubstrFunctionDynamicFanout() {
         final KeyExpression expression = function("substr",
-                field("substrings", FanType.FanOut).nest(
+                field("substrings", FanOut).nest(
                         concatenateFields("content", "start", "end")));
         expression.validate(SubStrings.getDescriptor());
         List<Key.Evaluated> results = evaluate(expression, subString);
@@ -329,7 +332,7 @@ public class KeyExpressionTest {
 
     @Test
     void testConcatenateSingleRepeatedField() {
-        final KeyExpression expression = field("repeat_me", FanType.Concatenate);
+        final KeyExpression expression = field("repeat_me", Concatenate);
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertFalse(expression.createsDuplicates());
         assertEquals(Collections.singletonList(scalar(Arrays.asList("Boxes", "Bowls"))),
@@ -343,7 +346,7 @@ public class KeyExpressionTest {
     @Test
     void testFieldThenConcatenateRepeated() {
         final KeyExpression expression = Key.Expressions.concat(field("field"),
-                field("repeat_me", FanType.Concatenate));
+                field("repeat_me", Concatenate));
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertFalse(expression.createsDuplicates());
         assertEquals(Collections.singletonList(Key.Evaluated.concatenate("Plants", Arrays.asList("Boxes", "Bowls"))),
@@ -356,7 +359,7 @@ public class KeyExpressionTest {
 
     @Test
     void testFanSingleRepeatedField() {
-        final KeyExpression expression = field("repeat_me", FanType.FanOut);
+        final KeyExpression expression = field("repeat_me", FanOut);
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertTrue(expression.createsDuplicates());
         assertEquals(Arrays.asList(scalar("Boxes"), scalar("Bowls")),
@@ -370,14 +373,14 @@ public class KeyExpressionTest {
     @Test
     void testValidateFanRequiresRepeated() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
-            field("field", FanType.FanOut).validate(TestScalarFieldAccess.getDescriptor());
+            field("field", FanOut).validate(TestScalarFieldAccess.getDescriptor());
         });
     }
 
     @Test
     void testValidateConcatenateRequiresRepeated() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
-            field("field", FanType.Concatenate).validate(TestScalarFieldAccess.getDescriptor());
+            field("field", Concatenate).validate(TestScalarFieldAccess.getDescriptor());
         });
     }
 
@@ -399,7 +402,7 @@ public class KeyExpressionTest {
     void testScalarThenFanned() {
         final KeyExpression expression = concat(
                 field("field"),
-                field("repeat_me", FanType.FanOut));
+                field("repeat_me", FanOut));
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertTrue(expression.createsDuplicates());
         assertEquals(Arrays.asList(
@@ -415,7 +418,7 @@ public class KeyExpressionTest {
     @Test
     void testFannedThenScalar() {
         final KeyExpression expression = concat(
-                field("repeat_me", FanType.FanOut),
+                field("repeat_me", FanOut),
                 field("field"));
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertTrue(expression.createsDuplicates());
@@ -439,7 +442,7 @@ public class KeyExpressionTest {
     @Test
     void testValidateThenFailsOnSecond() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
-            concat(field("repeat_me", FanType.FanOut), field("field", FanType.FanOut))
+            concat(field("repeat_me", FanOut), field("field", FanOut))
                     .validate(TestScalarFieldAccess.getDescriptor());
         });
     }
@@ -463,7 +466,7 @@ public class KeyExpressionTest {
     @Test
     void testNestedRepeats() {
         final KeyExpression expression =
-                field("repeated_nesty", FanType.FanOut).nest("regular_old_field");
+                field("repeated_nesty", FanOut).nest("regular_old_field");
         expression.validate(NestedField.getDescriptor());
         assertTrue(expression.createsDuplicates());
         assertEquals(Arrays.asList(
@@ -481,7 +484,7 @@ public class KeyExpressionTest {
     @Test
     void testNestedThenRepeats() {
         final KeyExpression expression =
-                field("nesty").nest("repeated_field", FanType.FanOut);
+                field("nesty").nest("repeated_field", FanOut);
         expression.validate(NestedField.getDescriptor());
         assertTrue(expression.createsDuplicates());
         assertEquals(Arrays.asList(
@@ -499,7 +502,7 @@ public class KeyExpressionTest {
     @Test
     void testNestedThenRepeatsConcatenated() {
         final KeyExpression expression =
-                field("nesty").nest("repeated_field", FanType.Concatenate);
+                field("nesty").nest("repeated_field", Concatenate);
         expression.validate(NestedField.getDescriptor());
         assertFalse(expression.createsDuplicates());
         assertEquals(Collections.singletonList(scalar(Arrays.asList("lily", "rose"))),
@@ -530,27 +533,27 @@ public class KeyExpressionTest {
     @Test
     void testInvalidFanOnNested() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
-            field("nesty").nest("regular_old_field", FanType.FanOut).validate(NestedField.getDescriptor());
+            field("nesty").nest("regular_old_field", FanOut).validate(NestedField.getDescriptor());
         });
     }
 
     @Test
     void testInvalidFanOnParentNested() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
-            field("repeated_nesty", FanType.Concatenate).nest("regular_old_field").validate(NestedField.getDescriptor());
+            field("repeated_nesty", Concatenate).nest("regular_old_field").validate(NestedField.getDescriptor());
         });
     }
 
     @Test
     void testInvalidDoubleNested() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
-            field("nesty").nest(field("nesty").nest("regular_old_field", FanType.FanOut)).validate(NestedField.getDescriptor());
+            field("nesty").nest(field("nesty").nest("regular_old_field", FanOut)).validate(NestedField.getDescriptor());
         });
     }
 
     @Test
     void testValidDoubleNested() {
-        field("nesty").nest(field("nesty").nest("repeated_field", FanType.FanOut)).validate(NestedField.getDescriptor());
+        field("nesty").nest(field("nesty").nest("repeated_field", FanOut)).validate(NestedField.getDescriptor());
     }
 
     @Test
@@ -562,7 +565,7 @@ public class KeyExpressionTest {
     void testNestWithParentField() {
         final KeyExpression expression = concat(
                 field("regular_old_field"),
-                field("repeated_nesty", FanType.FanOut).nest("regular_old_field"));
+                field("repeated_nesty", FanOut).nest("regular_old_field"));
         expression.validate(NestedField.getDescriptor());
         assertTrue(expression.createsDuplicates());
         assertEquals(Arrays.asList(
@@ -582,9 +585,9 @@ public class KeyExpressionTest {
     @Test
     void testNestWithParentField2() {
         final KeyExpression expression =
-                field("repeated_nesty", FanType.FanOut).nest(
+                field("repeated_nesty", FanOut).nest(
                         field("regular_old_field"),
-                        field("repeated_field", FanType.FanOut));
+                        field("repeated_field", FanOut));
         expression.validate(NestedField.getDescriptor());
         assertTrue(expression.createsDuplicates());
         assertEquals(Arrays.asList(
@@ -605,9 +608,9 @@ public class KeyExpressionTest {
     void testDoubleNested() {
         final KeyExpression expression = concat(
                 field("id"),
-                field("order", FanType.FanOut).nest(
+                field("order", FanOut).nest(
                         field("id"),
-                        field("item", FanType.FanOut).nest(
+                        field("item", FanOut).nest(
                                 field("id"),
                                 field("name")
                         )),
@@ -639,9 +642,9 @@ public class KeyExpressionTest {
     void testDoubleNestedWithExtraConcats() {
         final KeyExpression expressionWithConcats = concat(
                 field("id"),
-                field("order", FanType.FanOut).nest(
+                field("order", FanOut).nest(
                         concat(field("id"),
-                                field("item", FanType.FanOut).nest(concat(
+                                field("item", FanOut).nest(concat(
                                                 field("id"),
                                                 field("name"))
                                 ))),
@@ -649,9 +652,9 @@ public class KeyExpressionTest {
                 field("last_name"));
         final KeyExpression expressionWithoutConcats = concat(
                 field("id"),
-                field("order", FanType.FanOut).nest(
+                field("order", FanOut).nest(
                         field("id"),
-                        field("item", FanType.FanOut).nest(
+                        field("item", FanOut).nest(
                                 field("id"),
                                 field("name")
                         )),
@@ -690,7 +693,7 @@ public class KeyExpressionTest {
 
     @Test
     void testList() {
-        final KeyExpression list = list(field("field"), field("repeat_me", FanType.Concatenate));
+        final KeyExpression list = list(field("field"), field("repeat_me", Concatenate));
         list.validate(TestScalarFieldAccess.getDescriptor());
         assertEquals(Collections.singletonList(concatenate(
                 scalar("Plants").values(),
@@ -700,10 +703,10 @@ public class KeyExpressionTest {
 
     @Test
     void testSerializeField() {
-        final FieldKeyExpression f1 = field("f1", FanType.FanOut, Key.Evaluated.NullStandin.NULL_UNIQUE);
+        final FieldKeyExpression f1 = field("f1", FanOut, Key.Evaluated.NullStandin.NULL_UNIQUE);
         final FieldKeyExpression f1Deserialized = new FieldKeyExpression(f1.toProto());
         assertEquals("f1", f1Deserialized.getFieldName());
-        assertEquals(FanType.FanOut, f1Deserialized.getFanType());
+        assertEquals(FanOut, f1Deserialized.getFanType());
         assertEquals(Key.Evaluated.NullStandin.NULL_UNIQUE, f1Deserialized.getNullStandin());
     }
 
@@ -725,17 +728,17 @@ public class KeyExpressionTest {
 
     @Test
     void testSerializeNesting() {
-        final NestingKeyExpression nest = field("f1").nest(field("f2", FanType.FanOut).nest("f3"));
+        final NestingKeyExpression nest = field("f1").nest(field("f2", FanOut).nest("f3"));
         final NestingKeyExpression reserialized = new NestingKeyExpression(nest.toProto());
         assertEquals("f1", reserialized.getParent().getFieldName());
         final NestingKeyExpression child = (NestingKeyExpression) reserialized.getChild();
         assertEquals("f2", child.getParent().getFieldName());
-        assertEquals(FanType.FanOut, child.getParent().getFanType());
+        assertEquals(FanOut, child.getParent().getFanType());
     }
 
     @Test
     void testSplit() {
-        final SplitKeyExpression split = field("repeat_me", FanType.FanOut).split(3);
+        final SplitKeyExpression split = field("repeat_me", FanOut).split(3);
         split.validate(TestScalarFieldAccess.getDescriptor());
         assertEquals(Arrays.asList(
                 concatenate("one", "two", "three"),
@@ -748,7 +751,7 @@ public class KeyExpressionTest {
     @Test
     void testSplitBad() {
         assertThrows(RecordCoreException.class, () -> {
-            final SplitKeyExpression split = field("repeat_me", FanType.FanOut).split(4);
+            final SplitKeyExpression split = field("repeat_me", FanOut).split(4);
             split.validate(TestScalarFieldAccess.getDescriptor());
             evaluate(split, numbers);
         });
@@ -757,7 +760,7 @@ public class KeyExpressionTest {
     @Test
     void testSplitConcat() {
         final ThenKeyExpression splitConcat = concat(field("field"),
-                field("repeat_me", FanType.FanOut).split(3));
+                field("repeat_me", FanOut).split(3));
         splitConcat.validate(TestScalarFieldAccess.getDescriptor());
         assertEquals(Arrays.asList(
                 concatenate("numbers", "one", "two", "three"),
@@ -767,7 +770,7 @@ public class KeyExpressionTest {
     }
 
     public static Stream<Arguments> getPrefixKeyComparisons() {
-        final KeyExpression nestedKeyWithValue = keyWithValue(field("a", FanType.FanOut).nest(
+        final KeyExpression nestedKeyWithValue = keyWithValue(field("a", FanOut).nest(
                         concat(field("b"), field("c"), field("d"))), 2);
 
         return Stream.of(
@@ -810,38 +813,38 @@ public class KeyExpressionTest {
                 Arguments.of(field("a"),
                         field("a"),
                         true),
-                Arguments.of(field("a", FanType.FanOut),
-                        field("a", FanType.FanOut),
+                Arguments.of(field("a", FanOut),
+                        field("a", FanOut),
                         true),
-                Arguments.of(field("a", FanType.Concatenate),
-                        field("a", FanType.Concatenate),
+                Arguments.of(field("a", Concatenate),
+                        field("a", Concatenate),
                         true),
-                Arguments.of(field("a", FanType.FanOut),
-                        field("a", FanType.Concatenate),
+                Arguments.of(field("a", FanOut),
+                        field("a", Concatenate),
                         false),
-                Arguments.of(field("a", FanType.FanOut),
-                        field("a", FanType.None),
+                Arguments.of(field("a", FanOut),
+                        field("a", None),
                         false),
-                Arguments.of(field("a", FanType.Concatenate),
-                        field("a", FanType.FanOut),
+                Arguments.of(field("a", Concatenate),
+                        field("a", FanOut),
                         false),
-                Arguments.of(field("a", FanType.Concatenate),
-                        field("a", FanType.None),
+                Arguments.of(field("a", Concatenate),
+                        field("a", None),
                         false),
-                Arguments.of(field("a", FanType.None),
-                        field("a", FanType.Concatenate),
+                Arguments.of(field("a", None),
+                        field("a", Concatenate),
                         false),
-                Arguments.of(field("a", FanType.None),
-                        field("a", FanType.FanOut),
+                Arguments.of(field("a", None),
+                        field("a", FanOut),
                         false),
-                Arguments.of(field("a", FanType.FanOut).nest("b"),
-                        field("a", FanType.FanOut).nest(concat(field("b"), field("c"))),
+                Arguments.of(field("a", FanOut).nest("b"),
+                        field("a", FanOut).nest(concat(field("b"), field("c"))),
                         true),
-                Arguments.of(field("a", FanType.FanOut).nest("b"),
-                        concat(field("a", FanType.FanOut).nest("b"), field("a", FanType.FanOut).nest("c")),
+                Arguments.of(field("a", FanOut).nest("b"),
+                        concat(field("a", FanOut).nest("b"), field("a", FanOut).nest("c")),
                         true),
-                Arguments.of(field("a", FanType.FanOut).nest(concat(field("b"), field("c"))),
-                        concat(field("a", FanType.FanOut).nest("b"), field("a", FanType.FanOut).nest("c")),
+                Arguments.of(field("a", FanOut).nest(concat(field("b"), field("c"))),
+                        concat(field("a", FanOut).nest("b"), field("a", FanOut).nest("c")),
                         false),
                 Arguments.of(concat(field("a"), VERSION),
                         concat(field("a"), field("b")),
@@ -872,22 +875,22 @@ public class KeyExpressionTest {
                 Arguments.of(concat(field("a"), field("b")),
                         keyWithValue(concat(field("a"), field("b")), 1),
                         false),
-                Arguments.of(field("a", FanType.FanOut).nest(field("b")),
+                Arguments.of(field("a", FanOut).nest(field("b")),
                         nestedKeyWithValue,
                         true),
-                Arguments.of(field("a", FanType.FanOut).nest(concat(field("b"), field("c"))),
+                Arguments.of(field("a", FanOut).nest(concat(field("b"), field("c"))),
                         nestedKeyWithValue,
                         true),
-                Arguments.of(field("a", FanType.FanOut).nest(
+                Arguments.of(field("a", FanOut).nest(
                         concat(field("b"), field("c"), field("d"))),
                         nestedKeyWithValue,
                         false),
-                Arguments.of(concat(field("a", FanType.FanOut).nest(
-                        field("b")), field("a", FanType.FanOut).nest("b")),
+                Arguments.of(concat(field("a", FanOut).nest(
+                        field("b")), field("a", FanOut).nest("b")),
                         nestedKeyWithValue,
                         false),
-                Arguments.of(concat(field("a", FanType.FanOut).nest(
-                        field("b")), field("a", FanType.FanOut).nest("c")),
+                Arguments.of(concat(field("a", FanOut).nest(
+                        field("b")), field("a", FanOut).nest("c")),
                         nestedKeyWithValue,
                         false));
     }
@@ -909,8 +912,8 @@ public class KeyExpressionTest {
                 Arguments.of(function("transpose", concat(field("foo"), recordType())), false), // record actually is first in result, but that's hidden behind the function implementation
                 Arguments.of(list(recordType(), field("foo")), false),
                 Arguments.of(list(field("foo"), recordType()), false),
-                Arguments.of(new SplitKeyExpression(concat(recordType(), field("foo", FanType.FanOut)), 2), false), // this maybe should be true? it's conservative for this to return false
-                Arguments.of(new SplitKeyExpression(concat(field("foo", FanType.FanOut), recordType()), 2), false),
+                Arguments.of(new SplitKeyExpression(concat(recordType(), field("foo", FanOut)), 2), false), // this maybe should be true? it's conservative for this to return false
+                Arguments.of(new SplitKeyExpression(concat(field("foo", FanOut), recordType()), 2), false),
                 Arguments.of(recordType(), true),
                 Arguments.of(VERSION, false),
                 Arguments.of(field("foo").groupBy(recordType()), true),
@@ -959,12 +962,12 @@ public class KeyExpressionTest {
                 Arguments.of(recordType(), true),
                 Arguments.of(list(recordType(), field("foo")), true),
                 Arguments.of(VERSION, true),
-                Arguments.of(new SplitKeyExpression(concat(field("foo", FanType.FanOut), recordType()), 2), false),
+                Arguments.of(new SplitKeyExpression(concat(field("foo", FanOut), recordType()), 2), false),
                 Arguments.of(concat(field("foo"), field("bar")), true),
                 Arguments.of(field("foo").groupBy(field("bar")), true),
                 Arguments.of(field("parent").nest(field("foo"), field("bar")), true),
-                Arguments.of(field("parent").nest(field("child", FanType.FanOut).nest(field("foo"), field("bar"))), false),
-                Arguments.of(new GroupingKeyExpression(field("parent", FanType.FanOut).nest(field("foo"), field("bar")), 1), false)
+                Arguments.of(field("parent").nest(field("child", FanOut).nest(field("foo"), field("bar"))), false),
+                Arguments.of(new GroupingKeyExpression(field("parent", FanOut).nest(field("foo"), field("bar")), 1), false)
         );
     }
 
