@@ -141,8 +141,10 @@ public abstract class EmbeddedRelationalBenchmark {
                 try (final var statement = conn.createStatement()) {
                     try {
                         statement.executeUpdate("DROP SCHEMA TEMPLATE \"" + templateName + "\"");
-                    } catch (SQLException ignored) {
-                        // Template didn't exist yet — that's fine
+                    } catch (SQLException se) {
+                        if (!se.getSQLState().equals(ErrorCode.UNKNOWN_SCHEMA_TEMPLATE.getErrorCode())) {
+                            throw se;
+                        }
                     }
                     statement.executeUpdate("CREATE SCHEMA TEMPLATE \"" + templateName + "\" " + templateDef);
                 }

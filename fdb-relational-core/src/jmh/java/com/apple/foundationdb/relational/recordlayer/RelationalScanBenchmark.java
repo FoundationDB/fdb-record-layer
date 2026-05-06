@@ -154,7 +154,7 @@ public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
 
     public void insertData(@Nonnull DataSet dataSet) throws SQLException {
         //insert about 10 records
-        try (java.sql.Connection rawConn = DriverManager.getConnection("jdbc:embed:" + dbUri);
+        try (Connection rawConn = DriverManager.getConnection("jdbc:embed:" + dbUri);
                 RelationalConnection conn = rawConn.unwrap(RelationalConnection.class)) {
             conn.setSchema(schema);
             try (RelationalStatement vs = conn.createStatement()) {
