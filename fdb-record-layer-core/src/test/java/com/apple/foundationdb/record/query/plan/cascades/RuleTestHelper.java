@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.ToUniqueAliasesTranslationMap;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -139,8 +140,21 @@ public class RuleTestHelper {
     @Nonnull
     private final CascadesRule<? extends RelationalExpression> rule;
 
-    public RuleTestHelper(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
+    @Nonnull
+    private final PlannerPhase plannerPhase;
+
+    public RuleTestHelper(@Nonnull CascadesRule<? extends RelationalExpression> rule, @Nonnull PlannerPhase plannerPhase) {
         this.rule = rule;
+        this.plannerPhase = plannerPhase;
+    }
+
+    private Memoizer memoizer() {
+        if (plannerPhase == PlannerPhase.REWRITING || !(rule instanceof ImplementationCascadesRule)) {
+            return Memoizer.noMemoization(PlannerStage.INITIAL);
+        }
+        // If the rule under test is an ImplementationCascadesRule running within the PLANNING, all
+        // references beneath the provided expressions should only contain RecordQueryPlan expressions.
+        return Memoizer.noMemoization(PlannerStage.PLANNED);
     }
 
     @Nonnull
@@ -148,9 +162,9 @@ public class RuleTestHelper {
         // copy the graph handed in so the caller can modify it at will afterwards and won't see the effects of
         // rewriting and planning
         final var copiedOriginal =
-                Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(Reference.initialOf(original)),
-                        Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false)).get();
-        ensureStage(PlannerStage.CANONICAL, copiedOriginal);
+                Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(referenceOf(original)),
+                        memoizer(), new ToUniqueAliasesTranslationMap(), false)).get();
+        ensureCorrectStage(copiedOriginal);
         if (rule instanceof ImplementationCascadesRule) {
             //
             // Descend the copied original to:
@@ -166,17 +180,29 @@ public class RuleTestHelper {
         }
         Reference ref = Reference.ofExploratoryExpression(PlannerStage.CANONICAL, copiedOriginal);
         PlanContext planContext = new FakePlanContext();
-        return TestRuleExecution.applyRule(planContext, rule, ref, evaluationContext);
+        return TestRuleExecution.applyRule(planContext, rule, ref, evaluationContext, plannerPhase);
     }
 
-    public void ensureStage(@Nonnull PlannerStage plannerStage, @Nonnull RelationalExpression expression) {
+    public Reference referenceOf(RelationalExpression expression) {
+        if (expression instanceof RecordQueryPlan) {
+            return Reference.plannedOf((RecordQueryPlan)expression);
+        }
+
+        if (plannerPhase == PlannerPhase.REWRITING) {
+            return Reference.initialOf(expression);
+        }
+
+        return Reference.ofExploratoryExpression(PlannerStage.INITIAL, expression);
+    }
+
+    public void ensureCorrectStage(@Nonnull RelationalExpression expression) {
         for (Quantifier qun : expression.getQuantifiers()) {
             Reference ref = qun.getRangesOver();
-            if (ref.getPlannerStage() != plannerStage) {
-                ref.advancePlannerStageUnchecked(plannerStage);
+            if (ref.getPlannerStage() != plannerPhase.getTargetPlannerStage()) {
+                ref.advancePlannerStageUnchecked(plannerPhase.getTargetPlannerStage());
             }
             for (RelationalExpression refMember : ref.getAllMemberExpressions()) {
-                ensureStage(plannerStage, refMember);
+                ensureCorrectStage(refMember);
             }
         }
     }
@@ -189,9 +215,11 @@ public class RuleTestHelper {
                 preExploreForRule(refMember, isClearExploratoryExpressions);
             }
             ref.setExplored();
-            PlanContext planContext = new FakePlanContext();
-            TestRuleExecution.applyRule(planContext, new FinalizeExpressionsRule(), ref, EvaluationContext.EMPTY);
-            pruneInputs(ref.getFinalExpressions(), isClearExploratoryExpressions);
+            if (plannerPhase == PlannerPhase.REWRITING) {
+                PlanContext planContext = new FakePlanContext();
+                TestRuleExecution.applyRule(planContext, new FinalizeExpressionsRule(), ref, EvaluationContext.EMPTY, plannerPhase);
+                pruneInputs(ref.getFinalExpressions(), isClearExploratoryExpressions);
+            }
         }
     }
 
@@ -199,14 +227,15 @@ public class RuleTestHelper {
                             final boolean isClearExploratoryExpressions) {
         for (final var finalExpression : finalExpressions) {
             for (final var quantifier : finalExpression.getQuantifiers()) {
-                pruneWithBest(quantifier.getRangesOver(), isClearExploratoryExpressions);
+                pruneWithBest(quantifier.getRangesOver(), isClearExploratoryExpressions, plannerPhase);
             }
         }
     }
 
     private static void pruneWithBest(final Reference reference,
-                                      final boolean isClearExploratoryExpressions) {
-        final var bestFinalExpression = costModel(reference);
+                                      final boolean isClearExploratoryExpressions,
+                                      final PlannerPhase plannerPhase) {
+        final var bestFinalExpression = costModel(reference, plannerPhase);
         reference.pruneWith(Objects.requireNonNull(bestFinalExpression));
         if (isClearExploratoryExpressions) {
             reference.clearExploratoryExpressions();
@@ -214,10 +243,10 @@ public class RuleTestHelper {
     }
 
     @Nonnull
-    private static RelationalExpression costModel(final Reference reference) {
+    private static RelationalExpression costModel(final Reference reference, final PlannerPhase plannerPhase) {
         reference.setExplored();
         final var costModel =
-                PlannerPhase.REWRITING.createCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration());
+                plannerPhase.createCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration());
         RelationalExpression bestFinalExpression = null;
         for (final var finalExpression : reference.getFinalExpressions()) {
             if (bestFinalExpression == null || costModel.compare(finalExpression, bestFinalExpression) < 0) {
@@ -244,9 +273,9 @@ public class RuleTestHelper {
             // we just want to have our own unshared version of it.
             //
             final var copiedExpected =
-                    Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(Reference.initialOf(expression)),
-                            Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false)).get();
-            ensureStage(PlannerStage.CANONICAL, copiedExpected);
+                    Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(referenceOf(expression)),
+                            memoizer(), new ToUniqueAliasesTranslationMap(), false)).get();
+            ensureCorrectStage(copiedExpected);
             expectedListBuilder.add(copiedExpected);
         }
         final var expectedList = expectedListBuilder.build();

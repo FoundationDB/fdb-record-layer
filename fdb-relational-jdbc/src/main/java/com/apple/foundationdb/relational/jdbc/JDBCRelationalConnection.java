@@ -415,7 +415,7 @@ class JDBCRelationalConnection implements RelationalConnection {
 
     @Override
     public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
-        // TODO: Implement
+        // TODO: Implement: https://github.com/FoundationDB/fdb-record-layer/issues/4064
         return null;
     }
 

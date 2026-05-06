@@ -1,0 +1,40 @@
+#
+# field-named-array.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Struct column where one field is named "array" (a potential reserved word).
+# Verifies that {ARRAY: BIGINT} inside a list is not confused with the
+# {array: ...} map syntax used to denote array-typed columns.
+---
+schema_template:
+    CREATE TYPE AS STRUCT s("array" bigint, y bigint)
+    CREATE TABLE t1(pk integer, col s, primary key(pk))
+---
+setup:
+  steps:
+    - query: INSERT INTO t1 VALUES (1, (10, 20))
+---
+test_block:
+  tests:
+    -
+      # Field name "array" appears as a plain map key inside the struct field list —
+      # not as the top-level {array: ...} array marker.
+      - query: SELECT pk, col FROM t1
+      - resultMetadata: [{PK: INTEGER}, {COL: [{ARRAY: BIGINT}, {Y: BIGINT}]}]
+      - result: [{1, {ARRAY: 10, Y: 20}}]
+...

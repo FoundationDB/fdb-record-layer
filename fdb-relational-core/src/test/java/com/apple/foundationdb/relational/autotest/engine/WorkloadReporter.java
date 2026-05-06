@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.autotest.engine;
 
+import com.google.common.base.CharMatcher;
 import org.opentest4j.TestAbortedException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -117,7 +118,7 @@ class WorkloadReporter {
             properties.forEach((key, value) -> {
                 Element property = doc.createElement("property");
                 property.setAttribute("name", key.toString());
-                property.setAttribute("value", value.toString());
+                property.setAttribute("value", sanitizeForXml(value.toString()));
                 propsElement.appendChild(property);
             });
 
@@ -135,15 +136,15 @@ class WorkloadReporter {
                 } else if (report.isError()) {
                     final Element error = doc.createElement("error");
                     error.setAttribute("type", report.failure.getClass().getSimpleName());
-                    error.setAttribute("message", report.failure.toString());
+                    error.setAttribute("message", sanitizeForXml(report.failure.toString()));
                     testChildElement.appendChild(error);
                 } else if (report.isFailure()) {
                     final Element failure = doc.createElement("failure");
                     failure.setAttribute("type", report.failure.getClass().getSimpleName());
                     StringWriter sw = new StringWriter();
                     report.failure.printStackTrace(new PrintWriter(sw));
-                    failure.setAttribute("message", report.failure.getMessage());
-                    failure.setTextContent(sw.toString());
+                    failure.setAttribute("message", sanitizeForXml(report.failure.getMessage()));
+                    failure.setTextContent(sanitizeForXml(sw.toString()));
                     testChildElement.appendChild(failure);
                 }
 
@@ -155,7 +156,7 @@ class WorkloadReporter {
                         public void accept(String key, String value) {
                             Element ctxElem = doc.createElement("property");
                             ctxElem.setAttribute("name", key);
-                            ctxElem.setAttribute("value", "CDATA[" + value + "]");
+                            ctxElem.setAttribute("value", "CDATA[" + sanitizeForXml(value) + "]");
                             contextElem.appendChild(ctxElem);
                         }
                     });
@@ -179,6 +180,23 @@ class WorkloadReporter {
         } catch (ParserConfigurationException | TransformerException e) {
             throw new IOException(e);
         }
+    }
+
+    @SuppressWarnings("checkstyle:AvoidEscapedUnicodeCharacters")
+    private static final CharMatcher VALID_XML_10 = CharMatcher.anyOf("\t\n\r")
+            .or(CharMatcher.inRange(' ', (char)(Character.MIN_SURROGATE - 1)))
+            .or(CharMatcher.inRange((char)(Character.MAX_SURROGATE + 1), '\uFFFD'));
+
+    /**
+     * Strip characters that are invalid in XML 1.0.
+     *
+     * <p>
+     * XML defines valid characters as {@code 0x9 | 0xA | 0xD | [0x20-0xD7FF] | [0xE000-0xFFFD] | [0x10000-0x10FFFF]}.
+     * The surrogate range D800–DFFF and the BMP non-characters FFFE and FFFF are excluded. The Java XML serializer
+     * enforces this strictly (as of JDK 21, unlike earlier versions).
+     */
+    private static String sanitizeForXml(String text) {
+        return VALID_XML_10.retainFrom(String.valueOf(text));
     }
 
     private static String printTime(long runtimeMillis) {

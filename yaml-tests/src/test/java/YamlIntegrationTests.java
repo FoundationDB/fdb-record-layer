@@ -27,7 +27,7 @@ import org.junit.jupiter.api.TestTemplate;
 /**
  * Class covering the standard integration tests specified by yamsql files.
  * <br>
- * Note: Use {@link MaintainYamlTestConfig} using {@link YamlTestConfigFilters#CORRECT_EXPLAIN_AND_METRICS} or similar
+ * Note: Use {@link MaintainYamlTestConfig} using {@link YamlTestConfigFilters#CORRECT_EXPECTATIONS} or similar
  * to correct explain strings and/or planner metrics. That annotation works both on class and on method level.
  * Note: Use {@link com.apple.foundationdb.relational.yamltests.DebugPlanner} on a specific test in this class to bring
  * up the {@link com.apple.foundationdb.record.query.plan.cascades.debug.PlannerRepl} debugger implementation.
@@ -71,13 +71,18 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    void arrays_cardinality(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("arrays_cardinality.yamsql");
+    void arraysCardinality(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("arrays-cardinality.yamsql");
     }
 
     @TestTemplate
     void arraysOperators(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("arrays-operators.yamsql");
+    }
+
+    @TestTemplate
+    void arraysUnnesting(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("arrays-unnesting.yamsql");
     }
 
     @TestTemplate

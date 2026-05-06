@@ -87,13 +87,13 @@ multi_column_value_index:
         KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING
         AS RATING)'
     task_count: 2031
-    task_total_time_ms: 136
+    task_total_time_ms: 52
     transform_count: 510
-    transform_time_ms: 67
+    transform_time_ms: 24
     transform_yield_count: 178
-    insert_time_ms: 5
+    insert_time_ms: 2
     insert_new_count: 243
-    insert_reused_count: 22
+    insert_reused_count: 20
 -   query: EXPLAIN select name, rating from products_index_on where name = 'Widget
         A'
     ref: index-ddl-values-only.yamsql:169
@@ -101,13 +101,13 @@ multi_column_value_index:
         KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING
         AS RATING)'
     task_count: 2031
-    task_total_time_ms: 160
+    task_total_time_ms: 79
     transform_count: 510
-    transform_time_ms: 79
+    transform_time_ms: 41
     transform_yield_count: 178
-    insert_time_ms: 6
+    insert_time_ms: 3
     insert_new_count: 243
-    insert_reused_count: 22
+    insert_reused_count: 20
 covering_value_index:
 -   query: EXPLAIN select price, name, supplier from products_mat_view where price
         > 15.0 order by price
@@ -408,31 +408,31 @@ filtered_indexes:
 -   query: EXPLAIN select category, price, stock from products_mat_view where price
         > 15 and stock > 60 order by category
     ref: index-ddl-values-only.yamsql:305
-    explain: 'COVERING(IDX_MV_FILTERED_MULTI <,> -> [CATEGORY: KEY[0], ID: KEY[2],
-        PRICE: VALUE[0], STOCK: VALUE[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE
+    explain: 'COVERING(IDX_MV_FILTERED_MULTI <,> -> [CATEGORY: KEY:[0], ID: KEY:[2],
+        PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE
         AS PRICE, _.STOCK AS STOCK)'
     task_count: 1164
-    task_total_time_ms: 108
+    task_total_time_ms: 73
     transform_count: 288
-    transform_time_ms: 55
+    transform_time_ms: 30
     transform_yield_count: 130
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 125
-    insert_reused_count: 9
+    insert_reused_count: 7
 -   query: EXPLAIN select category, price, stock from products_index_on where price
         > 15 and stock > 60 order by category
     ref: index-ddl-values-only.yamsql:309
-    explain: 'COVERING(IDX_IOT_FILTERED_MULTI <,> -> [CATEGORY: KEY[0], ID: KEY[2],
-        PRICE: VALUE[0], STOCK: VALUE[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE
+    explain: 'COVERING(IDX_IOT_FILTERED_MULTI <,> -> [CATEGORY: KEY:[0], ID: KEY:[2],
+        PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE
         AS PRICE, _.STOCK AS STOCK)'
     task_count: 1164
-    task_total_time_ms: 111
+    task_total_time_ms: 68
     transform_count: 288
-    transform_time_ms: 58
+    transform_time_ms: 41
     transform_yield_count: 130
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 125
-    insert_reused_count: 9
+    insert_reused_count: 7
 -   query: EXPLAIN select name, price from products_mat_view where price > 50 order
         by price
     ref: index-ddl-values-only.yamsql:315

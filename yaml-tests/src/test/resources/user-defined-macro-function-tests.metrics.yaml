@@ -112,16 +112,16 @@ user-defined-scalar-function-tests:
 -   query: EXPLAIN select t1.id_copy as A, t2.processed_id as B from table_func1(2)
         t1, table_func2(100) t2 where t1.id_copy = t2.processed_id
     ref: user-defined-macro-function-tests.yamsql:123
-    explain: ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c22 AS LONG)]]) | FLATMAP
+    explain: ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c21 AS LONG)]]) | FLATMAP
         q0 -> { ISCAN(I2 <,>) | FILTER _.ID EQUALS q0.ID AND _.ID LESS_THAN_OR_EQUALS
-        promote(@c16 AS LONG) AS q1 RETURN (q1.ID AS A, q0.ID AS B) }
+        promote(@c15 AS LONG) AS q1 RETURN (q1.ID AS A, q0.ID AS B) }
     task_count: 1205
-    task_total_time_ms: 298
+    task_total_time_ms: 41
     transform_count: 304
-    transform_time_ms: 126
+    transform_time_ms: 17
     transform_yield_count: 96
-    insert_time_ms: 15
-    insert_new_count: 176
+    insert_time_ms: 1
+    insert_new_count: 175
     insert_reused_count: 9
 -   query: EXPLAIN select self(id_copy) as A, z_val as B from table_func1(4)
     ref: user-defined-macro-function-tests.yamsql:128

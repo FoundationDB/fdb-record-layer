@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
 import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckExplainConfig;
+import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckResultMetadataConfig;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -108,9 +109,11 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_SETUP = "setup";
     public static final String QUERY_CONFIG_SETUP_REFERENCE = "setupReference";
     public static final String QUERY_CONFIG_DEBUGGER = "debugger";
+    public static final String QUERY_CONFIG_RESULT_METADATA = "resultMetadata";
 
-    private static final Set<String> RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
+    private static final Set<String> RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT, QUERY_CONFIG_RESULT_METADATA);
     private static final Set<String> VERSION_DEPENDENT_RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, QUERY_CONFIG_INITIAL_VERSION_LESS_THAN);
+    private static final Set<String> RESULT_CONSUMING_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
 
     @Nullable private final Object value;
     @Nonnull private final YamlReference reference;
@@ -231,6 +234,12 @@ public abstract class QueryConfig {
                                                      @Nonnull String configName, @Nullable Object value,
                                                      @Nonnull final YamlReference reference, @Nonnull YamlExecutionContext executionContext) {
         return new CheckExplainConfig(configName, value, reference, executionContext, isExact, blockName);
+    }
+
+    private static QueryConfig getCheckResultMetadataConfig(@Nonnull String configName, @Nullable Object value,
+                                                            @Nonnull final YamlReference reference,
+                                                            @Nonnull YamlExecutionContext executionContext) {
+        return new CheckResultMetadataConfig(configName, value, reference, executionContext);
     }
 
     private static QueryConfig getCheckErrorConfig(@Nullable Object value, @Nonnull final YamlReference reference) {
@@ -415,7 +424,9 @@ public abstract class QueryConfig {
                 if (requireResults && !resultOrVersionConfig) {
                     throw new IllegalArgumentException("Only result configurations can follow first result or version specification config");
                 }
-                requireResults |= resultOrVersionConfig;
+                // resultMetadata is allowed anywhere (before or after result configs) but does not itself
+                // trigger the ordering constraint — non-result configs such as explain may follow it.
+                requireResults |= (resultOrVersionConfig && !QUERY_CONFIG_RESULT_METADATA.equals(key));
                 configs.add(parseConfig(blockName, key, value, reference, executionContext));
             } catch (Exception e) {
                 throw YamlExecutionContext.wrapContext(e, () -> "‼️ Error parsing the query config at " + reference, "config", reference);
@@ -482,6 +493,8 @@ public abstract class QueryConfig {
             return getSetupConfig(executionContext.getTransactionSetup(value), reference);
         } else if (QUERY_CONFIG_DEBUGGER.equals(key)) {
             return getDebuggerConfig(value, reference);
+        } else if (QUERY_CONFIG_RESULT_METADATA.equals(key)) {
+            return getCheckResultMetadataConfig(key, value, reference, executionContext);
         } else {
             throw Assert.failUnchecked("‼️ '" + key + "' is not a valid configuration");
         }
@@ -491,6 +504,11 @@ public abstract class QueryConfig {
         Assert.thatUnchecked(configs.stream().skip(1)
                         .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
                 "supported_version must be the first config in a query (after the query itself)");
+
+        if (configs.stream().anyMatch(c -> QUERY_CONFIG_RESULT_METADATA.equals(c.getConfigName()))) {
+            Assert.thatUnchecked(configs.stream().anyMatch(c -> RESULT_CONSUMING_CONFIGS.contains(c.getConfigName())),
+                    "resultMetadata requires at least one of result, unorderedResult, error, or count to be present");
+        }
 
         // Validate that the results check each version comprehensively by making sure the set of
         // covered ranges spans the range [MIN_VERSION, MAX_VERSION)
