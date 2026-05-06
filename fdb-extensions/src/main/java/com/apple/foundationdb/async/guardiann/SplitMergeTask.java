@@ -92,8 +92,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
     @Override
     protected void writeDeferredTask(@Nonnull final Transaction transaction) {
         super.writeDeferredTask(transaction);
-        if (logger.isInfoEnabled()) {
-            logger.info("enqueuing SPLIT_MERGE; taskId={}; clusterId={}",
+        if (logger.isTraceEnabled()) {
+            logger.trace("enqueuing SPLIT_MERGE; taskId={}; clusterId={}",
                     AbstractDeferredTask.taskIdToString(getTaskId()), getTargetClusterId());
         }
     }
@@ -188,14 +188,14 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                         config.isDeterministicRandomness(),
                                         ClusterIdAndCentroid.fromClusterMetadataAndDistances(fetchedNeighborhood));
                         splitMergeTask.writeDeferredTask(transaction);
-                        if (logger.isInfoEnabled()) {
+                        if (logger.isTraceEnabled()) {
                             logger.info("enqueued high priority SPLIT_MERGE due to refetch of the neighborhood; taskId={}; neighborhoodSize={}",
                                     AbstractDeferredTask.taskIdToString(splitMergeTask.getTaskId()),
                                     splitMergeTask.getNeighborhood().size());
                         }
                     });
         } else {
-            if (logger.isInfoEnabled()) {
+            if (logger.isTraceEnabled()) {
                 logger.info("using precomputed neighborhood; taskId={}; neighborhoodSize={}",
                         taskIdToString(getTaskId()), getNeighborhood().size());
             }
@@ -503,8 +503,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
             }
         }
 
-        if (logger.isInfoEnabled()) {
-            logger.info("replication priority num={}. mean={}, standard deviation={}, numReplicated={}, numOccluded={}",
+        if (logger.isTraceEnabled()) {
+            logger.trace("replication priority num={}. mean={}, standard deviation={}, numReplicated={}, numOccluded={}",
                     replicationPriorityStandardDeviation.getNumElements(),
                     replicationPriorityStandardDeviation.mean(),
                     replicationPriorityStandardDeviation.populationStandardDeviation(),
@@ -536,7 +536,11 @@ public class SplitMergeTask extends AbstractDeferredTask {
                             final UUID toBeDeletedClusterId = clusterMetadataWithDistance.getClusterMetadata().getId();
                             return centroidsHnsw.delete(transaction,
                                             StorageAdapter.tupleFromClusterId(toBeDeletedClusterId))
-                                    .thenAccept(ignored -> logger.info("cluster deleted, clusterId={}", toBeDeletedClusterId));
+                                    .thenAccept(ignored -> {
+                                        if (logger.isTraceEnabled()) {
+                                            logger.trace("cluster deleted, clusterId={}", toBeDeletedClusterId);
+                                        }
+                                    });
                         },
                         1,
                         getLocator().getExecutor());
@@ -551,8 +555,11 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                             storageTransform.untransform(clusterMetadataWithDistance.getCentroid());
                                     return centroidsHnsw.insert(transaction, StorageAdapter.tupleFromClusterId(newClusterId),
                                             centroidBVector, null)
-                                            .thenAccept(ignored2 ->
-                                                    logger.info("new cluster inserted; clusterId={}", newClusterId));
+                                            .thenAccept(ignored2 -> {
+                                                if (logger.isTraceEnabled()) {
+                                                    logger.trace("new cluster inserted; clusterId={}", newClusterId);
+                                                }
+                                            });
                                 },
                                 1,
                                 getLocator().getExecutor()))
@@ -620,8 +627,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
                             numPrimaryVectorsAdded, numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
                             updatedStandardDeviation, newClusterIds)
                     .ifPresent(newDependentTaskIdsBuilder::add);
-            if (logger.isInfoEnabled()) {
-                logger.info("pushing vectors during split; isNewCluster={}; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
+            if (logger.isTraceEnabled()) {
+                logger.trace("pushing vectors during split; isNewCluster={}; clusterId={}; numTotalPrimaryVectors={}, numPrimaryVectorsAdded={}, " +
                                 "numTotalPrimaryUnderreplicatedVectors={}, numPrimaryUnderreplicatedVectorsAdded={}, " +
                                 "numTotalReplicatedVectors={}, numReplicatedVectorsAdded={}",
                         newClusterIds.contains(clusterMetadata.getId()),

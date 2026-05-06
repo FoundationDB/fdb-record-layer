@@ -110,10 +110,10 @@ class TestHelpers {
             return loopFuture.thenApply(vignore -> data.build())
                     .whenComplete((result, error) -> {
                         if (error != null) {
-                            logger.info("failed to insert batchSize={}", error);
+                            logger.trace("failed to insert batchSize={}", error);
                         } else {
                             final long endTs = System.nanoTime();
-                            logger.info("inserted batchSize={} records={} starting at id={} took elapsedTime={}ms, readBytes={}",
+                            logger.trace("inserted batchSize={} records={} starting at id={} took elapsedTime={}ms, readBytes={}",
                                     batchSize, result.size(), firstId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                                     onReadListener.getBytesReadByLayer());
                         }
@@ -165,12 +165,16 @@ class TestHelpers {
 
         final ImmutableList.Builder<PrimaryKeyAndVector> insertedDataBuilder = ImmutableList.builder();
 
+        final TestOnReadListener onReadListener = (TestOnReadListener)guardiann.getOnReadListener();
+        final TestOnWriteListener onWriteListener = (TestOnWriteListener)guardiann.getOnWriteListener();
+
         try (final var fileChannel = FileChannel.open(siftPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
             int i = 0;
             while (vectorIterator.hasNext() && i < numVectors) {
                 final int batchSize = Math.min(desiredBatchSize, numVectors - i);
+                final long beginTs = System.nanoTime();
                 final List<DoubleRealVector> remainingBatch =
                         Lists.newArrayList(Iterators.limit(vectorIterator, batchSize));
                 while (!remainingBatch.isEmpty()) {
@@ -191,6 +195,15 @@ class TestHelpers {
                     i += numInsertedInBatch;
                     remainingBatch.subList(0, numInsertedInBatch).clear();
                 }
+                final long endTs = System.nanoTime();
+                final long totalBytesRead = onReadListener.getBytesReadByLayer().values().stream().mapToLong(x -> x).sum();
+                final long totalBytesWritten = onWriteListener.getBytesWrittenByLayer().values().stream().mapToLong(x -> x).sum();
+
+                logger.info("inserted batchSize={} for a total of numRecords={} took elapsedTime={}ms, bytesRead={}, bytesWritten={}",
+                        batchSize, i, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
+                        totalBytesRead, totalBytesWritten);
+                onReadListener.reset();
+                onWriteListener.reset();
             }
             assertThat(i).isEqualTo(numVectors);
         }
@@ -399,12 +412,36 @@ class TestHelpers {
         }
     }
 
+    static void dumpQueries(@Nonnull final String queriesFile) throws IOException {
+        final Path queryPath = Paths.get(queriesFile);
+
+        try (final var queryChannel = FileChannel.open(queryPath, StandardOpenOption.READ)) {
+            final Iterator<DoubleRealVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
+
+            while (queryIterator.hasNext()) {
+                final DoubleRealVector queryVector = queryIterator.next();
+
+                logger.info("query vector={}", queryVector.toString(queryVector.getNumDimensions()));
+            }
+        }
+    }
+
     static class TestOnWriteListener implements OnWriteListener {
+        @Nonnull
+        final Map<Integer, Long> bytesWrittenByLayer;
+
         @Nonnull
         private final Map<AbstractDeferredTask.Kind, Integer> taskExecutedByKindCounterMap;
 
         public TestOnWriteListener() {
+            this.bytesWrittenByLayer = Maps.newConcurrentMap();
             this.taskExecutedByKindCounterMap = Maps.newConcurrentMap();
+        }
+
+        @Override
+        public void onKeyValueWritten(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+            bytesWrittenByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) +
+                    key.length + (value == null ? 0 : value.length));
         }
 
         @Override
@@ -412,6 +449,11 @@ class TestHelpers {
                                    @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds) {
             taskExecutedByKindCounterMap.compute(taskKind, (ignored, counter) ->
                     Objects.requireNonNullElse(counter, 0) + 1);
+        }
+
+        @Nonnull
+        public Map<Integer, Long> getBytesWrittenByLayer() {
+            return bytesWrittenByLayer;
         }
 
         public int getTaskCounter(@Nonnull final AbstractDeferredTask.Kind taskKind) {
@@ -423,6 +465,7 @@ class TestHelpers {
         }
 
         public void reset() {
+            bytesWrittenByLayer.clear();
             taskExecutedByKindCounterMap.clear();
         }
     }

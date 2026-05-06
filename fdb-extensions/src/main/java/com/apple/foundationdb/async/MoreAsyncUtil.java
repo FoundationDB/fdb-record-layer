@@ -1273,7 +1273,7 @@ public class MoreAsyncUtil {
 
     @Nonnull
     public static <T> AsyncIterable<T> iterableFromCollection(@Nonnull final CompletableFuture<Collection<T>> collectionFuture,
-                                                       @Nonnull final Executor executor) {
+                                                              @Nonnull final Executor executor) {
         return iterableOf(() -> iteratorFromCollection(collectionFuture), executor);
     }
 

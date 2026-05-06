@@ -51,10 +51,8 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 
 public class CollapseTask extends AbstractDeferredTask {
     @Nonnull
@@ -93,8 +91,8 @@ public class CollapseTask extends AbstractDeferredTask {
     @Override
     protected void writeDeferredTask(@Nonnull final Transaction transaction) {
         super.writeDeferredTask(transaction);
-        if (logger.isInfoEnabled()) {
-            logger.info("enqueuing COLLAPSE; taskId={}; targetClusterIds={}",
+        if (logger.isTraceEnabled()) {
+            logger.trace("enqueuing COLLAPSE; taskId={}; targetClusterIds={}",
                     taskIdToString(getTaskId()), getTargetClusterIds());
         }
     }
@@ -133,9 +131,6 @@ public class CollapseTask extends AbstractDeferredTask {
     private CompletableFuture<Void> collapse(@Nonnull final Transaction transaction,
                                              @Nonnull final ClusterMetadata targetClusterMetadata,
                                              @Nonnull final RealVector targetClusterCentroid) {
-        final SplittableRandom random = RandomHelpers.random(targetClusterMetadata.getId());
-        final Config config = getConfig();
-        final Executor executor = getLocator().getExecutor();
         final Primitives primitives = getLocator().primitives();
         final AccessInfo accessInfo = getAccessInfo();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
@@ -145,79 +140,78 @@ public class CollapseTask extends AbstractDeferredTask {
         return primitives.fetchClusterMetadataWithDistance(transaction,
                                 targetClusterMetadata.getId(),
                         storageTransform.transform(targetClusterCentroid), 0.0d)
-                .thenCompose(targetClusterMetadataWithDistance -> {
-                    return primitives.fetchInnerClusters(transaction, ImmutableList.of(targetClusterMetadataWithDistance), storageTransform)
-                            .thenAccept(innerClusters -> {
-                                final Cluster targetCluster = Iterables.getOnlyElement(innerClusters);
-                                final CollapseResult collapseResult =
-                                        collapseVectorReferences(estimator, targetClusterMetadataWithDistance,
-                                                targetCluster.getVectorReferences());
-                                final List<VectorReference> targetClusterAssignedVectors =
-                                        collapseResult.getAssignments();
-                                final ImmutableMap.Builder<Tuple, VectorReference> targetClusterAssignedVectorsAsMapBuilder = ImmutableMap.builder();
-                                for (final VectorReference targetClusterAssignedVector : targetClusterAssignedVectors) {
-                                    targetClusterAssignedVectorsAsMapBuilder.put(
-                                            targetClusterAssignedVector.getId().getPrimaryKey(),
-                                            targetClusterAssignedVector);
-                                }
-                                final ImmutableMap<Tuple, VectorReference> targetClusterAssignedVectorsAsMap =
-                                        targetClusterAssignedVectorsAsMapBuilder.build();
+                .thenCompose(targetClusterMetadataWithDistance ->
+                        primitives.fetchInnerClusters(transaction, ImmutableList.of(targetClusterMetadataWithDistance), storageTransform)
+                                .thenAccept(innerClusters -> {
+                                    final Cluster targetCluster = Iterables.getOnlyElement(innerClusters);
+                                    final CollapseResult collapseResult =
+                                            collapseVectorReferences(estimator, targetClusterMetadataWithDistance,
+                                                    targetCluster.getVectorReferences());
+                                    final List<VectorReference> targetClusterAssignedVectors =
+                                            collapseResult.getAssignments();
+                                    final ImmutableMap.Builder<Tuple, VectorReference> targetClusterAssignedVectorsAsMapBuilder = ImmutableMap.builder();
+                                    for (final VectorReference targetClusterAssignedVector : targetClusterAssignedVectors) {
+                                        targetClusterAssignedVectorsAsMapBuilder.put(
+                                                targetClusterAssignedVector.getId().getPrimaryKey(),
+                                                targetClusterAssignedVector);
+                                    }
+                                    final ImmutableMap<Tuple, VectorReference> targetClusterAssignedVectorsAsMap =
+                                            targetClusterAssignedVectorsAsMapBuilder.build();
 
-                                final ImmutableList.Builder<Tuple> deleteTargetClusterAssignedVectorsBuilder =
-                                        ImmutableList.builder();
-                                final ImmutableList.Builder<VectorReference> writeTargetClusterAssignedVectorsBuilder =
-                                        ImmutableList.builder();
-                                final ImmutableMap.Builder<Tuple, VectorReference> primaryKeyToVectorReferencesMapBuilder = ImmutableMap.builder();
+                                    final ImmutableList.Builder<Tuple> deleteTargetClusterAssignedVectorsBuilder =
+                                            ImmutableList.builder();
+                                    final ImmutableList.Builder<VectorReference> writeTargetClusterAssignedVectorsBuilder =
+                                            ImmutableList.builder();
+                                    final ImmutableMap.Builder<Tuple, VectorReference> primaryKeyToVectorReferencesMapBuilder = ImmutableMap.builder();
 
-                                for (final VectorReference vectorReference : targetCluster.getVectorReferences()) {
-                                    primaryKeyToVectorReferencesMapBuilder.put(vectorReference.getId().getPrimaryKey(), vectorReference);
-                                    final Tuple primaryKey = vectorReference.getId().getPrimaryKey();
-                                    final VectorReference assignedVectorReference =
-                                            targetClusterAssignedVectorsAsMap.get(primaryKey);
+                                    for (final VectorReference vectorReference : targetCluster.getVectorReferences()) {
+                                        primaryKeyToVectorReferencesMapBuilder.put(vectorReference.getId().getPrimaryKey(), vectorReference);
+                                        final Tuple primaryKey = vectorReference.getId().getPrimaryKey();
+                                        final VectorReference assignedVectorReference =
+                                                targetClusterAssignedVectorsAsMap.get(primaryKey);
 
-                                    if (assignedVectorReference != null) {
-                                        //
-                                        // Compare the version from the cluster with the version from the cleaned-up
-                                        // set. At this point, it should not happen that they are different, so it's
-                                        // more of a sanity check.
-                                        //
-                                        Verify.verify(assignedVectorReference.getId().getUuid()
-                                                .equals(vectorReference.getId().getUuid()));
+                                        if (assignedVectorReference != null) {
+                                            //
+                                            // Compare the version from the cluster with the version from the cleaned-up
+                                            // set. At this point, it should not happen that they are different, so it's
+                                            // more of a sanity check.
+                                            //
+                                            Verify.verify(assignedVectorReference.getId().getUuid()
+                                                    .equals(vectorReference.getId().getUuid()));
 
-                                        //
-                                        // What can happen is that a reference can toggle between primary and
-                                        // replicated copy or primary and underreplicated primary, etc.
-                                        //
-                                        if (assignedVectorReference.isPrimaryCopy() != vectorReference.isPrimaryCopy() ||
-                                                assignedVectorReference.isUnderreplicated() != vectorReference.isUnderreplicated()) {
-                                            writeTargetClusterAssignedVectorsBuilder.add(assignedVectorReference);
+                                            //
+                                            // What can happen is that a reference can toggle between primary and
+                                            // replicated copy or primary and underreplicated primary, etc.
+                                            //
+                                            if (assignedVectorReference.isPrimaryCopy() != vectorReference.isPrimaryCopy() ||
+                                                    assignedVectorReference.isUnderreplicated() != vectorReference.isUnderreplicated()) {
+                                                writeTargetClusterAssignedVectorsBuilder.add(assignedVectorReference);
+                                            }
+                                        } else {
+                                            // add to delete list
+                                            deleteTargetClusterAssignedVectorsBuilder.add(primaryKey);
                                         }
-                                    } else {
-                                        // add to delete list
-                                        deleteTargetClusterAssignedVectorsBuilder.add(primaryKey);
                                     }
-                                }
 
-                                final ImmutableMap<Tuple, VectorReference> primaryKeyToVectorReferencesMap =
-                                        primaryKeyToVectorReferencesMapBuilder.build();
+                                    final ImmutableMap<Tuple, VectorReference> primaryKeyToVectorReferencesMap =
+                                            primaryKeyToVectorReferencesMapBuilder.build();
 
-                                for (final Map.Entry<Tuple, VectorReference> entry : targetClusterAssignedVectorsAsMap.entrySet()) {
-                                    if (!primaryKeyToVectorReferencesMap.containsKey(entry.getKey())) {
-                                        writeTargetClusterAssignedVectorsBuilder.add(entry.getValue());
+                                    for (final Map.Entry<Tuple, VectorReference> entry : targetClusterAssignedVectorsAsMap.entrySet()) {
+                                        if (!primaryKeyToVectorReferencesMap.containsKey(entry.getKey())) {
+                                            writeTargetClusterAssignedVectorsBuilder.add(entry.getValue());
+                                        }
                                     }
-                                }
 
-                                final ImmutableList<VectorReference> writeTargetClusterAssignedVectors =
-                                        writeTargetClusterAssignedVectorsBuilder.build();
+                                    final ImmutableList<VectorReference> writeTargetClusterAssignedVectors =
+                                            writeTargetClusterAssignedVectorsBuilder.build();
 
-                                final ImmutableList<Tuple> deleteTargetClusterAssignedVectors =
-                                        deleteTargetClusterAssignedVectorsBuilder.build();
+                                    final ImmutableList<Tuple> deleteTargetClusterAssignedVectors =
+                                            deleteTargetClusterAssignedVectorsBuilder.build();
 
-                                updateAssignments(transaction, random, targetClusterMetadataWithDistance,
-                                        collapseResult, writeTargetClusterAssignedVectors,
-                                        deleteTargetClusterAssignedVectors, quantizer);
-                            });
-                });
+                                    updateAssignments(transaction, targetClusterMetadataWithDistance,
+                                            collapseResult, writeTargetClusterAssignedVectors,
+                                            deleteTargetClusterAssignedVectors, quantizer);
+                                }));
     }
 
     @Nonnull
@@ -313,8 +307,8 @@ public class CollapseTask extends AbstractDeferredTask {
 
         targetAssignmentBuilder.addAll(replicatedTopK.toUnsortedList());
 
-        if (logger.isInfoEnabled()) {
-            logger.info("collapsed num={}, mean={}, standard deviation={}, lowestReplicationPriority={}",
+        if (logger.isTraceEnabled()) {
+            logger.trace("collapsed num={}, mean={}, standard deviation={}, lowestReplicationPriority={}",
                     standardDeviation.getNumElements(),
                     standardDeviation.mean(),
                     standardDeviation.populationStandardDeviation(),
@@ -327,7 +321,6 @@ public class CollapseTask extends AbstractDeferredTask {
     }
 
     private void updateAssignments(@Nonnull final Transaction transaction,
-                                   @Nonnull final SplittableRandom random,
                                    @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
                                    @Nonnull final CollapseResult collapseResult,
                                    @Nonnull final ImmutableList<VectorReference> writeTargetClusterAssignedVectors,

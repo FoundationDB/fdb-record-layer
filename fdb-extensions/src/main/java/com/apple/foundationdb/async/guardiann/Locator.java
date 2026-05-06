@@ -40,11 +40,14 @@ public class Locator {
     private final StorageAdapter storageAdapter;
 
     @Nonnull
-    private final Supplier<Primitives> primitivesSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Primitives> primitivesSupplier = Suppliers.memoize(() -> new Primitives(this));
     @Nonnull
-    private final Supplier<Search> searchSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Search> searchSupplier = Suppliers.memoize(() -> new Search(this));
     @Nonnull
-    private final Supplier<Insert> insertSupplier;
+    @SuppressWarnings("this-escape")
+    private final Supplier<Insert> insertSupplier = Suppliers.memoize(() -> new Insert(this));
 //    @Nonnull
 //    private final Supplier<Delete> deleteSupplier;
 
@@ -69,11 +72,6 @@ public class Locator {
                    @Nonnull final OnReadListener onReadListener) {
         this.executor = executor;
         this.storageAdapter = new StorageAdapter(config, subspace, onWriteListener, onReadListener);
-
-        this.primitivesSupplier = Suppliers.memoize(() -> new Primitives(this));
-        this.searchSupplier = Suppliers.memoize(() -> new Search(this));
-        this.insertSupplier = Suppliers.memoize(() -> new Insert(this));
-        //this.deleteSupplier = Suppliers.memoize(() -> new Delete(this));
     }
 
     @Nonnull

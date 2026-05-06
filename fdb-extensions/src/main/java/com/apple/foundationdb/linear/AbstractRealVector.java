@@ -188,11 +188,11 @@ public abstract class AbstractRealVector implements RealVector {
         if (limitDimensions < data.length) {
             return "[" + Arrays.stream(Arrays.copyOfRange(data, 0, limitDimensions))
                     .mapToObj(String::valueOf)
-                    .collect(Collectors.joining(",")) + ", ...]";
+                    .collect(Collectors.joining(", ")) + ", ...]";
         } else {
             return "[" + Arrays.stream(data)
                     .mapToObj(String::valueOf)
-                    .collect(Collectors.joining(",")) + "]";
+                    .collect(Collectors.joining(", ")) + "]";
         }
     }
 

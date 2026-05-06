@@ -121,8 +121,8 @@ public class ReassignTask extends AbstractDeferredTask {
     @Override
     protected void writeDeferredTask(@Nonnull final Transaction transaction) {
         super.writeDeferredTask(transaction);
-        if (logger.isInfoEnabled()) {
-            logger.info("enqueuing REASSIGN; taskId={}; clusterId={}",
+        if (logger.isTraceEnabled()) {
+            logger.trace("enqueuing REASSIGN; taskId={}; clusterId={}",
                     AbstractDeferredTask.taskIdToString(getTaskId()), getTargetClusterId());
         }
     }
@@ -185,15 +185,15 @@ public class ReassignTask extends AbstractDeferredTask {
                                 config.isDeterministicRandomness(),
                                 ClusterIdAndCentroid.fromClusterMetadataAndDistances(fetchedNeighborhood));
                         reassignTask.writeDeferredTask(transaction);
-                        if (logger.isInfoEnabled()) {
-                            logger.info("enqueuing high priority REASSIGN due to refetch of neighborhood; taskId={}; neighborhoodSize={}",
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("enqueuing high priority REASSIGN due to refetch of neighborhood; taskId={}; neighborhoodSize={}",
                                     AbstractDeferredTask.taskIdToString(reassignTask.getTaskId()),
                                     reassignTask.getNeighborhood().size());
                         }
                     });
         } else {
-            if (logger.isInfoEnabled()) {
-                logger.info("using precomputed neighborhood; taskId={}; neighborhoodSize={}",
+            if (logger.isTraceEnabled()) {
+                logger.trace("using precomputed neighborhood; taskId={}; neighborhoodSize={}",
                         taskIdToString(getTaskId()), getNeighborhood().size());
             }
         }
@@ -450,8 +450,8 @@ public class ReassignTask extends AbstractDeferredTask {
 
         assignmentBuilder.putAll(targetClusterId, replicatedTopK.toUnsortedList());
 
-        if (logger.isInfoEnabled()) {
-            logger.info("replication priority num={}. mean={}, standard deviation={}, numReplicated={}, numOccluded={}, lowestReplicationPriority={}",
+        if (logger.isTraceEnabled()) {
+            logger.trace("replication priority num={}. mean={}, standard deviation={}, numReplicated={}, numOccluded={}, lowestReplicationPriority={}",
                     replicationPriorityStandardDeviation.getNumElements(),
                     replicationPriorityStandardDeviation.mean(),
                     replicationPriorityStandardDeviation.populationStandardDeviation(),

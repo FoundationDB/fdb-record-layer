@@ -84,8 +84,8 @@ public class BounceTask extends AbstractDeferredTask {
     @Override
     protected void writeDeferredTask(@Nonnull final Transaction transaction) {
         super.writeDeferredTask(transaction);
-        if (logger.isInfoEnabled()) {
-            logger.info("enqueuing BOUNCE; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
+        if (logger.isTraceEnabled()) {
+            logger.trace("enqueuing BOUNCE; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
                     taskIdToString(getTaskId()), getTargetClusterIds(), getDependentTaskIds());
         }
     }
@@ -130,8 +130,8 @@ public class BounceTask extends AbstractDeferredTask {
 
                     final AbstractDeferredTask bounceTask = shuffledTasks.get(0);
 
-                    if (logger.isInfoEnabled()) {
-                        logger.info("bouncing task; taskKind={}, taskId={}", bounceTask.getKind().name(), bounceTask.getTaskId());
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("bouncing task; taskKind={}, taskId={}", bounceTask.getKind().name(), bounceTask.getTaskId());
                     }
 
                     return primitives.doDeferredTask(transaction, bounceTask)
@@ -175,8 +175,8 @@ public class BounceTask extends AbstractDeferredTask {
                                 centroidsHnsw.fetch(transaction, StorageAdapter.tupleFromClusterId(targetClusterId))
                                         .thenAccept(resultEntry -> {
                                             if (resultEntry == null) {
-                                                if (logger.isInfoEnabled()) {
-                                                    logger.info("unable to enqueue final task; kind={}; targetClusterIds={}",
+                                                if (logger.isTraceEnabled()) {
+                                                    logger.trace("unable to enqueue final task; kind={}; targetClusterIds={}",
                                                             getFinalTaskKind(), targetClusterId);
                                                 }
                                                 return;
@@ -184,7 +184,9 @@ public class BounceTask extends AbstractDeferredTask {
                                             final Transformed<RealVector> transformedCentroid =
                                                     storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
 
-                                            final UUID taskId = randomNormalPriorityTaskId(nestedRandom, config.isDeterministicRandomness());
+                                            final UUID taskId =
+                                                    randomNormalPriorityTaskId(nestedRandom,
+                                                            config.isDeterministicRandomness());
                                             final AbstractDeferredTask finalTask;
                                             switch (getFinalTaskKind()) {
                                                 case SPLIT_MERGE:
@@ -203,8 +205,8 @@ public class BounceTask extends AbstractDeferredTask {
                                             }
 
                                             finalTask.writeDeferredTask(transaction);
-                                            if (logger.isInfoEnabled()) {
-                                                logger.info("enqueued final task; taskId={}",
+                                            if (logger.isTraceEnabled()) {
+                                                logger.trace("enqueued final task; taskId={}",
                                                         taskIdToString(finalTask.getTaskId()));
                                             }
 

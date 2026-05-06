@@ -621,8 +621,8 @@ class Primitives {
             final SplitMergeTask newSplitTask =
                     SplitMergeTask.of(getLocator(), accessInfo, newTaskId, clusterId, clusterCentroid);
             newSplitTask.writeDeferredTask(transaction);
-            if (logger.isInfoEnabled()) {
-                logger.info("enqueued SPLIT_MERGE due to number of primary vectors, taskId={}, numPrimaryVectors={}",
+            if (logger.isTraceEnabled()) {
+                logger.trace("enqueued SPLIT_MERGE due to number of primary vectors, taskId={}, numPrimaryVectors={}",
                         newSplitTask.getTaskId(), numTotalPrimaryVectors);
             }
 
