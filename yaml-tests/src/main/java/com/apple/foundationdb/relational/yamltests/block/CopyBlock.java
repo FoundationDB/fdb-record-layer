@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,8 @@ import java.util.Map;
  *
  * <h2>Execution</h2>
  * <ol>
- *     <li><b>Export phase:</b> Connects to the source cluster at the catalog URI and executes {@code COPY <path>}.
+ *     <li><b>Export phase:</b> Connects to the source cluster at the catalog URI and executes
+ *         {@code COPY <path> INCREMENT INCARNATION}.
  *         If {@code export_limit} is set, uses {@link RelationalStatement#setMaxRows(int)} and follows continuations
  *         to collect all data.</li>
  *     <li><b>Import phase:</b> Connects to the dest cluster at the catalog URI and executes
@@ -71,29 +72,20 @@ public class CopyBlock extends ReferencedBlock implements Block {
     public static final String COPY_BLOCK = "copy_block";
     private static final URI CATALOG_URI = URI.create("jdbc:embed:/__SYS?schema=CATALOG");
 
-    private final int sourceCluster;
-    @Nonnull
-    private final String sourcePath;
-    private final int destCluster;
-    @Nonnull
-    private final String destPath;
-    private final int exportLimit;
-    private final int importChunkSize;
     @Nonnull
     private final YamlExecutionContext executionContext;
+    private final CopyInfoForCluster sourceInfo;
+    private final CopyInfoForCluster destInfo;
+
+    record CopyInfoForCluster(int cluster, String path, int chunkSize) { }
 
     private CopyBlock(@Nonnull final YamlReference reference,
-                      final int sourceCluster, @Nonnull final String sourcePath,
-                      final int destCluster, @Nonnull final String destPath,
-                      final int exportLimit, final int importChunkSize,
+                      @Nonnull final CopyInfoForCluster sourceInfo,
+                      @Nonnull final CopyInfoForCluster destInfo,
                       @Nonnull final YamlExecutionContext executionContext) {
         super(reference);
-        this.sourceCluster = sourceCluster;
-        this.sourcePath = sourcePath;
-        this.destCluster = destCluster;
-        this.destPath = destPath;
-        this.exportLimit = exportLimit;
-        this.importChunkSize = importChunkSize;
+        this.sourceInfo = sourceInfo;
+        this.destInfo = destInfo;
         this.executionContext = executionContext;
     }
 
@@ -110,23 +102,23 @@ public class CopyBlock extends ReferencedBlock implements Block {
                                     @Nonnull final YamlExecutionContext executionContext) {
         try {
             final Map<?, ?> blockMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, COPY_BLOCK));
-            final Map<?, ?> sourceMap = getMap(blockMap, "source");
-            final int sourceCluster = getIntOrDefault(sourceMap, "cluster", 0);
-            final String sourcePath = getString(sourceMap, "path", "source path");
 
-            final Map<?, ?> destMap = getMap(blockMap, "dest");
-            final int destCluster = getIntOrDefault(destMap, "cluster", 0);
-            final String destPath = getString(destMap, "path", "dest path");
-
-            final int exportLimit = getIntOrDefault(blockMap, "export_limit", 0);
-            final int importChunkSize = getIntOrDefault(blockMap, "import_chunk_size", 0);
-
-            return List.of(new CopyBlock(reference, sourceCluster, sourcePath, destCluster, destPath,
-                    exportLimit, importChunkSize, executionContext));
+            return List.of(new CopyBlock(reference,
+                    getInfo(blockMap, "source", "export_limit"),
+                    getInfo(blockMap, "dest", "import_chunk_size"),
+                    executionContext));
         } catch (Exception e) {
             throw YamlExecutionContext.wrapContext(e,
                     () -> "Error parsing copy_block at " + reference, COPY_BLOCK, reference);
         }
+    }
+
+    private static CopyInfoForCluster getInfo(Map<?, ?> map, String name, String chunkSizeName) {
+        final Map<?, ?> clusterMap = getMap(map, name);
+        return new CopyInfoForCluster(
+                getIntOrDefault(clusterMap, "cluster", 0),
+                getString(clusterMap, "path", name + " path"),
+                getIntOrDefault(map, chunkSizeName, 0));
     }
 
     @Nonnull
@@ -149,11 +141,11 @@ public class CopyBlock extends ReferencedBlock implements Block {
     @Override
     public void execute() {
         try {
-            logger.debug("📋 Starting copy from cluster {} ({}) to cluster {} ({})",
-                    sourceCluster, sourcePath, destCluster, destPath);
+            logger.debug("📋 Starting copy from {} to {}",
+                    sourceInfo, destInfo);
             final List<byte[]> exportedData = executeExport();
             if (logger.isDebugEnabled()) {
-                logger.debug("📋 Exported {} record(s) from cluster {}", exportedData.size(), sourceCluster);
+                logger.debug("📋 Exported {} record(s) from cluster {}", exportedData.size(), sourceInfo.cluster);
             }
             executeImport(exportedData);
             logger.debug("📋 Copy complete");
@@ -165,18 +157,18 @@ public class CopyBlock extends ReferencedBlock implements Block {
 
     @Nonnull
     private List<byte[]> executeExport() throws SQLException {
-        try (YamlConnection conn = executionContext.getConnectionFactory().getNewConnection(CATALOG_URI, sourceCluster)) {
+        try (YamlConnection conn = executionContext.getConnectionFactory().getNewConnection(CATALOG_URI, sourceInfo.cluster)) {
             final List<byte[]> allData = new ArrayList<>();
             try (RelationalStatement stmt = conn.createStatement()) {
-                if (exportLimit > 0) {
-                    stmt.setMaxRows(exportLimit);
+                if (sourceInfo.chunkSize > 0) {
+                    stmt.setMaxRows(sourceInfo.chunkSize);
                 }
                 // Currently this only supports `INCREMENT INCARNATION`, because `PRESERVE INCARNATION` is intended for
                 // validating that the copy was done correctly, and thus would need to be a separate thing (either a
                 // separate block, or a separate step in this block that validates they are the same after copying)
-                try (RelationalResultSet rs = stmt.executeQuery("COPY " + sourcePath  + " INCREMENT INCARNATION")) {
+                try (RelationalResultSet rs = stmt.executeQuery("COPY " + sourceInfo.path  + " INCREMENT INCARNATION")) {
                     Continuation continuation = collectExportBatch(rs, allData);
-                    while (exportLimit > 0 && !continuation.atEnd()) {
+                    while (sourceInfo.chunkSize > 0 && !continuation.atEnd()) {
                         continuation = executeContinuation(conn, continuation, allData);
                     }
 
@@ -192,7 +184,8 @@ public class CopyBlock extends ReferencedBlock implements Block {
                                              @Nonnull final List<byte[]> allData) throws SQLException {
         try (RelationalPreparedStatement ps = conn.prepareStatement("EXECUTE CONTINUATION ?")) {
             ps.setBytes(1, continuation.serialize());
-            ps.setMaxRows(exportLimit);
+            // we'll only ever have a continuation if this was limited previously, no need to check chunkSize>0
+            ps.setMaxRows(sourceInfo.chunkSize);
             try (RelationalResultSet crs = ps.executeQuery()) {
                 return collectExportBatch(crs, allData);
             }
@@ -206,27 +199,27 @@ public class CopyBlock extends ReferencedBlock implements Block {
         while (rs.next()) {
             allData.add(rs.getBytes(1));
         }
-        if (exportLimit > 0) {
+        if (sourceInfo.chunkSize > 0) {
             final int batchSize = allData.size() - sizeBefore;
-            Assert.thatUnchecked(batchSize <= exportLimit,
-                    "Expected at most " + exportLimit + " rows from export batch, got " + batchSize);
+            Assert.thatUnchecked(batchSize <= sourceInfo.chunkSize,
+                    "Expected at most " + sourceInfo.chunkSize + " rows from export batch, got " + batchSize);
         }
         return rs.getContinuation();
     }
 
     private void executeImport(@Nonnull final List<byte[]> data) throws SQLException {
-        try (YamlConnection conn = executionContext.getConnectionFactory().getNewConnection(CATALOG_URI, destCluster)) {
+        try (YamlConnection conn = executionContext.getConnectionFactory().getNewConnection(CATALOG_URI, destInfo.cluster)) {
             final List<List<byte[]>> chunks = partition(data);
             int totalCount = 0;
             for (List<byte[]> chunk : chunks) {
                 totalCount = importChunk(chunk, conn, totalCount);
             }
-            logger.debug("📋 Imported {} record(s) to cluster {}", totalCount, destCluster);
+            logger.debug("📋 Imported {} record(s) to cluster {}", totalCount, destInfo.cluster);
         }
     }
 
     private int importChunk(@Nonnull final List<byte[]> chunk, @Nonnull final YamlConnection conn, int totalCount) throws SQLException {
-        try (RelationalPreparedStatement ps = conn.prepareStatement("COPY " + destPath + " FROM ?")) {
+        try (RelationalPreparedStatement ps = conn.prepareStatement("COPY " + destInfo.path + " FROM ?")) {
             java.sql.Array array = ps.getConnection().createArrayOf("BINARY", chunk.toArray(new byte[0][]));
             ps.setArray(1, array);
             try (RelationalResultSet rs = ps.executeQuery()) {
@@ -243,12 +236,12 @@ public class CopyBlock extends ReferencedBlock implements Block {
 
     @Nonnull
     private List<List<byte[]>> partition(@Nonnull final List<byte[]> data) {
-        if (importChunkSize <= 0 || importChunkSize >= data.size()) {
+        if (destInfo.chunkSize <= 0 || destInfo.chunkSize >= data.size()) {
             return List.of(data);
         }
         final List<List<byte[]>> chunks = new ArrayList<>();
-        for (int i = 0; i < data.size(); i += importChunkSize) {
-            chunks.add(data.subList(i, Math.min(i + importChunkSize, data.size())));
+        for (int i = 0; i < data.size(); i += destInfo.chunkSize) {
+            chunks.add(data.subList(i, Math.min(i + destInfo.chunkSize, data.size())));
         }
         return chunks;
     }
