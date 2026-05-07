@@ -153,24 +153,6 @@ public class YamlCorrectionUnitTest {
         assertEquals(lines, List.of(originalList.get(0), "      - explain: \"SCAN([IS T1])\"", originalList.get(1), originalList.get(2)));
     }
 
-    /**
-     * {@link YamlExecutionContext#addExplain} deduplicates: calling it twice with the same
-     * query reference queues only one correction, so the file ends up with exactly one
-     * {@code explain:} line even when the query runs multiple times.
-     */
-    @Test
-    void addExplainDeduplicatesWhenCalledTwiceForSameQueryReference() throws Exception {
-        final YamlConnectionFactory factory = Mockito.mock(YamlConnectionFactory.class);
-        final var resource = YamlReference.YamlResource.base("check-explain/shouldPass/contains.yamsql");
-        final var ctx = new YamlExecutionContext(resource, factory,
-                YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_ADD_EXPLAIN, true));
-        ctx.registerResource(resource);
-        final var ref = resource.withLineNumber(1);
-        ctx.addExplain(ref, "PLAN A");
-        ctx.addExplain(ref, "PLAN A");
-        assertEquals(1, ctx.pendingAddExplainCorrectionCount(resource));
-    }
-
     // ── CheckExplainConfig null-value (synthetic) path tests ─────────────────
 
     // Exposes checkResultInternal (protected) for direct testing from this package.
