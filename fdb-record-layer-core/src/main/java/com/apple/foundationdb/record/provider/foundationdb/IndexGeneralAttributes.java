@@ -41,7 +41,10 @@ public final class IndexGeneralAttributes {
 
     /**
      * Predict if the indexing process goes through a bottleneck (like a semaphore or a single item that will cause a
-     * conflict for concurrent transactions). If false, mutual indexing may be inefficient.
+     * conflict for concurrent transactions). This returns {@code true} if it can be expected that N concurrent workers
+     * will take 1/Nth the time to build using mutual indexing. This returns {@code false} if the index maintenance does
+     * not play well with concurrent writes, and N workers will take approximately the same time as building without
+     * concurrency.
      *
      * @return true unless not optimized to mutual indexing
      */

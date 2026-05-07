@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
+import com.apple.foundationdb.record.provider.foundationdb.IndexGeneralAttributes;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -64,5 +65,11 @@ public class TimeWindowLeaderboardIndexMaintainerFactory implements IndexMaintai
     @Nonnull
     public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new TimeWindowLeaderboardIndexMaintainer(state);
+    }
+
+    @Nonnull
+    @Override
+    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+        return new IndexGeneralAttributes(true);
     }
 }

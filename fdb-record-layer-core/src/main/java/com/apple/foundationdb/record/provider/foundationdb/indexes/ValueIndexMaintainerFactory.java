@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
+import com.apple.foundationdb.record.provider.foundationdb.IndexGeneralAttributes;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -73,5 +74,11 @@ public class ValueIndexMaintainerFactory implements IndexMaintainerFactory {
     @Override
     public Iterable<MatchCandidate> createMatchCandidates(@Nonnull final RecordMetaData metaData, @Nonnull final Index index, final boolean reverse) {
         return MatchCandidateExpansion.expandValueIndexMatchCandidate(metaData, index, reverse);
+    }
+
+    @Nonnull
+    @Override
+    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+        return new IndexGeneralAttributes(true);
     }
 }

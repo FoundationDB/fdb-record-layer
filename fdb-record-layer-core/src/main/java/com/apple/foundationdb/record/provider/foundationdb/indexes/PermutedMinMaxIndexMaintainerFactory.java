@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.IndexGeneralAttributes;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -107,5 +108,11 @@ public class PermutedMinMaxIndexMaintainerFactory implements IndexMaintainerFact
                 .ifPresent(resultBuilder::add);
 
         return resultBuilder.build();
+    }
+
+    @Nonnull
+    @Override
+    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+        return new IndexGeneralAttributes(true);
     }
 }

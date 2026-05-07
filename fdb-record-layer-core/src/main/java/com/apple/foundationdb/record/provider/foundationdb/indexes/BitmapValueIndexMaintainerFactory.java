@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.IndexGeneralAttributes;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -118,5 +119,11 @@ public class BitmapValueIndexMaintainerFactory implements IndexMaintainerFactory
         final ExpansionVisitor<?> expansionVisitor = new BitmapAggregateIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes());
         return MatchCandidateExpansion.optionalToIterable(
                 MatchCandidateExpansion.expandIndexMatchCandidate(info, false, null, expansionVisitor));
+    }
+
+    @Nonnull
+    @Override
+    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+        return new IndexGeneralAttributes(true);
     }
 }

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.spatial.geophile;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
+import com.apple.foundationdb.record.provider.foundationdb.IndexGeneralAttributes;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -55,6 +56,12 @@ public class GeophileIndexMaintainerFactory implements IndexMaintainerFactory {
     @Override
     public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new GeophileIndexMaintainer(state);
+    }
+
+    @Nonnull
+    @Override
+    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+        return new IndexGeneralAttributes(true);
     }
 
 }

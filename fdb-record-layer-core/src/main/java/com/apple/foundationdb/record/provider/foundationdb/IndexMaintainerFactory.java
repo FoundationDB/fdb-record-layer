@@ -126,6 +126,6 @@ public interface IndexMaintainerFactory {
      */
     @Nonnull
     default IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull Index index) {
-        return new IndexGeneralAttributes(true);
+        return new IndexGeneralAttributes(false);
     }
 }

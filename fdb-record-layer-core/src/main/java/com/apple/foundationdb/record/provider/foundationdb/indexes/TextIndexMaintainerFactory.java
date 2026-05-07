@@ -54,8 +54,6 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
     @Nonnull
     private static final List<String> TYPES = Collections.singletonList(IndexTypes.TEXT);
     @Nonnull
-    private static final IndexGeneralAttributes TEXT_INDEX_ATTRIBUTES = new IndexGeneralAttributes(false);
-    @Nonnull
     private static final Set<String> TEXT_OPTIONS = ImmutableSet.of(
             IndexOptions.TEXT_TOKENIZER_NAME_OPTION,
             IndexOptions.TEXT_TOKENIZER_VERSION_OPTION,
@@ -199,11 +197,5 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
     @Override
     public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new TextIndexMaintainer(state);
-    }
-
-    @Nonnull
-    @Override
-    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
-        return TEXT_INDEX_ATTRIBUTES;
     }
 }
