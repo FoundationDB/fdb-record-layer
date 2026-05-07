@@ -232,7 +232,7 @@ Important Notes
 Index Requirement
 -----------------
 
-**GROUP BY operations require an appropriate index for optimal performance.** The query planner needs an index on the grouped column(s) to execute the query efficiently. Without a suitable index, the query will fail with an "unable to plan" error.
+**GROUP BY requires an appropriate index to execute.** Without a suitable index, the query will fail with an "unable to plan" error.
 
 Example index creation:
 
@@ -246,7 +246,7 @@ Column Selection Rules
 ----------------------
 
 * Only columns in the GROUP BY clause or aggregate functions can appear in the SELECT list
-* Selecting non-grouped, non-aggregated columns will result in error 42803
+* Selecting non-grouped, non-aggregated columns will result in error SQLSTATE 42803 (GROUPING_ERROR)
 
 **Invalid example**:
 

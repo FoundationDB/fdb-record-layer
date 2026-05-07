@@ -21,7 +21,7 @@ Parameters
 Returns
 =======
 
-Returns the greatest value with the same type as the input expressions. If all values are NULL, returns NULL. All expressions must be of compatible types.
+Returns the greatest value using the common data type of all input expressions. All input expressions must be convertible to a common data type, which will be the type of the returned value. If all values are NULL, returns NULL.
 
 Supported Types
 ================
@@ -34,6 +34,8 @@ Supported Types
 * ``FLOAT`` - Numeric comparison
 * ``INTEGER`` - Numeric comparison
 * ``BIGINT`` - Numeric comparison
+
+NULL values are treated as smaller than any non-NULL value.
 
 **Not Supported**: ``ARRAY``, ``STRUCT``, ``BYTES``
 
@@ -110,7 +112,6 @@ Important Notes
 ===============
 
 * ``GREATEST`` returns the largest value among all provided expressions
-* NULL values are treated as smaller than any non-NULL value
 * If all values are NULL, ``GREATEST`` returns NULL
 * All expressions must be of compatible types
 * The function requires at least two arguments

@@ -108,9 +108,4 @@ The South region average only includes the non-NULL value (150), ignoring the NU
 Important Notes
 ===============
 
-* ``AVG`` ignores NULL values in the aggregation
-* When used without GROUP BY, AVG returns a single value for the entire table
-* When used with GROUP BY, AVG returns one value per group
-* If all values in a group are NULL, AVG returns NULL for that group
-* The return type is ``DOUBLE`` (even if the input is ``BIGINT``)
-* **Index Requirement**: For optimal performance, queries with GROUP BY require an appropriate index. See :ref:`Indexes <index_definition>` for details on creating indexes that support GROUP BY operations.
+* **Index Requirement**: GROUP BY queries require an appropriate index to execute. See :ref:`Indexes <index_definition>` for details on creating indexes that support GROUP BY operations.

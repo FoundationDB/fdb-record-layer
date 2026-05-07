@@ -21,9 +21,6 @@ Standard SQL Aggregates
     aggregate_functions/min
     aggregate_functions/max
 
-Specialized Aggregates
-----------------------
-
 .. toctree::
     :maxdepth: 1
 

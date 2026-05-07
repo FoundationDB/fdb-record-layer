@@ -108,10 +108,4 @@ The South region maximum only considers the non-NULL value (150), ignoring the N
 Important Notes
 ===============
 
-* ``MAX`` ignores NULL values in the aggregation
-* When used without GROUP BY, MAX returns a single value for the entire table
-* When used with GROUP BY, MAX returns one value per group
-* If all values in a group are NULL, MAX returns NULL for that group
-* The return type matches the type of the input expression
-* ``MAX`` can be used with numeric types, strings (lexicographic ordering), and other comparable types
-* **Index Requirement**: For optimal performance, queries with GROUP BY require an appropriate index. See :ref:`Indexes <index_definition>` for details on creating indexes that support GROUP BY operations.
+* **Index Requirement**: GROUP BY queries require an appropriate index to execute. See :ref:`Indexes <index_definition>` for details on creating indexes that support GROUP BY operations.

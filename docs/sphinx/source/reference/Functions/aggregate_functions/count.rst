@@ -26,7 +26,7 @@ The function accepts two forms:
 Returns
 =======
 
-Returns a ``BIGINT`` representing the count of rows or non-NULL values. If the input set is empty, returns ``0``.
+Returns a ``BIGINT`` representing the count of rows or non-NULL values. Returns ``0`` if the input set is empty or if all ``expression`` values are NULL (for ``COUNT(expression)``).
 
 Examples
 ========

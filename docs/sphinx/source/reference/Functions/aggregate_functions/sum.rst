@@ -108,9 +108,4 @@ The South region sum only includes the non-NULL value (150), ignoring the NULL f
 Important Notes
 ===============
 
-* ``SUM`` ignores NULL values in the aggregation
-* When used without GROUP BY, SUM returns a single value for the entire table
-* When used with GROUP BY, SUM returns one value per group
-* If all values in a group are NULL, SUM returns NULL for that group
-* The return type is ``BIGINT``
-* **Index Requirement**: For optimal performance, queries with GROUP BY require an appropriate index. See :ref:`Indexes <index_definition>` for details on creating indexes that support GROUP BY operations.
+* **Index Requirement**: GROUP BY queries require an appropriate index to execute. See :ref:`Indexes <index_definition>` for details on creating indexes that support GROUP BY operations.
