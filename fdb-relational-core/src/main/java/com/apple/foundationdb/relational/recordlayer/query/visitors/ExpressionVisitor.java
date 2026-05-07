@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
-import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
@@ -45,6 +44,7 @@ import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.query.ColumnarValue;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -96,8 +96,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public LogicalOperator visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
         final var functionName = visitTableFunctionName(ctx.tableFunctionName());
         return ctx.tableFunctionArgs() == null
-                ? getDelegate().resolveTableValuedFunction(functionName, Expressions.empty())
-                : getDelegate().resolveTableValuedFunction(functionName, visitTableFunctionArgs(ctx.tableFunctionArgs()));
+               ? getDelegate().resolveTableValuedFunction(functionName, Expressions.empty())
+               : getDelegate().resolveTableValuedFunction(functionName, visitTableFunctionArgs(ctx.tableFunctionArgs()));
     }
 
     @Override
@@ -303,8 +303,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         // Parse ORDER BY expressions directly — the isTopLevel() check in visitOrderByClause
         // is for query-level ORDER BY and does not apply inside OVER clauses.
         final List<OrderByExpression> orderByExpressions = orderByClause == null ? ImmutableList.of()
-                : orderByClause.orderByExpression().stream().map(this::visitOrderByExpression)
-                        .collect(ImmutableList.toImmutableList());
+                                                                                 : orderByClause.orderByExpression().stream().map(this::visitOrderByExpression)
+                                                                                   .collect(ImmutableList.toImmutableList());
 
         @Nullable final var windowOptionsClause = ctx.windowSpec().windowOptionsClause();
         final Expressions windowOptions = windowOptionsClause == null ? Expressions.empty() : getDelegate().visitWindowOptionsClause(windowOptionsClause);
@@ -382,7 +382,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                 return result;
             });
             arguments = Expressions.of(Streams.concat(Stream.of(classNameExpression),
-                    argumentNodes.stream().skip(1).map(this::visitFunctionArg))
+                            argumentNodes.stream().skip(1).map(this::visitFunctionArg))
                     .collect(Collectors.toUnmodifiableList()));
         } else {
             arguments = visitFunctionArgs(ctx.functionArgs());
@@ -849,34 +849,34 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestings(@Nonnull final RelationalParser.UidListWithNestingsContext ctx) {
         final var uidMap = Streams.mapWithIndex(ctx.uidWithNestings().stream(),
-                                (ctxWithNesting, index) -> {
-                                    final var uid = visitUid(ctxWithNesting.uid());
-                                    final var accessor = FieldValue.ResolvedAccessor.of(uid.getName(), (int)index, Type.any());
-                                    if (ctxWithNesting.uidListWithNestingsInParens() == null) {
-                                        return NonnullPair.of(accessor, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), null));
-                                    } else {
-                                        return NonnullPair.of(accessor, visitUidListWithNestingsInParens(ctxWithNesting.uidListWithNestingsInParens()));
-                                    }
-                                })
-                        .collect(ImmutableMap.toImmutableMap(NonnullPair::getLeft, NonnullPair::getRight,
-                                (l, r) -> {
-                                    throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column " + l);
-                                }));
+                        (ctxWithNesting, index) -> {
+                            final var uid = visitUid(ctxWithNesting.uid());
+                            final var accessor = FieldValue.ResolvedAccessor.of(uid.getName(), (int)index, Type.any());
+                            if (ctxWithNesting.uidListWithNestingsInParens() == null) {
+                                return NonnullPair.of(accessor, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), null));
+                            } else {
+                                return NonnullPair.of(accessor, visitUidListWithNestingsInParens(ctxWithNesting.uidListWithNestingsInParens()));
+                            }
+                        })
+                .collect(ImmutableMap.toImmutableMap(NonnullPair::getLeft, NonnullPair::getRight,
+                        (l, r) -> {
+                            throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column " + l);
+                        }));
         return CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), uidMap);
     }
 
     @Nonnull
     @Override
     public Expression visitRecordConstructorForInsert(@Nonnull RelationalParser.RecordConstructorForInsertContext ctx) {
-        final var columns = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
-        return Expression.ofUnnamed(RecordConstructorValue.ofColumns(columns));
+        final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
+        return Expression.ofUnnamed(RecordConstructorValue.ofColumns(expressions.underlyingAsColumns()));
     }
 
     @Nonnull
     @Override
     public Expression visitRecordConstructorForInlineTable(@Nonnull RelationalParser.RecordConstructorForInlineTableContext ctx) {
-        final var columns = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
-        return Expression.ofUnnamed(RecordConstructorValue.ofColumns(columns));
+        final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
+        return Expression.ofUnnamed(RecordConstructorValue.ofColumns(expressions.underlyingAsColumns()));
     }
 
     @Nonnull
@@ -899,12 +899,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             final var resultValue = star.getUnderlying();
             return Expression.ofUnnamed(resultValue);
         }
-        final var columns = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
+        final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
         if (ctx.ofTypeClause() != null) {
             final var recordId = visitUid(ctx.ofTypeClause().uid());
-            return Expression.ofUnnamed(RecordConstructorValue.ofColumnsAndName(columns, recordId.getName()));
+            final var resultValue = RecordConstructorValue.ofColumnsAndName(expressions.underlyingAsColumns(), recordId.getName());
+            return Expression.ofUnnamed(resultValue);
         }
-        return Expression.ofUnnamed(RecordConstructorValue.ofColumns(columns));
+        final var resultValue = RecordConstructorValue.ofColumns(expressions.underlyingAsColumns());
+        return Expression.ofUnnamed(resultValue);
     }
 
     @Nonnull
@@ -934,21 +936,21 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    private ImmutableList<Column<? extends Value>> parseRecordFields(@Nonnull List<? extends ParserRuleContext> parserRuleContexts,
-                                                                      @Nullable List<Type.Record.Field> targetFields) {
+    private Expressions parseRecordFields(@Nonnull List<? extends ParserRuleContext> parserRuleContexts,
+                                          @Nullable List<Type.Record.Field> targetFields) {
         Assert.thatUnchecked(targetFields == null || targetFields.size() == parserRuleContexts.size());
-        final var resultsBuilder = ImmutableList.<Column<? extends Value>>builder();
+        final var resultsBuilder = ImmutableList.<Expression>builder();
         for (int i = 0; i < parserRuleContexts.size(); i++) {
             final var parserRuleContext = parserRuleContexts.get(i);
             final var targetField = targetFields == null ? null : targetFields.get(i);
             resultsBuilder.add(parseRecordField(parserRuleContext, targetField));
         }
-        return resultsBuilder.build();
+        return Expressions.of(resultsBuilder.build());
     }
 
     @Nonnull
-    private Column<? extends Value> parseRecordField(@Nonnull ParserRuleContext parserRuleContext,
-                                                      @Nullable Type.Record.Field targetField) {
+    private Expression parseRecordField(@Nonnull ParserRuleContext parserRuleContext,
+                                        @Nullable Type.Record.Field targetField) {
         final var fieldType = targetField == null ? null : targetField.getFieldType();
         StringTrieNode reorderings = null;
         final var maybeState = getStateMaybe();
@@ -956,8 +958,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             reorderings = maybeState.get().getTargetTypeReorderings().get();
         }
         final var targetFieldReorderings = (reorderings == null || reorderings.getChildrenMap() == null) ?
-                null :
-                reorderings.getChildrenMap().get(targetField.getFieldName());
+                                           null :
+                                           reorderings.getChildrenMap().get(targetField.getFieldName());
         final var newStateBuilder = LogicalPlanFragment.State.newBuilder();
         final Expression expression;
         try {
@@ -974,16 +976,20 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         Assert.notNullUnchecked(expression);
         if (fieldType == null) {
-            return Column.of(expression.getName().map(Identifier::getName), expression.getUnderlying());
+            return expression;
         }
-        final var coercedExpression = coerceIfNecessary(expression, fieldType);
+        var coercedExpression = coerceIfNecessary(expression, fieldType);
+        if (targetField.getFieldIndexOptional().isPresent()) {
+            coercedExpression = coercedExpression.withUnderlying(new ColumnarValue(coercedExpression.getUnderlying(),
+                    targetField.getFieldIndex()));
+        }
         if (expression.getName().isPresent() && targetField.getFieldNameOptional().isPresent()) {
             Assert.thatUnchecked(expression.getName().get().equals(Identifier.of(targetField.getFieldNameOptional().get())));
         }
-        final var value = coercedExpression.getUnderlying();
-        return Column.of(
-                Type.Record.Field.of(value.getResultType(), targetField.getFieldNameOptional(), targetField.getFieldIndexOptional()),
-                value);
+        if (expression.getName().isEmpty() && targetField.getFieldNameOptional().isPresent()) {
+            return coercedExpression.withName(Identifier.of(targetField.getFieldName()));
+        }
+        return coercedExpression;
     }
 
     @Nonnull
@@ -1015,7 +1021,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    private ImmutableList<Column<? extends Value>> parseRecordFieldsUnderReorderings(@Nonnull final List<? extends ParserRuleContext> providedColumnContexts) {
+    private Expressions parseRecordFieldsUnderReorderings(@Nonnull final List<? extends ParserRuleContext> providedColumnContexts) {
         final var maybeState = getStateMaybe();
         if (maybeState.isEmpty() || maybeState.get().getTargetType().isEmpty()) {
             return parseRecordFields(providedColumnContexts, null);
@@ -1028,13 +1034,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         if (state.getTargetTypeReorderings().isPresent()) {
             final var targetTypeReorderings = ImmutableList.copyOf(Assert.notNullUnchecked(
                     state.getTargetTypeReorderings().get().getChildrenMap()).keySet());
-            final var resultColumnsBuilder = ImmutableList.<Column<? extends Value>>builder();
+            final var resultColumnsBuilder = ImmutableList.<Expression>builder();
             Assert.thatUnchecked(targetTypeReorderings.size() >= providedColumnContexts.size(), ErrorCode.SYNTAX_ERROR, "Too many parameters");
             for (final var elementField : elementFields) {
                 final int index = targetTypeReorderings.indexOf(elementField.getFieldName());
                 final var fieldType = elementField.getFieldType();
+                Expression currentFieldColumns = null;
                 if (index >= 0 && index < providedColumnContexts.size()) {
-                    resultColumnsBuilder.add(parseRecordField(providedColumnContexts.get(index), elementField));
+                    currentFieldColumns = parseRecordField(providedColumnContexts.get(index), elementField);
                 } else if (index >= providedColumnContexts.size()) {
                     // column is declared but the value is not provided
                     Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "Value of column \"" + elementField.getFieldName() + "\" is not provided");
@@ -1042,18 +1049,20 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                     // We do not yet support default values for any types, hence it makes sense to simply fail if the field type
                     // expects non-null but no value is provided.
                     Assert.thatUnchecked(fieldType.isNullable(), ErrorCode.NOT_NULL_VIOLATION, "null value in column \"" + elementField.getFieldName() + "\" violates not-null constraint");
-                    final var nullValue = new NullValue(fieldType);
-                    resultColumnsBuilder.add(Column.of(
-                            Type.Record.Field.of(nullValue.getResultType(), elementField.getFieldNameOptional(), elementField.getFieldIndexOptional()),
-                            nullValue));
+                    Value value = new NullValue(fieldType);
+                    if (elementField.getFieldIndexOptional().isPresent()) {
+                        value = new ColumnarValue(value, elementField.getFieldIndex());
+                    }
+                    currentFieldColumns = Expression.fromUnderlying(value);
                 }
+                resultColumnsBuilder.add(currentFieldColumns);
             }
-            return resultColumnsBuilder.build();
+            return Expressions.of(resultColumnsBuilder.build());
         }
+
         Assert.thatUnchecked(elementFields.size() == providedColumnContexts.size(),
                 ErrorCode.CANNOT_CONVERT_TYPE, "provided record cannot be assigned as its type is incompatible with the target type"
         );
-
         return parseRecordFields(providedColumnContexts, elementFields);
     }
 
