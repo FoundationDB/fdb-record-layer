@@ -83,6 +83,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests of the {@link MetaDataEvolutionValidator} class. This mostly consists of trying to perform illegal updates
@@ -1032,6 +1033,54 @@ class MetaDataEvolutionValidatorTest {
         RecordMetaData metaData4 = replaceIndex(metaData3, "all$num_value_2",
                 indexProto -> indexProto.toBuilder().setRootExpression(Key.Expressions.field("num_value_2__old").toKeyExpression()).build());
         fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData4);
+    }
+
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldWithMultiTypeIndex(boolean deprecated) {
+        // Create a meta-data with a non-universal multi-type index
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords4Proto.getDescriptor());
+        final List<String> types = List.of("RestaurantReviewer", "RestaurantRecord");
+        metaDataBuilder.addMultiTypeIndex(types.stream().map(metaDataBuilder::getRecordType).toList(),
+                new Index("multi_name", "name"));
+        metaDataBuilder.removeIndex("RestaurantRecord$name");
+        metaDataBuilder.removeIndex("RestaurantReviewer$name");
+        RecordMetaData metaData1 = metaDataBuilder.build();
+
+        // Updating the name in just one type results in different types requiring different field renames
+        for (String type : types) {
+            FileDescriptor renamedOneName = mutateMessageType(type, TestRecords4Proto.getDescriptor(), descriptor -> updateNameField(descriptor, deprecated));
+            RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, renamedOneName);
+
+            fieldRenameChecker.assertInvalidRenaming("field renames result in inconsistent index definition for multi-type index", deprecated, metaData1, metaData2);
+        }
+
+        // Updating all the names changes the error message
+        FileDescriptor updateAllNames = types.stream()
+                .reduce(TestRecords4Proto.getDescriptor(), (fileDescriptor, type) -> mutateMessageType(type, fileDescriptor, descriptor -> updateNameField(descriptor, deprecated)), (fileA, fileB) -> fail("cannot combine"));
+        RecordMetaData metaData3 = replaceRecordsDescriptor(metaData1, updateAllNames);
+        fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData3);
+
+        // Updating the key expression in the index to match the new name is legal if field renames are allowed
+        RecordMetaData metaData4 = replaceIndex(metaData3, "multi_name", index -> index.toBuilder().setRootExpression(Key.Expressions.field("name_a").toKeyExpression()).build());
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData4);
+    }
+
+    private void updateNameField(@Nonnull DescriptorProtos.DescriptorProto.Builder descriptor, boolean deprecateOld) {
+        // Rename name to name_a
+        descriptor.getFieldBuilderList().stream()
+                .filter(field -> field.getName().equals("name"))
+                .forEach(field -> {
+                    if (deprecateOld) {
+                        deprecateField(field);
+                    }
+                    field.setName("name_a");
+                });
+        // Add in a name field to ensure meta-data validation (not evolution validation) passes
+        addField(descriptor)
+                .setName("name")
+                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
+                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
     }
 
     @ParameterizedTest
