@@ -110,12 +110,10 @@ public class CheckExplainConfig extends QueryConfig {
                               final @Nullable String expectedDot) {
         // Synthetic explain config (value==null): add the actual plan to the file without comparing.
         if (getVal() == null) {
-            if (isExact && executionContext.shouldAddExplains()) {
-                if (!executionContext.addExplain(getReference(), actualPlan)) {
-                    QueryCommand.reportTestFailure("‼️ Cannot add explain plan at " + getReference());
-                } else {
-                    logger.debug(() -> "⭐️ Successfully added plan at " + getReference());
-                }
+            if (!executionContext.addExplain(getReference(), actualPlan)) {
+                QueryCommand.reportTestFailure("‼️ Cannot add explain plan at " + getReference());
+            } else {
+                logger.debug(() -> "⭐️ Successfully added plan at " + getReference());
             }
             return;
         }

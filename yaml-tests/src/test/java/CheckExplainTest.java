@@ -19,31 +19,33 @@
  */
 
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
 import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests that {@code explain} and {@code explainContains} checks fail correctly on a plan mismatch
- * and pass when the plan matches, and that {@link YamlExecutionContext.AddExplainCorrection} inserts
- * an {@code explain} line at the right position in the YAMSQL source.
+ * and pass when the plan matches. Exercises the full {@link YamlRunner} stack (requires FDB).
  * <p>
- *     The shouldFail / shouldPass tests exercise the full {@link YamlRunner} stack (requires FDB).
- *     The AddExplainCorrection tests are pure-Java unit tests with no database dependency.
+ *     Pure-Java unit tests for YAMSQL correction logic live in
+ *     {@link com.apple.foundationdb.relational.yamltests.YamlCorrectionUnitTest}.
  * </p>
  */
 public class CheckExplainTest {
@@ -92,7 +94,8 @@ public class CheckExplainTest {
      */
     static Stream<String> shouldPass() {
         return Stream.of(
-                "contains"  // "SCAN" is present in every full-table-scan plan
+                "contains",  // "SCAN" is present in every full-table-scan plan
+                "exact"      // exact explain string matches the full-table-scan plan
         );
     }
 
@@ -102,108 +105,35 @@ public class CheckExplainTest {
         doRun("check-explain/shouldPass/" + filename + ".yamsql");
     }
 
-    // ── AddExplainCorrection unit tests (no FDB required) ────────────────────
+    // ── add-explain test ──────────────────────────────────────────────────────
 
     /**
-     * Basic case: query and result on consecutive lines, explain inserted between them.
+     * Runs a YAMSQL file that has no {@code explain:} block with {@code OPTION_ADD_EXPLAIN}, then
+     * verifies that the runner wrote an {@code explain:} line back into the file.  Any
+     * {@code explain:} line left by a previous run is stripped at the start so the test is
+     * self-resetting.  Skipped in CI because correction mode is not permitted there.
      */
     @Test
-    void addExplainCorrectionInsertsBeforeFirstConfig() {
-        final List<String> lines = new ArrayList<>(List.of(
-                "      - query: SELECT id FROM t1",
-                "      - result: [{!l 1}]"
-        ));
-        applyAddExplainCorrection(lines, 1, "SCAN([IS T1])");
-        assertEquals(3, lines.size());
-        assertEquals("      - explain: \"SCAN([IS T1])\"", lines.get(1));
-        assertEquals("      - result: [{!l 1}]", lines.get(2));
-    }
+    void addExplainInsertsExplainBlockIntoFile() throws Exception {
+        Assumptions.assumeFalse(YamlExecutionContext.isInCI(), "Skipped in CI: cannot modify YAMSQL files");
 
-    /**
-     * Multi-line query (block scalar): the correction must skip past the query body lines
-     * and insert before the first config entry at the query's indentation.
-     */
-    @Test
-    void addExplainCorrectionSkipsMultiLineQueryBody() {
-        final List<String> lines = new ArrayList<>(List.of(
-                "      - query: |",
-                "          SELECT id",
-                "          FROM t1",
-                "      - result: [{!l 1}]"
-        ));
-        applyAddExplainCorrection(lines, 1, "SCAN([IS T1])");
-        assertEquals(5, lines.size());
-        assertEquals("      - explain: \"SCAN([IS T1])\"", lines.get(3));
-        assertEquals("      - result: [{!l 1}]", lines.get(4));
-    }
+        final String resourcePath = "check-explain/addExplain/add-explain.yamsql";
+        final Path filePath = Path.of(System.getProperty("user.dir"), "src", "test", "resources", resourcePath);
 
-    /**
-     * When there are already other config entries (e.g. {@code planHash:}) before {@code result:},
-     * the explain is inserted as the first config.
-     */
-    @Test
-    void addExplainCorrectionInsertsAsFirstConfig() {
-        final List<String> lines = new ArrayList<>(List.of(
-                "      - query: SELECT id FROM t1",
-                "      - planHash: 12345",
-                "      - result: [{!l 1}]"
-        ));
-        applyAddExplainCorrection(lines, 1, "SCAN([IS T1])");
-        assertEquals(4, lines.size());
-        assertEquals("      - explain: \"SCAN([IS T1])\"", lines.get(1));
-        assertEquals("      - planHash: 12345", lines.get(2));
-        assertEquals("      - result: [{!l 1}]", lines.get(3));
-    }
+        // Strip any explain: line left by a previous run so we always start without one.
+        final List<String> original = Files.readAllLines(filePath, StandardCharsets.UTF_8);
+        final List<String> stripped = original.stream()
+                .filter(line -> !line.stripLeading().startsWith("- explain:"))
+                .collect(Collectors.toList());
+        Files.write(filePath, stripped, StandardCharsets.UTF_8);
 
-    /**
-     * Indentation is derived from the {@code query:} line, so different indentation levels
-     * are handled correctly.
-     */
-    @Test
-    void addExplainCorrectionRespectsIndentation() {
-        final List<String> lines = new ArrayList<>(List.of(
-                "    - query: SELECT id FROM t1",
-                "    - result: [{!l 1}]"
-        ));
-        applyAddExplainCorrection(lines, 1, "MY PLAN");
-        assertEquals(3, lines.size());
-        assertEquals("    - explain: \"MY PLAN\"", lines.get(1));
-    }
+        // Run with OPTION_ADD_EXPLAIN: the synthetic explain config is created and the
+        // actual plan is written back into the file by replaceFilesIfRequired().
+        new YamlRunner(resourcePath, config.createConnectionFactory(),
+                YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_ADD_EXPLAIN, true)).run();
 
-    /**
-     * When the query is the last entry in the block (no following config lines at the same
-     * indentation), the explain is appended immediately after the query line.
-     */
-    @Test
-    void addExplainCorrectionFallsBackToAfterQueryLine() {
-        final List<String> lines = new ArrayList<>(List.of(
-                "      - query: SELECT id FROM t1"
-        ));
-        applyAddExplainCorrection(lines, 1, "SCAN([IS T1])");
-        assertEquals(2, lines.size());
-        assertEquals("      - explain: \"SCAN([IS T1])\"", lines.get(1));
-    }
-
-    /**
-     * Applying the same correction twice (deduplication is the caller's responsibility;
-     * this test verifies {@code apply()} itself is idempotent in position when the line
-     * number is stable).
-     */
-    @Test
-    void addExplainCorrectionHandlesPlanWithQuotes() {
-        final List<String> lines = new ArrayList<>(List.of(
-                "      - query: SELECT id FROM t1",
-                "      - result: [{!l 1}]"
-        ));
-        applyAddExplainCorrection(lines, 1, "SCAN | MAP");
-        assertEquals("      - explain: \"SCAN | MAP\"", lines.get(1));
-    }
-
-    // ── helpers ──────────────────────────────────────────────────────────────
-
-    private static void applyAddExplainCorrection(List<String> lines, int oneBasedLineNumber, String plan) {
-        final YamlReference.YamlResource resource = YamlReference.YamlResource.base("test.yamsql");
-        final YamlReference ref = resource.withLineNumber(oneBasedLineNumber);
-        new YamlExecutionContext.AddExplainCorrection(ref, plan).apply(lines);
+        // Verify the explain line is now present in the file.
+        final List<String> updated = Files.readAllLines(filePath, StandardCharsets.UTF_8);
+        assertTrue(updated.stream().anyMatch(line -> line.stripLeading().startsWith("- explain:")));
     }
 }
