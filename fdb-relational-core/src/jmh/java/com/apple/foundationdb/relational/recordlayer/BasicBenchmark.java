@@ -115,7 +115,7 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
             try (RelationalStatement stmt = dbConn.createStatement();
                     ResultSet resultSet = stmt.executeQuery("SELECT * FROM \"RestaurantRecord\" WHERE \"rest_no\" = 42")) {
 
-                resultSet.nextBroken();
+                resultSet.next();
                 bh.consume(resultSet.getLong("rest_no"));
             }
         }
