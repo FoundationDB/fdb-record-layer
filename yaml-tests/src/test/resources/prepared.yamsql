@@ -195,7 +195,7 @@ test_block:
   preset: single_repetition_ordered
   options:
     statement_type: prepared
-    supported_version: !current_version
+    supported_version: 4.12.1.0
   tests:
     -
       - query: insert into type_with_arrays(pk, bigint_array, integer_array, double_array, float_array, string_array, boolean_array, bytes_array)
@@ -210,7 +210,7 @@ test_block:
 test_block:
   name: type-with-arrays-roundtrip-read
   options:
-    supported_version: !current_version
+    supported_version: 4.12.1.0
   tests:
     -
       - query: select * from type_with_arrays where pk = !! !l 1 !!
