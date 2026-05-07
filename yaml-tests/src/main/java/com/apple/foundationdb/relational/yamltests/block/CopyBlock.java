@@ -35,6 +35,7 @@ import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.Array;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -226,15 +227,15 @@ public class CopyBlock extends ReferencedBlock implements Block {
 
     private int importChunk(@Nonnull final List<byte[]> chunk, @Nonnull final YamlConnection conn, int totalCount) throws SQLException {
         try (RelationalPreparedStatement ps = conn.prepareStatement("COPY " + destInfo.path + " FROM ?")) {
-            java.sql.Array array = ps.getConnection().createArrayOf("BINARY", chunk.toArray(new byte[0][]));
+            Array array = ps.getConnection().createArrayOf("BINARY", chunk.toArray(new byte[0][]));
             ps.setArray(1, array);
             try (RelationalResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    final int count = rs.getInt(1);
-                    Assert.thatUnchecked(count == chunk.size(),
-                            "Expected import count " + chunk.size() + ", got " + count);
-                    totalCount += count;
-                }
+                Assert.thatUnchecked(rs.next(), "Import should return 1 row");
+                final int count = rs.getInt(1);
+                Assert.thatUnchecked(count == chunk.size(),
+                        "Expected import count " + chunk.size() + ", got " + count);
+                totalCount += count;
+                Assert.thatUnchecked(!rs.next(), "Import should return exactly 1 row");
             }
         }
         return totalCount;
