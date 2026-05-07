@@ -53,9 +53,11 @@ import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.function.Consumer;
 
+import static com.apple.foundationdb.record.RecordMetaDataProto.AndPredicate;
 import static com.apple.foundationdb.record.RecordMetaDataProto.Comparison;
 import static com.apple.foundationdb.record.RecordMetaDataProto.ComparisonType;
 import static com.apple.foundationdb.record.RecordMetaDataProto.Predicate;
+import static com.apple.foundationdb.record.RecordMetaDataProto.RowNumberWindowPredicate;
 import static com.apple.foundationdb.record.RecordMetaDataProto.SimpleComparison;
 import static com.apple.foundationdb.record.RecordMetaDataProto.ValuePredicate;
 import static com.apple.foundationdb.record.expressions.RecordKeyExpressionProto.Value;
@@ -281,6 +283,121 @@ public class IndexTest {
                 IndexTypes.VALUE);
     }
 
+    /**
+     * Scalar array unnesting via correlated subquery: STRING ARRAY, INDEX…AS syntax.
+     */
+    @Test
+    void createIndexOnScalarStringArray() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template "
+                + "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT SQ.item FROM T AS t, (SELECT item FROM t.items AS item) SQ ORDER BY SQ.item";
+        indexIs(stmt, field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via correlated subquery: STRING ARRAY, VIEW + INDEX…ON syntax.
+     */
+    @Test
+    void createIndexOnScalarStringArrayUsingView() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE VIEW v1 AS SELECT SQ.item FROM T AS t, (SELECT item FROM t.items AS item) SQ " +
+                "CREATE INDEX mv1 ON v1(item)";
+        indexIs(stmt, field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via correlated subquery: INTEGER ARRAY (to exercise a different scalar type).
+     */
+    @Test
+    void createIndexOnScalarIntegerArray() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, nums INTEGER ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT SQ.num FROM T AS t, (SELECT num FROM t.nums AS num) SQ ORDER BY SQ.num";
+        indexIs(stmt, field("NUMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via correlated subquery: array element + table column, ordered by (item, p).
+     */
+    @Test
+    void createIndexOnScalarArrayAndConcat() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT SQ.item, t.p FROM T AS t, (SELECT item FROM t.items AS item) SQ ORDER BY SQ.item, t.p";
+        indexIs(stmt, concat(field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), field("P")), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via correlated subquery: array element + table column, ordered by (p, item).
+     */
+    @Test
+    void createIndexOnScalarArrayAndConcatDifferentOrder() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT t.p, SQ.item FROM T AS t, (SELECT item FROM t.items AS item) SQ ORDER BY t.p, SQ.item";
+        indexIs(stmt, concat(field("P"), field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut))), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: STRING ARRAY, INDEX…AS syntax.
+     */
+    @Test
+    void createIndexOnScalarStringArrayPartiQL() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT item FROM T AS t, t.items AS item ORDER BY item";
+        indexIs(stmt, field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: STRING ARRAY, VIEW + INDEX…ON syntax.
+     */
+    @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+    @Test
+    void createIndexOnScalarStringArrayPartiQLUsingView() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE VIEW v1 AS SELECT item FROM T AS t, t.items AS item " +
+                "CREATE INDEX mv1 ON v1(item)";
+        indexIs(stmt, field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: INTEGER ARRAY (different scalar type).
+     */
+    @Test
+    void createIndexOnScalarIntegerArrayPartiQL() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, nums INTEGER ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT num FROM T AS t, t.nums AS num ORDER BY num";
+        indexIs(stmt, field("NUMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: array element + table column, ordered by (item, p).
+     */
+    @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+    @Test
+    void createIndexOnScalarArrayPartiQLAndConcat() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT item, t.p FROM T AS t, t.items AS item ORDER BY item, t.p";
+        indexIs(stmt, concat(field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut)), field("P")), IndexTypes.VALUE);
+    }
+
+    /**
+     * Scalar array unnesting via PartiQL syntax: array element + table column, ordered by (p, item).
+     */
+    @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+    @Test
+    void createIndexOnScalarArrayPartiQLAndConcatDifferentOrder() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p BIGINT, items STRING ARRAY, PRIMARY KEY (p)) " +
+                "CREATE INDEX mv1 AS SELECT t.p, item FROM T AS t, t.items AS item ORDER BY t.p, item";
+        indexIs(stmt, concat(field("P"), field("ITEMS").nest(field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut))), IndexTypes.VALUE);
+    }
+
     @Test
     void createLegacyIndexWithPredicateIsSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
@@ -299,6 +416,58 @@ public class IndexTest {
                                             .setOperand(Value.newBuilder().setLongValue(10L).build())
                                             .build())
                                     .build())
+                            .build())
+                    .build());
+        });
+    }
+
+    @Test
+    void createSlidingWindowValueIndexIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x bigint) " +
+                "CREATE TYPE AS STRUCT B(y string) " +
+                "CREATE TYPE AS STRUCT C(z string) " +
+                "CREATE TABLE T(p bigint, a A array, b B array, c C, primary key(p))" +
+                "CREATE VIEW v AS SELECT p FROM T where p > 10 qualify row_number() over (order by c) <= 10 " +
+                "CREATE INDEX mv1 ON v(p)";
+        indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE, index -> {
+            assertThat(index.isUnique()).isFalse();
+            assertThat(index.getPredicate()).isEqualTo(Predicate.newBuilder()
+                    .setAndPredicate(AndPredicate.newBuilder()
+                            .addChildren(Predicate.newBuilder()
+                                    .setValuePredicate(ValuePredicate.newBuilder().addValue("P")
+                                            .setComparison(Comparison.newBuilder()
+                                                    .setSimpleComparison(SimpleComparison.newBuilder()
+                                                            .setType(ComparisonType.GREATER_THAN)
+                                                            .setOperand(Value.newBuilder().setLongValue(10L).build())
+                                                            .build())
+                                                    .build())
+                                            .build())
+                                    .build())
+                            .addChildren(Predicate.newBuilder()
+                                    .setRowNumberWindowPredicate(RowNumberWindowPredicate.newBuilder()
+                                            .addOrderingField("C")
+                                            .setSize(10)
+                                            .setDirection(RowNumberWindowPredicate.Direction.ASC)
+                                            .build())
+                                    .build())
+                            .build())
+                    .build());
+        });
+    }
+
+    @Test
+    void createSlidingWindowValueIndexWithoutWhereClause() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, score bigint, primary key(p)) " +
+                "CREATE VIEW v AS SELECT p FROM T qualify row_number() over (order by score) <= 50 " +
+                "CREATE INDEX mv1 ON v(p)";
+        indexIs(stmt, field("P", KeyExpression.FanType.None), IndexTypes.VALUE, index -> {
+            assertThat(index.getPredicate()).isEqualTo(Predicate.newBuilder()
+                    .setRowNumberWindowPredicate(RowNumberWindowPredicate.newBuilder()
+                            .addOrderingField("SCORE")
+                            .setSize(50)
+                            .setDirection(RowNumberWindowPredicate.Direction.ASC)
                             .build())
                     .build());
         });

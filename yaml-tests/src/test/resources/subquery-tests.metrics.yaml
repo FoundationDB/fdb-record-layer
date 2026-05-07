@@ -1,101 +1,101 @@
 subquery-tests:
 -   query: EXPLAIN select ida from a where exists (select ida from a where ida = 1);
     ref: subquery-tests.yamsql:44
-    explain: SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP
-        (_.IDA AS IDA) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN(<,>)
-        | TFILTER A AS q1 RETURN (q1.IDA AS IDA) }
-    task_count: 523
-    task_total_time_ms: 187
-    transform_count: 137
-    transform_time_ms: 95
+    explain: SCAN([IS A, EQUALS promote(@c15 AS INT)]) | MAP (_.IDA AS IDA) | DEFAULT
+        NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS A]) AS q1 RETURN (q1.IDA
+        AS IDA) }
+    task_count: 478
+    task_total_time_ms: 61
+    transform_count: 131
+    transform_time_ms: 18
     transform_yield_count: 33
-    insert_time_ms: 14
-    insert_new_count: 56
-    insert_reused_count: 4
+    insert_time_ms: 2
+    insert_new_count: 52
+    insert_reused_count: 3
 -   query: EXPLAIN select idx from x where exists (select x from a where ida = 1);
     ref: subquery-tests.yamsql:51
-    explain: SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP
-        (_.X AS X) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN(<,>)
-        | TFILTER X AS q1 RETURN (q1.IDX AS IDX) }
-    task_count: 551
-    task_total_time_ms: 40
-    transform_count: 146
-    transform_time_ms: 12
+    explain: SCAN([IS A, EQUALS promote(@c15 AS INT)]) | MAP (_.X AS X) | DEFAULT
+        NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS X]) AS q1 RETURN (q1.IDX
+        AS IDX) }
+    task_count: 506
+    task_total_time_ms: 195
+    transform_count: 140
+    transform_time_ms: 101
     transform_yield_count: 38
-    insert_time_ms: 1
-    insert_new_count: 59
-    insert_reused_count: 4
+    insert_time_ms: 10
+    insert_new_count: 55
+    insert_reused_count: 3
 -   query: EXPLAIN select x from a where exists (select a.x, max(idb) from b where
         q > a.x group by q)
     ref: subquery-tests.yamsql:68
-    explain: SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]])
-        | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP
-        (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN
-        (q0.X AS X) }
-    task_count: 612
-    task_total_time_ms: 170
-    transform_count: 171
-    transform_time_ms: 95
+    explain: SCAN([IS A]) | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP
+        (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X
+        AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X
+        AS X) }
+    task_count: 601
+    task_total_time_ms: 182
+    transform_count: 170
+    transform_time_ms: 107
     transform_yield_count: 46
-    insert_time_ms: 16
-    insert_new_count: 59
+    insert_time_ms: 3
+    insert_new_count: 57
     insert_reused_count: 1
 -   query: EXPLAIN select x from a where exists (select x, max(idb) from b where q
         > x group by q)
     ref: subquery-tests.yamsql:73
-    explain: SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]])
-        | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP
-        (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN
-        (q0.X AS X) }
-    task_count: 612
-    task_total_time_ms: 172
-    transform_count: 171
-    transform_time_ms: 109
+    explain: SCAN([IS A]) | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP
+        (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X
+        AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X
+        AS X) }
+    task_count: 601
+    task_total_time_ms: 81
+    transform_count: 170
+    transform_time_ms: 35
     transform_yield_count: 46
-    insert_time_ms: 3
-    insert_new_count: 59
+    insert_time_ms: 2
+    insert_new_count: 57
     insert_reused_count: 1
 -   query: EXPLAIN select x from a where exists (select max(x), max(idb) from b where
         q > x group by q)
     ref: subquery-tests.yamsql:78
-    explain: SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]])
-        | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY
-        (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER
-        _ NOT_NULL AS q0 RETURN (q0.X AS X) }
-    task_count: 612
-    task_total_time_ms: 44
-    transform_count: 171
-    transform_time_ms: 21
+    explain: SCAN([IS A]) | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP
+        (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q
+        AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL
+        AS q0 RETURN (q0.X AS X) }
+    task_count: 601
+    task_total_time_ms: 176
+    transform_count: 170
+    transform_time_ms: 102
     transform_yield_count: 46
-    insert_time_ms: 1
-    insert_new_count: 59
+    insert_time_ms: 3
+    insert_new_count: 57
     insert_reused_count: 1
 -   query: EXPLAIN select x from a where exists (select max(a.x), max(idb) from b
         where q > x group by q)
     ref: subquery-tests.yamsql:83
-    explain: SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]])
-        | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY
-        (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER
-        _ NOT_NULL AS q0 RETURN (q0.X AS X) }
-    task_count: 612
-    task_total_time_ms: 171
-    transform_count: 171
-    transform_time_ms: 110
+    explain: SCAN([IS A]) | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP
+        (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q
+        AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL
+        AS q0 RETURN (q0.X AS X) }
+    task_count: 601
+    task_total_time_ms: 82
+    transform_count: 170
+    transform_time_ms: 36
     transform_yield_count: 46
-    insert_time_ms: 3
-    insert_new_count: 59
+    insert_time_ms: 2
+    insert_new_count: 57
     insert_reused_count: 1
 -   query: EXPLAIN select sq.idr, sq.z from (select * from r where idr = 1) sq, (select
         f from sq.nr where f > 10) sq2 where sq.z = 10 AND sq2.f is not null
     ref: subquery-tests.yamsql:88
-    explain: ISCAN(IR [EQUALS @c18, EQUALS promote(@c32 AS INT)]) | FLATMAP q0 ->
-        { EXPLODE q0.NR | FILTER _.F GREATER_THAN @c32 AND _.F NOT_NULL AS q1 RETURN
-        (q0.IDR AS IDR, q0.Z AS Z) }
-    task_count: 856
-    task_total_time_ms: 221
-    transform_count: 231
-    transform_time_ms: 108
-    transform_yield_count: 73
-    insert_time_ms: 35
-    insert_new_count: 170
-    insert_reused_count: 20
+    explain: ISCAN(IR [EQUALS promote(@c17 AS INT), EQUALS promote(@c31 AS INT)])
+        | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN promote(@c31 AS
+        INT) AND _.F NOT_NULL AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }
+    task_count: 907
+    task_total_time_ms: 34
+    transform_count: 242
+    transform_time_ms: 11
+    transform_yield_count: 79
+    insert_time_ms: 3
+    insert_new_count: 165
+    insert_reused_count: 18

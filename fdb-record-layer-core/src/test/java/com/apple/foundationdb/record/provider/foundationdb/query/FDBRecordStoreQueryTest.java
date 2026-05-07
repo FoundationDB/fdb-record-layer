@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityExcepti
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
@@ -1150,11 +1151,15 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("color").equalsValue(TestRecordsEnumProto.MyShapeRecord.Color.RED))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(Query.field("color").equalsValue(TestRecordsEnumProto.MyShapeRecord.Color.RED), scan(PlanMatchers.unbounded())));
+
         if (planner instanceof RecordQueryPlanner) {
+            assertThat(plan, filter(Query.field("color").equalsValue(TestRecordsEnumProto.MyShapeRecord.Color.RED), scan(PlanMatchers.unbounded())));
             assertEquals(-1555885413, plan.planHash(CURRENT_FOR_CONTINUATION));
         } else {
-            assertEquals(598572619, plan.planHash(CURRENT_FOR_CONTINUATION));
+            assertMatchesExactly(plan, predicatesFilterPlan(typeFilterPlan(scanPlan()))
+                    .where(predicates(only(valuePredicate(ValueMatchers.fieldValueWithFieldNames("color"),
+                            new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, TestRecordsEnumProto.MyShapeRecord.Color.RED))))));
+            assertEquals(360552055, plan.planHash(CURRENT_FOR_CONTINUATION));
         }
 
         try (FDBRecordContext context = openContext()) {

@@ -27,18 +27,17 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PAbstractArrayConstructorValue;
 import com.apple.foundationdb.record.planprotos.PLightArrayConstructorValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -234,14 +233,19 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
             if (!Iterables.isEmpty(getChildren())) {
                 return false;
             }
-            return type.isUnresolved();
+            // An untyped empty array (NONE result type) can be promoted to any concrete array type.
+            return type.isUnresolved() || (getResultType().isNone() && type.isArray());
         }
 
         @Nonnull
         @Override
         public Value with(@Nonnull final Type type) {
             Verify.verify(Iterables.isEmpty(getChildren()));
-            return emptyArray(type); // only empty arrays are currently promotable
+            Verify.verify(type.isArray());
+            // `type` is the desired array type; extract its element type.
+            final Type elementType = Verify.verifyNotNull(((Type.Array)type).getElementType());
+            // Note: Only empty arrays are currently promotable.
+            return emptyArray(elementType);
         }
 
         @Nonnull
@@ -305,10 +309,21 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
                     return Type.noneType();
                 }
 
+                /**
+                 * Evaluate the array.
+                 *
+                 * <p>This returns an empty immutable list of `Object`.
+                 *
+                 * <p>We don’t generally want {@code []} to be evaluated at runtime, because {@link Type.None} is an
+                 * unresolved type that the semantic analysis is supposed to eliminate via promotion to a concrete array
+                 * type. However, it is useful to simplify some places in semantic analysis, which otherwise would
+                 * require special cases in the code for {@code []}. For example, we can then keep `[] IS NULL` as is in
+                 * the value tree and eliminate the untyped empty array later via the usual constant folding mechanism.
+                 */
                 @Nullable
                 @Override
                 public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-                    throw new RecordCoreException("invalid evaluation attempt");
+                    return ImmutableList.of();
                 }
             };
         }

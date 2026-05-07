@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -41,6 +42,8 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
@@ -89,6 +92,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -508,7 +512,42 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
-            return orderingFromSingleChild(typeFilterPlan);
+            final var childOrdering = orderingFromSingleChild(typeFilterPlan);
+
+            if (typeFilterPlan.getRecordTypes().size() > 1) {
+                return childOrdering;
+            }
+            Verify.verify(!typeFilterPlan.getRecordTypes().isEmpty());
+
+            final var comparison = new RecordTypeKeyComparison(Iterables.getOnlyElement(typeFilterPlan.getRecordTypes()));
+            final var recordTypeValue = new RecordTypeValue(QuantifiedRecordValue.of(Quantifier.current(),
+                    typeFilterPlan.getResultValue().getResultType()));
+
+            // We can create a new ordering set by adding the equality-bound values to the ordering set domain no matter what.
+            final var childOrderingSet = childOrdering.getOrderingSet();
+            final var childBindingMap = childOrdering.getBindingMap();
+            final var resultOrderingSetDomain =
+                    Sets.union(childOrderingSet.getSet(), ImmutableSet.of(recordTypeValue));
+
+            final var resultBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
+            for (final var value : resultOrderingSetDomain) {
+                if (value.equals(recordTypeValue)) {
+                    resultBindingMapBuilder.put(recordTypeValue, Binding.fixed(comparison.getComparison()));
+                } else {
+                    resultBindingMapBuilder.putAll(value, childBindingMap.get(value));
+                }
+            }
+            final var resultBindingMap = resultBindingMapBuilder.build();
+
+            //
+            // Create ordering set based on information compiled above; note that the ordering set needs to
+            // be normalized as there are dependencies in the original dependency map that need to be removed due to
+            // newly-introduced equalities.
+            //
+            final var orderingSet =
+                    Ordering.normalizeOrderingSet(resultBindingMap,
+                            PartiallyOrderedSet.of(resultOrderingSetDomain, childOrderingSet.getDependencyMap()));
+            return Ordering.ofOrderingSet(resultBindingMap, orderingSet, childOrdering.isDistinct());
         }
 
         @Nonnull

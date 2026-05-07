@@ -914,6 +914,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Object visitIncarnationOption(@Nonnull RelationalParser.IncarnationOptionContext ctx) {
+        return getDelegate().visitIncarnationOption(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Object visitTableIndexes(@Nonnull RelationalParser.TableIndexesContext ctx) {
         return getDelegate().visitTableIndexes(ctx);
     }

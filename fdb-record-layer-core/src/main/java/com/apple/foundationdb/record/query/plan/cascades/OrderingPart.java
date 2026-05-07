@@ -20,6 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.TupleOrdering.Direction;
@@ -692,6 +697,16 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
                                              @Nonnull final MatchedSortOrder matchedSortOrder) {
             return new MatchedOrderingPart(parameterId, orderByValue,
                     comparisonRange == null ? ComparisonRange.EMPTY : comparisonRange, matchedSortOrder);
+        }
+
+        @Nonnull
+        public static MatchedOrderingPart ofRecordTypeKey(@Nonnull final String recordTypeName, @Nonnull final Type type) {
+            final var comparison = new RecordTypeKeyComparison(recordTypeName);
+            final var opaqueParameterId = CorrelationIdentifier.uniqueId(PredicateWithValueAndRanges.class);
+            final var recordTypeValue = new RecordTypeValue(QuantifiedRecordValue.of(Quantifier.current(), type));
+
+            return MatchedOrderingPart.of(opaqueParameterId, recordTypeValue,
+                    ComparisonRange.from(comparison.getComparison()), MatchedSortOrder.ASCENDING);
         }
     }
 

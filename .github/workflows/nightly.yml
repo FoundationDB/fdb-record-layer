@@ -24,7 +24,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         id: setup-base
         uses: ./actions/setup-base-env
@@ -56,7 +56,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Calculate versions
@@ -79,7 +79,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
@@ -98,7 +98,7 @@ jobs:
           gradle_args: -PreleaseBuild=false -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }}
           report_name: mixed-mode-${{ matrix.version }}-test-reports
       - name: Publish Coverage Data
-        uses: actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: mixed-mode-${{ matrix.version }}-coverage-data
           path: |
@@ -125,11 +125,11 @@ jobs:
       contents: read
     steps:
       - name: Checkout HEAD sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: 'Download results'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.0
         with:
           pattern: 'mixed-mode-*-test-reports'
       - name: Generate mixed mode results
@@ -141,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB

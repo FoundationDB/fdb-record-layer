@@ -80,7 +80,7 @@ class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
         // Enqueue first item
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, 100);
-            queue.enqueueInsert(context, Tuple.from(1), createSingleField());
+            queue.enqueueInsert(context, Tuple.from(1), createSingleField(), 0);
             commit(context);
         }
 
@@ -91,8 +91,8 @@ class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
 
         // Enqueue more items
         try (FDBRecordContext context = openContext()) {
-            queue.enqueueInsert(context, Tuple.from(2), createSingleField());
-            queue.enqueueInsert(context, Tuple.from(3), createSingleField());
+            queue.enqueueInsert(context, Tuple.from(2), createSingleField(), 0);
+            queue.enqueueInsert(context, Tuple.from(3), createSingleField(), 0);
             commit(context);
         }
 
@@ -110,9 +110,9 @@ class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
         // Enqueue 3 items
         try (FDBRecordContext context = openContext()) {
             queue = getQueue(context, 100);
-            queue.enqueueInsert(context, Tuple.from(1), createSingleField());
-            queue.enqueueInsert(context, Tuple.from(2), createSingleField());
-            queue.enqueueDelete(context, Tuple.from(2));
+            queue.enqueueInsert(context, Tuple.from(1), createSingleField(), 0);
+            queue.enqueueInsert(context, Tuple.from(2), createSingleField(), 0);
+            queue.enqueueDelete(context, Tuple.from(2), 0);
             commit(context);
         }
 
@@ -159,7 +159,7 @@ class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
 
             // Enqueue items up to the limit
             for (int i = 0; i < maxSize; i++) {
-                queue.enqueueInsert(context, Tuple.from(i), createSingleField());
+                queue.enqueueInsert(context, Tuple.from(i), createSingleField(), 0);
             }
             commit(context);
         }
@@ -173,7 +173,7 @@ class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             PendingWriteQueue.PendingWritesQueueTooLargeException exception = assertThrows(
                     PendingWriteQueue.PendingWritesQueueTooLargeException.class,
-                    () -> queue.enqueueInsert(context, Tuple.from(999), createSingleField())
+                    () -> queue.enqueueInsert(context, Tuple.from(999), createSingleField(), 0)
             );
             assertNotNull(exception);
             assertTrue(exception.getMessage().contains("Queue size too large"));
@@ -191,7 +191,7 @@ class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
 
             // Enqueue many items
             for (int i = 0; i < itemsToEnqueue; i++) {
-                queue.enqueueInsert(context, Tuple.from(i), createSingleField());
+                queue.enqueueInsert(context, Tuple.from(i), createSingleField(), 0);
             }
             commit(context);
         }
@@ -216,14 +216,14 @@ class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context1 = openContext()) {
             queue = getQueue(context1, 100);
 
-            queue.enqueueInsert(context1, Tuple.from(1), createSingleField());
-            queue.enqueueInsert(context1, Tuple.from(2), createSingleField());
+            queue.enqueueInsert(context1, Tuple.from(1), createSingleField(), 0);
+            queue.enqueueInsert(context1, Tuple.from(2), createSingleField(), 0);
 
             // Transaction 2: enqueue 3 more items
             try (FDBRecordContext context2 = openContext()) {
-                queue.enqueueInsert(context2, Tuple.from(3), createSingleField());
-                queue.enqueueInsert(context2, Tuple.from(4), createSingleField());
-                queue.enqueueInsert(context2, Tuple.from(5), createSingleField());
+                queue.enqueueInsert(context2, Tuple.from(3), createSingleField(), 0);
+                queue.enqueueInsert(context2, Tuple.from(4), createSingleField(), 0);
+                queue.enqueueInsert(context2, Tuple.from(5), createSingleField(), 0);
 
                 commit(context1);
                 commit(context2);
@@ -269,11 +269,11 @@ class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
             // Add 10 items, which exceeds the limit of 5
             // This works because the counter reads as null (uninitialized) for all enqueues in this transaction
             for (int i = 0; i < maxSize; i++) {
-                queue.enqueueInsert(context, Tuple.from(i), createSingleField());
+                queue.enqueueInsert(context, Tuple.from(i), createSingleField(), 0);
             }
 
             assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class,
-                    () -> queue.enqueueInsert(context, Tuple.from(999), createSingleField()));
+                    () -> queue.enqueueInsert(context, Tuple.from(999), createSingleField(), 0));
             // The index is now in an inconsistent state, do don't commit
         }
     }
@@ -282,7 +282,7 @@ class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
         Subspace queueSpace = path.toSubspace(context).subspace(Tuple.from("queue"));
         Subspace counterSpace = path.toSubspace(context).subspace(Tuple.from("counter"));
         return new PendingWriteQueue(queueSpace, counterSpace,
-                PendingWriteQueue.DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY, maxQueueSize, serializer);
+                PendingWriteQueue.DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY, maxQueueSize, serializer, true);
     }
 
     private List<LuceneDocumentFromRecord.DocumentField> createSingleField() {
@@ -295,5 +295,7 @@ class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
         Long size = queue.getQueueSize(context).join();
         assertNotNull(size);
         assertEquals(expected, size);
+        List<PendingWriteQueue.QueueEntry> entries = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
+        assertEquals(size, entries.size());
     }
 }

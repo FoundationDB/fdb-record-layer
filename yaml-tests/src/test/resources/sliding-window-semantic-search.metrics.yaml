@@ -1,0 +1,16 @@
+semantic-search-queries:
+-   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
+        = 'fiction' qualify row_number() over (partition by zone, bookshelf order
+        by euclidean_distance(embedding, ?) asc) <= 5
+    ref: sliding-window-semantic-search.yamsql:118
+    explain: 'ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c8 AS STRING), EQUALS
+        promote(@c12 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[]
+        BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
+    task_count: 228
+    task_total_time_ms: 151
+    transform_count: 67
+    transform_time_ms: 116
+    transform_yield_count: 28
+    insert_time_ms: 7
+    insert_new_count: 20
+    insert_reused_count: 1

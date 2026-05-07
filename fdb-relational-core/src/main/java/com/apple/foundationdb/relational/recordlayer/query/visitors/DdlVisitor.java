@@ -443,7 +443,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public ProceduralPlan visitCreateSchemaStatement(@Nonnull RelationalParser.CreateSchemaStatementContext ctx) {
-        final var schemaId = visitUid(ctx.schemaId().path().uid());
+        final Identifier schemaId = visitUid(ctx.schemaId().path().uid());
         final var dbAndSchema = SemanticAnalyzer.parseSchemaIdentifier(schemaId);
         final var templateId = visitUid(ctx.schemaTemplateId().uid());
         return ProceduralPlan.of(metadataOperationsFactory.getCreateSchemaConstantAction(dbAndSchema.getLeft().orElse(dbUri),

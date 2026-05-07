@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.EvaluationContext;
+
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
@@ -99,14 +100,16 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             final var value =
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
-            if (normalizedValues.add(value)) {
+            if (!normalizedValues.contains(value)) {
                 final var matchedOrderingPart =
                         value.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(EvaluationContext.empty(),
                                 AliasMap.emptyMap(), ImmutableSet.of(),
                                 (v, sortOrder) ->
                                         MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
                                 OrderingValueComputationRuleSet.usingMatchedOrderingParts());
-                builder.add(matchedOrderingPart);
+                if (normalizedValues.add(matchedOrderingPart.getValue())) {
+                    builder.add(matchedOrderingPart);
+                }
             }
         }
 
@@ -147,6 +150,17 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             bindingMapBuilder.put(simplifiedComparisonPair.getLeft(), Binding.fixed(simplifiedComparisonPair.getRight()));
             seenValues.add(simplifiedComparisonPair.getLeft());
         }
+
+        //
+        // if this is a single-typed index then create an equality-bound record-type predicate
+        // and add it to the binding map.
+        //
+        final var implicitEqualityBoundOrderingParts = computeEqualityBoundImplicitOrderingParts();
+        implicitEqualityBoundOrderingParts.forEach(orderingPart -> {
+            bindingMapBuilder.put(orderingPart.getValue(),
+                    Binding.fixed(orderingPart.getComparisonRange().getEqualityComparison()));
+            seenValues.add(orderingPart.getValue());
+        });
 
         final var orderingSequenceBuilder = ImmutableList.<Value>builder();
         for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {

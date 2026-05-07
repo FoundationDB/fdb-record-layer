@@ -23,10 +23,12 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
@@ -48,6 +50,8 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializationException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
@@ -67,6 +71,7 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -81,11 +86,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -1274,4 +1282,312 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                 store -> store.clearHeaderUserField("field_name"));
     }
 
+    /**
+     * Test that rebuildIndexes correctly handles pre-set futures that use record state reads without causing
+     * "record store state is being used for queries" exceptions.
+     */
+    @Test
+    void rebuildIndexesWithFutureRecordCount() {
+        // Format version before SAVE_UNSPLIT_WITH_SUFFIX triggers the unsplit upgrade path.
+        // TestRecords1Proto does not split long records, so upgrading from format 4 to max
+        // will set omitUnsplitRecordSuffix=true, adding lazyRecordCount to the work list.
+        final FormatVersion oldFormat = FormatVersion.FORMAT_CONTROL; // version 4
+
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestRecords1Proto.getDescriptor());
+        final RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
+
+        // Step 1: Create store at old format version and save some records
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setFormatVersion(oldFormat)
+                    .setContext(context)
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(metaData1)
+                    .create();
+            for (int i = 0; i < 5; i++) {
+                store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setStrValueIndexed("value_" + i)
+                        .setNumValue3Indexed(i * 10)
+                        .build());
+            }
+            context.commit();
+        }
+
+        // Step 2: Add a new index (triggers rebuild on reopen)
+        metaDataBuilder.addIndex("MySimpleRecord", "new_index", "num_value_2");
+        final RecordMetaData metaData2 = metaDataBuilder.getRecordMetaData();
+
+        // Step 3: Reopen at max format with slow record count and immediate version checker.
+        // The slow getRecordCountForRebuildIndexes holds a read on the MutableRecordStoreState.
+        // The UserVersionChecker returns READABLE immediately, so newStates is pre-resolved,
+        // causing rebuildOrMarkIndex to attempt a write while the read is still active.
+        // With the fix (finishPreSetWork), the work items complete before rebuilds begin.
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.Builder standardBuilder = FDBRecordStore.newBuilder()
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                    .setContext(context)
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(metaData2)
+                    .setUserVersionChecker(new SelectiveUserVersionChecker(Map.of("new_index", IndexState.READABLE)));
+
+            FDBRecordStore store = openWithSlowRecordCount(standardBuilder);
+
+            // If we got here, the fix works: no "record store state is being used for queries"
+            assertTrue(store.getRecordStoreState().allIndexesReadable(),
+                    "all indexes should be readable after successful rebuild");
+            context.commit();
+        }
+    }
+
+    /**
+     * Test that rebuildIndexes handles a mix of immediately-resolved and record-count-dependent
+     * index state futures. "immediate_index" resolves to READABLE without consulting the record
+     * count, while "slow_index" waits on lazyRecordCount.
+     */
+    @Test
+    void rebuildIndexesWithMixedRecordCount() {
+        final FormatVersion oldFormat = FormatVersion.FORMAT_CONTROL;
+
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestRecords1Proto.getDescriptor());
+        final RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
+
+        // Step 1: Create store at old format and save records
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setFormatVersion(oldFormat)
+                    .setContext(context)
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(metaData1)
+                    .create();
+            for (int i = 0; i < 5; i++) {
+                store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setStrValueIndexed("value_" + i)
+                        .setNumValue3Indexed(i * 10)
+                        .build());
+            }
+            context.commit();
+        }
+
+        // Step 2: Add two new indexes
+        metaDataBuilder.addIndex("MySimpleRecord", "immediate_index", "num_value_2");
+        metaDataBuilder.addIndex("MySimpleRecord", "slow_index", "num_value_3_indexed");
+        final RecordMetaData metaData2 = metaDataBuilder.getRecordMetaData();
+
+        // Step 3: Reopen with selective checker — "immediate_index" resolves immediately,
+        // "slow_index" waits on lazyRecordCount (tied to the slow getRecordCountForRebuildIndexes).
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.Builder standardBuilder = FDBRecordStore.newBuilder()
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                    .setContext(context)
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(metaData2)
+                    .setUserVersionChecker(new SelectiveUserVersionChecker(Map.of("immediate_index", IndexState.READABLE)));
+
+            FDBRecordStore store = openWithSlowRecordCount(standardBuilder);
+
+            assertTrue(store.getRecordStoreState().allIndexesReadable(),
+                    "all indexes should be readable after successful rebuild");
+            context.commit();
+        }
+    }
+
+    /**
+     * Test that rebuildIndexes handles a mix of immediate READABLE, immediate DISABLED, and
+     * record-count-dependent index state futures.
+     */
+    @Test
+    void rebuildIndexesWithDisabledAndMixedStates() {
+        final FormatVersion oldFormat = FormatVersion.FORMAT_CONTROL;
+
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestRecords1Proto.getDescriptor());
+        final RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
+
+        // Step 1: Create store at old format and save records
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setFormatVersion(oldFormat)
+                    .setContext(context)
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(metaData1)
+                    .create();
+            for (int i = 0; i < 5; i++) {
+                store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setStrValueIndexed("value_" + i)
+                        .setNumValue2(i * 100)
+                        .setNumValue3Indexed(i * 10)
+                        .build());
+            }
+            context.commit();
+        }
+
+        // Step 2: Add three new indexes
+        metaDataBuilder.addIndex("MySimpleRecord", "readable_index", "num_value_2");
+        metaDataBuilder.addIndex("MySimpleRecord", "disabled_index", "num_value_3_indexed");
+        metaDataBuilder.addIndex("MySimpleRecord", "slow_index", "str_value_indexed");
+        final RecordMetaData metaData2 = metaDataBuilder.getRecordMetaData();
+
+        // Step 3: Reopen with selective checker — "readable_index" resolves to READABLE immediately,
+        // "disabled_index" resolves to DISABLED immediately, and "slow_index" waits on lazyRecordCount.
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.Builder standardBuilder = FDBRecordStore.newBuilder()
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                    .setContext(context)
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(metaData2)
+                    .setUserVersionChecker(new SelectiveUserVersionChecker(Map.of(
+                            "readable_index", IndexState.READABLE,
+                            "disabled_index", IndexState.DISABLED)));
+
+            FDBRecordStore store = openWithSlowRecordCount(standardBuilder);
+
+            assertTrue(store.getRecordStoreState().isReadable("readable_index"),
+                    "readable_index should be readable after rebuild");
+            assertTrue(store.getRecordStoreState().isDisabled("disabled_index"),
+                    "disabled_index should be disabled as requested");
+            assertTrue(store.getRecordStoreState().isReadable("slow_index"),
+                    "slow_index should be readable after record-count-dependent rebuild");
+            context.commit();
+        }
+    }
+
+    /**
+     * Test that rebuildIndexes avoids lock contention between record count reads and index
+     * rebuilds even without a format version change.
+     */
+    @Test
+    @SuppressWarnings("deprecation") // setRecordCountKey is deprecated but older RecordMetaData objects can have it
+    void rebuildIndexesWithRecordCountKeyAndMixedStates() {
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
+                .setRecords(TestRecords1Proto.getDescriptor());
+        metaDataBuilder.setRecordCountKey(Key.Expressions.empty());
+        final RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
+
+        // Create store and save records (uses max format version throughout)
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                    .setContext(context)
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(metaData1)
+                    .create();
+            for (int i = 0; i < 5; i++) {
+                store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setStrValueIndexed("value_" + i)
+                        .setNumValue2(i * 100)
+                        .setNumValue3Indexed(i * 10)
+                        .build());
+            }
+            context.commit();
+        }
+
+        // Add new indexes
+        metaDataBuilder.addIndex("MySimpleRecord", "readable_index", "num_value_2");
+        metaDataBuilder.addIndex("MySimpleRecord", "disabled_index", "num_value_3_indexed");
+        metaDataBuilder.addIndex("MySimpleRecord", "count_dependent_index", "str_value_indexed");
+        final RecordMetaData metaData2 = metaDataBuilder.getRecordMetaData();
+
+        // Reopen at same format version.
+        // "readable_index" and "disabled_index" resolve immediately, but
+        // "count_dependent_index" goes through lazyRecordCount.
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore.Builder standardBuilder = FDBRecordStore.newBuilder()
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                    .setContext(context)
+                    .setKeySpacePath(path)
+                    .setMetaDataProvider(metaData2)
+                    .setUserVersionChecker(new SelectiveUserVersionChecker(Map.of(
+                            "readable_index", IndexState.READABLE,
+                            "disabled_index", IndexState.DISABLED)));
+
+            FDBRecordStore store = openWithSlowRecordCount(standardBuilder);
+
+            assertTrue(store.getRecordStoreState().isReadable("readable_index"),
+                    "readable_index should be readable after rebuild");
+            assertTrue(store.getRecordStoreState().isDisabled("disabled_index"),
+                    "disabled_index should be disabled as requested");
+            assertTrue(store.getRecordStoreState().isReadable("count_dependent_index"),
+                    "count_dependent_index should be readable after record-count-dependent rebuild");
+            context.commit();
+        }
+    }
+
+    /**
+     * Opens an {@link FDBRecordStore} whose {@code getRecordCountForRebuildIndexes} simulates a slow
+     * FDB read by holding a {@code beginRead()} on the record store state for a short delay.
+     */
+    private static FDBRecordStore openWithSlowRecordCount(FDBRecordStore.Builder standardBuilder) {
+        return new FDBRecordStore.Builder(standardBuilder) {
+            @Override
+            @Nonnull
+            public FDBRecordStore build() {
+                return new FDBRecordStore(getContext(), subspaceProvider, getFormatVersionEnum(),
+                        getMetaDataProvider(), getSerializer(),
+                        getIndexMaintainerRegistry(), getIndexMaintenanceFilter(),
+                        getPipelineSizer(), getStoreStateCache(),
+                        getStateCacheabilityOnOpen(), getUserVersionChecker(),
+                        getBypassFullStoreLockReason(), getPlanSerializationRegistry()) {
+                    @Nonnull
+                    @Override
+                    protected CompletableFuture<Long> getRecordCountForRebuildIndexes(
+                            boolean newStore, boolean rebuildRecordCounts,
+                            @Nonnull Map<Index, List<RecordType>> indexes,
+                            @Nullable RecordType singleRecordTypeWithPrefixKey) {
+                        recordStoreStateRef.get().beginRead();
+                        return MoreAsyncUtil.delayedFuture(100, TimeUnit.MILLISECONDS).thenApply(vignore -> {
+                            recordStoreStateRef.get().endRead();
+                            return 0L; // Report empty store to allow inline rebuild
+                        });
+                    }
+                };
+            }
+        }.open();
+    }
+
+    /**
+     * A UserVersionChecker that returns a specified IndexState immediately for indexes in the provided map,
+     * and consults the record count for the rest.
+     */
+    private static class SelectiveUserVersionChecker implements FDBRecordStoreBase.UserVersionChecker {
+        private final Map<String, IndexState> immediateStates;
+
+        SelectiveUserVersionChecker(Map<String, IndexState> immediateStates) {
+            this.immediateStates = immediateStates;
+        }
+
+        @Override
+        public CompletableFuture<Integer> checkUserVersion(
+                @Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
+                RecordMetaDataProvider metaData) {
+            return CompletableFuture.completedFuture(storeHeader.getUserVersion());
+        }
+
+        @Deprecated
+        @Override
+        public CompletableFuture<Integer> checkUserVersion(int oldUserVersion, int oldMetaDataVersion,
+                                                           RecordMetaDataProvider metaData) {
+            return Assertions.fail(); // if we've hit this, then we've gone down an unexpected path
+        }
+
+        @Nonnull
+        @Override
+        public CompletableFuture<IndexState> needRebuildIndex(Index index,
+                                                              Supplier<CompletableFuture<Long>> lazyRecordCount,
+                                                              Supplier<CompletableFuture<Long>> lazyEstimatedSize,
+                                                              boolean indexOnNewRecordTypes) {
+            IndexState immediateState = immediateStates.get(index.getName());
+            if (immediateState != null) {
+                return CompletableFuture.completedFuture(immediateState);
+            }
+            // Default: consult the record count (ties this future to the slow read)
+            return lazyRecordCount.get().thenApply(count ->
+                    FDBRecordStore.disabledIfTooManyRecordsForRebuild(count, indexOnNewRecordTypes));
+        }
+    }
 }

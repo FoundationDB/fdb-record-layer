@@ -1,6 +1,7 @@
 simple_value_index:
 -   query: EXPLAIN select price from products_mat_view where price > 18.0 order by
         price
+    ref: index-ddl-values-only.yamsql:131
     explain: 'COVERING(IDX_MV_PRICE_DESC [[LESS_THAN to_ordered_bytes(promote(@c8
         AS DOUBLE), DESC_NULLS_LAST)]] REVERSE -> [ID: KEY[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
@@ -14,6 +15,7 @@ simple_value_index:
     insert_reused_count: 5
 -   query: EXPLAIN select price from products_index_on where price > 18.0 order by
         price
+    ref: index-ddl-values-only.yamsql:135
     explain: 'COVERING(IDX_IOT_PRICE_DESC [[LESS_THAN to_ordered_bytes(promote(@c8
         AS DOUBLE), DESC_NULLS_LAST)]] REVERSE -> [ID: KEY[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
@@ -26,30 +28,33 @@ simple_value_index:
     insert_new_count: 88
     insert_reused_count: 5
 -   query: EXPLAIN select category from products_mat_view where category = 'Electronics'
-    explain: 'COVERING(IDX_MV_CATEGORY [EQUALS promote(@c8 AS STRING)] -> [CATEGORY:
-        KEY[0], ID: KEY[2]]) | MAP (_.CATEGORY AS CATEGORY)'
-    task_count: 2234
-    task_total_time_ms: 549
-    transform_count: 538
-    transform_time_ms: 297
+    ref: index-ddl-values-only.yamsql:141
+    explain: 'COVERING(IDX_MV_CATEGORY [EQUALS promote(@c7 AS STRING)] -> [CATEGORY:
+        KEY:[0], ID: KEY:[2]]) | MAP (_.CATEGORY AS CATEGORY)'
+    task_count: 2210
+    task_total_time_ms: 165
+    transform_count: 536
+    transform_time_ms: 84
     transform_yield_count: 194
-    insert_time_ms: 37
-    insert_new_count: 262
+    insert_time_ms: 6
+    insert_new_count: 259
     insert_reused_count: 22
 -   query: EXPLAIN select category from products_index_on where category = 'Electronics'
-    explain: 'COVERING(IDX_IOT_CATEGORY [EQUALS promote(@c8 AS STRING)] -> [CATEGORY:
-        KEY[0], ID: KEY[2]]) | MAP (_.CATEGORY AS CATEGORY)'
-    task_count: 2234
-    task_total_time_ms: 546
-    transform_count: 538
-    transform_time_ms: 312
+    ref: index-ddl-values-only.yamsql:145
+    explain: 'COVERING(IDX_IOT_CATEGORY [EQUALS promote(@c7 AS STRING)] -> [CATEGORY:
+        KEY:[0], ID: KEY:[2]]) | MAP (_.CATEGORY AS CATEGORY)'
+    task_count: 2210
+    task_total_time_ms: 187
+    transform_count: 536
+    transform_time_ms: 89
     transform_yield_count: 194
-    insert_time_ms: 35
-    insert_new_count: 262
+    insert_time_ms: 12
+    insert_new_count: 259
     insert_reused_count: 22
 multi_column_value_index:
 -   query: EXPLAIN select category, price from products_mat_view where category =
         'Electronics' order by category, price
+    ref: index-ddl-values-only.yamsql:155
     explain: 'COVERING(IDX_MV_CAT_PRICE [EQUALS promote(@c10 AS STRING)] -> [CATEGORY:
         KEY[0], ID: KEY[3], PRICE: KEY[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE
         AS PRICE)'
@@ -63,6 +68,7 @@ multi_column_value_index:
     insert_reused_count: 3
 -   query: EXPLAIN select category, price from products_index_on where category =
         'Electronics' order by category, price
+    ref: index-ddl-values-only.yamsql:159
     explain: 'COVERING(IDX_IOT_CAT_PRICE [EQUALS promote(@c10 AS STRING)] -> [CATEGORY:
         KEY[0], ID: KEY[3], PRICE: KEY[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE
         AS PRICE)'
@@ -76,33 +82,36 @@ multi_column_value_index:
     insert_reused_count: 3
 -   query: EXPLAIN select name, rating from products_mat_view where name = 'Widget
         A'
-    explain: 'COVERING(IDX_MV_NAME_RATING [EQUALS promote(@c10 AS STRING)] -> [ID:
-        KEY[3], NAME: KEY[0], RATING: KEY[1]]) | MAP (_.NAME AS NAME, _.RATING AS
-        RATING)'
-    task_count: 2055
-    task_total_time_ms: 238
-    transform_count: 512
-    transform_time_ms: 111
+    ref: index-ddl-values-only.yamsql:165
+    explain: 'COVERING(IDX_MV_NAME_RATING [EQUALS promote(@c9 AS STRING)] -> [ID:
+        KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING
+        AS RATING)'
+    task_count: 2031
+    task_total_time_ms: 52
+    transform_count: 510
+    transform_time_ms: 24
     transform_yield_count: 178
-    insert_time_ms: 13
-    insert_new_count: 246
-    insert_reused_count: 22
+    insert_time_ms: 2
+    insert_new_count: 243
+    insert_reused_count: 20
 -   query: EXPLAIN select name, rating from products_index_on where name = 'Widget
         A'
-    explain: 'COVERING(IDX_IOT_NAME_RATING [EQUALS promote(@c10 AS STRING)] -> [ID:
-        KEY[3], NAME: KEY[0], RATING: KEY[1]]) | MAP (_.NAME AS NAME, _.RATING AS
-        RATING)'
-    task_count: 2055
-    task_total_time_ms: 237
-    transform_count: 512
-    transform_time_ms: 102
+    ref: index-ddl-values-only.yamsql:169
+    explain: 'COVERING(IDX_IOT_NAME_RATING [EQUALS promote(@c9 AS STRING)] -> [ID:
+        KEY:[3], NAME: KEY:[0], RATING: KEY:[1]]) | MAP (_.NAME AS NAME, _.RATING
+        AS RATING)'
+    task_count: 2031
+    task_total_time_ms: 79
+    transform_count: 510
+    transform_time_ms: 41
     transform_yield_count: 178
-    insert_time_ms: 11
-    insert_new_count: 246
-    insert_reused_count: 22
+    insert_time_ms: 3
+    insert_new_count: 243
+    insert_reused_count: 20
 covering_value_index:
 -   query: EXPLAIN select price, name, supplier from products_mat_view where price
         > 15.0 order by price
+    ref: index-ddl-values-only.yamsql:179
     explain: 'COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c12 AS DOUBLE)]]
         -> [ID: KEY[2], NAME: VALUE[0], PRICE: KEY[0], SUPPLIER: VALUE[1]]) | MAP
         (_.PRICE AS PRICE, _.NAME AS NAME, _.SUPPLIER AS SUPPLIER)'
@@ -116,6 +125,7 @@ covering_value_index:
     insert_reused_count: 3
 -   query: EXPLAIN select price, name, supplier from products_index_on where price
         > 15.0 order by price
+    ref: index-ddl-values-only.yamsql:183
     explain: 'COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c12 AS DOUBLE)]]
         -> [ID: KEY[2], NAME: VALUE[0], PRICE: KEY[0], SUPPLIER: VALUE[1]]) | MAP
         (_.PRICE AS PRICE, _.NAME AS NAME, _.SUPPLIER AS SUPPLIER)'
@@ -129,6 +139,7 @@ covering_value_index:
     insert_reused_count: 3
 -   query: EXPLAIN select category, price, name, stock from products_mat_view where
         category = 'Electronics' order by category, price
+    ref: index-ddl-values-only.yamsql:189
     explain: 'COVERING(IDX_MV_CAT_PRICE_COVERING [EQUALS promote(@c14 AS STRING)]
         -> [CATEGORY: KEY[0], ID: KEY[3], NAME: VALUE[0], PRICE: KEY[1], STOCK: VALUE[1]])
         | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.NAME AS NAME, _.STOCK AS
@@ -143,6 +154,7 @@ covering_value_index:
     insert_reused_count: 3
 -   query: EXPLAIN select category, price, name, stock from products_index_on where
         category = 'Electronics' order by category, price
+    ref: index-ddl-values-only.yamsql:193
     explain: 'COVERING(IDX_IOT_CAT_PRICE_COVERING [EQUALS promote(@c14 AS STRING)]
         -> [CATEGORY: KEY[0], ID: KEY[3], NAME: VALUE[0], PRICE: KEY[1], STOCK: VALUE[1]])
         | MAP (_.CATEGORY AS CATEGORY, _.PRICE AS PRICE, _.NAME AS NAME, _.STOCK AS
@@ -157,6 +169,7 @@ covering_value_index:
     insert_reused_count: 3
 mixed_asc_desc_ordering:
 -   query: EXPLAIN select price from products_mat_view order by price desc
+    ref: index-ddl-values-only.yamsql:203
     explain: 'COVERING(IDX_MV_PRICE_DESC <,> -> [ID: KEY[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
     task_count: 488
@@ -168,6 +181,7 @@ mixed_asc_desc_ordering:
     insert_new_count: 44
     insert_reused_count: 6
 -   query: EXPLAIN select price from products_index_on order by price desc
+    ref: index-ddl-values-only.yamsql:207
     explain: 'COVERING(IDX_IOT_PRICE_DESC <,> -> [ID: KEY[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
     task_count: 488
@@ -180,6 +194,7 @@ mixed_asc_desc_ordering:
     insert_reused_count: 6
 -   query: EXPLAIN select category, price from products_mat_view order by category
         desc, price asc
+    ref: index-ddl-values-only.yamsql:213
     explain: 'COVERING(IDX_MV_CAT_DESC_PRICE_ASC <,> -> [CATEGORY: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST), ID: KEY[3], PRICE: KEY[1]]) | MAP (_.CATEGORY AS CATEGORY,
         _.PRICE AS PRICE)'
@@ -193,6 +208,7 @@ mixed_asc_desc_ordering:
     insert_reused_count: 2
 -   query: EXPLAIN select category, price from products_index_on order by category
         desc, price asc
+    ref: index-ddl-values-only.yamsql:217
     explain: 'COVERING(IDX_IOT_CAT_DESC_PRICE_ASC <,> -> [CATEGORY: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST), ID: KEY[3], PRICE: KEY[1]]) | MAP (_.CATEGORY AS CATEGORY,
         _.PRICE AS PRICE)'
@@ -207,6 +223,7 @@ mixed_asc_desc_ordering:
 nulls_ordering:
 -   query: EXPLAIN select rating from products_mat_view order by rating asc nulls
         first
+    ref: index-ddl-values-only.yamsql:227
     explain: 'COVERING(IDX_MV_RATING_NULLS_FIRST <,> -> [ID: KEY[2], RATING: KEY[0]])
         | MAP (_.RATING AS RATING)'
     task_count: 342
@@ -219,6 +236,7 @@ nulls_ordering:
     insert_reused_count: 2
 -   query: EXPLAIN select rating from products_index_on order by rating asc nulls
         first
+    ref: index-ddl-values-only.yamsql:231
     explain: 'COVERING(IDX_IOT_RATING_NULLS_FIRST <,> -> [ID: KEY[2], RATING: KEY[0]])
         | MAP (_.RATING AS RATING)'
     task_count: 342
@@ -231,6 +249,7 @@ nulls_ordering:
     insert_reused_count: 2
 -   query: EXPLAIN select rating from products_mat_view order by rating asc nulls
         last
+    ref: index-ddl-values-only.yamsql:237
     explain: 'COVERING(IDX_MV_RATING_NULLS_LAST <,> -> [ID: KEY[2], RATING: from_ordered_bytes(KEY:[0],
         ASC_NULLS_LAST)]) | MAP (_.RATING AS RATING)'
     task_count: 342
@@ -243,6 +262,7 @@ nulls_ordering:
     insert_reused_count: 2
 -   query: EXPLAIN select rating from products_index_on order by rating asc nulls
         last
+    ref: index-ddl-values-only.yamsql:241
     explain: 'COVERING(IDX_IOT_RATING_NULLS_LAST <,> -> [ID: KEY[2], RATING: from_ordered_bytes(KEY:[0],
         ASC_NULLS_LAST)]) | MAP (_.RATING AS RATING)'
     task_count: 342
@@ -255,6 +275,7 @@ nulls_ordering:
     insert_reused_count: 2
 -   query: EXPLAIN select supplier from products_mat_view order by supplier desc nulls
         first
+    ref: index-ddl-values-only.yamsql:247
     explain: 'COVERING(IDX_MV_SUPPLIER_DESC_NULLS_FIRST <,> -> [ID: KEY[2], SUPPLIER:
         from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.SUPPLIER AS SUPPLIER)'
     task_count: 342
@@ -267,6 +288,7 @@ nulls_ordering:
     insert_reused_count: 2
 -   query: EXPLAIN select supplier from products_index_on order by supplier desc nulls
         first
+    ref: index-ddl-values-only.yamsql:251
     explain: 'COVERING(IDX_IOT_SUPPLIER_DESC_NULLS_FIRST <,> -> [ID: KEY[2], SUPPLIER:
         from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.SUPPLIER AS SUPPLIER)'
     task_count: 342
@@ -279,6 +301,7 @@ nulls_ordering:
     insert_reused_count: 2
 reverse_scan_tests:
 -   query: EXPLAIN select price from products_mat_view order by price desc
+    ref: index-ddl-values-only.yamsql:261
     explain: 'COVERING(IDX_MV_PRICE_DESC <,> -> [ID: KEY[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
     task_count: 488
@@ -290,6 +313,7 @@ reverse_scan_tests:
     insert_new_count: 44
     insert_reused_count: 6
 -   query: EXPLAIN select price from products_index_on order by price desc
+    ref: index-ddl-values-only.yamsql:265
     explain: 'COVERING(IDX_IOT_PRICE_DESC <,> -> [ID: KEY[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
     task_count: 488
@@ -301,6 +325,7 @@ reverse_scan_tests:
     insert_new_count: 44
     insert_reused_count: 6
 -   query: EXPLAIN select price from products_mat_view order by price asc
+    ref: index-ddl-values-only.yamsql:271
     explain: 'COVERING(IDX_MV_PRICE_DESC <,> REVERSE -> [ID: KEY[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
     task_count: 488
@@ -312,6 +337,7 @@ reverse_scan_tests:
     insert_new_count: 44
     insert_reused_count: 6
 -   query: EXPLAIN select price from products_index_on order by price asc
+    ref: index-ddl-values-only.yamsql:275
     explain: 'COVERING(IDX_IOT_PRICE_DESC <,> REVERSE -> [ID: KEY[2], PRICE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.PRICE AS PRICE)'
     task_count: 488
@@ -325,6 +351,7 @@ reverse_scan_tests:
 filtered_indexes:
 -   query: EXPLAIN select name, price from products_mat_view where price > 20 order
         by price
+    ref: index-ddl-values-only.yamsql:285
     explain: 'COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c10 AS DOUBLE)]]
         -> [ID: KEY[2], NAME: VALUE[0], PRICE: KEY[0], SUPPLIER: VALUE[1]]) | MAP
         (_.NAME AS NAME, _.PRICE AS PRICE)'
@@ -338,6 +365,7 @@ filtered_indexes:
     insert_reused_count: 3
 -   query: EXPLAIN select name, price from products_index_on where price > 20 order
         by price
+    ref: index-ddl-values-only.yamsql:289
     explain: 'COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c10 AS DOUBLE)]]
         -> [ID: KEY[2], NAME: VALUE[0], PRICE: KEY[0], SUPPLIER: VALUE[1]]) | MAP
         (_.NAME AS NAME, _.PRICE AS PRICE)'
@@ -351,6 +379,7 @@ filtered_indexes:
     insert_reused_count: 3
 -   query: EXPLAIN select name, price, stock from products_mat_view where category
         = 'Electronics' order by name
+    ref: index-ddl-values-only.yamsql:295
     explain: 'COVERING(IDX_MV_FILTERED_ELECTRONICS <,> -> [ID: KEY[2], NAME: KEY[0],
         PRICE: VALUE[0], STOCK: VALUE[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE,
         _.STOCK AS STOCK)'
@@ -364,6 +393,7 @@ filtered_indexes:
     insert_reused_count: 2
 -   query: EXPLAIN select name, price, stock from products_index_on where category
         = 'Electronics' order by name
+    ref: index-ddl-values-only.yamsql:299
     explain: 'COVERING(IDX_IOT_FILTERED_ELECTRONICS <,> -> [ID: KEY[2], NAME: KEY[0],
         PRICE: VALUE[0], STOCK: VALUE[1]]) | MAP (_.NAME AS NAME, _.PRICE AS PRICE,
         _.STOCK AS STOCK)'
@@ -377,32 +407,35 @@ filtered_indexes:
     insert_reused_count: 2
 -   query: EXPLAIN select category, price, stock from products_mat_view where price
         > 15 and stock > 60 order by category
-    explain: 'COVERING(IDX_MV_FILTERED_MULTI <,> -> [CATEGORY: KEY[0], ID: KEY[2],
-        PRICE: VALUE[0], STOCK: VALUE[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE
+    ref: index-ddl-values-only.yamsql:305
+    explain: 'COVERING(IDX_MV_FILTERED_MULTI <,> -> [CATEGORY: KEY:[0], ID: KEY:[2],
+        PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE
         AS PRICE, _.STOCK AS STOCK)'
     task_count: 1164
-    task_total_time_ms: 108
+    task_total_time_ms: 73
     transform_count: 288
-    transform_time_ms: 55
+    transform_time_ms: 30
     transform_yield_count: 130
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 125
-    insert_reused_count: 9
+    insert_reused_count: 7
 -   query: EXPLAIN select category, price, stock from products_index_on where price
         > 15 and stock > 60 order by category
-    explain: 'COVERING(IDX_IOT_FILTERED_MULTI <,> -> [CATEGORY: KEY[0], ID: KEY[2],
-        PRICE: VALUE[0], STOCK: VALUE[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE
+    ref: index-ddl-values-only.yamsql:309
+    explain: 'COVERING(IDX_IOT_FILTERED_MULTI <,> -> [CATEGORY: KEY:[0], ID: KEY:[2],
+        PRICE: VALUE:[0], STOCK: VALUE:[1]]) | MAP (_.CATEGORY AS CATEGORY, _.PRICE
         AS PRICE, _.STOCK AS STOCK)'
     task_count: 1164
-    task_total_time_ms: 111
+    task_total_time_ms: 68
     transform_count: 288
-    transform_time_ms: 58
+    transform_time_ms: 41
     transform_yield_count: 130
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 125
-    insert_reused_count: 9
+    insert_reused_count: 7
 -   query: EXPLAIN select name, price from products_mat_view where price > 50 order
         by price
+    ref: index-ddl-values-only.yamsql:315
     explain: 'COVERING(IDX_MV_PRICE_COVERING [[GREATER_THAN promote(@c10 AS DOUBLE)]]
         -> [ID: KEY[2], NAME: VALUE[0], PRICE: KEY[0], SUPPLIER: VALUE[1]]) | MAP
         (_.NAME AS NAME, _.PRICE AS PRICE)'
@@ -416,6 +449,7 @@ filtered_indexes:
     insert_reused_count: 3
 -   query: EXPLAIN select name, price from products_index_on where price > 50 order
         by price
+    ref: index-ddl-values-only.yamsql:319
     explain: 'COVERING(IDX_IOT_PRICE_COVERING [[GREATER_THAN promote(@c10 AS DOUBLE)]]
         -> [ID: KEY[2], NAME: VALUE[0], PRICE: KEY[0], SUPPLIER: VALUE[1]]) | MAP
         (_.NAME AS NAME, _.PRICE AS PRICE)'

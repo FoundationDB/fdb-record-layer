@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.ExpansionVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.protobuf.Descriptors;
@@ -242,17 +241,24 @@ public interface KeyExpression extends PlanHashable {
     }
 
     /**
-     * Expand this key expression into a data flow graph. The returned graph represents an adequate representation
-     * of the key expression as composition of relational expressions and operators
-     * ({@link RelationalExpression}s). Note that implementors should
-     * defer to the visitation methods in the supplied visitor rather than encoding actual logic in an overriding
+     * Visit a {@link KeyExpression} using a {@link KeyExpressionVisitor}. This visitor can be
+     * used to traverse a key expression tree generically and return some computed value. Note that
+     * implementors should defer to the visitation
+     * methods in the supplied visitor rather than encoding actual logic in an overriding
      * method.
+     *
+     * <p>
+     * This method is called {@code expand} instead of {@code visit} mainly for historical reasons. The
+     * original purpose was to allow for expansions of key expression into a data flow graphs. The returned graph
+     * would then represent an adequate representation of the key expression as composition of relational expressions and operators
+     * ({@link RelationalExpression}s). See {@link ExpansionVisitor} for more details.
+     * </p>
+     *
      * @param <S> a type that represents the state that {@code visitor} uses
      * @param <R> a type that represents the result the {@code visitor} returns
-     * @param visitor a {@link ExpansionVisitor} that is created by the caller from a data structure that reflects the
-     *        specific semantics of the key expression. Normally this visitor is directly created based on an index.
-     * @return a new {@link GraphExpansion} representing the query graph equivalent of this key expression using the
-     *         supplied visitor
+     * @param visitor a {@link KeyExpressionVisitor} to apply to this expression tree
+     * @return an {@code R} representing execution of the visitor on this expression
+     * @see ExpansionVisitor
      * @see com.apple.foundationdb.record.query.expressions.QueryComponent#expand
      */
     @API(API.Status.EXPERIMENTAL)

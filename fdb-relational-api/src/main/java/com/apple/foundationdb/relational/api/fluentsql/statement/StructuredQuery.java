@@ -31,7 +31,8 @@ public interface StructuredQuery {
     enum QueryOptions {
         NOCACHE("NOCACHE"),
         LOG_QUERY("LOG QUERY"),
-        DRY_RUN("DRY RUN");
+        DRY_RUN("DRY RUN"),
+        PLAN_RIGHT_DEEP("PLAN RIGHT DEEP");
 
         @Nonnull
         private final String name;

@@ -394,7 +394,8 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
             PendingWriteQueue queue = newDirectory.createPendingWritesQueue();
             queue.enqueueInsert(newContext,
                     Tuple.from("testDoc", 1),
-                    createTestFields());
+                    createTestFields(),
+                    0);
             newContext.commit();
         }
 

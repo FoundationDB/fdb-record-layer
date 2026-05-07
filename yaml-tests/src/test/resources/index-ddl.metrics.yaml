@@ -1,27 +1,32 @@
 basic_index:
 -   query: EXPLAIN select name from customers_materialized_view where name = 'Alice'
-    explain: 'COVERING(IDX_MV_INCLUDE [EQUALS promote(@c8 AS STRING)] -> [COUNTRY:
-        VALUE[1], EMAIL: VALUE[0], ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME)'
-    task_count: 1873
-    task_total_time_ms: 351
-    transform_count: 469
-    transform_time_ms: 207
+    ref: index-ddl.yamsql:112
+    explain: 'COVERING(IDX_MV_INCLUDE [EQUALS promote(@c7 AS STRING)] -> [COUNTRY:
+        VALUE:[1], EMAIL: VALUE:[0], ID: KEY:[2], NAME: KEY:[0]]) | MAP (_.NAME AS
+        NAME)'
+    task_count: 1849
+    task_total_time_ms: 140
+    transform_count: 467
+    transform_time_ms: 67
     transform_yield_count: 173
-    insert_time_ms: 20
-    insert_new_count: 219
+    insert_time_ms: 5
+    insert_new_count: 216
     insert_reused_count: 21
 -   query: EXPLAIN select name from customers_index_on_table where name = 'Alice'
-    explain: 'COVERING(IDX_IOT_INCLUDE [EQUALS promote(@c8 AS STRING)] -> [COUNTRY:
-        VALUE[1], EMAIL: VALUE[0], ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME)'
-    task_count: 1873
-    task_total_time_ms: 234
-    transform_count: 469
-    transform_time_ms: 128
+    ref: index-ddl.yamsql:116
+    explain: 'COVERING(IDX_IOT_INCLUDE [EQUALS promote(@c7 AS STRING)] -> [COUNTRY:
+        VALUE:[1], EMAIL: VALUE:[0], ID: KEY:[2], NAME: KEY:[0]]) | MAP (_.NAME AS
+        NAME)'
+    task_count: 1849
+    task_total_time_ms: 78
+    transform_count: 467
+    transform_time_ms: 42
     transform_yield_count: 173
-    insert_time_ms: 16
-    insert_new_count: 219
+    insert_time_ms: 3
+    insert_new_count: 216
     insert_reused_count: 21
 -   query: EXPLAIN select email from customers_materialized_view order by email desc
+    ref: index-ddl.yamsql:121
     explain: 'COVERING(IDX_MV_EMAIL <,> -> [EMAIL: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST),
         ID: KEY[2]]) | MAP (_.EMAIL AS EMAIL)'
     task_count: 350
@@ -33,6 +38,7 @@ basic_index:
     insert_new_count: 20
     insert_reused_count: 2
 -   query: EXPLAIN select email from customers_index_on_table order by email desc
+    ref: index-ddl.yamsql:125
     explain: 'COVERING(IDX_IOT_EMAIL <,> -> [EMAIL: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST),
         ID: KEY[2]]) | MAP (_.EMAIL AS EMAIL)'
     task_count: 350
@@ -45,6 +51,7 @@ basic_index:
     insert_reused_count: 2
 -   query: EXPLAIN select age, city from customers_materialized_view where age > 25
         order by age, city
+    ref: index-ddl.yamsql:130
     explain: 'COVERING(IDX_MV_MULTI [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE:
         KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)'
     task_count: 504
@@ -57,6 +64,7 @@ basic_index:
     insert_reused_count: 2
 -   query: EXPLAIN select age, city from customers_index_on_table where age > 25 order
         by age, city
+    ref: index-ddl.yamsql:134
     explain: 'COVERING(IDX_IOT_MULTI [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE:
         KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)'
     task_count: 504
@@ -70,33 +78,36 @@ basic_index:
 include_clause:
 -   query: EXPLAIN select name, email, country from customers_materialized_view where
         name = 'Alice'
-    explain: 'COVERING(IDX_MV_INCLUDE [EQUALS promote(@c12 AS STRING)] -> [COUNTRY:
-        VALUE[1], EMAIL: VALUE[0], ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME,
-        _.EMAIL AS EMAIL, _.COUNTRY AS COUNTRY)'
-    task_count: 1814
+    ref: index-ddl.yamsql:142
+    explain: 'COVERING(IDX_MV_INCLUDE [EQUALS promote(@c11 AS STRING)] -> [COUNTRY:
+        VALUE:[1], EMAIL: VALUE:[0], ID: KEY:[2], NAME: KEY:[0]]) | MAP (_.NAME AS
+        NAME, _.EMAIL AS EMAIL, _.COUNTRY AS COUNTRY)'
+    task_count: 1790
     task_total_time_ms: 216
-    transform_count: 465
-    transform_time_ms: 93
+    transform_count: 463
+    transform_time_ms: 94
     transform_yield_count: 169
-    insert_time_ms: 11
-    insert_new_count: 213
+    insert_time_ms: 7
+    insert_new_count: 210
     insert_reused_count: 21
 -   query: EXPLAIN select name, email, country from customers_index_on_table where
         name = 'Alice'
-    explain: 'COVERING(IDX_IOT_INCLUDE [EQUALS promote(@c12 AS STRING)] -> [COUNTRY:
-        VALUE[1], EMAIL: VALUE[0], ID: KEY[2], NAME: KEY[0]]) | MAP (_.NAME AS NAME,
-        _.EMAIL AS EMAIL, _.COUNTRY AS COUNTRY)'
-    task_count: 1814
-    task_total_time_ms: 230
-    transform_count: 465
-    transform_time_ms: 101
+    ref: index-ddl.yamsql:146
+    explain: 'COVERING(IDX_IOT_INCLUDE [EQUALS promote(@c11 AS STRING)] -> [COUNTRY:
+        VALUE:[1], EMAIL: VALUE:[0], ID: KEY:[2], NAME: KEY:[0]]) | MAP (_.NAME AS
+        NAME, _.EMAIL AS EMAIL, _.COUNTRY AS COUNTRY)'
+    task_count: 1790
+    task_total_time_ms: 215
+    transform_count: 463
+    transform_time_ms: 95
     transform_yield_count: 169
-    insert_time_ms: 13
-    insert_new_count: 213
+    insert_time_ms: 8
+    insert_new_count: 210
     insert_reused_count: 21
 mixed_asc_desc:
 -   query: EXPLAIN select age, city from customers_materialized_view where age > 30
         order by age asc, city desc
+    ref: index-ddl.yamsql:155
     explain: 'COVERING(IDX_MV_ASC_DESC [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE:
         KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]]) |
         MAP (_.AGE AS AGE, _.CITY AS CITY)'
@@ -110,6 +121,7 @@ mixed_asc_desc:
     insert_reused_count: 2
 -   query: EXPLAIN select age, city from customers_index_on_table where age > 30 order
         by age asc, city desc
+    ref: index-ddl.yamsql:159
     explain: 'COVERING(IDX_IOT_ASC_DESC [[GREATER_THAN promote(@c10 AS INT)]] -> [AGE:
         KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]]) |
         MAP (_.AGE AS AGE, _.CITY AS CITY)'
@@ -123,6 +135,7 @@ mixed_asc_desc:
     insert_reused_count: 2
 -   query: EXPLAIN select age, city from customers_materialized_view where age < 40
         order by age desc, city desc
+    ref: index-ddl.yamsql:164
     explain: 'COVERING(IDX_MV_MULTI [[LESS_THAN promote(@c10 AS INT)]] REVERSE ->
         [AGE: KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)'
     task_count: 504
@@ -135,6 +148,7 @@ mixed_asc_desc:
     insert_reused_count: 2
 -   query: EXPLAIN select age, city from customers_index_on_table where age < 40 order
         by age desc, city desc
+    ref: index-ddl.yamsql:168
     explain: 'COVERING(IDX_IOT_MULTI [[LESS_THAN promote(@c10 AS INT)]] REVERSE ->
         [AGE: KEY[0], CITY: KEY[1], ID: KEY[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)'
     task_count: 504
@@ -147,6 +161,7 @@ mixed_asc_desc:
     insert_reused_count: 2
 -   query: EXPLAIN select age, city from customers_materialized_view where age < 50
         order by age desc, city asc
+    ref: index-ddl.yamsql:173
     explain: 'COVERING(IDX_MV_ASC_DESC [[LESS_THAN promote(@c10 AS INT)]] REVERSE
         -> [AGE: KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]])
         | MAP (_.AGE AS AGE, _.CITY AS CITY)'
@@ -160,6 +175,7 @@ mixed_asc_desc:
     insert_reused_count: 2
 -   query: EXPLAIN select age, city from customers_index_on_table where age < 50 order
         by age desc, city asc
+    ref: index-ddl.yamsql:177
     explain: 'COVERING(IDX_IOT_ASC_DESC [[LESS_THAN promote(@c10 AS INT)]] REVERSE
         -> [AGE: KEY[0], CITY: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), ID: KEY[3]])
         | MAP (_.AGE AS AGE, _.CITY AS CITY)'
@@ -174,6 +190,7 @@ mixed_asc_desc:
 nulls_first_last:
 -   query: EXPLAIN SELECT country FROM customers_materialized_view ORDER BY country
         ASC NULLS FIRST
+    ref: index-ddl.yamsql:186
     explain: 'COVERING(IDX_MV_NULLS_FIRST <,> -> [COUNTRY: KEY[0], ID: KEY[2]]) |
         MAP (_.COUNTRY AS COUNTRY)'
     task_count: 350
@@ -186,6 +203,7 @@ nulls_first_last:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT country FROM customers_index_on_table ORDER BY country ASC
         NULLS FIRST
+    ref: index-ddl.yamsql:190
     explain: 'COVERING(IDX_IOT_NULLS_FIRST <,> -> [COUNTRY: KEY[0], ID: KEY[2]]) |
         MAP (_.COUNTRY AS COUNTRY)'
     task_count: 350
@@ -198,6 +216,7 @@ nulls_first_last:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT country FROM customers_materialized_view ORDER BY country
         ASC NULLS LAST
+    ref: index-ddl.yamsql:194
     explain: 'COVERING(IDX_MV_NULLS_LAST <,> -> [COUNTRY: from_ordered_bytes(KEY:[0],
         ASC_NULLS_LAST), ID: KEY[2]]) | MAP (_.COUNTRY AS COUNTRY)'
     task_count: 350
@@ -210,6 +229,7 @@ nulls_first_last:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT country FROM customers_index_on_table ORDER BY country ASC
         NULLS LAST
+    ref: index-ddl.yamsql:198
     explain: 'COVERING(IDX_IOT_NULLS_LAST <,> -> [COUNTRY: from_ordered_bytes(KEY:[0],
         ASC_NULLS_LAST), ID: KEY[2]]) | MAP (_.COUNTRY AS COUNTRY)'
     task_count: 350
@@ -222,6 +242,7 @@ nulls_first_last:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT age FROM customers_materialized_view ORDER BY age DESC NULLS
         FIRST
+    ref: index-ddl.yamsql:202
     explain: 'COVERING(IDX_MV_DESC_NULLS_FIRST <,> -> [AGE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_FIRST), ID: KEY[2]]) | MAP (_.AGE AS AGE)'
     task_count: 350
@@ -234,6 +255,7 @@ nulls_first_last:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT age FROM customers_index_on_table ORDER BY age DESC NULLS
         FIRST
+    ref: index-ddl.yamsql:206
     explain: 'COVERING(IDX_IOT_DESC_NULLS_FIRST <,> -> [AGE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_FIRST), ID: KEY[2]]) | MAP (_.AGE AS AGE)'
     task_count: 350
@@ -246,6 +268,7 @@ nulls_first_last:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT age FROM customers_materialized_view ORDER BY age DESC NULLS
         LAST
+    ref: index-ddl.yamsql:210
     explain: 'COVERING(IDX_MV_DESC_NULLS_LAST <,> -> [AGE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST), ID: KEY[2]]) | MAP (_.AGE AS AGE)'
     task_count: 516
@@ -258,6 +281,7 @@ nulls_first_last:
     insert_reused_count: 6
 -   query: EXPLAIN SELECT age FROM customers_index_on_table ORDER BY age DESC NULLS
         LAST
+    ref: index-ddl.yamsql:214
     explain: 'COVERING(IDX_IOT_DESC_NULLS_LAST <,> -> [AGE: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST), ID: KEY[2]]) | MAP (_.AGE AS AGE)'
     task_count: 516
@@ -271,6 +295,7 @@ nulls_first_last:
 extremum_ever_without_legacy_option:
 -   query: EXPLAIN SELECT country, min_ever(age) FROM customers_materialized_view
         WHERE country = 'USA' GROUP BY country
+    ref: index-ddl.yamsql:245
     explain: 'AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -283,6 +308,7 @@ extremum_ever_without_legacy_option:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT country, min_ever(age) FROM customers_index_on_table WHERE
         country = 'USA' GROUP BY country
+    ref: index-ddl.yamsql:249
     explain: 'AISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -295,6 +321,7 @@ extremum_ever_without_legacy_option:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT country, max_ever(age) FROM customers_materialized_view
         WHERE country = 'Canada' GROUP BY country
+    ref: index-ddl.yamsql:254
     explain: 'AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -307,6 +334,7 @@ extremum_ever_without_legacy_option:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT country, max_ever(age) FROM customers_index_on_table WHERE
         country = 'Canada' GROUP BY country
+    ref: index-ddl.yamsql:258
     explain: 'AISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -319,6 +347,7 @@ extremum_ever_without_legacy_option:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT country, min_ever(age), max_ever(age) FROM customers_materialized_view
         WHERE country = 'USA' GROUP BY country
+    ref: index-ddl.yamsql:263
     explain: 'AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS
         promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE
@@ -334,6 +363,7 @@ extremum_ever_without_legacy_option:
     insert_reused_count: 6
 -   query: EXPLAIN SELECT country, min_ever(age), max_ever(age) FROM customers_index_on_table
         WHERE country = 'USA' GROUP BY country
+    ref: index-ddl.yamsql:267
     explain: 'AISCAN(IDX_IOT_AGE_MIN_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(IDX_IOT_AGE_MAX_NO_LEGACY [EQUALS
         promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE
@@ -349,6 +379,7 @@ extremum_ever_without_legacy_option:
     insert_reused_count: 6
 -   query: EXPLAIN SELECT country, min_ever(age) FROM customers_materialized_view
         WHERE country = 'France' GROUP BY country
+    ref: index-ddl.yamsql:272
     explain: 'AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -361,6 +392,7 @@ extremum_ever_without_legacy_option:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT country, min_ever(age) FROM customers_index_on_table WHERE
         country = 'France' GROUP BY country
+    ref: index-ddl.yamsql:276
     explain: 'AISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -373,6 +405,7 @@ extremum_ever_without_legacy_option:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT country, max_ever(age) FROM customers_materialized_view
         WHERE country = 'France' GROUP BY country
+    ref: index-ddl.yamsql:281
     explain: 'AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -385,6 +418,7 @@ extremum_ever_without_legacy_option:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT country, max_ever(age) FROM customers_index_on_table WHERE
         country = 'France' GROUP BY country
+    ref: index-ddl.yamsql:285
     explain: 'AISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -398,6 +432,7 @@ extremum_ever_without_legacy_option:
 extremum_ever_with_legacy_option:
 -   query: EXPLAIN SELECT country, min_ever(age) FROM customers_materialized_view
         WHERE country = 'USA' GROUP BY country
+    ref: index-ddl.yamsql:297
     explain: 'AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -410,6 +445,7 @@ extremum_ever_with_legacy_option:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT country, min_ever(age) FROM customers_index_on_table WHERE
         country = 'USA' GROUP BY country
+    ref: index-ddl.yamsql:301
     explain: 'AISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -422,6 +458,7 @@ extremum_ever_with_legacy_option:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT country, max_ever(age) FROM customers_materialized_view
         WHERE country = 'Canada' GROUP BY country
+    ref: index-ddl.yamsql:306
     explain: 'AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -434,6 +471,7 @@ extremum_ever_with_legacy_option:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT country, max_ever(age) FROM customers_index_on_table WHERE
         country = 'Canada' GROUP BY country
+    ref: index-ddl.yamsql:310
     explain: 'AISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -446,6 +484,7 @@ extremum_ever_with_legacy_option:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT country, min_ever(age), max_ever(age) FROM customers_materialized_view
         WHERE country = 'USA' GROUP BY country
+    ref: index-ddl.yamsql:315
     explain: 'AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS
         promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE
@@ -461,6 +500,7 @@ extremum_ever_with_legacy_option:
     insert_reused_count: 6
 -   query: EXPLAIN SELECT country, min_ever(age), max_ever(age) FROM customers_index_on_table
         WHERE country = 'USA' GROUP BY country
+    ref: index-ddl.yamsql:319
     explain: 'AISCAN(IDX_IOT_AGE_MIN_NO_LEGACY [EQUALS promote(@c18 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) ∩ AISCAN(IDX_IOT_AGE_MAX_NO_LEGACY [EQUALS
         promote(@c18 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE
@@ -476,6 +516,7 @@ extremum_ever_with_legacy_option:
     insert_reused_count: 6
 -   query: EXPLAIN SELECT country, min_ever(age) FROM customers_materialized_view
         WHERE country = 'France' GROUP BY country
+    ref: index-ddl.yamsql:324
     explain: 'AISCAN(IDX_MV_AGE_MIN_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -488,6 +529,7 @@ extremum_ever_with_legacy_option:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT country, min_ever(age) FROM customers_index_on_table WHERE
         country = 'France' GROUP BY country
+    ref: index-ddl.yamsql:328
     explain: 'AISCAN(IDX_IOT_AGE_MIN_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -500,6 +542,7 @@ extremum_ever_with_legacy_option:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT country, max_ever(age) FROM customers_materialized_view
         WHERE country = 'France' GROUP BY country
+    ref: index-ddl.yamsql:333
     explain: 'AISCAN(IDX_MV_AGE_MAX_NO_LEGACY [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883
@@ -512,6 +555,7 @@ extremum_ever_with_legacy_option:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT country, max_ever(age) FROM customers_index_on_table WHERE
         country = 'France' GROUP BY country
+    ref: index-ddl.yamsql:337
     explain: 'AISCAN(IDX_IOT_AGE_MAX_EXTREMUM [EQUALS promote(@c13 AS STRING)] BY_GROUP
         -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COUNTRY, _._1 AS _1)'
     task_count: 883

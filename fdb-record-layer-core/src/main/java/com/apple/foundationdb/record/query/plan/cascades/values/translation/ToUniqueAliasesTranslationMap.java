@@ -58,10 +58,10 @@ public class ToUniqueAliasesTranslationMap implements TranslationMap {
         return AliasMap.copyOf(sourceToTargetMap);
     }
 
-    @Nullable
+    @Nonnull
     @Override
-    public CorrelationIdentifier getTarget(@Nonnull final CorrelationIdentifier sourceAlias) {
-        return computeTargetIfAbsent(sourceAlias);
+    public Optional<CorrelationIdentifier> getTargetMaybe(@Nonnull final CorrelationIdentifier sourceAlias) {
+        return Optional.of(computeTargetIfAbsent(sourceAlias));
     }
 
     @Override

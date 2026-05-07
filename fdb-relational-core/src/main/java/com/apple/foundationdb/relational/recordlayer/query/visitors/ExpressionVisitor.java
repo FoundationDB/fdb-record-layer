@@ -299,7 +299,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final Expressions partitions = partitionClause == null ? Expressions.empty() : getDelegate().visitPartitionClause(partitionClause);
 
         @Nullable final var orderByClause = ctx.windowSpec().orderByClause();
-        final List<OrderByExpression> orderByExpressions = orderByClause == null ? ImmutableList.of() : visitOrderByClause(orderByClause);
+        // Parse ORDER BY expressions directly — the isTopLevel() check in visitOrderByClause
+        // is for query-level ORDER BY and does not apply inside OVER clauses.
+        final List<OrderByExpression> orderByExpressions = orderByClause == null ? ImmutableList.of()
+                : orderByClause.orderByExpression().stream().map(this::visitOrderByExpression)
+                        .collect(ImmutableList.toImmutableList());
 
         @Nullable final var windowOptionsClause = ctx.windowSpec().windowOptionsClause();
         final Expressions windowOptions = windowOptionsClause == null ? Expressions.empty() : getDelegate().visitWindowOptionsClause(windowOptionsClause);
@@ -599,10 +603,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         } else {
             escapeValue = new LiteralValue<>(null);
         }
-        final var pattern = Assert.notNullUnchecked(getDelegate().normalizeString(ctx.pattern.getText()));
-        final var patternValueBinding = getDelegate().getPlanGenerationContext().processQueryLiteral(
-                Type.primitiveType(Type.TypeCode.STRING), pattern, ctx.pattern.getTokenIndex());
-        final var patternFunction = getDelegate().resolveFunction("__pattern_for_like", Expression.ofUnnamed(patternValueBinding),
+        final var patternValueBinding = Assert.castUnchecked(ctx.pattern.accept(this), Expression.class);
+        final var patternFunction = getDelegate().resolveFunction("__pattern_for_like", patternValueBinding,
                 Expression.ofUnnamed(escapeValue));
         final var likeFunction = getDelegate().resolveFunction(ctx.LIKE().getText(), operand, patternFunction);
         if (ctx.NOT() != null) {

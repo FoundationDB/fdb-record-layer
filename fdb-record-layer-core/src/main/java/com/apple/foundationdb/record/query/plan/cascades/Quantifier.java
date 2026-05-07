@@ -45,7 +45,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -80,7 +79,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * A (fake alias) that references the "current" record.
      */
     @Nonnull
-    private static final UUID CURRENT = UUID.randomUUID();
+    private static final String CURRENT = "___current";
 
     /**
      * Constant quantifier representing a reference to a constant box of literals.
@@ -822,7 +821,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     @Nonnull
     public static CorrelationIdentifier current() {
-        return CorrelationIdentifier.uniqueSingletonID(CURRENT, "𝓆");
+        return CorrelationIdentifier.of(CURRENT);
     }
 
     @Nonnull

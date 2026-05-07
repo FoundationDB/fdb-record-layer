@@ -17,14 +17,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# you can add comments like this one to your scripts.
+# ============================================================================
+# YAMSQL (YAML SQL) Test Showcasing File
+# ============================================================================
 #
-# The file is split into "documents" wherein each document is describes a block. A type of block exhibits a unique
-# functional behavior. At the top-level, there are 2 types of blocks:
-#   - setup_block: These blocks are used to control the environment needed to run the test blocks. For instance, they
-#       are used to "setup", "populate" and "destruct" the databases and tables. A file can have multiple of these to
-#       `tweak` the environment as needed by the testing block.
-#   - test_block: Defines a scope for a group of tests by setting the knobs that determines how those tests are run.
+# This file serves as a living reference for the YAMSQL test framework syntax.
+# It demonstrates all available features with explanatory comments.
+#
+# A .yamsql file is a multi-document YAML file. Documents are separated by
+# `---` and the file ends with `...`.
+#
+# Each document is parsed into a "block". At the top level, there are these
+# block types:
+#
+#   - options:            File-wide configuration (must be first if present)
+#   - schema_template:    Declarative schema setup with automatic cleanup
+#   - setup:              Manual environment setup/teardown steps
+#   - test_block:         Group of tests with execution options
+#   - include:            Include another .yamsql file
+#   - transaction_setups: Named reusable transaction setup definitions
 #
 # The config block can be of the following types:
 #   - schema_template: This block carries the definition of the template based on which the database and schemas are setup
@@ -44,13 +55,31 @@ options:
     # the current version; the release process will replace it with the version being released. The current version is
     # always considered to be supported.
     supported_version: 4.0.559.0
+    # connection_options can be specified file-wide:
+    # connection_options:
+    #     CASE_SENSITIVE_IDENTIFIERS: true
+
+# ============================================================================
+# Schema Template Block
+# ============================================================================
+# The schema_template block provides declarative schema creation. The framework
+# automatically creates a temporary database, schema template, and schema, then
+# cleans them all up after all blocks in the file have executed.
+#
+# Templates are referenced by 1-based index in `connect` directives. The first
+# schema_template block is index 1, the second is index 2, etc.
 ---
 schema_template:
     create table t1(id bigint, col1 bigint, primary key(id))
     create table t2(col1 bigint, primary key(col1))
     create table t3(col1 bigint, col2 string, primary key(col1))
+
+# ============================================================================
+# Setup Block
+# ============================================================================
+# Even after the table is setup using the `schema_template` block, we need the
+# `setup` block to fill up the data in the table.
 ---
-# Even after the table is setup using the `schema_template` block, we need the `setup` block to fill up the data in the table.
 setup:
   # `connect` tells the block which database to connect to execute the statements. The locations created by `schema_template`
   # are random and hence the tester do not know them. These are available via 1-based indexes in connect. For instance,
@@ -64,6 +93,11 @@ setup:
   # also note the casing of your table names.
   steps:
     - query: INSERT INTO T1 VALUES (10, 20), (30, 40), (50, 60)
+    - query: INSERT INTO T3 VALUES (1, 'hello'), (2, 'world'), (3, null)
+
+# ============================================================================
+# Test Block: Basic Features
+# ============================================================================
 ---
 test_block:
   # This is a unique name for this test_block within this file. It is used to match up queries against their metrics.
@@ -86,12 +120,19 @@ test_block:
   # optional. default: multi_repetition_parallelized
   preset: single_repetition_ordered
   tests:
+    # ------------------------------------------------------------------
+    # Error checking
+    # ------------------------------------------------------------------
     -
       # We check here an error code, as you can see, the statement is syntactically
       # incorrect, this should throw SYNTAX_ERROR error whose SQL state is 42601
       # the `query` command has a configuration `error` implemented to check that.
       - query: selec * from t1;
       - error: "42601"
+
+    # ------------------------------------------------------------------
+    # Result checking with partial matching (!ignore, !l tags)
+    # ------------------------------------------------------------------
     -
       # in addition, the `query` command has a `result` configuration for checking
       # the result set, again using the same YAML format mentioned above.
@@ -107,10 +148,14 @@ test_block:
       # number as Long instead of Integer so we can do proper matching.
       - query: select * from t1 where id > 15;
       # You can check the plan of a query. This configuration has to precede any result configurations
-      - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.ID GREATER_THAN promote(@c8 AS LONG)"
+      - explain: "SCAN([IS T1, [GREATER_THAN promote(@c7 AS LONG)]])"
       # You can use the debugger option to bring up the planner repl debugger
       # - debugger: repl
       - result: [{!l 30, !ignore dc}, {!l 50, !ignore dc}]
+
+    # ------------------------------------------------------------------
+    # Pagination with maxRows and multiple result blocks
+    # ------------------------------------------------------------------
     -
       # Having multiple `result` configs for the `query` command checks the result sets
       # (in order of appearance) with consecutive continuations of the query.
@@ -123,8 +168,71 @@ test_block:
       - result: [{30, 40}]
       - result: [{50, 60}]
       - result: [] # even multiple requires another fetch to confirm no-more results
----
+
+    # ------------------------------------------------------------------
+    # Unordered result matching
+    # ------------------------------------------------------------------
+    -
+      # `unorderedResult` matches result rows regardless of their order.
+      # Use this when the query does not guarantee a specific row ordering.
+      - query: select * from t1;
+      - unorderedResult: [{!l 50, !l 60}, {!l 10, !l 20}, {!l 30, !l 40}]
+
+    # ------------------------------------------------------------------
+    # Count directive (for INSERT/UPDATE/DELETE)
+    # ------------------------------------------------------------------
+    -
+      # The `count` directive validates the number of rows affected by DML.
+      - query: INSERT INTO T2 VALUES (100)
+      - count: 1
+
+    # ------------------------------------------------------------------
+    # explainContains directive
+    # ------------------------------------------------------------------
+    -
+      # `explainContains` checks that the query plan contains the given substring,
+      # rather than matching the entire plan string exactly (as `explain` does).
+      - query: select * from t1 where id = 10;
+      - explainContains: "IS T1, EQUALS"
+      - result: [{!l 10, !l 20}]
+
+    # ------------------------------------------------------------------
+    # Null checking tags: !null and !not_null
+    # ------------------------------------------------------------------
+    -
+      # `!null` asserts the value IS NULL; `!not_null` asserts the value is NOT NULL.
+      # These are useful for testing nullable columns without caring about the exact value.
+      - query: select * from t3 where col1 = 3;
+      - result: [{COL1: !l 3, COL2: !null _}]
+    -
+      - query: select * from t3 where col1 = 1;
+      - result: [{COL1: !l 1, COL2: !not_null _}]
+
+    # ------------------------------------------------------------------
+    # String contains tag: !sc
+    # ------------------------------------------------------------------
+    -
+      # `!sc` (string contains) matches if the actual value contains the given substring.
+      # Useful when only part of a string matters.
+      - query: select col2 from t3 where col1 = 1;
+      - result: [{!sc "ell"}]
+
+    # ------------------------------------------------------------------
+    # Column position tag: !pos
+    # ------------------------------------------------------------------
+    -
+      # `!pos` lets you reference columns by their 1-based position instead of name.
+      # This is useful with `unorderedResult` or when column names are dynamic.
+      - query: select * from t3 where col1 <= 2;
+      - unorderedResult:
+          - {!pos 1: !l 1, !pos 2: 'hello'}
+          - {!pos 1: !l 2, !pos 2: 'world'}
+
+# ============================================================================
+# Nested Data Types and Manual Schema Setup
+# ============================================================================
 # Another setup block to "change" the testing environment. But doing it manually this time.
+---
 setup:
   # connecting to the catalog.
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
@@ -147,8 +255,12 @@ setup:
   connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST_NESTED"
   steps:
     - query: insert into t1 values (100, (( 200, 'L3_1' ), 'L2_1')), (101, ((300, 'L3_2'), 'L2_2'))
----
+
+# ============================================================================
+# Test Block: Advanced Options
+# ============================================================================
 # Another test block to test in the new "changed" environment
+---
 test_block:
   connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST_NESTED"
   # Running with defaults or declaring a preset is the preferred way of running the tests. However, the individual knobs
@@ -170,6 +282,9 @@ test_block:
     # For `block` the connection is created just once and all the tests are executed in that connection.
     # optional. default: test
     connection_lifecycle: block
+    # specifies whether to use simple statements, prepared statements, or a mix of both.
+    # optional. default: both
+    # statement_type: simple    # simple | prepared | both
     # Like the options at the top of the file, a supported_version can be specified for
     # an individual test_block. This overrides the version specified in the file
     supported_version: 4.0.560.0
@@ -177,6 +292,9 @@ test_block:
     # connection_options:
     #   DISABLE_PLANNER_REWRITING: false
   tests:
+    # ------------------------------------------------------------------
+    # Nested struct result matching
+    # ------------------------------------------------------------------
     -
       # We can selectively ignore part of the result set, by using the `!ignore dc` tag, which will cause
       # the matcher to always return true for that particular part of the message. This allows for
@@ -186,6 +304,10 @@ test_block:
       # the results.
       - query: select * from t1
       - result: [{!l 100, { {!l 200, 'L3_1'}, 'L2_1' } },  { !ignore _, { {!l 300, 'L3_2'}, 'L2_2' } }]
+
+    # ------------------------------------------------------------------
+    # !randomStr tag: parameter injection and result matching
+    # ------------------------------------------------------------------
       # The `!randomStr` tag generates a deterministic, reproducible random alphanumeric string.
       # The descriptor syntax is:
       #
@@ -227,8 +349,11 @@ test_block:
       - result:
           - { ID: !l 2, PAYLOAD: !randomStr seed 1001 length 500 }
           - { ID: !l 3, PAYLOAD: !randomStr seed 1002 length 500 }
----
+
+# ============================================================================
 # Cleaning up manually created location
+# ============================================================================
+---
 setup:
   connect: 0
   steps:
@@ -236,3 +361,128 @@ setup:
     - query: drop database /FRL/YOUSSEF
 ...
 # Note that we do not need to clean-up location created from `schema_template`. The interpreter will delete it in the end.
+#
+# ============================================================================
+# Additional Features Reference (not demonstrated inline above)
+# ============================================================================
+#
+# These features are demonstrated in other test files, referenced here for
+# completeness:
+#
+# INCLUDE BLOCKS
+# ============================================================================
+# Include another .yamsql file's blocks into the current execution. The included
+# file's blocks are parsed and inserted at the include point. Useful for
+# modularizing shared setup or test definitions.
+#
+#   ---
+#   include:
+#       path/to/other-tests.yamsql
+#
+# See: include-block/shouldPass/simple-include.yamsql
+#
+# TRANSACTION SETUPS AND SETUP REFERENCES
+# ============================================================================
+# Define named transaction-scoped setup commands that can be referenced from
+# individual tests. Currently only CREATE TEMPORARY FUNCTION is supported.
+#
+#   ---
+#   transaction_setups:
+#       my_view: create temporary function my_view() on commit drop function AS
+#                SELECT * FROM t1 WHERE id < 50;
+#   ---
+#   test_block:
+#     tests:
+#       -
+#         - query: select * from my_view() where id > 10
+#         - setupReference: my_view
+#         - result: [{id: 30, col1: 40}]
+#
+# The `setup` directive can also be used inline within a test for one-off setups:
+#
+#       -
+#         - query: select * from temp_fn()
+#         - setup: create temporary function temp_fn() on commit drop function AS
+#                  SELECT * FROM t1 WHERE id = 10;
+#         - result: [...]
+#
+# See: transaction-setup/shouldPass/single-setup-reference.yamsql
+#
+# VERSION-DEPENDENT RESULTS
+# ============================================================================
+# Use `initialVersionAtLeast` and `initialVersionLessThan` to provide different
+# expected results depending on the database version. The version ranges must
+# cover all possibilities (no gaps).
+#
+#       -
+#         - query: select * from t1
+#         - initialVersionLessThan: 4.1.0.0
+#         - result: [{!l 10, !l 20}]
+#         - initialVersionAtLeast: 4.1.0.0
+#         - result: [{!l 10, !l 20, !l 0}]
+#
+# PARAMETER INJECTION
+# ============================================================================
+# Queries can contain parameter injection snippets delimited by `!!`. The content
+# between delimiters is parsed as YAML and resolved during parsing.
+#
+# Available injection tags:
+#   !!42!!                           - Literal value
+#   !! !r [1, 100] !!               - Random integer in range [1, 100]
+#   !! !n null !!                    - SQL NULL
+#   !! !uuid 'a1b2c3d4-...' !!      - UUID value
+#   !! !v32 [1.0, 2.0, 3.0] !!      - Float vector
+#   !! !v16 [1.0, 2.0] !!           - Half-precision vector
+#   !! !v64 [1.0, 2.0] !!           - Double vector
+#   !! !randomStr seed 42 length 500 !!  - Deterministic random string
+#   !! !a [1, 5] !!                  - Array of sequential values [1,2,3,4,5]
+#   !! !in {!a [1, 3]} !!           - IN list: (1, 2, 3)
+#   !! !l 42 !!                      - Long literal
+#
+# See: null-extraction-tests.yamsql, prepared.yamsql
+#
+# STATEMENT TYPE CONTROL
+# ============================================================================
+# Control whether queries run as simple or prepared statements:
+#
+#   options:
+#     statement_type: prepared     # simple | prepared | both (default)
+#
+#  - simple: the query is executed with executeStatement, and any parameters are injected as literals
+#  - prepared: the query is executed with prepareStatement, and any parameters are bound with setObject
+#  - both: for each repetition of the query it randomly chooses whether to use simple or prepared
+#
+# See: prepared.yamsql, null-extraction-tests.yamsql
+#
+# CONNECTION OPTIONS IN SETUP
+# ============================================================================
+# Setup blocks can specify connection options:
+#
+#   setup:
+#     options:
+#       connection_options:
+#         CASE_SENSITIVE_IDENTIFIERS: true
+#     connect: 0
+#     steps:
+#       - query: ...
+#
+# See: setup-with-connection-options.yamsql
+#
+# noChecks (file/block level option)
+# ============================================================================
+# At the file-wide `options` level, `noChecks` disables specific validation
+# checks. This is not a per-query directive.
+#
+#   options:
+#       noChecks: [metrics]
+#
+# See: index-ddl-aggregates-only.yamsql
+#
+# DEBUGGER
+# ============================================================================
+# Attach a planner debugger to a query for development/debugging:
+#
+#       - query: select * from t1
+#       - debugger: SANE           # SANE | VERBOSE | QUIET
+#       - result: [...]
+#

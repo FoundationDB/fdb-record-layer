@@ -66,23 +66,33 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
     private final Options options;
     private StoreCatalog storeCatalog;
     private FDBDatabase database;
+    private final String clusterFile;
+    private final boolean register;
 
     public EmbeddedRelationalExtension() {
         this(Options.none());
     }
 
     public EmbeddedRelationalExtension(@Nonnull final Options options) {
+        this(FDBTestEnvironment.randomClusterFile(), true, options);
+    }
+
+    public EmbeddedRelationalExtension(final String clusterFile, final boolean register, final Options options) {
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
         keyspaceProvider.registerDomainIfNotExists("TEST");
         this.keySpace = keyspaceProvider.getKeySpace();
         this.storeTimer = new MetricRegistry();
+        this.clusterFile = clusterFile;
+        this.register = register;
         this.options = options;
     }
 
     @Override
     public void afterEach(ExtensionContext ignored) throws Exception {
         if (driver != null) {
-            DriverManager.deregisterDriver(driver);
+            if (register) {
+                DriverManager.deregisterDriver(driver);
+            }
             driver = null;
         }
     }
@@ -99,22 +109,28 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         // This needs to be done prior to the first call to factory.getDatabase()
         FDBDatabaseFactory.instance().setAPIVersion(APIVersion.API_VERSION_7_1);
 
-        database = FDBDatabaseFactory.instance().getDatabase(FDBTestEnvironment.randomClusterFile());
-        try (var connection = new DirectFdbConnection(database);
-                 Transaction txn = connection.getTransactionManager().createTransaction(Options.NONE)) {
-            storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
-            txn.commit();
-        }
+        makeDatabase(clusterFile);
 
         // We can use the default format version, but it's important to remember that the registered driver will
         // most likely touch the catalog, and could affect mixed-mode tests
         engine = makeEngine(database, FormatVersion.getDefaultFormatVersion());
         driver = new EmbeddedRelationalDriver(engine);
-        DriverManager.registerDriver(driver);
+        if (register) {
+            DriverManager.registerDriver(driver);
+        }
     }
 
     public EmbeddedRelationalDriver getDriver(@Nonnull final FormatVersion formatVersion) throws SQLException {
         return new EmbeddedRelationalDriver(makeEngine(database, formatVersion));
+    }
+
+    private void makeDatabase(String clusterFile) throws RelationalException {
+        database = FDBDatabaseFactory.instance().getDatabase(clusterFile);
+        try (var connection = new DirectFdbConnection(database);
+                 Transaction txn = connection.getTransactionManager().createTransaction(Options.NONE)) {
+            storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
+            txn.commit();
+        }
     }
 
     private EmbeddedRelationalEngine makeEngine(final @Nonnull FDBDatabase database, final @Nonnull FormatVersion formatVersion) {
@@ -154,6 +170,15 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
     @Nonnull
     public static Resource newAsResource(@Nonnull final Options options) throws Exception {
         return new Resource(new EmbeddedRelationalExtension(options));
+    }
+
+    public EmbeddedRelationalExtension extensionForOtherCluster() throws SQLException, RelationalException {
+        final String otherClusterFile = FDBTestEnvironment.allClusterFiles().stream()
+                .filter(clusterFile -> !clusterFile.equals(database.getClusterFile()))
+                .findAny().orElseThrow();
+        final EmbeddedRelationalExtension embeddedRelationalExtension = new EmbeddedRelationalExtension(otherClusterFile, false, options);
+        embeddedRelationalExtension.setup();
+        return embeddedRelationalExtension;
     }
 
     public static final class Resource implements Closeable {

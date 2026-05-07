@@ -21,8 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 
 /**
  * Trait to implement some default logic for {@link MatchCandidate}s that are defined using a base quantifier, that is,
@@ -32,4 +35,17 @@ public interface WithBaseQuantifierMatchCandidate extends MatchCandidate {
 
     @Nonnull
     Type.Record getBaseType();
+
+    @Nonnull
+    @Override
+    default Set<OrderingPart.MatchedOrderingPart> computeEqualityBoundImplicitOrderingParts() {
+        if (isScopedToSingleType()) {
+            Verify.verify(!getQueriedRecordTypes().isEmpty());
+            final var recordTypeName = getQueriedRecordTypes().get(0).getName();
+
+            final var recordTypeOrderingPart = OrderingPart.MatchedOrderingPart.ofRecordTypeKey(recordTypeName, getBaseType());
+            return ImmutableSet.of(recordTypeOrderingPart);
+        }
+        return MatchCandidate.super.computeEqualityBoundImplicitOrderingParts();
+    }
 }

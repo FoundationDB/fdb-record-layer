@@ -30,17 +30,33 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * Block is a single region in the YAMSQL file that can either be a
- * {@link PreambleBlock}, {@link SetupBlock} or {@link TestBlock}.
- * <ul>
- *      <li> {@link PreambleBlock}: Controls whether a file should be run at all, and other configuration that runs before
- *          creating the connection.</li>
- *      <li> {@link SetupBlock}: It can be either a `setup` block or a `destruct` block. The motive of these block
- *          is to "setup" and "clean" the environment needed to run the `test-block`s. A Setup block consist of a list
- *          of commands.</li>
- *      <li> {@link TestBlock}: Defines a scope for a group of tests by setting the knobs that determines how those
- *          tests are run.</li>
- * </ul>
+ * A Block is a single YAML document region in a {@code .yamsql} file. The top-level key determines the block type:
+ *
+ * <table>
+ *   <caption>Block types recognized by {@link #parse}</caption>
+ *   <tr><th>YAML key</th><th>Block class</th><th>Purpose</th></tr>
+ *   <tr><td>{@code options}</td><td>{@link PreambleBlock}</td>
+ *       <td>File-wide configuration ({@code supported_version}, {@code connection_options}). Must be the first
+ *       block if present.</td></tr>
+ *   <tr><td>{@code schema_template}</td><td>{@link SetupBlock} (SchemaTemplateBlock)</td>
+ *       <td>Declarative schema creation from DDL statements. The framework creates a temporary database and schema
+ *       automatically, and cleans them up after all blocks execute. Referenced by 1-based index in
+ *       {@code connect}.</td></tr>
+ *   <tr><td>{@code setup}</td><td>{@link SetupBlock} (ManualSetupBlock)</td>
+ *       <td>Arbitrary SQL steps for environment setup/teardown. Supports {@code connect} (integer index, {@code 0}
+ *       for catalog, or full JDBC URI) and {@code steps} (list of queries).</td></tr>
+ *   <tr><td>{@code test_block}</td><td>{@link TestBlock}</td>
+ *       <td>Group of tests with execution options (mode, repetition, presets). See {@link TestBlock} for details.</td></tr>
+ *   <tr><td>{@code include}</td><td>{@link IncludeBlock}</td>
+ *       <td>Include another {@code .yamsql} file's blocks at this point in execution.</td></tr>
+ *   <tr><td>{@code transaction_setups}</td><td>{@link TransactionSetupsBlock}</td>
+ *       <td>Named, reusable transaction-scoped setup definitions (e.g., {@code CREATE TEMPORARY FUNCTION}).
+ *       Referenced from tests via {@code setupReference}.</td></tr>
+ * </table>
+ *
+ * @see TestBlock
+ * @see SetupBlock
+ * @see PreambleBlock
  */
 public interface Block {
 

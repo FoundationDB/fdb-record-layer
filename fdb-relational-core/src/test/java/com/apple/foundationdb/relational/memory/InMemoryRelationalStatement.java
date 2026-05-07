@@ -30,8 +30,6 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.metrics.MetricCollector;
-import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -40,7 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
-import com.apple.foundationdb.relational.util.Supplier;
+import com.apple.foundationdb.relational.recordlayer.query.cache.NoOpMetricCollector;
 import com.apple.foundationdb.relational.utils.InMemoryTransactionManager;
 
 import com.google.protobuf.Descriptors;
@@ -95,16 +93,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
     public boolean execute(String sql) throws SQLException {
         try {
             final var txn = inMemoryTransactionManager.createTransaction(Options.NONE);
-            final var metricCollector = new MetricCollector() {
-                @Override
-                public void increment(@Nonnull RelationalMetric.RelationalCount count) {
-                }
-
-                @Override
-                public <T> T clock(@Nonnull RelationalMetric.RelationalEvent event, Supplier<T> supplier) throws RelationalException {
-                    return supplier.get();
-                }
-            };
+            final var metricCollector = NoOpMetricCollector.INSTANCE;
             final PlanContext ctx = PlanContext.Builder.create()
                     .withConstantActionFactory(relationalConn.getConstantActionFactory())
                     .withDdlQueryFactory(relationalConn.getDdlQueryFactory())

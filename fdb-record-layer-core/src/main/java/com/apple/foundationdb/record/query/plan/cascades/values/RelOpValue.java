@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -72,7 +73,6 @@ import java.util.Set;
 import java.util.function.BinaryOperator;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
@@ -196,21 +196,45 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         return Optional.empty();
     }
 
+    /**
+     * Injects {@link PromoteValue} nodes to promote the given two values to their maximum type, if necessary.
+     *
+     * @throws SemanticException if the two types are incompatible, i.e., their maximum type is undefined.
+     * @see Type#maximumType(Type, Type)
+     */
+    @Nonnull
+    private static NonnullPair<Value, Value> promoteOperands(@Nonnull Value lhs, @Nonnull Value rhs) {
+        final Type leftType = lhs.getResultType();
+        final Type rightType = rhs.getResultType();
+        final Type maximumType = Type.maximumType(leftType, rightType);
+        // The maximum type may be undefined (if a non-primitive type is involved).
+        if (maximumType == null) {
+            SemanticException.fail(
+                    SemanticException.ErrorCode.COMPARISON_OF_INCOMPATIBLE_TYPES,
+                    "left type: " + leftType + ", right type: " + rightType);
+        }
+        // Inject the necessary `PromoteValue` nodes, if any (unless the type is already the max type).
+        lhs = PromoteValue.inject(lhs, maximumType);
+        rhs = PromoteValue.inject(rhs, maximumType);
+        return NonnullPair.of(lhs, rhs);
+    }
+
     @Nonnull
     @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
     private static Optional<QueryPredicate> promoteOperandsAndCreatePredicate(@Nullable final TypeRepository typeRepository,
                                                                               @Nonnull Value leftChild,
                                                                               @Nonnull Value rightChild,
                                                                               @Nonnull final Comparisons.Type comparisonType) {
+        // Promote the operands if necessary (or throw `SemanticException` if they are incompatible).
+        NonnullPair<Value, Value> promotedOperands = promoteOperands(leftChild, rightChild);
+        leftChild = promotedOperands.getLeft();
+        rightChild = promotedOperands.getRight();
+        final boolean isArrayComparison = leftChild.getResultType().isArray();
 
-        // maximumType may return null, but only for non-primitive types which is not possible here
-        final var maxtype = Verify.verifyNotNull(Type.maximumType(leftChild.getResultType(), rightChild.getResultType()));
-
-        // inject is idempotent AND does not modify the Value if its result is already max type
-        leftChild = PromoteValue.inject(leftChild, maxtype);
-        rightChild = PromoteValue.inject(rightChild, maxtype);
-
-        if (typeRepository != null) {
+        // Note: When arrays are compared, we always use `ValueComparison`. `SimpleComparison` cannot be used because
+        // it would encounter a serialization failure when calling `LiteralKeyExpression.toProtoValue()` to serialize
+        // its comparand; that serializer currently cannot handle a `List`.
+        if (typeRepository != null && !isArrayComparison) {
             final Object comparand = rightChild.evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository));
             return comparand == null
                    ? Optional.of(new ConstantPredicate(false))
@@ -290,38 +314,68 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         }
     }
 
+    /**
+     * Whether the given operand type is permitted in a relational operator.
+     */
+    private static boolean isSupportedOperandType(final Type type) {
+        return type.isPrimitive() || type.isEnum() || type.isUuid() || type.isArray() || type.isNone();
+    }
+
     @Nonnull
     private static Value encapsulate(@Nonnull final String functionName,
                                      @Nonnull final Comparisons.Type comparisonType,
                                      @Nonnull final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 1 || arguments.size() == 2);
-        final Typed arg0 = arguments.get(0);
-        final Type res0 = arg0.getResultType();
-        SemanticException.check(res0.isPrimitive() || res0.isEnum() || res0.isUuid(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
         if (arguments.size() == 1) {
+            Verify.verify(arguments.get(0) instanceof Value);
+            final Value arg0 = (Value)arguments.get(0);
+            final Type res0 = arg0.getResultType();
+            SemanticException.check(isSupportedOperandType(res0), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
             final UnaryPhysicalOperator physicalOperator =
                     getUnaryOperatorMap().get(new UnaryComparisonSignature(comparisonType, res0.getTypeCode()));
-
-            Verify.verifyNotNull(physicalOperator, "unable to encapsulate comparison operation due to type mismatch(es)");
-
+            SemanticException.check(physicalOperator != null, SemanticException.ErrorCode.COMPARISON_OF_INCOMPATIBLE_TYPES);
             return new UnaryRelOpValue(functionName,
                     comparisonType,
-                    arguments.stream().map(Value.class::cast).collect(Collectors.toList()),
+                    ImmutableList.of(arg0),
                     physicalOperator);
         } else {
-            final Typed arg1 = arguments.get(1);
-            final Type res1 = arg1.getResultType();
+            Verify.verify(arguments.get(0) instanceof Value);
+            Value arg0 = (Value)arguments.get(0);
+            Type res0 = arg0.getResultType();
+            SemanticException.check(isSupportedOperandType(res0), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
 
-            SemanticException.check(res1.isPrimitive() || res1.isEnum() || res1.isUuid(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
+            Verify.verify(arguments.get(1) instanceof Value);
+            Value arg1 = (Value)arguments.get(1);
+            Type res1 = arg1.getResultType();
+            SemanticException.check(isSupportedOperandType(res1), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
+
+            // When one operand is an ARRAY and the other operand is the untyped NULL or NONE value (`[]` literal),
+            // promote that other operand to a NULL or empty-array value of the proper ARRAY type via `PromoteValue`,
+            // if possible (or if not, this throws a `SemanticException`). This way the usual ARRAY predicates (e.g.,
+            // EQ_ARRAY_ARRAY) are used, and we don’t have to define special overloads for ARRAY+NULL/NONE combinations.
+            final boolean isArrayComparison = res0.isArray() || res1.isArray();
+            if (isArrayComparison && (res0.isNone() || res1.isNone() || res0.isNull() || res1.isNull())) {
+                final NonnullPair<Value, Value> promotedOperands = promoteOperands(arg0, arg1);
+                arg0 = promotedOperands.getLeft();
+                res0 = arg0.getResultType();
+                arg1 = promotedOperands.getRight();
+                res1 = arg1.getResultType();
+            }
+
+            // We currently require the ARRAY types to match (modulo nullability). For example, comparing an INTEGER
+            // ARRAY to a BIGINT ARRAY is not allowed, even though INTEGER can be promoted to BIGINT in principle.
+            if (isArrayComparison) {
+                SemanticException.check(res0.withNullability(false).equals(res1.withNullability(false)),
+                        SemanticException.ErrorCode.COMPARISON_OF_INCOMPATIBLE_TYPES);
+            }
 
             final BinaryPhysicalOperator physicalOperator =
                     getBinaryOperatorMap().get(new BinaryComparisonSignature(comparisonType, res0.getTypeCode(), res1.getTypeCode()));
-
-            Verify.verifyNotNull(physicalOperator, "unable to encapsulate comparison operation due to type mismatch(es)");
+            SemanticException.check(physicalOperator != null, SemanticException.ErrorCode.COMPARISON_OF_INCOMPATIBLE_TYPES);
 
             return new BinaryRelOpValue(functionName,
                     comparisonType,
-                    arguments.stream().map(Value.class::cast).collect(Collectors.toList()),
+                    ImmutableList.of(arg0, arg1),
                     physicalOperator);
         }
     }
@@ -1080,8 +1134,39 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         NOT_DISTINCT_FROM_VEC_NULL(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.VECTOR, Type.TypeCode.NULL, (l, r) -> Objects.isNull(l)),
         NOT_DISTINCT_FROM_NULL_VEC(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.VECTOR, (l, r) -> Objects.isNull(r)),
         NOT_DISTINCT_FROM_VEC_VEC(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.VECTOR, Type.TypeCode.VECTOR, Objects::equals),
+
+        // ARRAY equality/inequality.
+        // Some notes:
+        //  * To evaluate array comparisons we just use the generic `Comparisons.evalComparison()` as well here. It
+        //    ultimately delegates to `List.equals()`.
+        //  * We don’t currently provide specific overloads for comparing ARRAYs to NULL or [], as that would multiply
+        //    the number of overloads we’d need here. Instead, we handle NULL and [] (aka. the NONE type) during
+        //    `encapsulate()` by promoting them via NULL_TO_ARRAY and NONE_TO_ARRAY.
+        //  * For the remaining special cases where both sides are NONE or NULL (e.g. `[] = []`, `[] <> NULL`), we
+        //    provide dedicated overloads below. These are odd cases, but nice to support for "syntactic completeness".
+        //    (Note that in the `[] <> NULL` case we couldn’t just promote NULL to NONE, as NONE is not defined as a
+        //    nullable type, even though it arguably should be.)
+        EQ_ARRAY_ARRAY(Comparisons.Type.EQUALS, Type.TypeCode.ARRAY, Type.TypeCode.ARRAY, (l, r) -> Comparisons.evalComparison(Comparisons.Type.EQUALS, l, r)),
+        NEQ_ARRAY_ARRAY(Comparisons.Type.NOT_EQUALS, Type.TypeCode.ARRAY, Type.TypeCode.ARRAY, (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_EQUALS, l, r)),
+        IS_DISTINCT_FROM_ARRAY_ARRAY(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.ARRAY, Type.TypeCode.ARRAY, (l, r) -> Comparisons.evalComparison(Comparisons.Type.IS_DISTINCT_FROM, l, r)),
+        NOT_DISTINCT_FROM_ARRAY_ARRAY(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.ARRAY, Type.TypeCode.ARRAY, (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_DISTINCT_FROM, l, r)),
+
+        // NULL/NONE combinations. [] (NONE) evaluates to ImmutableList.of() at runtime; NULL evaluates to null.
+        // For operators where one side is NULL type, the null arg is caught by the eval() null check above, so
+        // the lambda is never invoked for those — but we still need distinct operator entries for type-checking.
+        EQ_NULL_NONE(Comparisons.Type.EQUALS, Type.TypeCode.NULL, Type.TypeCode.NONE, (l, r) -> null),
+        EQ_NONE_NULL(Comparisons.Type.EQUALS, Type.TypeCode.NONE, Type.TypeCode.NULL, (l, r) -> null),
+        EQ_NONE_NONE(Comparisons.Type.EQUALS, Type.TypeCode.NONE, Type.TypeCode.NONE, Objects::equals),
+        NEQ_NULL_NONE(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NULL, Type.TypeCode.NONE, (l, r) -> null),
+        NEQ_NONE_NULL(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NONE, Type.TypeCode.NULL, (l, r) -> null),
+        NEQ_NONE_NONE(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NONE, Type.TypeCode.NONE, (l, r) -> !l.equals(r)),
+        IS_DISTINCT_FROM_NULL_NONE(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.NONE, (l, r) -> true),
+        IS_DISTINCT_FROM_NONE_NULL(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NONE, Type.TypeCode.NULL, (l, r) -> true),
+        IS_DISTINCT_FROM_NONE_NONE(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NONE, Type.TypeCode.NONE, (l, r) -> !l.equals(r)),
+        NOT_DISTINCT_FROM_NULL_NONE(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.NONE, (l, r) -> false),
+        NOT_DISTINCT_FROM_NONE_NULL(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NONE, Type.TypeCode.NULL, (l, r) -> false),
+        NOT_DISTINCT_FROM_NONE_NONE(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NONE, Type.TypeCode.NONE, Objects::equals),
         ;
-        // We can pass down UUID or String till here.
 
         @Nonnull
         private static final Supplier<BiMap<BinaryPhysicalOperator, PBinaryPhysicalOperator>> protoEnumBiMapSupplier =
@@ -1193,7 +1278,16 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         IS_NULL_VERSION(Comparisons.Type.IS_NULL, Type.TypeCode.VERSION, Objects::isNull),
         IS_NOT_NULL_VERSION(Comparisons.Type.NOT_NULL, Type.TypeCode.VERSION, Objects::nonNull),
-        ;
+
+        // <array> IS NULL, <array> IS NOT NULL
+        IS_NULL_ARRAY(Comparisons.Type.IS_NULL, Type.TypeCode.ARRAY, Objects::isNull),
+        IS_NOT_NULL_ARRAY(Comparisons.Type.NOT_NULL, Type.TypeCode.ARRAY, Objects::nonNull),
+
+        // [] IS NULL, [] IS NOT NULL
+        // These are odd special cases, but we define them nevertheless for "syntactic" completeness, as otherwise
+        // you could write  `[1] IS NULL` but not `[] IS NULL`.
+        IS_NULL_NONE(Comparisons.Type.IS_NULL, Type.TypeCode.NONE, Objects::isNull),
+        IS_NOT_NULL_NONE(Comparisons.Type.NOT_NULL, Type.TypeCode.NONE, Objects::nonNull);
 
         @Nonnull
         private static final Supplier<BiMap<UnaryPhysicalOperator, PUnaryPhysicalOperator>> protoEnumBiMapSupplier =

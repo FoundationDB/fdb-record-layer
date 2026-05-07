@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
+
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -190,6 +191,40 @@ public interface MatchCandidate {
                                                           @Nonnull List<CorrelationIdentifier> sortParameterIds,
                                                           boolean isReverse);
 
+    /**
+     * Computes a set of {@link MatchedOrderingPart}s representing ordering keys that are implicitly equality-bound
+     * by the candidate itself, rather than by explicit predicates in the query. These parts are prepended to the
+     * matched ordering and take priority over regular matched ordering parts.
+     * <p>
+     * For example, a {@link PrimaryScanMatchCandidate} scoped to a single record type returns an equality-bound
+     * ordering part for the record type key, since the scan is inherently constrained to that type.
+     * <p>
+     * The default implementation returns an empty set, meaning no implicit equality-bound ordering parts exist.
+     *
+     * @return a set of ordering parts that are implicitly equality-bound by this candidate
+     */
+    @Nonnull
+    default Set<MatchedOrderingPart> computeEqualityBoundImplicitOrderingParts() {
+        return ImmutableSet.of();
+    }
+
+    /**
+     * Returns whether this match candidate is inherently constrained to a single record type. This is true when
+     * the candidate queries exactly one record type, or when the record type key is part of the index definition
+     * and effectively partitions the index by type.
+     * <p>
+     * This is used by {@link #computeEqualityBoundImplicitOrderingParts()} to determine whether a record type key
+     * equality-bound ordering part should be implicitly added.
+     * <p>
+     * The default implementation returns {@code false}. Subclasses that support record-type-scoped scans
+     * (e.g., {@link ValueIndexScanMatchCandidate}, {@link WindowedIndexScanMatchCandidate}) override this.
+     *
+     * @return {@code true} if this candidate is scoped to a single record type, {@code false} otherwise
+     */
+    default boolean isScopedToSingleType() {
+        return false;
+    }
+
     @Nonnull
     Ordering computeOrderingFromScanComparisons(@Nonnull ScanComparisons scanComparisons,
                                                 boolean isReverse,
@@ -284,6 +319,10 @@ public interface MatchCandidate {
         return getQueriedRecordTypes().stream()
                 .map(RecordType::getName)
                 .collect(ImmutableSet.toImmutableSet());
+    }
+
+    default boolean hasAndOrderedByRecordTypeKey() {
+        return false;
     }
 
     @Nonnull

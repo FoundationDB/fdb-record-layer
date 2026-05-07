@@ -54,18 +54,19 @@ public class StructDataMetadataTest {
     public static final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     private static final String TABLE_STRUCTURE =
-            "CREATE TYPE AS STRUCT struct_1 (a string) " +
-                    " CREATE TABLE t (name string, st1 struct_1, PRIMARY KEY(name))" +
-                    " CREATE TYPE AS STRUCT struct_2 (c bigint, d struct_1) " +
-                    " CREATE TABLE nt (t_name string, st1 struct_2, PRIMARY KEY(t_name))" +
-                    " CREATE TYPE AS STRUCT struct_3 (c bytes, d boolean) " +
-                    " CREATE TABLE at (a_name string, st2 struct_3 ARRAY, PRIMARY KEY(a_name))" +
-                    " CREATE TYPE AS STRUCT n1(a bigint, b string) " +
-                    " CREATE TYPE AS STRUCT n2(a bigint, b string) " +
-                    " CREATE TYPE AS STRUCT m(x n1, y n2) " +
-                    " CREATE TABLE t3(id bigint, m m, PRIMARY KEY(id)) " +
-                    " CREATE TABLE t4(id bigint, n1 n1, n2 n2, PRIMARY KEY(id)) ";
-
+            """
+            CREATE TYPE AS STRUCT struct_1 (a string)
+            CREATE TABLE t (name string, st1 struct_1, PRIMARY KEY(name))
+            CREATE TYPE AS STRUCT struct_2 (c bigint, d struct_1)
+            CREATE TABLE nt (t_name string, st1 struct_2, PRIMARY KEY(t_name))
+            CREATE TYPE AS STRUCT struct_3 (c bytes, d boolean)
+            CREATE TABLE at (a_name string, st2 struct_3 ARRAY, PRIMARY KEY(a_name))
+            CREATE TYPE AS STRUCT n1(a bigint, b string)
+            CREATE TYPE AS STRUCT n2(a bigint, b string)
+            CREATE TYPE AS STRUCT m(x n1, y n2)
+            CREATE TABLE t3(id bigint, m m, PRIMARY KEY(id))
+            CREATE TABLE t4(id bigint, n1 n1, n2 n2, PRIMARY KEY(id))
+            """;
 
     /*
     message at {
