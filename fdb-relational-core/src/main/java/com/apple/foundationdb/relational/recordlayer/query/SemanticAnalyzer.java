@@ -303,25 +303,48 @@ public class SemanticAnalyzer {
         return resolveIdentifier(identifier, operators);
     }
 
+    /**
+     * Expands a SQL {@code *} (star) expression into the corresponding set of column expressions. Three forms are
+     * supported: an unqualified {@code *} (expanding to all columns of all tables in scope), {@code T.*} (expanding
+     * to the columns of table {@code T}), and {@code T.A.*} (expanding the fields of a struct-typed column {@code A}).
+     * Raises {@link ErrorCode#INVALID_COLUMN_REFERENCE} when the qualifier does not refer to a record/struct type,
+     * e.g. when unnesting a scalar array.
+     *
+     * @param optionalQualifier the optional qualifier preceding the {@code *}, or {@link Optional#empty()} for an
+     * unqualified {@code *}
+     * @param operators the logical operators in scope for resolving the qualifier
+     *
+     * @return a {@link Star} expression capturing the expansion
+     */
     @Nonnull
     public Star expandStar(@Nonnull Optional<Identifier> optionalQualifier,
                            @Nonnull LogicalOperators operators) {
         final var forEachOperators = operators.forEachOnly();
+
         // Case 1: no qualifier, e.g. SELECT * FROM T, R;
         if (optionalQualifier.isEmpty()) {
             final var expansion = forEachOperators.getExpressions().nonEphemeralVisible();
             return Star.overQuantifiers(Optional.empty(), Streams.stream(forEachOperators).map(LogicalOperator::getQuantifier)
                     .map(Quantifier::getFlowedObjectValue).collect(ImmutableList.toImmutableList()), "unknown", expansion);
         }
+
         // Case 2: qualifying a table, e.g. SELECT T.* FROM T, R;
         final var qualifier = optionalQualifier.get();
         final var logicalTableMaybe = Streams.stream(forEachOperators)
                 .filter(table -> table.getName().isPresent() && table.getName().get().equals(qualifier))
                 .findFirst();
         if (logicalTableMaybe.isPresent()) {
-            return Star.overQuantifier(optionalQualifier, logicalTableMaybe.get().getQuantifier().getFlowedObjectValue(),
-                    qualifier.getName(), logicalTableMaybe.get().getOutput().nonEphemeralVisible());
+            final LogicalOperator logicalTable = logicalTableMaybe.get();
+            // Star can only be expanded on a record (struct) type. Examples of non-record qualifier types are scalars
+            // (e.g., when unnesting a scalar array, as in `SELECT integer.* FROM T, T.integer_array AS integer`)
+            // as well as VECTOR, ENUM, and UUID.
+            Assert.thatUnchecked(logicalTable.getQuantifier().getFlowedObjectType().isRecord(),
+                    ErrorCode.INVALID_COLUMN_REFERENCE,
+                    () -> String.format(Locale.ROOT, "attempt to expand non-struct column %s", qualifier));
+            return Star.overQuantifier(optionalQualifier, logicalTable.getQuantifier().getFlowedObjectValue(),
+                    qualifier.getName(), logicalTable.getOutput().nonEphemeralVisible());
         }
+
         // Case 2.1: represents a rare case where a logical operator contains a mix of columns that are qualified
         // differently.
         // This mostly happens when the logical operator encompasses an internal modeling strategy
@@ -333,6 +356,7 @@ public class SemanticAnalyzer {
         if (!individualReferencedColumns.isEmpty()) {
             return Star.overIndividualExpressions(optionalQualifier, "unknown", individualReferencedColumns);
         }
+
         // Case 3: qualifying a column inside a table, e.g. SELECT T.A.* FROM T, R;
         // TODO this is currently not supported as per parsing rules TODO (Expand nested struct fields)
         final var expression = resolveIdentifier(qualifier, forEachOperators);

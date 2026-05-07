@@ -79,7 +79,8 @@ public class CheckResultMetadataTest {
                 "wrong-struct-field-type",                // nested struct field type wrong
                 "wrong-array-of-struct-field-name",       // array-of-struct element field name wrong
                 "wrong-array-of-struct-field-type",        // array-of-struct element field type wrong
-                "wrong-struct-type-name"                  // struct type name does not match declared type
+                "wrong-struct-type-name",                  // struct type name does not match declared type
+                "result-metadata-without-result"          // resultMetadata present but no consuming config — parse-time failure
         );
     }
 

@@ -42,26 +42,26 @@ standard-tests:
         KEY:[0], ID: KEY:[2]]) ∪ COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c13 AS
         LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) COMPARE BY (_.COL1, _.ID) | FETCH'
     task_count: 1493
-    task_total_time_ms: 112
+    task_total_time_ms: 67
     transform_count: 288
-    transform_time_ms: 45
+    transform_time_ms: 27
     transform_yield_count: 87
-    insert_time_ms: 5
+    insert_time_ms: 3
     insert_new_count: 179
-    insert_reused_count: 23
+    insert_reused_count: 22
 -   query: EXPLAIN select * from T1 where COL1 >= 10 OR COL1 <= 20 ORDER BY COL1
     ref: standard-tests.yamsql:116
     explain: 'COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS LONG)]] -> [COL1:
         KEY:[0], ID: KEY:[2]]) ∪ COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c13 AS
         LONG)]] -> [COL1: KEY:[0], ID: KEY:[2]]) COMPARE BY (_.COL1, _.ID) | FETCH'
     task_count: 1288
-    task_total_time_ms: 152
+    task_total_time_ms: 128
     transform_count: 252
-    transform_time_ms: 73
+    transform_time_ms: 46
     transform_yield_count: 70
-    insert_time_ms: 5
+    insert_time_ms: 7
     insert_new_count: 145
-    insert_reused_count: 14
+    insert_reused_count: 13
 -   query: EXPLAIN select * from T1 where COL1 >= 10 AND COL1 <= 20
     ref: standard-tests.yamsql:134
     explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG) && LESS_THAN_OR_EQUALS
@@ -126,27 +126,27 @@ standard-tests:
         ∪ COVERING(I1 [EQUALS promote(@c12 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]])
         COMPARE BY (_.COL1, _.ID) | FETCH'
     task_count: 1509
-    task_total_time_ms: 133
+    task_total_time_ms: 106
     transform_count: 293
-    transform_time_ms: 48
+    transform_time_ms: 43
     transform_yield_count: 89
-    insert_time_ms: 7
+    insert_time_ms: 6
     insert_new_count: 183
-    insert_reused_count: 23
+    insert_reused_count: 22
 -   query: EXPLAIN select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20
         OR COL1 = 10) ORDER BY COL1
     ref: standard-tests.yamsql:231
-    explain: 'COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]])
-        ∪ COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]])
+    explain: 'COVERING(I1 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]])
+        ∪ COVERING(I1 [EQUALS promote(@c12 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]])
         COMPARE BY (_.COL1, _.ID) | FETCH'
     task_count: 1400
-    task_total_time_ms: 57
+    task_total_time_ms: 69
     transform_count: 269
-    transform_time_ms: 22
+    transform_time_ms: 28
     transform_yield_count: 72
-    insert_time_ms: 4
+    insert_time_ms: 3
     insert_new_count: 152
-    insert_reused_count: 21
+    insert_reused_count: 20
 -   query: EXPLAIN select * from T1 where (COL1 >= 10 AND COL1 <= 20) OR (COL1 >=
         10 AND COL1 <= 20)
     ref: standard-tests.yamsql:249
@@ -178,48 +178,48 @@ standard-tests:
     ref: standard-tests.yamsql:285
     explain: SCAN([IS T1, EQUALS promote(@c18 AS LONG)])
     task_count: 396
-    task_total_time_ms: 57
+    task_total_time_ms: 16
     transform_count: 93
-    transform_time_ms: 20
+    transform_time_ms: 8
     transform_yield_count: 37
-    insert_time_ms: 7
+    insert_time_ms: 0
     insert_new_count: 49
-    insert_reused_count: 5
+    insert_reused_count: 4
 -   query: EXPLAIN select * from (select * from (select * from T1) as x) as y where
         ID = 5;
     ref: standard-tests.yamsql:289
     explain: SCAN([IS T1, EQUALS promote(@c21 AS LONG)])
     task_count: 438
-    task_total_time_ms: 63
+    task_total_time_ms: 35
     transform_count: 102
-    transform_time_ms: 22
+    transform_time_ms: 14
     transform_yield_count: 41
-    insert_time_ms: 7
+    insert_time_ms: 2
     insert_new_count: 58
-    insert_reused_count: 6
+    insert_reused_count: 5
 -   query: EXPLAIN select count(*) from (select * from (select * from (select * from
         T1  where ID = 5) as x) as y) as z;
     ref: standard-tests.yamsql:293
-    explain: SCAN([IS T1, EQUALS promote(@c22 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0)
+    explain: SCAN([IS T1, EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
+        AS LONG)) AS _0)
     task_count: 593
-    task_total_time_ms: 56
+    task_total_time_ms: 43
     transform_count: 138
-    transform_time_ms: 21
+    transform_time_ms: 18
     transform_yield_count: 41
-    insert_time_ms: 2
-    insert_new_count: 67
+    insert_time_ms: 1
+    insert_new_count: 66
     insert_reused_count: 2
 -   query: EXPLAIN select * from (select * from (select * from (select * from T1  where
         ID > 10) as x) as y) as z;
     ref: standard-tests.yamsql:297
     explain: SCAN([IS T1, [GREATER_THAN promote(@c19 AS LONG)]])
     task_count: 389
-    task_total_time_ms: 46
+    task_total_time_ms: 26
     transform_count: 88
-    transform_time_ms: 19
+    transform_time_ms: 11
     transform_yield_count: 36
     insert_time_ms: 1
     insert_new_count: 46
-    insert_reused_count: 4
+    insert_reused_count: 3

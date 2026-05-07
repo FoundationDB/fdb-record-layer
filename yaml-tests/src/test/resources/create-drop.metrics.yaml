@@ -29,14 +29,14 @@ unnamed-10:
 unnamed-20:
 -   query: EXPLAIN select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
     ref: create-drop.yamsql:166
-    explain: SCAN([IS SCHEMAS, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) |
-        AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
-        AS LONG)) AS _0)
+    explain: SCAN([IS SCHEMAS, EQUALS promote(@c11 AS STRING)]) | MAP (_ AS _0) |
+        AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        promote(0l AS LONG)) AS _0)
     task_count: 545
-    task_total_time_ms: 12
+    task_total_time_ms: 7
     transform_count: 141
-    transform_time_ms: 7
+    transform_time_ms: 4
     transform_yield_count: 44
     insert_time_ms: 0
-    insert_new_count: 61
+    insert_new_count: 60
     insert_reused_count: 2

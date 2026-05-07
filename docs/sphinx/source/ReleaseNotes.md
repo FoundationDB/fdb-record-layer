@@ -7,6 +7,51 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.12.1.0
+
+<h4> Breaking Changes </h4>
+
+* Disallow `.*` star expansion on unnested scalar arrays - [PR #4120](https://github.com/FoundationDB/fdb-record-layer/pull/4120)
+* Clean up `VersionValue`, breaking cross-version compatibility for continuations generated from before 4.10 - [PR #4101](https://github.com/FoundationDB/fdb-record-layer/pull/4101)
+<h4> New Features </h4>
+
+* Allow CREATE INDEX on unnested scalar ARRAY elements - [PR #4106](https://github.com/FoundationDB/fdb-record-layer/pull/4106)
+* Support field renames in the `MetaDataEvolutionValidator` - [PR #4034](https://github.com/FoundationDB/fdb-record-layer/pull/4034)
+* Support Arrays of byte[] and float in JDBC - [PR #4070](https://github.com/FoundationDB/fdb-record-layer/pull/4070)
+<h4> Bug Fixes </h4>
+
+* Stop implementing aggregate plans on top of non-continuable plans - [PR #4076](https://github.com/FoundationDB/fdb-record-layer/pull/4076)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Lucene queries with special characters test - [PR #4127](https://github.com/FoundationDB/fdb-record-layer/pull/4127)
+* Assert resultMetadata always come with some result check - [PR #4118](https://github.com/FoundationDB/fdb-record-layer/pull/4118)
+* `LuceneIndexMaintenanceTest.concurrentMix`is flaky - resolve deadlock - [PR #4113](https://github.com/FoundationDB/fdb-record-layer/pull/4113)
+* Check ResultSetMetadata in yamsql framework - [PR #4054](https://github.com/FoundationDB/fdb-record-layer/pull/4054)
+* Upgrade build to JDK 21 (targeting Java 17 compatibility) - [PR #4092](https://github.com/FoundationDB/fdb-record-layer/pull/4092)
+* Fix flaky test `FDBRecordStoreIndexTest.failUpdateConcurrentWithStateChange` - [PR #4109](https://github.com/FoundationDB/fdb-record-layer/pull/4109)
+* Make PendingWritesQueueTooLargeException final … - [PR #4098](https://github.com/FoundationDB/fdb-record-layer/pull/4098)
+
+</details>
+
+
+**[Full Changelog (4.11.1.0...4.12.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.11.1.0...4.12.1.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.10.10.0`, ✅`4.10.12.0`, ✅`4.10.13.0`, ✅`4.10.15.0`, ✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/25374059724)
+
+
+
 ### 4.11.1.0
 
 <h4> Breaking Changes </h4>
