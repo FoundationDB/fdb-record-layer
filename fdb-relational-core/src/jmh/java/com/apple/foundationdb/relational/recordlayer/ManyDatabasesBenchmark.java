@@ -104,7 +104,7 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
         long dbId = ThreadLocalRandom.current().nextInt(0, dbCount);
         try (final var dbConn = DriverManager.getConnection(getUri(dbName(dbId), true).toString())) {
             dbConn.setSchema(SCHEMA);
-    long restId = ThreadLocalRandom.current().nextInt(1, DB_SIZE + 1);
+            long restId = ThreadLocalRandom.current().nextInt(1, DB_SIZE + 1);
             try (final var stmt = dbConn.createStatement();
                     ResultSet resultSet = stmt.executeQuery("SELECT * from \"RestaurantRecord\" where \"rest_no\" = " + restId)) {
                 resultSet.next();
