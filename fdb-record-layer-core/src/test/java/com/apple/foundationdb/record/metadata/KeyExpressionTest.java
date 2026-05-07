@@ -61,7 +61,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin.NOT_NULL;
 import static com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin.NULL;
+import static com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin.NULL_UNIQUE;
 import static com.apple.foundationdb.record.metadata.Key.Evaluated.concatenate;
 import static com.apple.foundationdb.record.metadata.Key.Evaluated.scalar;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -73,6 +75,9 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.list;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression.EMPTY;
+import static com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType.Concatenate;
+import static com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType.FanOut;
+import static com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType.None;
 import static com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression.VERSION;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
@@ -304,7 +309,7 @@ public class KeyExpressionTest {
 
     @Test
     void testSubstrFunctionStaticFanout() {
-        final KeyExpression expression = function("substr", concat(field("repeat_me", FanType.FanOut), value(0), value(3)));
+        final KeyExpression expression = function("substr", concat(field("repeat_me", FanOut), value(0), value(3)));
         expression.validate(TestScalarFieldAccess.getDescriptor());
         List<Key.Evaluated> results = evaluate(expression, plantsBoxesAndBowls);
         assertEquals(2, results.size(), "Wrong number of results");
@@ -314,7 +319,7 @@ public class KeyExpressionTest {
     @Test
     void testSubstrFunctionDynamicFanout() {
         final KeyExpression expression = function("substr",
-                field("substrings", FanType.FanOut).nest(
+                field("substrings", FanOut).nest(
                         concatenateFields("content", "start", "end")));
         expression.validate(SubStrings.getDescriptor());
         List<Key.Evaluated> results = evaluate(expression, subString);
@@ -329,7 +334,7 @@ public class KeyExpressionTest {
 
     @Test
     void testConcatenateSingleRepeatedField() {
-        final KeyExpression expression = field("repeat_me", FanType.Concatenate);
+        final KeyExpression expression = field("repeat_me", Concatenate);
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertFalse(expression.createsDuplicates());
         assertEquals(Collections.singletonList(scalar(Arrays.asList("Boxes", "Bowls"))),
@@ -343,7 +348,7 @@ public class KeyExpressionTest {
     @Test
     void testFieldThenConcatenateRepeated() {
         final KeyExpression expression = Key.Expressions.concat(field("field"),
-                field("repeat_me", FanType.Concatenate));
+                field("repeat_me", Concatenate));
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertFalse(expression.createsDuplicates());
         assertEquals(Collections.singletonList(Key.Evaluated.concatenate("Plants", Arrays.asList("Boxes", "Bowls"))),
@@ -356,7 +361,7 @@ public class KeyExpressionTest {
 
     @Test
     void testFanSingleRepeatedField() {
-        final KeyExpression expression = field("repeat_me", FanType.FanOut);
+        final KeyExpression expression = field("repeat_me", FanOut);
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertTrue(expression.createsDuplicates());
         assertEquals(Arrays.asList(scalar("Boxes"), scalar("Bowls")),
@@ -370,14 +375,14 @@ public class KeyExpressionTest {
     @Test
     void testValidateFanRequiresRepeated() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
-            field("field", FanType.FanOut).validate(TestScalarFieldAccess.getDescriptor());
+            field("field", FanOut).validate(TestScalarFieldAccess.getDescriptor());
         });
     }
 
     @Test
     void testValidateConcatenateRequiresRepeated() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
-            field("field", FanType.Concatenate).validate(TestScalarFieldAccess.getDescriptor());
+            field("field", Concatenate).validate(TestScalarFieldAccess.getDescriptor());
         });
     }
 
@@ -399,7 +404,7 @@ public class KeyExpressionTest {
     void testScalarThenFanned() {
         final KeyExpression expression = concat(
                 field("field"),
-                field("repeat_me", FanType.FanOut));
+                field("repeat_me", FanOut));
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertTrue(expression.createsDuplicates());
         assertEquals(Arrays.asList(
@@ -415,7 +420,7 @@ public class KeyExpressionTest {
     @Test
     void testFannedThenScalar() {
         final KeyExpression expression = concat(
-                field("repeat_me", FanType.FanOut),
+                field("repeat_me", FanOut),
                 field("field"));
         expression.validate(TestScalarFieldAccess.getDescriptor());
         assertTrue(expression.createsDuplicates());
@@ -439,81 +444,373 @@ public class KeyExpressionTest {
     @Test
     void testValidateThenFailsOnSecond() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
-            concat(field("repeat_me", FanType.FanOut), field("field", FanType.FanOut))
+            concat(field("repeat_me", FanOut), field("field", FanOut))
                     .validate(TestScalarFieldAccess.getDescriptor());
         });
     }
 
-    @Test
-    void testNestedScalars() {
-        final KeyExpression expression = field("nesty").nest("regular_old_field");
+    @FunctionalInterface
+    private interface NestSingularSingularCase {
+        void verify(@Nonnull Key.Evaluated.NullStandin parentStandin,
+                    @Nonnull Key.Evaluated.NullStandin childStandin,
+                    @Nonnull List<Key.Evaluated> expected);
+    }
+
+    /**
+     * Builds the key expression under test for {@link #testNestSingularSingular()}.
+     */
+    @Nonnull
+    private KeyExpression buildNestSingularSingularExpr(@Nonnull Key.Evaluated.NullStandin parentStandin,
+                                                        @Nonnull Key.Evaluated.NullStandin childStandin) {
+        final KeyExpression expression =
+                field("nesty", None, parentStandin)
+                        .nest(field("regular_old_field", None, childStandin));
+
+        // Also run `validate()` and validate that the `None` fan type implies `!createsDuplicates()`.
         expression.validate(NestedField.getDescriptor());
         assertFalse(expression.createsDuplicates());
-        assertEquals(Collections.singletonList(
-                        scalar("Mother")),
-                evaluate(expression, matryoshkaDolls));
-        assertEquals(Collections.singletonList(Key.Evaluated.NULL),
-                evaluate(expression, emptyNested));
-        assertEquals(Collections.singletonList(Key.Evaluated.NULL),
-                evaluate(expression, lonelyDoll));
-        assertEquals(Collections.singletonList(Key.Evaluated.NULL),
-                evaluate(expression, null));
+
+        return expression;
     }
 
+    /**
+     * {@code field(…).nest(field(…))} key expression where both the parent and the child are singular fields.
+     */
     @Test
-    void testNestedRepeats() {
+    void testNestSingularSingular() {
+        // Some shortcuts.
+        final var emptyStringEntry = ImmutableList.of(scalar(""));
+        final var nullEntry = ImmutableList.of(scalar(NULL));
+        final var nullUniqueEntry = ImmutableList.of(scalar(NULL_UNIQUE));
+        final var notNullEntry = ImmutableList.of(scalar(NOT_NULL));
+
+        // Case: Parent present, child present.
+        //
+        // The `matryoshkaDolls` message has `nesty.regular_old_field = "Mother"`.
+        // The standins don’t matter, since both parent and child are present.
+        final NestSingularSingularCase expr1 = (parentStandin, childStandin, expected) ->
+                assertEquals(expected, evaluate(buildNestSingularSingularExpr(parentStandin, childStandin), matryoshkaDolls));
+        final var motherEntry = ImmutableList.of(scalar("Mother"));
+        expr1.verify(NULL,        NULL,        motherEntry);
+        expr1.verify(NULL,        NULL_UNIQUE, motherEntry);
+        expr1.verify(NULL,        NOT_NULL,    motherEntry);
+        expr1.verify(NULL_UNIQUE, NULL,        motherEntry);
+        expr1.verify(NULL_UNIQUE, NULL_UNIQUE, motherEntry);
+        expr1.verify(NULL_UNIQUE, NOT_NULL,    motherEntry);
+        expr1.verify(NOT_NULL,    NULL,        motherEntry);
+        expr1.verify(NOT_NULL,    NULL_UNIQUE, motherEntry);
+        expr1.verify(NOT_NULL,    NOT_NULL,    motherEntry);
+
+        // Case: Parent present (as an empty sub-message), child absent.
+        //
+        // The `lonelyDoll` message has `nesty` explicitly set to an empty sub-message; the child is unset.
+        // The parent standin is irrelevant.
+        // For the child, NOT_NULL substitutes the proto default "", whereas NULL/NULL_UNIQUE yield the standin.
+        final NestSingularSingularCase expr2 = (parentStandin, childStandin, expected) ->
+                assertEquals(expected, evaluate(buildNestSingularSingularExpr(parentStandin, childStandin), lonelyDoll));
+        expr2.verify(NULL,        NULL,        nullEntry);
+        expr2.verify(NULL,        NULL_UNIQUE, nullUniqueEntry);
+        expr2.verify(NULL,        NOT_NULL,    emptyStringEntry);
+        expr2.verify(NULL_UNIQUE, NULL,        nullEntry);
+        expr2.verify(NULL_UNIQUE, NULL_UNIQUE, nullUniqueEntry);
+        expr2.verify(NULL_UNIQUE, NOT_NULL,    emptyStringEntry);
+        expr2.verify(NOT_NULL,    NULL,        nullEntry);
+        expr2.verify(NOT_NULL,    NULL_UNIQUE, nullUniqueEntry);
+        expr2.verify(NOT_NULL,    NOT_NULL,    emptyStringEntry);
+
+        // Case: Parent absent on a non-null record.
+        //
+        // The `emptyNested` message has `nesty` absent.
+        // For the parent, NOT_NULL substitutes an empty sub-message; the child then sees a set-but-empty message,
+        // so the child’s NOT_NULL substitutes the proto default "".
+        // NULL/NULL_UNIQUE on the parent funnel null to the child, which then takes its own null path; and for
+        // `None`, `getNullResult()` emits the standin verbatim, so the child NOT_NULL yields the NOT_NULL
+        // sentinel rather than "".
+        // TODO Issue #4141: This seems to be a bug; the NOT_NULL standin is not supposed to be emitted as is.
+        final NestSingularSingularCase expr3 = (parentStandin, childStandin, expected) ->
+                assertEquals(expected, evaluate(buildNestSingularSingularExpr(parentStandin, childStandin), emptyNested));
+        expr3.verify(NULL,        NULL,        nullEntry);
+        expr3.verify(NULL,        NULL_UNIQUE, nullUniqueEntry);
+        expr3.verify(NULL,        NOT_NULL,    notNullEntry);
+        expr3.verify(NULL_UNIQUE, NULL,        nullEntry);
+        expr3.verify(NULL_UNIQUE, NULL_UNIQUE, nullUniqueEntry);
+        expr3.verify(NULL_UNIQUE, NOT_NULL,    notNullEntry);
+        expr3.verify(NOT_NULL,    NULL,        nullEntry);
+        expr3.verify(NOT_NULL,    NULL_UNIQUE, nullUniqueEntry);
+        expr3.verify(NOT_NULL,    NOT_NULL,    emptyStringEntry);
+
+        // Case: Null record.
+        //
+        // The parent standin is irrelevant, as `FieldKeyExpression` short-circuits on `message == null`.
+        // The child sees null and takes its null path.
+        // TODO Issue #4141: For NOT_NULL the code currently emits the standin as is here, not "".
+        final NestSingularSingularCase expr4 = (parentStandin, childStandin, expected) ->
+                assertEquals(expected, evaluate(buildNestSingularSingularExpr(parentStandin, childStandin), null));
+        expr4.verify(NULL,        NULL,        nullEntry);
+        expr4.verify(NULL,        NULL_UNIQUE, nullUniqueEntry);
+        expr4.verify(NULL,        NOT_NULL,    notNullEntry);
+        expr4.verify(NULL_UNIQUE, NULL,        nullEntry);
+        expr4.verify(NULL_UNIQUE, NULL_UNIQUE, nullUniqueEntry);
+        expr4.verify(NULL_UNIQUE, NOT_NULL,    notNullEntry);
+        expr4.verify(NOT_NULL,    NULL,        nullEntry);
+        expr4.verify(NOT_NULL,    NULL_UNIQUE, nullUniqueEntry);
+        expr4.verify(NOT_NULL,    NOT_NULL,    notNullEntry);
+    }
+
+    @FunctionalInterface
+    private interface NestRepeatedSingularCase {
+        void verify(@Nonnull Key.Evaluated.NullStandin parentStandin,
+                    @Nonnull Key.Evaluated.NullStandin childStandin,
+                    @Nonnull List<Key.Evaluated> expected);
+    }
+
+    /**
+     * Builds the key expression under test for {@link #testNestRepeatedSingular()}.
+     */
+    @Nonnull
+    private KeyExpression buildNestRepeatedSingularExpr(@Nonnull Key.Evaluated.NullStandin parentStandin,
+                                                        @Nonnull Key.Evaluated.NullStandin childStandin) {
         final KeyExpression expression =
-                field("repeated_nesty", FanType.FanOut).nest("regular_old_field");
+                field("repeated_nesty", FanOut, parentStandin)
+                        .nest(field("regular_old_field", None, childStandin));
+
+        // Also run `validate()` and validate that only the `FanOut` fan type implies `createsDuplicates()`.
         expression.validate(NestedField.getDescriptor());
         assertTrue(expression.createsDuplicates());
-        assertEquals(Arrays.asList(
-                        scalar("Daughter"),
-                        scalar("Sister")),
-                evaluate(expression, matryoshkaDolls));
-        assertEquals(Collections.emptyList(),
-                evaluate(expression, emptyNested));
-        assertEquals(Arrays.asList(Key.Evaluated.NULL, Key.Evaluated.NULL),
-                evaluate(expression, lonelyDoll));
-        assertEquals(Collections.emptyList(),
-                evaluate(expression, null));
+
+        return expression;
     }
 
+    /**
+     * {@code field(…).nest(field(…))} key expression where the parent is a repeated field and the child is singular.
+     *
+     * <p>Note that, because the parent is a repeated field evaluated with {@link FanType#FanOut}, its standin is never
+     * consulted: The repeated branch of {@link FieldKeyExpression} uses the proto-level repetition count directly,
+     * and on a null record {@code getNullResult()} for FanOut returns {@code []}. The parent standin there does
+     * not matter, but we exercise it nevertheless for completeness.
+     */
     @Test
-    void testNestedThenRepeats() {
+    void testNestRepeatedSingular() {
+        // Some shortcuts.
+        final ImmutableList<Key.Evaluated> noEntry = ImmutableList.of();
+        final var twoEmptyStringEntries = ImmutableList.of(scalar(""), scalar(""));
+        final var twoNullEntries = ImmutableList.of(scalar(NULL), scalar(NULL));
+        final var twoNullUniqueEntries = ImmutableList.of(scalar(NULL_UNIQUE), scalar(NULL_UNIQUE));
+
+        // Case: Parent present (2 repetitions), child present in each.
+        //
+        // The `matryoshkaDolls` message has `repeated_nesty = [NestedField("Daughter"), NestedField("Sister")]`.
+        // Both standins don’t matter.
+        final NestRepeatedSingularCase expr1 = (parentStandin, childStandin, expected) ->
+                assertEquals(expected, evaluate(buildNestRepeatedSingularExpr(parentStandin, childStandin), matryoshkaDolls));
+        final var daughterSisterEntries = ImmutableList.of(scalar("Daughter"), scalar("Sister"));
+        expr1.verify(NULL,        NULL,        daughterSisterEntries);
+        expr1.verify(NULL,        NULL_UNIQUE, daughterSisterEntries);
+        expr1.verify(NULL,        NOT_NULL,    daughterSisterEntries);
+        expr1.verify(NULL_UNIQUE, NULL,        daughterSisterEntries);
+        expr1.verify(NULL_UNIQUE, NULL_UNIQUE, daughterSisterEntries);
+        expr1.verify(NULL_UNIQUE, NOT_NULL,    daughterSisterEntries);
+        expr1.verify(NOT_NULL,    NULL,        daughterSisterEntries);
+        expr1.verify(NOT_NULL,    NULL_UNIQUE, daughterSisterEntries);
+        expr1.verify(NOT_NULL,    NOT_NULL,    daughterSisterEntries);
+
+        // Case: Parent present (2 repetitions), child absent in each.
+        //
+        // The `lonelyDoll` message has 2 empty `repeated_nesty` entries, each with `regular_old_field` unset.
+        // For the child, NOT_NULL substitutes ""; whereas NULL/NULL_UNIQUE yield the standin, once per sub-message.
+        final NestRepeatedSingularCase expr2 = (parentStandin, childStandin, expected) ->
+                assertEquals(expected, evaluate(buildNestRepeatedSingularExpr(parentStandin, childStandin), lonelyDoll));
+        expr2.verify(NULL,        NULL,        twoNullEntries);
+        expr2.verify(NULL,        NULL_UNIQUE, twoNullUniqueEntries);
+        expr2.verify(NULL,        NOT_NULL,    twoEmptyStringEntries);
+        expr2.verify(NULL_UNIQUE, NULL,        twoNullEntries);
+        expr2.verify(NULL_UNIQUE, NULL_UNIQUE, twoNullUniqueEntries);
+        expr2.verify(NULL_UNIQUE, NOT_NULL,    twoEmptyStringEntries);
+        expr2.verify(NOT_NULL,    NULL,        twoNullEntries);
+        expr2.verify(NOT_NULL,    NULL_UNIQUE, twoNullUniqueEntries);
+        expr2.verify(NOT_NULL,    NOT_NULL,    twoEmptyStringEntries);
+
+        // Case: Parent has 0 repetitions.
+        //
+        // The `emptyNested` message has no `repeated_nesty` entries.
+        // `FanOut` on an empty repeated field yields no entries, so the child is never evaluated.
+        final NestRepeatedSingularCase expr3 = (parentStandin, childStandin, expected) ->
+                assertEquals(expected, evaluate(buildNestRepeatedSingularExpr(parentStandin, childStandin), emptyNested));
+        expr3.verify(NULL,        NULL,        noEntry);
+        expr3.verify(NULL,        NULL_UNIQUE, noEntry);
+        expr3.verify(NULL,        NOT_NULL,    noEntry);
+        expr3.verify(NULL_UNIQUE, NULL,        noEntry);
+        expr3.verify(NULL_UNIQUE, NULL_UNIQUE, noEntry);
+        expr3.verify(NULL_UNIQUE, NOT_NULL,    noEntry);
+        expr3.verify(NOT_NULL,    NULL,        noEntry);
+        expr3.verify(NOT_NULL,    NULL_UNIQUE, noEntry);
+        expr3.verify(NOT_NULL,    NOT_NULL,    noEntry);
+
+        // Case: Null record.
+        //
+        // `FieldKeyExpression` short-circuits on `message == null`; for `FanOut`, `getNullResult()` yields [].
+        final NestRepeatedSingularCase expr4 = (parentStandin, childStandin, expected) ->
+                assertEquals(expected, evaluate(buildNestRepeatedSingularExpr(parentStandin, childStandin), null));
+        expr4.verify(NULL,        NULL,        noEntry);
+        expr4.verify(NULL,        NULL_UNIQUE, noEntry);
+        expr4.verify(NULL,        NOT_NULL,    noEntry);
+        expr4.verify(NULL_UNIQUE, NULL,        noEntry);
+        expr4.verify(NULL_UNIQUE, NULL_UNIQUE, noEntry);
+        expr4.verify(NULL_UNIQUE, NOT_NULL,    noEntry);
+        expr4.verify(NOT_NULL,    NULL,        noEntry);
+        expr4.verify(NOT_NULL,    NULL_UNIQUE, noEntry);
+        expr4.verify(NOT_NULL,    NOT_NULL,    noEntry);
+    }
+
+    @FunctionalInterface
+    private interface NestSingularRepeatedCase {
+        void verify(@Nonnull Key.Evaluated.NullStandin parentStandin,
+                    @Nonnull Key.Evaluated.NullStandin childStandin,
+                    @Nonnull FanType childFanType,
+                    @Nonnull List<Key.Evaluated> expected);
+    }
+
+    /**
+     * Builds the key expression under test for {@link #testNestSingularRepeated()}.
+     */
+    @Nonnull
+    private KeyExpression buildNestSingularRepeatedExpr(@Nonnull Key.Evaluated.NullStandin parentStandin,
+                                                        @Nonnull Key.Evaluated.NullStandin childStandin,
+                                                        @Nonnull FanType childFanType) {
         final KeyExpression expression =
-                field("nesty").nest("repeated_field", FanType.FanOut);
+                field("nesty", None, parentStandin)
+                        .nest(field("repeated_field", childFanType, childStandin));
+
+        // Also run `validate()` and validate that only the `FanOut` fan type implies `createsDuplicates()`.
         expression.validate(NestedField.getDescriptor());
-        assertTrue(expression.createsDuplicates());
-        assertEquals(Arrays.asList(
-                        scalar("lily"),
-                        scalar("rose")),
-                evaluate(expression, matryoshkaDolls));
-        assertEquals(Collections.emptyList(),
-                evaluate(expression, emptyNested));
-        assertEquals(Collections.emptyList(),
-                evaluate(expression, lonelyDoll));
-        assertEquals(Collections.emptyList(),
-                evaluate(expression, null));
+        assertEquals(childFanType == FanOut, expression.createsDuplicates());
+
+        return expression;
+    }
+
+    /**
+     * {@code field(…).nest(field(…))} key expression where the parent is a singular field and the child is repeated.
+     */
+    @Test
+    void testNestSingularRepeated() {
+        // Some shortcuts.
+        final var emptyList = Collections.emptyList();
+        final var emptyListEntry = ImmutableList.of(scalar(emptyList));
+        final ImmutableList<Key.Evaluated> noEntry = ImmutableList.of();
+
+        // Case: Parent present, child present.
+        //
+        // The `matryoshkaDolls` message has `nesty.repeated_field = [lily, rose]`.
+        // Both standins don’t matter, since both parent and child are present.
+        // Concatenate yields a single entry holding the `List`; FanOut yields the exploded array.
+        final NestSingularRepeatedCase expr1 = (parentStandin, childStandin, childFanType, expected) ->
+                assertEquals(expected, evaluate(buildNestSingularRepeatedExpr(parentStandin, childStandin, childFanType), matryoshkaDolls));
+        final var concatenatedArray = ImmutableList.of(scalar(Arrays.asList("lily", "rose")));
+        final var fannedOutArray = ImmutableList.of(scalar("lily"), scalar("rose"));
+        expr1.verify(NULL,        NULL,        Concatenate, concatenatedArray);
+        expr1.verify(NULL,        NULL_UNIQUE, Concatenate, concatenatedArray);
+        expr1.verify(NULL,        NOT_NULL,    Concatenate, concatenatedArray);
+        expr1.verify(NULL_UNIQUE, NULL,        Concatenate, concatenatedArray);
+        expr1.verify(NULL_UNIQUE, NULL_UNIQUE, Concatenate, concatenatedArray);
+        expr1.verify(NULL_UNIQUE, NOT_NULL,    Concatenate, concatenatedArray);
+        expr1.verify(NOT_NULL,    NULL,        Concatenate, concatenatedArray);
+        expr1.verify(NOT_NULL,    NULL_UNIQUE, Concatenate, concatenatedArray);
+        expr1.verify(NOT_NULL,    NOT_NULL,    Concatenate, concatenatedArray);
+        expr1.verify(NULL,        NULL,        FanOut,      fannedOutArray);
+        expr1.verify(NULL,        NULL_UNIQUE, FanOut,      fannedOutArray);
+        expr1.verify(NULL,        NOT_NULL,    FanOut,      fannedOutArray);
+        expr1.verify(NULL_UNIQUE, NULL,        FanOut,      fannedOutArray);
+        expr1.verify(NULL_UNIQUE, NULL_UNIQUE, FanOut,      fannedOutArray);
+        expr1.verify(NULL_UNIQUE, NOT_NULL,    FanOut,      fannedOutArray);
+        expr1.verify(NOT_NULL,    NULL,        FanOut,      fannedOutArray);
+        expr1.verify(NOT_NULL,    NULL_UNIQUE, FanOut,      fannedOutArray);
+        expr1.verify(NOT_NULL,    NOT_NULL,    FanOut,      fannedOutArray);
+
+        // Case: Parent present, child absent (0 repetitions)
+        //
+        // The `lonelyDoll` message has `nesty` set but `repeated_field` has 0 repetitions.
+        // Both standins don’t matter.
+        // Concatenate yields a single entry holding the empty list; FanOut yields no entries.
+        final NestSingularRepeatedCase expr2 = (parentStandin, childStandin, childFanType, expected) ->
+                assertEquals(expected, evaluate(buildNestSingularRepeatedExpr(parentStandin, childStandin, childFanType), lonelyDoll));
+        expr2.verify(NULL,        NULL,        Concatenate, emptyListEntry);
+        expr2.verify(NULL,        NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr2.verify(NULL,        NOT_NULL,    Concatenate, emptyListEntry);
+        expr2.verify(NULL_UNIQUE, NULL,        Concatenate, emptyListEntry);
+        expr2.verify(NULL_UNIQUE, NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr2.verify(NULL_UNIQUE, NOT_NULL,    Concatenate, emptyListEntry);
+        expr2.verify(NOT_NULL,    NULL,        Concatenate, emptyListEntry);
+        expr2.verify(NOT_NULL,    NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr2.verify(NOT_NULL,    NOT_NULL,    Concatenate, emptyListEntry);
+        expr2.verify(NULL,        NULL,        FanOut,      noEntry);
+        expr2.verify(NULL,        NULL_UNIQUE, FanOut,      noEntry);
+        expr2.verify(NULL,        NOT_NULL,    FanOut,      noEntry);
+        expr2.verify(NULL_UNIQUE, NULL,        FanOut,      noEntry);
+        expr2.verify(NULL_UNIQUE, NULL_UNIQUE, FanOut,      noEntry);
+        expr2.verify(NULL_UNIQUE, NOT_NULL,    FanOut,      noEntry);
+        expr2.verify(NOT_NULL,    NULL,        FanOut,      noEntry);
+        expr2.verify(NOT_NULL,    NULL_UNIQUE, FanOut,      noEntry);
+        expr2.verify(NOT_NULL,    NOT_NULL,    FanOut,      noEntry);
+
+        // Case: Parent absent (but on a non-null record)
+        //
+        // The `emptyNested` record has `nesty` absent. On the parent, the NOT_NULL standin effectively substitutes an
+        // empty sub-message, so the child sees 0 repetitions and goes through its repeated-field branch. For parent
+        // NULL/NULL_UNIQUE the parent funnels a `null` record to the child, which then takes its own null path; for
+        // both Concatenate and FanOut, `getNullResult()` does not consult the child standin either, so the child standin
+        // has no observable effect. FanOut yields no entries; Concatenate yields a single entry holding the empty list.
+        final NestSingularRepeatedCase expr3 = (parentStandin, childStandin, childFanType, expected) ->
+                assertEquals(expected, evaluate(buildNestSingularRepeatedExpr(parentStandin, childStandin, childFanType), emptyNested));
+        expr3.verify(NULL,        NULL,        Concatenate, emptyListEntry);
+        expr3.verify(NULL,        NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr3.verify(NULL,        NOT_NULL,    Concatenate, emptyListEntry);
+        expr3.verify(NULL_UNIQUE, NULL,        Concatenate, emptyListEntry);
+        expr3.verify(NULL_UNIQUE, NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr3.verify(NULL_UNIQUE, NOT_NULL,    Concatenate, emptyListEntry);
+        expr3.verify(NOT_NULL,    NULL,        Concatenate, emptyListEntry);
+        expr3.verify(NOT_NULL,    NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr3.verify(NOT_NULL,    NOT_NULL,    Concatenate, emptyListEntry);
+        expr3.verify(NULL,        NULL,        FanOut,      noEntry);
+        expr3.verify(NULL,        NULL_UNIQUE, FanOut,      noEntry);
+        expr3.verify(NULL,        NOT_NULL,    FanOut,      noEntry);
+        expr3.verify(NULL_UNIQUE, NULL,        FanOut,      noEntry);
+        expr3.verify(NULL_UNIQUE, NULL_UNIQUE, FanOut,      noEntry);
+        expr3.verify(NULL_UNIQUE, NOT_NULL,    FanOut,      noEntry);
+        expr3.verify(NOT_NULL,    NULL,        FanOut,      noEntry);
+        expr3.verify(NOT_NULL,    NULL_UNIQUE, FanOut,      noEntry);
+        expr3.verify(NOT_NULL,    NOT_NULL,    FanOut,      noEntry);
+
+        // Case: Null record
+        //
+        // The parent standin doesn’t matter, as `FieldKeyExpression` short-circuits on `message == null` before
+        // consulting the parent standin. The child standin doesn’t matter either: for both Concatenate and FanOut,
+        // `getNullResult()` does not consult the standin. FanOut yields no entries; Concatenate yields a single entry
+        // holding the empty list.
+        final NestSingularRepeatedCase expr4 = (parentStandin, childStandin, childFanType, expected) ->
+                assertEquals(expected,
+                        evaluate(buildNestSingularRepeatedExpr(parentStandin, childStandin, childFanType), null));
+        expr4.verify(NULL,        NULL,        Concatenate, emptyListEntry);
+        expr4.verify(NULL,        NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr4.verify(NULL,        NOT_NULL,    Concatenate, emptyListEntry);
+        expr4.verify(NULL_UNIQUE, NULL,        Concatenate, emptyListEntry);
+        expr4.verify(NULL_UNIQUE, NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr4.verify(NULL_UNIQUE, NOT_NULL,    Concatenate, emptyListEntry);
+        expr4.verify(NOT_NULL,    NULL,        Concatenate, emptyListEntry);
+        expr4.verify(NOT_NULL,    NULL_UNIQUE, Concatenate, emptyListEntry);
+        expr4.verify(NOT_NULL,    NOT_NULL,    Concatenate, emptyListEntry);
+        expr4.verify(NULL,        NULL,        FanOut,      noEntry);
+        expr4.verify(NULL,        NULL_UNIQUE, FanOut,      noEntry);
+        expr4.verify(NULL,        NOT_NULL,    FanOut,      noEntry);
+        expr4.verify(NULL_UNIQUE, NULL,        FanOut,      noEntry);
+        expr4.verify(NULL_UNIQUE, NULL_UNIQUE, FanOut,      noEntry);
+        expr4.verify(NULL_UNIQUE, NOT_NULL,    FanOut,      noEntry);
+        expr4.verify(NOT_NULL,    NULL,        FanOut,      noEntry);
+        expr4.verify(NOT_NULL,    NULL_UNIQUE, FanOut,      noEntry);
+        expr4.verify(NOT_NULL,    NOT_NULL,    FanOut,      noEntry);
     }
 
     @Test
-    void testNestedThenRepeatsConcatenated() {
-        final KeyExpression expression =
-                field("nesty").nest("repeated_field", FanType.Concatenate);
-        expression.validate(NestedField.getDescriptor());
-        assertFalse(expression.createsDuplicates());
-        assertEquals(Collections.singletonList(scalar(Arrays.asList("lily", "rose"))),
-                evaluate(expression, matryoshkaDolls));
-        assertEquals(Collections.singletonList(scalar(Collections.emptyList())),
-                evaluate(expression, emptyNested));
-        assertEquals(Collections.singletonList(scalar(Collections.emptyList())),
-                evaluate(expression, lonelyDoll));
-        assertEquals(Collections.singletonList(scalar(Collections.emptyList())),
-                evaluate(expression, null));
-    }
-
-    @Test
-    void testNestedThenConcatenatedFields() {
+    void testNestSingularThenConcatenatedFields() {
         final KeyExpression expression = field("nesty").nest(concatenateFields("regular_old_field", "regular_int_field"));
         expression.validate(NestedField.getDescriptor());
         assertFalse(expression.createsDuplicates());
@@ -530,27 +827,27 @@ public class KeyExpressionTest {
     @Test
     void testInvalidFanOnNested() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
-            field("nesty").nest("regular_old_field", FanType.FanOut).validate(NestedField.getDescriptor());
+            field("nesty").nest("regular_old_field", FanOut).validate(NestedField.getDescriptor());
         });
     }
 
     @Test
     void testInvalidFanOnParentNested() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
-            field("repeated_nesty", FanType.Concatenate).nest("regular_old_field").validate(NestedField.getDescriptor());
+            field("repeated_nesty", Concatenate).nest("regular_old_field").validate(NestedField.getDescriptor());
         });
     }
 
     @Test
     void testInvalidDoubleNested() {
         assertThrows(KeyExpression.InvalidExpressionException.class, () -> {
-            field("nesty").nest(field("nesty").nest("regular_old_field", FanType.FanOut)).validate(NestedField.getDescriptor());
+            field("nesty").nest(field("nesty").nest("regular_old_field", FanOut)).validate(NestedField.getDescriptor());
         });
     }
 
     @Test
     void testValidDoubleNested() {
-        field("nesty").nest(field("nesty").nest("repeated_field", FanType.FanOut)).validate(NestedField.getDescriptor());
+        field("nesty").nest(field("nesty").nest("repeated_field", FanOut)).validate(NestedField.getDescriptor());
     }
 
     @Test
@@ -562,7 +859,7 @@ public class KeyExpressionTest {
     void testNestWithParentField() {
         final KeyExpression expression = concat(
                 field("regular_old_field"),
-                field("repeated_nesty", FanType.FanOut).nest("regular_old_field"));
+                field("repeated_nesty", FanOut).nest("regular_old_field"));
         expression.validate(NestedField.getDescriptor());
         assertTrue(expression.createsDuplicates());
         assertEquals(Arrays.asList(
@@ -582,9 +879,9 @@ public class KeyExpressionTest {
     @Test
     void testNestWithParentField2() {
         final KeyExpression expression =
-                field("repeated_nesty", FanType.FanOut).nest(
+                field("repeated_nesty", FanOut).nest(
                         field("regular_old_field"),
-                        field("repeated_field", FanType.FanOut));
+                        field("repeated_field", FanOut));
         expression.validate(NestedField.getDescriptor());
         assertTrue(expression.createsDuplicates());
         assertEquals(Arrays.asList(
@@ -605,9 +902,9 @@ public class KeyExpressionTest {
     void testDoubleNested() {
         final KeyExpression expression = concat(
                 field("id"),
-                field("order", FanType.FanOut).nest(
+                field("order", FanOut).nest(
                         field("id"),
-                        field("item", FanType.FanOut).nest(
+                        field("item", FanOut).nest(
                                 field("id"),
                                 field("name")
                         )),
@@ -639,9 +936,9 @@ public class KeyExpressionTest {
     void testDoubleNestedWithExtraConcats() {
         final KeyExpression expressionWithConcats = concat(
                 field("id"),
-                field("order", FanType.FanOut).nest(
+                field("order", FanOut).nest(
                         concat(field("id"),
-                                field("item", FanType.FanOut).nest(concat(
+                                field("item", FanOut).nest(concat(
                                                 field("id"),
                                                 field("name"))
                                 ))),
@@ -649,9 +946,9 @@ public class KeyExpressionTest {
                 field("last_name"));
         final KeyExpression expressionWithoutConcats = concat(
                 field("id"),
-                field("order", FanType.FanOut).nest(
+                field("order", FanOut).nest(
                         field("id"),
-                        field("item", FanType.FanOut).nest(
+                        field("item", FanOut).nest(
                                 field("id"),
                                 field("name")
                         )),
@@ -690,7 +987,7 @@ public class KeyExpressionTest {
 
     @Test
     void testList() {
-        final KeyExpression list = list(field("field"), field("repeat_me", FanType.Concatenate));
+        final KeyExpression list = list(field("field"), field("repeat_me", Concatenate));
         list.validate(TestScalarFieldAccess.getDescriptor());
         assertEquals(Collections.singletonList(concatenate(
                 scalar("Plants").values(),
@@ -700,10 +997,10 @@ public class KeyExpressionTest {
 
     @Test
     void testSerializeField() {
-        final FieldKeyExpression f1 = field("f1", FanType.FanOut, Key.Evaluated.NullStandin.NULL_UNIQUE);
+        final FieldKeyExpression f1 = field("f1", FanOut, Key.Evaluated.NullStandin.NULL_UNIQUE);
         final FieldKeyExpression f1Deserialized = new FieldKeyExpression(f1.toProto());
         assertEquals("f1", f1Deserialized.getFieldName());
-        assertEquals(FanType.FanOut, f1Deserialized.getFanType());
+        assertEquals(FanOut, f1Deserialized.getFanType());
         assertEquals(Key.Evaluated.NullStandin.NULL_UNIQUE, f1Deserialized.getNullStandin());
     }
 
@@ -725,17 +1022,17 @@ public class KeyExpressionTest {
 
     @Test
     void testSerializeNesting() {
-        final NestingKeyExpression nest = field("f1").nest(field("f2", FanType.FanOut).nest("f3"));
+        final NestingKeyExpression nest = field("f1").nest(field("f2", FanOut).nest("f3"));
         final NestingKeyExpression reserialized = new NestingKeyExpression(nest.toProto());
         assertEquals("f1", reserialized.getParent().getFieldName());
         final NestingKeyExpression child = (NestingKeyExpression) reserialized.getChild();
         assertEquals("f2", child.getParent().getFieldName());
-        assertEquals(FanType.FanOut, child.getParent().getFanType());
+        assertEquals(FanOut, child.getParent().getFanType());
     }
 
     @Test
     void testSplit() {
-        final SplitKeyExpression split = field("repeat_me", FanType.FanOut).split(3);
+        final SplitKeyExpression split = field("repeat_me", FanOut).split(3);
         split.validate(TestScalarFieldAccess.getDescriptor());
         assertEquals(Arrays.asList(
                 concatenate("one", "two", "three"),
@@ -748,7 +1045,7 @@ public class KeyExpressionTest {
     @Test
     void testSplitBad() {
         assertThrows(RecordCoreException.class, () -> {
-            final SplitKeyExpression split = field("repeat_me", FanType.FanOut).split(4);
+            final SplitKeyExpression split = field("repeat_me", FanOut).split(4);
             split.validate(TestScalarFieldAccess.getDescriptor());
             evaluate(split, numbers);
         });
@@ -757,7 +1054,7 @@ public class KeyExpressionTest {
     @Test
     void testSplitConcat() {
         final ThenKeyExpression splitConcat = concat(field("field"),
-                field("repeat_me", FanType.FanOut).split(3));
+                field("repeat_me", FanOut).split(3));
         splitConcat.validate(TestScalarFieldAccess.getDescriptor());
         assertEquals(Arrays.asList(
                 concatenate("numbers", "one", "two", "three"),
@@ -767,7 +1064,7 @@ public class KeyExpressionTest {
     }
 
     public static Stream<Arguments> getPrefixKeyComparisons() {
-        final KeyExpression nestedKeyWithValue = keyWithValue(field("a", FanType.FanOut).nest(
+        final KeyExpression nestedKeyWithValue = keyWithValue(field("a", FanOut).nest(
                         concat(field("b"), field("c"), field("d"))), 2);
 
         return Stream.of(
@@ -810,38 +1107,38 @@ public class KeyExpressionTest {
                 Arguments.of(field("a"),
                         field("a"),
                         true),
-                Arguments.of(field("a", FanType.FanOut),
-                        field("a", FanType.FanOut),
+                Arguments.of(field("a", FanOut),
+                        field("a", FanOut),
                         true),
-                Arguments.of(field("a", FanType.Concatenate),
-                        field("a", FanType.Concatenate),
+                Arguments.of(field("a", Concatenate),
+                        field("a", Concatenate),
                         true),
-                Arguments.of(field("a", FanType.FanOut),
-                        field("a", FanType.Concatenate),
+                Arguments.of(field("a", FanOut),
+                        field("a", Concatenate),
                         false),
-                Arguments.of(field("a", FanType.FanOut),
-                        field("a", FanType.None),
+                Arguments.of(field("a", FanOut),
+                        field("a", None),
                         false),
-                Arguments.of(field("a", FanType.Concatenate),
-                        field("a", FanType.FanOut),
+                Arguments.of(field("a", Concatenate),
+                        field("a", FanOut),
                         false),
-                Arguments.of(field("a", FanType.Concatenate),
-                        field("a", FanType.None),
+                Arguments.of(field("a", Concatenate),
+                        field("a", None),
                         false),
-                Arguments.of(field("a", FanType.None),
-                        field("a", FanType.Concatenate),
+                Arguments.of(field("a", None),
+                        field("a", Concatenate),
                         false),
-                Arguments.of(field("a", FanType.None),
-                        field("a", FanType.FanOut),
+                Arguments.of(field("a", None),
+                        field("a", FanOut),
                         false),
-                Arguments.of(field("a", FanType.FanOut).nest("b"),
-                        field("a", FanType.FanOut).nest(concat(field("b"), field("c"))),
+                Arguments.of(field("a", FanOut).nest("b"),
+                        field("a", FanOut).nest(concat(field("b"), field("c"))),
                         true),
-                Arguments.of(field("a", FanType.FanOut).nest("b"),
-                        concat(field("a", FanType.FanOut).nest("b"), field("a", FanType.FanOut).nest("c")),
+                Arguments.of(field("a", FanOut).nest("b"),
+                        concat(field("a", FanOut).nest("b"), field("a", FanOut).nest("c")),
                         true),
-                Arguments.of(field("a", FanType.FanOut).nest(concat(field("b"), field("c"))),
-                        concat(field("a", FanType.FanOut).nest("b"), field("a", FanType.FanOut).nest("c")),
+                Arguments.of(field("a", FanOut).nest(concat(field("b"), field("c"))),
+                        concat(field("a", FanOut).nest("b"), field("a", FanOut).nest("c")),
                         false),
                 Arguments.of(concat(field("a"), VERSION),
                         concat(field("a"), field("b")),
@@ -872,22 +1169,22 @@ public class KeyExpressionTest {
                 Arguments.of(concat(field("a"), field("b")),
                         keyWithValue(concat(field("a"), field("b")), 1),
                         false),
-                Arguments.of(field("a", FanType.FanOut).nest(field("b")),
+                Arguments.of(field("a", FanOut).nest(field("b")),
                         nestedKeyWithValue,
                         true),
-                Arguments.of(field("a", FanType.FanOut).nest(concat(field("b"), field("c"))),
+                Arguments.of(field("a", FanOut).nest(concat(field("b"), field("c"))),
                         nestedKeyWithValue,
                         true),
-                Arguments.of(field("a", FanType.FanOut).nest(
+                Arguments.of(field("a", FanOut).nest(
                         concat(field("b"), field("c"), field("d"))),
                         nestedKeyWithValue,
                         false),
-                Arguments.of(concat(field("a", FanType.FanOut).nest(
-                        field("b")), field("a", FanType.FanOut).nest("b")),
+                Arguments.of(concat(field("a", FanOut).nest(
+                        field("b")), field("a", FanOut).nest("b")),
                         nestedKeyWithValue,
                         false),
-                Arguments.of(concat(field("a", FanType.FanOut).nest(
-                        field("b")), field("a", FanType.FanOut).nest("c")),
+                Arguments.of(concat(field("a", FanOut).nest(
+                        field("b")), field("a", FanOut).nest("c")),
                         nestedKeyWithValue,
                         false));
     }
@@ -909,8 +1206,8 @@ public class KeyExpressionTest {
                 Arguments.of(function("transpose", concat(field("foo"), recordType())), false), // record actually is first in result, but that's hidden behind the function implementation
                 Arguments.of(list(recordType(), field("foo")), false),
                 Arguments.of(list(field("foo"), recordType()), false),
-                Arguments.of(new SplitKeyExpression(concat(recordType(), field("foo", FanType.FanOut)), 2), false), // this maybe should be true? it's conservative for this to return false
-                Arguments.of(new SplitKeyExpression(concat(field("foo", FanType.FanOut), recordType()), 2), false),
+                Arguments.of(new SplitKeyExpression(concat(recordType(), field("foo", FanOut)), 2), false), // this maybe should be true? it's conservative for this to return false
+                Arguments.of(new SplitKeyExpression(concat(field("foo", FanOut), recordType()), 2), false),
                 Arguments.of(recordType(), true),
                 Arguments.of(VERSION, false),
                 Arguments.of(field("foo").groupBy(recordType()), true),
@@ -959,12 +1256,12 @@ public class KeyExpressionTest {
                 Arguments.of(recordType(), true),
                 Arguments.of(list(recordType(), field("foo")), true),
                 Arguments.of(VERSION, true),
-                Arguments.of(new SplitKeyExpression(concat(field("foo", FanType.FanOut), recordType()), 2), false),
+                Arguments.of(new SplitKeyExpression(concat(field("foo", FanOut), recordType()), 2), false),
                 Arguments.of(concat(field("foo"), field("bar")), true),
                 Arguments.of(field("foo").groupBy(field("bar")), true),
                 Arguments.of(field("parent").nest(field("foo"), field("bar")), true),
-                Arguments.of(field("parent").nest(field("child", FanType.FanOut).nest(field("foo"), field("bar"))), false),
-                Arguments.of(new GroupingKeyExpression(field("parent", FanType.FanOut).nest(field("foo"), field("bar")), 1), false)
+                Arguments.of(field("parent").nest(field("child", FanOut).nest(field("foo"), field("bar"))), false),
+                Arguments.of(new GroupingKeyExpression(field("parent", FanOut).nest(field("foo"), field("bar")), 1), false)
         );
     }
 
