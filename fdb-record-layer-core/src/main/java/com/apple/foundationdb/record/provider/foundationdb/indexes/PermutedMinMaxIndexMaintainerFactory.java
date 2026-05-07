@@ -110,9 +110,11 @@ public class PermutedMinMaxIndexMaintainerFactory implements IndexMaintainerFact
         return resultBuilder.build();
     }
 
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
+
     @Nonnull
     @Override
     public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
-        return new IndexGeneralAttributes(true);
+        return GENERAL_ATTRIBUTES;
     }
 }

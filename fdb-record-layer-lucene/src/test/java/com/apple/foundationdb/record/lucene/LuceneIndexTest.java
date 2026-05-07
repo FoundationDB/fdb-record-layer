@@ -6302,7 +6302,8 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     @Test
     void luceneIndexAttributesNotOptimizedForMutualIndexing() {
         final LuceneIndexMaintainerFactory factory = new LuceneIndexMaintainerFactory();
-        assertFalse(factory.getIndexGeneralAttributes(new Index("test", "field")).isOptimizedForMutualIndexing());
+        final Index luceneIndex = new Index("test", field("field"), LuceneIndexTypes.LUCENE);
+        assertFalse(factory.getIndexGeneralAttributes(luceneIndex).isOptimizedForMutualIndexing());
     }
 
     /**

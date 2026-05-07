@@ -117,6 +117,8 @@ public interface IndexMaintainerFactory {
         return Collections.emptyList();
     }
 
+    IndexGeneralAttributes DEFAULT_GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
+
     /**
      * Get the {@link IndexGeneralAttributes} for the given index. The attributes provide general information
      * and guidelines about the index.
@@ -126,6 +128,6 @@ public interface IndexMaintainerFactory {
      */
     @Nonnull
     default IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull Index index) {
-        return new IndexGeneralAttributes(false);
+        return DEFAULT_GENERAL_ATTRIBUTES;
     }
 }

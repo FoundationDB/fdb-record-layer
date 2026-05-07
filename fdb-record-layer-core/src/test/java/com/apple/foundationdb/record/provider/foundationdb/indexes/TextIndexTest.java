@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.logging.TestLogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
@@ -3268,6 +3269,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     @Test
     void textIndexAttributesNotOptimizedForMutualIndexing() {
         final TextIndexMaintainerFactory factory = new TextIndexMaintainerFactory();
-        assertFalse(factory.getIndexGeneralAttributes(new Index("test", "field")).isOptimizedForMutualIndexing());
+        final Index textIndex = new Index("test", Key.Expressions.field("field"), IndexTypes.TEXT);
+        assertFalse(factory.getIndexGeneralAttributes(textIndex).isOptimizedForMutualIndexing());
     }
 }

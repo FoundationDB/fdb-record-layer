@@ -198,4 +198,12 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
     public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new TextIndexMaintainer(state);
     }
+
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
+
+    @Nonnull
+    @Override
+    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+        return GENERAL_ATTRIBUTES;
+    }
 }

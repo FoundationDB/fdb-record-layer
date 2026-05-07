@@ -58,10 +58,12 @@ public class GeophileIndexMaintainerFactory implements IndexMaintainerFactory {
         return new GeophileIndexMaintainer(state);
     }
 
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
+
     @Nonnull
     @Override
     public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
-        return new IndexGeneralAttributes(true);
+        return GENERAL_ATTRIBUTES;
     }
 
 }

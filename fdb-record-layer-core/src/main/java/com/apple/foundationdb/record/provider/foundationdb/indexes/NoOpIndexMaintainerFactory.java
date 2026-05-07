@@ -62,9 +62,11 @@ public class NoOpIndexMaintainerFactory implements IndexMaintainerFactory {
         return new NoOpIndexMaintainer(state);
     }
 
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
+
     @Nonnull
     @Override
     public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
-        return new IndexGeneralAttributes(true);
+        return GENERAL_ATTRIBUTES;
     }
 }

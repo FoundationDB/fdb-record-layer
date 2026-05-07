@@ -198,4 +198,12 @@ public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFa
     public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
         return new MultidimensionalIndexMaintainer(state);
     }
+
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
+
+    @Nonnull
+    @Override
+    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+        return GENERAL_ATTRIBUTES;
+    }
 }

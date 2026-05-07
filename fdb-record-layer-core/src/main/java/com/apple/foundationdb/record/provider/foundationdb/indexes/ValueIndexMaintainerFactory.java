@@ -76,9 +76,11 @@ public class ValueIndexMaintainerFactory implements IndexMaintainerFactory {
         return MatchCandidateExpansion.expandValueIndexMatchCandidate(metaData, index, reverse);
     }
 
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
+
     @Nonnull
     @Override
     public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
-        return new IndexGeneralAttributes(true);
+        return GENERAL_ATTRIBUTES;
     }
 }
