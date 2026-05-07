@@ -131,7 +131,7 @@ Unnest an array column using PartiQL syntax:
 
 .. code-block:: sql
 
-    SELECT idr FROM r, r.nr AS NEST WHERE NEST.f = 23
+    SELECT idr FROM r, r.nr AS nest WHERE nest.f = 23
 
 .. list-table::
     :header-rows: 1
@@ -145,7 +145,7 @@ You can also use a subquery for array unnesting:
 
 .. code-block:: sql
 
-    SELECT idr FROM r, (SELECT * FROM r.nr) AS NEST WHERE NEST.f = 23
+    SELECT idr FROM r, (SELECT * FROM r.nr) AS nest WHERE nest.f = 23
 
 .. list-table::
     :header-rows: 1
@@ -204,24 +204,18 @@ Here, ``MAX(a.x)`` aggregates the correlated column ``a.x``, which has the same 
 Important Notes
 ===============
 
-Non-Qualified Column References
---------------------------------
-
-When a column reference is not qualified with a table alias, the query planner first tries to resolve it in the current query block. If not found, it looks in the outer query blocks:
-
-.. code-block:: sql
-
-    -- 'x' refers to column x from table a, not table x
-    SELECT idx FROM x WHERE EXISTS (SELECT x FROM a WHERE ida = 1)
-
-Subquery Scope
---------------
-
 Subqueries in the FROM clause create a new query scope. Columns from the subquery are accessed via the subquery alias:
 
 .. code-block:: sql
 
     SELECT sq.column FROM (SELECT column FROM table) AS sq
+
+When a column reference is not qualified with a table alias, the semantic analyzer first tries to resolve it in the current query block. If not found, it looks in the outer query blocks:
+
+.. code-block:: sql
+
+    -- In the subquery, 'x' refers to column x from table a, not table x
+    SELECT idx FROM x WHERE EXISTS (SELECT x FROM a WHERE ida = 1)
 
 See Also
 ========
