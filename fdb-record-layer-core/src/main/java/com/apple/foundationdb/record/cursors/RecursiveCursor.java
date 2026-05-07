@@ -331,7 +331,14 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
         } else {
             final NoNextReason noNextReason = childResult.getNoNextReason();
             if (noNextReason.isOutOfBand()) {
-                final RecordCursorContinuation continuation = buildContinuation(depth + 1);
+                final RecordCursorContinuation continuation;
+                // For preorder traversal with an un-emitted parent, build the continuation at the parent
+                // depth so resumption emits it before descending.
+                if (node.emitPending && isPreorder) {
+                    continuation = buildContinuation(depth);
+                } else {
+                    continuation = buildContinuation(depth + 1);
+                }
                 lastResult = RecordCursorResult.withoutNextValue(continuation, noNextReason);
                 return AsyncUtil.READY_FALSE;
             }
