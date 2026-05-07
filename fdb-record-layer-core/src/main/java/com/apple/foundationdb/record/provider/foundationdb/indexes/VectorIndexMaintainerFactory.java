@@ -87,7 +87,7 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
 
     @Nonnull
     @Override
-    public IndexGeneralAttributes getIndexGeneralAttributes() {
+    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
         return VECTOR_INDEX_ATTRIBUTES;
     }
 

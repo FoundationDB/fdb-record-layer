@@ -28,7 +28,6 @@ import com.apple.foundationdb.annotation.API;
  */
 @API(API.Status.EXPERIMENTAL)
 public final class IndexGeneralAttributes {
-    public static final IndexGeneralAttributes DEFAULT = new IndexGeneralAttributes(true);
     private final boolean optimizedForMutualIndexing;
 
     /**

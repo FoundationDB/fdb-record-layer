@@ -3268,6 +3268,6 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     @Test
     void textIndexAttributesNotOptimizedForMutualIndexing() {
         final TextIndexMaintainerFactory factory = new TextIndexMaintainerFactory();
-        assertFalse(factory.getIndexGeneralAttributes().isOptimizedForMutualIndexing());
+        assertFalse(factory.getIndexGeneralAttributes(new Index("test", "field")).isOptimizedForMutualIndexing());
     }
 }

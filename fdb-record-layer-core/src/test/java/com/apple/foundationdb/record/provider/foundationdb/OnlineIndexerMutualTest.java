@@ -1778,6 +1778,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
 
     @Test
     void standardIndexAttributesOptimizedForMutualIndexing() {
+        final Index index = new Index("test", "field");
         List<IndexMaintainerFactory> factories = List.of(
                 new ValueIndexMaintainerFactory(),
                 new AtomicMutationIndexMaintainerFactory(),
@@ -1786,7 +1787,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 new RankIndexMaintainerFactory()
         );
         for (IndexMaintainerFactory factory : factories) {
-            assertTrue(factory.getIndexGeneralAttributes().isOptimizedForMutualIndexing(),
+            assertTrue(factory.getIndexGeneralAttributes(index).isOptimizedForMutualIndexing(),
                     factory.getClass().getSimpleName() + " should be optimized for mutual indexing");
         }
     }

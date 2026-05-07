@@ -571,6 +571,6 @@ class VectorIndexTest extends VectorIndexTestBase {
     @Test
     void vectorIndexAttributesNotOptimizedForMutualIndexing() {
         final VectorIndexMaintainerFactory factory = new VectorIndexMaintainerFactory();
-        Assertions.assertThat(factory.getIndexGeneralAttributes().isOptimizedForMutualIndexing()).isFalse();
+        Assertions.assertThat(factory.getIndexGeneralAttributes(new Index("test", "field")).isOptimizedForMutualIndexing()).isFalse();
     }
 }

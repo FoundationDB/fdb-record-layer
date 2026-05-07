@@ -203,7 +203,7 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
 
     @Nonnull
     @Override
-    public IndexGeneralAttributes getIndexGeneralAttributes() {
+    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
         return TEXT_INDEX_ATTRIBUTES;
     }
 }

@@ -118,13 +118,14 @@ public interface IndexMaintainerFactory {
     }
 
     /**
-     * Get the {@link IndexGeneralAttributes} for this factory's index type. The attributes provide general information
+     * Get the {@link IndexGeneralAttributes} for the given index. The attributes provide general information
      * and guidelines about the index.
      *
-     * @return the index attributes for this factory's index type
+     * @param index the index to get attributes for
+     * @return the index attributes for this index
      */
     @Nonnull
-    default IndexGeneralAttributes getIndexGeneralAttributes() {
-        return IndexGeneralAttributes.DEFAULT;
+    default IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull Index index) {
+        return new IndexGeneralAttributes(true);
     }
 }

@@ -65,7 +65,7 @@ public class LuceneIndexMaintainerFactory implements IndexMaintainerFactory {
 
     @Override
     @Nonnull
-    public IndexGeneralAttributes getIndexGeneralAttributes() {
+    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
         return LUCENE_INDEX_ATTRIBUTES;
     }
 }
