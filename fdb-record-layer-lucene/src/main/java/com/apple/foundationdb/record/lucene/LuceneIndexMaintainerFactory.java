@@ -43,6 +43,7 @@ public class LuceneIndexMaintainerFactory implements IndexMaintainerFactory {
 
     @Nonnull
     private static final List<String> TYPES = Collections.singletonList(LuceneIndexTypes.LUCENE);
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     @Override
     public Iterable<String> getIndexTypes() {
@@ -60,8 +61,6 @@ public class LuceneIndexMaintainerFactory implements IndexMaintainerFactory {
     public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
         return new LuceneIndexMaintainer(state, state.context.getExecutor());
     }
-
-    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     @Nonnull
     @Override

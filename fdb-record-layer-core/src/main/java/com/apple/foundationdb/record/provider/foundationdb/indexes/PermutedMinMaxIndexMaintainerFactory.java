@@ -53,6 +53,7 @@ public class PermutedMinMaxIndexMaintainerFactory implements IndexMaintainerFact
     static final String[] TYPES = {
         IndexTypes.PERMUTED_MIN, IndexTypes.PERMUTED_MAX
     };
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Override
     @Nonnull
@@ -109,8 +110,6 @@ public class PermutedMinMaxIndexMaintainerFactory implements IndexMaintainerFact
 
         return resultBuilder.build();
     }
-
-    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Nonnull
     @Override

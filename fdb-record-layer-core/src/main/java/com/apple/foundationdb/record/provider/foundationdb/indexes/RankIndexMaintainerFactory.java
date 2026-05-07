@@ -52,6 +52,7 @@ import java.util.Set;
 @API(API.Status.UNSTABLE)
 public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
     static final String[] TYPES = { IndexTypes.RANK };
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Override
     @Nonnull
@@ -123,8 +124,6 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
 
         return resultBuilder.build();
     }
-
-    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Nonnull
     @Override

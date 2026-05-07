@@ -54,6 +54,7 @@ import java.util.List;
 public class BitmapValueIndexMaintainerFactory implements IndexMaintainerFactory {
     @Nonnull
     private static final List<String> TYPES = Collections.singletonList(IndexTypes.BITMAP_VALUE);
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Override
     @Nonnull
@@ -120,8 +121,6 @@ public class BitmapValueIndexMaintainerFactory implements IndexMaintainerFactory
         return MatchCandidateExpansion.optionalToIterable(
                 MatchCandidateExpansion.expandIndexMatchCandidate(info, false, null, expansionVisitor));
     }
-
-    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Nonnull
     @Override

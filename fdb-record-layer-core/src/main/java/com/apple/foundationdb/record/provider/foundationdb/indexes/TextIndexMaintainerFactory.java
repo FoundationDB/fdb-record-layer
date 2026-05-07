@@ -60,6 +60,7 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
             IndexOptions.TEXT_OMIT_POSITIONS_OPTION,
             IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION
     );
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     /**
      * A list containing only the name of the "{@value IndexTypes#TEXT}" index type.
@@ -198,8 +199,6 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
     public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new TextIndexMaintainer(state);
     }
-
-    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     @Nonnull
     @Override

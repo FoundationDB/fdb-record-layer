@@ -44,6 +44,7 @@ import java.util.Arrays;
 @API(API.Status.EXPERIMENTAL)
 public class VersionIndexMaintainerFactory implements IndexMaintainerFactory {
     static final String[] TYPES = { IndexTypes.VERSION };
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Override
     @Nonnull
@@ -77,8 +78,6 @@ public class VersionIndexMaintainerFactory implements IndexMaintainerFactory {
     public Iterable<MatchCandidate> createMatchCandidates(@Nonnull final RecordMetaData metaData, @Nonnull final Index index, final boolean reverse) {
         return MatchCandidateExpansion.expandValueIndexMatchCandidate(metaData, index, reverse);
     }
-
-    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Nonnull
     @Override

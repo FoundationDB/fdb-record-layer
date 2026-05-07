@@ -66,6 +66,8 @@ import java.util.Collection;
 @API(API.Status.EXPERIMENTAL)
 public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFactory {
 
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
+
     @Nonnull
     private final IndexMaintainerFactory delegateFactory;
 
@@ -145,8 +147,6 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
                                                            @Nonnull Index index, boolean reverse) {
         return delegateFactory.createMatchCandidates(metaData, index, reverse);
     }
-
-    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     @Nonnull
     @Override

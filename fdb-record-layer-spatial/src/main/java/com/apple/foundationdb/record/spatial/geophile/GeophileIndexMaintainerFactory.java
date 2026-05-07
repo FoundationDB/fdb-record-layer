@@ -39,6 +39,7 @@ import java.util.Arrays;
 @API(API.Status.UNSTABLE)
 public class GeophileIndexMaintainerFactory implements IndexMaintainerFactory {
     static final String[] TYPES = { GeophileIndexTypes.SPATIAL_GEOPHILE};
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Override
     @Nonnull
@@ -57,8 +58,6 @@ public class GeophileIndexMaintainerFactory implements IndexMaintainerFactory {
     public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new GeophileIndexMaintainer(state);
     }
-
-    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Nonnull
     @Override

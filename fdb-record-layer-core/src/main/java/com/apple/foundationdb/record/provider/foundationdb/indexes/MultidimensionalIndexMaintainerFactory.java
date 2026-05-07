@@ -51,6 +51,7 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFactory {
     static final String[] TYPES = { IndexTypes.MULTIDIMENSIONAL};
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     @Override
     @Nonnull
@@ -198,8 +199,6 @@ public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFa
     public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
         return new MultidimensionalIndexMaintainer(state);
     }
-
-    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     @Nonnull
     @Override

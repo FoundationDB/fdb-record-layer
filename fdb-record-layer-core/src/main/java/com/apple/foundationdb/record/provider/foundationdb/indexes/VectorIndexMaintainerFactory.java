@@ -55,6 +55,7 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
     static final String[] TYPES = { IndexTypes.VECTOR };
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     @Override
     @Nonnull
@@ -82,8 +83,6 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
         return MatchCandidateExpansion.optionalToIterable(
                 MatchCandidateExpansion.expandIndexMatchCandidate(info, false, info.getCommonPrimaryKeyForTypes(), expansionVisitor));
     }
-
-    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     @Nonnull
     @Override

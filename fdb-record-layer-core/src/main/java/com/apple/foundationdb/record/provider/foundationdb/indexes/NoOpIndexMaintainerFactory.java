@@ -39,6 +39,8 @@ import java.util.Collections;
 @AutoService(IndexMaintainerFactory.class)
 @API(API.Status.UNSTABLE)
 public class NoOpIndexMaintainerFactory implements IndexMaintainerFactory {
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
+
     @Nonnull
     @Override
     public Iterable<String> getIndexTypes() {
@@ -61,8 +63,6 @@ public class NoOpIndexMaintainerFactory implements IndexMaintainerFactory {
     public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new NoOpIndexMaintainer(state);
     }
-
-    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Nonnull
     @Override

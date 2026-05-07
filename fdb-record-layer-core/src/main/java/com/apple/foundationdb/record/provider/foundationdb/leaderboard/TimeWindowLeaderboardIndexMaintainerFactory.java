@@ -41,6 +41,7 @@ import java.util.Arrays;
 @API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboardIndexMaintainerFactory implements IndexMaintainerFactory {
     static final String[] TYPES = { IndexTypes.TIME_WINDOW_LEADERBOARD };
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Override
     @Nonnull
@@ -66,8 +67,6 @@ public class TimeWindowLeaderboardIndexMaintainerFactory implements IndexMaintai
     public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
         return new TimeWindowLeaderboardIndexMaintainer(state);
     }
-
-    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Nonnull
     @Override

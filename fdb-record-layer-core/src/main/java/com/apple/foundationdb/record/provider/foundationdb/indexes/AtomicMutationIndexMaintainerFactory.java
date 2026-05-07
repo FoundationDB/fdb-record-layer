@@ -73,6 +73,7 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
             IndexTypes.MAX_EVER_VERSION,
             IndexTypes.MIN_EVER, IndexTypes.MAX_EVER
     };
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Override
     @Nonnull
@@ -166,8 +167,6 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
             return ImmutableList.of();
         }
     }
-
-    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Nonnull
     @Override
