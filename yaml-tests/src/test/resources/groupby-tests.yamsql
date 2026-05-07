@@ -201,7 +201,7 @@ test_block:
       # This is because as the row from the second leg of the union was processed again after the continuation,
       # but without the state of the already seen primary keys, leading to it not being filtered.
       - query: SELECT COUNT(*) from T1 WHERE col1 = 20 or col2 = 10
-      - supported_version: !current_version
+      - supported_version: 4.12.1.0
       - explain: "ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) OR _.COL2 EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{!l 8}]
 ---
@@ -214,12 +214,12 @@ test_block:
   tests:
     -
       - query: SELECT COUNT(*) from T1 where col1 = 20
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.12.1.0
         # In these versions, the partial aggregation results were not serialized correctly within the continuation if
         # the aggregate result is not grouped.
       - result: []
       - result: [{!l 2}]
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.12.1.0
       - result: []
       - result: [{!l 8}]
     -

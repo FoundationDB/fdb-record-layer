@@ -19,7 +19,7 @@
 
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.12.1.0
 ---
 # Assorted tests for ARRAY unnesting (aka. "array joins"), with and without indexes.
 #
@@ -45,6 +45,8 @@ schema_template:
 
   CREATE TYPE AS STRUCT "Struct" ("integer" INTEGER)
   CREATE TABLE T3 ("id" BIGINT, "structs" "Struct" ARRAY, "integers" INTEGER ARRAY, PRIMARY KEY ("id"))
+
+  CREATE TABLE T4 ("id" BIGINT, "vectors" VECTOR(3, FLOAT) ARRAY, PRIMARY KEY ("id"))
 
   CREATE TYPE AS STRUCT "restaurant_review" ("reviewer" STRING, "rating" BIGINT)
   CREATE TABLE "restaurant" ("rest_no" BIGINT, "name" STRING, "reviews" "restaurant_review" ARRAY, PRIMARY KEY ("rest_no"))
@@ -154,9 +156,21 @@ test_block:
       - unorderedResult: [{1, 101}, {1, 102}, {2, 201}, {2, 202}]
     -
       # Unnesting an ARRAY of scalars (integers) directly.
-      # TODO Issue #4102: The `"integer".*` star expansion should not be permitted here.
+      # The `"integer".*` syntax is disallowed because "integer" is a scalar here, not a STRUCT.
       - query: SELECT "id", "integer".* FROM T3, T3."integers" AS "integer"
-      - unorderedResult: [{1, 101}, {1, 102}, {2, 201}, {2, 202}]
+      - error: "42F10"
+    -
+      # Same `.*` rejection as above, but here the array comes from a table function rather than a base-table column.
+      - query: SELECT "b".* FROM (SELECT "a" FROM VALUES ([1, 2, 3, 4]) AS T("a")) AS "sq", "sq"."a" AS "b"
+      - error: "42F10"
+    -
+      # Wrapping the unnested scalar into a one-field struct lifts it back into a record type, so `.*` expansion is allowed.
+      - query: SELECT "b".* FROM (SELECT "a" FROM VALUES ([1, 2, 3, 4]) AS T("a")) AS "sq", (SELECT ("x") AS wrapped FROM "sq"."a" AS "x") AS "b"
+      - result: [{wrapped: {1}}, {wrapped: {2}}, {wrapped: {3}}, {wrapped: {4}}]
+    -
+      # Same .* rejection as above, but on an unnested VECTOR element. VECTOR has no fields to expand.
+      - query: SELECT "id", "v".* FROM T4, T4."vectors" AS "v"
+      - error: "42F10"
     -
       # Unnest the ARRAY of integers via a subquery and wrap each integer into a tuple with a `( … )` expression.
       # Note: As an alternative to the `AS "wrapped_int"` we might write `AS SQ ("wrapped_int")`, but this is not
