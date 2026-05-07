@@ -385,13 +385,13 @@ public class UpdateStatementImpl implements UpdateStatement {
 
             public UpdateVisitor(@Nonnull final RelationalConnection connection,
                                  @Nonnull final SchemaTemplate schemaTemplate,
-                                 @Nonnull final RelationalParser.RootContext ast) {
+                                 @Nonnull final ParseTree ast) {
                 this(connection, schemaTemplate, ast, Map.of());
             }
 
             public UpdateVisitor(@Nonnull final RelationalConnection connection,
                                  @Nonnull final SchemaTemplate schemaTemplate,
-                                 @Nonnull final RelationalParser.RootContext ast,
+                                 @Nonnull final ParseTree ast,
                                  @Nonnull final Map<String, List<String>> columnSynonyms) {
                 this.queryStringScratchpad = new StringBuilder();
                 this.updateBuilder = new BuilderImpl(connection, schemaTemplate);
@@ -466,6 +466,8 @@ public class UpdateStatementImpl implements UpdateStatement {
                     updateBuilder.withOption(QueryOptions.LOG_QUERY);
                 } else if (ctx.DRY() != null) {
                     updateBuilder.withOption(QueryOptions.DRY_RUN);
+                } else if (ctx.RIGHT() != null) {
+                    updateBuilder.withOption(QueryOptions.PLAN_RIGHT_DEEP);
                 }
                 return null;
             }

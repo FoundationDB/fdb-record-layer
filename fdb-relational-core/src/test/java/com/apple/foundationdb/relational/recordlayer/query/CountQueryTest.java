@@ -43,10 +43,12 @@ import java.util.Base64;
  */
 public class CountQueryTest {
     private static final String SCHEMA_TEMPLATE =
-            "CREATE TABLE t1 (id bigint, a string, b bigint, primary key (id)) " +
-                    "CREATE INDEX i1 ON t1(a) " +
-                    "CREATE INDEX i2 AS SELECT count(*) FROM t1 GROUP BY a " +
-                    "CREATE INDEX i3 AS SELECT count(a) FROM t1 GROUP BY b";
+            """
+            CREATE TABLE t1 (id bigint, a string, b bigint, primary key (id))
+            CREATE INDEX i1 ON t1(a)
+            CREATE INDEX i2 AS SELECT count(*) FROM t1 GROUP BY a
+            CREATE INDEX i3 AS SELECT count(a) FROM t1 GROUP BY b
+            """;
 
     @RegisterExtension
     @Order(0)

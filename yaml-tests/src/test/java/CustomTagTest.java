@@ -29,14 +29,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.stream.Stream;
 
 /**
  * Tests for custom YAML tags such as {@link com.apple.foundationdb.relational.yamltests.tags.IgnoreTag}.
  */
 class CustomTagTest {
-    private static final String CLUSTER_FILE = FDBTestEnvironment.randomClusterFile();
-    private static final EmbeddedConfig config = new EmbeddedConfig(CLUSTER_FILE);
+    private static final EmbeddedConfig config = new EmbeddedConfig(List.of(FDBTestEnvironment.randomClusterFile()));
 
     @BeforeAll
     static void beforeAll() throws Exception {

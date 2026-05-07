@@ -84,6 +84,18 @@ public abstract class IndexMaintainer {
     }
 
     /**
+     * Returns the sliding window subspace for this index. This is a separate keyspace
+     * from the secondary subspace, used exclusively by {@code SlidingWindowIndexMaintainer}
+     * for window/overflow/count bookkeeping, so it does not collide with delegate index
+     * types that also use the secondary subspace.
+     * @return sliding window subspace for index data
+     */
+    @Nonnull
+    public Subspace getSlidingWindowSubspace() {
+        return state.store.indexSlidingWindowSubspace(state.index);
+    }
+
+    /**
      * Scan entries in the index.
      * @param scanType the {@link IndexScanType type} of scan to perform
      * @param range the range to scan

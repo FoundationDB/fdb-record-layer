@@ -1,0 +1,254 @@
+#
+# sliding-window-semantic-search.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+  supported_version: 4.10.20.0
+---
+schema_template:
+    create table documents(zone string, docId string, bookshelf string, title string, orderTime bigint, embedding vector(3, half), primary key (zone, docId))
+    create view documentsView as select embedding, zone, bookshelf, docId, title from documents qualify row_number() over (partition by zone, bookshelf order by orderTime) <= 8
+    create vector index documentsEuclideanIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, rabitq_num_ex_bits = 3, use_rabitq = true)
+    create vector index documentsCosineIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = cosine_metric, rabitq_num_ex_bits = 3, use_rabitq = true)
+    create table multiTypePartitionDocs(zoneId bigint, docId string, bookshelf string, title string, orderTime bigint, embedding vector(3, half), primary key (zoneId, docId))
+    create view multiTypePartitionView as select embedding, zoneId, bookshelf, docId, title from multiTypePartitionDocs qualify row_number() over (partition by zoneId, bookshelf order by orderTime) <= 2
+    create vector index multiTypeEuclideanIndex using hnsw on multiTypePartitionView(embedding) partition by(zoneId, bookshelf) options (metric = euclidean_metric)
+    create vector index multiTypeCosineIndex using hnsw on multiTypePartitionView(embedding) partition by(zoneId, bookshelf) options (metric = cosine_metric)
+---
+test_block:
+  preset: single_repetition_ordered
+  options:
+    statement_type: prepared
+  name: sliding-window-insert-data
+  tests:
+    # documents table: two partitions (zone1,fiction) and (zone1,science), each with 8 rows in window.
+    -
+      - query:
+          insert into documents values
+          ('zone1', 'd1', 'fiction', 'The Great Gatsby', 1, !! !v16 [1.0, 0.0, 0.0] !!),
+          ('zone1', 'd2', 'fiction', '1984', 2, !! !v16 [0.9, 0.1, 0.0] !!),
+          ('zone1', 'd3', 'fiction', 'To Kill a Mockingbird', 3, !! !v16 [0.8, 0.2, 0.0] !!),
+          ('zone1', 'd4', 'fiction', 'Pride and Prejudice', 4, !! !v16 [0.7, 0.3, 0.0] !!),
+          ('zone1', 'd5', 'fiction', 'The Catcher in the Rye', 5, !! !v16 [0.6, 0.4, 0.0] !!),
+          ('zone1', 'd11', 'fiction', 'Moby Dick', 6, !! !v16 [0.0, 0.0, 1.0] !!),
+          ('zone1', 'd12', 'fiction', 'War and Peace', 7, !! !v16 [0.0, 0.1, 0.9] !!),
+          ('zone1', 'd13', 'fiction', 'Crime and Punishment', 8, !! !v16 [0.0, 0.2, 0.8] !!)
+      - count: 8
+    -
+      - query:
+          insert into documents values
+          ('zone1', 'd6', 'science', 'A Brief History of Time', 1, !! !v16 [0.0, 1.0, 0.0] !!),
+          ('zone1', 'd7', 'science', 'The Selfish Gene', 2, !! !v16 [0.1, 0.9, 0.0] !!),
+          ('zone1', 'd8', 'science', 'Cosmos', 3, !! !v16 [0.2, 0.8, 0.0] !!),
+          ('zone1', 'd9', 'science', 'The Origin of Species', 4, !! !v16 [0.3, 0.7, 0.0] !!),
+          ('zone1', 'd10', 'science', 'Relativity', 5, !! !v16 [0.4, 0.6, 0.0] !!),
+          ('zone1', 'd14', 'science', 'The Gene', 6, !! !v16 [0.5, 0.5, 0.0] !!),
+          ('zone1', 'd15', 'science', 'Sapiens', 7, !! !v16 [0.4, 0.4, 0.2] !!),
+          ('zone1', 'd16', 'science', 'The Double Helix', 8, !! !v16 [0.3, 0.5, 0.2] !!)
+      - count: 8
+    # Overflow documents: orderTime > 8 for their partition, should NOT appear in HNSW searches.
+    -
+      - query:
+          insert into documents values
+          ('zone1', 'd90', 'fiction', 'Overflow Fiction', 90, !! !v16 [0.99, 0.01, 0.0] !!),
+          ('zone1', 'd91', 'science', 'Overflow Science', 91, !! !v16 [0.01, 0.99, 0.0] !!),
+          ('zone1', 'd92', 'fiction', 'Overflow Fiction 2', 92, !! !v16 [0.01, 0.01, 0.98] !!)
+      - count: 3
+    # multiTypePartitionDocs: 4 partitions of 2 each.
+    -
+      - query:
+          insert into multiTypePartitionDocs values
+          (1, 'd1', 'fiction', 'The Great Gatsby', 1, !! !v16 [1.0, 0.0, 0.0] !!),
+          (1, 'd2', 'fiction', '1984', 2, !! !v16 [0.9, 0.1, 0.0] !!),
+          (1, 'd4', 'science', 'A Brief History of Time', 1, !! !v16 [0.0, 1.0, 0.0] !!),
+          (1, 'd5', 'science', 'Cosmos', 2, !! !v16 [0.1, 0.9, 0.0] !!),
+          (2, 'd6', 'fiction', 'Moby Dick', 1, !! !v16 [0.0, 0.0, 1.0] !!),
+          (2, 'd7', 'fiction', 'War and Peace', 2, !! !v16 [0.0, 0.1, 0.9] !!),
+          (2, 'd8', 'science', 'The Gene', 1, !! !v16 [0.5, 0.5, 0.0] !!),
+          (2, 'd9', 'science', 'Sapiens', 2, !! !v16 [0.4, 0.4, 0.2] !!)
+      - count: 8
+    # Overflow multiType docs: orderTime > 2 for their partition.
+    -
+      - query:
+          insert into multiTypePartitionDocs values
+          (1, 'd90', 'fiction', 'Overflow Multi', 90, !! !v16 [0.99, 0.01, 0.0] !!),
+          (2, 'd91', 'science', 'Overflow Multi Sci', 91, !! !v16 [0.01, 0.99, 0.0] !!)
+      - count: 2
+---
+test_block:
+  options:
+    statement_type: prepared
+  name: sliding-window-knn-queries
+  tests:
+    # ---------------------------------------------------------------
+    # KNN on documents (zone1, fiction) — 8 docs in window, 2 in overflow
+    # ---------------------------------------------------------------
+    # Top 1 nearest to [1.0, 0.0, 0.0] in fiction
+    -
+      - query:
+          select docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+      - result: [{'d1', 'The Great Gatsby', 0.0}]
+    # Top 3 nearest to [1.0, 0.0, 0.0] in fiction
+    -
+      - query:
+          select docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
+      - result: [{'d1', 0.0}, {'d2', 0.14147317261689443}, {'d3', 0.28294634523378887}]
+    # Top 5 nearest to [0.7, 0.3, 0.0] in fiction — d4 is the exact match
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.7, 0.3, 0.0] !!) asc) <= 5
+      - result: [{'d4'}, {'d3'}, {'d5'}, {'d2'}, {'d1'}]
+    # All 8 fiction docs — should NOT include overflow (d90, d92)
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 10
+      - result: [{'d1'}, {'d2'}, {'d3'}, {'d4'}, {'d5'}, {'d13'}, {'d12'}, {'d11'}]
+    # ---------------------------------------------------------------
+    # KNN on documents (zone1, science) — 8 docs in window, 1 in overflow
+    # ---------------------------------------------------------------
+    # Top 2 nearest to [0.0, 1.0, 0.0] in science
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'science'
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc) <= 2
+      - result: [{'d6'}, {'d7'}]
+    # Top 1 nearest to [0.2, 0.8, 0.0] — should be d8 (Cosmos)
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'science'
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.2, 0.8, 0.0] !!) asc) <= 1
+      - result: [{'d8'}]
+    # ---------------------------------------------------------------
+    # Cosine distance queries
+    # ---------------------------------------------------------------
+    # Top 2 by cosine distance to [1.0, 0.0, 0.0] in fiction
+    -
+      - query:
+          select docId, cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 2
+      - result: [{'d1', 0.0}, {'d2', 0.006114621302865664}]
+    # Top 3 by cosine distance to [0.0, 1.0, 0.0] in science
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'science'
+          qualify row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc) <= 3
+      - result: [{'d6'}, {'d7'}, {'d8'}]
+    # ---------------------------------------------------------------
+    # multiTypePartitionDocs — (zoneId, bookshelf) partitions of 2
+    # ---------------------------------------------------------------
+    # Top 1 in (1, fiction) nearest to [1.0, 0.0, 0.0]
+    -
+      - query:
+          select docId, title, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from multiTypePartitionDocs
+          where zoneId = 1 and bookshelf = 'fiction'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 1
+      - result: [{'d1', 'The Great Gatsby', 0.0}]
+    # All 2 in (1, science) nearest to [0.0, 1.0, 0.0]
+    -
+      - query:
+          select docId from multiTypePartitionDocs
+          where zoneId = 1 and bookshelf = 'science'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc) <= 2
+      - result: [{'d4'}, {'d5'}]
+    # Top 1 in (2, fiction) nearest to [0.0, 0.0, 1.0]
+    -
+      - query:
+          select docId from multiTypePartitionDocs
+          where zoneId = 2 and bookshelf = 'fiction'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.0, 1.0] !!) asc) <= 1
+      - result: [{'d6'}]
+    # Both in (2, fiction) by euclidean to [0.0, 0.1, 0.9]
+    -
+      - query:
+          select docId, title from multiTypePartitionDocs
+          where zoneId = 2 and bookshelf = 'fiction'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 0.1, 0.9] !!) asc) <= 2
+      - result: [{'d7', 'War and Peace'}, {'d6', 'Moby Dick'}]
+    # Top 1 in (2, science) by euclidean to [0.5, 0.5, 0.0]
+    -
+      - query:
+          select docId from multiTypePartitionDocs
+          where zoneId = 2 and bookshelf = 'science'
+          qualify row_number() over (partition by zoneId, bookshelf order by euclidean_distance(embedding, !! !v16 [0.5, 0.5, 0.0] !!) asc) <= 1
+      - result: [{'d8'}]
+    # Cosine distance on multiType: top 2 in (1, fiction)
+    -
+      - query:
+          select docId, cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) from multiTypePartitionDocs
+          where zoneId = 1 and bookshelf = 'fiction'
+          qualify row_number() over (partition by zoneId, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 2
+      - result: [{'d1', 0.0}, {'d2', 0.006114621302865664}]
+---
+test_block:
+  preset: single_repetition_ordered
+  options:
+    statement_type: prepared
+  name: sliding-window-delete-and-reelection
+  tests:
+    # Before deletion: top 3 fiction nearest to [1.0, 0.0, 0.0]
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
+      - result: [{'d1'}, {'d2'}, {'d3'}]
+    # Delete d1 — re-election promotes d90 (Overflow Fiction, orderTime=90) from overflow
+    # into the HNSW index. d90 has embedding [0.99, 0.01, 0.0], very close to [1.0, 0.0, 0.0].
+    -
+      - query: delete from documents where zone = 'zone1' and docId = 'd1'
+      - count: 1
+    # After deletion: d90 promoted, now nearest to [1.0, 0.0, 0.0]
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 3
+      - result: [{'d90'}, {'d2'}, {'d3'}]
+    # Request all — should see 8 docs (7 original + d90 promoted)
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 10
+      - result: [{'d90'}, {'d2'}, {'d3'}, {'d4'}, {'d5'}, {'d13'}, {'d12'}, {'d11'}]
+    # Cosine index also reflects the promotion
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'fiction'
+          qualify row_number() over (partition by zone, bookshelf order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc) <= 2
+      - result: [{'d90'}, {'d2'}]
+    # Science partition unaffected by fiction deletion
+    -
+      - query:
+          select docId from documents
+          where zone = 'zone1' and bookshelf = 'science'
+          qualify row_number() over (partition by zone, bookshelf order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc) <= 2
+      - result: [{'d6'}, {'d7'}]

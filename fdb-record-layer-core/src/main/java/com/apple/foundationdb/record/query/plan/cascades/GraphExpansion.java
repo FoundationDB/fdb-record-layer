@@ -39,6 +39,7 @@ import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -521,6 +522,16 @@ public class GraphExpansion {
         @Nonnull
         public Builder removeAllPredicates() {
             predicates = new ImmutableList.Builder<>();
+            return this;
+        }
+
+        @Nonnull
+        public Builder replacePlaceholder(@Nonnull final Function<Placeholder, Placeholder> replacementFunction) {
+            final ImmutableList<Placeholder> currentPlaceholders = placeholders.build();
+            placeholders = new ImmutableList.Builder<>();
+            for (final Placeholder placeholder : currentPlaceholders) {
+                placeholders.add(replacementFunction.apply(placeholder));
+            }
             return this;
         }
 

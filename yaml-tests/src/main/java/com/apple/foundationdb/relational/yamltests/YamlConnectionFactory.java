@@ -33,15 +33,16 @@ import java.util.Set;
  */
 public interface YamlConnectionFactory {
     /**
-     * Convert a connection uri into an actual connection.
+     * Convert a connection uri into an actual connection on a specific cluster.
      *
      * @param connectPath the path to connect to
+     * @param clusterIndex the cluster to connect to (0 is the default cluster)
      *
-     * @return A new {@link RelationalConnection} for the given path appropriate for this test class
+     * @return A new {@link RelationalConnection} for the given path on the specified cluster
      *
-     * @throws SQLException if we cannot connect
+     * @throws SQLException if we cannot connect or the cluster index is not supported
      */
-    YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException;
+    YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException;
 
     /**
      * The versions that the connection has, other than the current code.
@@ -65,5 +66,14 @@ public interface YamlConnectionFactory {
      */
     default boolean isMultiServer() {
         return false;
+    }
+
+    /**
+     * Returns the number of clusters available for testing.
+     *
+     * @return the number of available clusters (1 means only the default cluster)
+     */
+    default int getAvailableClusterCount() {
+        return 1;
     }
 }

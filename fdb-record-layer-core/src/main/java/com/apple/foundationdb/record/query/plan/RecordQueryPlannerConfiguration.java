@@ -67,6 +67,7 @@ public class RecordQueryPlannerConfiguration {
     private static final long PLAN_OTHER_ATTEMPT_FULL_FILTER_MASK = 1L << 9;
     private static final long NORMALIZE_NESTED_FIELDS_MASK = 1L << 10;
     private static final long OMIT_PRIMARY_KEY_IN_ORDERING_KEY_FOR_IN_UNION_MASK = 1L << 11;
+    private static final long JOIN_RIGHT_DEEP_MASK = 1L << 12;
 
     @Nonnull
     private final RecordPlannerConfigurationProto.PlannerConfiguration proto;
@@ -381,6 +382,20 @@ public class RecordQueryPlannerConfiguration {
 
     public boolean shouldNormalizeNestedFields() {
         return flagSet(NORMALIZE_NESTED_FIELDS_MASK);
+    }
+
+    /**
+     * Should joins be planned right-deep. This influences the join exploration algorithm in order
+     * to limit exploration time. When planning multi-way joins, if this option is set, the
+     * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner} will limit
+     * the joins considered to cases where one join constituent is planned as the outer
+     * of a nested loop join and all other constituents are planned as the inner. This differs
+     * from the default behavior, where the join constituents partitioned exhaustively.
+     *
+     * @return whether joins should be planned right-deep
+     */
+    public boolean shouldJoinRightDeep() {
+        return flagSet(JOIN_RIGHT_DEEP_MASK);
     }
 
     /**
@@ -785,6 +800,21 @@ public class RecordQueryPlannerConfiguration {
         @Nonnull
         public Builder setNormalizeNestedFields(boolean normalizeNestedFields) {
             updateFlags(normalizeNestedFields, NORMALIZE_NESTED_FIELDS_MASK);
+            return this;
+        }
+
+        /**
+         * Set whether joins should be planned right-deep. See {@link #shouldJoinRightDeep()} for
+         * more details.
+         *
+         * @param joinRightDeep whether joins should be planned right-deep
+         * @return this builder
+         * @see #shouldJoinRightDeep()
+         */
+        @CanIgnoreReturnValue
+        @Nonnull
+        public Builder setJoinRightDeep(boolean joinRightDeep) {
+            updateFlags(joinRightDeep, JOIN_RIGHT_DEEP_MASK);
             return this;
         }
 

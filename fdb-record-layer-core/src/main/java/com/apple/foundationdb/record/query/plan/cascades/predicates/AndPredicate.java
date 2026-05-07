@@ -187,9 +187,11 @@ public class AndPredicate extends AndOrPredicate {
 
     @Nonnull
     public static QueryPredicate and(@Nonnull final Collection<? extends QueryPredicate> conjuncts, final boolean isAtomic) {
+        // Keep only conjuncts that aren’t tautologies; except for placeholders (where tautology means "no range
+        // constraint"). All placeholders must be retained for the index-matching machinery to work correctly.
         final var filteredConjuncts =
                 conjuncts.stream()
-                        .filter(queryPredicate -> !queryPredicate.isTautology())
+                        .filter(queryPredicate -> (queryPredicate instanceof Placeholder) || !queryPredicate.isTautology())
                         .collect(ImmutableList.toImmutableList());
 
         if (filteredConjuncts.isEmpty()) {

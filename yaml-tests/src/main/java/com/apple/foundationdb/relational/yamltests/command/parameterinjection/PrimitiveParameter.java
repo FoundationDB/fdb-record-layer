@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.yamltests.command.parameterinjection;
 
+import com.apple.foundationdb.relational.recordlayer.util.Hex;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.Connection;
@@ -44,6 +46,8 @@ public class PrimitiveParameter implements Parameter {
             return "null";
         } else if (object instanceof String || object instanceof UUID) {
             return "'" + object + "'";
+        } else if (object instanceof byte[]) {
+            return "x'" + Hex.encodeHexString((byte[]) object) + "'";
         } else {
             return object.toString();
         }
@@ -68,6 +72,12 @@ public class PrimitiveParameter implements Parameter {
 
     @Override
     public String toString() {
-        return object == null ? "null" : object.toString();
+        if (object == null) {
+            return "null";
+        } else if (object instanceof byte[]) {
+            return "x'" + Hex.encodeHexString((byte[]) object) + "'";
+        } else {
+            return object.toString();
+        }
     }
 }

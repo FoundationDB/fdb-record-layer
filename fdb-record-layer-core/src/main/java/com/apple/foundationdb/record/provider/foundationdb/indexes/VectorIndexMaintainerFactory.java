@@ -79,7 +79,7 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
         final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, reverse);
         final ExpansionVisitor<?> expansionVisitor = new VectorIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes());
         return MatchCandidateExpansion.optionalToIterable(
-                MatchCandidateExpansion.expandIndexMatchCandidate(info, info.getCommonPrimaryKeyForTypes(), expansionVisitor));
+                MatchCandidateExpansion.expandIndexMatchCandidate(info, false, info.getCommonPrimaryKeyForTypes(), expansionVisitor));
     }
 
     /**

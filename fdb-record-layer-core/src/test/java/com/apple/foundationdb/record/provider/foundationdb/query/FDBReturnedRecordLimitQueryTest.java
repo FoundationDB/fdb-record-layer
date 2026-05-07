@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -45,6 +46,9 @@ import java.util.Objects;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.descendant;
@@ -201,11 +205,17 @@ class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder().setRecordTypes(Arrays.asList("MySimpleRecord", "MyOtherRecord")).build();
 
-        // Scan(<,>)
         RecordQueryPlan plan = planQuery(query);
-        assertThat(plan, scan(unbounded()));
-        assertEquals(2, plan.planHash(PlanHashable.CURRENT_LEGACY));
-        assertEquals(-1686361258, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        if (useCascadesPlanner) {
+            assertMatchesExactly(plan, typeFilterPlan(scanPlan().where(scanComparisons(ScanComparisons.unbounded()))));
+            assertEquals(-2035204899, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(490987376, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        } else {
+            assertThat(plan, scan(unbounded()));
+            assertEquals(2, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1686361258, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        }
+
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

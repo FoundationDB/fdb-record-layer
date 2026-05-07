@@ -1222,7 +1222,7 @@ public class ValueTranslationTest {
     public void maxMatchVersionToQovRoot() {
         final var tType = getTType().addPseudoFields();
         final var qrv = QuantifiedRecordValue.of(t_Alias, tType);
-        final var versionValue = (Value) new VersionValue.VersionFn().encapsulate(ImmutableList.of(qrv));
+        final var versionValue = (Value) new VersionFunction().encapsulate(ImmutableList.of(qrv));
         final var pv =
                 rcv(versionValue, rcv(t_));
         final var p_v =

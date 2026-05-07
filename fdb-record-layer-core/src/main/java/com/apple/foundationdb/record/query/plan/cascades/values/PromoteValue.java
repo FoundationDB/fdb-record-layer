@@ -372,6 +372,14 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             return new CoercionTrieNode(new PrimitiveCoercionBiFunction(physicalOperator), null);
         }
 
+        // NONE is the type of the untyped empty array `[]`. Like a primitive, this is a leaf case that handles the
+        // promotion via a single physical operator (NONE_TO_ARRAY).
+        if (currentType.isNone()) {
+            final var physicalOperator = resolvePhysicalOperator(currentType, targetType);
+            SemanticException.check(physicalOperator != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            return new CoercionTrieNode(new PrimitiveCoercionBiFunction(physicalOperator), null);
+        }
+
         Verify.verify(targetType.getTypeCode() == currentType.getTypeCode());
 
         if (currentType.isUuid()) {
@@ -421,6 +429,11 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         return childrenMap.isEmpty() ? null : new CoercionTrieNode(null, childrenMap);
     }
 
+    /**
+     * Wrap a {@link PromoteValue} instance around {@code value} if necessary.
+     *
+     * <p>{@code inject()} is idempotent and does not modify the value if its result is already the desired type.
+     */
     @Nonnull
     public static Value inject(@Nonnull final Value inValue, @Nonnull final Type promoteToType) {
         final var inType = inValue.getResultType();
@@ -430,7 +443,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         if (inValue.canResultInType(promoteToType)) {
             return inValue.with(promoteToType);
         }
-        final var promotionTrie = computePromotionsTrie(promoteToType, inType, null);
+        final CoercionTrieNode promotionTrie = computePromotionsTrie(promoteToType, inType, null);
         return new PromoteValue(inValue, promoteToType, promotionTrie);
     }
 
@@ -447,10 +460,10 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         if (promoteToType.getTypeCode() == Type.TypeCode.ANY) {
             return false;
         }
-        if (inType.getTypeCode() == Type.TypeCode.NULL) {
+        if (inType.isNull()) {
             return true;
         }
-        if (inType.getTypeCode() == Type.TypeCode.NONE) {
+        if (inType.isNone()) {
             return true;
         }
         if (inType.isArray() && promoteToType.isArray()) {

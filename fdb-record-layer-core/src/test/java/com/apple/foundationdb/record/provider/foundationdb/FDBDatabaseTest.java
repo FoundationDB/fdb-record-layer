@@ -431,11 +431,7 @@ class FDBDatabaseTest {
 
     @Test
     void testPostCloseHookFailsToCreate() {
-        // in this test, the creation of the future for the hook fails, so the chain of hooks is interrupted
-        // and only some are invoked.
-        // This tests exemplifies the behavior described in https://github.com/FoundationDB/fdb-record-layer/issues/3899
-        // and should be corrected once the issue is fixed. This is consistent with the behavior of postCommit and is done
-        // for consistency until both are fixed.
+        // in this test, the creation of the future for the hook fails, but the remaining are called
         final FDBDatabase database = dbExtension.getDatabase();
         final Set<String> called = new HashSet<>();
 
@@ -457,7 +453,7 @@ class FDBDatabaseTest {
         assertThrows(RuntimeException.class, context::close);
 
         // only some of the hooks got invoked
-        assertEquals(Set.of("foo"), called);
+        assertEquals(Set.of("foo", "bar"), called);
     }
 
     private long getReadVersionInRetryLoop(FDBDatabase database, Long minVersion, Long stalenessBoundMillis, boolean async) throws InterruptedException, ExecutionException {

@@ -239,6 +239,18 @@ class VectorIndexScanMatchCandidateTest {
     }
 
     @Test
+    void testHasAndOrderedByRecordTypeKeyReturnsFalse() {
+        final VectorIndexScanMatchCandidate candidate = createVectorIndexScanMatchCandidate(
+                "my_vector_index",
+                field("vector_field"),
+                "vector"
+        );
+
+        Assertions.assertFalse(candidate.hasAndOrderedByRecordTypeKey(),
+                "isSortedByRecordTypeKey() should return false by default for non-primary-scan match candidates");
+    }
+
+    @Test
     void testToStringIncludesIndexNameFromConstructor() {
         final String indexName = "constructor_test_index";
         final Index index = new Index(indexName, field("vector"), "vector");

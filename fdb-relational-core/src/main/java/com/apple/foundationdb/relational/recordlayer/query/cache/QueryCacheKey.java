@@ -108,8 +108,6 @@ public final class QueryCacheKey {
     @Nonnull
     private final String auxiliaryMetadata;
 
-    private final int hash;
-
     private final int schemaTemplateVersion;
 
     private final int userVersion;
@@ -119,20 +117,18 @@ public final class QueryCacheKey {
     private QueryCacheKey(@Nonnull final String canonicalQueryString,
                           @Nonnull final PlannerConfiguration plannerConfiguration,
                           @Nonnull final String auxiliaryMetadata,
-                          int hash,
                           int schemaTemplateVersion,
                           int userVersion) {
         this.canonicalQueryString = canonicalQueryString;
-        this.hash = hash;
         this.schemaTemplateVersion = schemaTemplateVersion;
         this.userVersion = userVersion;
         this.auxiliaryMetadata = auxiliaryMetadata;
         this.plannerConfiguration = plannerConfiguration;
 
         // Memoize the hash code. Because this object is used as a key in a hash map, it is important that
-        // hashCode() be quick. Note that this includes information about the query (like the query hash),
+        // hashCode() be quick. Note that this includes information about the query (canonicalQueryString is like the query hash),
         // the schema template version, and the schema (like the set of readable indexes)
-        this.memoizedHashCode = Objects.hash(hash, schemaTemplateVersion, plannerConfiguration, userVersion, auxiliaryMetadata);
+        this.memoizedHashCode = Objects.hash(canonicalQueryString, schemaTemplateVersion, plannerConfiguration, userVersion, auxiliaryMetadata);
     }
 
     @Override
@@ -144,8 +140,7 @@ public final class QueryCacheKey {
             return false;
         }
         final var that = (QueryCacheKey) other;
-        return hash == that.hash &&
-                schemaTemplateVersion == that.schemaTemplateVersion &&
+        return schemaTemplateVersion == that.schemaTemplateVersion &&
                 userVersion == that.userVersion &&
                 Objects.equals(canonicalQueryString, that.canonicalQueryString) &&
                 Objects.equals(auxiliaryMetadata, that.auxiliaryMetadata) &&
@@ -155,10 +150,6 @@ public final class QueryCacheKey {
     @Override
     public int hashCode() {
         return memoizedHashCode;
-    }
-
-    public int getHash() {
-        return hash;
     }
 
     @Nonnull
@@ -186,17 +177,16 @@ public final class QueryCacheKey {
 
     @Override
     public String toString() {
-        return "(" + schemaTemplateVersion + " || " + auxiliaryMetadata + ")" + "||" + canonicalQueryString + "||" + hash;
+        return "(" + schemaTemplateVersion + " || " + auxiliaryMetadata + ")" + "||" + canonicalQueryString + "||" + memoizedHashCode;
     }
 
     @Nonnull
     public static QueryCacheKey of(@Nonnull final String query,
                                    @Nonnull final PlannerConfiguration plannerConfiguration,
                                    @Nonnull final String auxiliaryMetadata,
-                                   int queryHash,
                                    int schemaTemplateVersion,
                                    int userVersion) {
-        return new QueryCacheKey(query, plannerConfiguration, auxiliaryMetadata, queryHash, schemaTemplateVersion,
+        return new QueryCacheKey(query, plannerConfiguration, auxiliaryMetadata, schemaTemplateVersion,
                 userVersion);
     }
 }

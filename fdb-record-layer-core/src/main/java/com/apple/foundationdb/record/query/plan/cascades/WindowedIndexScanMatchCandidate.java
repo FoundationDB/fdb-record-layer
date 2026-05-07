@@ -279,7 +279,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
 
-            if (normalizedValues.add(normalizedValue)) {
+            if (!normalizedValues.contains(normalizedValue)) {
+                final MatchedOrderingPart matchedOrderingPart;
                 if (parameterId.equals(scoreAlias)) {
                     //
                     // This is the score field of the index which is returned at this ordinal position.
@@ -289,26 +290,32 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     //
                     @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
 
-                    final var matchedOrderingPart =
+                    matchedOrderingPart =
                             normalizedValue.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(EvaluationContext.empty(),
                                     AliasMap.emptyMap(), ImmutableSet.of(),
                                     (v, sortOrder) ->
                                             MatchedOrderingPart.of(rankAlias, v, rankComparisonRange, sortOrder),
                                     OrderingValueComputationRuleSet.usingMatchedOrderingParts());
-                    builder.add(matchedOrderingPart);
                 } else {
-                    final var matchedOrderingPart =
+                    matchedOrderingPart =
                             normalizedValue.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(EvaluationContext.empty(),
                                     AliasMap.emptyMap(), ImmutableSet.of(),
                                     (v, sortOrder) ->
                                             MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
                                     OrderingValueComputationRuleSet.usingMatchedOrderingParts());
+                }
+                if (normalizedValues.add(matchedOrderingPart.getValue())) {
                     builder.add(matchedOrderingPart);
                 }
             }
         }
 
         return builder.build();
+    }
+
+    @Override
+    public boolean isScopedToSingleType() {
+        return queriedRecordTypes.size() == 1 || hasAndOrderedByRecordTypeKey();
     }
 
     @Nonnull

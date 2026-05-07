@@ -29,6 +29,8 @@ import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Pa
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.PrimitiveParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.TupleParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.UnboundParameter;
+import com.apple.foundationdb.relational.yamltests.tags.BytesTag;
+import com.apple.foundationdb.relational.yamltests.tags.FloatTag;
 import com.apple.foundationdb.relational.yamltests.tags.LongTag;
 import org.apache.commons.lang3.tuple.Pair;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -58,7 +60,7 @@ import static com.apple.foundationdb.relational.yamltests.Matchers.constructVect
  * {@link QueryCommand} command. The query in the framework is expected to be a valid query string based on the
  * Relational parser except that it can have parameter injection snippets.
  * <p>
- * A parameter injection snippet is a statement surrounded by `/{` and `}/` that can substitute anywhere in the query
+ * A parameter injection snippet is a statement surrounded by `!!` and `!!` that can substitute anywhere in the query
  * where a prepared statement parameter can be put. For example, lets take a simple query:
  * <pre>{@code
  *      SELECT * FROM foo WHERE foo.a > 10
@@ -66,7 +68,7 @@ import static com.apple.foundationdb.relational.yamltests.Matchers.constructVect
  * Here, 10 can be substituted for a parameter and hence qualify to be substituted by our parameter injection snippet,
  * as:
  * <pre>{@code
- *      SELECT * FROM foo WHERE foo.a > %% 10 %%
+ *      SELECT * FROM foo WHERE foo.a > !! 10 !!
  *}</pre>
  * QueryInterpreter interprets {@code /{10}/} as a singleton {@link PrimitiveParameter}. A mapping of {@link Parameter}s
  * in the given query helps to adapt the query to be executed as a simple statement or as a prepared statement, as required.
@@ -75,7 +77,7 @@ import static com.apple.foundationdb.relational.yamltests.Matchers.constructVect
  * can be an {@link UnboundParameter} that is not literal and needs to be "bound" using a {@link Random} generator to
  * take a literal value. An example of query with {@link UnboundParameter} is:
  * <pre>{@code
- *      SELECT * FROM foo WHERE foo.a > %% !r [2, 9] %%
+ *      SELECT * FROM foo WHERE foo.a > !! !r [2, 9] !!
  *}</pre>
  * Here, the parameter can randomly take different values between 2 and 9 in each binding.
  */
@@ -121,6 +123,12 @@ public final class QueryInterpreter {
 
             final var longTag = new LongTag();
             this.yamlConstructors.put(longTag.getTag(), longTag.getConstruct());
+
+            final var bytesTag = new BytesTag();
+            this.yamlConstructors.put(bytesTag.getTag(), bytesTag.getConstruct());
+
+            final var floatTag = new FloatTag();
+            this.yamlConstructors.put(floatTag.getTag(), floatTag.getConstruct());
         }
 
         @Override

@@ -53,7 +53,8 @@ class VectorIndexIndexingTest extends VectorIndexTestBase {
 
     @Test
     void buildVectorIndexOnlineUngrouped() throws Exception {
-        final Random random = new Random();
+        final int seed = 1;
+        final Random random = new Random(seed);
         final int numRecords = 500 + random.nextInt(20);
         final int maxSize = 50 + random.nextInt(5) ;
 
@@ -72,7 +73,8 @@ class VectorIndexIndexingTest extends VectorIndexTestBase {
 
     @Test
     void buildVectorIndexOnlineGrouped() throws Exception {
-        final Random random = new Random();
+        final int seed = 8;
+        final Random random = new Random(seed);
         final int numRecords = 500 + random.nextInt(20);
         final int maxSize = 50 + random.nextInt(5) ;
 
@@ -91,7 +93,8 @@ class VectorIndexIndexingTest extends VectorIndexTestBase {
 
     @Test
     void buildVectorIndexOnlineMoreUngrouped() throws Exception {
-        final Random random = new Random();
+        final int seed = 7001;
+        final Random random = new Random(seed);
         final int initialRecords = 400 + random.nextInt(50);
         final int additionalRecords = 100 + random.nextInt(10);
         final int maxSize = 50 + random.nextInt(10);
@@ -121,7 +124,8 @@ class VectorIndexIndexingTest extends VectorIndexTestBase {
 
     @Test
     void buildVectorIndexOnlineMoreGrouped() throws Exception {
-        final Random random = new Random();
+        final int seed = 7;
+        final Random random = new Random(seed);
         final int initialRecords = 400 + random.nextInt(50);
         final int additionalRecords = 100 + random.nextInt(10);
         final int maxSize = 50 + random.nextInt(10);

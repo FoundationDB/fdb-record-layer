@@ -307,7 +307,7 @@ public class TransactionBoundDatabaseTest {
                 onExport ? null : KEY_SPACE_FOR_COPY_TEST, conn -> {
                     try (RelationalStatement statement = conn.createStatement()) {
                         final ConnectionUtils.SQLFunction<RelationalStatement, RelationalResultSet> export =
-                                stmt -> stmt.executeQuery("COPY \"" + sourceUri + "\"");
+                                stmt -> stmt.executeQuery("COPY \"" + sourceUri + "\" PRESERVE INCARNATION");
                         if (onExport) {
                             RelationalAssertions.assertThrowsSqlException(() -> export.apply(statement))
                                     .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
@@ -459,12 +459,12 @@ public class TransactionBoundDatabaseTest {
         withTransactionBoundConnection(embeddedConnection, Options.NONE, KEY_SPACE_FOR_COPY_TEST,
                 conn -> {
                     try (RelationalStatement statement = conn.createStatement()) {
-                        final RelationalResultSet resultSet = statement.executeQuery("COPY \"" + sourceUri + "\"");
+                        final RelationalResultSet resultSet = statement.executeQuery("COPY \"" + sourceUri + "\" PRESERVE INCARNATION");
                         data.addAll(getExportedData(resultSet));
                     }
                     // sanity check that the destination is already empty
                     try (RelationalStatement statement = conn.createStatement()) {
-                        final RelationalResultSet resultSet = statement.executeQuery("COPY \"" + destUri + "\"");
+                        final RelationalResultSet resultSet = statement.executeQuery("COPY \"" + destUri + "\" PRESERVE INCARNATION");
                         Assertions.assertThat(resultSet.next()).isFalse();
                     }
                 });

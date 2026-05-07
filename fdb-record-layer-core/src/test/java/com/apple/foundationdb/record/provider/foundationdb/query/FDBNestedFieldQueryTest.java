@@ -90,6 +90,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -166,9 +167,9 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1320718259, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             assertMatchesExactly(plan,
-                    scanPlan().where(scanComparisons(range("[[photos],[photos]]"))));
-            assertEquals(1063779424, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(1320718259, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                    typeFilterPlan(scanPlan().where(scanComparisons(range("[[photos],[photos]]")))));
+            assertEquals(-1958366043, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1765768675, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
         assertEquals(Arrays.asList(12, 11), fetchResultValues(plan, TestRecords3Proto.MyHierarchicalRecord.NUM_VALUE_INDEXED_FIELD_NUMBER,
                 this::openHierarchicalRecordStore,
@@ -188,9 +189,9 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(-801595966, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
             assertMatchesExactly(plan,
-                    scanPlan().where(scanComparisons(range("{[photos],[photos]}"))));
-            assertEquals(224213141, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-801595966, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                    typeFilterPlan(scanPlan().where(scanComparisons(range("{[photos],[photos]}")))));
+            assertEquals(1497034970, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1161967086, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
         assertEquals(Arrays.asList(12, 11, 112, 111, 1111), fetchResultValues(plan, TestRecords3Proto.MyHierarchicalRecord.NUM_VALUE_INDEXED_FIELD_NUMBER,
                 this::openHierarchicalRecordStore,
@@ -1093,11 +1094,20 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Scan([[a, 2],[a, 2]])
         RecordQueryPlan plan = planQuery(query);
-        assertMatchesExactly(plan,
-                scanPlan()
-                        .where(scanComparisons(range("[[a, 2],[a, 2]]"))));
-        assertEquals(1265534819, plan.planHash(PlanHashable.CURRENT_LEGACY));
-        assertEquals(767624337, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        if (useCascadesPlanner) {
+            assertMatchesExactly(plan,
+                    typeFilterPlan(
+                            scanPlan()
+                                    .where(scanComparisons(range("[[a, 2],[a, 2]]")))));
+            assertEquals(480665791, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(505465366, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        } else {
+            assertMatchesExactly(plan,
+                    scanPlan()
+                            .where(scanComparisons(range("[[a, 2],[a, 2]]"))));
+            assertEquals(1265534819, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(767624337, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        }
 
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.yamltests.connectionfactory;
 
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.yamltests.SimpleYamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
@@ -32,21 +34,36 @@ import java.sql.SQLException;
 import java.util.Set;
 
 public class EmbeddedYamlConnectionFactory implements YamlConnectionFactory {
-    private final String clusterFile;
+    @Nonnull
+    private final Clusters<Clusters.Entry<RelationalDriver>> clusters;
 
-    public EmbeddedYamlConnectionFactory(String clusterFile) {
-        this.clusterFile = clusterFile;
+    public EmbeddedYamlConnectionFactory(@Nonnull Clusters<Clusters.Entry<RelationalDriver>> clusters) {
+        this.clusters = clusters;
     }
 
     @Override
-    public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()),
-                SemanticVersion.current(), "Embedded", clusterFile);
+    public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
+        final Clusters.Entry<RelationalDriver> entry = clusters.get(clusterIndex);
+        if (clusterIndex == 0) {
+            // The primary cluster's driver is registered in DriverManager, so use that path
+            return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()),
+                    SemanticVersion.current(), "Embedded", entry.clusterFile());
+        }
+        // Non-primary clusters are not registered in DriverManager, so connect via the driver directly
+        return new SimpleYamlConnection(
+                entry.server().connect(connectPath, Options.NONE),
+                SemanticVersion.current(),
+                "Embedded[cluster=" + clusterIndex + "]",
+                entry.clusterFile());
+    }
+
+    @Override
+    public int getAvailableClusterCount() {
+        return clusters.size();
     }
 
     @Override
     public Set<SemanticVersion> getVersionsUnderTest() {
         return Set.of(SemanticVersion.current());
     }
-
 }

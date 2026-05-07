@@ -19,7 +19,7 @@ jobs:
       update-type: ${{ steps.update-type.outputs.result }}
     steps:
       - name: Calculate update type
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9.0.0
         id: update-type
         with:
           script: |
@@ -48,7 +48,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       # Increment the version here so that the version used in the checks matches the eventually published version.
@@ -71,7 +71,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
@@ -89,7 +89,7 @@ jobs:
           gradle_args: -PreleaseBuild=true -PpublishBuild=false
           report_name: ${{ matrix.subproject }}-test-reports
       - name: Publish Coverage Data
-        uses: actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: ${{ matrix.subproject }}-coverage-data
           path: |
@@ -106,7 +106,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
@@ -133,7 +133,7 @@ jobs:
           gradle_args: -PreleaseBuild=true -PpublishBuild=false
           report_name: other-test-reports
       - name: Publish Coverage Data
-        uses: actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: other-coverage-data
           path: |
@@ -152,7 +152,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Calculate versions
@@ -171,7 +171,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
@@ -189,7 +189,7 @@ jobs:
           gradle_args: -PreleaseBuild=true -PpublishBuild=false -Ptests.mixedModeVersion=${{ matrix.version }}
           report_name: mixed-mode-${{ matrix.version }}-test-reports
       - name: Publish Coverage Data
-        uses: actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: mixed-mode-${{ matrix.version }}-coverage-data
           path: |
@@ -205,11 +205,11 @@ jobs:
       contents: read
     steps:
       - name: Checkout HEAD sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: 'Download results'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.0
         with:
           pattern: 'mixed-mode-*-test-reports'
       - name: Generate mixed mode results
@@ -218,7 +218,7 @@ jobs:
       # so that "mixed-mode-results" gets passed around correctly
       - name: Upload mixed mode results
         id: mixed_mode_results
-        uses: actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: mixed-mode-results
           path: mixed-mode-results.md
@@ -234,7 +234,7 @@ jobs:
       pull-requests: write # We create a pull request if committing the release notes updates fails
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
         with:
           ssh-key: ${{ secrets.DEPLOY_KEY }}
           fetch-tags: true
@@ -270,7 +270,7 @@ jobs:
       # We want to do this before anything else, because if the later steps fail, we want to make sure that the full
       # change log includes all changes, even if they reference a release that was never actually published.
       - name: Download mixed mode results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.0
         with:
           name: mixed-mode-results
       - name: echo results
@@ -289,19 +289,19 @@ jobs:
           --version ${{ steps.get_new_version.outputs.version }}
         env:
           GH_TOKEN: ${{ github.token }}
-      # We move the tag to after the release notes are updated so that later steps (i.e. sphinx) will pick up the udpated
+      # We move the tag to after the release notes are updated so that later steps (i.e. sphinx) will pick up the updated
       # release notes
       - name: Move tag to HEAD
         shell: bash
         run: git tag -m "Release ${{ steps.get_new_version.outputs.version }}" -f "${{ steps.get_new_version.outputs.version }}"
-  
-      # push the changes to gradle.properties, the release notes, and the tag as one operation, so if it fails,
-      # it will be as if the release never did anything
-      - name: Push Version Update
+      # Push the tag now before publishing. That way, even if publishing fails or if merging the latest changes into the
+      # base branch fails, we should at least have the tag and can recover manually
+      - name: Push tag
         shell: bash
-        run: git push origin HEAD "${{ steps.get_new_version.outputs.version }}"
-  
+        run: git push origin "${{ steps.get_new_version.outputs.version }}"
+
       - name: Publish Artifacts
+        id: publish_artifacts
         uses: ./actions/run-gradle
         with:
           gradle_command: publish closeAndReleaseStagingRepositories -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
@@ -322,10 +322,26 @@ jobs:
       - name: Commit YAML updates
         shell: bash
         run: python ./build/commit_yamsql_updates.py "${{ steps.get_new_version.outputs.version }}"
-      - name: Push Updates
+
+      # Push updates back to origin.
+      # We want to do this regardless of whether publishing actually succeeds or fails, as the
+      # publishing process itself can fail non-atomically. If that happens, we still want to update
+      # the gradle.properties version, the release notes, etc.
+      #
+      # We pull updates before doing this as there may be concurrent PRs. This can introduce
+      # non-linearities into the history, but comparing tags should still correctly
+      # identify all commits that are present in one version but absent in another
+      - name: Push updates
         id: push_updates
+        if: steps.publish_artifacts.outcome != 'cancelled'
         shell: bash
-        run: git push origin
+        run: |
+            # Remove the leading "refs/heads/" from the branch name stored in the GITHUB_REF environment variable
+            branch_name="${GITHUB_REF##*/}"
+            echo "Fetching and merging latest updates from branch ${branch_name} into HEAD..."
+            git fetch origin "${branch_name}"
+            git merge --no-edit "origin/${branch_name}"
+            git push origin HEAD
         # Continue the build (including downstream steps). If the push fails, we'll create a PR
         continue-on-error: true
       - name: Create Merge PR if conflict
@@ -353,7 +369,7 @@ jobs:
         run: echo "${{ needs.get-update-type.outputs.update-type }}"
       - name: Cache Python Environment
         if: needs.get-update-type.outputs.update-type == 'BUILD'
-        uses: actions/cache@v4
+        uses: actions/cache@v5.0.4
         with:
           path: docs/sphinx/.venv
           key: ${{ runner.os }}-sphinx-python-${{ steps.setup-base.outputs.python-version }}-${{ hashFiles('docs/sphinx/requirements.txt') }}

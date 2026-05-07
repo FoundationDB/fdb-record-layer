@@ -22,14 +22,11 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
-import com.apple.foundationdb.tuple.Tuple;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -206,27 +203,6 @@ public class IndexingCommon {
     @Nonnull
     public Collection<RecordType> getAllRecordTypes() {
         return allRecordTypes;
-    }
-
-    @Nullable
-    public TupleRange computeRecordsRange() {
-        Tuple low = null;
-        Tuple high = null;
-        for (RecordType recordType : getAllRecordTypes()) {
-            if (!recordType.primaryKeyHasRecordTypePrefix() || recordType.isSynthetic()) {
-                // If any of the types to build for does not have a prefix, give up.
-                return null;
-            }
-            Tuple prefix = recordType.getRecordTypeKeyTuple();
-            if (low == null) {
-                low = high = prefix;
-            } else if (low.compareTo(prefix) > 0) {
-                low = prefix;
-            } else if (high.compareTo(prefix) < 0) {
-                high = prefix;
-            }
-        }
-        return low == null ? null : TupleRange.betweenInclusive(low, high);
     }
 
     @Nonnull

@@ -303,25 +303,48 @@ public class SemanticAnalyzer {
         return resolveIdentifier(identifier, operators);
     }
 
+    /**
+     * Expands a SQL {@code *} (star) expression into the corresponding set of column expressions. Three forms are
+     * supported: an unqualified {@code *} (expanding to all columns of all tables in scope), {@code T.*} (expanding
+     * to the columns of table {@code T}), and {@code T.A.*} (expanding the fields of a struct-typed column {@code A}).
+     * Raises {@link ErrorCode#INVALID_COLUMN_REFERENCE} when the qualifier does not refer to a record/struct type,
+     * e.g. when unnesting a scalar array.
+     *
+     * @param optionalQualifier the optional qualifier preceding the {@code *}, or {@link Optional#empty()} for an
+     * unqualified {@code *}
+     * @param operators the logical operators in scope for resolving the qualifier
+     *
+     * @return a {@link Star} expression capturing the expansion
+     */
     @Nonnull
     public Star expandStar(@Nonnull Optional<Identifier> optionalQualifier,
                            @Nonnull LogicalOperators operators) {
         final var forEachOperators = operators.forEachOnly();
+
         // Case 1: no qualifier, e.g. SELECT * FROM T, R;
         if (optionalQualifier.isEmpty()) {
             final var expansion = forEachOperators.getExpressions().nonEphemeralVisible();
             return Star.overQuantifiers(Optional.empty(), Streams.stream(forEachOperators).map(LogicalOperator::getQuantifier)
                     .map(Quantifier::getFlowedObjectValue).collect(ImmutableList.toImmutableList()), "unknown", expansion);
         }
+
         // Case 2: qualifying a table, e.g. SELECT T.* FROM T, R;
         final var qualifier = optionalQualifier.get();
         final var logicalTableMaybe = Streams.stream(forEachOperators)
                 .filter(table -> table.getName().isPresent() && table.getName().get().equals(qualifier))
                 .findFirst();
         if (logicalTableMaybe.isPresent()) {
-            return Star.overQuantifier(optionalQualifier, logicalTableMaybe.get().getQuantifier().getFlowedObjectValue(),
-                    qualifier.getName(), logicalTableMaybe.get().getOutput().nonEphemeralVisible());
+            final LogicalOperator logicalTable = logicalTableMaybe.get();
+            // Star can only be expanded on a record (struct) type. Examples of non-record qualifier types are scalars
+            // (e.g., when unnesting a scalar array, as in `SELECT integer.* FROM T, T.integer_array AS integer`)
+            // as well as VECTOR, ENUM, and UUID.
+            Assert.thatUnchecked(logicalTable.getQuantifier().getFlowedObjectType().isRecord(),
+                    ErrorCode.INVALID_COLUMN_REFERENCE,
+                    () -> String.format(Locale.ROOT, "attempt to expand non-struct column %s", qualifier));
+            return Star.overQuantifier(optionalQualifier, logicalTable.getQuantifier().getFlowedObjectValue(),
+                    qualifier.getName(), logicalTable.getOutput().nonEphemeralVisible());
         }
+
         // Case 2.1: represents a rare case where a logical operator contains a mix of columns that are qualified
         // differently.
         // This mostly happens when the logical operator encompasses an internal modeling strategy
@@ -333,6 +356,7 @@ public class SemanticAnalyzer {
         if (!individualReferencedColumns.isEmpty()) {
             return Star.overIndividualExpressions(optionalQualifier, "unknown", individualReferencedColumns);
         }
+
         // Case 3: qualifying a column inside a table, e.g. SELECT T.A.* FROM T, R;
         // TODO this is currently not supported as per parsing rules TODO (Expand nested struct fields)
         final var expression = resolveIdentifier(qualifier, forEachOperators);
@@ -399,7 +423,12 @@ public class SemanticAnalyzer {
         if (matchQualifiedOnly && !referenceIdentifier.isQualified()) {
             return ImmutableList.of();
         }
-        final ImmutableList.Builder<Expression> matchedAttributes = ImmutableList.builder();
+        // Separate direct matches from nested-field results derived from an EphemeralExpression.
+        // When the same field is reachable both ways (e.g. NEST.F exists directly in the output
+        // because of addAll, AND lookupNestedField on EphemeralExpression(NEST) also resolves to
+        // NEST.F), the direct match takes priority and the ephemeral-derived duplicate is dropped.
+        final ImmutableList.Builder<Expression> directMatchesBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<Expression> ephemeralDerivedBuilder = ImmutableList.builder();
         for (final var operator : operators) {
             if (operator.getQuantifier() instanceof Quantifier.Existential) {
                 continue;
@@ -411,29 +440,52 @@ public class SemanticAnalyzer {
                 }
                 final var attributeIdentifier = attribute.getName().get();
                 if (attributeIdentifier.equals(referenceIdentifier)) {
-                    matchedAttributes.add(attribute);
+                    directMatchesBuilder.add(attribute);
                     continue;
                 }
                 if (!referenceIdentifier.isQualified() && !attribute.isVisible()) {
                     continue;
                 }
                 if (!matchQualifiedOnly && attributeIdentifier.withoutQualifier().equals(referenceIdentifier)) {
-                    matchedAttributes.add(attribute);
+                    directMatchesBuilder.add(attribute);
                     continue;
                 }
                 if (matchQualifiedOnly && operatorNameMaybe.isPresent()) {
                     if (attributeIdentifier.withQualifier(operatorNameMaybe.get().getName()).equals(referenceIdentifier)) {
-                        matchedAttributes.add(attribute);
+                        directMatchesBuilder.add(attribute);
                         continue;
                     }
                 }
                 final var nestedFieldMaybe = lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
                 if (nestedFieldMaybe.isPresent()) {
-                    matchedAttributes.add(nestedFieldMaybe.get());
+                    if (attribute instanceof EphemeralExpression) {
+                        ephemeralDerivedBuilder.add(nestedFieldMaybe.get());
+                    } else {
+                        directMatchesBuilder.add(nestedFieldMaybe.get());
+                    }
                 }
             }
         }
-        return matchedAttributes.build();
+        final var directMatches = directMatchesBuilder.build();
+        final var ephemeralDerived = ephemeralDerivedBuilder.build();
+        if (ephemeralDerived.isEmpty()) {
+            return directMatches;
+        }
+        if (directMatches.isEmpty()) {
+            return ephemeralDerived;
+        }
+        // At least one direct match and at least one ephemeral-derived match: suppress any
+        // ephemeral-derived result whose identifier is already covered by a direct match.
+        final var directNames = directMatches.stream()
+                .flatMap(e -> e.getName().stream())
+                .collect(ImmutableSet.toImmutableSet());
+        final var uniqueEphemeralDerived = ephemeralDerived.stream()
+                .filter(e -> e.getName().isEmpty() || !directNames.contains(e.getName().get()))
+                .collect(ImmutableList.toImmutableList());
+        return ImmutableList.<Expression>builder()
+                .addAll(directMatches)
+                .addAll(uniqueEphemeralDerived)
+                .build();
     }
 
     @Nonnull
@@ -836,8 +888,15 @@ public class SemanticAnalyzer {
     }
 
     public static void validateDatabaseUri(@Nonnull Identifier path) {
-        Assert.thatUnchecked(Objects.requireNonNull(path.getName()).matches("/\\w[a-zA-Z0-9_/]*\\w"),
-                ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", path));
+        validateDatabaseUri(path.getName());
+    }
+
+    public static void validateDatabaseUri(String pathName) {
+        // TODO this should probably follow the same rules as other quoted identifiers:
+        //      https://github.com/FoundationDB/fdb-record-layer/issues/4004
+        // It can end with `/` if the schema is the default (null) schema
+        Assert.thatUnchecked(Objects.requireNonNull(pathName).matches("/\\w[-a-zA-Z0-9_/]*\\w"),
+                ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", pathName));
     }
 
     public static void validateCteColumnAliases(@Nonnull LogicalOperator logicalOperator, @Nonnull List<Identifier> columnAliases) {
@@ -848,10 +907,14 @@ public class SemanticAnalyzer {
 
     @Nonnull
     public static NonnullPair<Optional<URI>, String> parseSchemaIdentifier(@Nonnull final Identifier schemaIdentifier) {
-        final var id = schemaIdentifier.getName();
+        return parseSchemaURI(schemaIdentifier.getName());
+    }
+
+    @Nonnull
+    public static NonnullPair<Optional<URI>, String> parseSchemaURI(@Nonnull final String id) {
         Assert.notNullUnchecked(id);
         if (id.startsWith("/")) {
-            validateDatabaseUri(schemaIdentifier);
+            validateDatabaseUri(id);
             int separatorIdx = id.lastIndexOf("/");
             Assert.thatUnchecked(separatorIdx < id.length() - 1);
             return NonnullPair.of(Optional.of(URI.create(id.substring(0, separatorIdx))), id.substring(separatorIdx + 1));
