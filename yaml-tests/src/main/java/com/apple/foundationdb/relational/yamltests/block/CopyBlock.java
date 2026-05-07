@@ -201,8 +201,14 @@ public class CopyBlock extends ReferencedBlock implements Block {
         }
         if (sourceInfo.chunkSize > 0) {
             final int batchSize = allData.size() - sizeBefore;
-            Assert.thatUnchecked(batchSize <= sourceInfo.chunkSize,
-                    "Expected at most " + sourceInfo.chunkSize + " rows from export batch, got " + batchSize);
+            if (rs.getContinuation().atEnd()) {
+                Assert.thatUnchecked(batchSize <= sourceInfo.chunkSize,
+                        "Expected at most " + sourceInfo.chunkSize + " rows from export batch, got " + batchSize);
+            } else {
+                Assert.thatUnchecked(batchSize == sourceInfo.chunkSize,
+                        "Expected " + sourceInfo.chunkSize + " rows from export batch, got " + batchSize);
+            }
+
         }
         return rs.getContinuation();
     }
