@@ -37,8 +37,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests that {@code explain} and {@code explainContains} checks fail correctly on a plan mismatch
@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *     {@link com.apple.foundationdb.relational.yamltests.YamlCorrectionUnitTest}.
  * </p>
  */
-public class CheckExplainTest {
+class CheckExplainTest {
 
     private static final YamlTestConfig config = new EmbeddedConfig(FDBTestEnvironment.allClusterFiles());
 
@@ -132,8 +132,8 @@ public class CheckExplainTest {
         new YamlRunner(resourcePath, config.createConnectionFactory(),
                 YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_ADD_EXPLAIN, true)).run();
 
-        // Verify the explain line is now present in the file.
+        // Verify exactly one explain line was written into the file.
         final List<String> updated = Files.readAllLines(filePath, StandardCharsets.UTF_8);
-        assertTrue(updated.stream().anyMatch(line -> line.stripLeading().startsWith("- explain:")));
+        assertEquals(1, updated.stream().filter(line -> line.stripLeading().startsWith("- explain:")).count());
     }
 }

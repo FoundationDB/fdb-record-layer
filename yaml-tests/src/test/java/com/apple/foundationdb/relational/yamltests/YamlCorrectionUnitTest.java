@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  *     {@code OPTION_ADD_EXPLAIN} is active and a query has no {@code explain:} block yet.
  * </p>
  */
-public class YamlCorrectionUnitTest {
+class YamlCorrectionUnitTest {
 
     // ── AddExplainCorrection tests ────────────────────────────────────────────
 
