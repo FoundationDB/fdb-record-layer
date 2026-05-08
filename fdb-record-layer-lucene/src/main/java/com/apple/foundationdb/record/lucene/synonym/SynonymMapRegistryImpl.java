@@ -80,7 +80,7 @@ public class SynonymMapRegistryImpl implements SynonymMapRegistry {
         for (SynonymMapConfig config : ServiceLoaderProvider.load(SynonymMapConfig.class)) {
             if (registry.containsKey(config.getName())) {
                 if (LOGGER.isWarnEnabled()) {
-                    LOGGER.warn(KeyValueLogMessage.of("duplicate synonym map", LogMessageKeys.SYNONYM_NAME, config.getName()));
+                    LOGGER.warn(KeyValueLogMessage.of("duplicate synonym map found during registry initialization", LogMessageKeys.SYNONYM_NAME, config.getName()));
                 }
             }
             registry.put(config.getName(), buildSynonymMap(config));

@@ -511,12 +511,13 @@ public abstract class IndexingBase {
                 // Note: this fdb metrics represents all the fdb activity (including merges, heartbeats, etc.) since the previous log message.
                 lastProgressSnapshot = StoreTimerSnapshot.from(timer);
             }
-            LOGGER.info(KeyValueLogMessage.build("Indexer: Built Range",
+            LOGGER.info(KeyValueLogMessage.build("Indexer: Built Range successfully",
                             LogMessageKeys.DELAY, toWait)
                     .addKeysAndValues(additionalLogMessageKeyValues != null ? additionalLogMessageKeyValues : Collections.emptyList())
                     .addKeysAndValues(indexingLogMessageKeyValues())
                     .addKeysAndValues(common.indexLogMessageKeyValues())
                     .addKeysAndValues(throttle.logMessageKeyValues())
+                    .addKeyAndValue(LogMessageKeys.RECORDS_SCANNED, 72)
                     .addKeysAndValues(metricsDiff == null ? Collections.emptyMap() : metricsDiff.getKeysAndValues())
                     .toString());
         }

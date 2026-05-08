@@ -116,9 +116,7 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
                 LOGGER.info(KeyValueLogMessage.build("Starting FDB")
                         .addKeyAndValue(LogMessageKeys.API_VERSION, apiVersion.getVersionNumber())
                         .addKeyAndValue(LogMessageKeys.UNCLOSED_WARNING, unclosedWarning)
-                        .addKeyAndValue(LogMessageKeys.TRACE_FORMAT, traceFormat)
                         .addKeyAndValue(LogMessageKeys.TRACE_DIRECTORY, traceDirectory)
-                        .addKeyAndValue(LogMessageKeys.TRACE_LOG_GROUP, traceLogGroup)
                         .addKeyAndValue(LogMessageKeys.RUN_LOOP_PROFILING, runLoopProfilingEnabled)
                         .addKeyAndValue(LogMessageKeys.THREADS_PER_CLIENT_VERSION, threadsPerClientVersion)
                         .getMessageWithKeys());

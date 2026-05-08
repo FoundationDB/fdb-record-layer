@@ -23,6 +23,7 @@ import java.util.regex.Pattern
 
 apply plugin: 'jacoco'
 // configure for test, other *Test are configured below
+// JaCoCo collects coverage data that is merged by the codeCoverageReport task in root.gradle
 jacoco {
     toolVersion = libs.versions.jacoco.get()
 }

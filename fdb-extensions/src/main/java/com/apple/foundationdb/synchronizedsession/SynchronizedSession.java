@@ -130,9 +130,13 @@ public class SynchronizedSession {
             } else {
                 if (sessionTime == null) {
                     if (LOGGER.isWarnEnabled()) {
-                        LOGGER.warn("Session ID is set but session time is not {}={} {}={}",
+                        LOGGER.warn("Session ID is set but session time is not set, possible corruption {}={} {}={}",
                                 LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(lockSubspace.getKey()),
                                 LogMessageKeys.SESSION_ID, sessionId);
+                    }
+                    if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug("Attempting to take session lock despite missing session time, sessionId={}",
+                                sessionId);
                     }
                     // This is unexpected, but if it does occur, we may want to correct it by letting the new session
                     // to take the lock.
