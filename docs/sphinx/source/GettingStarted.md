@@ -1,6 +1,6 @@
 # Getting Started Guide
 
-This is intended as a quick guide to getting started developing applications with the FDB Record Layer. We will cover:
+This is intended as a quick guide to getting started developing applications with the FDB Record Layer. We will cover the basics of setting up a project, defining record types and indexes, and performing CRUD operations. We will cover:
 
 * Getting the Record Layer artifacts
 * Running FDB locally

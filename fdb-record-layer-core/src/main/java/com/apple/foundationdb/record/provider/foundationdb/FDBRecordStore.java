@@ -1170,6 +1170,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     LogMessageKeys.META_DATA_VERSION, metaData.getVersion());
             if (LOGGER.isDebugEnabled()) {
                 ex2.addLogInfo("serialized", ByteArrayUtil2.loggable(serialized));
+                ex2.addLogInfo("serialized_length", serialized.length);
             }
             if (LOGGER.isTraceEnabled()) {
                 ex2.addLogInfo("descriptor", metaData.getUnionDescriptor().getFile().toProto());
@@ -2144,7 +2145,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (evaluated == null) {
                 // no record types
                 if (LOGGER.isWarnEnabled()) {
-                    LOGGER.warn(KeyValueLogMessage.of("Tried to delete prefix with no record types",
+                    LOGGER.warn(KeyValueLogMessage.of("Tried to delete prefix with no record types -- CHANGED",
                             subspaceProvider.logKey(), subspaceProvider.toString(context)));
                 }
                 return AsyncUtil.DONE;
@@ -2520,7 +2521,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (info.getCacheable() != cacheable) {
                 if (newStore) {
                     if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug(KeyValueLogMessage.of("setting initial store state cacheability",
+                        LOGGER.debug(KeyValueLogMessage.of("setting initial store state cacheability for new store",
                                 LogMessageKeys.OLD, info.getCacheable(),
                                 LogMessageKeys.NEW, cacheable,
                                 subspaceProvider.logKey(), subspaceProvider.toString(context)));
@@ -3491,7 +3492,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @SuppressWarnings("PMD.CloseResource")
     private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
         if (LOGGER.isInfoEnabled()) {
-            LOGGER.info(KeyValueLogMessage.of("index state change",
+            LOGGER.info(KeyValueLogMessage.of("index state change requested",
                     LogMessageKeys.INDEX_NAME, indexName,
                     LogMessageKeys.TARGET_INDEX_STATE, indexState.name(),
                     subspaceProvider.logKey(), subspaceProvider.toString(context)
@@ -4619,7 +4620,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         if (LOGGER.isInfoEnabled()) {
             if (newStore) {
-                LOGGER.info(KeyValueLogMessage.of("new record store",
+                LOGGER.info(KeyValueLogMessage.of("new record store created",
                         LogMessageKeys.FORMAT_VERSION, newFormatVersion,
                         LogMessageKeys.META_DATA_VERSION, newMetaDataVersion,
                         subspaceProvider.logKey(), subspaceProvider.toString(context)));
