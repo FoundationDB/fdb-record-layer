@@ -31,7 +31,6 @@ import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
@@ -84,8 +84,8 @@ public class BounceTask extends AbstractDeferredTask {
     @Override
     protected void writeDeferredTask(@Nonnull final Transaction transaction) {
         super.writeDeferredTask(transaction);
-        if (logger.isTraceEnabled()) {
-            logger.trace("enqueuing BOUNCE; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
+        if (logger.isInfoEnabled()) {
+            logger.info("enqueuing BOUNCE; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
                     taskIdToString(getTaskId()), getTargetClusterIds(), getDependentTaskIds());
         }
     }
@@ -99,10 +99,8 @@ public class BounceTask extends AbstractDeferredTask {
     @Nonnull
     public CompletableFuture<Void> runTask(@Nonnull final Transaction transaction) {
         logStart(logger);
-        final SplittableRandom splittableRandom = Objects.requireNonNull(
-                RandomHelpers.random(Iterables.getFirst(getTargetClusterIds(), null)));
+        final SplittableRandom splittableRandom = RandomHelpers.random(getTaskId());
 
-        final Config config = getConfig();
         final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();
         final AccessInfo accessInfo = getAccessInfo();
@@ -130,8 +128,9 @@ public class BounceTask extends AbstractDeferredTask {
 
                     final AbstractDeferredTask bounceTask = shuffledTasks.get(0);
 
-                    if (logger.isTraceEnabled()) {
-                        logger.trace("bouncing task; taskKind={}, taskId={}", bounceTask.getKind().name(), bounceTask.getTaskId());
+                    if (logger.isInfoEnabled()) {
+                        logger.info("bouncing task; taskKind={}, taskId={}",
+                                bounceTask.getKind().name(), bounceTask.getTaskId());
                     }
 
                     return primitives.doDeferredTask(transaction, bounceTask)
@@ -146,8 +145,7 @@ public class BounceTask extends AbstractDeferredTask {
                                     final ImmutableSet<UUID> newDependentTaskIds = newDependentTaskIdsBuilder.build();
                                     final BounceTask newBounceTask =
                                             BounceTask.of(getLocator(), accessInfo,
-                                                    randomNormalPriorityTaskId(splittableRandom,
-                                                            config.isDeterministicRandomness()),
+                                                    getTaskId(),
                                                     getTargetClusterIds(), newDependentTaskIds, getFinalTaskKind());
                                     newBounceTask.writeDeferredTask(transaction);
                                     return AsyncUtil.DONE;
@@ -159,6 +157,7 @@ public class BounceTask extends AbstractDeferredTask {
                 });
     }
 
+    @SuppressWarnings("checkstyle:Indentation")
     @Nonnull
     private CompletableFuture<Void> enqueueFinal(@Nonnull final Transaction transaction,
                                                  @Nonnull final SplittableRandom random) {
@@ -173,44 +172,53 @@ public class BounceTask extends AbstractDeferredTask {
         return RandomHelpers.forEach(random, getTargetClusterIds(),
                         (targetClusterId, nestedRandom) ->
                                 centroidsHnsw.fetch(transaction, StorageAdapter.tupleFromClusterId(targetClusterId))
-                                        .thenAccept(resultEntry -> {
-                                            if (resultEntry == null) {
-                                                if (logger.isTraceEnabled()) {
-                                                    logger.trace("unable to enqueue final task; kind={}; targetClusterIds={}",
-                                                            getFinalTaskKind(), targetClusterId);
-                                                }
-                                                return;
-                                            }
-                                            final Transformed<RealVector> transformedCentroid =
-                                                    storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
+                                        .thenCombine(primitives.fetchClusterMetadata(transaction, targetClusterId),
+                                                (resultEntry, targetClusterMetadata) -> {
+                                                    if (resultEntry == null) {
+                                                        if (logger.isTraceEnabled()) {
+                                                            logger.trace("unable to enqueue final task; kind={}; targetClusterIds={}",
+                                                                    getFinalTaskKind(), targetClusterId);
+                                                        }
+                                                        return AsyncUtil.DONE;
+                                                    }
+                                                    final Transformed<RealVector> transformedCentroid =
+                                                            storageTransform.transform(Objects.requireNonNull(resultEntry.getVector()));
 
-                                            final UUID taskId =
-                                                    randomNormalPriorityTaskId(nestedRandom,
-                                                            config.isDeterministicRandomness());
-                                            final AbstractDeferredTask finalTask;
-                                            switch (getFinalTaskKind()) {
-                                                case SPLIT_MERGE:
-                                                    finalTask =
-                                                            SplitMergeTask.of(getLocator(), accessInfo, taskId,
-                                                                    targetClusterId, transformedCentroid);
-                                                    break;
-                                                case REASSIGN:
-                                                    finalTask =
-                                                            ReassignTask.of(getLocator(), accessInfo,
-                                                                    taskId, targetClusterId, transformedCentroid,
-                                                                    ImmutableSet.of());
-                                                    break;
-                                                default:
-                                                    throw new UnsupportedOperationException("unsupported kind for final task");
-                                            }
+                                                    final UUID taskId =
+                                                            randomNormalPriorityTaskId(nestedRandom,
+                                                                    config.deterministicRandomness());
+                                                    final AbstractDeferredTask finalTask = switch (getFinalTaskKind()) {
+                                                        case SPLIT_MERGE ->
+                                                                SplitMergeTask.of(getLocator(), accessInfo, taskId,
+                                                                        targetClusterId, transformedCentroid);
+                                                        case REASSIGN -> ReassignTask.of(getLocator(), accessInfo,
+                                                                taskId, targetClusterId, transformedCentroid,
+                                                                ImmutableSet.of());
+                                                        default ->
+                                                                throw new UnsupportedOperationException("unsupported kind for final task");
+                                                    };
 
-                                            finalTask.writeDeferredTask(transaction);
-                                            if (logger.isTraceEnabled()) {
-                                                logger.trace("enqueued final task; taskId={}",
-                                                        taskIdToString(finalTask.getTaskId()));
-                                            }
+                                                    final EnumSet<ClusterMetadata.State> oldStates = targetClusterMetadata.states();
+                                                    if (!oldStates.contains(ClusterMetadata.State.REASSIGN) &&
+                                                            !oldStates.contains(ClusterMetadata.State.SPLIT_MERGE) &&
+                                                            !oldStates.contains(ClusterMetadata.State.COLLAPSE)) {
+                                                        final ClusterMetadata.State newState = switch (getFinalTaskKind()) {
+                                                                case SPLIT_MERGE -> ClusterMetadata.State.SPLIT_MERGE;
+                                                                case REASSIGN -> ClusterMetadata.State.REASSIGN;
+                                                                default ->
+                                                                        throw new UnsupportedOperationException("unsupported kind for final task");
+                                                            };
+                                                        primitives.writeClusterMetadata(transaction,
+                                                                targetClusterMetadata.withNewStates(EnumSet.of(newState)));
 
-                                        }), 10, executor)
+                                                        finalTask.writeDeferredTask(transaction);
+                                                        if (logger.isInfoEnabled()) {
+                                                            logger.info("enqueued final task; taskId={}",
+                                                                    taskIdToString(finalTask.getTaskId()));
+                                                        }
+                                                    }
+                                                    return AsyncUtil.DONE;
+                                                }), 10, executor)
                 .thenCompose(ignored2 -> AsyncUtil.DONE);
     }
 

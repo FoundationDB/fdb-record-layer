@@ -47,6 +47,7 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -83,9 +84,9 @@ class TestHelpers {
 
         return db.runAsync(tr -> {
             final TestOnWriteListener onWriteListener = (TestOnWriteListener)guardiann.getOnWriteListener();
-            onWriteListener.reset();
+            onWriteListener.pushFrame();
             final TestOnReadListener onReadListener = (TestOnReadListener)guardiann.getOnReadListener();
-            onReadListener.reset();
+            onReadListener.pushFrame();
 
             final ImmutableList.Builder<PrimaryKeyAndVector> data = ImmutableList.builder();
 
@@ -94,7 +95,7 @@ class TestHelpers {
             final CompletableFuture<Integer> loopFuture =
                     MoreAsyncUtil.forLoop(0, 0,
                             (i, u) ->
-                                    i < batchSize && (int)u == i && onWriteListener.getSumTaskCounters() == 0,
+                                    i < batchSize && (int)u == i && onWriteListener.getSumTaskExecutedCounters() == 0,
                             i -> i + 1,
                             (i, u) -> {
                                 final PrimaryKeyAndVector record = insertFunction.apply(tr, firstId + i);
@@ -117,6 +118,8 @@ class TestHelpers {
                                     batchSize, result.size(), firstId, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
                                     onReadListener.getBytesReadByLayer());
                         }
+                        onWriteListener.popFrame();
+                        onReadListener.popFrame();
                     });
         }).get(2, TimeUnit.MINUTES); // set a timeout for inserting a single batch including retries so setup won't run forever
     }
@@ -131,7 +134,7 @@ class TestHelpers {
                                                     @Nonnull final Guardiann guardiann,
                                                     final int numVectors,
                                                     final int batchSize) throws Exception {
-        return insertSIFT(db, guardiann, "/Users/nseemann/downloads/embeddings-unified-model-1m-1.0.0.fvecs",
+        return insertSIFT(db, guardiann, "/Users/nseemann/downloads/embeddings-unified-model-100k-1.0.0.fvecs",
                 numVectors, batchSize);
     }
 
@@ -167,12 +170,17 @@ class TestHelpers {
 
         final TestOnReadListener onReadListener = (TestOnReadListener)guardiann.getOnReadListener();
         final TestOnWriteListener onWriteListener = (TestOnWriteListener)guardiann.getOnWriteListener();
+        onReadListener.pushFrame();
+        onWriteListener.pushFrame();
 
         try (final var fileChannel = FileChannel.open(siftPath, StandardOpenOption.READ)) {
             final Iterator<DoubleRealVector> vectorIterator = new StoredVecsIterator.StoredFVecsIterator(fileChannel);
 
             int i = 0;
             while (vectorIterator.hasNext() && i < numVectors) {
+                onReadListener.pushFrame();
+                onWriteListener.pushFrame();
+
                 final int batchSize = Math.min(desiredBatchSize, numVectors - i);
                 final long beginTs = System.nanoTime();
                 final List<DoubleRealVector> remainingBatch =
@@ -199,14 +207,20 @@ class TestHelpers {
                 final long totalBytesRead = onReadListener.getBytesReadByLayer().values().stream().mapToLong(x -> x).sum();
                 final long totalBytesWritten = onWriteListener.getBytesWrittenByLayer().values().stream().mapToLong(x -> x).sum();
 
-                logger.info("inserted batchSize={} for a total of numRecords={} took elapsedTime={}ms, bytesRead={}, bytesWritten={}",
+                logger.info("inserted batchSize={} for a total of numRecords={} took elapsedTime={}ms, bytesRead={}, bytesWritten={}, taskCountByKind={}",
                         batchSize, i, TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
-                        totalBytesRead, totalBytesWritten);
-                onReadListener.reset();
-                onWriteListener.reset();
+                        totalBytesRead, totalBytesWritten, onWriteListener.getNumTasksEnqueuedByKind());
+
+                onWriteListener.popFrame();
+                onReadListener.popFrame();
             }
             assertThat(i).isEqualTo(numVectors);
         }
+        logger.info("total number of tasks enqueued by kind={}", onWriteListener.getNumTasksEnqueuedByKind());
+        logger.info("total number of tasks executed by kind={}", onWriteListener.getNumTasksExecutedByKind());
+
+        onWriteListener.popFrame();
+        onReadListener.popFrame();
         return insertedDataBuilder.build();
     }
 
@@ -303,7 +317,7 @@ class TestHelpers {
                     logger.info("query ground truth does not have indices that have been inserted yet");
                     continue;
                 }
-                onReadListener.reset();
+                onReadListener.pushFrame();
                 final long beginTs = System.nanoTime();
                 final List<? extends ResultEntry> results =
                         db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, 30000,
@@ -342,6 +356,7 @@ class TestHelpers {
                 logger.info("query returned results recall={}, k={}",
                         String.format(Locale.ROOT, "%.2f", recall * 100.0d),
                         groundTruthIndices.size());
+                onReadListener.popFrame();
             }
         }
     }
@@ -383,7 +398,7 @@ class TestHelpers {
                     logger.info("query ground truth does not have indices that have been inserted yet");
                     continue;
                 }
-                onReadListener.reset();
+                onReadListener.pushFrame();
                 final long beginTs = System.nanoTime();
                 final List<? extends ResultEntry> results =
                         db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, 130000,
@@ -408,6 +423,7 @@ class TestHelpers {
 
                 logger.info("query returned results recall={}, k={}",
                         String.format(Locale.ROOT, "%.2f", recall * 100.0d), groundTruthIndices.size());
+                onReadListener.popFrame();
             }
         }
     }
@@ -428,74 +444,104 @@ class TestHelpers {
 
     static class TestOnWriteListener implements OnWriteListener {
         @Nonnull
-        final Map<Integer, Long> bytesWrittenByLayer;
-
-        @Nonnull
-        private final Map<AbstractDeferredTask.Kind, Integer> taskExecutedByKindCounterMap;
+        private final ArrayDeque<Frame> frames;
 
         public TestOnWriteListener() {
-            this.bytesWrittenByLayer = Maps.newConcurrentMap();
-            this.taskExecutedByKindCounterMap = Maps.newConcurrentMap();
+            this.frames = new ArrayDeque<>();
         }
 
         @Override
         public void onKeyValueWritten(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
-            bytesWrittenByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) +
-                    key.length + (value == null ? 0 : value.length));
+            for (final Frame frame : frames) {
+                frame.bytesWrittenByLayer()
+                        .compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) +
+                                key.length + (value == null ? 0 : value.length));
+            }
+        }
+
+        @Override
+        public void onTaskEnqueued(@Nonnull final AbstractDeferredTask.Kind taskKind,
+                                   @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds) {
+            for (final Frame frame : frames) {
+                frame.numTasksEnqueuedByKind()
+                        .compute(taskKind, (ignored, counter) ->
+                                Objects.requireNonNullElse(counter, 0) + 1);
+            }
         }
 
         @Override
         public void onTaskExecuted(@Nonnull final AbstractDeferredTask.Kind taskKind,
                                    @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds) {
-            taskExecutedByKindCounterMap.compute(taskKind, (ignored, counter) ->
-                    Objects.requireNonNullElse(counter, 0) + 1);
+            for (final Frame frame : frames) {
+                frame.numTasksExecutedByKind().compute(taskKind, (ignored, counter) ->
+                        Objects.requireNonNullElse(counter, 0) + 1);
+            }
+        }
+
+        @Nonnull
+        public Map<AbstractDeferredTask.Kind, Integer> getNumTasksEnqueuedByKind() {
+            return Objects.requireNonNull(frames.peek()).numTasksEnqueuedByKind();
+        }
+
+        @Nonnull
+        public Map<AbstractDeferredTask.Kind, Integer> getNumTasksExecutedByKind() {
+            return Objects.requireNonNull(frames.peek()).numTasksExecutedByKind();
+        }
+
+        public int getSumTaskExecutedCounters() {
+            return Objects.requireNonNull(frames.peek()).numTasksExecutedByKind().values().stream().mapToInt(i -> i).sum();
         }
 
         @Nonnull
         public Map<Integer, Long> getBytesWrittenByLayer() {
-            return bytesWrittenByLayer;
+            return Objects.requireNonNull(frames.peek()).bytesWrittenByLayer();
         }
 
-        public int getTaskCounter(@Nonnull final AbstractDeferredTask.Kind taskKind) {
-            return taskExecutedByKindCounterMap.getOrDefault(taskKind, 0);
+        public void pushFrame() {
+            frames.push(new Frame(Maps.newConcurrentMap(), Maps.newConcurrentMap(), Maps.newConcurrentMap()));
         }
 
-        public int getSumTaskCounters() {
-            return taskExecutedByKindCounterMap.values().stream().mapToInt(i -> i).sum();
+        public void popFrame() {
+            frames.pop();
         }
 
-        public void reset() {
-            bytesWrittenByLayer.clear();
-            taskExecutedByKindCounterMap.clear();
+        private record Frame(@Nonnull Map<Integer, Long> bytesWrittenByLayer,
+                             @Nonnull Map<AbstractDeferredTask.Kind, Integer> numTasksEnqueuedByKind,
+                             Map<AbstractDeferredTask.Kind, Integer> numTasksExecutedByKind) {
         }
     }
 
     static class TestOnReadListener implements OnReadListener {
-        final Map<Integer, Long> sumMByLayer;
-        final Map<Integer, Long> bytesReadByLayer;
+        @Nonnull
+        private final ArrayDeque<Frame> frames;
 
         public TestOnReadListener() {
-            this.sumMByLayer = Maps.newConcurrentMap();
-            this.bytesReadByLayer = Maps.newConcurrentMap();
+            this.frames = new ArrayDeque<>();
         }
 
+        @Nonnull
         public Map<Integer, Long> getBytesReadByLayer() {
-            return bytesReadByLayer;
-        }
-
-        public Map<Integer, Long> getSumMByLayer() {
-            return sumMByLayer;
-        }
-
-        public void reset() {
-            bytesReadByLayer.clear();
-            sumMByLayer.clear();
+            return Objects.requireNonNull(frames.peek()).bytesReadByLayer();
         }
 
         @Override
         public void onKeyValueRead(final int layer, @Nonnull final byte[] key, @Nullable final byte[] value) {
-            bytesReadByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) +
-                    key.length + (value == null ? 0 : value.length));
+            for (final Frame frame : frames) {
+                frame.bytesReadByLayer().compute(layer,
+                        (l, oldValue) -> (oldValue == null ? 0 : oldValue) +
+                                key.length + (value == null ? 0 : value.length));
+            }
+        }
+
+        public void pushFrame() {
+            frames.push(new Frame(Maps.newConcurrentMap()));
+        }
+
+        public void popFrame() {
+            frames.pop();
+        }
+
+        private record Frame(@Nonnull Map<Integer, Long> bytesReadByLayer) {
         }
     }
 }

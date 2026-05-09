@@ -192,7 +192,7 @@ public class Insert {
                             return new AccessInfoAndNodeExistence(accessInfo, recordAlreadyExists);
                         })
                 .thenCompose(accessInfoAndNodeExistence -> {
-                    final AccessInfo accessInfo = accessInfoAndNodeExistence.getAccessInfo();
+                    final AccessInfo accessInfo = accessInfoAndNodeExistence.accessInfo();
                     if (accessInfo == null) {
                         return initialAccessInfoAndFirstCluster(transaction, random, newVector)
                                 .thenApply(initialAccessInfo ->
@@ -203,11 +203,11 @@ public class Insert {
                     return primitives.doSomeDeferredTasks(transaction, accessInfo)
                             .thenApply(ignored -> accessInfoAndNodeExistence);
                 }).thenCompose(accessInfoAndNodeExistence -> {
-                    if (accessInfoAndNodeExistence.isNodeExists()) {
+                    if (accessInfoAndNodeExistence.nodeExists()) {
                         return AsyncUtil.DONE;
                     }
 
-                    final AccessInfo accessInfo = Objects.requireNonNull(accessInfoAndNodeExistence.getAccessInfo());
+                    final AccessInfo accessInfo = Objects.requireNonNull(accessInfoAndNodeExistence.accessInfo());
                     final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
                     final Transformed<RealVector> transformedNewVector = storageTransform.transform(newVector);
                     final Quantizer quantizer = primitives.quantizer(accessInfo);
@@ -241,13 +241,13 @@ public class Insert {
                                             getExecutor()),
                                     clusterMetadataWithDistance -> {
                                         final int index = indexAtomic.getAndIncrement();
-                                        final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.getClusterMetadata();
-                                        final double distance = clusterMetadataWithDistance.getDistance();
+                                        final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.clusterMetadata();
+                                        final double distance = clusterMetadataWithDistance.distance();
 
                                         if (index == 0) {
                                             // first and nearest cluster -- always accept
                                             primaryClusterIdAtomic.set(
-                                                    clusterMetadataWithDistance.getClusterMetadata().getId());
+                                                    clusterMetadataWithDistance.clusterMetadata().id());
                                             primaryDistanceAtomic.set(distance);
                                             return true;
                                         }
@@ -265,12 +265,12 @@ public class Insert {
                                         return StorageAdapter.replicationPriority(distance, distanceToPrimaryCentroid,
                                                 clusterMetadata.getNumPrimaryVectors(),
                                                 clusterMetadata.meanDistance(),
-                                                clusterMetadata.standardDeviation()) >= config.getReplicationPriorityMin();
+                                                clusterMetadata.standardDeviation()) >= config.replicationPriorityMin();
                                     }, getExecutor());
 
                     final VectorMetadata newVectorMetadata =
                             new VectorMetadata(newPrimaryKey,
-                                    RandomHelpers.randomUuid(config.isDeterministicRandomness()),
+                                    RandomHelpers.randomUuid(config.deterministicRandomness()),
                                     newAdditionalValues);
                     primitives.writeVectorMetadata(transaction, newVectorMetadata);
 
@@ -281,13 +281,13 @@ public class Insert {
                                                 Lists.newArrayListWithExpectedSize(replicationCandidates.size());
 
                                         for (final ClusterMetadataWithDistance replicationCandidate : replicationCandidates) {
-                                            final ClusterMetadata clusterMetadata = replicationCandidate.getClusterMetadata();
+                                            final ClusterMetadata clusterMetadata = replicationCandidate.clusterMetadata();
                                             final RunningStandardDeviation runningStandardDeviation =
-                                                    clusterMetadata.getRunningStandardDeviation();
-                                            final UUID clusterId = clusterMetadata.getId();
+                                                    clusterMetadata.runningStandardDeviation();
+                                            final UUID clusterId = clusterMetadata.id();
                                             final boolean isPrimaryCluster = clusterId.equals(primaryClusterIdAtomic.get());
 
-                                            final double distance = replicationCandidate.getDistance();
+                                            final double distance = replicationCandidate.distance();
                                             final RunningStandardDeviation updatedStandardDeviation;
                                             if (isPrimaryCluster) {
                                                 primitives.writeVectorReference(transaction, quantizer, clusterId,
@@ -324,7 +324,7 @@ public class Insert {
 
                                             primitives.writeDeferredTaskMaybe(transaction, random.split(),
                                                     clusterMetadata,
-                                                    replicationCandidate.getCentroid(), accessInfo,
+                                                    replicationCandidate.centroid(), accessInfo,
                                                     isPrimaryCluster ? 1 : 0,
                                                     0,
                                                     isPrimaryCluster ? 0 : 1,
@@ -368,7 +368,7 @@ public class Insert {
             logger.trace("written initial access info");
         }
 
-        final UUID clusterId = RandomHelpers.randomUuid(config.isDeterministicRandomness());
+        final UUID clusterId = RandomHelpers.randomUuid(config.deterministicRandomness());
         primitives.writeClusterMetadata(transaction,
                 new ClusterMetadata(clusterId, 0, 0,
                         RunningStandardDeviation.identity(), EnumSet.noneOf(ClusterMetadata.State.class)));
@@ -385,10 +385,10 @@ public class Insert {
      * e.g. RaBitQ as RaBitQ needs a stable somewhat correct centroid in order to function properly.
      * <p>
      * Specifically for RaBitQ, we add vectors to a set of sampled vectors in a designated subspace of the HNSW
-     * structure. The parameter {@link Config#getSampleVectorStatsProbability()} governs when we do sample. Another
-     * parameter, {@link Config#getMaintainStatsProbability()}, determines how many times we add-up/replace (consume)
+     * structure. The parameter {@link Config#sampleVectorStatsProbability()} governs when we do sample. Another
+     * parameter, {@link Config#maintainStatsProbability()}, determines how many times we add-up/replace (consume)
      * vectors from this sampled-vector space and aggregate them in the typical running count/running sum scheme
-     * in order to finally compute the centroid if {@link Config#getStatsThreshold()} number of vectors have been
+     * in order to finally compute the centroid if {@link Config#statsThreshold()} number of vectors have been
      * sampled and aggregated. That centroid is then used to update the access info.
      *
      * @param transaction the transaction
@@ -409,7 +409,7 @@ public class Insert {
                 !currentAccessInfo.canUseRaBitQ()) {
             final Primitives primitives = primitives();
             if (shouldSampleVector(random)) {
-                appendSampledVector(transaction, random, config.isDeterministicRandomness(),
+                appendSampledVector(transaction, random, config.deterministicRandomness(),
                         samplesSubspace, 1, transformedNewVector, getOnWriteListener());
             }
             if (shouldMaintainStats(random)) {
@@ -422,14 +422,14 @@ public class Insert {
                             if (aggregatedSampledVector != null) {
                                 final int partialCount = aggregatedSampledVector.getPartialCount();
                                 final Transformed<RealVector> partialVector = aggregatedSampledVector.getPartialVector();
-                                appendSampledVector(transaction, random, config.isDeterministicRandomness(),
+                                appendSampledVector(transaction, random, config.deterministicRandomness(),
                                         samplesSubspace, partialCount, partialVector, getOnWriteListener());
                                 if (logger.isTraceEnabled()) {
                                     logger.trace("updated stats with numVectors={}, partialCount={}, partialVector={}",
                                             sampledVectors.size(), partialCount, partialVector);
                                 }
 
-                                if (partialCount >= config.getStatsThreshold()) {
+                                if (partialCount >= config.statsThreshold()) {
                                     final long rotatorSeed = random.nextLong();
                                     final FhtKacRotator rotator =
                                             new FhtKacRotator(rotatorSeed, config.getNumDimensions(), 10);
@@ -457,10 +457,10 @@ public class Insert {
     }
 
     private boolean shouldSampleVector(@Nonnull final SplittableRandom random) {
-        return random.nextDouble() < getConfig().getSampleVectorStatsProbability();
+        return random.nextDouble() < getConfig().sampleVectorStatsProbability();
     }
 
     private boolean shouldMaintainStats(@Nonnull final SplittableRandom random) {
-        return random.nextDouble() < getConfig().getMaintainStatsProbability();
+        return random.nextDouble() < getConfig().maintainStatsProbability();
     }
 }

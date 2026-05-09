@@ -50,7 +50,6 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -118,7 +117,7 @@ public class CollapseTask extends AbstractDeferredTask {
                         return AsyncUtil.DONE;
                     }
 
-                    final EnumSet<ClusterMetadata.State> states = clusterMetadata.getStates();
+                    final EnumSet<ClusterMetadata.State> states = clusterMetadata.states();
                     if (!states.contains(ClusterMetadata.State.COLLAPSE)) {
                         return AsyncUtil.DONE;
                     }
@@ -138,95 +137,35 @@ public class CollapseTask extends AbstractDeferredTask {
         final Estimator estimator = quantizer.estimator();
 
         return primitives.fetchClusterMetadataWithDistance(transaction,
-                                targetClusterMetadata.getId(),
+                                targetClusterMetadata.id(),
                         storageTransform.transform(targetClusterCentroid), 0.0d)
                 .thenCompose(targetClusterMetadataWithDistance ->
                         primitives.fetchInnerClusters(transaction, ImmutableList.of(targetClusterMetadataWithDistance), storageTransform)
                                 .thenAccept(innerClusters -> {
                                     final Cluster targetCluster = Iterables.getOnlyElement(innerClusters);
-                                    final CollapseResult collapseResult =
-                                            collapseVectorReferences(estimator, targetClusterMetadataWithDistance,
-                                                    targetCluster.getVectorReferences());
-                                    final List<VectorReference> targetClusterAssignedVectors =
-                                            collapseResult.getAssignments();
-                                    final ImmutableMap.Builder<Tuple, VectorReference> targetClusterAssignedVectorsAsMapBuilder = ImmutableMap.builder();
-                                    for (final VectorReference targetClusterAssignedVector : targetClusterAssignedVectors) {
-                                        targetClusterAssignedVectorsAsMapBuilder.put(
-                                                targetClusterAssignedVector.getId().getPrimaryKey(),
-                                                targetClusterAssignedVector);
-                                    }
-                                    final ImmutableMap<Tuple, VectorReference> targetClusterAssignedVectorsAsMap =
-                                            targetClusterAssignedVectorsAsMapBuilder.build();
-
-                                    final ImmutableList.Builder<Tuple> deleteTargetClusterAssignedVectorsBuilder =
-                                            ImmutableList.builder();
-                                    final ImmutableList.Builder<VectorReference> writeTargetClusterAssignedVectorsBuilder =
-                                            ImmutableList.builder();
-                                    final ImmutableMap.Builder<Tuple, VectorReference> primaryKeyToVectorReferencesMapBuilder = ImmutableMap.builder();
-
-                                    for (final VectorReference vectorReference : targetCluster.getVectorReferences()) {
-                                        primaryKeyToVectorReferencesMapBuilder.put(vectorReference.getId().getPrimaryKey(), vectorReference);
-                                        final Tuple primaryKey = vectorReference.getId().getPrimaryKey();
-                                        final VectorReference assignedVectorReference =
-                                                targetClusterAssignedVectorsAsMap.get(primaryKey);
-
-                                        if (assignedVectorReference != null) {
-                                            //
-                                            // Compare the version from the cluster with the version from the cleaned-up
-                                            // set. At this point, it should not happen that they are different, so it's
-                                            // more of a sanity check.
-                                            //
-                                            Verify.verify(assignedVectorReference.getId().getUuid()
-                                                    .equals(vectorReference.getId().getUuid()));
-
-                                            //
-                                            // What can happen is that a reference can toggle between primary and
-                                            // replicated copy or primary and underreplicated primary, etc.
-                                            //
-                                            if (assignedVectorReference.isPrimaryCopy() != vectorReference.isPrimaryCopy() ||
-                                                    assignedVectorReference.isUnderreplicated() != vectorReference.isUnderreplicated()) {
-                                                writeTargetClusterAssignedVectorsBuilder.add(assignedVectorReference);
-                                            }
-                                        } else {
-                                            // add to delete list
-                                            deleteTargetClusterAssignedVectorsBuilder.add(primaryKey);
-                                        }
-                                    }
-
-                                    final ImmutableMap<Tuple, VectorReference> primaryKeyToVectorReferencesMap =
-                                            primaryKeyToVectorReferencesMapBuilder.build();
-
-                                    for (final Map.Entry<Tuple, VectorReference> entry : targetClusterAssignedVectorsAsMap.entrySet()) {
-                                        if (!primaryKeyToVectorReferencesMap.containsKey(entry.getKey())) {
-                                            writeTargetClusterAssignedVectorsBuilder.add(entry.getValue());
-                                        }
-                                    }
-
-                                    final ImmutableList<VectorReference> writeTargetClusterAssignedVectors =
-                                            writeTargetClusterAssignedVectorsBuilder.build();
-
-                                    final ImmutableList<Tuple> deleteTargetClusterAssignedVectors =
-                                            deleteTargetClusterAssignedVectorsBuilder.build();
-
-                                    updateAssignments(transaction, targetClusterMetadataWithDistance,
-                                            collapseResult, writeTargetClusterAssignedVectors,
-                                            deleteTargetClusterAssignedVectors, quantizer);
+                                    final CollapseAssignments collapseAssignments =
+                                            computeCollapseAssignments(estimator, targetClusterMetadataWithDistance,
+                                                    targetCluster.vectorReferences());
+                                    final TargetClusterDelta delta =
+                                            computeCollapseTargetClusterDelta(targetCluster, collapseAssignments);
+                                    persistCollapse(transaction, targetClusterMetadataWithDistance,
+                                            collapseAssignments, delta, quantizer);
                                 }));
     }
 
     @Nonnull
-    private CollapseResult collapseVectorReferences(@Nonnull final Estimator estimator,
-                                                    @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
-                                                    @Nonnull final List<VectorReference> vectorReferences) {
+    private CollapseAssignments computeCollapseAssignments(@Nonnull final Estimator estimator,
+                                                           @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
+                                                           @Nonnull final List<VectorReference> vectorReferences) {
         final Config config = getConfig();
-        final Transformed<RealVector> targetClusterCentroid = targetClusterMetadataWithDistance.getCentroid();
+        final Transformed<RealVector> targetClusterCentroid = targetClusterMetadataWithDistance.centroid();
 
         //
         // At this point clusterIdMetadataMap contains the target cluster and all the clusters
         // from the outer neighborhood.
         //
         final ImmutableSetMultimap<UUID, UUID> vectorReferenceToVectorSignatureMap =
-                vectorReferenceToVectorSignatureMap(vectorReferences);
+                vectorReferenceToSignatureMap(vectorReferences);
         final ImmutableSetMultimap<UUID, UUID> vectorSignatureToVectorUuidMap =
                 vectorReferenceToVectorSignatureMap.inverse();
 
@@ -252,7 +191,7 @@ public class CollapseTask extends AbstractDeferredTask {
                 ImmutableListMultimap.builder();
         final TopK<VectorReference> replicatedTopK =
                 new TopK<>(Comparator.comparing(VectorReference::getReplicationPriority),
-                        config.getReplicatedClusterTarget());
+                        config.replicatedClusterTarget());
         RunningStandardDeviation standardDeviation = RunningStandardDeviation.identity();
 
         for (final VectorReference vectorReference : vectorReferences) {
@@ -281,7 +220,7 @@ public class CollapseTask extends AbstractDeferredTask {
                     //
                     // This reference should be collapsed but is not collapsed (yet).
                     //
-                    final UUID collapsedReferenceUuid = RandomHelpers.randomUuid(config.isDeterministicRandomness());
+                    final UUID collapsedReferenceUuid = RandomHelpers.randomUuid(config.deterministicRandomness());
                     final VectorReference collapsedReference =
                             vectorReference.toCollapsed(signature, collapsedReferenceUuid);
                     blackHoleMap.put(signature, collapsedReference);
@@ -316,25 +255,79 @@ public class CollapseTask extends AbstractDeferredTask {
                             .map(VectorReference::getReplicationPriority).orElse(0.0d));
         }
 
-        return new CollapseResult(targetAssignmentBuilder.build(), standardDeviation,
+        return new CollapseAssignments(targetAssignmentBuilder.build(), standardDeviation,
                 collapsedAssignmentsMapBuilder.build());
     }
 
-    private void updateAssignments(@Nonnull final Transaction transaction,
-                                   @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
-                                   @Nonnull final CollapseResult collapseResult,
-                                   @Nonnull final ImmutableList<VectorReference> writeTargetClusterAssignedVectors,
-                                   @Nonnull final ImmutableList<Tuple> deleteTargetClusterAssignedVectors,
-                                   @Nonnull final Quantizer quantizer) {
-        final Primitives primitives = getLocator().primitives();
+    /**
+     * Computes the delta between the old target cluster state and the new collapse assignments. Delegates to
+     * {@link AbstractDeferredTask#computeTargetClusterDelta} for the standard diff logic (vectors whose status changed
+     * or that were removed), then additionally includes newly created collapsed references that did not previously
+     * exist in the cluster.
+     *
+     * @param targetCluster the cluster as it exists before collapsing
+     * @param collapseAssignments the computed collapse assignments
+     * @return the delta of writes and deletes to apply to the target cluster
+     */
+    @Nonnull
+    private TargetClusterDelta computeCollapseTargetClusterDelta(@Nonnull final Cluster targetCluster,
+                                                                  @Nonnull final CollapseAssignments collapseAssignments) {
+        final TargetClusterDelta baseDelta =
+                AbstractDeferredTask.computeTargetClusterDelta(targetCluster, collapseAssignments.assignments());
 
-        final List<VectorReference> assignments = collapseResult.getAssignments();
+        // Collapsed references are newly created and don't exist in the old cluster — they need
+        // to be added to the write list on top of the base delta.
+        final ImmutableMap.Builder<Tuple, VectorReference> oldPrimaryKeysBuilder = ImmutableMap.builder();
+        for (final VectorReference vectorReference : targetCluster.vectorReferences()) {
+            oldPrimaryKeysBuilder.put(vectorReference.getId().getPrimaryKey(), vectorReference);
+        }
+        final ImmutableMap<Tuple, VectorReference> oldPrimaryKeys = oldPrimaryKeysBuilder.build();
 
+        final ImmutableList.Builder<VectorReference> additionalWritesBuilder = ImmutableList.builder();
+        for (final VectorReference assignedVector : collapseAssignments.assignments()) {
+            if (!oldPrimaryKeys.containsKey(assignedVector.getId().getPrimaryKey())) {
+                additionalWritesBuilder.add(assignedVector);
+            }
+        }
+        final ImmutableList<VectorReference> additionalWrites = additionalWritesBuilder.build();
+
+        if (additionalWrites.isEmpty()) {
+            return baseDelta;
+        }
+
+        return new TargetClusterDelta(
+                ImmutableList.<VectorReference>builder()
+                        .addAll(baseDelta.toWrite())
+                        .addAll(additionalWrites)
+                        .build(),
+                baseDelta.toDelete());
+    }
+
+    /**
+     * Persists the collapse results: applies the target cluster delta, writes collapsed vector IDs,
+     * and updates the cluster metadata.
+     */
+    private void persistCollapse(@Nonnull final Transaction transaction,
+                                 @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
+                                 @Nonnull final CollapseAssignments collapseAssignments,
+                                 @Nonnull final TargetClusterDelta delta,
+                                 @Nonnull final Quantizer quantizer) {
+        final CollapseCounters counters = countAssignments(collapseAssignments);
+        persistTargetClusterDelta(transaction, quantizer, targetClusterMetadataWithDistance.clusterMetadata().id(), delta);
+        writeCollapsedVectorIds(transaction, collapseAssignments);
+        writeClusterMetadata(transaction, targetClusterMetadataWithDistance, collapseAssignments, counters, delta);
+    }
+
+    /**
+     * Counts underreplicated and replicated vectors in the collapse assignments for use
+     * in the metadata update.
+     */
+    @Nonnull
+    private CollapseCounters countAssignments(@Nonnull final CollapseAssignments collapseAssignments) {
         int numPrimaryUnderreplicatedVectorsAdded = 0;
         int numReplicatedVectorsAdded = 0;
 
-        // write all vector references outside the target cluster
-        for (final var vectorReference : assignments) {
+        for (final VectorReference vectorReference : collapseAssignments.assignments()) {
             if (vectorReference.isPrimaryCopy()) {
                 if (vectorReference.isUnderreplicated()) {
                     numPrimaryUnderreplicatedVectorsAdded++;
@@ -344,51 +337,75 @@ public class CollapseTask extends AbstractDeferredTask {
             }
         }
 
-        final ClusterMetadata targetClusterMetadata = targetClusterMetadataWithDistance.getClusterMetadata();
+        return new CollapseCounters(numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded);
+    }
 
-        // delete vectors that have been assigned out
-        // write updates
-        int numDeleted = 0;
-        for (final Tuple primaryKey : deleteTargetClusterAssignedVectors) {
-            primitives.deleteVectorReference(transaction, targetClusterMetadata.getId(), primaryKey);
-            numDeleted++;
+    /**
+     * Applies the target cluster delta by deleting removed vectors and writing changed/new vectors.
+     */
+    private void persistTargetClusterDelta(@Nonnull final Transaction transaction,
+                                           @Nonnull final Quantizer quantizer,
+                                           @Nonnull final UUID targetClusterId,
+                                           @Nonnull final TargetClusterDelta delta) {
+        final Primitives primitives = getLocator().primitives();
+
+        for (final Tuple primaryKey : delta.toDelete()) {
+            primitives.deleteVectorReference(transaction, targetClusterId, primaryKey);
         }
 
-        // write updated vector references
-        int numWritten = 0;
-        for (final VectorReference vectorReference : writeTargetClusterAssignedVectors) {
-            primitives.writeVectorReference(transaction, quantizer, targetClusterMetadata.getId(), vectorReference);
-            numWritten++;
+        for (final VectorReference vectorReference : delta.toWrite()) {
+            primitives.writeVectorReference(transaction, quantizer, targetClusterId, vectorReference);
         }
+    }
 
-        //
-        // Write all collapsed assignments.
-        //
-        final ListMultimap<UUID, VectorId> collapsedAssignmentsMap = collapseResult.getCollapsedAssignmentsMap();
+    /**
+     * Writes the collapsed vector ID mappings (signature → vector ID) for all vectors that
+     * were absorbed into a collapsed reference.
+     */
+    private void writeCollapsedVectorIds(@Nonnull final Transaction transaction,
+                                         @Nonnull final CollapseAssignments collapseAssignments) {
+        final Primitives primitives = getLocator().primitives();
+        final ListMultimap<UUID, VectorId> collapsedAssignmentsMap = collapseAssignments.collapsedAssignmentsMap();
         for (final Map.Entry<UUID, VectorId> entry : collapsedAssignmentsMap.entries()) {
             primitives.writeCollapsedVectorId(transaction, entry.getKey(), entry.getValue());
         }
+    }
+
+    /**
+     * Updates the target cluster metadata with new vector counts, clears the
+     * {@link ClusterMetadata.State#COLLAPSE} state, and logs the result.
+     */
+    private void writeClusterMetadata(@Nonnull final Transaction transaction,
+                                      @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
+                                      @Nonnull final CollapseAssignments collapseAssignments,
+                                      @Nonnull final CollapseCounters counters,
+                                      @Nonnull final TargetClusterDelta delta) {
+        final Primitives primitives = getLocator().primitives();
+        final ClusterMetadata targetClusterMetadata = targetClusterMetadataWithDistance.clusterMetadata();
 
         final RunningStandardDeviation updatedStandardDeviation =
-                collapseResult.getUpdatedStandardDeviation();
+                collapseAssignments.updatedStandardDeviation();
 
-        final EnumSet<ClusterMetadata.State> newStates = EnumSet.copyOf(targetClusterMetadata.getStates());
+        final EnumSet<ClusterMetadata.State> newStates = EnumSet.copyOf(targetClusterMetadata.states());
         newStates.remove(ClusterMetadata.State.COLLAPSE);
 
         final ClusterMetadata newTargetClusterMetadata =
-                targetClusterMetadata.withNewVectors(numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
+                targetClusterMetadata.withNewVectors(counters.numPrimaryUnderreplicatedVectorsAdded(),
+                        counters.numReplicatedVectorsAdded(),
                         updatedStandardDeviation, newStates);
         primitives.writeClusterMetadata(transaction, newTargetClusterMetadata);
 
-        // log everything
         if (logger.isInfoEnabled()) {
-            Objects.requireNonNull(newTargetClusterMetadata);
             logger.info("collapse stats; old.numPrimary={}, new.numPrimary={}, old.numReplicated={}, " +
                     "new.numReplicated={}, numDeleted={}, numWritten={}",
                     targetClusterMetadata.getNumPrimaryVectors(),
-                    newTargetClusterMetadata.getNumPrimaryVectors(), targetClusterMetadata.getNumReplicatedVectors(),
-                    newTargetClusterMetadata.getNumReplicatedVectors(), numDeleted, numWritten);
+                    newTargetClusterMetadata.getNumPrimaryVectors(), targetClusterMetadata.numReplicatedVectors(),
+                    newTargetClusterMetadata.numReplicatedVectors(), delta.toDelete().size(), delta.toWrite().size());
         }
+    }
+
+    private record CollapseCounters(int numPrimaryUnderreplicatedVectorsAdded,
+                                    int numReplicatedVectorsAdded) {
     }
 
     @Nonnull
@@ -411,7 +428,7 @@ public class CollapseTask extends AbstractDeferredTask {
         return new CollapseTask(locator, accessInfo, taskId, clusterId, centroid);
     }
 
-    static int maximumNumberCollapsibleVectorsPerDuplicate(final Map<UUID, Integer> countersMap) {
+    static int maxDuplicateCount(final Map<UUID, Integer> countersMap) {
         int maximumCollapsiblePerDuplicate = 0;
         for (final Map.Entry<UUID, Integer> entry : countersMap.entrySet()) {
             final int counter = entry.getValue();
@@ -427,7 +444,7 @@ public class CollapseTask extends AbstractDeferredTask {
         final Map<UUID, Integer> countersMap = Maps.newHashMapWithExpectedSize(vectorReferences.size());
         for (final VectorReference vectorReference : vectorReferences) {
             if (vectorReference.isPrimaryCopy()) {
-                incrementCounter(countersMap, uuidFromBytes(keyOf(vectorReference.getVector())));
+                incrementCounter(countersMap, uuidFromBytes(signatureOf(vectorReference.getVector())));
             }
         }
 
@@ -435,11 +452,11 @@ public class CollapseTask extends AbstractDeferredTask {
     }
 
     @Nonnull
-    static ImmutableSetMultimap<UUID, UUID> vectorReferenceToVectorSignatureMap(@Nonnull final List<VectorReference> vectorReferences) {
+    static ImmutableSetMultimap<UUID, UUID> vectorReferenceToSignatureMap(@Nonnull final List<VectorReference> vectorReferences) {
         final ImmutableSetMultimap.Builder<UUID, UUID> resultMapBuilder = ImmutableSetMultimap.builder();
         for (final VectorReference vectorReference : vectorReferences) {
             if (vectorReference.isPrimaryCopy()) {
-                resultMapBuilder.put(vectorReference.getId().getUuid(), uuidFromBytes(keyOf(vectorReference.getVector())));
+                resultMapBuilder.put(vectorReference.getId().getUuid(), uuidFromBytes(signatureOf(vectorReference.getVector())));
             }
         }
 
@@ -468,13 +485,13 @@ public class CollapseTask extends AbstractDeferredTask {
     }
 
     @Nonnull
-    private static byte[] keyOf(@Nonnull final Transformed<RealVector> vector) {
+    private static byte[] signatureOf(@Nonnull final Transformed<RealVector> vector) {
         byte[] full = sha256(vector.getUnderlyingVector());
         return Arrays.copyOf(full, 16);
     }
 
     @Nonnull
-    private static byte[] keyOf(@Nonnull final RealVector vector) {
+    private static byte[] signatureOf(@Nonnull final RealVector vector) {
         byte[] full = sha256(vector);
         return Arrays.copyOf(full, 16);
     }
@@ -490,35 +507,8 @@ public class CollapseTask extends AbstractDeferredTask {
         }
     }
 
-    private static class CollapseResult {
-        @Nonnull
-        private final List<VectorReference> assignments;
-        @Nonnull
-        private final RunningStandardDeviation updatedStandardDeviation;
-        @Nonnull
-        private final ListMultimap<UUID, VectorId> collapsedAssignmentsMap;
-
-        public CollapseResult(@Nonnull final List<VectorReference> assignments,
-                              @Nonnull final RunningStandardDeviation updatedStandardDeviation,
-                              @Nonnull final ListMultimap<UUID, VectorId> collapsedAssignmentsMap) {
-            this.assignments = assignments;
-            this.updatedStandardDeviation = updatedStandardDeviation;
-            this.collapsedAssignmentsMap = collapsedAssignmentsMap;
-        }
-
-        @Nonnull
-        public List<VectorReference> getAssignments() {
-            return assignments;
-        }
-
-        @Nonnull
-        public RunningStandardDeviation getUpdatedStandardDeviation() {
-            return updatedStandardDeviation;
-        }
-
-        @Nonnull
-        public ListMultimap<UUID, VectorId> getCollapsedAssignmentsMap() {
-            return collapsedAssignmentsMap;
-        }
+    private record CollapseAssignments(@Nonnull List<VectorReference> assignments,
+                                       @Nonnull RunningStandardDeviation updatedStandardDeviation,
+                                       @Nonnull ListMultimap<UUID, VectorId> collapsedAssignmentsMap) {
     }
 }

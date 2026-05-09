@@ -24,55 +24,12 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
 
-class ClusterMetadataWithDistance {
-    @Nonnull
-    private final ClusterMetadata clusterMetadata;
-
-    @Nonnull
-    private final Transformed<RealVector> centroid;
-    private final double distance;
-
-    public ClusterMetadataWithDistance(@Nonnull final ClusterMetadata clusterMetadata,
-                                       @Nonnull final Transformed<RealVector> centroid,
-                                       final double distance) {
-        this.clusterMetadata = clusterMetadata;
-        this.centroid = centroid;
-        this.distance = distance;
-    }
-
-    @Nonnull
-    public ClusterMetadata getClusterMetadata() {
-        return clusterMetadata;
-    }
-
-    @Nonnull
-    public Transformed<RealVector> getCentroid() {
-        return centroid;
-    }
-
-    public double getDistance() {
-        return distance;
-    }
-
+record ClusterMetadataWithDistance(@Nonnull ClusterMetadata clusterMetadata,
+                                   @Nonnull Transformed<RealVector> centroid,
+                                   double distance) {
     @Nonnull
     public ClusterMetadataWithDistance withNewDistance(final double newDistance) {
-        return new ClusterMetadataWithDistance(getClusterMetadata(), getCentroid(), newDistance);
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        final ClusterMetadataWithDistance that = (ClusterMetadataWithDistance)o;
-        return  Objects.equals(getClusterMetadata(), that.getClusterMetadata()) &&
-                Objects.equals(getCentroid(), that.getCentroid());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getCentroid(), getClusterMetadata());
+        return new ClusterMetadataWithDistance(clusterMetadata(), centroid(), newDistance);
     }
 }

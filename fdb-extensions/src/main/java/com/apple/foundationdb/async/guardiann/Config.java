@@ -27,13 +27,74 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
 
 /**
  * TODO.
+ * @param metric the metric in use for this guardiann structure
+ * @param numDimensions the number of dimensions of the vectors stored
+ * @param primaryClusterMin minimum number of primary vectors in a cluster, underflow will result in a merge task to be
+ *        enqueued
+ * @param primaryClusterMax maximum number of primary vectors in a cluster, overflow will result in a split task to be
+ *        enqueued
+ * @param underreplicatedPrimaryClusterMax maximum number of under-replicated primary vectors in a cluster, overflow
+ *        will result in a reassign task to be enqueued
+ * @param replicatedClusterMaxWrites maximum number of writes of replicated vectors to a cluster. Since we might write
+ *        duplicated replicated vectors, this threshold is not measured in actual the number of actual replicated
+ *        vectors in a cluster but the number of writes of replicated clusters to that cluster.
+ * @param replicatedClusterTarget the number of replicated clusters we target whenever a split/merge or a reassign task
+ *        is executed. We keep the {@code replicatedClusterTarget} number of vectors with the highest
+ *        {@code replication priorities} in that cluster.
+ * @param replicationPriorityMin Minimum threshold for the replication priority. The replication priority is a
+ *        score-like property that can be computed for each primary vector in a cluster in conjunction with a
+ *        candidate neighboring cluster that we are trying to decide whether we should replicate this vector to or not.
+ *        The higher the computed replication priority, the more necessary it becomes to keep a vector in the set of
+ *        replicated vectors of the neighboring cluster In order to curb the amounts of writes caused by that
+ *        replication push, we will not even attempt to write a vector into a neighboring cluster if the replication
+ *        priority is less than {@code replicationPriorityMin}.
+ * @param sampleVectorStatsProbability If sampling is necessary (currently iff {@link #isUseRaBitQ()} is {@code true}
+ *        but the metric is not {@link Metric#COSINE_METRIC}), this probability determines the chance that we sample
+ *        a write of a new vector into {@link StorageAdapter#getSamplesSubspace()}.
+ * @param maintainStatsProbability If sampling is necessary (currently iff {@link #isUseRaBitQ()} is {@code true}
+ *        but the metric is not {@link Metric#COSINE_METRIC}), this probability determines the chance that we maintain
+ *        {@link StorageAdapter#getSamplesSubspace()} when inserting a vector.
+ * @param statsThreshold If sampling is necessary (currently iff {@link #isUseRaBitQ()} is {@code true} but the metric
+ *        is not {@link Metric#COSINE_METRIC}), this attribute represents the threshold (being a number of vectors) that
+ *        when reached causes the stats maintenance logic to compute the actual statistics (currently the centroid of
+ *        the vectors that have been inserted to far).
+ * @param useRaBitQ Indicator if we should RaBitQ quantization. See {@link com.apple.foundationdb.rabitq.RaBitQuantizer}
+ *        for more details.
+ * @param raBitQNumExBits Number of bits per dimensions iff {@link #isUseRaBitQ()} is set to {@code true}, ignored
+ *        otherwise. If RaBitQ encoding is used, a vector is stored using roughly
+ *        {@code 25 + numDimensions * (numExBits + 1) / 8} bytes.
+ * @param deterministicRandomness an indicator whether randomness should always be deterministic which is useful for
+ *        debugging and to replay/recreate problematic situations. If {@code deterministicRandomness} is {@code true},
+ *        cluster ids are assigned starting from {@code 0} monotonically increasing. Task ids are pseudo-randomly
+ *        chosen.
+ * @param maxNumConcurrentNodeFetches maximum number of concurrent node fetches during search and modification
+ *        operations
+ * @param maxNumConcurrentNeighborhoodFetches maximum number of concurrent neighborhood fetches during modification
+ *        operations when the neighbors are pruned
+ *
+ *
  */
 @SuppressWarnings("checkstyle:MemberName")
-public final class Config implements BaseConfig {
+public record Config(@Nonnull Metric metric,
+                     int numDimensions,
+                     int primaryClusterMin,
+                     int primaryClusterMax,
+                     int underreplicatedPrimaryClusterMax,
+                     int replicatedClusterMaxWrites,
+                     int replicatedClusterTarget,
+                     double replicationPriorityMin,
+                     double sampleVectorStatsProbability,
+                     double maintainStatsProbability,
+                     int statsThreshold,
+                     boolean useRaBitQ,
+                     int raBitQNumExBits,
+                     boolean deterministicRandomness,
+                     int maxNumConcurrentNodeFetches,
+                     int maxNumConcurrentNeighborhoodFetches) implements BaseConfig {
+
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final int DEFAULT_PRIMARY_CLUSTER_MIN = 100;
     public static final int DEFAULT_PRIMARY_CLUSTER_MAX = 1000;
@@ -54,54 +115,9 @@ public final class Config implements BaseConfig {
     // concurrency
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES = 16;
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES = 10;
-    public static final int DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER = 2;
 
-    @Nonnull
-    private final Metric metric;
-    private final int numDimensions;
-    private final int primaryClusterMin;
-    private final int primaryClusterMax;
-    private final int underreplicatedPrimaryClusterMax;
-    private final int replicatedClusterMaxWrites;
-    private final int replicatedClusterTarget;
-    private final double replicationPriorityMin;
-    private final double sampleVectorStatsProbability;
-    private final double maintainStatsProbability;
-    private final int statsThreshold;
-    private final boolean useRaBitQ;
-    private final int raBitQNumExBits;
-    private final boolean deterministicRandomness;
-    private final int maxNumConcurrentNodeFetches;
-    private final int maxNumConcurrentNeighborhoodFetches;
-    private final int maxNumConcurrentDeleteFromLayer;
-
-    private Config(@Nonnull final Metric metric, final int numDimensions, final int primaryClusterMin,
-                   final int primaryClusterMax, final int underreplicatedPrimaryClusterMax,
-                   final int replicatedClusterMaxWrites, final int replicatedClusterTarget,
-                   final double replicationPriorityMin, final double sampleVectorStatsProbability,
-                   final double maintainStatsProbability, final int statsThreshold, final boolean useRaBitQ,
-                   final int raBitQNumExBits, final boolean deterministicRandomness,
-                   final int maxNumConcurrentNodeFetches, final int maxNumConcurrentNeighborhoodFetches,
-                   final int maxNumConcurrentDeleteFromLayer) {
+    public Config {
         Preconditions.checkArgument(numDimensions >= 1, "numDimensions must be (1, MAX_INT]");
-
-        this.metric = metric;
-        this.numDimensions = numDimensions;
-        this.primaryClusterMin = primaryClusterMin;
-        this.primaryClusterMax = primaryClusterMax;
-        this.underreplicatedPrimaryClusterMax = underreplicatedPrimaryClusterMax;
-        this.replicatedClusterMaxWrites = replicatedClusterMaxWrites;
-        this.replicatedClusterTarget = replicatedClusterTarget;
-        this.replicationPriorityMin = replicationPriorityMin;
-        this.sampleVectorStatsProbability = sampleVectorStatsProbability;
-        this.maintainStatsProbability = maintainStatsProbability;
-        this.statsThreshold = statsThreshold;
-        this.useRaBitQ = useRaBitQ;
-        this.raBitQNumExBits = raBitQNumExBits;
-        this.deterministicRandomness = deterministicRandomness;
-        this.maxNumConcurrentNodeFetches = maxNumConcurrentNodeFetches;
-        this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
-        this.maxNumConcurrentDeleteFromLayer = maxNumConcurrentDeleteFromLayer;
     }
 
     /**
@@ -119,47 +135,6 @@ public final class Config implements BaseConfig {
     @Override
     public int getNumDimensions() {
         return numDimensions;
-    }
-
-    public int getPrimaryClusterMin() {
-        return primaryClusterMin;
-    }
-
-    public int getPrimaryClusterMax() {
-        return primaryClusterMax;
-    }
-
-    public int getUnderreplicatedPrimaryClusterMax() {
-        return underreplicatedPrimaryClusterMax;
-    }
-
-    public int getReplicatedClusterMaxWrites() {
-        return replicatedClusterMaxWrites;
-    }
-
-    public int getReplicatedClusterTarget() {
-        return replicatedClusterTarget;
-    }
-
-    public double getReplicationPriorityMin() {
-        return replicationPriorityMin;
-    }
-
-    public double getSampleVectorStatsProbability() {
-        return sampleVectorStatsProbability;
-    }
-
-    public double getMaintainStatsProbability() {
-        return maintainStatsProbability;
-    }
-
-    /**
-     * If sampling is necessary (currently iff {@link #isUseRaBitQ()} is {@code true}), this attribute represents the
-     * threshold (being a number of vectors) that when reached causes the stats maintenance logic to compute the actual
-     * statistics (currently the centroid of the vectors that have been inserted to far).
-     */
-    public int getStatsThreshold() {
-        return statsThreshold;
     }
 
     /**
@@ -180,91 +155,30 @@ public final class Config implements BaseConfig {
         return raBitQNumExBits;
     }
 
-    public boolean isDeterministicRandomness() {
-        return deterministicRandomness;
-    }
-
-    /**
-     * Maximum number of concurrent node fetches during search and modification operations.
-     */
-    public int getMaxNumConcurrentNodeFetches() {
-        return maxNumConcurrentNodeFetches;
-    }
-
-    /**
-     * Maximum number of concurrent neighborhood fetches during modification operations when the neighbors are pruned.
-     */
-    public int getMaxNumConcurrentNeighborhoodFetches() {
-        return maxNumConcurrentNeighborhoodFetches;
-    }
-
-    /**
-     * Maximum number of delete operations that can run concurrently during a delete operation.
-     */
-    public int getMaxNumConcurrentDeleteFromLayer() {
-        return maxNumConcurrentDeleteFromLayer;
-    }
-
     @Nonnull
     public ConfigBuilder toBuilder() {
-        return new ConfigBuilder(getMetric(), getPrimaryClusterMin(), getPrimaryClusterMax(),
-                getUnderreplicatedPrimaryClusterMax(), getReplicatedClusterMaxWrites(), getReplicatedClusterTarget(),
-                getReplicationPriorityMin(), getSampleVectorStatsProbability(), getMaintainStatsProbability(),
-                getStatsThreshold(), isUseRaBitQ(), getRaBitQNumExBits(), isDeterministicRandomness(),
-                getMaxNumConcurrentNodeFetches(), getMaxNumConcurrentNeighborhoodFetches(),
-                getMaxNumConcurrentDeleteFromLayer());
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (!(o instanceof Config)) {
-            return false;
-        }
-        final Config config = (Config)o;
-        return numDimensions == config.numDimensions && primaryClusterMin == config.primaryClusterMin &&
-                primaryClusterMax == config.primaryClusterMax &&
-                underreplicatedPrimaryClusterMax == config.underreplicatedPrimaryClusterMax &&
-                replicatedClusterMaxWrites == config.replicatedClusterMaxWrites &&
-                replicatedClusterTarget == config.replicatedClusterTarget &&
-                Double.compare(replicationPriorityMin, config.replicationPriorityMin) == 0 &&
-                Double.compare(sampleVectorStatsProbability, config.sampleVectorStatsProbability) == 0 &&
-                Double.compare(maintainStatsProbability, config.maintainStatsProbability) == 0 &&
-                statsThreshold == config.statsThreshold && useRaBitQ == config.useRaBitQ &&
-                raBitQNumExBits == config.raBitQNumExBits && metric == config.metric &&
-                deterministicRandomness == config.deterministicRandomness &&
-                maxNumConcurrentNodeFetches == config.maxNumConcurrentNodeFetches &&
-                maxNumConcurrentNeighborhoodFetches == config.maxNumConcurrentNeighborhoodFetches &&
-                maxNumConcurrentDeleteFromLayer == config.maxNumConcurrentDeleteFromLayer;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(metric, numDimensions, primaryClusterMin, primaryClusterMax,
-                underreplicatedPrimaryClusterMax, replicatedClusterMaxWrites, replicatedClusterTarget,
-                replicationPriorityMin, sampleVectorStatsProbability, maintainStatsProbability, statsThreshold,
-                useRaBitQ, raBitQNumExBits, deterministicRandomness, maxNumConcurrentNodeFetches,
-                maxNumConcurrentNeighborhoodFetches, maxNumConcurrentDeleteFromLayer);
+        return new ConfigBuilder(getMetric(), primaryClusterMin(), primaryClusterMax(),
+                underreplicatedPrimaryClusterMax(), replicatedClusterMaxWrites(), replicatedClusterTarget(),
+                replicationPriorityMin(), sampleVectorStatsProbability(), maintainStatsProbability(),
+                statsThreshold(), isUseRaBitQ(), getRaBitQNumExBits(), deterministicRandomness(),
+                maxNumConcurrentNodeFetches(), maxNumConcurrentNeighborhoodFetches());
     }
 
     @Override
     @Nonnull
     public String toString() {
         return "Config[metric=" + getMetric() + ", numDimensions=" + getNumDimensions() +
-                ", primaryClusterMin=" + getPrimaryClusterMin() + ", clusterClusterMax=" + getPrimaryClusterMax() +
-                ", underreplicatedPrimaryClusterMax=" + getUnderreplicatedPrimaryClusterMax() +
-                ", replicatedClusterMax=" + getReplicatedClusterMaxWrites() +
-                ", replicatedClusterTarget=" + getReplicatedClusterTarget() +
-                ", replicationPriorityMin=" + getReplicationPriorityMin() +
-                ", sampleVectorStatsProbability=" + getSampleVectorStatsProbability() +
-                ", mainStatsProbability=" + getMaintainStatsProbability() + ", statsThreshold=" + getStatsThreshold() +
+                ", primaryClusterMin=" + primaryClusterMin() + ", clusterClusterMax=" + primaryClusterMax() +
+                ", underreplicatedPrimaryClusterMax=" + underreplicatedPrimaryClusterMax() +
+                ", replicatedClusterMax=" + replicatedClusterMaxWrites() +
+                ", replicatedClusterTarget=" + replicatedClusterTarget() +
+                ", replicationPriorityMin=" + replicationPriorityMin() +
+                ", sampleVectorStatsProbability=" + sampleVectorStatsProbability() +
+                ", mainStatsProbability=" + maintainStatsProbability() + ", statsThreshold=" + statsThreshold() +
                 ", useRaBitQ=" + isUseRaBitQ() + ", raBitQNumExBits=" + getRaBitQNumExBits() +
-                ", deterministicRandomness=" + isDeterministicRandomness() +
-                ", maxNumConcurrentNodeFetches=" + getMaxNumConcurrentNodeFetches() +
-                ", maxNumConcurrentNeighborhoodFetches=" + getMaxNumConcurrentNeighborhoodFetches() +
-                ", maxNumConcurrentDeleteFromLayer=" + getMaxNumConcurrentDeleteFromLayer() +
+                ", deterministicRandomness=" + deterministicRandomness() +
+                ", maxNumConcurrentNodeFetches=" + maxNumConcurrentNodeFetches() +
+                ", maxNumConcurrentNeighborhoodFetches=" + maxNumConcurrentNeighborhoodFetches() +
                 "]";
     }
 
@@ -295,7 +209,6 @@ public final class Config implements BaseConfig {
         private boolean deterministicRandomness = DEFAULT_DETERMINISTIC_RANDOMNESS;
         private int maxNumConcurrentNodeFetches = DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES;
         private int maxNumConcurrentNeighborhoodFetches = DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES;
-        private int maxNumConcurrentDeleteFromLayer = DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER;
 
         public ConfigBuilder() {
         }
@@ -306,7 +219,7 @@ public final class Config implements BaseConfig {
                              final double sampleVectorStatsProbability, final double maintainStatsProbability,
                              final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
                              final boolean deterministicRandomness, final int maxNumConcurrentNodeFetches,
-                             final int maxNumConcurrentNeighborhoodFetches, final int maxNumConcurrentDeleteFromLayer) {
+                             final int maxNumConcurrentNeighborhoodFetches) {
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
             this.underreplicatedPrimaryClusterMax = underreplicatedPrimaryClusterMax;
@@ -322,7 +235,6 @@ public final class Config implements BaseConfig {
             this.deterministicRandomness = deterministicRandomness;
             this.maxNumConcurrentNodeFetches = maxNumConcurrentNodeFetches;
             this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
-            this.maxNumConcurrentDeleteFromLayer = maxNumConcurrentDeleteFromLayer;
         }
 
         @Nonnull
@@ -474,22 +386,13 @@ public final class Config implements BaseConfig {
             return this;
         }
 
-        public int getMaxNumConcurrentDeleteFromLayer() {
-            return maxNumConcurrentDeleteFromLayer;
-        }
-
-        public ConfigBuilder setMaxNumConcurrentDeleteFromLayer(final int maxNumConcurrentDeleteFromLayer) {
-            this.maxNumConcurrentDeleteFromLayer = maxNumConcurrentDeleteFromLayer;
-            return this;
-        }
-
         public Config build(final int numDimensions) {
             return new Config(getMetric(), numDimensions, getPrimaryClusterMin(), getPrimaryClusterMax(),
                     getUnderreplicatedPrimaryClusterMax(), getReplicatedClusterMaxWrites(),
                     getReplicatedClusterTarget(), getReplicationPriorityMin(), getSampleVectorStatsProbability(),
                     getMaintainStatsProbability(), getStatsThreshold(), isUseRaBitQ(), getRaBitQNumExBits(),
                     isDeterministicRandomness(), getMaxNumConcurrentNodeFetches(),
-                    getMaxNumConcurrentNeighborhoodFetches(), getMaxNumConcurrentDeleteFromLayer());
+                    getMaxNumConcurrentNeighborhoodFetches());
         }
     }
 }

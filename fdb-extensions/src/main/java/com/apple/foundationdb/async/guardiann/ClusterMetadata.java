@@ -31,18 +31,10 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-class ClusterMetadata {
-    @Nonnull
-    private final UUID id;
-    private final int numPrimaryUnderreplicatedVectors;
-    private final int numReplicatedVectors;
-
-    @Nonnull
-    private final RunningStandardDeviation runningStandardDeviation;
-
-    @Nonnull
-    private final EnumSet<State> states;
-
+record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors,
+                       int numReplicatedVectors,
+                       @Nonnull RunningStandardDeviation runningStandardDeviation,
+                       @Nonnull EnumSet<State> states) {
     public ClusterMetadata(@Nonnull final UUID id, final int numPrimaryUnderreplicatedVectors,
                            final int numReplicatedVectors,
                            @Nonnull final RunningStandardDeviation runningStandardDeviation, final int stateCode) {
@@ -50,38 +42,12 @@ class ClusterMetadata {
                 State.ofCode(stateCode));
     }
 
-    public ClusterMetadata(@Nonnull final UUID id,
-                           final int numPrimaryUnderreplicatedVectors, final int numReplicatedVectors,
-                           @Nonnull final RunningStandardDeviation runningStandardDeviation,
-                           @Nonnull final EnumSet<State> states) {
+    ClusterMetadata {
         Preconditions.checkArgument(runningStandardDeviation.getNumElements() >= numPrimaryUnderreplicatedVectors);
-        this.id = id;
-        this.numPrimaryUnderreplicatedVectors = numPrimaryUnderreplicatedVectors;
-        this.numReplicatedVectors = numReplicatedVectors;
-        this.runningStandardDeviation = runningStandardDeviation;
-        this.states = states;
-    }
-
-    @Nonnull
-    public UUID getId() {
-        return id;
     }
 
     public int getNumPrimaryVectors() {
         return Math.toIntExact(runningStandardDeviation.getNumElements());
-    }
-
-    public int getNumPrimaryUnderreplicatedVectors() {
-        return numPrimaryUnderreplicatedVectors;
-    }
-
-    public int getNumReplicatedVectors() {
-        return numReplicatedVectors;
-    }
-
-    @Nonnull
-    public RunningStandardDeviation getRunningStandardDeviation() {
-        return runningStandardDeviation;
     }
 
     public double meanDistance() {
@@ -92,14 +58,9 @@ class ClusterMetadata {
         return runningStandardDeviation.populationStandardDeviation();
     }
 
-    @Nonnull
-    public EnumSet<State> getStates() {
-        return states;
-    }
-
     public int getStatesCode() {
         int result = 0;
-        for (final State state : getStates()) {
+        for (final State state : states()) {
             result |= state.getCode();
         }
         return result;
@@ -111,7 +72,7 @@ class ClusterMetadata {
                                           @Nonnull final RunningStandardDeviation newStandardDeviation,
                                           @Nonnull final EnumSet<State> states) {
         final EnumSet<State> newStates = EnumSet.copyOf(states);
-        return new ClusterMetadata(getId(), numPrimaryUnderreplicatedVectors, numReplicatedVectors,
+        return new ClusterMetadata(id(), numPrimaryUnderreplicatedVectors, numReplicatedVectors,
                 newStandardDeviation, newStates);
     }
 
@@ -125,8 +86,8 @@ class ClusterMetadata {
 
     @Nonnull
     public ClusterMetadata withNewStates(@Nonnull final EnumSet<State> newStates) {
-        return new ClusterMetadata(getId(), getNumPrimaryUnderreplicatedVectors(), getNumReplicatedVectors(),
-                getRunningStandardDeviation(), newStates);
+        return new ClusterMetadata(id(), numPrimaryUnderreplicatedVectors(), numReplicatedVectors(),
+                runningStandardDeviation(), newStates);
     }
 
     @Nonnull
@@ -134,7 +95,7 @@ class ClusterMetadata {
                                                           final int numReplicatedVectorsAdded,
                                                           @Nonnull final RunningStandardDeviation newStandardDeviation,
                                                           @Nonnull final State... additionalStates) {
-        final EnumSet<State> newStates = EnumSet.copyOf(getStates());
+        final EnumSet<State> newStates = EnumSet.copyOf(states());
         Collections.addAll(newStates, additionalStates);
         return withAdditionalVectorsAndStates(numPrimaryUnderreplicatedVectorsAdded,
                 numReplicatedVectorsAdded, newStandardDeviation, newStates);
@@ -145,40 +106,22 @@ class ClusterMetadata {
                                                           final int numReplicatedVectorsAdded,
                                                           @Nonnull final RunningStandardDeviation newStandardDeviation,
                                                           @Nonnull final EnumSet<State> additionalStates) {
-        final EnumSet<State> newStates = EnumSet.copyOf(getStates());
+        final EnumSet<State> newStates = EnumSet.copyOf(states());
         newStates.addAll(additionalStates);
-        return new ClusterMetadata(getId(),
-                getNumPrimaryUnderreplicatedVectors() + numPrimaryUnderreplicatedVectorsAdded,
-                getNumReplicatedVectors() + numReplicatedVectorsAdded, newStandardDeviation,
+        return new ClusterMetadata(id(),
+                numPrimaryUnderreplicatedVectors() + numPrimaryUnderreplicatedVectorsAdded,
+                numReplicatedVectors() + numReplicatedVectorsAdded, newStandardDeviation,
                 newStates);
     }
 
     @Override
-    public boolean equals(final Object o) {
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        final ClusterMetadata cluster = (ClusterMetadata)o;
-        return Objects.equals(getId(), cluster.getId()) &&
-                getNumPrimaryVectors() == cluster.getNumPrimaryVectors() &&
-                getNumPrimaryUnderreplicatedVectors() == cluster.getNumPrimaryUnderreplicatedVectors() &&
-                getNumReplicatedVectors() == cluster.getNumReplicatedVectors() &&
-                getStates().equals(cluster.getStates());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getId(), getNumPrimaryVectors(), getNumPrimaryUnderreplicatedVectors(),
-                getNumPrimaryUnderreplicatedVectors(), getStatesCode());
-    }
-
-    @Override
+    @Nonnull
     public String toString() {
-        return "CM[id=" + getId() +
+        return "CM[id=" + id() +
                 ", numPrimaryVectors=" + getNumPrimaryVectors() +
-                ", numPrimaryUnderreplicatedVectors=" + getNumPrimaryUnderreplicatedVectors() +
-                ", numReplicatedVectors=" + getNumReplicatedVectors() +
-                ", states=" + getStates() +
+                ", numPrimaryUnderreplicatedVectors=" + numPrimaryUnderreplicatedVectors() +
+                ", numReplicatedVectors=" + numReplicatedVectors() +
+                ", states=" + states() +
                 ']';
     }
 

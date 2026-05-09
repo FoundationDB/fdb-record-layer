@@ -25,55 +25,12 @@ import com.apple.foundationdb.linear.Transformed;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Objects;
 
-class Cluster {
-    @Nonnull
-    private final ClusterMetadata clusterMetadata;
-    @Nonnull
-    private final Transformed<RealVector> centroid;
-    @Nonnull
-    private final List<VectorReference> vectorReferences;
-
-    public Cluster(@Nonnull final ClusterMetadata clusterMetadata, @Nonnull final Transformed<RealVector> centroid,
-                   @Nonnull final List<VectorReference> vectorReferences) {
-        this.clusterMetadata = clusterMetadata;
-        this.centroid = centroid;
-        this.vectorReferences = vectorReferences;
-    }
-
-    @Nonnull
-    public ClusterMetadata getClusterMetadata() {
-        return clusterMetadata;
-    }
-
-    @Nonnull
-    public Transformed<RealVector> getCentroid() {
-        return centroid;
-    }
-
-    @Nonnull
-    public List<VectorReference> getVectorReferences() {
-        return vectorReferences;
-    }
-
+record Cluster(@Nonnull ClusterMetadata clusterMetadata,
+               @Nonnull Transformed<RealVector> centroid,
+               @Nonnull List<VectorReference> vectorReferences) {
     @Override
-    public boolean equals(final Object o) {
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        final Cluster cluster = (Cluster)o;
-        return Objects.equals(getClusterMetadata(), cluster.getClusterMetadata()) &&
-                Objects.equals(getCentroid(), cluster.getCentroid()) &&
-                Objects.equals(getVectorReferences(), cluster.getVectorReferences());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getClusterMetadata(), getCentroid(), getVectorReferences());
-    }
-
-    @Override
+    @Nonnull
     public String toString() {
         return "C[" + clusterMetadata + "]";
     }

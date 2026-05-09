@@ -201,12 +201,12 @@ public class Search {
                                             return clusterMetadataWithDistances;
                                         }
 
-                                        final double nearestCentroidDistance = clusterMetadataWithDistances.get(0).getDistance();
+                                        final double nearestCentroidDistance = clusterMetadataWithDistances.get(0).distance();
                                         int i;
                                         for (i = 48; i < clusterMetadataWithDistances.size(); i ++) {
                                             final ClusterMetadataWithDistance currentClusterMetadata =
                                                     clusterMetadataWithDistances.get(i);
-                                            if (currentClusterMetadata.getDistance() / nearestCentroidDistance > 1.50) {
+                                            if (currentClusterMetadata.distance() / nearestCentroidDistance > 1.50) {
                                                 break;
                                             }
                                         }
@@ -221,7 +221,7 @@ public class Search {
                                     clusterMetadataWithDistance ->
                                             primitives.fetchVectorReferencesIterable(readTransaction,
                                                     storageTransform,
-                                                    clusterMetadataWithDistance.getClusterMetadata().getId()),
+                                                    clusterMetadataWithDistance.clusterMetadata().id()),
                                     10),
                                     vectorReference -> {
                                         final double distance =
@@ -323,28 +323,28 @@ public class Search {
                             .thenApply(clusters -> {
                                 final ListMultimap<UUID, Tuple> assignmentsMap = ArrayListMultimap.create();
                                 for (final Cluster currentCluster : clusters) {
-                                    final ClusterMetadata clusterMetadata = currentCluster.getClusterMetadata();
-                                    final UUID currentClusterId = clusterMetadata.getId();
+                                    final ClusterMetadata clusterMetadata = currentCluster.clusterMetadata();
+                                    final UUID currentClusterId = clusterMetadata.id();
                                     int numAllPrimaryAssignments = 0;
                                     int numWrongAssignments = 0;
                                     int numReplicatedVectors = 0;
                                     final Map<Integer, Integer> wrongAssignmentsByRankMap = Maps.newHashMap();
-                                    for (final VectorReference vectorReference : currentCluster.getVectorReferences()) {
+                                    for (final VectorReference vectorReference : currentCluster.vectorReferences()) {
                                         if (vectorReference.isPrimaryCopy()) {
                                             assignmentsMap.put(currentClusterId, vectorReference.getId().getPrimaryKey());
                                             numAllPrimaryAssignments++;
                                             final TreeSet<ClusterMetadataWithDistance> trueClusterDistances =
-                                                    new TreeSet<>(Comparator.comparing(ClusterMetadataWithDistance::getDistance));
+                                                    new TreeSet<>(Comparator.comparing(ClusterMetadataWithDistance::distance));
                                             for (final Cluster cluster : clusters) {
                                                 final double distance =
-                                                        estimator.distance(cluster.getCentroid(), vectorReference.getVector());
-                                                trueClusterDistances.add(new ClusterMetadataWithDistance(cluster.getClusterMetadata(), cluster.getCentroid(), distance));
+                                                        estimator.distance(cluster.centroid(), vectorReference.getVector());
+                                                trueClusterDistances.add(new ClusterMetadataWithDistance(cluster.clusterMetadata(), cluster.centroid(), distance));
                                             }
                                             boolean found = false;
                                             int rank = 0;
                                             while (!trueClusterDistances.isEmpty()) {
                                                 final UUID nextClusterId =
-                                                        Objects.requireNonNull(trueClusterDistances.pollFirst()).getClusterMetadata().getId();
+                                                        Objects.requireNonNull(trueClusterDistances.pollFirst()).clusterMetadata().id();
                                                 if (nextClusterId.equals(currentClusterId)) {
                                                     wrongAssignmentsByRankMap.compute(rank, (r, oldCount) ->
                                                             Objects.requireNonNullElse(oldCount, 0) + 1);

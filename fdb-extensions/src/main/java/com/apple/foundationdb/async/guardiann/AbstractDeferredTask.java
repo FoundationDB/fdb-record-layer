@@ -22,15 +22,22 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.common.RandomHelpers;
+import com.apple.foundationdb.linear.Estimator;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.slf4j.Logger;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -68,6 +75,16 @@ public abstract class AbstractDeferredTask {
     @Nonnull
     Primitives primitives() {
         return getLocator().primitives();
+    }
+
+    @Nonnull
+    OnWriteListener getOnWriteListener() {
+        return getLocator().getOnWriteListener();
+    }
+
+    @Nonnull
+    OnReadListener getOnReadListener() {
+        return getLocator().getOnReadListener();
     }
 
     @Nonnull
@@ -112,6 +129,7 @@ public abstract class AbstractDeferredTask {
 
     protected void writeDeferredTask(@Nonnull final Transaction transaction) {
         primitives().writeDeferredTask(transaction, this.getTaskId(), valueTuple());
+        getOnWriteListener().onTaskEnqueued(this.getKind(), this.getTaskId(), this.getTargetClusterIds());
     }
 
     @Nonnull
@@ -127,15 +145,15 @@ public abstract class AbstractDeferredTask {
         final Map<UUID, Integer> collapsibleVectorsCountersMap =
                 CollapseTask.collapsibleVectorsCountersMap(primaryVectorReferences);
         final int maximumNumberCollapsibleVectorsPerDuplicate =
-                CollapseTask.maximumNumberCollapsibleVectorsPerDuplicate(collapsibleVectorsCountersMap);
+                CollapseTask.maxDuplicateCount(collapsibleVectorsCountersMap);
         if (maximumNumberCollapsibleVectorsPerDuplicate > 10) {
             final UUID collapseTaskId = AbstractDeferredTask.randomHighPriorityTaskId(random,
-                    config.isDeterministicRandomness());
+                    config.deterministicRandomness());
             final CollapseTask collapseTask =
                     CollapseTask.of(getLocator(), getAccessInfo(), collapseTaskId,
                             targetClusterId, centroid);
             final UUID bounceTaskId = randomHighPriorityTaskId(random,
-                    config.isDeterministicRandomness());
+                    config.deterministicRandomness());
             collapseTask.writeDeferredTask(transaction);
             final BounceTask bounceTask =
                     BounceTask.of(getLocator(), getAccessInfo(), bounceTaskId,
@@ -207,6 +225,171 @@ public abstract class AbstractDeferredTask {
             }
             return old.add(distance);
         });
+    }
+
+    /**
+     * Computes the diff between the old cluster contents and the new assigned vectors. Vectors present
+     * in both old and new are checked for status changes (primary/replicated/underreplicated toggling);
+     * vectors only in the old cluster are marked for deletion.
+     *
+     * @param targetCluster the cluster as it currently exists
+     * @param newAssignments the new vector references that should be in the cluster
+     * @return the delta of writes and deletes
+     */
+    @Nonnull
+    static TargetClusterDelta computeTargetClusterDelta(@Nonnull final Cluster targetCluster,
+                                                        @Nonnull final List<VectorReference> newAssignments) {
+        final ImmutableMap.Builder<Tuple, VectorReference> assignedByPrimaryKeyBuilder = ImmutableMap.builder();
+        for (final VectorReference assignedVector : newAssignments) {
+            assignedByPrimaryKeyBuilder.put(assignedVector.getId().getPrimaryKey(), assignedVector);
+        }
+        final ImmutableMap<Tuple, VectorReference> assignedByPrimaryKey = assignedByPrimaryKeyBuilder.build();
+
+        final ImmutableList.Builder<Tuple> toDeleteBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<VectorReference> toWriteBuilder = ImmutableList.builder();
+
+        for (final VectorReference vectorReference : targetCluster.vectorReferences()) {
+            final Tuple primaryKey = vectorReference.getId().getPrimaryKey();
+            final VectorReference assignedVectorReference = assignedByPrimaryKey.get(primaryKey);
+
+            if (assignedVectorReference != null) {
+                Verify.verify(assignedVectorReference.getId().getUuid()
+                        .equals(vectorReference.getId().getUuid()));
+
+                if (assignedVectorReference.isPrimaryCopy() != vectorReference.isPrimaryCopy() ||
+                        assignedVectorReference.isUnderreplicated() != vectorReference.isUnderreplicated()) {
+                    toWriteBuilder.add(assignedVectorReference);
+                }
+            } else {
+                toDeleteBuilder.add(primaryKey);
+            }
+        }
+
+        return new TargetClusterDelta(toWriteBuilder.build(), toDeleteBuilder.build());
+    }
+
+    record TargetClusterDelta(@Nonnull ImmutableList<VectorReference> toWrite,
+                              @Nonnull ImmutableList<Tuple> toDelete) {
+    }
+
+    /**
+     * Computes, for each primary vector, the k nearest clusters (sorted by distance) from the given
+     * candidate cluster map. Non-primary vector references in the input are silently skipped.
+     * Returns a result containing an inverted assignments map (keyed by vector UUID, values are nearest
+     * clusters in ascending distance order) and a map of running standard deviation updates accumulated
+     * from each vector's primary (nearest) cluster assignment.
+     *
+     * <p>
+     * The caller is responsible for merging the returned standard deviation updates into its own
+     * tracking map via {@link #mergeStandardDeviationUpdates}.
+     * </p>
+     *
+     * @param estimator distance estimator for the vector space
+     * @param vectorReferences vector references to process (only primary copies are considered)
+     * @param candidateClusters all clusters (new + outer) that vectors may be assigned to
+     * @return the nearest cluster assignments and accumulated standard deviation updates
+     */
+    @Nonnull
+    static NearestClustersResult computeNearestClusters(@Nonnull final Estimator estimator,
+                                                        @Nonnull final List<VectorReference> vectorReferences,
+                                                        @Nonnull final Map<UUID, ClusterMetadataWithDistance> candidateClusters) {
+        final ImmutableListMultimap.Builder<UUID, ClusterMetadataWithDistance> invertedAssignmentsMapBuilder =
+                ImmutableListMultimap.builder();
+        final Map<UUID, RunningStandardDeviation> standardDeviationUpdates = Maps.newHashMap();
+        for (final VectorReference vectorReference : vectorReferences) {
+            if (!vectorReference.isPrimaryCopy()) {
+                continue;
+            }
+
+            final TopK<ClusterMetadataWithDistance> nearestClusters =
+                    new TopK<>(Comparator.comparing(ClusterMetadataWithDistance::distance).reversed(), 32);
+            for (final ClusterMetadataWithDistance clusterMetadataWithDistance : candidateClusters.values()) {
+                final double distance =
+                        estimator.distance(vectorReference.getVector(), clusterMetadataWithDistance.centroid());
+                nearestClusters.add(clusterMetadataWithDistance.withNewDistance(distance));
+            }
+
+            final List<ClusterMetadataWithDistance> sortedNearestClusters = nearestClusters.toSortedList();
+            Verify.verify(!sortedNearestClusters.isEmpty());
+
+            final ClusterMetadataWithDistance primaryClusterMetadataWithDistance = sortedNearestClusters.get(0);
+            updateRunningStandardDeviationsMap(standardDeviationUpdates,
+                    primaryClusterMetadataWithDistance.clusterMetadata().id(),
+                    primaryClusterMetadataWithDistance.distance());
+
+            for (final ClusterMetadataWithDistance clusterMetadataWithDistance : sortedNearestClusters) {
+                invertedAssignmentsMapBuilder.put(vectorReference.getId().getUuid(),
+                        clusterMetadataWithDistance);
+            }
+        }
+        return new NearestClustersResult(invertedAssignmentsMapBuilder.build(), standardDeviationUpdates);
+    }
+
+    /**
+     * Merges standard deviation updates into an existing tracking map. For each entry in the updates
+     * map, combines it with the existing value (or inserts it if absent).
+     *
+     * @param target the mutable map to merge into
+     * @param updates the updates to merge (as returned by {@link #computeNearestClusters})
+     */
+    static void mergeStandardDeviationUpdates(@Nonnull final Map<UUID, RunningStandardDeviation> target,
+                                              @Nonnull final Map<UUID, RunningStandardDeviation> updates) {
+        for (final Map.Entry<UUID, RunningStandardDeviation> entry : updates.entrySet()) {
+            target.merge(entry.getKey(), entry.getValue(), RunningStandardDeviation::combine);
+        }
+    }
+
+    /**
+     * Partitions the given cluster neighborhood into inner and outer neighborhoods. The inner
+     * neighborhood contains the clusters closest to the target that will be dissolved/repartitioned;
+     * the outer neighborhood contains clusters that may receive overflow vectors.
+     *
+     * <p>
+     * Handles the rare edge case where the target cluster itself is not found in the HNSW results
+     * by synthesizing it at position 0 of the inner neighborhood.
+     * </p>
+     */
+    @Nonnull
+    static Neighborhoods neighborhoods(@Nonnull final List<ClusterMetadataWithDistance> clusterMetadataWithDistances,
+                                       @Nonnull final ClusterMetadata targetClusterMetadata,
+                                       @Nonnull final Transformed<RealVector> targetClusterCentroid,
+                                       final int numInnerNeighborhood,
+                                       final int numOuterNeighborhood) {
+        boolean foundPrimaryCluster = false;
+        for (final ClusterMetadataWithDistance clusterMetadata : clusterMetadataWithDistances) {
+            if (clusterMetadata.clusterMetadata().id().equals(targetClusterMetadata.id())) {
+                foundPrimaryCluster = true;
+                break;
+            }
+        }
+
+        if (foundPrimaryCluster) {
+            final int cappedNumInnerNeighborhood = Math.min(numInnerNeighborhood, clusterMetadataWithDistances.size());
+            return new Neighborhoods(clusterMetadataWithDistances.subList(0, cappedNumInnerNeighborhood),
+                    clusterMetadataWithDistances.subList(cappedNumInnerNeighborhood, clusterMetadataWithDistances.size()));
+        }
+
+        final ImmutableList.Builder<ClusterMetadataWithDistance> innerNeighborhoodBuilder = ImmutableList.builder();
+        innerNeighborhoodBuilder.add(
+                new ClusterMetadataWithDistance(targetClusterMetadata, targetClusterCentroid, 0.0d));
+        final int cappedNumInnerNeighborhood = Math.min(numInnerNeighborhood - 1, clusterMetadataWithDistances.size());
+
+        innerNeighborhoodBuilder.addAll(clusterMetadataWithDistances.subList(0, cappedNumInnerNeighborhood));
+        final List<ClusterMetadataWithDistance> innerNeighborhood = innerNeighborhoodBuilder.build();
+
+        final int cappedNumOuterNeighborhood = Math.min(numOuterNeighborhood,
+                clusterMetadataWithDistances.size() - cappedNumInnerNeighborhood);
+        final List<ClusterMetadataWithDistance> outerNeighborhood = clusterMetadataWithDistances.subList(
+                cappedNumInnerNeighborhood, cappedNumInnerNeighborhood + cappedNumOuterNeighborhood);
+        return new Neighborhoods(innerNeighborhood, outerNeighborhood);
+    }
+
+    record NearestClustersResult(@Nonnull ImmutableListMultimap<UUID, ClusterMetadataWithDistance> invertedAssignments,
+                                 @Nonnull Map<UUID, RunningStandardDeviation> standardDeviationUpdates) {
+    }
+
+    record Neighborhoods(@Nonnull List<ClusterMetadataWithDistance> innerNeighborhood,
+                         @Nonnull List<ClusterMetadataWithDistance> outerNeighborhood) {
     }
 
     public enum Kind {

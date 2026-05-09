@@ -182,7 +182,7 @@ public class DebugIndexTest implements BaseTest {
         clusterInfos.sort(Comparator.comparing(ClusterInfo::getDistance));
 
         for (final ClusterInfo clusterInfo : clusterInfos) {
-            final UUID clusterId = clusterInfo.getClusterIdAndCentroid().getClusterId();
+            final UUID clusterId = clusterInfo.getClusterIdAndCentroid().clusterId();
             logger.info("cluster={}, distance={}, missingItems={}",
                     clusterId, clusterInfo.getDistance(), result.get(clusterId));
         }
@@ -195,9 +195,9 @@ public class DebugIndexTest implements BaseTest {
         for (final ClusterInfo clusterInfo : clusterInfos) {
             // Example cluster
             clusters.add(new ClusterData(
-                    clusterInfo.getClusterIdAndCentroid().getClusterId(),
-                    clusterInfo.getClusterIdAndCentroid().getCentroid().getUnderlyingVector(),
-                    result.get(clusterInfo.getClusterIdAndCentroid().getClusterId())
+                    clusterInfo.getClusterIdAndCentroid().clusterId(),
+                    clusterInfo.getClusterIdAndCentroid().centroid().getUnderlyingVector(),
+                    result.get(clusterInfo.getClusterIdAndCentroid().clusterId())
                             .stream()
                             .map(tuple -> Math.toIntExact(tuple.getLong(0))).collect(Collectors.toList())));
         }
@@ -399,7 +399,7 @@ public class DebugIndexTest implements BaseTest {
                     continue;
                 }
 
-                onReadListener.reset();
+                onReadListener.pushFrame();
                 final long beginTs = System.nanoTime();
                 final List<? extends ResultEntry> results =
                         db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, 30000,
@@ -444,6 +444,8 @@ public class DebugIndexTest implements BaseTest {
                     final double distance = metric.distance(originalVector, queryVector.toDoubleRealVector());
                     logger.info("missing result={}; distance={}", resultIndex, distance);
                 }
+
+                onReadListener.popFrame();
 
                 break;
             }

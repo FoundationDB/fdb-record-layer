@@ -316,9 +316,9 @@ class StorageAdapter {
 
     @Nonnull
     static Tuple valueTupleFromClusterMetadata(@Nonnull final ClusterMetadata clusterMetadata) {
-        return Tuple.from(clusterMetadata.getId(),
-                clusterMetadata.getNumPrimaryUnderreplicatedVectors(), clusterMetadata.getNumReplicatedVectors(),
-                valueTupleFromRunningStandardDeviation(clusterMetadata.getRunningStandardDeviation()),
+        return Tuple.from(clusterMetadata.id(),
+                clusterMetadata.numPrimaryUnderreplicatedVectors(), clusterMetadata.numReplicatedVectors(),
+                valueTupleFromRunningStandardDeviation(clusterMetadata.runningStandardDeviation()),
                 clusterMetadata.getStatesCode());
     }
 
@@ -345,8 +345,8 @@ class StorageAdapter {
     @Nonnull
     static Tuple valueTupleFromClusterIdAndCentroid(@Nonnull final Quantizer quantizer,
                                                     @Nonnull final ClusterIdAndCentroid clusterIdAndCentroid) {
-        return Tuple.from(clusterIdAndCentroid.getClusterId(),
-                StorageHelpers.bytesFromVector(quantizer.encode(clusterIdAndCentroid.getCentroid())));
+        return Tuple.from(clusterIdAndCentroid.clusterId(),
+                StorageHelpers.bytesFromVector(quantizer.encode(clusterIdAndCentroid.centroid())));
     }
 
     @Nonnull
@@ -399,14 +399,14 @@ class StorageAdapter {
     static boolean isOccluded(@Nonnull final Estimator estimator,
                               @Nonnull final ClusterMetadataWithDistance replicationCandidate,
                               @Nonnull final List<ClusterMetadataWithDistance> selectedReplicationClusters) {
-        final double vectorToCentroidDistance = replicationCandidate.getDistance();
+        final double vectorToCentroidDistance = replicationCandidate.distance();
         if (!selectedReplicationClusters.isEmpty()) {
             final Transformed<RealVector> replicationCandidateCentroid =
-                    replicationCandidate.getCentroid();
+                    replicationCandidate.centroid();
             boolean occluded = false;
             for (final ClusterMetadataWithDistance selectedReplicationCluster : selectedReplicationClusters) {
                 final double selectedCentroidToCandidateCentroidDistance =
-                        estimator.distance(replicationCandidateCentroid, selectedReplicationCluster.getCentroid());
+                        estimator.distance(replicationCandidateCentroid, selectedReplicationCluster.centroid());
                 if (vectorToCentroidDistance > selectedCentroidToCandidateCentroidDistance) {
                     occluded = true;
                     break;

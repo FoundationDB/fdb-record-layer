@@ -36,6 +36,11 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
     OnWriteListener NOOP = new OnWriteListener() {
     };
 
+    default void onTaskEnqueued(@Nonnull final AbstractDeferredTask.Kind kind, @Nonnull UUID taskId,
+                                @Nonnull final Set<UUID> targetClusterIds) {
+        // nothing
+    }
+
     /**
      * Callback method that is invoked after a {@link AbstractDeferredTask} has been successfully executed.
      * <p>
