@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -92,7 +93,7 @@ public class QueryPredicateSimplificationRuleTest {
     @Nonnull
     private static final QueryPredicateSimplificationRule rule = new QueryPredicateSimplificationRule();
     @Nonnull
-    private static final RuleTestHelper testHelper = new RuleTestHelper(rule);
+    private static final RuleTestHelper testHelper = new RuleTestHelper(rule, PlannerPhase.REWRITING);
 
     @Nonnull
     public static Stream<Arguments> randomPredicateProvider() {

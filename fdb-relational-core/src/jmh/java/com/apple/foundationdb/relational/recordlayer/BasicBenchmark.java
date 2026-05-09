@@ -46,6 +46,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -86,7 +87,8 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
                 singleReadSchema,
                 singleWriteSchema);
 
-        try (RelationalConnection dbConn = DriverManager.getConnection(getUri(dbName, true).toString()).unwrap(RelationalConnection.class)) {
+        try (Connection rawConn = DriverManager.getConnection(getUri(dbName, true).toString());
+                RelationalConnection dbConn = rawConn.unwrap(RelationalConnection.class)) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 stmt.executeInsert(restaurantRecordTable, newRestaurantRecord(42));
@@ -96,7 +98,8 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void singleWrite(Blackhole bh) throws SQLException {
-        try (RelationalConnection dbConn = DriverManager.getConnection(getUri(dbName, true).toString()).unwrap(RelationalConnection.class)) {
+        try (Connection rawConn = DriverManager.getConnection(getUri(dbName, true).toString());
+                RelationalConnection dbConn = rawConn.unwrap(RelationalConnection.class)) {
             dbConn.setSchema(singleWriteSchema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 bh.consume(stmt.executeInsert(restaurantRecordTable, newRestaurantRecord()));
@@ -106,7 +109,8 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void singlePkRead(Blackhole bh) throws SQLException {
-        try (RelationalConnection dbConn = DriverManager.getConnection(getUri(dbName, true).toString()).unwrap(RelationalConnection.class)) {
+        try (Connection rawConn = DriverManager.getConnection(getUri(dbName, true).toString());
+                RelationalConnection dbConn = rawConn.unwrap(RelationalConnection.class)) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement();
                     ResultSet resultSet = stmt.executeQuery("SELECT * FROM \"RestaurantRecord\" WHERE \"rest_no\" = 42")) {
@@ -119,7 +123,8 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void singleNonPkRead(Blackhole bh) throws SQLException {
-        try (RelationalConnection dbConn = DriverManager.getConnection(getUri(dbName, true).toString()).unwrap(RelationalConnection.class)) {
+        try (Connection rawConn = DriverManager.getConnection(getUri(dbName, true).toString());
+                RelationalConnection dbConn = rawConn.unwrap(RelationalConnection.class)) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement();
                     ResultSet resultSet = stmt.executeQuery("SELECT * from \"RestaurantRecord\" WHERE \"name\" = 'testName'")) {

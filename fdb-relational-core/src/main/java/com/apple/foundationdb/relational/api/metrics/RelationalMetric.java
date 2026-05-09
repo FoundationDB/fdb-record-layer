@@ -130,6 +130,9 @@ public class RelationalMetric {
         PLAN_CACHE_SECONDARY_MISS("secondary cache miss", false),
         PLAN_CACHE_TERTIARY_MISS("tertiary cache miss", false),
         PLAN_CACHE_TERTIARY_HIT("cache hit", false),
+        PLAN_CACHE_PRIMARY_LRU_EVICTION("primary cache LRU eviction", false),
+        PLAN_CACHE_SECONDARY_LRU_EVICTION("secondary cache LRU eviction", false),
+        PLAN_CACHE_TERTIARY_LRU_EVICTION("tertiary cache LRU eviction", false),
         CONTINUATION_ACCEPTED("continuation accepted", false),
         CONTINUATION_REJECTED("continuation rejected", false),
         CONTINUATION_DOWN_LEVEL("continuation accepted from down-level plan serialization mode", false)

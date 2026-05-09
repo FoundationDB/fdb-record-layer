@@ -48,7 +48,8 @@ class ExternalServerTest {
     private static File getCurrentServerPath() throws IOException {
         final List<File> availableServers = ExternalServer.getAvailableServers();
         for (File path : availableServers) {
-            if (new ExternalServer(path, null).getVersion().equals(SemanticVersion.current())) {
+            if (new ExternalServer(path, FDBTestEnvironment.randomClusterFile())
+                    .getVersion().equals(SemanticVersion.current())) {
                 return path;
             }
         }

@@ -317,8 +317,11 @@ public class RequestedOrdering {
                                                      final boolean isExhaustive) {
         Debugger.sanityCheck(() -> Verify.verify(
                 requestedOrderingParts.stream()
-                        .allMatch(requestedOrderingPart -> requestedOrderingPart.getValue()
-                                .getResultType().isPrimitive())));
+                        .allMatch(requestedOrderingPart -> {
+                            final var resultType = requestedOrderingPart.getValue()
+                                    .getResultType();
+                            return resultType.isPrimitive() || resultType.isUuid();
+                        })));
         return new RequestedOrdering(requestedOrderingParts, distinctness, isExhaustive);
     }
 

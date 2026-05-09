@@ -97,7 +97,8 @@ public class CheckExplainConfig extends QueryConfig {
         checkExplain(queryDescription, actualPlan, actualDot, expectedDot);
 
         final var actualPlannerMetrics = resultSet.getStruct(6);
-        if (isExact && actualPlannerMetrics != null) {
+        if (isExact && getVal() != null && actualPlannerMetrics != null
+                && (expectedPlannerMetricsInfo != null || executionContext.shouldCorrectMetrics())) {
             Objects.requireNonNull(actualDot);
             checkMetrics(currentQuery, setups, actualPlannerMetrics, expectedPlannerMetricsInfo, actualPlan, actualDot);
         }
@@ -107,6 +108,16 @@ public class CheckExplainConfig extends QueryConfig {
                               final @Nonnull String actualPlan,
                               final @Nullable String actualDot,
                               final @Nullable String expectedDot) {
+        // Synthetic explain config (value==null): add the actual plan to the file without comparing.
+        if (getVal() == null) {
+            if (!executionContext.addExplain(getReference(), actualPlan)) {
+                QueryCommand.reportTestFailure("‼️ Cannot add explain plan at " + getReference());
+            } else {
+                logger.debug(() -> "⭐️ Successfully added plan at " + getReference());
+            }
+            return;
+        }
+
         var success = isExact ? getVal().equals(actualPlan) : actualPlan.contains((String) getVal());
         if (success) {
             logger.debug("✅️ plan match!");
@@ -133,7 +144,7 @@ public class CheckExplainConfig extends QueryConfig {
             for (final var diffRow : diffRows) {
                 planDiffs.append(diffRow.getOldLine()).append('\n').append(diffRow.getNewLine()).append('\n');
             }
-            if (isExact && executionContext.shouldCorrectExplains()) {
+            if (isExact && (executionContext.shouldCorrectExplains() || executionContext.shouldAddExplains())) {
                 if (!executionContext.correctExplain(getReference(), actualPlan)) {
                     QueryCommand.reportTestFailure("‼️ Cannot correct explain plan at " + getReference());
                 } else {

@@ -83,7 +83,8 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public QueryPlan visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
         final var pathId = visitUid(ctx.path().uid());
-        return CopyPlan.getCopyExportAction(pathId.getName(), getDelegate().getPlanGenerationContext());
+        final boolean incrementIncarnation = ctx.incarnationOption().INCREMENT() != null;
+        return CopyPlan.getCopyExportAction(pathId.getName(), getDelegate().getPlanGenerationContext(), incrementIncarnation);
     }
 
     @Nonnull

@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggreg
 import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.tuple.TupleOrdering;
 import com.google.common.collect.ImmutableList;
 
@@ -242,11 +241,6 @@ public class ValueMatchers {
         return typedWithDownstream(StreamableAggregateValue.class,
                 Extractor.of(StreamableAggregateValue::getChildren, name -> "children(" + name + ")"),
                 downstreamValues);
-    }
-
-    @Nonnull
-    public static BindingMatcher<VersionValue> versionValue() {
-        return typed(VersionValue.class);
     }
 
     @Nonnull

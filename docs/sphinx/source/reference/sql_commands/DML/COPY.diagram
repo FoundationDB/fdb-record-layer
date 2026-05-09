@@ -1,7 +1,14 @@
 Diagram(
     Terminal('COPY'),
     NonTerminal('path'),
-    Optional(
+    Choice(0,
+      Sequence(
+        Choice(0,
+          Terminal('PRESERVE'),
+          Terminal('INCREMENT')
+        ),
+        Terminal('INCARNATION')
+      ),
       Sequence(
         Terminal('FROM'),
         NonTerminal('preparedStatementParameter')

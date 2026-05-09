@@ -50,6 +50,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.net.URI;
+import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -78,7 +79,7 @@ public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
 
     static final String cacheSchema = "cacheSchema";
 
-    final int dbSize = 5;
+    static final int DB_SIZE = 5;
 
     @Param({"NONE", "MULTI-STAGED"})
     String cacheType;
@@ -114,7 +115,7 @@ public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
         long dbId = ThreadLocalRandom.current().nextInt(0, dbCount);
         try (final var dbConn = DriverManager.getConnection(getUri(dbName(dbId), true).toString())) {
             dbConn.setSchema(cacheSchema);
-            long restId = ThreadLocalRandom.current().nextInt(1, dbSize + 1);
+            long restId = ThreadLocalRandom.current().nextInt(1, DB_SIZE + 1);
             try (final var stmt = dbConn.createStatement();
                     ResultSet resultSet = stmt.executeQuery("EXPLAIN SELECT * from \"RestaurantRecord\" where \"rest_no\" = " + restId)) {
                 resultSet.next();
@@ -139,7 +140,8 @@ public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     private void populateDatabase(URI uri) {
-        try (RelationalConnection dbConn = DriverManager.getConnection(uri.toString()).unwrap(RelationalConnection.class)) {
+        try (Connection rawConn = DriverManager.getConnection(uri.toString());
+                RelationalConnection dbConn = rawConn.unwrap(RelationalConnection.class)) {
             dbConn.setSchema(cacheSchema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 stmt.executeInsert(
@@ -152,7 +154,7 @@ public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     private List<RelationalStruct> createRecords() {
-        return IntStream.range(1, dbSize + 1).mapToObj(this::newRestaurantRecord).collect(Collectors.toList());
+        return IntStream.range(1, DB_SIZE + 1).mapToObj(this::newRestaurantRecord).collect(Collectors.toList());
     }
 
     private RelationalStruct newRestaurantRecord(int recordId) {

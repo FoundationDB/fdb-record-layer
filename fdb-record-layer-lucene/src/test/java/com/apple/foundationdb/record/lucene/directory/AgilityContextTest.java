@@ -811,20 +811,29 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
 
     @Test
     void testAutoCommitVersionStampOuterSleepUseApply() throws InterruptedException {
+        int timeQuota = 10;
         final byte[] key;
         try (FDBRecordContext userContext = openContext()) {
             key = this.path.toSubspace(userContext).pack(Tuple.from(prefix, "a").pack());
-            final AgilityContext agilityContext = AgilityContext.agile(userContext, 2, 10000);
+            final AgilityContext agilityContext = AgilityContext.agile(userContext, timeQuota, 10000);
             AtomicReference<FDBRecordContext> firstOperation = new AtomicReference<>();
+            AtomicInteger timeCommit = new AtomicInteger(0);
             agilityContext.apply(context -> context.ensureActive()
                     .get(key).thenApply(oldVal -> {
                         context.ensureActive().set(key, Tuple.from(1).pack());
                         firstOperation.set(context);
                         return oldVal;
                     })).join();
-            Thread.sleep(5);
+            // There can be a case where the get() above takes too long and so the transaction commits during the thenApply()
+            // In this case, the test won't fail but the assertion below would be moot since the transaction commited before
+            // the sleep
+            // This would make sure that if the transaction did not commit, the sleep would not make it so
+            timeCommit.set(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA));
+
+            Thread.sleep(timeQuota * 2);
+
             assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA), Matchers.equalTo(0));
-            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA), Matchers.equalTo(0));
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA), Matchers.equalTo(timeCommit.get()));
             // Here: after this operation, the first auto-context should be committed
             AtomicReference<FDBRecordContext> secondOperation = new AtomicReference<>();
             agilityContext.apply(context -> context.ensureActive()

@@ -44,6 +44,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Fork(1)
 @Warmup(iterations = 1, time = 100)
@@ -70,10 +71,10 @@ public class CreateDatabaseBenchmark extends EmbeddedRelationalBenchmark {
 
     @State(Scope.Thread)
     public static class DbNameGenerator {
-        private int id = 0;
+        private static final AtomicLong counter = new AtomicLong();
 
         public String getNextDbName() {
-            return "/BENCHMARKS/CreateDatabaseBenchmark_" + Thread.currentThread().getId() + "_" + id++;
+            return "/BENCHMARKS/CreateDatabaseBenchmark_" + counter.getAndIncrement();
         }
     }
 

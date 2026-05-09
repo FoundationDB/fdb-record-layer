@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
@@ -34,7 +33,6 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
-import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
@@ -117,41 +115,8 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
 
     @Nonnull
     private CompletableFuture<Void> buildMultiTargetIndex() {
-        final TupleRange tupleRange = common.computeRecordsRange();
-        final byte[] rangeStart;
-        final byte[] rangeEnd;
-        if (tupleRange == null) {
-            rangeStart = rangeEnd = null;
-        } else {
-            final Range range = tupleRange.toRange();
-            rangeStart = range.begin;
-            // tupleRange has an inclusive high endpoint, so end isn't a valid tuple.
-            // But buildRangeOnly needs to convert missing Ranges back to TupleRanges, so round up.
-            rangeEnd = ByteArrayUtil.strinc(range.end);
-        }
-
-        final CompletableFuture<FDBRecordStore> maybePresetRangeFuture =
-                rangeStart == null ?
-                CompletableFuture.completedFuture(null) :
-                buildCommitRetryAsync((store, recordsScanned) -> {
-                    // Here: only records inside the defined records-range are relevant to the index. Hence, the completing range
-                    // can be preemptively marked as indexed.
-                    final List<Index> targetIndexes = common.getTargetIndexes();
-                    final List<IndexingRangeSet> targetRangeSets = targetIndexes.stream()
-                            .map(targetIndex -> IndexingRangeSet.forIndexBuild(store, targetIndex))
-                            .collect(Collectors.toList());
-                    return CompletableFuture.allOf(
-                            insertRanges(targetRangeSets, null, rangeStart),
-                                    insertRanges(targetRangeSets, rangeEnd, null))
-                            .thenApply(ignore -> null);
-                }, null);
-
-        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildMultiTargetIndex",
-                LogMessageKeys.RANGE_START, rangeStart,
-                LogMessageKeys.RANGE_END, rangeEnd);
-
-        return maybePresetRangeFuture.thenCompose(ignore ->
-                        iterateAllRanges(additionalLogMessageKeyValues, this::buildRangeOnly));
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildMultiTargetIndex");
+        return iterateAllRanges(additionalLogMessageKeyValues, this::buildRangeOnly);
     }
 
     @Nonnull
@@ -223,17 +188,10 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
     @Nonnull
     @Override
     CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
-        final TupleRange tupleRange = common.computeRecordsRange();
-        // if non-null, the tupleRange contains the range of all the records need indexing (in practice,
-        // the type keys containing the lexicographically first to last types). Hence, we can skip indexing records
-        // that are outside this range.
-        final Tuple rangeStart = tupleRange == null ? null : tupleRange.getLow();
-        final Tuple rangeEndInclusive = tupleRange == null ? null : tupleRange.getHigh();
-
-        AtomicReference<Tuple> nextResultCont = new AtomicReference<>(rangeStart);
+        AtomicReference<Tuple> nextResultCont = new AtomicReference<>(null);
         AtomicLong recordScanned = new AtomicLong();
         return AsyncUtil.whileTrue(() ->
-                rebuildRangeOnly(store, nextResultCont.get(), recordScanned, rangeEndInclusive).thenApply(cont -> {
+                rebuildRangeOnly(store, nextResultCont.get(), recordScanned, null).thenApply(cont -> {
                     if (cont == null) {
                         return false;
                     }

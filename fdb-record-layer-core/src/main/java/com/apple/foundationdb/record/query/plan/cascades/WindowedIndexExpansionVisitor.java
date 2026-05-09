@@ -32,10 +32,12 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -46,7 +48,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
-import java.util.function.Supplier;
+import java.util.Set;
 
 /**
  * Class to expand a by-rank index access into a candidate graph. The visitation methods are left unchanged from the super
@@ -185,6 +187,17 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 indexKeyValues,
                 ValueIndexExpansionVisitor.fullKey(index, primaryKey),
                 primaryKey);
+    }
+
+    @Override
+    @Nonnull
+    public MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
+                                 @Nonnull final Set<String> queriedRecordTypeNames,
+                                 @Nonnull final Type.Record baseType,
+                                 @Nonnull final AccessHint accessHint,
+                                 @Nullable final KeyExpression ignored,
+                                 final boolean isReverse) {
+        throw new UnsupportedOperationException("windowed index expansion only works with a type filter supplier");
     }
 
     @Nonnull

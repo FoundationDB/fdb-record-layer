@@ -265,7 +265,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                                                                  @Nonnull final VectorIndexScanBounds vectorIndexScanBounds,
                                                                  @Nonnull final ScanProperties innerScanProperties) {
         Verify.verify(prefixSize > 0);
-        return outerContinuation -> timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_SKIP_SCAN,
+        return outerContinuation -> timer.instrument(VectorIndexHelper.Events.VECTOR_SKIP_SCAN,
                 new ChainedCursor<>(state.context,
                         lastKeyOptional -> nextPrefixTuple(vectorIndexScanBounds.getPrefixRange(),
                                 prefixSize, lastKeyOptional.orElse(null), innerScanProperties),

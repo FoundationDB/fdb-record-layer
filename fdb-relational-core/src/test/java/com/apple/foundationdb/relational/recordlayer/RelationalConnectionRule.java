@@ -71,7 +71,10 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
 
     @Override
     public void afterEach(ExtensionContext context) throws SQLException {
-        connection.close();
+        if (connection != null) {
+            connection.close();
+            connection = null;
+        }
     }
 
     @Override
