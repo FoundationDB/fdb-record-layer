@@ -181,7 +181,6 @@ public class ReassignTask extends AbstractDeferredTask {
                             targetClusterCentroid, storageTransform, numNeighborhood)
                     .thenAccept(fetchedNeighborhood -> {
                         final ReassignTask reassignTask = withHighPriorityAndNeighborhood(random,
-                                config.deterministicRandomness(),
                                 ClusterIdAndCentroid.fromClusterMetadataAndDistances(fetchedNeighborhood));
                         reassignTask.writeDeferredTask(transaction);
                         if (logger.isTraceEnabled()) {
@@ -535,10 +534,9 @@ public class ReassignTask extends AbstractDeferredTask {
 
     @Nonnull
     private ReassignTask withHighPriorityAndNeighborhood(@Nonnull final SplittableRandom random,
-                                                         final boolean deterministicRandomness,
                                                          @Nonnull final List<ClusterIdAndCentroid> neighborhood) {
         return ReassignTask.of(getLocator(), getAccessInfo(),
-                randomHighPriorityTaskId(random, deterministicRandomness), getTargetClusterId(),
+                randomHighPriorityTaskId(random, getConfig().deterministicRandomness()), getTargetClusterId(),
                 getCentroid(), getCauseClusterIds(), neighborhood);
     }
 

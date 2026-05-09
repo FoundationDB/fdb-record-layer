@@ -234,7 +234,6 @@ public class SplitMergeTask extends AbstractDeferredTask {
                     .thenAccept(fetchedNeighborhood -> {
                         final SplitMergeTask splitMergeTask =
                                 withHighPriorityAndNeighborhood(random,
-                                        config.deterministicRandomness(),
                                         ClusterIdAndCentroid.fromClusterMetadataAndDistances(fetchedNeighborhood));
                         splitMergeTask.writeDeferredTask(transaction);
                         if (logger.isTraceEnabled()) {
@@ -802,10 +801,9 @@ public class SplitMergeTask extends AbstractDeferredTask {
      */
     @Nonnull
     private SplitMergeTask withHighPriorityAndNeighborhood(@Nonnull final SplittableRandom random,
-                                                           final boolean deterministicRandomness,
                                                            @Nonnull final List<ClusterIdAndCentroid> neighborhood) {
         return SplitMergeTask.of(getLocator(), getAccessInfo(),
-                randomHighPriorityTaskId(random, deterministicRandomness), getTargetClusterId(),
+                randomHighPriorityTaskId(random, getConfig().deterministicRandomness()), getTargetClusterId(),
                 getCentroid(), neighborhood);
     }
 
