@@ -26,7 +26,7 @@ import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.UUID;
 
-class VectorId {
+class VectorId implements Comparable<VectorId> {
     @Nonnull
     private final Tuple primaryKey;
     @Nonnull
@@ -65,5 +65,14 @@ class VectorId {
     @Override
     public String toString() {
         return "VId[" + primaryKey + ";" + uuid + "]";
+    }
+
+    @Override
+    public int compareTo(@Nonnull final VectorId o) {
+        final int cmp = primaryKey.compareTo(o.getPrimaryKey());
+        if (cmp != 0) {
+            return cmp;
+        }
+        return uuid.compareTo(o.getUuid());
     }
 }

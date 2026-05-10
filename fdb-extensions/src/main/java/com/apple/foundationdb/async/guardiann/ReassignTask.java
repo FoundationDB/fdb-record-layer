@@ -281,7 +281,7 @@ public class ReassignTask extends AbstractDeferredTask {
         final ImmutableListMultimap.Builder<UUID, VectorReference> assignmentBuilder =
                 ImmutableListMultimap.builder();
         final TopK<VectorReference> replicatedTopK =
-                new TopK<>(Comparator.comparing(VectorReference::getReplicationPriority),
+                TopK.max(Comparator.comparing(VectorReference::getReplicationPriority),
                         config.replicatedClusterTarget());
 
         RunningStandardDeviation replicationPriorityStandardDeviation = RunningStandardDeviation.identity();

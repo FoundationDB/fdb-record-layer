@@ -564,7 +564,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                     if (newClusterIds.contains(replicationCandidateClusterMetadata.id())) {
                         final var reservoirSampler =
                                 replicatedAssignmentSamplerMap.computeIfAbsent(replicationCandidateClusterMetadata.id(),
-                                        ignored -> new TopK<>(Comparator.comparing(VectorReference::getReplicationPriority),
+                                        ignored -> TopK.max(Comparator.comparing(VectorReference::getReplicationPriority),
                                                 config.replicatedClusterTarget()));
                         reservoirSampler.add(newVectorReference);
                     } else {

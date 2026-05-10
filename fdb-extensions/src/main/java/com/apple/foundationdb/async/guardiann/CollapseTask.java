@@ -190,7 +190,7 @@ public class CollapseTask extends AbstractDeferredTask {
         final ImmutableListMultimap.Builder<UUID, VectorId> collapsedAssignmentsMapBuilder =
                 ImmutableListMultimap.builder();
         final TopK<VectorReference> replicatedTopK =
-                new TopK<>(Comparator.comparing(VectorReference::getReplicationPriority),
+                TopK.max(Comparator.comparing(VectorReference::getReplicationPriority),
                         config.replicatedClusterTarget());
         RunningStandardDeviation standardDeviation = RunningStandardDeviation.identity();
 

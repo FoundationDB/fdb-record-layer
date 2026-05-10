@@ -23,68 +23,61 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.PriorityQueue;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static com.apple.foundationdb.async.AsyncUtil.forEachRemaining;
 
-public class TopK<T> {
+public class DistinctTopK<T> {
     @Nonnull
-    private final PriorityQueue<T> queue;
+    private final TreeSet<T> set;
     @SuppressWarnings("checkstyle:MemberName")
     final int k;
 
-    private TopK(@Nonnull final Comparator<T> comparator, final int k) {
-        this.queue = new PriorityQueue<>(comparator);
+    private DistinctTopK(@Nonnull final Comparator<T> comparator, final int k) {
+        this.set = Sets.newTreeSet(comparator);
         this.k = k;
     }
 
     public boolean add(@Nonnull T item) {
-        if (queue.size() < k) {
-            return queue.add(item);
-        }
-
-        final Comparator<? super T> comparator = queue.comparator();
-        final T currentWorst = queue.peek();
-
-        if (comparator.compare(item, currentWorst) <= 0) {
+        if (set.contains(item)) {
             return false;
         }
 
-        queue.poll();
-        return queue.add(item);
-    }
+        if (set.size() < k) {
+            return set.add(item);
+        }
 
-    @Nonnull
-    public List<T> toUnsortedList() {
-        return ImmutableList.copyOf(queue);
+        final Comparator<? super T> comparator = Objects.requireNonNull(set.comparator());
+        final T currentWorst = Objects.requireNonNull(set.first());
+
+        if (comparator.compare(item, currentWorst) < 0) {
+            return false;
+        }
+
+        set.pollFirst();
+        return set.add(item);
     }
 
     @SuppressWarnings("unchecked")
     public List<T> toSortedList() {
-        final PriorityQueue<T> copy = new PriorityQueue<>(queue);
-        final int size = copy.size();
-        final T[] array = (T[]) new Object[size];
-
-        for (int i = size - 1; i >= 0; i --) {
-            array[i] = copy.poll();
-        }
-
-        return ImmutableList.copyOf(array);
+        return ImmutableList.copyOf(set.descendingIterator());
     }
 
     @Nonnull
     public Optional<T> worstElement() {
-        if (queue.isEmpty()) {
+        if (set.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(queue.peek());
+        return Optional.of(set.first());
     }
 
     @Nonnull
@@ -108,12 +101,12 @@ public class TopK<T> {
     }
 
     @Nonnull
-    public static <T> TopK<T> min(@Nonnull final Comparator<T> comparator, final int k) {
-        return new TopK<>(comparator.reversed(), k);
+    public static <T> DistinctTopK<T> min(@Nonnull final Comparator<T> comparator, final int k) {
+        return new DistinctTopK<>(comparator.reversed(), k);
     }
 
     @Nonnull
-    public static <T> TopK<T> max(@Nonnull final Comparator<T> comparator, final int k) {
-        return new TopK<>(comparator, k);
+    public static <T> DistinctTopK<T> max(@Nonnull final Comparator<T> comparator, final int k) {
+        return new DistinctTopK<>(comparator, k);
     }
 }

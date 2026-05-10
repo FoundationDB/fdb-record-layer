@@ -302,7 +302,7 @@ public abstract class AbstractDeferredTask {
             }
 
             final TopK<ClusterMetadataWithDistance> nearestClusters =
-                    new TopK<>(Comparator.comparing(ClusterMetadataWithDistance::distance).reversed(), 32);
+                    TopK.min(Comparator.comparing(ClusterMetadataWithDistance::distance), 32);
             for (final ClusterMetadataWithDistance clusterMetadataWithDistance : candidateClusters.values()) {
                 final double distance =
                         estimator.distance(vectorReference.getVector(), clusterMetadataWithDistance.centroid());
