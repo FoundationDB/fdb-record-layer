@@ -421,6 +421,13 @@ class TestGenerateAnnotations(unittest.TestCase):
         annotations = generate_annotations(self.coverage_data, diff_data, None)
         self.assertEqual(len(annotations), 0)
 
+    def test_skips_files_with_only_deletions(self):
+        diff_data = {
+            'fdb-record-layer-core/src/main/java/com/apple/foundationdb/record/FDBRecordStore.java': set(),
+        }
+        annotations = generate_annotations(self.coverage_data, diff_data, None)
+        self.assertEqual(len(annotations), 0)
+
     def test_annotation_contains_coverage_data(self):
         diff_data = {
             'fdb-record-layer-core/src/main/java/com/apple/foundationdb/record/FDBRecordStore.java': {12, 13, 14},

@@ -246,6 +246,10 @@ def generate_annotations(coverage_data, diff_data, source_prefixes):
         if os.path.splitext(repo_path)[1] not in JAVA_EXTENSIONS:
             continue
 
+        # Skip files with only deletions (no added/modified lines)
+        if not changed_line_numbers:
+            continue
+
         jacoco_key = repo_path_to_jacoco_key(repo_path, source_prefixes)
         if jacoco_key is None:
             continue
