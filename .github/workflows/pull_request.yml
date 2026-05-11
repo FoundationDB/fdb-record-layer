@@ -162,13 +162,13 @@ jobs:
           comment-type: summary
           min-coverage-overall: 75
           min-coverage-changed-files: 80
-      - name: Get Changed Files
+      - name: Get PR Diff
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr diff ${{ github.event.pull_request.number }} --name-only > changed_files.txt
+          gh pr diff ${{ github.event.pull_request.number }} > pr_diff.patch
       - name: Annotate Coverage
         run: |
           python3 build/coverage_annotations.py \
             --report .out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml \
-            --changed-files changed_files.txt
+            --diff pr_diff.patch

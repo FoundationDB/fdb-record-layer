@@ -22,27 +22,33 @@
 
 """
 Parse a JaCoCo XML coverage report and emit GitHub Actions annotations
-for uncovered and partially-covered lines in files changed by a pull request.
+showing per-file coverage summaries for files changed by a pull request.
+
+For each changed Java file, emits a single annotation with:
+  - Overall file line coverage percentage
+  - Line coverage percentage for the changed lines only
 
 Usage:
     python build/coverage_annotations.py \
         --report .out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml \
-        --changed-files changed_files.txt \
-        [--max-annotations 50] \
+        --diff pr_diff.patch \
         [--source-prefix 'src/main/java/']
 
-The script outputs GitHub Actions workflow commands (::warning, ::notice) that
+The script outputs GitHub Actions workflow commands (::notice) that
 appear as inline annotations on the PR "Files changed" tab.
 """
 
 import argparse
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 
 DEFAULT_SOURCE_PREFIXES = ['src/main/java/']
-DEFAULT_MAX_ANNOTATIONS = 50
 JAVA_EXTENSIONS = {'.java'}
+
+# Matches a unified diff hunk header: @@ -old_start[,old_count] +new_start[,new_count] @@
+HUNK_HEADER_RE = re.compile(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@')
 
 
 class LineCoverage:
@@ -60,50 +66,14 @@ class LineCoverage:
         self.covered_branches = covered_branches
 
     @property
-    def is_uncovered(self):
-        """Line has executable code but nothing was executed."""
-        return self.covered_instructions == 0 and self.missed_instructions > 0
+    def is_covered(self):
+        """Line has executable code and at least some was executed."""
+        return self.covered_instructions > 0
 
     @property
-    def is_partial_branch(self):
-        """Line was executed but some branches were not taken."""
-        return (self.covered_instructions > 0
-                and self.missed_branches > 0
-                and self.covered_branches > 0)
-
-    @property
-    def status(self):
-        if self.is_uncovered:
-            return 'uncovered'
-        elif self.is_partial_branch:
-            return 'partial'
-        else:
-            return 'covered'
-
-
-class AnnotationRange:
-    """A range of consecutive lines with the same coverage status."""
-
-    __slots__ = ('start_line', 'end_line', 'status', 'total_missed_instructions',
-                 'covered_branches', 'total_branches')
-
-    def __init__(self, start_line, end_line, status, total_missed_instructions=0,
-                 covered_branches=0, total_branches=0):
-        self.start_line = start_line
-        self.end_line = end_line
-        self.status = status
-        self.total_missed_instructions = total_missed_instructions
-        self.covered_branches = covered_branches
-        self.total_branches = total_branches
-
-    @property
-    def message(self):
-        if self.status == 'uncovered':
-            return 'Not covered by tests'
-        elif self.status == 'partial':
-            return (f'Partial branch coverage '
-                    f'({self.covered_branches}/{self.total_branches} branches covered)')
-        return ''
+    def is_executable(self):
+        """Line has executable code (covered or not)."""
+        return self.missed_instructions > 0 or self.covered_instructions > 0
 
 
 def repo_path_to_jacoco_key(repo_path, prefixes=None):
@@ -154,98 +124,124 @@ def parse_jacoco_report(report_path):
     return coverage_data
 
 
-def read_changed_files(changed_files_path):
-    """Read a file containing one repo-relative path per line."""
-    with open(changed_files_path) as f:
-        return [line.strip() for line in f if line.strip()]
-
-
-def filter_source_files(file_paths):
-    """Filter to only Java source files."""
-    return [p for p in file_paths if os.path.splitext(p)[1] in JAVA_EXTENSIONS]
-
-
-def group_consecutive_lines(lines):
+def parse_diff(diff_path):
     """
-    Group consecutive lines with the same coverage status into AnnotationRanges.
-
-    Only groups 'uncovered' and 'partial' lines (covered lines are ignored).
-    Consecutive means line numbers differ by exactly 1 and have the same status.
-    """
-    # Filter to only lines that need annotations
-    notable_lines = [l for l in lines if l.status in ('uncovered', 'partial')]
-    if not notable_lines:
-        return []
-
-    # Sort by line number
-    notable_lines.sort(key=lambda l: l.line_number)
-
-    ranges = []
-    current_start = notable_lines[0]
-    current_end = notable_lines[0]
-    current_status = notable_lines[0].status
-    missed_instr = notable_lines[0].missed_instructions
-    cov_branches = notable_lines[0].covered_branches
-    tot_branches = notable_lines[0].covered_branches + notable_lines[0].missed_branches
-
-    for line in notable_lines[1:]:
-        if (line.status == current_status
-                and line.line_number == current_end.line_number + 1):
-            # Extend the current range
-            current_end = line
-            missed_instr += line.missed_instructions
-            cov_branches += line.covered_branches
-            tot_branches += line.covered_branches + line.missed_branches
-        else:
-            # Emit the current range and start a new one
-            ranges.append(AnnotationRange(
-                start_line=current_start.line_number,
-                end_line=current_end.line_number,
-                status=current_status,
-                total_missed_instructions=missed_instr,
-                covered_branches=cov_branches,
-                total_branches=tot_branches,
-            ))
-            current_start = line
-            current_end = line
-            current_status = line.status
-            missed_instr = line.missed_instructions
-            cov_branches = line.covered_branches
-            tot_branches = line.covered_branches + line.missed_branches
-
-    # Emit the last range
-    ranges.append(AnnotationRange(
-        start_line=current_start.line_number,
-        end_line=current_end.line_number,
-        status=current_status,
-        total_missed_instructions=missed_instr,
-        covered_branches=cov_branches,
-        total_branches=tot_branches,
-    ))
-    return ranges
-
-
-def format_annotation(repo_path, annotation_range):
-    """Format a single GitHub Actions workflow command for an annotation."""
-    level = 'warning' if annotation_range.status == 'uncovered' else 'notice'
-    location = f'file={repo_path},line={annotation_range.start_line}'
-    if annotation_range.end_line > annotation_range.start_line:
-        location += f',endLine={annotation_range.end_line}'
-    message = annotation_range.message
-    return f'::{level} {location}::{message}'
-
-
-def generate_annotations(coverage_data, changed_files, source_prefixes, max_annotations):
-    """
-    Generate annotation strings for changed files based on coverage data.
+    Parse a unified diff and return the set of added line numbers per file.
 
     Returns:
-        tuple of (list of annotation strings, int of remaining annotations not emitted)
+        dict mapping repo-relative file path -> set of added/modified line numbers
+    """
+    changed_lines = {}
+    current_file = None
+    current_line = 0
+
+    with open(diff_path) as f:
+        for raw_line in f:
+            line = raw_line.rstrip('\n')
+
+            # Detect file header: +++ b/path/to/file.java
+            if line.startswith('+++ b/'):
+                current_file = line[6:]  # strip '+++ b/'
+                if current_file not in changed_lines:
+                    changed_lines[current_file] = set()
+                continue
+
+            # Detect hunk header
+            hunk_match = HUNK_HEADER_RE.match(line)
+            if hunk_match:
+                current_line = int(hunk_match.group(1))
+                continue
+
+            if current_file is None:
+                continue
+
+            # Inside a hunk: track line numbers
+            if line.startswith('+'):
+                # This is an added/modified line
+                changed_lines[current_file].add(current_line)
+                current_line += 1
+            elif line.startswith('-'):
+                # Removed line - doesn't affect new file line numbering
+                pass
+            else:
+                # Context line (or "\ No newline at end of file")
+                if not line.startswith('\\'):
+                    current_line += 1
+
+    return changed_lines
+
+
+def compute_file_coverage(lines):
+    """
+    Compute overall line coverage for a file.
+
+    Returns:
+        tuple of (covered_lines, total_executable_lines)
+    """
+    executable = [l for l in lines if l.is_executable]
+    covered = [l for l in executable if l.is_covered]
+    return len(covered), len(executable)
+
+
+def compute_changed_lines_coverage(lines, changed_line_numbers):
+    """
+    Compute line coverage for only the changed lines in a file.
+
+    Returns:
+        tuple of (covered_changed, total_executable_changed)
+    """
+    line_map = {l.line_number: l for l in lines}
+    executable_changed = 0
+    covered_changed = 0
+
+    for line_num in changed_line_numbers:
+        line = line_map.get(line_num)
+        if line is not None and line.is_executable:
+            executable_changed += 1
+            if line.is_covered:
+                covered_changed += 1
+
+    return covered_changed, executable_changed
+
+
+def format_percentage(covered, total):
+    """Format a coverage percentage string."""
+    if total == 0:
+        return 'N/A (no executable lines)'
+    pct = (covered / total) * 100
+    return f'{pct:.1f}% ({covered}/{total} lines)'
+
+
+def format_file_annotation(repo_path, file_coverage, changed_coverage):
+    """
+    Format a single GitHub Actions annotation for a file's coverage summary.
+
+    Returns the annotation string, or None if there's nothing to report.
+    """
+    file_covered, file_total = file_coverage
+    changed_covered, changed_total = changed_coverage
+
+    file_pct_str = format_percentage(file_covered, file_total)
+    changed_pct_str = format_percentage(changed_covered, changed_total)
+
+    message = f'File coverage: {file_pct_str} | Changed lines: {changed_pct_str}'
+    return f'::notice file={repo_path},line=1::{message}'
+
+
+def generate_annotations(coverage_data, diff_data, source_prefixes):
+    """
+    Generate one annotation per changed file with coverage summary.
+
+    Returns:
+        list of annotation strings
     """
     annotations = []
-    total_skipped = 0
 
-    for repo_path in changed_files:
+    for repo_path, changed_line_numbers in sorted(diff_data.items()):
+        # Only process Java files
+        if os.path.splitext(repo_path)[1] not in JAVA_EXTENSIONS:
+            continue
+
         jacoco_key = repo_path_to_jacoco_key(repo_path, source_prefixes)
         if jacoco_key is None:
             continue
@@ -254,28 +250,26 @@ def generate_annotations(coverage_data, changed_files, source_prefixes, max_anno
         if lines is None:
             continue
 
-        ranges = group_consecutive_lines(lines)
-        for r in ranges:
-            if len(annotations) >= max_annotations:
-                total_skipped += 1
-            else:
-                annotations.append(format_annotation(repo_path, r))
+        file_coverage = compute_file_coverage(lines)
+        changed_coverage = compute_changed_lines_coverage(lines, changed_line_numbers)
 
-    return annotations, total_skipped
+        annotation = format_file_annotation(repo_path, file_coverage, changed_coverage)
+        if annotation:
+            annotations.append(annotation)
+
+    return annotations
 
 
 def main(argv):
     """Main entry point for the coverage annotations script."""
     parser = argparse.ArgumentParser(
         prog='coverage_annotations',
-        description='Emit GitHub Actions annotations for uncovered lines in changed files'
+        description='Emit GitHub Actions annotations with per-file coverage summaries'
     )
     parser.add_argument('--report', required=True,
                         help='Path to JaCoCo codeCoverageReport XML file')
-    parser.add_argument('--changed-files', required=True,
-                        help='Path to file listing changed files (one per line)')
-    parser.add_argument('--max-annotations', type=int, default=DEFAULT_MAX_ANNOTATIONS,
-                        help=f'Maximum number of annotations to emit (default: {DEFAULT_MAX_ANNOTATIONS})')
+    parser.add_argument('--diff', required=True,
+                        help='Path to unified diff file (e.g., from gh pr diff)')
     parser.add_argument('--source-prefix', action='append', default=None,
                         help='Source path prefixes to strip '
                              '(default: src/main/java/). '
@@ -289,17 +283,16 @@ def main(argv):
         print(f'::error ::Coverage report not found: {args.report}', file=sys.stderr)
         sys.exit(1)
 
-    if not os.path.isfile(args.changed_files):
-        print(f'::error ::Changed files list not found: {args.changed_files}', file=sys.stderr)
+    if not os.path.isfile(args.diff):
+        print(f'::error ::Diff file not found: {args.diff}', file=sys.stderr)
         sys.exit(1)
 
     # Parse inputs
     coverage_data = parse_jacoco_report(args.report)
-    changed_files = read_changed_files(args.changed_files)
-    source_files = filter_source_files(changed_files)
+    diff_data = parse_diff(args.diff)
 
-    if not source_files:
-        print('No Java source files in the changed files list. Nothing to annotate.')
+    if not diff_data:
+        print('No changed files found in diff. Nothing to annotate.')
         return
 
     if not coverage_data:
@@ -307,25 +300,13 @@ def main(argv):
         return
 
     # Generate and emit annotations
-    annotations, skipped = generate_annotations(
-        coverage_data, source_files, source_prefixes, args.max_annotations
-    )
+    annotations = generate_annotations(coverage_data, diff_data, source_prefixes)
 
     for annotation in annotations:
         print(annotation)
 
-    if skipped > 0:
-        print(f'::notice ::Coverage annotations truncated at {args.max_annotations}. '
-              f'{skipped} more uncovered regions not shown.')
-
     # Summary
-    matched_files = sum(
-        1 for f in source_files
-        if repo_path_to_jacoco_key(f, source_prefixes) in coverage_data
-    )
-    print(f'\nProcessed {len(source_files)} source file(s), '
-          f'{matched_files} with coverage data, '
-          f'{len(annotations)} annotation(s) emitted.',
+    print(f'\n{len(annotations)} file(s) annotated with coverage data.',
           file=sys.stderr)
 
 
