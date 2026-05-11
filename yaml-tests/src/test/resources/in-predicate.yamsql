@@ -18,12 +18,22 @@
 # limitations under the License.
 ---
 schema_template:
-    create type as struct ts(sa bigint, sb bigint)
-    create type as struct fruit_type(name string, color string)
-    create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
-    create index f1 as select f.sa, f.sb from ta order by f.sa, f.sb
-    create table array_table(id bigint, fruits string array, numbers bigint array, fruit_records fruit_type array, primary key(id))
-    create index fruits as select fruits from array_table
+  - initialVersionLessThan: "4.12.1.0"
+    definition: |
+      create type as struct ts(sa bigint, sb bigint)
+      create type as struct fruit_type(name string, color string)
+      create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
+      create index f1 as select f.sa, f.sb from ta order by f.sa, f.sb
+      create table array_table(id bigint, fruits string array, numbers bigint array, fruit_records fruit_type array, primary key(id))
+      create index fruits as select fruits from array_table
+  - initialVersionAtLeast: "4.12.1.0"
+    definition: |
+      create type as struct ts(sa bigint, sb bigint)
+      create type as struct fruit_type(name string, color string)
+      create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
+      create index f1 as select f.sa, f.sb from ta order by f.sa, f.sb
+      create table array_table(id bigint, fruits string array, numbers bigint array, fruit_records fruit_type array, primary key(id))
+      create index fruits as select "fruit" from array_table as t, t.fruits as "fruit"
 ---
 setup:
   steps:
