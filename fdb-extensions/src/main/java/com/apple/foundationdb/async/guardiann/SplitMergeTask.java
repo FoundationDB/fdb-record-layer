@@ -224,7 +224,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         final Quantizer quantizer = primitives.quantizer(accessInfo);
         final Estimator estimator = quantizer.estimator();
 
-        final int numNeighborhood = 32;
+        final int numNeighborhood = config.splitNeighborhoodSize();
 
         final List<ClusterIdAndCentroid> neighborhood = getNeighborhood();
         if (neighborhood.isEmpty()) {
@@ -252,7 +252,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         return MoreAsyncUtil.forEach(neighborhood,
                         clusterIdAndCentroid -> primitives.fetchClusterMetadataWithDistance(transaction,
                                 clusterIdAndCentroid.clusterId(), clusterIdAndCentroid.centroid(), 0.0d),
-                        10, executor)
+                        config.splitMergeConcurrency(), executor)
                 .thenCompose(neighborhoodClusterMetadataWithDistances -> {
                     // Compute two candidate split configurations:
                     // 1-to-2: split the target into 2 clusters (1 inner + rest outer)
@@ -286,8 +286,9 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
                                                 return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true)
                                                         .thenApply(vectorReferences ->
-                                                                kMeans(neighborhoods, vectorReferences, nestedRandom, estimator));
-                                            }, 10, executor)
+                                                                kMeans(neighborhoods, vectorReferences, nestedRandom, estimator,
+                                                                        config.kMeansMaxIterations(), config.kMeansMaxRestarts()));
+                                            }, config.splitMergeConcurrency(), executor)
                                     .<RepartitioningCandidate>thenApply(assignmentCandidates -> {
                                         final Map<RepartitioningCandidate, UpgradeResult> candidateToUpgradeResultMap = Maps.newIdentityHashMap();
                                         final RepartitioningCandidate split1to2Candidate =
@@ -353,15 +354,16 @@ public class SplitMergeTask extends AbstractDeferredTask {
     private CompletableFuture<Void> merge(@Nonnull final Transaction transaction,
                                           @Nonnull final ClusterMetadata targetClusterMetadata,
                                           @Nonnull final RealVector targetClusterCentroid) {
-        final SplittableRandom random = RandomHelpers.random(getTaskId());
+        final Config config = getConfig();
         final Primitives primitives = primitives();
         final AccessInfo accessInfo = getAccessInfo();
+        final SplittableRandom random = RandomHelpers.random(getTaskId());
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
         final Quantizer quantizer = primitives.quantizer(accessInfo);
         final Estimator estimator = quantizer.estimator();
 
-        final int numInnerNeighborhood = 3;
-        final int numOuterNeighborhood = 8;
+        final int numInnerNeighborhood = config.mergeInnerNeighborhoodSize();
+        final int numOuterNeighborhood = config.mergeOuterNeighborhoodSize();
 
         final CompletableFuture<Neighborhoods> neighborhoodsFuture =
                 primitives.fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata, targetClusterCentroid,
@@ -422,8 +424,9 @@ public class SplitMergeTask extends AbstractDeferredTask {
         // re-fit only the primary vectors
         final BoundedKMeans.Result<Transformed<RealVector>> kMeansResult =
                 BoundedKMeans.fit(random, estimator, VectorReference.vectorLens(),
-                        Transformed.underlyingLens(), primaryVectorReferences, targetNumPartitions, 8,
-                        3, 0.00, BoundedKMeans.overflowQuadraticPenalty(),
+                        Transformed.underlyingLens(), primaryVectorReferences, targetNumPartitions,
+                        getConfig().kMeansMaxIterations(), getConfig().kMeansMaxRestarts(),
+                        0.00, BoundedKMeans.overflowQuadraticPenalty(),
                         true);
 
         return assignPrimaryVectorReferences(estimator, outerNeighborhood, primaryVectorReferences,
@@ -904,7 +907,9 @@ public class SplitMergeTask extends AbstractDeferredTask {
     private static RepartitioningCandidate kMeans(@Nonnull final Neighborhoods neighborhoods,
                                                   @Nonnull final List<VectorReference> vectorReferences,
                                                   @Nonnull final SplittableRandom random,
-                                                  @Nonnull final Estimator estimator) {
+                                                  @Nonnull final Estimator estimator,
+                                                  final int maxIterations,
+                                                  final int maxRestarts) {
         final ImmutableList.Builder<VectorReference> primaryVectorReferencesBuilder = ImmutableList.builder();
         for (final VectorReference vectorReference : vectorReferences) {
             if (vectorReference.isPrimaryCopy()) {
@@ -918,8 +923,8 @@ public class SplitMergeTask extends AbstractDeferredTask {
         return new RepartitioningCandidate(neighborhoods, primaryVectorReferences,
                 BoundedKMeans.fit(random, estimator, VectorReference.vectorLens(),
                         Transformed.underlyingLens(), primaryVectorReferences,
-                        neighborhoods.innerNeighborhood().size() + 1, 8,
-                        3, 0.00, BoundedKMeans.overflowQuadraticPenalty(),
+                        neighborhoods.innerNeighborhood().size() + 1, maxIterations,
+                        maxRestarts, 0.00, BoundedKMeans.overflowQuadraticPenalty(),
                         true));
     }
 

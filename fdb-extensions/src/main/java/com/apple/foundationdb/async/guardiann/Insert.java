@@ -237,7 +237,7 @@ public class Insert {
                     final AtomicDouble primaryDistanceAtomic = new AtomicDouble(Double.NaN);
 
                     final AsyncIterable<ClusterMetadataWithDistance> affectedNeighborhoodIterable =
-                            takeWhileIterable(limitIterable(clusterMetadataIterable, 10,
+                            takeWhileIterable(limitIterable(clusterMetadataIterable, config.insertMaxCandidateClusters(),
                                             getExecutor()),
                                     clusterMetadataWithDistance -> {
                                         final int index = indexAtomic.getAndIncrement();
@@ -414,7 +414,7 @@ public class Insert {
             }
             if (shouldMaintainStats(random)) {
                 return consumeSampledVectors(transaction, samplesSubspace,
-                                50, getOnReadListener())
+                                config.sampleBatchSize(), getOnReadListener())
                         .thenApply(sampledVectors -> {
                             final AggregatedVector aggregatedSampledVector =
                                     aggregateVectors(sampledVectors);

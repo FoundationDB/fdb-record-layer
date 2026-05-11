@@ -158,6 +158,7 @@ public class Search {
                                            final int efSearch,
                                            @Nonnull final RealVector queryVector) {
         final Primitives primitives = primitives();
+        final Config config = getConfig();
 
         return primitives.fetchAccessInfo(readTransaction)
                 .thenCompose(accessInfo -> {
@@ -171,7 +172,7 @@ public class Search {
                     final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
                             MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
                                     primitives.centroidsOrderedByDistance(readTransaction, queryVector,
-                                            0.0d, null), getExecutor()), 48, getExecutor());
+                                            0.0d, null), getExecutor()), config.searchMaxClusters(), getExecutor());
 
                     final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
                             mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
@@ -186,7 +187,7 @@ public class Search {
                                                                 transformedCentroid,
                                                                 resultEntry.getDistance());
                                                     }),
-                                    10);
+                                    config.searchConcurrency());
 
                     final CompletableFuture<List<ClusterMetadataWithDistance>> clusterMetadataWithDistancesFuture =
                             AsyncUtil.collect(clusterMetadataIterable, getExecutor());
@@ -194,7 +195,7 @@ public class Search {
                     final var boundedClusterMetadataIterable =
                             MoreAsyncUtil.iterableFromCollection(
                                     clusterMetadataWithDistancesFuture.thenApply(clusterMetadataWithDistances -> {
-                                        if (clusterMetadataWithDistances.size() <= 16) {
+                                        if (clusterMetadataWithDistances.size() <= config.searchMinClustersBeforePruning()) {
                                             if (logger.isInfoEnabled()) {
                                                 logger.info("querying numClusters={}", clusterMetadataWithDistances.size());
                                             }
@@ -203,10 +204,10 @@ public class Search {
 
                                         final double nearestCentroidDistance = clusterMetadataWithDistances.get(0).distance();
                                         int i;
-                                        for (i = 16; i < clusterMetadataWithDistances.size(); i ++) {
+                                        for (i = config.searchMinClustersBeforePruning(); i < clusterMetadataWithDistances.size(); i ++) {
                                             final ClusterMetadataWithDistance currentClusterMetadata =
                                                     clusterMetadataWithDistances.get(i);
-                                            if (currentClusterMetadata.distance() / nearestCentroidDistance > 1.50) {
+                                            if (currentClusterMetadata.distance() / nearestCentroidDistance > config.searchDistanceRatioCutoff()) {
                                                 break;
                                             }
                                         }
@@ -222,7 +223,7 @@ public class Search {
                                                     primitives.fetchVectorReferencesIterable(readTransaction,
                                                             storageTransform,
                                                             clusterMetadataWithDistance.clusterMetadata().id()),
-                                            10),
+                                            config.searchConcurrency()),
                                     vectorReference -> {
                                         final double distance =
                                                 estimator.distance(transformedQueryVector, vectorReference.getVector());
@@ -289,6 +290,7 @@ public class Search {
                                             final int efSearch,
                                             @Nonnull final RealVector queryVector) {
         final Primitives primitives = primitives();
+        final Config config = getConfig();
 
         return primitives.fetchAccessInfo(readTransaction)
                 .thenCompose(accessInfo -> {
@@ -302,7 +304,7 @@ public class Search {
                     final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
                             MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
                                     primitives.centroidsOrderedByDistance(readTransaction, queryVector,
-                                            0.0d, null), getExecutor()), 48, getExecutor());
+                                            0.0d, null), getExecutor()), config.searchMaxClusters(), getExecutor());
 
                     final AsyncIterable<ClusterMetadataWithDistance> clusterMetadataIterable =
                             mapIterablePipelined(getExecutor(), clusterCentroidEntriesByDistanceIterable,
@@ -317,7 +319,7 @@ public class Search {
                                                                 transformedCentroid,
                                                                 resultEntry.getDistance());
                                                     }),
-                                    10);
+                                    config.searchConcurrency());
 
                     final CompletableFuture<List<ClusterMetadataWithDistance>> clusterMetadataWithDistancesFuture =
                             AsyncUtil.collect(clusterMetadataIterable, getExecutor());
@@ -325,7 +327,7 @@ public class Search {
                     final var boundedClusterMetadataIterable =
                             MoreAsyncUtil.iterableFromCollection(
                                     clusterMetadataWithDistancesFuture.thenApply(clusterMetadataWithDistances -> {
-                                        if (clusterMetadataWithDistances.size() <= 48) {
+                                        if (clusterMetadataWithDistances.size() <= config.searchMaxClusters()) {
                                             if (logger.isInfoEnabled()) {
                                                 logger.info("querying numClusters={}", clusterMetadataWithDistances.size());
                                             }
@@ -334,10 +336,10 @@ public class Search {
 
                                         final double nearestCentroidDistance = clusterMetadataWithDistances.get(0).distance();
                                         int i;
-                                        for (i = 48; i < clusterMetadataWithDistances.size(); i ++) {
+                                        for (i = config.searchMaxClusters(); i < clusterMetadataWithDistances.size(); i ++) {
                                             final ClusterMetadataWithDistance currentClusterMetadata =
                                                     clusterMetadataWithDistances.get(i);
-                                            if (currentClusterMetadata.distance() / nearestCentroidDistance > 1.50) {
+                                            if (currentClusterMetadata.distance() / nearestCentroidDistance > config.searchDistanceRatioCutoff()) {
                                                 break;
                                             }
                                         }
@@ -353,7 +355,7 @@ public class Search {
                                             primitives.fetchVectorReferencesIterable(readTransaction,
                                                     storageTransform,
                                                     clusterMetadataWithDistance.clusterMetadata().id()),
-                                    10),
+                                    config.searchConcurrency()),
                                     vectorReference -> {
                                         final double distance =
                                                 estimator.distance(transformedQueryVector, vectorReference.getVector());
@@ -378,7 +380,7 @@ public class Search {
                                                                 primitives.fetchVectorMetadata(readTransaction, primaryKey));
                                         return vectorMetadataFuture.thenApply(vectorMetadata ->
                                                 vectorMetadata.getUuid().equals(vectorReferenceId.getUuid()));
-                                    }, 10);
+                                    }, config.searchConcurrency());
 
                     final Set<Tuple> seenPrimaryKeys = Sets.newHashSet();
                     final AsyncIterable<VectorReferenceAndDistance> dedupedVectorReferenceAndDistancesIterable =

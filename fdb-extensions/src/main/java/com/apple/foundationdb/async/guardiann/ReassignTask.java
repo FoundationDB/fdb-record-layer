@@ -171,8 +171,8 @@ public class ReassignTask extends AbstractDeferredTask {
         final Quantizer quantizer = primitives.quantizer(accessInfo);
         final Estimator estimator = quantizer.estimator();
 
-        final int numInnerNeighborhood = 1;
-        final int numOuterNeighborhood = 31;
+        final int numInnerNeighborhood = config.reassignInnerNeighborhoodSize();
+        final int numOuterNeighborhood = config.reassignOuterNeighborhoodSize();
         final int numNeighborhood = numInnerNeighborhood + numOuterNeighborhood;
 
         final List<ClusterIdAndCentroid> neighborhood = getNeighborhood();
@@ -199,7 +199,7 @@ public class ReassignTask extends AbstractDeferredTask {
         return MoreAsyncUtil.forEach(neighborhood,
                         clusterIdAndCentroid -> primitives.fetchClusterMetadataWithDistance(transaction,
                                 clusterIdAndCentroid.clusterId(), clusterIdAndCentroid.centroid(), 0.0d),
-                        10, executor)
+                        config.reassignConcurrency(), executor)
                 .thenCompose(neighborhoodClusterMetadataWithDistances -> {
 
                     final Neighborhoods neighborhoods =

@@ -216,7 +216,7 @@ public class CollapseTask extends AbstractDeferredTask {
                                 vectorReferenceToVectorSignatureMap.get(vectorReference.getId().getUuid()));
 
                 final ImmutableSet<UUID> identicalVectors = vectorSignatureToVectorUuidMap.get(signature);
-                if (identicalVectors.size() > 100 && !blackHoleMap.containsKey(signature)) {
+                if (identicalVectors.size() > getConfig().collapseMinDuplicates() && !blackHoleMap.containsKey(signature)) {
                     //
                     // This reference should be collapsed but is not collapsed (yet).
                     //

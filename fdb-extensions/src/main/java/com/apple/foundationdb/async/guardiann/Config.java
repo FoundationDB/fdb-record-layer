@@ -29,8 +29,9 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nonnull;
 
 /**
- * TODO.
- * @param metric the metric in use for this guardiann structure
+ * Configuration for the Guardiann vector structure.
+ *
+ * @param metric the metric in use for this Guardiann structure
  * @param numDimensions the number of dimensions of the vectors stored
  * @param primaryClusterMin minimum number of primary vectors in a cluster, underflow will result in a merge task to be
  *        enqueued
@@ -38,44 +39,34 @@ import javax.annotation.Nonnull;
  *        enqueued
  * @param underreplicatedPrimaryClusterMax maximum number of under-replicated primary vectors in a cluster, overflow
  *        will result in a reassign task to be enqueued
- * @param replicatedClusterMaxWrites maximum number of writes of replicated vectors to a cluster. Since we might write
- *        duplicated replicated vectors, this threshold is not measured in actual the number of actual replicated
- *        vectors in a cluster but the number of writes of replicated clusters to that cluster.
+ * @param replicatedClusterMaxWrites maximum number of writes of replicated vectors to a cluster
  * @param replicatedClusterTarget the number of replicated clusters we target whenever a split/merge or a reassign task
- *        is executed. We keep the {@code replicatedClusterTarget} number of vectors with the highest
- *        {@code replication priorities} in that cluster.
- * @param replicationPriorityMin Minimum threshold for the replication priority. The replication priority is a
- *        score-like property that can be computed for each primary vector in a cluster in conjunction with a
- *        candidate neighboring cluster that we are trying to decide whether we should replicate this vector to or not.
- *        The higher the computed replication priority, the more necessary it becomes to keep a vector in the set of
- *        replicated vectors of the neighboring cluster In order to curb the amounts of writes caused by that
- *        replication push, we will not even attempt to write a vector into a neighboring cluster if the replication
- *        priority is less than {@code replicationPriorityMin}.
- * @param sampleVectorStatsProbability If sampling is necessary (currently iff {@link #isUseRaBitQ()} is {@code true}
- *        but the metric is not {@link Metric#COSINE_METRIC}), this probability determines the chance that we sample
- *        a write of a new vector into {@link StorageAdapter#getSamplesSubspace()}.
- * @param maintainStatsProbability If sampling is necessary (currently iff {@link #isUseRaBitQ()} is {@code true}
- *        but the metric is not {@link Metric#COSINE_METRIC}), this probability determines the chance that we maintain
- *        {@link StorageAdapter#getSamplesSubspace()} when inserting a vector.
- * @param statsThreshold If sampling is necessary (currently iff {@link #isUseRaBitQ()} is {@code true} but the metric
- *        is not {@link Metric#COSINE_METRIC}), this attribute represents the threshold (being a number of vectors) that
- *        when reached causes the stats maintenance logic to compute the actual statistics (currently the centroid of
- *        the vectors that have been inserted to far).
- * @param useRaBitQ Indicator if we should RaBitQ quantization. See {@link com.apple.foundationdb.rabitq.RaBitQuantizer}
- *        for more details.
- * @param raBitQNumExBits Number of bits per dimensions iff {@link #isUseRaBitQ()} is set to {@code true}, ignored
- *        otherwise. If RaBitQ encoding is used, a vector is stored using roughly
- *        {@code 25 + numDimensions * (numExBits + 1) / 8} bytes.
- * @param deterministicRandomness an indicator whether randomness should always be deterministic which is useful for
- *        debugging and to replay/recreate problematic situations. If {@code deterministicRandomness} is {@code true},
- *        cluster ids are assigned starting from {@code 0} monotonically increasing. Task ids are pseudo-randomly
- *        chosen.
- * @param maxNumConcurrentNodeFetches maximum number of concurrent node fetches during search and modification
- *        operations
- * @param maxNumConcurrentNeighborhoodFetches maximum number of concurrent neighborhood fetches during modification
- *        operations when the neighbors are pruned
- *
- *
+ *        is executed
+ * @param replicationPriorityMin minimum threshold for the replication priority score
+ * @param sampleVectorStatsProbability probability of sampling a vector write for statistics computation
+ * @param maintainStatsProbability probability of maintaining statistics when inserting a vector
+ * @param statsThreshold number of sampled vectors that triggers centroid computation
+ * @param useRaBitQ indicator if we should use RaBitQ quantization
+ * @param raBitQNumExBits number of extra bits per dimension for RaBitQ encoding
+ * @param deterministicRandomness whether randomness should always be deterministic (for debugging/replay)
+ * @param maxNumConcurrentNodeFetches maximum concurrent node fetches (passed through to HNSW config)
+ * @param maxNumConcurrentNeighborhoodFetches maximum concurrent neighborhood fetches (passed through to HNSW config)
+ * @param searchMaxClusters maximum number of clusters to probe during search
+ * @param searchMinClustersBeforePruning minimum clusters to accumulate before distance-ratio pruning
+ * @param searchDistanceRatioCutoff distance ratio threshold for cluster pruning during search
+ * @param searchConcurrency concurrency for parallel metadata fetches during search
+ * @param insertMaxCandidateClusters maximum clusters evaluated as insertion targets
+ * @param sampleBatchSize number of sampled vectors consumed per statistics-computation pass
+ * @param splitNeighborhoodSize number of nearest clusters fetched from HNSW for split candidate evaluation
+ * @param mergeInnerNeighborhoodSize number of clusters dissolved during a merge
+ * @param mergeOuterNeighborhoodSize number of outer clusters that may absorb overflow during merge
+ * @param kMeansMaxIterations maximum Lloyd's iterations per k-means restart
+ * @param kMeansMaxRestarts maximum number of random restarts for bounded k-means during split/merge
+ * @param reassignInnerNeighborhoodSize inner neighborhood size for reassign (the target cluster itself)
+ * @param reassignOuterNeighborhoodSize outer clusters considered as replication/migration targets during reassign
+ * @param collapseMinDuplicates minimum identical vectors sharing a signature before collapse
+ * @param splitMergeConcurrency concurrency for parallel operations during split/merge tasks
+ * @param reassignConcurrency concurrency for parallel operations during reassign tasks
  */
 @SuppressWarnings("checkstyle:MemberName")
 public record Config(@Nonnull Metric metric,
@@ -93,14 +84,36 @@ public record Config(@Nonnull Metric metric,
                      int raBitQNumExBits,
                      boolean deterministicRandomness,
                      int maxNumConcurrentNodeFetches,
-                     int maxNumConcurrentNeighborhoodFetches) implements BaseConfig {
+                     int maxNumConcurrentNeighborhoodFetches,
+                     // search
+                     int searchMaxClusters,
+                     int searchMinClustersBeforePruning,
+                     double searchDistanceRatioCutoff,
+                     int searchConcurrency,
+                     // insert
+                     int insertMaxCandidateClusters,
+                     int sampleBatchSize,
+                     // split/merge
+                     int splitNeighborhoodSize,
+                     int mergeInnerNeighborhoodSize,
+                     int mergeOuterNeighborhoodSize,
+                     int kMeansMaxIterations,
+                     int kMeansMaxRestarts,
+                     // reassign
+                     int reassignInnerNeighborhoodSize,
+                     int reassignOuterNeighborhoodSize,
+                     // collapse
+                     int collapseMinDuplicates,
+                     // per-task concurrency
+                     int splitMergeConcurrency,
+                     int reassignConcurrency) implements BaseConfig {
 
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final int DEFAULT_PRIMARY_CLUSTER_MIN = 100;
     public static final int DEFAULT_PRIMARY_CLUSTER_MAX = 1000;
     public static final int DEFAULT_UNDERREPLICATED_PRIMARY_CLUSTER_MAX = 50;
-    public static final int DEFAULT_REPLICATED_CLUSTER_MAX_WRITES = 3 * DEFAULT_PRIMARY_CLUSTER_MAX / 10; // 30% of primary max
-    public static final int DEFAULT_REPLICATED_CLUSTER_TARGET = DEFAULT_PRIMARY_CLUSTER_MAX / 10; // 10% of primary max
+    public static final int DEFAULT_REPLICATED_CLUSTER_MAX_WRITES = 3 * DEFAULT_PRIMARY_CLUSTER_MAX / 10;
+    public static final int DEFAULT_REPLICATED_CLUSTER_TARGET = DEFAULT_PRIMARY_CLUSTER_MAX / 10;
     public static final double DEFAULT_REPLICATION_PRIORITY_MIN = 0.89d;
 
     // stats
@@ -112,9 +125,32 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_RABITQ_NUM_EX_BITS = 4;
     // randomness
     public static final boolean DEFAULT_DETERMINISTIC_RANDOMNESS = false;
-    // concurrency
+    // HNSW concurrency (passed through)
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES = 16;
     public static final int DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES = 10;
+
+    // search
+    public static final int DEFAULT_SEARCH_MAX_CLUSTERS = 48;
+    public static final int DEFAULT_SEARCH_MIN_CLUSTERS_BEFORE_PRUNING = 16;
+    public static final double DEFAULT_SEARCH_DISTANCE_RATIO_CUTOFF = 1.50d;
+    public static final int DEFAULT_SEARCH_CONCURRENCY = 10;
+    // insert
+    public static final int DEFAULT_INSERT_MAX_CANDIDATE_CLUSTERS = 10;
+    public static final int DEFAULT_SAMPLE_BATCH_SIZE = 50;
+    // split/merge
+    public static final int DEFAULT_SPLIT_NEIGHBORHOOD_SIZE = 32;
+    public static final int DEFAULT_MERGE_INNER_NEIGHBORHOOD_SIZE = 3;
+    public static final int DEFAULT_MERGE_OUTER_NEIGHBORHOOD_SIZE = 8;
+    public static final int DEFAULT_KMEANS_MAX_ITERATIONS = 8;
+    public static final int DEFAULT_KMEANS_MAX_RESTARTS = 3;
+    // reassign
+    public static final int DEFAULT_REASSIGN_INNER_NEIGHBORHOOD_SIZE = 1;
+    public static final int DEFAULT_REASSIGN_OUTER_NEIGHBORHOOD_SIZE = 31;
+    // collapse
+    public static final int DEFAULT_COLLAPSE_MIN_DUPLICATES = 100;
+    // per-task concurrency
+    public static final int DEFAULT_SPLIT_MERGE_CONCURRENCY = 10;
+    public static final int DEFAULT_REASSIGN_CONCURRENCY = 10;
 
     public Config {
         Preconditions.checkArgument(numDimensions >= 1, "numDimensions must be (1, MAX_INT]");
@@ -161,24 +197,46 @@ public record Config(@Nonnull Metric metric,
                 underreplicatedPrimaryClusterMax(), replicatedClusterMaxWrites(), replicatedClusterTarget(),
                 replicationPriorityMin(), sampleVectorStatsProbability(), maintainStatsProbability(),
                 statsThreshold(), isUseRaBitQ(), getRaBitQNumExBits(), deterministicRandomness(),
-                maxNumConcurrentNodeFetches(), maxNumConcurrentNeighborhoodFetches());
+                maxNumConcurrentNodeFetches(), maxNumConcurrentNeighborhoodFetches(),
+                searchMaxClusters(), searchMinClustersBeforePruning(), searchDistanceRatioCutoff(),
+                searchConcurrency(), insertMaxCandidateClusters(), sampleBatchSize(),
+                splitNeighborhoodSize(), mergeInnerNeighborhoodSize(), mergeOuterNeighborhoodSize(),
+                kMeansMaxIterations(), kMeansMaxRestarts(),
+                reassignInnerNeighborhoodSize(), reassignOuterNeighborhoodSize(),
+                collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency());
     }
 
     @Override
     @Nonnull
     public String toString() {
         return "Config[metric=" + getMetric() + ", numDimensions=" + getNumDimensions() +
-                ", primaryClusterMin=" + primaryClusterMin() + ", clusterClusterMax=" + primaryClusterMax() +
+                ", primaryClusterMin=" + primaryClusterMin() + ", primaryClusterMax=" + primaryClusterMax() +
                 ", underreplicatedPrimaryClusterMax=" + underreplicatedPrimaryClusterMax() +
-                ", replicatedClusterMax=" + replicatedClusterMaxWrites() +
+                ", replicatedClusterMaxWrites=" + replicatedClusterMaxWrites() +
                 ", replicatedClusterTarget=" + replicatedClusterTarget() +
                 ", replicationPriorityMin=" + replicationPriorityMin() +
                 ", sampleVectorStatsProbability=" + sampleVectorStatsProbability() +
-                ", mainStatsProbability=" + maintainStatsProbability() + ", statsThreshold=" + statsThreshold() +
+                ", maintainStatsProbability=" + maintainStatsProbability() + ", statsThreshold=" + statsThreshold() +
                 ", useRaBitQ=" + isUseRaBitQ() + ", raBitQNumExBits=" + getRaBitQNumExBits() +
                 ", deterministicRandomness=" + deterministicRandomness() +
                 ", maxNumConcurrentNodeFetches=" + maxNumConcurrentNodeFetches() +
                 ", maxNumConcurrentNeighborhoodFetches=" + maxNumConcurrentNeighborhoodFetches() +
+                ", searchMaxClusters=" + searchMaxClusters() +
+                ", searchMinClustersBeforePruning=" + searchMinClustersBeforePruning() +
+                ", searchDistanceRatioCutoff=" + searchDistanceRatioCutoff() +
+                ", searchConcurrency=" + searchConcurrency() +
+                ", insertMaxCandidateClusters=" + insertMaxCandidateClusters() +
+                ", sampleBatchSize=" + sampleBatchSize() +
+                ", splitNeighborhoodSize=" + splitNeighborhoodSize() +
+                ", mergeInnerNeighborhoodSize=" + mergeInnerNeighborhoodSize() +
+                ", mergeOuterNeighborhoodSize=" + mergeOuterNeighborhoodSize() +
+                ", kMeansMaxIterations=" + kMeansMaxIterations() +
+                ", kMeansMaxRestarts=" + kMeansMaxRestarts() +
+                ", reassignInnerNeighborhoodSize=" + reassignInnerNeighborhoodSize() +
+                ", reassignOuterNeighborhoodSize=" + reassignOuterNeighborhoodSize() +
+                ", collapseMinDuplicates=" + collapseMinDuplicates() +
+                ", splitMergeConcurrency=" + splitMergeConcurrency() +
+                ", reassignConcurrency=" + reassignConcurrency() +
                 "]";
     }
 
@@ -210,6 +268,29 @@ public record Config(@Nonnull Metric metric,
         private int maxNumConcurrentNodeFetches = DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES;
         private int maxNumConcurrentNeighborhoodFetches = DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES;
 
+        // search
+        private int searchMaxClusters = DEFAULT_SEARCH_MAX_CLUSTERS;
+        private int searchMinClustersBeforePruning = DEFAULT_SEARCH_MIN_CLUSTERS_BEFORE_PRUNING;
+        private double searchDistanceRatioCutoff = DEFAULT_SEARCH_DISTANCE_RATIO_CUTOFF;
+        private int searchConcurrency = DEFAULT_SEARCH_CONCURRENCY;
+        // insert
+        private int insertMaxCandidateClusters = DEFAULT_INSERT_MAX_CANDIDATE_CLUSTERS;
+        private int sampleBatchSize = DEFAULT_SAMPLE_BATCH_SIZE;
+        // split/merge
+        private int splitNeighborhoodSize = DEFAULT_SPLIT_NEIGHBORHOOD_SIZE;
+        private int mergeInnerNeighborhoodSize = DEFAULT_MERGE_INNER_NEIGHBORHOOD_SIZE;
+        private int mergeOuterNeighborhoodSize = DEFAULT_MERGE_OUTER_NEIGHBORHOOD_SIZE;
+        private int kMeansMaxIterations = DEFAULT_KMEANS_MAX_ITERATIONS;
+        private int kMeansMaxRestarts = DEFAULT_KMEANS_MAX_RESTARTS;
+        // reassign
+        private int reassignInnerNeighborhoodSize = DEFAULT_REASSIGN_INNER_NEIGHBORHOOD_SIZE;
+        private int reassignOuterNeighborhoodSize = DEFAULT_REASSIGN_OUTER_NEIGHBORHOOD_SIZE;
+        // collapse
+        private int collapseMinDuplicates = DEFAULT_COLLAPSE_MIN_DUPLICATES;
+        // per-task concurrency
+        private int splitMergeConcurrency = DEFAULT_SPLIT_MERGE_CONCURRENCY;
+        private int reassignConcurrency = DEFAULT_REASSIGN_CONCURRENCY;
+
         public ConfigBuilder() {
         }
 
@@ -219,11 +300,20 @@ public record Config(@Nonnull Metric metric,
                              final double sampleVectorStatsProbability, final double maintainStatsProbability,
                              final int statsThreshold, final boolean useRaBitQ, final int raBitQNumExBits,
                              final boolean deterministicRandomness, final int maxNumConcurrentNodeFetches,
-                             final int maxNumConcurrentNeighborhoodFetches) {
+                             final int maxNumConcurrentNeighborhoodFetches,
+                             final int searchMaxClusters, final int searchMinClustersBeforePruning,
+                             final double searchDistanceRatioCutoff, final int searchConcurrency,
+                             final int insertMaxCandidateClusters, final int sampleBatchSize,
+                             final int splitNeighborhoodSize, final int mergeInnerNeighborhoodSize,
+                             final int mergeOuterNeighborhoodSize, final int kMeansMaxIterations,
+                             final int kMeansMaxRestarts,
+                             final int reassignInnerNeighborhoodSize, final int reassignOuterNeighborhoodSize,
+                             final int collapseMinDuplicates,
+                             final int splitMergeConcurrency, final int reassignConcurrency) {
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
-            this.underreplicatedPrimaryClusterMax = underreplicatedPrimaryClusterMax;
             this.primaryClusterMax = primaryClusterMax;
+            this.underreplicatedPrimaryClusterMax = underreplicatedPrimaryClusterMax;
             this.replicatedClusterMaxWrites = replicatedClusterMaxWrites;
             this.replicatedClusterTarget = replicatedClusterTarget;
             this.replicationPriorityMin = replicationPriorityMin;
@@ -235,6 +325,22 @@ public record Config(@Nonnull Metric metric,
             this.deterministicRandomness = deterministicRandomness;
             this.maxNumConcurrentNodeFetches = maxNumConcurrentNodeFetches;
             this.maxNumConcurrentNeighborhoodFetches = maxNumConcurrentNeighborhoodFetches;
+            this.searchMaxClusters = searchMaxClusters;
+            this.searchMinClustersBeforePruning = searchMinClustersBeforePruning;
+            this.searchDistanceRatioCutoff = searchDistanceRatioCutoff;
+            this.searchConcurrency = searchConcurrency;
+            this.insertMaxCandidateClusters = insertMaxCandidateClusters;
+            this.sampleBatchSize = sampleBatchSize;
+            this.splitNeighborhoodSize = splitNeighborhoodSize;
+            this.mergeInnerNeighborhoodSize = mergeInnerNeighborhoodSize;
+            this.mergeOuterNeighborhoodSize = mergeOuterNeighborhoodSize;
+            this.kMeansMaxIterations = kMeansMaxIterations;
+            this.kMeansMaxRestarts = kMeansMaxRestarts;
+            this.reassignInnerNeighborhoodSize = reassignInnerNeighborhoodSize;
+            this.reassignOuterNeighborhoodSize = reassignOuterNeighborhoodSize;
+            this.collapseMinDuplicates = collapseMinDuplicates;
+            this.splitMergeConcurrency = splitMergeConcurrency;
+            this.reassignConcurrency = reassignConcurrency;
         }
 
         @Nonnull
@@ -386,13 +492,163 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
+        public int getSearchMaxClusters() {
+            return searchMaxClusters;
+        }
+
+        public ConfigBuilder setSearchMaxClusters(final int searchMaxClusters) {
+            this.searchMaxClusters = searchMaxClusters;
+            return this;
+        }
+
+        public int getSearchMinClustersBeforePruning() {
+            return searchMinClustersBeforePruning;
+        }
+
+        public ConfigBuilder setSearchMinClustersBeforePruning(final int searchMinClustersBeforePruning) {
+            this.searchMinClustersBeforePruning = searchMinClustersBeforePruning;
+            return this;
+        }
+
+        public double getSearchDistanceRatioCutoff() {
+            return searchDistanceRatioCutoff;
+        }
+
+        public ConfigBuilder setSearchDistanceRatioCutoff(final double searchDistanceRatioCutoff) {
+            this.searchDistanceRatioCutoff = searchDistanceRatioCutoff;
+            return this;
+        }
+
+        public int getSearchConcurrency() {
+            return searchConcurrency;
+        }
+
+        public ConfigBuilder setSearchConcurrency(final int searchConcurrency) {
+            this.searchConcurrency = searchConcurrency;
+            return this;
+        }
+
+        public int getInsertMaxCandidateClusters() {
+            return insertMaxCandidateClusters;
+        }
+
+        public ConfigBuilder setInsertMaxCandidateClusters(final int insertMaxCandidateClusters) {
+            this.insertMaxCandidateClusters = insertMaxCandidateClusters;
+            return this;
+        }
+
+        public int getSampleBatchSize() {
+            return sampleBatchSize;
+        }
+
+        public ConfigBuilder setSampleBatchSize(final int sampleBatchSize) {
+            this.sampleBatchSize = sampleBatchSize;
+            return this;
+        }
+
+        public int getSplitNeighborhoodSize() {
+            return splitNeighborhoodSize;
+        }
+
+        public ConfigBuilder setSplitNeighborhoodSize(final int splitNeighborhoodSize) {
+            this.splitNeighborhoodSize = splitNeighborhoodSize;
+            return this;
+        }
+
+        public int getMergeInnerNeighborhoodSize() {
+            return mergeInnerNeighborhoodSize;
+        }
+
+        public ConfigBuilder setMergeInnerNeighborhoodSize(final int mergeInnerNeighborhoodSize) {
+            this.mergeInnerNeighborhoodSize = mergeInnerNeighborhoodSize;
+            return this;
+        }
+
+        public int getMergeOuterNeighborhoodSize() {
+            return mergeOuterNeighborhoodSize;
+        }
+
+        public ConfigBuilder setMergeOuterNeighborhoodSize(final int mergeOuterNeighborhoodSize) {
+            this.mergeOuterNeighborhoodSize = mergeOuterNeighborhoodSize;
+            return this;
+        }
+
+        public int getKMeansMaxIterations() {
+            return kMeansMaxIterations;
+        }
+
+        public ConfigBuilder setKMeansMaxIterations(final int kMeansMaxIterations) {
+            this.kMeansMaxIterations = kMeansMaxIterations;
+            return this;
+        }
+
+        public int getKMeansMaxRestarts() {
+            return kMeansMaxRestarts;
+        }
+
+        public ConfigBuilder setKMeansMaxRestarts(final int kMeansMaxRestarts) {
+            this.kMeansMaxRestarts = kMeansMaxRestarts;
+            return this;
+        }
+
+        public int getReassignInnerNeighborhoodSize() {
+            return reassignInnerNeighborhoodSize;
+        }
+
+        public ConfigBuilder setReassignInnerNeighborhoodSize(final int reassignInnerNeighborhoodSize) {
+            this.reassignInnerNeighborhoodSize = reassignInnerNeighborhoodSize;
+            return this;
+        }
+
+        public int getReassignOuterNeighborhoodSize() {
+            return reassignOuterNeighborhoodSize;
+        }
+
+        public ConfigBuilder setReassignOuterNeighborhoodSize(final int reassignOuterNeighborhoodSize) {
+            this.reassignOuterNeighborhoodSize = reassignOuterNeighborhoodSize;
+            return this;
+        }
+
+        public int getCollapseMinDuplicates() {
+            return collapseMinDuplicates;
+        }
+
+        public ConfigBuilder setCollapseMinDuplicates(final int collapseMinDuplicates) {
+            this.collapseMinDuplicates = collapseMinDuplicates;
+            return this;
+        }
+
+        public int getSplitMergeConcurrency() {
+            return splitMergeConcurrency;
+        }
+
+        public ConfigBuilder setSplitMergeConcurrency(final int splitMergeConcurrency) {
+            this.splitMergeConcurrency = splitMergeConcurrency;
+            return this;
+        }
+
+        public int getReassignConcurrency() {
+            return reassignConcurrency;
+        }
+
+        public ConfigBuilder setReassignConcurrency(final int reassignConcurrency) {
+            this.reassignConcurrency = reassignConcurrency;
+            return this;
+        }
+
         public Config build(final int numDimensions) {
             return new Config(getMetric(), numDimensions, getPrimaryClusterMin(), getPrimaryClusterMax(),
                     getUnderreplicatedPrimaryClusterMax(), getReplicatedClusterMaxWrites(),
                     getReplicatedClusterTarget(), getReplicationPriorityMin(), getSampleVectorStatsProbability(),
                     getMaintainStatsProbability(), getStatsThreshold(), isUseRaBitQ(), getRaBitQNumExBits(),
                     isDeterministicRandomness(), getMaxNumConcurrentNodeFetches(),
-                    getMaxNumConcurrentNeighborhoodFetches());
+                    getMaxNumConcurrentNeighborhoodFetches(),
+                    getSearchMaxClusters(), getSearchMinClustersBeforePruning(), getSearchDistanceRatioCutoff(),
+                    getSearchConcurrency(), getInsertMaxCandidateClusters(), getSampleBatchSize(),
+                    getSplitNeighborhoodSize(), getMergeInnerNeighborhoodSize(), getMergeOuterNeighborhoodSize(),
+                    getKMeansMaxIterations(), getKMeansMaxRestarts(),
+                    getReassignInnerNeighborhoodSize(), getReassignOuterNeighborhoodSize(),
+                    getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency());
         }
     }
 }
