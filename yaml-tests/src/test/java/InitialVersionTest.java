@@ -94,6 +94,7 @@ public class InitialVersionTest {
                 "mid-query",
                 "non-exhaustive-versions",
                 "non-exhaustive-current-version",
+                "non-exhaustive-schema-template-variants",
                 "wrong-result-at-least",
                 "wrong-result-less-than",
                 "wrong-count-at-least",
@@ -116,7 +117,8 @@ public class InitialVersionTest {
     static Stream<String> shouldPass() {
         return Stream.of(
                 "less-than-version-tests",
-                "at-least-version-tests"
+                "at-least-version-tests",
+                "schema-template-variants"
         );
     }
 
@@ -131,6 +133,7 @@ public class InitialVersionTest {
                 "mid-query",
                 "non-exhaustive-versions",
                 "non-exhaustive-current-version",
+                "non-exhaustive-schema-template-variants",
                 "wrong-result-at-least",
                 "wrong-count-at-least",
                 "wrong-unordered-at-least",
@@ -149,6 +152,7 @@ public class InitialVersionTest {
         return Stream.of(
                 "at-least-current-version",
                 "at-least-version-tests",
+                "schema-template-variants",
                 "wrong-result-less-than",
                 "wrong-count-less-than",
                 "wrong-unordered-less-than",
