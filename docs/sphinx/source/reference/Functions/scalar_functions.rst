@@ -7,6 +7,19 @@ Scalar functions are functions that take an input of one row and produce a singl
 List of functions (by sub-category)
 ###################################
 
+Comparison Functions
+--------------------
+
+.. toctree::
+    :maxdepth: 1
+
+    scalar_functions/greatest
+    scalar_functions/least
+    scalar_functions/coalesce
+
+Specialized Functions
+---------------------
+
 .. toctree::
     :maxdepth: 1
 

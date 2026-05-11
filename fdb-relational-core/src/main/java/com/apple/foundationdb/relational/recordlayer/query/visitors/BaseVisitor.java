@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
@@ -765,7 +766,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     @Override
     public Object visitStraightJoin(@Nonnull RelationalParser.StraightJoinContext ctx) {
-        return visitChildren(ctx);
+        throw new RelationalException("STRAIGHT_JOIN is not supported", ErrorCode.UNSUPPORTED_QUERY).toUncheckedWrappedException();
     }
 
     @Nonnull
@@ -777,7 +778,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     @Override
     public Object visitNaturalJoin(@Nonnull RelationalParser.NaturalJoinContext ctx) {
-        return visitChildren(ctx);
+        throw new RelationalException("NATURAL JOIN is not supported", ErrorCode.UNSUPPORTED_QUERY).toUncheckedWrappedException();
     }
 
     @Nonnull

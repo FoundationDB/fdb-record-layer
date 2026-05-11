@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     @BeforeEach
     void setupPlanner() {
         try (FDBRecordContext context = openContext()) {
-            openNestedRecordStore(context);
+            openSimpleRecordStoreWithSingletonPipeline(context);
         }
     }
 
@@ -524,6 +524,46 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
         private Hierarchy(@Nonnull final Map<Long, Long> edges) {
             this.edges = edges;
             this.reverseLookup = Suppliers.memoize(this::calculateReverseLookup);
+        }
+
+        /**
+         * Calculates the depth of the hierarchy, defined as the number of edges on the longest
+         * path from the root to any leaf.
+         *
+         * @return the maximum depth of the hierarchy
+         */
+        public int calculateDepth() {
+            int maxDepth = 0;
+            for (final var vertex : edges.keySet()) {
+                int depth = 0;
+                var current = vertex;
+                while (edges.get(current) != null && edges.get(current) != SENTINEL) {
+                    depth++;
+                    current = edges.get(current);
+                }
+                maxDepth = Math.max(maxDepth, depth);
+            }
+            return maxDepth;
+        }
+
+        /**
+         * Calculates the maximum number of nodes at any single level in the hierarchy.
+         * Level 0 is the root, level 1 is its children, etc.
+         *
+         * @return the maximum width (number of nodes) across all levels
+         */
+        public int calculateMaxLevelSize() {
+            final var levelCounts = new java.util.HashMap<Integer, Integer>();
+            for (final var vertex : edges.keySet()) {
+                int depth = 0;
+                var current = vertex;
+                while (edges.get(current) != null && edges.get(current) != SENTINEL) {
+                    depth++;
+                    current = edges.get(current);
+                }
+                levelCounts.merge(depth, 1, Integer::sum);
+            }
+            return levelCounts.values().stream().mapToInt(Integer::intValue).max().orElse(0);
         }
 
         @Nonnull

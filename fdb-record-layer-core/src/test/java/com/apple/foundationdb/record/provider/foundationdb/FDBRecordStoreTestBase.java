@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,6 +116,15 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
         recordStore = recordStoreQueryPlannerPair.getLeft();
         planner = recordStoreQueryPlannerPair.getRight();
         return recordStoreQueryPlannerPair;
+    }
+
+    protected Pair<FDBRecordStore, QueryPlanner> createOrOpenRecordStoreWithSingletonPipeline(@Nonnull FDBRecordContext context,
+                                                                                              @Nonnull RecordMetaDataProvider metaData) {
+        recordStore = getStoreBuilder(context, metaData, path)
+                .setPipelineSizer(ignored -> 1)
+                .createOrOpen();
+        planner = setupPlanner(recordStore, null);
+        return Pair.of(recordStore, planner);
     }
 
     public FDBRecordStore openSimpleRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook, @Nonnull FormatVersion formatVersion) {

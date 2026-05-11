@@ -581,7 +581,7 @@ public abstract class QueryConfig {
         }
     }
 
-    private static boolean shouldExecuteExplain(final YamlExecutionContext executionContext) {
+    static boolean shouldExecuteExplain(final YamlExecutionContext executionContext) {
         return (! executionContext.getConnectionFactory().isMultiServer());
     }
 

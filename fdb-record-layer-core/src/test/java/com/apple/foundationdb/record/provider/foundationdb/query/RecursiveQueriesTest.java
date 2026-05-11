@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -158,6 +158,46 @@ class RecursiveQueriesTest extends TempTableTestBase {
                 210L, 20L,
                 250L, 50L
          );
+    }
+
+    /**
+     * Wide hierarchy with depth 5 and ~100 nodes per level (401 nodes total).
+     * <pre>
+     * {@code
+     *                              1
+     *         ┌────────┬─── ... ───┼─── ... ───┬────────┐
+     *       1001     1002        1010         1099     1100
+     *      /|..\    /|..\       /|..\
+     *  2001..2010 2011..2020  2091..2100      (90 leaves)
+     *   /|..\
+     * 3001..3010  ...                         (90 leaves)
+     *  /|..\
+     * 4001..4010  ...                         (90 leaves)
+     * }
+     * </pre>
+     * Each of the first 10 parents at a level has 10 children; the remaining 90 are leaves.
+     */
+    @Nonnull
+    private static Map<Long, Long> wideHierarchy() {
+        final var builder = ImmutableMap.<Long, Long>builder();
+        builder.put(1L, -1L);
+        // Level 1: 100 children of root
+        for (long i = 0; i < 100; i++) {
+            builder.put(1001L + i, 1L);
+        }
+        // Level 2: 100 children spread across 10 parents from level 1
+        for (long i = 0; i < 100; i++) {
+            builder.put(2001L + i, 1001L + (i % 10));
+        }
+        // Level 3: 100 children spread across 10 parents from level 2
+        for (long i = 0; i < 100; i++) {
+            builder.put(3001L + i, 2001L + (i % 10));
+        }
+        // Level 4: 100 children spread across 10 parents from level 3
+        for (long i = 0; i < 100; i++) {
+            builder.put(4001L + i, 3001L + (i % 10));
+        }
+        return builder.build();
     }
 
     /**
@@ -333,6 +373,124 @@ class RecursiveQueriesTest extends TempTableTestBase {
         Assumptions.assumeTrue(isUseCascadesPlanner());
         var result = descendantsOfAcrossContinuations(hierarchy, initial, successiveRowLimits, false, traversalStrategy);
         assertEquals(expectedResult, result);
+    }
+
+    @Nonnull
+    static Stream<Arguments> descendantsWithScanLimitParameters() {
+        return Stream.of(
+                Arguments.of(wideHierarchy(), ImmutableMap.of(1L, -1L), 2, PREORDER, true),
+                Arguments.of(wideHierarchy(), ImmutableMap.of(1L, -1L), 5, PREORDER, true),
+                Arguments.of(wideHierarchy(), ImmutableMap.of(1L, -1L), 2, POSTORDER, true),
+                Arguments.of(wideHierarchy(), ImmutableMap.of(1L, -1L), 5, POSTORDER, true),
+                Arguments.of(wideHierarchy(), ImmutableMap.of(1L, -1L), 2, LEVEL, true),
+                Arguments.of(wideHierarchy(), ImmutableMap.of(1L, -1L), 5, LEVEL, true),
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), 25, PREORDER, false),
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), 25, PREORDER, false),
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), 25, POSTORDER, false),
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), 25, POSTORDER, false),
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), 25, LEVEL, false),
+                Arguments.of(sampleHierarchy(), ImmutableMap.of(1L, -1L), 25, LEVEL, false)
+        );
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    @ParameterizedTest(name = "descendants of {1} with scanLimit={2} and {3} traversal match full result")
+    @MethodSource("descendantsWithScanLimitParameters")
+    void descendantsWithScanLimitOutOfBand(Map<Long, Long> hierarchy, Map<Long, Long> initial, int scanLimit,
+                                           RecursiveUnionExpression.TraversalStrategy traversalStrategy,
+                                           boolean useSecondaryIndexes) {
+        Assumptions.assumeTrue(isUseCascadesPlanner());
+
+        final var hierarchyUnderTest = Hierarchy.fromEdges(hierarchy);
+        final int depth = hierarchyUnderTest.calculateDepth();
+        final int maxLevelSize = hierarchyUnderTest.calculateMaxLevelSize();
+        final List<Long> expectedDescendants = hierarchyUnderTest.calculateDescendants(traversalStrategy);
+        final List<Long> traversalWithScanLimitResult = descendantsWithScanLimit(hierarchy, initial, scanLimit, depth,
+                maxLevelSize, useSecondaryIndexes, traversalStrategy);
+        assertEquals(expectedDescendants, traversalWithScanLimitResult);
+
+        //
+        // verify hierarchy traversal with scan limit against unbound traversal
+        //
+        var traversalResult = descendantsOf(hierarchy, initial, traversalStrategy);
+        assertEquals(traversalResult, traversalWithScanLimitResult);
+    }
+
+    @Nonnull
+    private List<Long> descendantsWithScanLimit(@Nonnull final Map<Long, Long> hierarchy,
+                                                @Nonnull final Map<Long, Long> initial,
+                                                int scanLimit,
+                                                int depth,
+                                                int maxLevelSize,
+                                                boolean useSecondaryIndexes,
+                                                @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy ) {
+
+        final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> predicate = (hierarchyScanQun, ttSelectQun) -> {
+            final var idField = getIdField(ttSelectQun);
+            final var parentField = getParentField(hierarchyScanQun);
+            return new ValuePredicate(parentField, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, idField));
+        };
+
+        final RecordQueryPlan plan;
+        // First transaction: set up data and plan the query.
+        try (FDBRecordContext context = openContext()) {
+            setupRecordStoreMetadata(context, useSecondaryIndexes);
+            for (final var entry : hierarchy.entrySet()) {
+                saveHierarchyEdge(entry.getKey(), entry.getValue());
+            }
+            final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
+            final var insertTempTableAlias = CorrelationIdentifier.of("Insert");
+            final var scanTempTableAlias = CorrelationIdentifier.of("Scan");
+            plan = createAndOptimizeHierarchyQuery(seedingTempTableAlias, insertTempTableAlias, scanTempTableAlias, predicate, traversalStrategy);
+            context.commit();
+        }
+
+        final var seedingTempTableAlias = CorrelationIdentifier.of("Seeding");
+        final var allResults = new ArrayList<Long>();
+        byte[] continuation = null;
+        // Resume loop: each iteration opens a new transaction with a fresh scan limit.
+        do {
+            try (FDBRecordContext context = openContext()) {
+                setupRecordStoreMetadata(context);
+                final var seedingTempTable = tempTableInstance();
+                initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
+                var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);
+
+                final var executeProperties = ExecuteProperties.newBuilder()
+                        .setScannedRecordsLimit(scanLimit)
+                        .build();
+
+                try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(
+                        recordStore, evaluationContext, continuation, executeProperties).asIterator()) {
+                    while (cursor.hasNext()) {
+                        Message message = Verify.verifyNotNull(cursor.next()).getMessage();
+                        final int scannedRecords = executeProperties.getState().getRecordsScanned();
+                        //
+                        // only verify the number of scans when using an efficient index and these scans are point scans
+                        // that align more or less nicely with the topology of the hierarchy.
+                        //
+                        if (useSecondaryIndexes) {
+                            if (traversalStrategy == POSTORDER || traversalStrategy == PREORDER) {
+                                //
+                                // the number of scanned records must not exceed the depth of the hierarchy
+                                // it looks like we may over scan by few more elements sometimes, which is presumably
+                                // related to the cursor's next semantics, add an overscan tolerance of 4.
+                                //
+                                org.assertj.core.api.Assertions.assertThat(scannedRecords).isLessThanOrEqualTo(depth + 4);
+                            } else {
+                                Verify.verify(traversalStrategy == LEVEL);
+                                org.assertj.core.api.Assertions.assertThat(scannedRecords).isLessThanOrEqualTo(maxLevelSize);
+                            }
+                        }
+
+                        allResults.add(asIdParent(message).getKey());
+                    }
+                    continuation = cursor.getContinuation();
+                }
+            }
+        } while (continuation != null);
+
+        return allResults;
     }
 
     @Nonnull
@@ -902,12 +1060,18 @@ class RecursiveQueriesTest extends TempTableTestBase {
     }
 
     private void setupRecordStoreMetadata(@Nonnull final FDBRecordContext context) {
+        setupRecordStoreMetadata(context, true);
+    }
+
+    private void setupRecordStoreMetadata(@Nonnull final FDBRecordContext context, boolean withSecondaryIndexes) {
         RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestHierarchiesProto.getDescriptor());
         builder.getRecordType("SimpleHierarchicalRecord").setPrimaryKey(field("id"));
-        builder.addIndex("SimpleHierarchicalRecord", "parentIdIdx", concat(field("parent"), field("id")));
-        builder.addIndex("SimpleHierarchicalRecord", "idParentIdx", concat(field("id"), field("parent")));
+        if (withSecondaryIndexes) {
+            builder.addIndex("SimpleHierarchicalRecord", "parentIdIdx", concat(field("parent"), field("id")));
+            builder.addIndex("SimpleHierarchicalRecord", "idParentIdx", concat(field("id"), field("parent")));
+        }
         RecordMetaData metaData = builder.getRecordMetaData();
-        createOrOpenRecordStore(context, metaData);
+        createOrOpenRecordStoreWithSingletonPipeline(context, metaData);
     }
 
     private void saveHierarchyEdge(@Nonnull Long key, @Nonnull Long value) {

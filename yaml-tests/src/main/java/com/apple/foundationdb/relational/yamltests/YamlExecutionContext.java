@@ -69,6 +69,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -94,6 +95,7 @@ public final class YamlExecutionContext {
     public static final ContextOption<Boolean> OPTION_CORRECT_METRICS = new ContextOption<>("optionCorrectMetrics");
     public static final ContextOption<Boolean> OPTION_CORRECT_RESULT_METADATA = new ContextOption<>("optionCorrectResultMetadata");
     public static final ContextOption<Boolean> OPTION_ADD_RESULT_METADATA = new ContextOption<>("optionAddResultMetadata");
+    public static final ContextOption<Boolean> OPTION_ADD_EXPLAIN = new ContextOption<>("optionAddExplain");
     public static final ContextOption<Boolean> OPTION_SHOW_PLAN_ON_DIFF = new ContextOption<>("optionShowPlanOnDiff");
 
     private static final URI SYSTEM_CATALOG_ADDRESS = URI.create("jdbc:embed:/__SYS?schema=CATALOG");
@@ -139,7 +141,7 @@ public final class YamlExecutionContext {
         this.connectionFactory = factory;
         this.topLevelResource = topLevelResource;
         this.additionalOptions = additionalOptions;
-        if (isInCI() && (shouldCorrectExplains() || shouldCorrectMetrics() || shouldCorrectResultMetadata() || shouldAddResultMetadata())) {
+        if (isInCI() && (shouldCorrectExplains() || shouldCorrectMetrics() || shouldCorrectResultMetadata() || shouldAddResultMetadata() || shouldAddExplains())) {
             logger.error("‼️ Yamsql files cannot be modified during CI runs.");
             Assertions.fail("‼️ Yamsql files cannot be modified during CI runs. " +
                     "Make sure maintenance annotations have not been checked in.");
@@ -155,7 +157,7 @@ public final class YamlExecutionContext {
         if (registeredResources.contains(resource)) {
             throw new RuntimeException("The resource " + resource + " is already registered.");
         }
-        if (shouldCorrectExplains() || shouldCorrectResultMetadata() || shouldAddResultMetadata()) {
+        if (shouldCorrectExplains() || shouldCorrectResultMetadata() || shouldAddResultMetadata() || shouldAddExplains()) {
             this.editedFileStream.put(resource, loadYamlResource(resource));
         }
         if (this.expectedMetricsMap == null) {
@@ -194,6 +196,10 @@ public final class YamlExecutionContext {
 
     public boolean shouldAddResultMetadata() {
         return additionalOptions.getOrDefault(OPTION_ADD_RESULT_METADATA, false);
+    }
+
+    public boolean shouldAddExplains() {
+        return additionalOptions.getOrDefault(OPTION_ADD_EXPLAIN, false);
     }
 
     public boolean correctResultMetadata(@Nonnull final YamlReference reference,
@@ -240,7 +246,7 @@ public final class YamlExecutionContext {
     }
 
     public boolean correctExplain(@Nonnull final YamlReference reference, @Nonnull String actual) {
-        if (!shouldCorrectExplains()) {
+        if (!shouldCorrectExplains() && !shouldAddExplains()) {
             return false;
         }
         if (editedFileStream.get(reference.getResource()) == null) {
@@ -294,7 +300,8 @@ public final class YamlExecutionContext {
         public void apply(@Nonnull final List<String> lines) {
             final int idx = reference.getLineNumber() - 1;
             if (idx >= 0 && idx < lines.size()) {
-                lines.set(idx, "      - explain: \"" + actual + "\"");
+                final String itemPrefix = " ".repeat(indentOf(lines.get(idx)));
+                lines.set(idx, itemPrefix + "- explain: \"" + actual + "\"");
             }
         }
     }
@@ -326,12 +333,7 @@ public final class YamlExecutionContext {
                 return;
             }
             final String startLine = lines.get(startIdx);
-
-            // Determine the indentation of the "- resultMetadata:" entry
-            int indent = 0;
-            while (indent < startLine.length() && startLine.charAt(indent) == ' ') {
-                indent++;
-            }
+            final int indent = indentOf(startLine);
 
             // Build replacement lines
             final List<String> newLines = new ArrayList<>();
@@ -348,11 +350,7 @@ public final class YamlExecutionContext {
                     endIdx++;
                     continue;
                 }
-                int lineIndent = 0;
-                while (lineIndent < line.length() && line.charAt(lineIndent) == ' ') {
-                    lineIndent++;
-                }
-                if (lineIndent > indent) {
+                if (indentOf(line) > indent) {
                     endIdx++;
                 } else {
                     break;
@@ -409,6 +407,29 @@ public final class YamlExecutionContext {
         return typeName;
     }
 
+    static int indentOf(@Nonnull final String line) {
+        int indent = 0;
+        while (indent < line.length() && line.charAt(indent) == ' ') {
+            indent++;
+        }
+        return indent;
+    }
+
+    static int findInsertionPoint(@Nonnull final List<String> lines, final int startIdx,
+                                  @Nonnull final String itemPrefix,
+                                  @Nonnull final Predicate<String> stopAt) {
+        for (int i = startIdx; i < lines.size(); i++) {
+            final String line = lines.get(i);
+            if (stopAt.test(line)) {
+                return i;
+            }
+            if (!itemPrefix.isEmpty() && line.length() >= itemPrefix.length() && !line.startsWith(itemPrefix)) {
+                break;
+            }
+        }
+        return startIdx;
+    }
+
     /**
      * Inserts a new {@code resultMetadata:} block into the YAMSQL source file immediately after the {@code query:} line.
      * Used when {@link #OPTION_ADD_RESULT_METADATA} is set and the query had no {@code resultMetadata:} block.
@@ -436,39 +457,79 @@ public final class YamlExecutionContext {
             if (queryLineIdx < 0 || queryLineIdx >= lines.size()) {
                 return;
             }
-            final String queryLine = lines.get(queryLineIdx);
-
-            // Determine indentation from the "- query:" line
-            int indent = 0;
-            while (indent < queryLine.length() && queryLine.charAt(indent) == ' ') {
-                indent++;
-            }
-
-            // Build the resultMetadata block lines
-            final List<String> newLines = new ArrayList<>();
-            final String itemPrefix = " ".repeat(indent);
+            final String itemPrefix = " ".repeat(indentOf(lines.get(queryLineIdx)));
             final String cols = actualColumns.stream().map(YamlExecutionContext::buildInlineDescriptor)
                     .collect(Collectors.joining(", "));
-            newLines.add(itemPrefix + "- resultMetadata: [" + cols + "]");
+            // Insert just before the first result:/unorderedResult: config, so that explain:/planHash: lines
+            // that follow the query line are not displaced. Falls back to right after the query line.
+            final int insertIdx = findInsertionPoint(lines, queryLineIdx + 1, itemPrefix,
+                    line -> line.startsWith(itemPrefix + "- result:") || line.startsWith(itemPrefix + "- unorderedResult:"));
+            lines.add(insertIdx, itemPrefix + "- resultMetadata: [" + cols + "]");
+        }
+    }
 
-            // Insert just before the first result:/unorderedResult: config at the same indentation level,
-            // so that explain:/planHash: lines that follow the query line are not displaced.
-            // Fall back to inserting right after the query line if no result config is found.
-            final String resultPrefix = itemPrefix + "- result:";
-            final String unorderedResultPrefix = itemPrefix + "- unorderedResult:";
-            int insertIdx = queryLineIdx + 1;
-            for (int i = queryLineIdx + 1; i < lines.size(); i++) {
-                final String line = lines.get(i);
-                if (line.startsWith(resultPrefix) || line.startsWith(unorderedResultPrefix)) {
-                    insertIdx = i;
-                    break;
-                }
-                // Stop if we've moved to the next test item (a line starting a new "- " at a lower indentation)
-                if (indent > 0 && line.length() >= indent && !line.startsWith(itemPrefix)) {
-                    break;
-                }
+    public boolean addExplain(@Nonnull final YamlReference queryReference, @Nonnull String actual) {
+        if (!shouldAddExplains()) {
+            return false;
+        }
+        if (editedFileStream.get(queryReference.getResource()) == null) {
+            return false;
+        }
+        synchronized (this) {
+            final List<YamlCorrection> corrections = pendingCorrections
+                    .computeIfAbsent(queryReference.getResource(), k -> new ArrayList<>());
+            final int lineNumber = queryReference.getLineNumber();
+            final boolean alreadyPending = corrections.stream()
+                    .anyMatch(c -> c instanceof AddExplainCorrection && c.getLineNumber() == lineNumber);
+            if (!alreadyPending) {
+                corrections.add(new AddExplainCorrection(queryReference, actual));
+                isDirty.put(queryReference.getResource(), true);
             }
-            lines.addAll(insertIdx, newLines);
+        }
+        return true;
+    }
+
+    int pendingAddExplainCorrectionCount(@Nonnull final YamlReference.YamlResource resource) {
+        final List<YamlCorrection> corrections = pendingCorrections.get(resource);
+        if (corrections == null) {
+            return 0;
+        }
+        return (int) corrections.stream().filter(c -> c instanceof AddExplainCorrection).count();
+    }
+
+    /**
+     * Inserts a new {@code explain:} line into the YAMSQL source file immediately before the first config entry
+     * that follows the {@code query:} line. Used when {@link #OPTION_ADD_EXPLAIN} is set and the query had no
+     * {@code explain:} block.
+     */
+    public static final class AddExplainCorrection implements YamlCorrection {
+        @Nonnull
+        private final YamlReference queryReference;
+        @Nonnull
+        private final String actual;
+
+        public AddExplainCorrection(@Nonnull final YamlReference queryReference, @Nonnull final String actual) {
+            this.queryReference = queryReference;
+            this.actual = actual;
+        }
+
+        @Override
+        public int getLineNumber() {
+            return queryReference.getLineNumber();
+        }
+
+        @Override
+        public void apply(@Nonnull final List<String> lines) {
+            final int queryLineIdx = queryReference.getLineNumber() - 1; // 1-based → 0-based
+            if (queryLineIdx < 0 || queryLineIdx >= lines.size()) {
+                return;
+            }
+            final String itemPrefix = " ".repeat(indentOf(lines.get(queryLineIdx)));
+            // Scan forward past any query-string continuation lines to find the first config entry
+            // at the same indentation level, and insert the explain line before it.
+            final int insertIdx = findInsertionPoint(lines, queryLineIdx + 1, itemPrefix,
+                    line -> line.startsWith(itemPrefix + "- "));
+            lines.add(insertIdx, itemPrefix + "- explain: \"" + actual + "\"");
         }
     }
 

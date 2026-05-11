@@ -505,4 +505,19 @@ test_block:
       - query: select * from jua join (select * from jub join jud using(c1)) as X using (c1);
       - explain: "SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB, EQUALS q0.C1]) | FLATMAP q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._0.C5 AS _2, q3._1.C3 AS C3, q3._1.C5 AS _4, q0.C4 AS C4, q0.C5 AS _6) }"
       - result: [{!pos 1: 1, !pos 2: 2, !pos 3: 5, !pos 4: 3, !pos 5: 5, !pos 6: 4, !pos 7: 5}]
+    -
+      # NATURAL JOIN (inner) is not yet supported.`
+      - query: SELECT * FROM emp e NATURAL JOIN dept d;
+      - supported_version: !current_version
+      - error: '0AF00'  # UNSUPPORTED_QUERY
+    -
+      # NATURAL LEFT JOIN is not yet supported.
+      - query: SELECT * FROM emp e NATURAL LEFT JOIN dept d;
+      - supported_version: !current_version
+      - error: '0AF00'  # UNSUPPORTED_QUERY
+    -
+      # STRAIGHT_JOIN is not yet supported.
+      - query: SELECT * FROM emp e STRAIGHT_JOIN dept d ON e.dept_id = d.id;
+      - supported_version: !current_version
+      - error: '0AF00'  # UNSUPPORTED_QUERY
 ...

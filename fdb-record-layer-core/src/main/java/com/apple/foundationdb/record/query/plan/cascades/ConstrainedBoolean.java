@@ -185,6 +185,24 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
         }
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        final ConstrainedBoolean that = (ConstrainedBoolean)o;
+        return Objects.equals(this.isTrue, that.isTrue) &&
+                Objects.equals(this.queryPlanConstraint, that.queryPlanConstraint);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(this.isTrue, this.queryPlanConstraint);
+    }
+
     /**
      * Factory method to return a {@code false}.
      * @return {@code false}
