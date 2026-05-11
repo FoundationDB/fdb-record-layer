@@ -194,7 +194,7 @@ public class Search {
                     final var boundedClusterMetadataIterable =
                             MoreAsyncUtil.iterableFromCollection(
                                     clusterMetadataWithDistancesFuture.thenApply(clusterMetadataWithDistances -> {
-                                        if (clusterMetadataWithDistances.size() <= 48) {
+                                        if (clusterMetadataWithDistances.size() <= 16) {
                                             if (logger.isInfoEnabled()) {
                                                 logger.info("querying numClusters={}", clusterMetadataWithDistances.size());
                                             }
@@ -203,7 +203,7 @@ public class Search {
 
                                         final double nearestCentroidDistance = clusterMetadataWithDistances.get(0).distance();
                                         int i;
-                                        for (i = 48; i < clusterMetadataWithDistances.size(); i ++) {
+                                        for (i = 16; i < clusterMetadataWithDistances.size(); i ++) {
                                             final ClusterMetadataWithDistance currentClusterMetadata =
                                                     clusterMetadataWithDistances.get(i);
                                             if (currentClusterMetadata.distance() / nearestCentroidDistance > 1.50) {
@@ -233,50 +233,52 @@ public class Search {
                             DistinctTopK.min(Comparator.comparing(VectorReferenceAndDistance::getDistance)
                                     .thenComparing(d -> d.getVectorReference().getId()), efSearch);
 
-                    final CompletableFuture<List<VectorReferenceAndDistance>> topReferences =
+                    final CompletableFuture<List<VectorReferenceAndDistance>> topReferencesFuture =
                             distinctTopK.collect(vectorReferenceAndDistancesIterable, getExecutor());
-
-
-
-
-                    final AsyncIterable<VectorReferenceAndDistance> almostSortedVectorReferencesIterable =
-                            almostSortedVectorReferencesIterable(vectorReferenceAndDistancesIterable,
-                                    efSearch, getExecutor());
 
                     final Map<Tuple, CompletableFuture<VectorMetadata>> primaryKeyToVectorMetadataUuidFutureMap =
                             Maps.newConcurrentMap();
-                    final AsyncIterable<VectorReferenceAndDistance> filteredByCurrentMetadataIterable =
-                            MoreAsyncUtil.filterIterablePipelined(getExecutor(), almostSortedVectorReferencesIterable,
-                                    vectorReferenceAndDistance -> {
-                                        final VectorId vectorReferenceId =
-                                                vectorReferenceAndDistance.getVectorReference().getId();
-                                        final CompletableFuture<VectorMetadata> vectorMetadataFuture =
-                                                primaryKeyToVectorMetadataUuidFutureMap.computeIfAbsent(
-                                                        vectorReferenceId.getPrimaryKey(),
-                                                        primaryKey ->
-                                                                primitives.fetchVectorMetadata(readTransaction, primaryKey));
-                                        return vectorMetadataFuture.thenApply(vectorMetadata ->
-                                                vectorMetadata.getUuid().equals(vectorReferenceId.getUuid()));
-                                    }, 10);
+                    final CompletableFuture<List<VectorReferenceAndDistance>> enrichedResultsFuture =
+                            topReferencesFuture.thenCompose(topReferences ->
+                                    MoreAsyncUtil.forEach(topReferences,
+                                            vectorReferenceAndDistance -> {
+                                                final VectorId vectorReferenceId =
+                                                        vectorReferenceAndDistance.getVectorReference().getId();
+                                                final CompletableFuture<VectorMetadata> vectorMetadataFuture =
+                                                        primaryKeyToVectorMetadataUuidFutureMap.computeIfAbsent(
+                                                                vectorReferenceId.getPrimaryKey(),
+                                                                primaryKey ->
+                                                                        primitives.fetchVectorMetadata(readTransaction, primaryKey));
+                                                return vectorMetadataFuture.thenApply(vectorMetadata -> {
+                                                    if (vectorMetadata.getUuid().equals(vectorReferenceId.getUuid())) {
+                                                        return vectorReferenceAndDistance;
+                                                    } else {
+                                                        return null;
+                                                    }
+                                                });
+                                            }, 10, getExecutor()))
+                                    .thenApply(vectorReferenceAndDistances -> {
+                                        final ImmutableList.Builder<VectorReferenceAndDistance> enrichedResultsBuilder =
+                                                ImmutableList.builder();
+                                        int numEnrichedResults = 0;
+                                        for (final VectorReferenceAndDistance vectorReferenceAndDistance : vectorReferenceAndDistances) {
+                                            if (numEnrichedResults >= k) {
+                                                break;
+                                            }
+                                            enrichedResultsBuilder.add(new VectorReferenceAndDistance(
+                                                    enrichVectorReference(primaryKeyToVectorMetadataUuidFutureMap,
+                                                            vectorReferenceAndDistance.getVectorReference()),
+                                                    vectorReferenceAndDistance.getDistance()));
+                                            numEnrichedResults++;
+                                        }
+                                        if (numEnrichedResults < k) {
+                                            logger.warn("Insufficient data to form result set (numResults={}). Consider increasing efSearch={} for k={}",
+                                                    numEnrichedResults, efSearch, k);
+                                        }
+                                        return enrichedResultsBuilder.build();
+                                    });
 
-                    final Set<Tuple> seenPrimaryKeys = Sets.newHashSet();
-                    final AsyncIterable<VectorReferenceAndDistance> dedupedVectorReferenceAndDistancesIterable =
-                            MoreAsyncUtil.filterIterable(getExecutor(), filteredByCurrentMetadataIterable,
-                                    vectorReferenceAndDistance ->
-                                            seenPrimaryKeys.add(vectorReferenceAndDistance.getVectorReference()
-                                                    .getId().getPrimaryKey()));
-
-                    final CompletableFuture<List<VectorReferenceAndDistance>> nearestKReferencesFuture =
-                            AsyncUtil.collect(
-                                    AsyncUtil.mapIterable(
-                                            MoreAsyncUtil.limitIterable(dedupedVectorReferenceAndDistancesIterable,
-                                                    k, getExecutor()),
-                                            vectorReferenceAndDistance ->
-                                                    new VectorReferenceAndDistance(
-                                                            enrichVectorReference(primaryKeyToVectorMetadataUuidFutureMap,
-                                                                    vectorReferenceAndDistance.getVectorReference()),
-                                                            vectorReferenceAndDistance.getDistance())), getExecutor());
-                    return nearestKReferencesFuture.thenApply(nearestKReferences ->
+                    return enrichedResultsFuture.thenApply(nearestKReferences ->
                             new SearchResult(accessInfo, storageTransform, nearestKReferences));
                 });
     }

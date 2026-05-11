@@ -27,8 +27,6 @@ import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
-import com.apple.foundationdb.linear.Metric;
-import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.StoredVecsIterator;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
@@ -65,7 +63,6 @@ import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.async.common.CommonTestHelpers.createPrimaryKey;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.within;
 
 /**
  * Test helpers for testing {@link Guardiann}s.
@@ -267,100 +264,6 @@ class TestHelpers {
         }
     }
 
-    static void validateSIFTSmall(@Nonnull final Database db,
-                                  @Nonnull final Guardiann guardiann,
-                                  @Nonnull final List<PrimaryKeyAndVector> data,
-                                  final int k) throws IOException {
-        validateSIFT(db, guardiann, data,
-                ".out/extracted/siftsmall/siftsmall_queries.fvecs",
-                ".out/extracted/siftsmall/siftsmall_groundtruth.ivecs", k);
-    }
-
-    static void validateSIFT(@Nonnull final Database db,
-                             @Nonnull final Guardiann guardiann,
-                             @Nonnull final List<PrimaryKeyAndVector> data,
-                             @Nonnull final String queriesFile,
-                             @Nonnull final String groundTruthFile,
-                             final int k) throws IOException {
-        validateSIFT(db, guardiann, data, queriesFile, groundTruthFile, k, -1);
-    }
-
-    static void validateSIFT(@Nonnull final Database db,
-                             @Nonnull final Guardiann guardiann,
-                             @Nonnull final List<PrimaryKeyAndVector> data,
-                             @Nonnull final String queriesFile,
-                             @Nonnull final String groundTruthFile,
-                             final int k,
-                             final int maxIndex) throws IOException {
-
-        final Metric metric = guardiann.getConfig().getMetric();
-        final Path siftQueryPath = Paths.get(queriesFile);
-        final Path siftGroundTruthPath = Paths.get(groundTruthFile);
-
-        final TestOnReadListener onReadListener = (TestOnReadListener)guardiann.getOnReadListener();
-
-        try (final var queryChannel = FileChannel.open(siftQueryPath, StandardOpenOption.READ);
-                final var groundTruthChannel = FileChannel.open(siftGroundTruthPath, StandardOpenOption.READ)) {
-            final Iterator<DoubleRealVector> queryIterator = new StoredVecsIterator.StoredFVecsIterator(queryChannel);
-            final Iterator<List<Integer>> groundTruthIterator = new StoredVecsIterator.StoredIVecsIterator(groundTruthChannel);
-
-            Verify.verify(queryIterator.hasNext() == groundTruthIterator.hasNext());
-
-            while (queryIterator.hasNext()) {
-                final HalfRealVector queryVector = queryIterator.next().toHalfRealVector();
-                final Set<Integer> groundTruthIndices =
-                        groundTruthIterator.next()
-                                .stream()
-                                .filter(index -> maxIndex < 0 || index <= maxIndex)
-                                .collect(ImmutableSet.toImmutableSet());
-                if (groundTruthIndices.isEmpty()) {
-                    logger.info("query ground truth does not have indices that have been inserted yet");
-                    continue;
-                }
-                onReadListener.pushFrame();
-                final long beginTs = System.nanoTime();
-                final List<? extends ResultEntry> results =
-                        db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, 30000,
-                                true, queryVector).join());
-                final long endTs = System.nanoTime();
-                logger.info("retrieved result in elapsedTimeMs={}, reading readBytes={}",
-                        TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getBytesReadByLayer());
-
-                int recallCount = 0;
-                for (final ResultEntry resultEntry : results) {
-                    final int primaryKeyIndex = (int)resultEntry.getPrimaryKey().getLong(0);
-
-                    //
-                    // Assert that the original vector and the reconstructed vector are the same-ish vector
-                    // (minus reconstruction errors). The closeness value is dependent on the encoding quality settings,
-                    // the dimensionality, and the metric in use. For now, we just set it to 30.0 as that should be
-                    // fairly safe with respect to not giving us false-positives and also tripping for actual logic
-                    // errors as the expected random distance is far larger.
-                    //
-                    final RealVector originalVector = data.get(primaryKeyIndex).getVector();
-                    assertThat(originalVector).isNotNull();
-                    final double distance = metric.distance(originalVector,
-                            Objects.requireNonNull(resultEntry.getVector()).toDoubleRealVector());
-                    assertThat(distance).isCloseTo(0.0d, within(30.0d));
-
-                    logger.trace("retrieved result nodeId = {} at distance = {} ",
-                            primaryKeyIndex, resultEntry.getDistance());
-                    if (groundTruthIndices.contains(primaryKeyIndex)) {
-                        recallCount ++;
-                    }
-                }
-
-                final double recall = (double)recallCount / groundTruthIndices.size();
-                //assertThat(recall).isGreaterThan(0.93);
-
-                logger.info("query returned results recall={}, k={}",
-                        String.format(Locale.ROOT, "%.2f", recall * 100.0d),
-                        groundTruthIndices.size());
-                onReadListener.popFrame();
-            }
-        }
-    }
-
     static void validateSIFT(@Nonnull final Database db,
                              @Nonnull final Guardiann guardiann,
                              @Nonnull final String queriesFile,
@@ -387,6 +290,8 @@ class TestHelpers {
 
             Verify.verify(queryIterator.hasNext() == groundTruthIterator.hasNext());
 
+            final int efSearch = (int)((double)k * 1.15);
+
             while (queryIterator.hasNext()) {
                 final HalfRealVector queryVector = queryIterator.next().toHalfRealVector();
                 final Set<Integer> groundTruthIndices =
@@ -401,7 +306,7 @@ class TestHelpers {
                 onReadListener.pushFrame();
                 final long beginTs = System.nanoTime();
                 final List<? extends ResultEntry> results =
-                        db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, 130000,
+                        db.run(tr -> guardiann.kNearestNeighborsSearch(tr, k, efSearch,
                                 true, queryVector).join());
                 final long endTs = System.nanoTime();
                 logger.info("retrieved result in elapsedTimeMs={}, reading readBytes={}",

@@ -147,7 +147,7 @@ public class DebugIndexTest implements BaseTest {
         //insertedData = TestHelpers.insertSIFTSmall(db, guardiann);
 //        TestHelpers.insertFirstRepeatedly(db, guardiann,
 //                "/Users/nseemann/downloads/embeddings-unified-model-1m-1.0.0.fvecs", 1000, 50);
-        insertedData = TestHelpers.insertSIFT100k(db, guardiann, 1_000_000, 50);
+        //insertedData = TestHelpers.insertSIFT100k(db, guardiann, 100_000, 50);
     }
 
     @Test
@@ -295,8 +295,8 @@ public class DebugIndexTest implements BaseTest {
     @Test
     void testValidate() throws Exception {
         TestHelpers.validateSIFT(getDb(), guardiann,
-                "/Users/nseemann/Downloads/embeddings-unified-model-1m-queries-1.0.0.fvecs",
-                "/Users/nseemann/Downloads/embeddings-unified-model-1m-groundtruth-1.0.0.ivecs", 100);
+                "/Users/nseemann/Downloads/embeddings-unified-model-100k-queries-1.0.0.fvecs",
+                "/Users/nseemann/Downloads/embeddings-unified-model-100k-groundtruth-1.0.0.ivecs", 100);
     }
 
     @Test
