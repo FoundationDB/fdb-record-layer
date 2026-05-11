@@ -214,12 +214,6 @@ test_block:
   tests:
     -
       - query: SELECT COUNT(*) from T1 where col1 = 20
-      - initialVersionLessThan: 4.12.1.0
-        # In these versions, the partial aggregation results were not serialized correctly within the continuation if
-        # the aggregate result is not grouped.
-      - result: []
-      - result: [{!l 2}]
-      - initialVersionAtLeast: 4.12.1.0
       - result: []
       - result: [{!l 8}]
     -

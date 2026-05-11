@@ -574,10 +574,11 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                 int planHash;
                 if (scanParameters instanceof IndexScanComparisons) {
                     // Keep hash stable for change in representation.
-                    // TODO: If there is another event that changes hashes or they become less critical in tests, this can be removed.
-                    planHash = PlanHashable.objectsPlanHash(mode, BASE_HASH, indexName, getScanType(), getScanComparisons(), reverse, strictlySorted);
+                    planHash = PlanHashable.objectsPlanHash(mode, BASE_HASH, indexName, getScanType(), getScanComparisons(),
+                            reverse, strictlySorted, serializationMode);
                 } else {
-                    planHash = PlanHashable.objectsPlanHash(mode, BASE_HASH, indexName, scanParameters, reverse, strictlySorted);
+                    planHash = PlanHashable.objectsPlanHash(mode, BASE_HASH, indexName, scanParameters,
+                            reverse, strictlySorted, serializationMode);
                 }
                 return planHash;
             default:

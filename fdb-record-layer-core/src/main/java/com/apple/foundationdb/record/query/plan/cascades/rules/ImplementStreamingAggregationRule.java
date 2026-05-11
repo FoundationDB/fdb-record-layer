@@ -100,10 +100,11 @@ public class ImplementStreamingAggregationRule extends ImplementationCascadesRul
 
         final var groupingValue = groupByExpression.getGroupingValue();
 
+        // When groupingValue is null (no GROUP BY clause), the streaming aggregation treats all records as a single
+        // group. The null is passed through to the plan, where StreamGrouping handles it by skipping group-key
+        // evaluation and serializing partial results without a group key in the continuation.
         final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.ofAliases(innerQuantifier.getAlias(), Quantifier.current()));
 
-        // TODO: isConstant is not implemented correctly.
-        // for the following FV(col1, QOV( --> RCV(FV(col1(Literal(42))...) ) it is returning false while it should return true.
         final var requiredOrderingKeyValues =
                 currentGroupingValue == null
                 ? null

@@ -216,6 +216,17 @@ public class StreamGrouping<M extends Message> {
         return Objects.requireNonNull(groupingKeyValue).eval(store, nestedContext);
     }
 
+    /**
+     * Serializes the current partial aggregation state so that it can be included in a continuation.
+     * <p>
+     * When {@code groupingKeyValue} is {@code null} (i.e. there is no explicit GROUP BY), {@code currentGroup} will
+     * also be {@code null}, and the partial result will be serialized without a group key. This is safe because on
+     * deserialization, the constructor only attempts to parse the group key when both {@code partialAggregationResult}
+     * and {@code groupingKeyValue} are non-null.
+     * </p>
+     *
+     * @return the partial aggregation result proto, or {@code null} if no accumulation has occurred
+     */
     @Nullable
     public RecordCursorProto.PartialAggregationResult getPartialAggregationResult() {
         List<RecordCursorProto.AccumulatorState> accumulatorStates = accumulator.getAccumulatorStates();

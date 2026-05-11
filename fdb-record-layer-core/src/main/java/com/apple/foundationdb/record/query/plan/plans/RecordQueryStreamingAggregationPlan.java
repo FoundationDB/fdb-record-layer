@@ -304,12 +304,15 @@ public class RecordQueryStreamingAggregationPlan extends AbstractRelationalExpre
 
     @Override
     public int computeHashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH, groupingKeyValue, aggregateValue, completeResultValue);
+        return Objects.hash(BASE_HASH, groupingKeyValue, aggregateValue, completeResultValue, serializationMode);
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan(), groupingKeyValue, aggregateValue, completeResultValue);
+        // Include serializationMode because plans with different serialization modes produce incompatible
+        // continuations — a continuation from TO_NEW cannot be correctly resumed by a plan using TO_OLD.
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan(), groupingKeyValue, aggregateValue,
+                completeResultValue, serializationMode);
     }
 
     @Nonnull
