@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import org.junit.jupiter.api.Test;
 
@@ -152,8 +153,9 @@ public class ColumnarValueTest {
     void explainDelegatesToInner() {
         final var inner = new LiteralValue<>(42);
         final var cv = new ColumnarValue(inner, 0);
-        // LiteralValue.explain ignores the suppliers iterable (it's a leaf), so empty is fine.
-        assertEquals(inner.explain(List.of()).toString(), cv.explain(List.of()).toString());
+        final var formatter = DefaultExplainFormatter.forDebugging();
+        assertEquals(inner.explain(List.of()).getExplainTokens().render(formatter).toString(),
+                cv.explain(List.of()).getExplainTokens().render(formatter).toString());
     }
 
     @Test
