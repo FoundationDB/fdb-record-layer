@@ -348,18 +348,29 @@ class TestFormatFileAnnotation(unittest.TestCase):
             'module/src/main/java/com/example/Foo.java',
             (8, 10),
             (2, 3),
+            first_changed_line=15,
         )
         self.assertEqual(
             result,
-            '::notice file=module/src/main/java/com/example/Foo.java,line=1::'
+            '::notice file=module/src/main/java/com/example/Foo.java,line=14::'
             'File coverage: 80.0% (8/10 lines) | Changed lines: 66.7% (2/3 lines)'
         )
+
+    def test_annotation_line_does_not_go_below_1(self):
+        result = format_file_annotation(
+            'module/src/main/java/com/example/Foo.java',
+            (8, 10),
+            (2, 3),
+            first_changed_line=1,
+        )
+        self.assertIn('line=1', result)
 
     def test_no_executable_changed_lines(self):
         result = format_file_annotation(
             'module/src/main/java/com/example/Foo.java',
             (8, 10),
             (0, 0),
+            first_changed_line=5,
         )
         self.assertIn('N/A (no executable lines)', result)
 

@@ -212,9 +212,12 @@ def format_percentage(covered, total):
     return f'{pct:.1f}% ({covered}/{total} lines)'
 
 
-def format_file_annotation(repo_path, file_coverage, changed_coverage):
+def format_file_annotation(repo_path, file_coverage, changed_coverage, first_changed_line):
     """
     Format a single GitHub Actions annotation for a file's coverage summary.
+
+    The annotation is placed one line above the first changed line so it appears
+    as a header above the changes in the PR diff view.
 
     Returns the annotation string, or None if there's nothing to report.
     """
@@ -224,8 +227,9 @@ def format_file_annotation(repo_path, file_coverage, changed_coverage):
     file_pct_str = format_percentage(file_covered, file_total)
     changed_pct_str = format_percentage(changed_covered, changed_total)
 
+    annotation_line = max(1, first_changed_line - 1)
     message = f'File coverage: {file_pct_str} | Changed lines: {changed_pct_str}'
-    return f'::notice file={repo_path},line=1::{message}'
+    return f'::notice file={repo_path},line={annotation_line}::{message}'
 
 
 def generate_annotations(coverage_data, diff_data, source_prefixes):
@@ -252,8 +256,10 @@ def generate_annotations(coverage_data, diff_data, source_prefixes):
 
         file_coverage = compute_file_coverage(lines)
         changed_coverage = compute_changed_lines_coverage(lines, changed_line_numbers)
+        first_changed_line = min(changed_line_numbers)
 
-        annotation = format_file_annotation(repo_path, file_coverage, changed_coverage)
+        annotation = format_file_annotation(
+            repo_path, file_coverage, changed_coverage, first_changed_line)
         if annotation:
             annotations.append(annotation)
 
