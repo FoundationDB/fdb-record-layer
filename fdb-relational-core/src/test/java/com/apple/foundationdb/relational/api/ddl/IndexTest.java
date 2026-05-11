@@ -1185,23 +1185,6 @@ public class IndexTest {
     }
 
     @Test
-    void createIndexOnArrayFieldWithoutUnnestingIsDisallowed() throws Exception {
-        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TABLE T (p BIGINT, items STRING ARRAY, PRIMARY KEY (p))" +
-                "CREATE INDEX MV1 AS SELECT items FROM T";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "cannot create index on array field");
-    }
-
-    @Test
-    void createIndexNavigatingThroughArrayWithoutUnnestingIsDisallowed() throws Exception {
-        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TYPE AS STRUCT A(x BIGINT) " +
-                "CREATE TABLE T (p BIGINT, a A ARRAY, PRIMARY KEY (p))" +
-                "CREATE INDEX MV1 AS SELECT a.x FROM T";
-        shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN, "A.X");
-    }
-
-    @Test
     void createIndexWithOrderByMixedDirection() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, primary key(col1)) " +

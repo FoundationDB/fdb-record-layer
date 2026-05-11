@@ -34,8 +34,8 @@ schema_template:
     create index "foo.table$nested.repeated.idx.field.1.1.1" as select "nested$level2"."level2$array.field.1"            from "foo.table$nested.repeated" as "level0$t", "level0$t"."level0.field1" AS "nested$level1", "nested$level1"."level1$field.1" AS "nested$level2"
 
     create table "foo.table$repeated" (id bigint, "field.0$array" bigint array, "field.1$array" string array, primary key (id))
-    create index "foo.table$repeated.1" as select "e" from "foo.table$repeated" AS t, t."field.0$array" as "e"
-    create index "foo.table$repeated.2" as select "e" from "foo.table$repeated" AS t, t."field.1$array" as "e"
+    create index "foo.table$repeated.1" as select t."field.0$array" from "foo.table$repeated" AS t
+    create index "foo.table$repeated.2" as select t."field.1$array" from "foo.table$repeated" AS t
 
     create type as struct "foo.struct"(S1 bigint, S2 bigint)
     create table "foo.tableA"("foo.tableA.A1" bigint, "foo.tableA.A2" bigint, "foo.tableA.A3" bigint, primary key("foo.tableA.A1"))
