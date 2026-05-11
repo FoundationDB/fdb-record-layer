@@ -21,8 +21,11 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -124,5 +127,50 @@ public class ColumnarValueTest {
         // When other is not a ColumnarValue, delegates to inner.semanticEquals(other, aliasMap).
         assertEquals(inner.semanticEquals(inner, AliasMap.emptyMap()),
                 cv.semanticEquals(inner, AliasMap.emptyMap()));
+    }
+
+    // ── untested-gap coverage ─────────────────────────────────────────────────
+
+    @Test
+    void getCorrelatedToWithoutChildrenDelegatesToInner() {
+        final var inner = new LiteralValue<>(1);
+        assertEquals(inner.getCorrelatedToWithoutChildren(),
+                new ColumnarValue(inner, 0).getCorrelatedToWithoutChildren());
+    }
+
+    @Test
+    void planHashDelegatesToInner() {
+        final var inner = new LiteralValue<>(42);
+        final var cv = new ColumnarValue(inner, 3);
+        assertEquals(inner.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
+                cv.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        assertEquals(inner.planHash(PlanHashable.CURRENT_LEGACY),
+                cv.planHash(PlanHashable.CURRENT_LEGACY));
+    }
+
+    @Test
+    void explainDelegatesToInner() {
+        final var inner = new LiteralValue<>(42);
+        final var cv = new ColumnarValue(inner, 0);
+        // LiteralValue.explain ignores the suppliers iterable (it's a leaf), so empty is fine.
+        assertEquals(inner.explain(List.of()).toString(), cv.explain(List.of()).toString());
+    }
+
+    @Test
+    void toProtoDelegatesToInner() {
+        final var inner = new LiteralValue<>(42);
+        final var cv = new ColumnarValue(inner, 0);
+        final var serCtx = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                PlanHashable.CURRENT_FOR_CONTINUATION);
+        assertEquals(inner.toProto(serCtx), cv.toProto(serCtx));
+    }
+
+    @Test
+    void toValueProtoDelegatesToInner() {
+        final var inner = new LiteralValue<>(42);
+        final var cv = new ColumnarValue(inner, 0);
+        final var serCtx = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                PlanHashable.CURRENT_FOR_CONTINUATION);
+        assertEquals(inner.toValueProto(serCtx), cv.toValueProto(serCtx));
     }
 }
