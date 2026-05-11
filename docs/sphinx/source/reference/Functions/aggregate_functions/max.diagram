@@ -1,0 +1,6 @@
+Diagram(
+    Terminal('MAX'),
+    Terminal('('),
+    NonTerminal('expression'),
+    Terminal(')'),
+)

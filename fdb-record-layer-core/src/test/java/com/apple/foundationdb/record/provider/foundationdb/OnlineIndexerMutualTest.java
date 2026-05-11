@@ -34,8 +34,13 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.AtomicMutationIndexMaintainerFactory;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.RankIndexMaintainerFactory;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainerFactory;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VersionIndexMaintainerFactory;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -46,6 +51,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -1769,5 +1775,47 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .build()) {
             assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
         }
+    }
+
+    @Test
+    void standardIndexAttributesOptimizedForMutualIndexing() {
+        final Index index = new Index("test", "field");
+        List<IndexMaintainerFactory> factories = List.of(
+                new ValueIndexMaintainerFactory(),
+                new AtomicMutationIndexMaintainerFactory(),
+                new VersionIndexMaintainerFactory(),
+                new RankIndexMaintainerFactory()
+        );
+        for (IndexMaintainerFactory factory : factories) {
+            assertTrue(factory.getIndexGeneralAttributes(index).isOptimizedForMutualIndexing(),
+                    factory.getClass().getSimpleName() + " should be optimized for mutual indexing");
+        }
+    }
+
+    @Test
+    void defaultIndexGeneralAttributesNotOptimizedForMutualIndexing() {
+        // Check a generic index maintainer factory that doesn't implement getIndexGeneralAttributes
+        final Index index = new Index("test", "field");
+        // Anonymous implementation that doesn't override getIndexGeneralAttributes
+        IndexMaintainerFactory factory = new IndexMaintainerFactory() {
+            @Nonnull
+            @Override
+            public Iterable<String> getIndexTypes() {
+                return List.of("test");
+            }
+
+            @Nonnull
+            @Override
+            public IndexValidator getIndexValidator(final Index index) {
+                return new IndexValidator(index);
+            }
+
+            @Nonnull
+            @Override
+            public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+                throw new UnsupportedOperationException();
+            }
+        };
+        assertFalse(factory.getIndexGeneralAttributes(index).isOptimizedForMutualIndexing());
     }
 }

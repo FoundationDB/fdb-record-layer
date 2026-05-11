@@ -1,0 +1,81 @@
+---
+options:
+  supported_version: 4.3.2.0
+---
+schema_template:
+    create table products(id bigint, name string, price_usd bigint, price_eur bigint, price_gbp bigint, primary key(id))
+    create table contacts(id bigint, name string, email string, phone string, address string, primary key(id))
+---
+setup:
+  steps:
+    - query: insert into products
+            values (1, 'Widget', 100, 90, 80),
+                   (2, 'Gadget', 150, 140, 120),
+                   (3, 'Doohickey', 200, 180, 160)
+    - query: insert into contacts
+            values (1, 'Alice', 'alice@example.com', NULL, NULL),
+                   (2, 'Bob', NULL, '555-0123', NULL),
+                   (3, 'Charlie', NULL, NULL, '123 Main St'),
+                   (4, 'David', NULL, NULL, NULL)
+---
+test_block:
+  name: scalar-functions-documentation-tests
+  preset: single_repetition_ordered
+  tests:
+    # GREATEST - Find Maximum Price
+    -
+      - query: SELECT name, GREATEST(price_usd, price_eur, price_gbp) AS max_price
+              FROM products
+      - supported_version: 4.3.2.0
+      - result: [{name: "Widget", max_price: 100},
+                 {name: "Gadget", max_price: 150},
+                 {name: "Doohickey", max_price: 200}]
+
+    # GREATEST with Constants
+    -
+      - query: SELECT name, GREATEST(price_usd, 125) AS adjusted_price
+              FROM products
+      - supported_version: 4.3.2.0
+      - result: [{name: "Widget", adjusted_price: 125},
+                 {name: "Gadget", adjusted_price: 150},
+                 {name: "Doohickey", adjusted_price: 200}]
+
+    # LEAST - Find Minimum Price
+    -
+      - query: SELECT name, LEAST(price_usd, price_eur, price_gbp) AS min_price
+              FROM products
+      - supported_version: 4.3.2.0
+      - result: [{name: "Widget", min_price: 80},
+                 {name: "Gadget", min_price: 120},
+                 {name: "Doohickey", min_price: 160}]
+
+    # LEAST with Constants
+    -
+      - query: SELECT name, LEAST(price_usd, 175) AS capped_price
+              FROM products
+      - supported_version: 4.3.2.0
+      - result: [{name: "Widget", capped_price: 100},
+                 {name: "Gadget", capped_price: 150},
+                 {name: "Doohickey", capped_price: 175}]
+
+    # COALESCE - Find First Available Contact Method
+    -
+      - query: SELECT name, COALESCE(email, phone, address, 'No contact info') AS contact_method
+              FROM contacts
+      - supported_version: 4.3.2.0
+      - result: [{name: "Alice", contact_method: "alice@example.com"},
+                 {name: "Bob", contact_method: "555-0123"},
+                 {name: "Charlie", contact_method: "123 Main St"},
+                 {name: "David", contact_method: "No contact info"}]
+
+    # COALESCE with Default Values
+    -
+      - query: SELECT name,
+                     COALESCE(email, 'no-email@example.com') AS email,
+                     COALESCE(phone, 'Unknown') AS phone
+              FROM contacts
+      - supported_version: 4.3.2.0
+      - result: [{name: "Alice", email: "alice@example.com", phone: "Unknown"},
+                 {name: "Bob", email: "no-email@example.com", phone: "555-0123"},
+                 {name: "Charlie", email: "no-email@example.com", phone: "Unknown"},
+                 {name: "David", email: "no-email@example.com", phone: "Unknown"}]

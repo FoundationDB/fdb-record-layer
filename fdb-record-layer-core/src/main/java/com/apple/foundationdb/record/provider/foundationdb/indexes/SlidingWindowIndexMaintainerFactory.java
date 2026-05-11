@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.provider.foundationdb.IndexGeneralAttributes;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -64,6 +65,8 @@ import java.util.Collection;
  */
 @API(API.Status.EXPERIMENTAL)
 public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFactory {
+
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     @Nonnull
     private final IndexMaintainerFactory delegateFactory;
@@ -143,6 +146,12 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
     public Iterable<MatchCandidate> createMatchCandidates(@Nonnull RecordMetaData metaData,
                                                            @Nonnull Index index, boolean reverse) {
         return delegateFactory.createMatchCandidates(metaData, index, reverse);
+    }
+
+    @Nonnull
+    @Override
+    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+        return GENERAL_ATTRIBUTES;
     }
 
     /**
