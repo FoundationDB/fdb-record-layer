@@ -101,7 +101,7 @@ public class DirectAccessVsQueryBenchmark extends EmbeddedRelationalBenchmark {
     private static final long LOOKUP_ROW = 1L;
 
     /** Number of rows per group; controls prefix-scan and full-scan result sizes. */
-    @Param({"10", "100"})
+    @Param({"10", "100", "1000", "10000"})
     int rowsPerGroup;
 
     Driver driver = new Driver(templateName, templateDefinition, RelationalPlanCache.buildWithDefaults());
@@ -249,6 +249,82 @@ public class DirectAccessVsQueryBenchmark extends EmbeddedRelationalBenchmark {
         @TearDown
         public void stop() throws SQLException {
             connection.close();
+        }
+    }
+
+    // ── Prepared plan bytes (serialized once at trial setup) ─────────────────
+
+    @State(Scope.Benchmark)
+    public static class PreparedPlanHolder {
+        String getSql;
+        String scanPrefixSql;
+        String fullScanSql;
+
+        @Setup(Level.Trial)
+        public void preparePlans() throws SQLException {
+            try (Connection raw = DriverManager.getConnection("jdbc:embed:" + dbUri)) {
+                raw.setSchema(schema);
+                try (RelationalStatement stmt = raw.createStatement().unwrap(RelationalStatement.class)) {
+                    getSql = buildExecutePlanSql(stmt,
+                            "PREPARE PLAN SELECT * FROM \"BenchTable\" WHERE \"group_id\" = " + LOOKUP_GROUP
+                            + " AND \"row_id\" = " + LOOKUP_ROW);
+                    scanPrefixSql = buildExecutePlanSql(stmt,
+                            "PREPARE PLAN SELECT * FROM \"BenchTable\" WHERE \"group_id\" = " + LOOKUP_GROUP);
+                    fullScanSql = buildExecutePlanSql(stmt,
+                            "PREPARE PLAN SELECT * FROM \"BenchTable\"");
+                }
+            }
+        }
+
+        private static String buildExecutePlanSql(RelationalStatement stmt, String prepareQuery) throws SQLException {
+            try (RelationalResultSet rs = stmt.executeQuery(prepareQuery)) {
+                if (rs.next()) {
+                    byte[] planBytes = rs.getBytes("PLAN_BYTES");
+                    return "EXECUTE PLAN X'" + java.util.HexFormat.of().formatHex(planBytes) + "'";
+                }
+                throw new SQLException("PREPARE PLAN returned no rows");
+            }
+        }
+    }
+
+    // ── Pre-serialized plan execution benchmarks ─────────────────────────────
+
+    @Benchmark
+    public void get_preparedPlan(Blackhole bh, ConnHolder connHolder, PreparedPlanHolder plans) throws SQLException {
+        try (RelationalStatement stmt = connHolder.connection.createStatement()
+                .unwrap(RelationalStatement.class)) {
+            try (RelationalResultSet rs = stmt.executeQuery(plans.getSql)) {
+                if (rs.next()) {
+                    bh.consume(rs.getLong("group_id"));
+                    bh.consume(rs.getString("val"));
+                }
+            }
+        }
+    }
+
+    @Benchmark
+    public void scanPrefix_preparedPlan(Blackhole bh, ConnHolder connHolder, PreparedPlanHolder plans) throws SQLException {
+        try (RelationalStatement stmt = connHolder.connection.createStatement()
+                .unwrap(RelationalStatement.class)) {
+            try (RelationalResultSet rs = stmt.executeQuery(plans.scanPrefixSql)) {
+                while (rs.next()) {
+                    bh.consume(rs.getLong("group_id"));
+                    bh.consume(rs.getString("val"));
+                }
+            }
+        }
+    }
+
+    @Benchmark
+    public void fullScan_preparedPlan(Blackhole bh, ConnHolder connHolder, PreparedPlanHolder plans) throws SQLException {
+        try (RelationalStatement stmt = connHolder.connection.createStatement()
+                .unwrap(RelationalStatement.class)) {
+            try (RelationalResultSet rs = stmt.executeQuery(plans.fullScanSql)) {
+                while (rs.next()) {
+                    bh.consume(rs.getLong("group_id"));
+                    bh.consume(rs.getString("val"));
+                }
+            }
         }
     }
 
