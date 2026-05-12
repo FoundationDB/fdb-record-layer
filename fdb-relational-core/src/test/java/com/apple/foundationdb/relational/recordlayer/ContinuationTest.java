@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.continuation.ContinuationProto;
 import com.google.common.primitives.Ints;
@@ -45,19 +46,19 @@ public class ContinuationTest {
 
     @Test
     public void testBytes() {
-        ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromUnderlyingBytes("Hello".getBytes());
+        ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromUnderlyingBytes("Hello".getBytes(), Continuation.Reason.CURSOR_AFTER_LAST);
         assertContinuation(continuation, false, false, "Hello".getBytes());
     }
 
     @Test
     public void testInt() {
-        ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromInt(5);
+        ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromInt(5, Continuation.Reason.CURSOR_AFTER_LAST);
         assertContinuation(continuation, false, false, Ints.toByteArray(5));
     }
 
     @Test
     public void serializeAndRestore() throws Exception {
-        ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromUnderlyingBytes("Hello".getBytes());
+        ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromUnderlyingBytes("Hello".getBytes(), Continuation.Reason.CURSOR_AFTER_LAST);
         byte[] bytes = continuation.serialize();
         continuation = ContinuationImpl.parseContinuation(bytes);
         assertContinuation(continuation, false, false, "Hello".getBytes());
@@ -69,6 +70,7 @@ public class ContinuationTest {
                 .setVersion(5)
                 .setExecutionState(ByteString.copyFrom("Blah".getBytes()))
                 .setBindingHash(1234)
+                .setReason(ContinuationProto.Reason.USER_REQUESTED_CONTINUATION)
                 .build();
         ContinuationImpl continuation = ContinuationImpl.parseContinuation(proto.toByteArray());
         Assertions.assertThat(continuation.atBeginning()).isEqualTo(false);
@@ -80,7 +82,7 @@ public class ContinuationTest {
 
     @Test
     public void testNullSameAsBegin() {
-        ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromUnderlyingBytes(null);
+        ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromUnderlyingBytes(null, Continuation.Reason.CURSOR_AFTER_LAST);
         assertContinuation(continuation, true, false, null);
     }
 
@@ -101,11 +103,11 @@ public class ContinuationTest {
     // Note that for the same reason it is not possible to get the continuation back from the string property.
     public void testContinuationOption() throws Exception {
         final byte[] asBytes = { (byte)0xFE, (byte)0xED, (byte)0xBA, (byte)0xC1 };
-        final ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromUnderlyingBytes(asBytes);
+        final ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromUnderlyingBytes(asBytes, Continuation.Reason.USER_REQUESTED_CONTINUATION);
         final Options options = Options.builder().withOption(Options.Name.CONTINUATION, continuation).build();
         final Properties properties = Options.toProperties(options);
         // Field 1 (version): varint 1; field 2 (execution_state): len 4
-        Assertions.assertThat(properties).hasFieldOrPropertyWithValue(Options.Name.CONTINUATION.name(), "08011204FEEDBAC1");
+        Assertions.assertThat(properties).hasFieldOrPropertyWithValue(Options.Name.CONTINUATION.name(), "08011204FEEDBAC13000");
         Assertions.assertThatThrownBy(() -> Options.fromProperties(properties)).isInstanceOf(UnsupportedOperationException.class);
     }
 }

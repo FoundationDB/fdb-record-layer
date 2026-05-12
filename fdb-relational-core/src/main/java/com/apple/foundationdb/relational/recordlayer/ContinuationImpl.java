@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -43,24 +44,41 @@ import java.util.Objects;
 public final class ContinuationImpl implements Continuation {
     public static final int CURRENT_VERSION = 1;
 
-    public static final ContinuationImpl BEGIN = new ContinuationImpl((byte[]) null);
+    public static final ContinuationImpl BEGIN = new ContinuationImpl((byte[]) null, Reason.CURSOR_AFTER_LAST);
 
-    public static final ContinuationImpl END = new ContinuationImpl(new byte[0]);
+    public static final ContinuationImpl END = new ContinuationImpl(new byte[0], Reason.CURSOR_AFTER_LAST);
 
     @Nonnull
     private final ContinuationProto proto;
 
     // TODO(yhatem) remove semantic nulls.
-    private ContinuationImpl(@Nullable byte[] continuationBytes) {
+    private ContinuationImpl(@Nullable byte[] continuationBytes, @Nullable final Reason reason) {
         ContinuationProto.Builder builder = ContinuationProto.newBuilder().setVersion(CURRENT_VERSION);
         if (continuationBytes != null) {
             builder.setExecutionState(ByteString.copyFrom(continuationBytes));
+        }
+        if (reason != null) {
+            builder.setReason(ContinuationProto.Reason.valueOf(reason.name()));
         }
         proto = builder.build();
     }
 
     ContinuationImpl(@Nonnull ContinuationProto proto) {
         this.proto = proto;
+    }
+
+    @Nullable
+    public static Reason reasonFromCursor(@Nullable final RecordCursor.NoNextReason noNextReason) {
+        if (noNextReason == null) {
+            return null;
+        }
+        return switch (noNextReason) {
+            case SOURCE_EXHAUSTED -> Reason.CURSOR_AFTER_LAST;
+            case RETURN_LIMIT_REACHED -> Reason.USER_REQUESTED_CONTINUATION;
+            case TIME_LIMIT_REACHED -> Reason.TRANSACTION_LIMIT_REACHED;
+            case SCAN_LIMIT_REACHED -> Reason.QUERY_EXECUTION_LIMIT_REACHED;
+            case BYTE_LIMIT_REACHED -> Reason.QUERY_EXECUTION_LIMIT_REACHED;
+        };
     }
 
     public int getVersion() {
@@ -155,35 +173,52 @@ import com.apple.foundationdb.annotation.API;
 
     /**
      * Create a new continuation from a given (inner) continuation bytes.
+     *
      * @param bytes the inner (cursor continuation) to be placed inside the newly created continuation
+     *
      * @return a continuation that holds the given cursor continuation
      */
-    public static Continuation fromUnderlyingBytes(@Nullable byte[] bytes) {
+    public static Continuation fromUnderlyingBytes(@Nullable byte[] bytes, final RecordCursor.NoNextReason reason) {
+        return fromUnderlyingBytes(bytes, reasonFromCursor(reason));
+    }
+
+    /**
+     * Create a new continuation from a given (inner) continuation bytes.
+     *
+     * @param bytes the inner (cursor continuation) to be placed inside the newly created continuation
+     *
+     * @return a continuation that holds the given cursor continuation
+     */
+    public static Continuation fromUnderlyingBytes(@Nullable byte[] bytes, @Nullable final Reason reason) {
         if (bytes == null) {
             return BEGIN;
         } else if (bytes.length == 0) {
             return END;
         }
-        return new ContinuationImpl(bytes);
+        return new ContinuationImpl(bytes, reason);
     }
 
     /**
      * Create a new continuation from a given (inner) continuation Integer offset.
+     *
      * @param offset the offset to be placed inside the newly created continuation
+     *
      * @return a continuation that holds the given offset
      */
-    public static Continuation fromInt(int offset) {
+    public static Continuation fromInt(int offset, final Reason reason) {
         assert offset >= 0;
-        return new ContinuationImpl(Ints.toByteArray(offset));
+        return new ContinuationImpl(Ints.toByteArray(offset), reason);
     }
 
     /**
      * Create a new continuation from a given cursor continuation.
+     *
      * @param cursorContinuation the inner cursor continuation to be placed inside the newly created continuation
+     *
      * @return a continuation that holds the given cursor continuation
      */
-    public static Continuation fromRecordCursorContinuation(RecordCursorContinuation cursorContinuation) {
-        return cursorContinuation.isEnd() ? END : new ContinuationImpl(cursorContinuation.toBytes());
+    public static Continuation fromRecordCursorContinuation(RecordCursorContinuation cursorContinuation, final RecordCursor.NoNextReason noNextReason) {
+        return cursorContinuation.isEnd() ? END : ContinuationImpl.fromUnderlyingBytes(cursorContinuation.toBytes(), noNextReason);
     }
 
     /**
@@ -196,7 +231,15 @@ import com.apple.foundationdb.annotation.API;
         if (bytes == null) {
             return BEGIN;
         } else {
-            return new ContinuationImpl(ContinuationProto.parseFrom(bytes));
+            final var proto = ContinuationProto.parseFrom(bytes);
+            // The reason field was introduced in 4.11.1.0. Reject continuations from older versions that
+            // do not include it, as they may have incompatible serialization semantics.
+            if (!proto.hasReason()) {
+                throw new InvalidProtocolBufferException(
+                        "Continuation is missing required 'reason' field; " +
+                        "it may have been generated by a version older than 4.11.1.0");
+            }
+            return new ContinuationImpl(proto);
         }
     }
 
