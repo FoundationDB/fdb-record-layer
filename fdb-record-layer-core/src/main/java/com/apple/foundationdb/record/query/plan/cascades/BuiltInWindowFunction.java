@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 
 import javax.annotation.Nonnull;
@@ -84,26 +85,16 @@ public abstract class BuiltInWindowFunction<T extends Typed> extends CatalogedFu
     @Override
     @SuppressWarnings("unchecked")
     public BuiltInFunction<T> encapsulate(@Nonnull final List<Object> secondOrderArguments) {
-        WindowedValue.FrameSpecification frameSpecification = null;
-        List<OrderingPart.RequestedOrderingPart> sortOrder = null;
-
-        int index = 0;
-        if (index < secondOrderArguments.size() && secondOrderArguments.get(index) instanceof WindowedValue.FrameSpecification) {
-            frameSpecification = (WindowedValue.FrameSpecification) secondOrderArguments.get(index);
-            index++;
-        }
-        if (index < secondOrderArguments.size()) {
-            SemanticException.check(secondOrderArguments.get(index) instanceof List<?>, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-            sortOrder = (List<OrderingPart.RequestedOrderingPart>) secondOrderArguments.get(index);
-            index++;
-        }
-        SemanticException.check(index == secondOrderArguments.size(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-
-        final WindowedValue.FrameSpecification finalFrameSpecification = frameSpecification;
-        final List<OrderingPart.RequestedOrderingPart> finalSortOrder = sortOrder;
+        SemanticException.check(secondOrderArguments.size() == 3, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+        SemanticException.check(secondOrderArguments.get(0) instanceof WindowedValue.FrameSpecification, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+        final WindowedValue.FrameSpecification frameSpecification = (WindowedValue.FrameSpecification) secondOrderArguments.get(0);
+        SemanticException.check(secondOrderArguments.get(1) instanceof List<?>, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+        final List<Value> partitioningColumns = ((List<?>)secondOrderArguments.get(1)).isEmpty() ? null : (List<Value>) secondOrderArguments.get(1);
+        SemanticException.check(secondOrderArguments.get(2) instanceof List<?>, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+        final List<OrderingPart.RequestedOrderingPart> sortOrder = ((List<?>)secondOrderArguments.get(2)).isEmpty() ? null : (List<OrderingPart.RequestedOrderingPart>) secondOrderArguments.get(2);
 
         return new BuiltInFunction<>(getFunctionName(), getParameterTypes(), getVariadicSuffixType(),
-                (builtInFunction, firstOrderArguments) -> encapsulationFunction.encapsulate(this, finalFrameSpecification, finalSortOrder, firstOrderArguments));
+                (builtInFunction, firstOrderArguments) -> encapsulationFunction.encapsulate(this, frameSpecification, partitioningColumns, sortOrder, firstOrderArguments));
     }
 
     /**
@@ -116,7 +107,7 @@ public abstract class BuiltInWindowFunction<T extends Typed> extends CatalogedFu
     @Nonnull
     public BuiltInFunction<T> encapsulatePureAggregate() {
         return new BuiltInFunction<>(getFunctionName(), getParameterTypes(), getVariadicSuffixType(),
-                (builtInFunction, firstOrderArguments) -> encapsulationFunction.encapsulate(this, null, null, firstOrderArguments));
+                (builtInFunction, firstOrderArguments) -> encapsulationFunction.encapsulate(this, null, null, null, firstOrderArguments));
     }
 
     @Nonnull

@@ -20,7 +20,10 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 
@@ -63,7 +66,7 @@ public final class WindowSpecExpression {
     }
 
     /**
-     * Creates a new {@code OverExpression} with the specified partitions and ordering.
+     * Creates a new {@code WindowSpecExpression} with the specified partitions, ordering, and resolved columns.
      *
      * @param partitions the expressions to partition by (corresponds to PARTITION BY clause)
      * @param orderByExpressions the ordering expressions (corresponds to ORDER BY clause)
@@ -105,5 +108,9 @@ public final class WindowSpecExpression {
     @Nonnull
     public Expressions getWindowOptions() {
         return windowOptions;
+    }
+
+    public boolean isDefault() {
+        return Iterables.isEmpty(orderByExpressions) && partitions.isEmpty() && frameSpecification.isDefault();
     }
 }

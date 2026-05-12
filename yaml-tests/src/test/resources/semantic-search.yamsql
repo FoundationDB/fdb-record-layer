@@ -244,6 +244,25 @@ test_block:
           {'r3', 'd6', 'A Brief History of Time'}
         ]
     -
+
+#
+#  select (where row_number(PB.... OB:cosine_distance(d1.embedding, d2.embedding))
+#   /   \
+#  d1   d2
+#
+#   select d1.embedding, d2.embedding, ... row_number() over(PB...OB...cosine_distance(_.0, _.1))
+#      |
+#   select
+#   /    \
+#  d1    d2
+#
+#
+#   windowExpr()
+#     |
+#   select
+#   /    \
+#  d1    d2
+
 # slightly different vector in the projection list, should be handled correctly.
 # in previous versions, the literals were flipped, that's why the scalar function
 # euclidean_distance in the projection

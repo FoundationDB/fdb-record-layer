@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -437,7 +436,7 @@ public class SemanticAnalyzer {
                 }
                 final var nestedFieldMaybe = lookupNestedField(referenceIdentifier, attribute, operator, matchQualifiedOnly);
                 if (nestedFieldMaybe.isPresent()) {
-                    if (attribute instanceof EphemeralExpression) {
+                    if (attribute.isEphemeral()) {
                         ephemeralDerivedBuilder.add(nestedFieldMaybe.get());
                     } else {
                         directMatchesBuilder.add(nestedFieldMaybe.get());
@@ -1011,84 +1010,62 @@ public class SemanticAnalyzer {
     @SuppressWarnings("unchecked")
     @Nonnull
     public Expression resolveHighOrderWindowFunction(@Nonnull final String functionName, boolean flattenSingleItemRecords,
-                                                     @Nonnull final WindowedValue.FrameSpecification frameSpecification,
-                                                     @Nonnull final Iterable<OrderingPart.RequestedOrderingPart> requestedOrderingParts,
-                                                     @Nonnull final List<Expressions> arguments) {
-        Assert.thatUnchecked(arguments.size() <= 2, ErrorCode.UNSUPPORTED_OPERATION, "unsupported higher-order function");
+                                                     @Nonnull final WindowSpecExpression windowSpecExpression,
+                                                     @Nonnull final Expressions arguments) {
 
-        if (arguments.isEmpty()) {
-            var functionExpression = resolveFunction(functionName, Expressions.empty(), flattenSingleItemRecords);
+        if (!windowSpecExpression.getWindowOptions().isEmpty()) {
+            var functionExpression = resolveFunction(functionName, windowSpecExpression.getWindowOptions(),
+                    flattenSingleItemRecords);
             if (functionExpression.getUnderlying().getResultType().isFunction()) {
-                // this is a second-order function, try to encapsulate a parameterless invocation of it.
                 final var highOrderValue = Assert.castUnchecked(functionExpression.getUnderlying(), Value.HighOrderValue.class);
-                functionExpression = encapsulateValueFunction(highOrderValue, Expressions.empty(),
-                        frameSpecification, requestedOrderingParts, flattenSingleItemRecords);
+                return encapsulateValueFunction(highOrderValue, arguments, windowSpecExpression, flattenSingleItemRecords);
             }
+
+            Assert.thatUnchecked(windowSpecExpression.isDefault(), ErrorCode.UNDEFINED_FUNCTION, () ->
+                    "could not resolve " + functionName + " with the given list of arguments");
+
             return functionExpression;
         }
 
-        if (arguments.size() == 1) {
-            Expression functionExpression;
-            boolean passArgsToFirstOrderFunction = false;
-            try {
-                // attempt to resolve the function with that list of arguments first.
-                functionExpression = resolveFunction(functionName, arguments.get(0), flattenSingleItemRecords);
-            } catch (UncheckedRelationalException exp) {
-                if (exp.unwrap().getErrorCode().equals(ErrorCode.UNDEFINED_FUNCTION)) {
-                    // re-attempt to resolve the high-order function with an empty list of arguments.
-                    functionExpression = resolveFunction(functionName, Expressions.empty(), flattenSingleItemRecords);
-                    passArgsToFirstOrderFunction = true;
-                } else {
-                    throw exp;
-                }
-            } catch (SemanticException exp) {
-                if (exp.getErrorCode().equals(FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES)) {
-                    // re-attempt to resolve the high-order function with an empty list of arguments.
-                    functionExpression = resolveFunction(functionName, Expressions.empty(), flattenSingleItemRecords);
-                    passArgsToFirstOrderFunction = true;
-                } else {
-                    throw exp;
-                }
-            }
-
-            if (functionExpression.getUnderlying().getResultType().isFunction()) {
-                // the function is second-order, now resolve the first-order function, make sure to not reuse the
-                // provided argument list if it was already used to resolve the second-order function.
-                final var firstOrderArgs = passArgsToFirstOrderFunction ? arguments.get(0) : Expressions.empty();
-                final var highOrderValue = Assert.castUnchecked(functionExpression.getUnderlying(), Value.HighOrderValue.class);
-                functionExpression = encapsulateValueFunction(highOrderValue, firstOrderArgs, frameSpecification, requestedOrderingParts, flattenSingleItemRecords);
+        // window options is empty.
+        Expression functionExpression;
+        try {
+            // attempt to resolve the function with that list of arguments first.
+            functionExpression = resolveFunction(functionName, arguments, flattenSingleItemRecords);
+        } catch (UncheckedRelationalException exp) {
+            if (exp.unwrap().getErrorCode().equals(ErrorCode.UNDEFINED_FUNCTION)) {
+                // re-attempt to resolve the high-order function with an empty list of arguments.
+                functionExpression = resolveFunction(functionName, Expressions.empty(), flattenSingleItemRecords);
             } else {
-                Assert.thatUnchecked(!passArgsToFirstOrderFunction, ErrorCode.UNDEFINED_FUNCTION, () ->
-                        "could not resolve " + functionName + " with the given list of arguments");
+                throw exp;
             }
-            return functionExpression;
+        } catch (SemanticException exp) {
+            if (exp.getErrorCode().equals(FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES)) {
+                // re-attempt to resolve the high-order function with an empty list of arguments.
+                functionExpression = resolveFunction(functionName, Expressions.empty(), flattenSingleItemRecords);
+            } else {
+                throw exp;
+            }
         }
 
-        final var functionExpr = resolveFunction(functionName, arguments.get(0), flattenSingleItemRecords);
-        var functionValue = functionExpr.getUnderlying();
-        Assert.thatUnchecked(functionValue.getResultType().isFunction());
-        // todo, refactor this to encapsulateValueFunction(highOrderValue, arguments.get(1), frameSpecification, requestedOrderingParts, flattenSingleItemRecods);
-        final Value.HighOrderValue highOrderValue = Assert.castUnchecked(functionValue, Value.HighOrderValue.class);
-        final List<Value> valueArgs = StreamSupport.stream(arguments.get(1).underlying().spliterator(), false)
-                    .map(v -> flattenSingleItemRecords ? (Value)SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
-                    .collect(ImmutableList.toImmutableList());
+        if (functionExpression.getUnderlying().getResultType().isFunction()) {
+            final var highOrderValue = Assert.castUnchecked(functionExpression.getUnderlying(), Value.HighOrderValue.class);
+            return encapsulateValueFunction(highOrderValue, arguments, windowSpecExpression, flattenSingleItemRecords);
+        }
 
-        final var highOrderFunction = highOrderValue.evalWithoutStore(EvaluationContext.EMPTY);
-        final var highOrderWindowFunction = Assert.castUnchecked(highOrderFunction, BuiltInWindowFunction.class);
+        Assert.thatUnchecked(windowSpecExpression.isDefault(), ErrorCode.UNDEFINED_FUNCTION, () ->
+                "could not resolve " + functionName + " with the given list of arguments");
 
-        functionValue = Assert.castUnchecked(highOrderWindowFunction
-                .encapsulate(ImmutableList.of(frameSpecification, requestedOrderingParts)) // window specification
-                .encapsulate(valueArgs), // expression arguments
-        Value.class);
+        final var functionValue = functionExpression.getUnderlying();
         Assert.thatUnchecked(!functionValue.getResultType().isFunction());
-        return Expression.ofUnnamed(DataTypeUtils.toRelationalType(functionValue.getResultType()), functionValue);
+        return createFunctionExpression(functionValue, windowSpecExpression);
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    private static Expression encapsulateValueFunction(@Nonnull final Value.HighOrderValue highOrderValue, @Nonnull final Expressions arguments,
-                                                       @Nonnull final WindowedValue.FrameSpecification frameSpecification,
-                                                       @Nonnull final Iterable<OrderingPart.RequestedOrderingPart> requestedOrderingParts,
+    private static Expression encapsulateValueFunction(@Nonnull final Value.HighOrderValue highOrderValue,
+                                                       @Nonnull final Expressions arguments,
+                                                       @Nonnull final WindowSpecExpression windowSpecExpression,
                                                        boolean flattenSingleItemRecords) {
         final List<Value> valueArgs = arguments.stream().map(Expression::getUnderlying)
                 .map(v -> flattenSingleItemRecords ? (Value)SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
@@ -1098,10 +1075,22 @@ public class SemanticAnalyzer {
         final var highOrderWindowFunction = Assert.castUnchecked(highOrderFunction, BuiltInWindowFunction.class);
 
         final var firstOrderValue = Assert.castUnchecked(highOrderWindowFunction
-                .encapsulate(ImmutableList.of(frameSpecification, requestedOrderingParts)) // window specification
+                .encapsulate(ImmutableList.of(windowSpecExpression.getFrameSpecification(),
+                        windowSpecExpression.getPartitions().underlying(),
+                        Expressions.empty().underlying()))//windowSpecExpression.getOrderByExpressions())) // window specification (this will fail, pass empty order by expressions)
                 .encapsulate(valueArgs), // expression argument
                 Value.class);
-        return Expression.ofUnnamed(DataTypeUtils.toRelationalType(firstOrderValue.getResultType()), firstOrderValue);
+        return createFunctionExpression(firstOrderValue, windowSpecExpression);
+    }
+
+    @Nonnull
+    private static Expression createFunctionExpression(@Nonnull final Value value,
+                                                       final WindowSpecExpression windowSpecExpression) {
+        final var expressionType = DataTypeUtils.toRelationalType(value.getResultType());
+        if (value instanceof WindowedValue) {
+            return new WindowExpression(null, expressionType, windowSpecExpression.getOrderByExpressions(), (WindowedValue)value);
+        }
+        return Expression.ofUnnamed(expressionType, value);
     }
 
     private void processFunctionSideEffects(@Nonnull final CatalogedFunction<Value> builtInFunction) {

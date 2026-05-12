@@ -303,8 +303,8 @@ public class LogicalOperator {
         //  - item.b: exact match item.b.
         if (alias.isPresent() && resultingQuantifier.getFlowedObjectType().isRecord()) {
             final var elementType = DataTypeUtils.toRelationalType(resultingQuantifier.getFlowedObjectType());
-            final var wholeStructExpr = new EphemeralExpression(alias, elementType,
-                    resultingQuantifier.getFlowedObjectValue(), Expression.Visibility.VISIBLE);
+            final var wholeStructExpr = new Expression(alias, elementType,
+                    resultingQuantifier.getFlowedObjectValue(), Expression.Visibility.VISIBLE).asEphemeral();
             return operator.withOutput(Expressions.of(ImmutableList.<Expression>builder()
                     .add(wholeStructExpr)
                     .addAll(operator.getOutput().asList())
@@ -333,31 +333,73 @@ public class LogicalOperator {
     @Nonnull
     public static LogicalOperator generateSelect(@Nonnull Expressions output,
                                                  @Nonnull LogicalOperators logicalOperators,
-                                                 @Nonnull Optional<Expression> predicate,
+                                                 @Nonnull Expressions predicates,
                                                  @Nonnull List<OrderByExpression> orderBys,
                                                  @Nonnull Optional<Identifier> alias,
                                                  @Nonnull Set<CorrelationIdentifier> outerCorrelations,
                                                  boolean isTopLevel,
                                                  boolean isForDdl) {
+        final Expressions missingWindowOrderingExpressions = calculateMissingWindowOrderingExpressions(output, predicates, outerCorrelations);
+
+        final boolean requiresExtraSelect = !missingWindowOrderingExpressions.isEmpty();
+
+        if (requiresExtraSelect) {
+            final var outputWithExtraPartitioningAndOrderingColumns = output.concat(missingWindowOrderingExpressions).filter(e -> !e.isWindow());
+            final var currentValue = outputWithExtraPartitioningAndOrderingColumns.asValue();
+            final var outputWithCorrectedWindowFunctions = Expressions.of(output.expanded().stream().map(
+                    e -> {
+                        if (e instanceof WindowExpression) {
+                            return ((WindowExpression)e).adjustOrderingParts(currentValue, outerCorrelations);
+                        }
+                        return e;
+                    }).collect(ImmutableList.toImmutableList()));
+
+            final var underlyingSelectOutput = outputWithExtraPartitioningAndOrderingColumns.concat(outputWithCorrectedWindowFunctions.expanded().filter(Expression::isWindow));
+            final var selectWithExtraPartitioningAndOrderingColumns = generateSimpleSelect(underlyingSelectOutput,
+                    logicalOperators, predicates, Optional.empty(), outerCorrelations, isForDdl);
+            final Quantifier bottomSelectQun = selectWithExtraPartitioningAndOrderingColumns.getQuantifier();
+            output = Expressions.of(outputWithCorrectedWindowFunctions.expanded().pullUp(bottomSelectQun.getRangesOver().get().getResultValue(), bottomSelectQun.getAlias(), outerCorrelations));
+            orderBys = orderBys.stream().map(obe ->
+                    obe.withExpression(obe.getExpression().pullUp(bottomSelectQun.getFlowedObjectValue(),
+                            bottomSelectQun.getAlias(), outerCorrelations))).collect(ImmutableList.toImmutableList());
+            logicalOperators = LogicalOperators.ofSingle(selectWithExtraPartitioningAndOrderingColumns);
+            predicates = Expressions.empty();
+        }
+
         if (orderBys.isEmpty()) {
             if (isTopLevel) {
-                return generateSort(generateSimpleSelect(output, logicalOperators, predicate, Optional.empty(), outerCorrelations, isForDdl), orderBys, outerCorrelations, alias);
+                return generateSort(generateSimpleSelect(output, logicalOperators, predicates, Optional.empty(), outerCorrelations, isForDdl), orderBys, outerCorrelations, alias);
             }
-            return generateSimpleSelect(output, logicalOperators, predicate, alias, outerCorrelations, isForDdl);
+            return generateSimpleSelect(output, logicalOperators, predicates, alias, outerCorrelations, isForDdl);
         }
         final var orderByExpressions = Expressions.of(orderBys.stream().map(OrderByExpression::getExpression).collect(ImmutableList.toImmutableList()));
         final var remainingOrderByExpressions = orderByExpressions.difference(output, outerCorrelations);
         if (remainingOrderByExpressions.isEmpty()) {
-            return generateSort(generateSimpleSelect(output, logicalOperators, predicate, Optional.empty(), outerCorrelations, isForDdl), orderBys, outerCorrelations, alias);
+            return generateSort(generateSimpleSelect(output, logicalOperators, predicates, Optional.empty(), outerCorrelations, isForDdl), orderBys, outerCorrelations, alias);
         } else {
             final var selectWithExtraOrderByExpressions = output.concat(remainingOrderByExpressions);
-            final var selectWithExtraOrderBy = generateSimpleSelect(selectWithExtraOrderByExpressions, logicalOperators, predicate, Optional.empty(), outerCorrelations, isForDdl);
+            final var selectWithExtraOrderBy = generateSimpleSelect(selectWithExtraOrderByExpressions, logicalOperators, predicates, Optional.empty(), outerCorrelations, isForDdl);
             final var sortOperator = generateSort(selectWithExtraOrderBy, orderBys, outerCorrelations, Optional.empty());
             final var pulledOutput = output.expanded().rewireQov(selectWithExtraOrderBy.getQuantifier().getFlowedObjectValue())
                     .rewireQov(sortOperator.getQuantifier().getFlowedObjectValue()).clearQualifier();
-            // TODO, we may have to rewire QOV for ORDER BY within WINDOW functions (if any).
-            return generateSimpleSelect(pulledOutput, LogicalOperators.ofSingle(sortOperator), Optional.empty(), alias, outerCorrelations, isForDdl);
+            return generateSimpleSelect(pulledOutput, LogicalOperators.ofSingle(sortOperator), Expressions.empty(), alias, outerCorrelations, isForDdl);
         }
+    }
+
+    @Nonnull
+    private static Expressions calculateMissingWindowOrderingExpressions(@Nonnull Expressions output,
+                                                                         @Nonnull Expressions predicates,
+                                                                         @Nonnull Set<CorrelationIdentifier> outerCorrelations) {
+        final var partitioningAndOrderingExprs = Expressions.of(output.concat(predicates).stream()
+                .filter(Expression::isWindow).map(WindowExpression.class::cast)
+                .flatMap(windowExpression -> windowExpression.getPartitioningAndOrderingParts().stream())
+                .collect(ImmutableList.toImmutableList()));
+
+        if (partitioningAndOrderingExprs.isEmpty()) {
+            return Expressions.empty();
+        }
+
+        return partitioningAndOrderingExprs.difference(output, outerCorrelations);
     }
 
     @Nonnull
@@ -420,13 +462,13 @@ public class LogicalOperator {
     @Nonnull
     public static LogicalOperator generateSimpleSelect(@Nonnull Expressions output,
                                                        @Nonnull LogicalOperators logicalOperators,
-                                                       @Nonnull Optional<Expression> where,
+                                                       @Nonnull Expressions predicates,
                                                        @Nonnull Optional<Identifier> alias,
                                                        @Nonnull Set<CorrelationIdentifier> outerCorrelations,
                                                        boolean isForDdl) {
         final var quantifiers = logicalOperators.getQuantifiers();
         final var selectBuilder = GraphExpansion.builder().addAllQuantifiers(quantifiers);
-        where.ifPresent(predicate -> {
+        predicates.forEach(predicate -> {
             final var localAliases = quantifiers.stream().map(Quantifier::getAlias).collect(ImmutableSet.toImmutableSet());
             selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(predicate, localAliases, isForDdl));
         });
@@ -597,7 +639,7 @@ public class LogicalOperator {
                 promotedExpressions.add(currentExpression.withUnderlying(newValue));
             }
             final var promotedUnionLeg = LogicalOperator.generateSimpleSelect(Expressions.of(promotedExpressions.build()),
-                    LogicalOperators.ofSingle(unionLeg), Optional.empty(), Optional.empty(), outerCorrelations, false);
+                    LogicalOperators.ofSingle(unionLeg), Expressions.empty(), Optional.empty(), outerCorrelations, false);
             promotedUnionLegsBuilder.add(promotedUnionLeg);
         }
         final var promotedUnionLegs = LogicalOperators.of(promotedUnionLegsBuilder.build());

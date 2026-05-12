@@ -32,6 +32,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -59,10 +60,24 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
         super(partitioningValues, ImmutableList.of(), orderingParts, frameSpecification);
     }
 
+    public RankValue(@Nonnull final Iterable<? extends Value> partitioningValues,
+                     @Nonnull final Iterable<? extends Value> argumentValues,
+                     @Nonnull final Iterable<OrderingPart.RequestedOrderingPart> orderingParts,
+                     @Nonnull final FrameSpecification frameSpecification) {
+        super(partitioningValues, argumentValues, orderingParts, frameSpecification);
+    }
+
     @Nonnull
     @Override
     public String getName() {
         return NAME;
+    }
+
+
+    @Nonnull
+    @Override
+    public RankValue withOrderingParts(final @Nonnull List<OrderingPart.RequestedOrderingPart> newOrderingParts) {
+        return new RankValue(getPartitioningValues(), newOrderingParts, getWindowFrameSpecification());
     }
 
     @Override

@@ -361,7 +361,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     @AutoService(BuiltInWindowFunction.class)
     public static class MinEverFn extends BuiltInWindowFunction<AggregateValue> {
         public MinEverFn() {
-            super("MIN_EVER", ImmutableList.of(new Type.Any()), (ignored, frameSpecification, sortOrder, arguments) -> {
+            super("MIN_EVER", ImmutableList.of(new Type.Any()), (ignored, frameSpecification, partitioningColumns, sortOrder, arguments) -> {
                 SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
                 SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
                 return MinEverValue.encapsulate(arguments);
@@ -375,7 +375,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     @AutoService(BuiltInWindowFunction.class)
     public static class MaxEverFn extends BuiltInWindowFunction<AggregateValue> {
         public MaxEverFn() {
-            super("MAX_EVER", ImmutableList.of(new Type.Any()), (ignored, frameSpecification, sortOrder, arguments) -> {
+            super("MAX_EVER", ImmutableList.of(new Type.Any()), (ignored, frameSpecification, partitioningColumns, sortOrder, arguments) -> {
                 SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
                 SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
                 return MaxEverValue.encapsulate(arguments);

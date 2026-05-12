@@ -226,7 +226,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
     public static class CountFn extends BuiltInWindowFunction<AggregateValue> {
         public CountFn() {
             super("COUNT",
-                    ImmutableList.of(new Type.Any()), CountFn::encapsulate);
+                    ImmutableList.of(new Type.Any()), (builtInFunction, frameSpecification, partitioningColumns, sortOrder, arguments) -> encapsulate(builtInFunction, frameSpecification, sortOrder, arguments));
         }
 
         @Nonnull

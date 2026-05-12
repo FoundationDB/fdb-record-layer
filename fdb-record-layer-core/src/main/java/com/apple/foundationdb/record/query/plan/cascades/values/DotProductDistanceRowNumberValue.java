@@ -26,10 +26,12 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PDotProductDistanceRowNumberValue;
 import com.apple.foundationdb.record.planprotos.PValue;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -77,10 +79,24 @@ public class DotProductDistanceRowNumberValue extends WindowedValue implements V
         super(partitioningValues, argumentValues);
     }
 
+    public DotProductDistanceRowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
+                                            @Nonnull Iterable<? extends Value> argumentValues,
+                                            @Nonnull Iterable<OrderingPart.RequestedOrderingPart> orderingParts,
+                                            @Nonnull FrameSpecification frameSpecification) {
+        super(partitioningValues, argumentValues, orderingParts, frameSpecification);
+    }
+
     @Nonnull
     @Override
     public String getName() {
         return NAME;
+    }
+
+    @Nonnull
+    @Override
+    public DotProductDistanceRowNumberValue withOrderingParts(final @Nonnull List<OrderingPart.RequestedOrderingPart> newOrderingParts) {
+        return new DotProductDistanceRowNumberValue(getPartitioningValues(), getArgumentValues(), newOrderingParts,
+                getWindowFrameSpecification());
     }
 
     @Override

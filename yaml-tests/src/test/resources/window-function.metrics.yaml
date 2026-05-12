@@ -1,0 +1,14 @@
+window-functions-test:
+-   query: EXPLAIN select a, row_number() over (partition by a, b order by c rows
+        between 1 preceding and current row) as rn from table_a
+    ref: window-function.yamsql:35
+    explain: SCAN([IS TABLE_A]) | MAP (_.A AS A, ROW_NUMBER( PARTITION BY _.A, _.B
+        ORDER BY _.C ASC ROW BETWEEN @c18 PRECEDING AND CURRENT ROW) AS RN)
+    task_count: 146
+    task_total_time_ms: 146
+    transform_count: 40
+    transform_time_ms: 85
+    transform_yield_count: 13
+    insert_time_ms: 6
+    insert_new_count: 12
+    insert_reused_count: 2

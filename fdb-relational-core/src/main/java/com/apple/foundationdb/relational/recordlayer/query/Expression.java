@@ -124,6 +124,11 @@ public class Expression {
         return visibility == Visibility.VISIBLE;
     }
 
+    @Nonnull
+    public Expressions expand() {
+        return Expressions.ofSingle(this);
+    }
+
     /**
      * Create a new instance of an {@link Expression} with the given name, type, and value.
      * This is a {@code protected} method on the class so that subclasses can override it,
@@ -286,7 +291,15 @@ public class Expression {
     @Nonnull
     public EphemeralExpression asEphemeral() {
         Verify.verify(getName().isPresent());
-        return new EphemeralExpression(getName(), getDataType(), getUnderlying(), getVisibility());
+        return new EphemeralExpression(this);
+    }
+
+    public boolean isEphemeral() {
+        return false;
+    }
+
+    public boolean isWindow() {
+        return false;
     }
 
     @Override

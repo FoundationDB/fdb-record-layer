@@ -154,7 +154,7 @@ public class RowNumberHighOrderValue extends AbstractValue implements Value.High
 
     public static final class CurriedRowNumberFn extends BuiltInWindowFunction<RowNumberValue> {
         CurriedRowNumberFn(@Nullable final Integer efSearch, @Nullable final Boolean isReturningVectors) {
-            super("row_number", ImmutableList.of(Type.any(), Type.any()), (builtInFunction, frameSpecification, windowOrder, arguments) -> {
+            super("row_number", ImmutableList.of(Type.any(), Type.any()), (builtInFunction, frameSpecification, partitioningColumns, windowOrder, arguments) -> {
                 if (frameSpecification == null) {
                     frameSpecification = WindowedValue.FrameSpecification.defaultSpecification();
                 }
@@ -162,13 +162,13 @@ public class RowNumberHighOrderValue extends AbstractValue implements Value.High
                     windowOrder = ImmutableList.of();
                 }
 
-                SemanticException.check(arguments.size() == 1,
+                SemanticException.check(arguments.isEmpty(),
                         SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-                SemanticException.check(arguments.get(0) instanceof AbstractArrayConstructorValue,
+                SemanticException.check(partitioningColumns != null,
                         SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                // todo: check that we do not support window order
 
-                final var partitioningValuesList = (AbstractArrayConstructorValue)arguments.get(0);
-                return new RowNumberValue(partitioningValuesList.getChildren(), windowOrder, frameSpecification,
+                return new RowNumberValue(partitioningColumns, windowOrder, frameSpecification,
                         efSearch, isReturningVectors);
             });
         }

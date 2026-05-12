@@ -47,11 +47,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.COSINE_DISTANCE;
-import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.DOT_PRODUCT_DISTANCE;
-import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.EUCLIDEAN_DISTANCE;
-import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceValue.DistanceOperator.EUCLIDEAN_SQUARE_DISTANCE;
-
 /**
  * A windowed value representing the {@code ROW_NUMBER()} window function, which assigns sequential
  * integer row numbers to rows within partitions based on a specified ordering.
@@ -187,9 +182,9 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
         this.isReturningVectors = rowNumberValueProto.hasIsReturningVectors() ? rowNumberValueProto.getIsReturningVectors() : null;
     }
 
-    public RowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
-                          @Nonnull Iterable<OrderingPart.RequestedOrderingPart> orderingParts,
-                          @Nonnull FrameSpecification windowFrameSpecification,
+    public RowNumberValue(@Nonnull final Iterable<? extends Value> partitioningValues,
+                          @Nonnull final Iterable<OrderingPart.RequestedOrderingPart> orderingParts,
+                          @Nonnull final FrameSpecification windowFrameSpecification,
                           @Nullable final Integer efSearch,
                           @Nullable final Boolean isReturningVectors) {
         super(partitioningValues, ImmutableList.of(), orderingParts, windowFrameSpecification);
@@ -201,6 +196,13 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
     @Override
     public String getName() {
         return NAME;
+    }
+
+    @Nonnull
+    @Override
+    public RowNumberValue withOrderingParts(final @Nonnull List<OrderingPart.RequestedOrderingPart> newOrderingParts) {
+        return new RowNumberValue(getPartitioningValues(), newOrderingParts, getWindowFrameSpecification(),
+                efSearch, isReturningVectors);
     }
 
     @Override
@@ -320,14 +322,20 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
     @Nonnull
     @Override
     public Optional<QueryPredicate> transformComparisonMaybe(@Nonnull final Comparisons.Type comparisonType, @Nonnull final Value comparand) {
-        if (getArgumentValues().size() > 1) {
+        Verify.verify(getArgumentValues().isEmpty());
+        if (getOrderingParts().size() > 1) {
             // window definition is too complicated for adjustment, bailout.
             return Optional.empty();
         }
 
-        Verify.verify(!getArgumentValues().isEmpty());
-        final var argument = getArgumentValues().get(0);
-        if (!(argument instanceof DistanceValue)) {
+        Verify.verify(!getOrderingParts().isEmpty());
+        final var orderingPart = getOrderingParts().get(0);
+
+        if (!(orderingPart.getSortOrder().isAnyAscending())) {
+            return Optional.empty();
+        }
+
+        if (!(orderingPart.getValue() instanceof final DistanceValue distanceValue)) {
             return Optional.empty();
         }
 
@@ -347,7 +355,6 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
         }
 
         Comparisons.DistanceRankValueComparison distanceRankComparison;
-        final var distanceValue = (DistanceValue)argument;
         final var distanceValueArgs = ImmutableList.copyOf(distanceValue.getChildren());
         final var indexVector = distanceValueArgs.get(0);
         final var queryVector = distanceValueArgs.get(1);

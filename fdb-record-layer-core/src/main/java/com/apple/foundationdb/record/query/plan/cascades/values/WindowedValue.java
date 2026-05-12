@@ -147,6 +147,9 @@ public abstract class WindowedValue extends AbstractValue {
     @Nonnull
     public abstract String getName();
 
+    @Nonnull
+    public abstract WindowedValue withOrderingParts(@Nonnull List<OrderingPart.RequestedOrderingPart> newOrderingParts);
+
     @Override
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, getName(), windowFrameSpecification);
@@ -266,7 +269,8 @@ public abstract class WindowedValue extends AbstractValue {
                 .filter(ignored -> {
                     final var otherWindowValue = (WindowedValue)other;
                     return getName().equals(otherWindowValue.getName()) &&
-                            windowFrameSpecification.equals(otherWindowValue.windowFrameSpecification);
+                            windowFrameSpecification.equals(otherWindowValue.windowFrameSpecification) &&
+                            orderingParts.equals(otherWindowValue.orderingParts);
                 });
     }
 
@@ -411,14 +415,13 @@ public abstract class WindowedValue extends AbstractValue {
         @Nonnull
         public ExplainTokens explain() {
             final var tokens = new ExplainTokens();
-            tokens.addKeyword(frameType.name().toUpperCase(Locale.ROOT));
-            tokens.addWhitespace().addKeyword("BETWEEN");
+            tokens.addKeyword(frameType.name().toUpperCase(Locale.ROOT))
+                    .addWhitespace().addKeyword("BETWEEN");
             describeBoundary(tokens, left, true);
             tokens.addWhitespace().addKeyword("AND");
             describeBoundary(tokens, right, false);
             if (exclusion != Exclusion.NO_OTHER) {
-                tokens.addWhitespace().addKeyword("EXCLUDE").addWhitespace()
-                        .addKeyword(explainExclusion(exclusion));
+                tokens.addWhitespace().addKeyword("EXCLUDE").addWhitespace().addKeyword(explainExclusion(exclusion));
             }
             return tokens;
         }
@@ -466,6 +469,11 @@ public abstract class WindowedValue extends AbstractValue {
             CURRENT_ROW,
             GROUP,
             TIES
+        }
+
+        public boolean isDefault() {
+            return frameType == FrameType.ROW && left == Unbounded.INSTANCE && right == Unbounded.INSTANCE
+                    && exclusion == Exclusion.NO_OTHER;
         }
 
         @Nonnull

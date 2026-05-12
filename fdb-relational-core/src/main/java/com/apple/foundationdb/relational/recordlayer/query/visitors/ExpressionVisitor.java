@@ -277,38 +277,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         for (final var decimalLiteral : windowedFunctionContext.decimalLiteral()) {
             argumentsBuilder.add(parseChild(decimalLiteral).getUnderlying());
         }
-        final var arguments = argumentsBuilder.build();
+        final var arguments = Expressions.fromUnderlying(argumentsBuilder.build());
 
         final WindowSpecExpression windowSpecExpression = getDelegate().visitOverClause(windowedFunctionContext.overClause());
 
-        final var partitionExpressions = windowSpecExpression.getPartitions();
-        final var partitionValues = Streams.stream(partitionExpressions.underlying()).collect(ImmutableList.toImmutableList());
-        final var partitionArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(partitionValues, Type.any());
-
-        final var orderByExpressions = windowSpecExpression.getOrderByExpressions();
-
-        final var outerCorrelations = getDelegate().getCurrentPlanFragment().getOuterCorrelations();
-        final var correlatedTo = OrderByExpression.getCorrelatedTo(StreamSupport.stream(orderByExpressions.spliterator(), false), outerCorrelations);
-        Assert.thatUnchecked(correlatedTo.size() == 1, ErrorCode.UNSUPPORTED_QUERY, () -> "window order by clause is not supported");
-
-        final var orderByParts = OrderByExpression.toOrderingParts(StreamSupport.stream(orderByExpressions.spliterator(), false),
-                Iterables.getOnlyElement(correlatedTo), Quantifier.current()).collect(ImmutableList.toImmutableList());
-
-        final ImmutableList.Builder<Expression> firstOrderArguments = ImmutableList.builder();
-        if (!arguments.isEmpty()) {
-            firstOrderArguments.add(Expression.ofUnnamed(AbstractArrayConstructorValue.LightArrayConstructorValue.of(arguments)));
-        }
-        firstOrderArguments.add(Expression.ofUnnamed(partitionArray));
-
-        final var higherOrderArgumentsBuilder = ImmutableList.<Expressions>builder();
-        if (!windowSpecExpression.getWindowOptions().isEmpty()) {
-            higherOrderArgumentsBuilder.add(windowSpecExpression.getWindowOptions());
-        }
-        higherOrderArgumentsBuilder.add(Expressions.of(firstOrderArguments.build()));
         return getDelegate().getSemanticAnalyzer().resolveHighOrderWindowFunction(functionName, true,
-                windowSpecExpression.getFrameSpecification(),
-                orderByParts,
-                higherOrderArgumentsBuilder.build());
+                windowSpecExpression, arguments);
     }
 
     @Nonnull

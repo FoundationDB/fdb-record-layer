@@ -38,10 +38,12 @@ public interface EncapsulationWindowFunction<T extends Typed> {
      *
      * @param builtInFunction The function that refers to the computation.
      * @param arguments The arguments needed by the computation.
+     *
      * @return A {@link Typed} object capable of doing a runtime computation against a list of arguments.
      */
     T encapsulate(@Nonnull BuiltInWindowFunction<T> builtInFunction,
                   @Nullable WindowedValue.FrameSpecification frameSpecification,
+                  @Nullable List<Value> partitioningColumns,
                   @Nullable List<OrderingPart.RequestedOrderingPart> requestedWindowOrder,
                   @Nonnull List<Value> arguments);
 }

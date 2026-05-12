@@ -59,7 +59,7 @@ public final class OrderByExpression {
 
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private OrderByExpression withExpression(@Nonnull Expression expression) {
+    public OrderByExpression withExpression(@Nonnull Expression expression) {
         if (this.expression == expression) {
             return this;
         }
@@ -82,10 +82,7 @@ public final class OrderByExpression {
         final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         return orderBys
                 // expand *
-                .flatMap(orderBy ->
-                        orderBy.getExpression() instanceof Star ?
-                                ((Star) orderBy.getExpression()).getExpansion().stream().map(orderBy::withExpression) :
-                                Stream.of(orderBy))
+                .flatMap(orderBy -> orderBy.getExpression().expand().stream().map(orderBy::withExpression))
                 .map(orderBy -> {
                     final var orderByExpression = orderBy.getExpression();
                     final var underlying = orderByExpression.getUnderlying();

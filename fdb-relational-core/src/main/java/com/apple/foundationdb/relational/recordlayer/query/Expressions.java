@@ -22,12 +22,14 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -41,6 +43,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -50,6 +53,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -78,9 +82,8 @@ public final class Expressions implements Iterable<Expression> {
     @Nonnull
     public Expressions expanded() {
         return Expressions.of(underlying.stream()
-                .flatMap(item -> item instanceof Star ?
-                        ((Star) item).getExpansion().stream() :
-                        Stream.of(item)).collect(ImmutableList.toImmutableList()));
+                .flatMap(expression -> expression.expand().stream())
+                .collect(ImmutableList.toImmutableList()));
     }
 
     @Nonnull
@@ -121,6 +124,15 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     @Nonnull
+    Value asValue() {
+        Verify.verify(!isEmpty());
+        if (size() == 1) {
+            return getSingleItem().getUnderlying();
+        }
+        return RecordConstructorValue.ofUnnamed(ImmutableList.copyOf(this.underlying()));
+    }
+
+    @Nonnull
     public Expressions difference(@Nonnull Expressions that, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         if (Iterables.isEmpty(that)) {
             return this;
@@ -156,13 +168,18 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     @Nonnull
+    public Expressions filter(@Nonnull Predicate<Expression> filter) {
+        return Expressions.of(this.stream().filter(filter).collect(ImmutableList.toImmutableList()));
+    }
+
+    @Nonnull
     public Expressions dereferenced(@Nonnull Literals literals) {
         return Expressions.of(this.stream().flatMap(e -> e.dereferenced(literals).stream()).collect(ImmutableList.toImmutableList()));
     }
 
     @Nonnull
     public Expressions nonEphemeralVisible() {
-        return Expressions.of(stream().filter(e -> !(e instanceof EphemeralExpression) && e.isVisible()).collect(ImmutableList.toImmutableList()));
+        return Expressions.of(stream().filter(e -> !(e.isEphemeral()) && e.isVisible()).collect(ImmutableList.toImmutableList()));
     }
 
     @Nonnull
@@ -340,8 +357,16 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     @Nonnull
-    public static Expressions ofSingle(@Nonnull Expression expression) {
+    public static Expressions ofSingle(@Nonnull final Expression expression) {
         return new Expressions(ImmutableList.of(expression));
+    }
+
+    @Nonnull
+    public static Expressions ofNullable(@Nullable final Expression expression) {
+        if (expression == null) {
+            return Expressions.empty();
+        }
+        return Expressions.ofSingle(expression);
     }
 
     @Nonnull

@@ -49,7 +49,7 @@ import java.util.stream.Collectors;
 public final class Star extends Expression {
 
     @Nonnull
-    private final List<Expression> expansion;
+    private final Expressions expansion;
 
     private Star(@Nonnull Optional<Identifier> qualifier, @Nonnull DataType dataType, @Nonnull Value expression,
                  @Nonnull Iterable<Expression> expansion) {
@@ -57,7 +57,7 @@ public final class Star extends Expression {
         Assert.thatUnchecked(expression.getResultType().isRecord());
         Assert.thatUnchecked(dataType.getCode() == DataType.Code.STRUCT);
         Assert.thatUnchecked(Iterables.size(expansion) == ((DataType.StructType) dataType).getFields().size());
-        this.expansion = ImmutableList.copyOf(expansion);
+        this.expansion = Expressions.of(expansion);
     }
 
     @Nonnull
@@ -67,7 +67,7 @@ public final class Star extends Expression {
     }
 
     @Nonnull
-    public List<Expression> getExpansion() {
+    public Expressions expand() {
         return expansion;
     }
 
@@ -79,7 +79,8 @@ public final class Star extends Expression {
         }
         final var name = getName().get();
         final var newNameMaybe = name.withQualifier(qualifier);
-        final var newExpansionMaybe = expansion.stream().map(expression -> expression.withQualifier(qualifier)).collect(ImmutableList.toImmutableList());
+        final var newExpansionMaybe = Expressions.of(expansion.stream().map(expression ->
+                expression.withQualifier(qualifier)).collect(ImmutableList.toImmutableList()));
         if (!newNameMaybe.equals(name) || !Objects.equals(newExpansionMaybe, expansion)) {
             return new Star(Optional.of(newNameMaybe), getDataType(), getUnderlying(), newExpansionMaybe);
         }
@@ -122,10 +123,7 @@ public final class Star extends Expression {
 
     @Override
     public String toString() {
-        return "* ≍" + (expansion.stream()
-                .flatMap(exp -> exp.getName().stream()))
-                .map(Identifier::toString)
-                .collect(Collectors.joining(",")) + "|" + getDataType() + "| ⇾ " + getUnderlying();
+        return "* ≍" + expansion + "|" + getDataType() + "| ⇾ " + getUnderlying();
     }
 
     @Nonnull
