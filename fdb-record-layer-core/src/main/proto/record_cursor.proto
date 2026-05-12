@@ -158,6 +158,7 @@ message RecursiveCursorContinuation {
 message AggregateCursorContinuation {
     optional bytes continuation = 1;
     optional PartialAggregationResult partial_aggregation_results = 2;
+    optional int32 format_version = 3;
 }
 
 message PartialAggregationResult {

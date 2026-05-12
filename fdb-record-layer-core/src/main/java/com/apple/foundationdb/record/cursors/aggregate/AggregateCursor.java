@@ -195,6 +195,8 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     }
 
     public static class AggregateCursorContinuation implements RecordCursorContinuation {
+        private static final int CURRENT_FORMAT_VERSION = 1;
+
         @Nonnull
         private final RecordCursorContinuation innerContinuation;
 
@@ -251,7 +253,9 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         @Nonnull
         private RecordCursorProto.AggregateCursorContinuation toProto() {
             if (cachedProto == null) {
-                RecordCursorProto.AggregateCursorContinuation.Builder cachedProtoBuilder = RecordCursorProto.AggregateCursorContinuation.newBuilder().setContinuation(innerContinuation.toByteString());
+                RecordCursorProto.AggregateCursorContinuation.Builder cachedProtoBuilder = RecordCursorProto.AggregateCursorContinuation.newBuilder()
+                        .setContinuation(innerContinuation.toByteString())
+                        .setFormatVersion(CURRENT_FORMAT_VERSION);
                 if (partialAggregationResult != null) {
                     cachedProtoBuilder.setPartialAggregationResults(partialAggregationResult);
                 }
@@ -266,6 +270,9 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             }
             try {
                 RecordCursorProto.AggregateCursorContinuation continuationProto = RecordCursorProto.AggregateCursorContinuation.parseFrom(rawBytes);
+                if (!continuationProto.hasFormatVersion() || continuationProto.getFormatVersion() != CURRENT_FORMAT_VERSION) {
+                    throw new RecordCoreException("incompatible aggregate cursor continuation: missing or invalid format_version");
+                }
                 return new AggregateCursorContinuation(ByteArrayContinuation.fromNullable(continuationProto.getContinuation().toByteArray()), continuationProto.hasPartialAggregationResults() ? continuationProto.getPartialAggregationResults() : null, serializationMode);
             } catch (InvalidProtocolBufferException ipbe) {
                 throw new RecordCoreException("error parsing continuation", ipbe)
