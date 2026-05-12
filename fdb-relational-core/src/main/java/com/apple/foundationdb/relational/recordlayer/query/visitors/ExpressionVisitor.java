@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -58,7 +58,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ZeroCopyByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -74,7 +73,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 /**
  * This visits expression tree parse nodes and generates a corresponding {@link Expression}.
@@ -301,8 +299,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                         .collect(ImmutableList.toImmutableList());
 
         @Nullable final var frameClause = ctx.windowSpec().frameClause();
-        final WindowedValue.FrameSpecification frameSpecification = frameClause == null ? WindowedValue.FrameSpecification.defaultSpecification()
-                                                                    : visitFrameClause(frameClause);
+        final WindowValue.FrameSpecification frameSpecification = frameClause == null ? WindowValue.FrameSpecification.defaultSpecification()
+                                                                                      : visitFrameClause(frameClause);
 
         @Nullable final var windowOptionsClause = ctx.windowSpec().windowOptionsClause();
         final Expressions windowOptions = windowOptionsClause == null ? Expressions.empty() : getDelegate().visitWindowOptionsClause(windowOptionsClause);
@@ -339,32 +337,32 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public WindowedValue.FrameSpecification visitFrameClause(final RelationalParser.FrameClauseContext ctx) {
-        var exclusion = WindowedValue.FrameSpecification.Exclusion.NO_OTHER;
+    public WindowValue.FrameSpecification visitFrameClause(final RelationalParser.FrameClauseContext ctx) {
+        var exclusion = WindowValue.FrameSpecification.Exclusion.NO_OTHER;
         if (ctx.frameExclusion() != null) {
             final var exc = ctx.frameExclusion();
             if (exc.CURRENT() != null) {
-                exclusion = WindowedValue.FrameSpecification.Exclusion.CURRENT_ROW;
+                exclusion = WindowValue.FrameSpecification.Exclusion.CURRENT_ROW;
             } else if (exc.GROUP() != null) {
-                exclusion = WindowedValue.FrameSpecification.Exclusion.GROUP;
+                exclusion = WindowValue.FrameSpecification.Exclusion.GROUP;
             } else if (exc.TIES() != null) {
-                exclusion = WindowedValue.FrameSpecification.Exclusion.TIES;
+                exclusion = WindowValue.FrameSpecification.Exclusion.TIES;
             } else {
                 Assert.thatUnchecked(exc.NO() != null);
             }
         }
 
-        final WindowedValue.FrameSpecification.FrameType frameType;
+        final WindowValue.FrameSpecification.FrameType frameType;
         if (ctx.frameUnits().ROWS() != null) {
-            frameType = WindowedValue.FrameSpecification.FrameType.ROW;
+            frameType = WindowValue.FrameSpecification.FrameType.ROW;
         } else if (ctx.frameUnits().RANGE() != null) {
-            frameType = WindowedValue.FrameSpecification.FrameType.RANGE;
+            frameType = WindowValue.FrameSpecification.FrameType.RANGE;
         } else {
-            frameType = WindowedValue.FrameSpecification.FrameType.GROUPS;
+            frameType = WindowValue.FrameSpecification.FrameType.GROUPS;
         }
 
-        final WindowedValue.FrameSpecification.FrameBoundary left;
-        final WindowedValue.FrameSpecification.FrameBoundary right;
+        final WindowValue.FrameSpecification.FrameBoundary left;
+        final WindowValue.FrameSpecification.FrameBoundary right;
         final var extent = ctx.frameExtent();
         if (extent.frameBetween() != null) {
             final var between = extent.frameBetween();
@@ -372,24 +370,24 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             right = visitFrameRange(between.frameRange(1));
         } else {
             left = visitFrameRange(extent.frameRange());
-            right = WindowedValue.FrameSpecification.Unbounded.INSTANCE;
+            right = WindowValue.FrameSpecification.Unbounded.INSTANCE;
         }
 
-        return new WindowedValue.FrameSpecification(frameType, left, right, exclusion);
+        return new WindowValue.FrameSpecification(frameType, left, right, exclusion);
     }
 
     @Nonnull
     @Override
-    public WindowedValue.FrameSpecification.FrameBoundary visitFrameRange(@Nonnull final RelationalParser.FrameRangeContext ctx) {
+    public WindowValue.FrameSpecification.FrameBoundary visitFrameRange(@Nonnull final RelationalParser.FrameRangeContext ctx) {
         if (ctx.CURRENT() != null) {
-            return new WindowedValue.FrameSpecification.CurrentRow();
+            return new WindowValue.FrameSpecification.CurrentRow();
         } else if (ctx.UNBOUNDED() != null) {
-            return WindowedValue.FrameSpecification.Unbounded.INSTANCE;
+            return WindowValue.FrameSpecification.Unbounded.INSTANCE;
         } else {
             final var limitExpr = parseChild(ctx.expression());
             Assert.thatUnchecked(limitExpr.getUnderlying().isConstant(), ErrorCode.UNSUPPORTED_QUERY, "window limit must be constant");
             final var limitValue = limitExpr.getUnderlying();
-            return new WindowedValue.FrameSpecification.Bounded(limitValue);
+            return new WindowValue.FrameSpecification.Bounded(limitValue);
         }
     }
 
@@ -712,7 +710,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitWhereExpr(@Nonnull RelationalParser.WhereExprContext ctx) {
         final var expression = parseChild(ctx);
         // verify no window functions
-        Assert.thatUnchecked(expression.getUnderlying().preOrderStream().noneMatch(v -> v instanceof WindowedValue),
+        Assert.thatUnchecked(expression.getUnderlying().preOrderStream().noneMatch(v -> v instanceof WindowValue),
                 ErrorCode.WINDOWING_ERROR, "window functions are not allowed in WHERE");
         return expression;
     }

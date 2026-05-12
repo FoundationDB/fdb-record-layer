@@ -44,7 +44,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.BitmapValueIn
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -244,9 +244,9 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final WindowedValue.FrameSpecification frameSpecification,
+                                                  @Nullable final WindowValue.FrameSpecification frameSpecification,
                                                   @Nullable final List<Value> partitioningColumns,
-                                                  @Nullable final List<OrderingPart.RequestedOrderingPart> sortOrder,
+                                                  @Nullable final List<WindowOrderingPart> sortOrder,
                                                   @Nonnull final List<? extends Typed> arguments) {
             SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
             SemanticException.check(partitioningColumns == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
@@ -319,9 +319,9 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final WindowedValue.FrameSpecification frameSpecification,
+                                                  @Nullable final WindowValue.FrameSpecification frameSpecification,
                                                   @Nullable final List<Value> partitioningColumns,
-                                                  @Nullable final List<OrderingPart.RequestedOrderingPart> sortOrder,
+                                                  @Nullable final List<WindowOrderingPart> sortOrder,
                                                   @Nonnull final List<? extends Typed> arguments) {
             SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
             SemanticException.check(partitioningColumns == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
@@ -388,9 +388,9 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final WindowedValue.FrameSpecification frameSpecification,
+                                                  @Nullable final WindowValue.FrameSpecification frameSpecification,
                                                   @Nullable final List<Value> partitioningColumns,
-                                                  @Nullable final List<OrderingPart.RequestedOrderingPart> sortOrder,
+                                                  @Nullable final List<WindowOrderingPart> sortOrder,
                                                   @Nonnull final List<? extends Typed> arguments) {
             SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
             SemanticException.check(partitioningColumns == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
@@ -463,9 +463,9 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final WindowedValue.FrameSpecification frameSpecification,
+                                                  @Nullable final WindowValue.FrameSpecification frameSpecification,
                                                   @Nullable final List<Value> partitioningColumns,
-                                                  @Nullable final List<OrderingPart.RequestedOrderingPart> sortOrder,
+                                                  @Nullable final List<WindowOrderingPart> sortOrder,
                                                   @Nonnull final List<? extends Typed> arguments) {
             SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
             SemanticException.check(partitioningColumns == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
@@ -539,9 +539,9 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final WindowedValue.FrameSpecification frameSpecification,
+                                                  @Nullable final WindowValue.FrameSpecification frameSpecification,
                                                   @Nullable final List<Value> partitioningColumns,
-                                                  @Nullable final List<OrderingPart.RequestedOrderingPart> sortOrder,
+                                                  @Nullable final List<WindowOrderingPart> sortOrder,
                                                   @Nonnull final List<? extends Typed> arguments) {
             SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
             SemanticException.check(partitioningColumns == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);

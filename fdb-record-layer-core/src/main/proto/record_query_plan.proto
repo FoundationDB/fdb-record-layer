@@ -256,7 +256,7 @@ message PValue {
     PPromoteValue promote_value = 29;
     PQuantifiedObjectValue quantified_object_value = 30;
     PQueriedValue queried_value = 31;
-    PRankValue rank_value = 32;
+    PRankWindowValue rank_value = 32;
     PRecordConstructorValue record_constructor_value = 33;
     PRecordTypeValue record_type_value = 34;
     PBinaryRelOpValue binary_rel_op_value = 35;
@@ -278,15 +278,17 @@ message PValue {
     PSubscriptValue subscript_value = 52;
     PParameterObjectValue parameter_object_value = 53;
     PCastValue cast_value = 54;
-    PRowNumberValue row_number_value = 55;
+    PRowNumberWindowValue row_number_value = 55;
     PEuclideanDistanceRowNumberValue euclidean_distance_row_number_value = 56;
     PCosineDistanceRowNumberValue cosine_distance_row_number_value = 57;
-    PRowNumberHighOrderValue row_number_high_order_value = 58;
+    PRowNumberHighOrderWindowValue row_number_high_order_value = 58;
     PDistanceValue distance_value = 59;
     PEuclideanSquareDistanceRowNumberValue euclidean_square_distance_row_number_value = 60;
     PDotProductDistanceRowNumberValue dot_product_distance_row_number_value = 61;
     PIncarnationValue incarnation_value = 62;
     PCardinalityValue cardinality_value = 63;
+    PRowNumberValue row_number_index_value = 64;
+    PRankValue rank_index_value = 65;
   }
 }
 
@@ -685,24 +687,31 @@ message PQueriedValue {
   repeated string record_type_names = 2;
 }
 
+message PRankWindowValue {
+  optional PWindowValue super = 1;
+}
+
+message PRowNumberValue {
+}
+
 message PRankValue {
-  optional PWindowedValue super = 1;
+  repeated PValue argument_values = 1;
 }
 
 message PEuclideanDistanceRowNumberValue {
-  optional PWindowedValue super = 1;
+  optional PWindowValue super = 1;
 }
 
 message PEuclideanSquareDistanceRowNumberValue {
-  optional PWindowedValue super = 1;
+  optional PWindowValue super = 1;
 }
 
 message PCosineDistanceRowNumberValue {
-  optional PWindowedValue super = 1;
+  optional PWindowValue super = 1;
 }
 
 message PDotProductDistanceRowNumberValue {
-  optional PWindowedValue super = 1;
+  optional PWindowValue super = 1;
 }
 
 message PRecordConstructorValue {
@@ -719,13 +728,13 @@ message PRecordTypeValue {
   optional PValue in = 2;
 }
 
-message PRowNumberHighOrderValue {
+message PRowNumberHighOrderWindowValue {
   optional int32 efSearch = 2;
   optional bool isReturningVectors = 3;
 }
 
-message PRowNumberValue {
-  optional PWindowedValue super = 1;
+message PRowNumberWindowValue {
+  optional PWindowValue super = 1;
   optional int32 efSearch = 2;
   optional bool isReturningVectors = 3;
 }
@@ -1379,7 +1388,7 @@ message PCardinalityValue {
   optional PValue child_value = 1;
 }
 
-message PWindowedValue {
+message PWindowValue {
   repeated PValue partitioning_values = 1;
   repeated PValue argument_values = 2;
   repeated PRequestedOrderingPart ordering_parts = 3;

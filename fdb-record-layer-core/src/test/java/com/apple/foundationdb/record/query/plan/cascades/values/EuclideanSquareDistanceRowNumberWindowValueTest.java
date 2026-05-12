@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link EuclideanSquareDistanceRowNumberValue}.
  */
-class EuclideanSquareDistanceRowNumberValueTest {
+class EuclideanSquareDistanceRowNumberWindowValueTest {
 
     @Test
     void testConstructorWithParameters() {

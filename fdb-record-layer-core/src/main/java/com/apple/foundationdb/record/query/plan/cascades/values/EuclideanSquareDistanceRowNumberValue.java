@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PEuclideanSquareDistanceRowNumberValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 
@@ -63,11 +64,11 @@ import java.util.Objects;
  * but different row numbers.
  * </p>
  *
- * @see WindowedValue
+ * @see WindowValue
  * @see Value.IndexOnlyValue
  */
 @API(API.Status.EXPERIMENTAL)
-public class EuclideanSquareDistanceRowNumberValue extends WindowedValue implements Value.IndexOnlyValue {
+public class EuclideanSquareDistanceRowNumberValue extends WindowValue implements Value.IndexOnlyValue {
     private static final String NAME = "EuclideanSquareDistanceRowNumber";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 
@@ -78,14 +79,14 @@ public class EuclideanSquareDistanceRowNumberValue extends WindowedValue impleme
 
     public EuclideanSquareDistanceRowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
                                                   @Nonnull Iterable<? extends Value> argumentValues) {
-        super(partitioningValues, argumentValues);
+        super(argumentValues, partitioningValues);
     }
 
     public EuclideanSquareDistanceRowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
                                                  @Nonnull Iterable<? extends Value> argumentValues,
-                                                 @Nonnull Iterable<OrderingPart.RequestedOrderingPart> orderingParts,
+                                                 @Nonnull Iterable<WindowOrderingPart> orderingParts,
                                                  @Nonnull FrameSpecification frameSpecification) {
-        super(partitioningValues, argumentValues, orderingParts, frameSpecification);
+        super(argumentValues, partitioningValues, orderingParts, frameSpecification);
     }
 
     @Nonnull
@@ -96,7 +97,7 @@ public class EuclideanSquareDistanceRowNumberValue extends WindowedValue impleme
 
     @Nonnull
     @Override
-    public EuclideanSquareDistanceRowNumberValue withOrderingParts(final @Nonnull List<OrderingPart.RequestedOrderingPart> newOrderingParts) {
+    public EuclideanSquareDistanceRowNumberValue withOrderingParts(final @Nonnull List<WindowOrderingPart> newOrderingParts) {
         return new EuclideanSquareDistanceRowNumberValue(getPartitioningValues(), getArgumentValues(), newOrderingParts,
                 getWindowFrameSpecification());
     }
@@ -116,7 +117,7 @@ public class EuclideanSquareDistanceRowNumberValue extends WindowedValue impleme
     @Override
     public EuclideanSquareDistanceRowNumberValue withChildren(final Iterable<? extends Value> newChildren) {
         final var childrenPair = splitNewChildren(newChildren);
-        return new EuclideanSquareDistanceRowNumberValue(childrenPair.getKey(), childrenPair.getValue());
+        return new EuclideanSquareDistanceRowNumberValue(childrenPair.getKey(), childrenPair.getValue(), splitNewOrderingParts(newChildren), getWindowFrameSpecification());
     }
 
     @Nonnull

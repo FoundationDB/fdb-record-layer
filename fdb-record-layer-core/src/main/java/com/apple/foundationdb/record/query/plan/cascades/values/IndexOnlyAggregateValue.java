@@ -363,6 +363,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         public MinEverFn() {
             super("MIN_EVER", ImmutableList.of(new Type.Any()), (ignored, frameSpecification, partitioningColumns, sortOrder, arguments) -> {
                 SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
+                SemanticException.check(partitioningColumns == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
                 SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
                 return MinEverValue.encapsulate(arguments);
             });
@@ -377,6 +378,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         public MaxEverFn() {
             super("MAX_EVER", ImmutableList.of(new Type.Any()), (ignored, frameSpecification, partitioningColumns, sortOrder, arguments) -> {
                 SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
+                SemanticException.check(partitioningColumns == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
                 SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
                 return MaxEverValue.encapsulate(arguments);
             });

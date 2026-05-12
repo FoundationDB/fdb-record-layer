@@ -51,7 +51,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -1058,7 +1057,7 @@ public class SemanticAnalyzer {
 
         final var functionValue = functionExpression.getUnderlying();
         Assert.thatUnchecked(!functionValue.getResultType().isFunction());
-        return createFunctionExpression(functionValue, windowSpecExpression);
+        return Expression.ofUnnamed(functionValue);
     }
 
     @Nonnull
@@ -1077,20 +1076,10 @@ public class SemanticAnalyzer {
         final var firstOrderValue = Assert.castUnchecked(highOrderWindowFunction
                 .encapsulate(ImmutableList.of(windowSpecExpression.getFrameSpecification(),
                         windowSpecExpression.getPartitions().underlying(),
-                        Expressions.empty().underlying()))//windowSpecExpression.getOrderByExpressions())) // window specification (this will fail, pass empty order by expressions)
+                        windowSpecExpression.getWindowOrderBys()))
                 .encapsulate(valueArgs), // expression argument
                 Value.class);
-        return createFunctionExpression(firstOrderValue, windowSpecExpression);
-    }
-
-    @Nonnull
-    private static Expression createFunctionExpression(@Nonnull final Value value,
-                                                       final WindowSpecExpression windowSpecExpression) {
-        final var expressionType = DataTypeUtils.toRelationalType(value.getResultType());
-        if (value instanceof WindowedValue) {
-            return new WindowExpression(null, expressionType, windowSpecExpression.getOrderByExpressions(), (WindowedValue)value);
-        }
-        return Expression.ofUnnamed(expressionType, value);
+        return Expression.ofUnnamed(firstOrderValue);
     }
 
     private void processFunctionSideEffects(@Nonnull final CatalogedFunction<Value> builtInFunction) {

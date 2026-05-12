@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PDotProductDistanceRowNumberValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 
@@ -61,11 +62,11 @@ import java.util.Objects;
  * [1, 2, 3, 4] where the first vector (most aligned) gets row number 1.
  * </p>
  *
- * @see WindowedValue
+ * @see WindowValue
  * @see Value.IndexOnlyValue
  */
 @API(API.Status.EXPERIMENTAL)
-public class DotProductDistanceRowNumberValue extends WindowedValue implements Value.IndexOnlyValue {
+public class DotProductDistanceRowNumberValue extends WindowValue implements Value.IndexOnlyValue {
     private static final String NAME = "DotProductDistanceRowNumber";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 
@@ -76,14 +77,14 @@ public class DotProductDistanceRowNumberValue extends WindowedValue implements V
 
     public DotProductDistanceRowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
                                             @Nonnull Iterable<? extends Value> argumentValues) {
-        super(partitioningValues, argumentValues);
+        super(argumentValues, partitioningValues);
     }
 
     public DotProductDistanceRowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
                                             @Nonnull Iterable<? extends Value> argumentValues,
-                                            @Nonnull Iterable<OrderingPart.RequestedOrderingPart> orderingParts,
+                                            @Nonnull Iterable<WindowOrderingPart> orderingParts,
                                             @Nonnull FrameSpecification frameSpecification) {
-        super(partitioningValues, argumentValues, orderingParts, frameSpecification);
+        super(argumentValues, partitioningValues, orderingParts, frameSpecification);
     }
 
     @Nonnull
@@ -94,7 +95,7 @@ public class DotProductDistanceRowNumberValue extends WindowedValue implements V
 
     @Nonnull
     @Override
-    public DotProductDistanceRowNumberValue withOrderingParts(final @Nonnull List<OrderingPart.RequestedOrderingPart> newOrderingParts) {
+    public DotProductDistanceRowNumberValue withOrderingParts(final @Nonnull List<WindowOrderingPart> newOrderingParts) {
         return new DotProductDistanceRowNumberValue(getPartitioningValues(), getArgumentValues(), newOrderingParts,
                 getWindowFrameSpecification());
     }
@@ -114,7 +115,7 @@ public class DotProductDistanceRowNumberValue extends WindowedValue implements V
     @Override
     public DotProductDistanceRowNumberValue withChildren(final Iterable<? extends Value> newChildren) {
         final var childrenPair = splitNewChildren(newChildren);
-        return new DotProductDistanceRowNumberValue(childrenPair.getKey(), childrenPair.getValue());
+        return new DotProductDistanceRowNumberValue(childrenPair.getKey(), childrenPair.getValue(), splitNewOrderingParts(newChildren), getWindowFrameSpecification());
     }
 
     @Nonnull

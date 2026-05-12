@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.collect.ImmutableList;
@@ -34,58 +35,58 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 /**
- * Tests for {@link RowNumberValue}.
+ * Tests for {@link RowNumberWindowValue}.
  */
-class RowNumberValueTest {
+class RowNumberWindowValueTest {
 
     private static final ImmutableList<Value> PARTITIONING_VALUES = ImmutableList.of(LiteralValue.ofScalar(1));
-    private static final ImmutableList<OrderingPart.RequestedOrderingPart> ORDERING_PARTS =
-            ImmutableList.of(new OrderingPart.RequestedOrderingPart(LiteralValue.ofScalar(2), RequestedSortOrder.ASCENDING));
-    private static final WindowedValue.FrameSpecification DEFAULT_FRAME = WindowedValue.FrameSpecification.defaultSpecification();
+    private static final ImmutableList<WindowOrderingPart> ORDERING_PARTS =
+            ImmutableList.of(new WindowOrderingPart(LiteralValue.ofScalar(2), RequestedSortOrder.ASCENDING));
+    private static final WindowValue.FrameSpecification DEFAULT_FRAME = WindowValue.FrameSpecification.defaultSpecification();
 
     @Test
     void testConstructorWithParameters() {
-        final var value = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
+        final var value = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
         Assertions.assertNotNull(value, "RowNumberValue should be created successfully");
     }
 
     @Test
     void testConstructorWithNullParameters() {
-        final var value = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, null, null);
+        final var value = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, null, null);
         Assertions.assertNotNull(value, "RowNumberValue should be created with null parameters");
     }
 
     @Test
     void testConstructorFromProto() {
-        final var originalValue = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
+        final var originalValue = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var proto = originalValue.toProto(serializationContext);
 
-        final var value = new RowNumberValue(serializationContext, proto);
+        final var value = new RowNumberWindowValue(serializationContext, proto);
         Assertions.assertNotNull(value, "RowNumberValue should be created from proto");
     }
 
     @Test
     void testConstructorFromProtoWithoutOptionalFields() {
-        final var originalValue = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, null, null);
+        final var originalValue = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, null, null);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var proto = originalValue.toProto(serializationContext);
 
-        final var value = new RowNumberValue(serializationContext, proto);
+        final var value = new RowNumberWindowValue(serializationContext, proto);
         Assertions.assertNotNull(value, "RowNumberValue should be created from proto without optional fields");
     }
 
     @Test
     void testGetName() {
-        final var value = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
+        final var value = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
         Assertions.assertEquals("ROW_NUMBER", value.getName(), "Name should be ROW_NUMBER");
     }
 
     @Test
     void testPlanHash() {
-        final var value1 = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
-        final var value2 = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
-        final var value3 = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 200, false);
+        final var value1 = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
+        final var value2 = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
+        final var value3 = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 200, false);
 
         final int hash1 = value1.planHash(PlanHashable.PlanHashMode.VC0);
         final int hash2 = value2.planHash(PlanHashable.PlanHashMode.VC0);
@@ -99,7 +100,7 @@ class RowNumberValueTest {
 
     @Test
     void testGetResultType() {
-        final var value = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
+        final var value = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
         final var resultType = value.getResultType();
 
         Assertions.assertEquals(Type.primitiveType(Type.TypeCode.LONG), resultType,
@@ -108,13 +109,13 @@ class RowNumberValueTest {
 
     @Test
     void testWithChildren() {
-        final var value = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
+        final var value = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
 
         final var newPartitioningValues = ImmutableList.<Value>of(LiteralValue.ofScalar(3));
         final var newValue = value.withChildren(newPartitioningValues);
 
         Assertions.assertNotNull(newValue, "New value should not be null");
-        Assertions.assertInstanceOf(RowNumberValue.class, newValue,
+        Assertions.assertInstanceOf(RowNumberWindowValue.class, newValue,
                 "New value should be a RowNumberValue");
         Assertions.assertNotSame(value, newValue,
                 "New value should be a different instance");
@@ -122,7 +123,7 @@ class RowNumberValueTest {
 
     @Test
     void testToProtoWithAllParameters() {
-        final var value = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
+        final var value = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var proto = value.toProto(serializationContext);
 
@@ -135,7 +136,7 @@ class RowNumberValueTest {
 
     @Test
     void testToProtoWithNullParameters() {
-        final var value = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, null, null);
+        final var value = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, null, null);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var proto = value.toProto(serializationContext);
 
@@ -146,7 +147,7 @@ class RowNumberValueTest {
 
     @Test
     void testToValueProto() {
-        final var value = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
+        final var value = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var valueProto = value.toValueProto(serializationContext);
 
@@ -159,11 +160,11 @@ class RowNumberValueTest {
 
     @Test
     void testFromProtoStatic() {
-        final var originalValue = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 200, false);
+        final var originalValue = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 200, false);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var proto = originalValue.toProto(serializationContext);
 
-        final var value = RowNumberValue.fromProto(serializationContext, proto);
+        final var value = RowNumberWindowValue.fromProto(serializationContext, proto);
 
         Assertions.assertNotNull(value, "Value should not be null");
         final var roundTripProto = value.toProto(serializationContext);
@@ -173,11 +174,11 @@ class RowNumberValueTest {
 
     @Test
     void testFromProtoDeserializer() {
-        final var originalValue = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 150, true);
+        final var originalValue = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 150, true);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var proto = originalValue.toProto(serializationContext);
 
-        final var deserializer = new RowNumberValue.Deserializer();
+        final var deserializer = new RowNumberWindowValue.Deserializer();
         final var value = deserializer.fromProto(serializationContext, proto);
 
         Assertions.assertNotNull(value, "Deserialized value should not be null");
@@ -188,11 +189,11 @@ class RowNumberValueTest {
 
     @Test
     void testSerializationRoundTrip() {
-        final var original = new RowNumberValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
+        final var original = new RowNumberWindowValue(PARTITIONING_VALUES, ORDERING_PARTS, DEFAULT_FRAME, 100, true);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
 
         final var proto = original.toProto(serializationContext);
-        final var deserialized = RowNumberValue.fromProto(serializationContext, proto);
+        final var deserialized = RowNumberWindowValue.fromProto(serializationContext, proto);
 
         Assertions.assertEquals(
                 original.planHash(PlanHashable.PlanHashMode.VC0),
@@ -203,37 +204,37 @@ class RowNumberValueTest {
 
     @Test
     void testRowNumberHighOrderFnEncapsulateWithNamedArguments() {
-        final var fn = new RowNumberValue.RowNumberHighOrderFn();
+        final var fn = new RowNumberWindowValue.RowNumberHighOrderFn();
 
         final var efSearchValue = LiteralValue.ofScalar(100);
         final var returnsVectorsValue = LiteralValue.ofScalar(true);
         final var namedArguments = Map.<String, Value>of(
-                RowNumberValue.RowNumberHighOrderFn.EF_SEARCH_ARGUMENT, efSearchValue,
-                RowNumberValue.RowNumberHighOrderFn.INDEX_RETURNS_VECTORS_ARGUMENT, returnsVectorsValue
+                RowNumberWindowValue.RowNumberHighOrderFn.EF_SEARCH_ARGUMENT, efSearchValue,
+                RowNumberWindowValue.RowNumberHighOrderFn.INDEX_RETURNS_VECTORS_ARGUMENT, returnsVectorsValue
         );
 
         final var result = fn.encapsulate(namedArguments);
 
         Assertions.assertNotNull(result, "Encapsulated value should not be null");
-        Assertions.assertInstanceOf(RowNumberHighOrderValue.class, result,
+        Assertions.assertInstanceOf(RowNumberHighOrderWindowValue.class, result,
                 "Result should be RowNumberHighOrderValue");
     }
 
     @Test
     void testRowNumberHighOrderFnEncapsulateWithNoArguments() {
-        final var fn = new RowNumberValue.RowNumberHighOrderFn();
+        final var fn = new RowNumberWindowValue.RowNumberHighOrderFn();
         final var namedArguments = Map.<String, Value>of();
 
         final var result = fn.encapsulate(namedArguments);
 
         Assertions.assertNotNull(result, "Encapsulated value should not be null");
-        Assertions.assertInstanceOf(RowNumberHighOrderValue.class, result,
+        Assertions.assertInstanceOf(RowNumberHighOrderWindowValue.class, result,
                 "Result should be RowNumberHighOrderValue");
     }
 
     @Test
     void testRowNumberHighOrderFnEncapsulateRejectsInvalidNamedArgument() {
-        final var fn = new RowNumberValue.RowNumberHighOrderFn();
+        final var fn = new RowNumberWindowValue.RowNumberHighOrderFn();
 
         final var invalidValue = LiteralValue.ofScalar(100);
         final var namedArguments = Map.<String, Value>of("invalid_argument", invalidValue);
@@ -245,14 +246,14 @@ class RowNumberValueTest {
 
     @Test
     void testRowNumberHighOrderFnEncapsulateRejectsTooManyNamedArguments() {
-        final var fn = new RowNumberValue.RowNumberHighOrderFn();
+        final var fn = new RowNumberWindowValue.RowNumberHighOrderFn();
 
         final var efSearchValue = LiteralValue.ofScalar(100);
         final var returnsVectorsValue = LiteralValue.ofScalar(true);
         final var extraValue = LiteralValue.ofScalar(42);
         final var namedArguments = Map.<String, Value>of(
-                RowNumberValue.RowNumberHighOrderFn.EF_SEARCH_ARGUMENT, efSearchValue,
-                RowNumberValue.RowNumberHighOrderFn.INDEX_RETURNS_VECTORS_ARGUMENT, returnsVectorsValue,
+                RowNumberWindowValue.RowNumberHighOrderFn.EF_SEARCH_ARGUMENT, efSearchValue,
+                RowNumberWindowValue.RowNumberHighOrderFn.INDEX_RETURNS_VECTORS_ARGUMENT, returnsVectorsValue,
                 "extra", extraValue
         );
 

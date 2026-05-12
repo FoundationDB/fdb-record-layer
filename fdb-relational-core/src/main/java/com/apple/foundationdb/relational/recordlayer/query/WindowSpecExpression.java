@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * Helper class that captures the components of an SQL {@code OVER} clause used in window functions.
@@ -50,14 +52,14 @@ public final class WindowSpecExpression {
     private final Iterable<OrderByExpression> orderByExpressions;
 
     @Nonnull
-    private final WindowedValue.FrameSpecification frameSpecification;
+    private final WindowValue.FrameSpecification frameSpecification;
 
     @Nonnull
     private final Expressions windowOptions;
 
     private WindowSpecExpression(@Nonnull final Expressions partitions,
                                  @Nonnull final Iterable<OrderByExpression> orderByExpressions,
-                                 @Nonnull final WindowedValue.FrameSpecification frameSpecification,
+                                 @Nonnull final WindowValue.FrameSpecification frameSpecification,
                                  @Nonnull final Expressions windowOptions) {
         this.partitions = partitions;
         this.orderByExpressions = orderByExpressions;
@@ -75,7 +77,7 @@ public final class WindowSpecExpression {
     @Nonnull
     public static WindowSpecExpression of(@Nonnull final Expressions partitions,
                                           @Nonnull final Iterable<OrderByExpression> orderByExpressions,
-                                          @Nonnull final WindowedValue.FrameSpecification frameSpecification,
+                                          @Nonnull final WindowValue.FrameSpecification frameSpecification,
                                           @Nonnull final Expressions windowOptions) {
         return new WindowSpecExpression(partitions, orderByExpressions, frameSpecification, windowOptions);
     }
@@ -101,7 +103,14 @@ public final class WindowSpecExpression {
     }
 
     @Nonnull
-    public WindowedValue.FrameSpecification getFrameSpecification() {
+    public Iterable<WindowOrderingPart> getWindowOrderBys() {
+        return StreamSupport.stream(orderByExpressions.spliterator(), false)
+                .map(OrderByExpression::toWindowOrderingPart)
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
+    public WindowValue.FrameSpecification getFrameSpecification() {
         return frameSpecification;
     }
 

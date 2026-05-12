@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
@@ -50,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowValue;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Table;
@@ -348,13 +350,11 @@ public class LogicalOperator {
             final var currentValue = outputWithExtraPartitioningAndOrderingColumns.asValue();
             final var outputWithCorrectedWindowFunctions = Expressions.of(output.expanded().stream().map(
                     e -> {
-                        if (e instanceof WindowExpression) {
-                            return ((WindowExpression)e).adjustOrderingParts(currentValue, outerCorrelations);
-                        }
+
                         return e;
                     }).collect(ImmutableList.toImmutableList()));
 
-            final var underlyingSelectOutput = outputWithExtraPartitioningAndOrderingColumns.concat(outputWithCorrectedWindowFunctions.expanded().filter(Expression::isWindow));
+            final var underlyingSelectOutput = outputWithExtraPartitioningAndOrderingColumns; //.concat(outputWithCorrectedWindowFunctions.expanded().filter(Expression::isWindow));
             final var selectWithExtraPartitioningAndOrderingColumns = generateSimpleSelect(underlyingSelectOutput,
                     logicalOperators, predicates, Optional.empty(), outerCorrelations, isForDdl);
             final Quantifier bottomSelectQun = selectWithExtraPartitioningAndOrderingColumns.getQuantifier();
@@ -390,9 +390,10 @@ public class LogicalOperator {
     private static Expressions calculateMissingWindowOrderingExpressions(@Nonnull Expressions output,
                                                                          @Nonnull Expressions predicates,
                                                                          @Nonnull Set<CorrelationIdentifier> outerCorrelations) {
-        final var partitioningAndOrderingExprs = Expressions.of(output.concat(predicates).stream()
-                .filter(Expression::isWindow).map(WindowExpression.class::cast)
-                .flatMap(windowExpression -> windowExpression.getPartitioningAndOrderingParts().stream())
+        final var partitioningAndOrderingExprs = Expressions.fromUnderlying(output.concat(predicates).stream()
+                .filter(Expression::isWindow).map(Expression::getUnderlying).map(WindowValue.class::cast)
+                .flatMap(windowExpression -> Streams.concat(windowExpression.getPartitioningValues().stream(),
+                        windowExpression.getOrderingParts().stream().map(WindowOrderingPart::getValue)))
                 .collect(ImmutableList.toImmutableList()));
 
         if (partitioningAndOrderingExprs.isEmpty()) {

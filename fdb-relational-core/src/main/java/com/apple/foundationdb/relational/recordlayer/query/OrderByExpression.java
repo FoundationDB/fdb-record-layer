@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableSet;
@@ -64,6 +65,17 @@ public final class OrderByExpression {
             return this;
         }
         return new OrderByExpression(expression, descending, nullsLast);
+    }
+
+    /**
+     * Converts this order-by expression into a {@link WindowOrderingPart} suitable for use in window function
+     * specifications. The underlying value is taken as-is (without rebasing) and paired with the sort order
+     * derived from this expression's {@code descending} and {@code nullsLast} flags.
+     *
+     * @return a new {@link WindowOrderingPart} representing this ordering
+     */
+    public WindowOrderingPart toWindowOrderingPart() {
+        return new WindowOrderingPart(expression.getUnderlying(), toSortOrder());
     }
 
     @Nonnull

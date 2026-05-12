@@ -22,23 +22,29 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PFrameSpecification;
 import com.apple.foundationdb.record.planprotos.PRequestedOrderingPart;
-import com.apple.foundationdb.record.planprotos.PWindowedValue;
+import com.apple.foundationdb.record.planprotos.PWindowValue;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -48,41 +54,40 @@ import java.util.function.Supplier;
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class WindowedValue extends AbstractValue {
+public abstract class WindowValue extends AbstractValue implements Value.TransientValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Windowed-Value");
-
-    @Nonnull
-    private final List<Value> partitioningValues;
 
     @Nonnull
     private final List<Value> argumentValues;
 
     @Nonnull
-    private final List<OrderingPart.RequestedOrderingPart> orderingParts;
+    private final List<Value> partitioningValues;
+
+    @Nonnull
+    private final List<WindowOrderingPart> orderingParts;
 
     @Nonnull
     private final FrameSpecification windowFrameSpecification;
 
-    protected WindowedValue(@Nonnull final PlanSerializationContext serializationContext,
-                            @Nonnull final PWindowedValue windowedValueProto) {
-        this(windowedValueProto.getPartitioningValuesList()
-                        .stream()
-                        .map(valueProto -> Value.fromValueProto(serializationContext, valueProto))
-                        .collect(ImmutableList.toImmutableList()),
-                windowedValueProto.getArgumentValuesList()
+    protected WindowValue(@Nonnull final PlanSerializationContext serializationContext,
+                          @Nonnull final PWindowValue windowedValueProto) {
+        this(windowedValueProto.getArgumentValuesList()
+                .stream()
+                .map(valueProto -> Value.fromValueProto(serializationContext, valueProto))
+                .collect(ImmutableList.toImmutableList()), windowedValueProto.getPartitioningValuesList()
                         .stream()
                         .map(valueProto -> Value.fromValueProto(serializationContext, valueProto))
                         .collect(ImmutableList.toImmutableList()),
                 windowedValueProto.hasFrameSpecification()
                         ? windowedValueProto.getOrderingPartsList()
                                 .stream()
-                                .map(partProto -> new OrderingPart.RequestedOrderingPart(
+                                .map(partProto -> new WindowOrderingPart(
                                         Value.fromValueProto(serializationContext, partProto.getValue()),
                                         sortOrderFromProto(partProto.getSortOrder())))
                                 .collect(ImmutableList.toImmutableList())
                         : windowedValueProto.getArgumentValuesList()
                                 .stream()
-                                .map(valueProto -> new OrderingPart.RequestedOrderingPart(
+                                .map(valueProto -> new WindowOrderingPart(
                                         Value.fromValueProto(serializationContext, valueProto),
                                         RequestedSortOrder.ANY))
                                 .collect(ImmutableList.toImmutableList()),
@@ -91,15 +96,15 @@ public abstract class WindowedValue extends AbstractValue {
                         : FrameSpecification.defaultSpecification());
     }
 
-    protected WindowedValue(@Nonnull Iterable<? extends Value> partitioningValues,
-                            @Nonnull Iterable<? extends Value> argumentValues) {
-        this(partitioningValues, argumentValues, ImmutableList.of(), FrameSpecification.defaultSpecification());
+    protected WindowValue(@Nonnull Iterable<? extends Value> argumentValues,
+                          @Nonnull Iterable<? extends Value> partitioningValues) {
+        this(argumentValues, partitioningValues, ImmutableList.of(), FrameSpecification.defaultSpecification());
     }
 
-    protected WindowedValue(@Nonnull Iterable<? extends Value> partitioningValues,
-                            @Nonnull Iterable<? extends Value> argumentValues,
-                            @Nonnull Iterable<OrderingPart.RequestedOrderingPart> orderingParts,
-                            @Nonnull FrameSpecification windowFrameSpecification) {
+    protected WindowValue(@Nonnull Iterable<? extends Value> argumentValues,
+                          @Nonnull Iterable<? extends Value> partitioningValues,
+                          @Nonnull Iterable<WindowOrderingPart> orderingParts,
+                          @Nonnull FrameSpecification windowFrameSpecification) {
         this.partitioningValues = ImmutableList.copyOf(partitioningValues);
         this.argumentValues = ImmutableList.copyOf(argumentValues);
         this.orderingParts = ImmutableList.copyOf(orderingParts);
@@ -117,7 +122,7 @@ public abstract class WindowedValue extends AbstractValue {
     }
 
     @Nonnull
-    public List<OrderingPart.RequestedOrderingPart> getOrderingParts() {
+    public List<WindowOrderingPart> getOrderingParts() {
         return orderingParts;
     }
 
@@ -129,26 +134,41 @@ public abstract class WindowedValue extends AbstractValue {
     @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.<Value>builder().addAll(partitioningValues).addAll(argumentValues).build();
+        return ImmutableList.<Value>builder()
+                .addAll(partitioningValues)
+                .addAll(argumentValues)
+                .addAll(orderingParts.stream().map(WindowOrderingPart::getValue).iterator())
+                .build();
     }
 
     @Nonnull
     protected NonnullPair<List<Value>, List<Value>> splitNewChildren(@Nonnull final Iterable<? extends Value> newChildren) {
-        // We need to split the partitioning and the argument columns by position.
         final Iterator<? extends Value> newChildrenIterator = newChildren.iterator();
 
         final var newPartitioningValues =
                 ImmutableList.<Value>copyOf(Iterators.limit(newChildrenIterator, partitioningValues.size()));
         final var newArgumentValues =
-                ImmutableList.<Value>copyOf(newChildrenIterator);
+                ImmutableList.<Value>copyOf(Iterators.limit(newChildrenIterator, argumentValues.size()));
+        // remaining values are the ordering part values — reconstruct ordering parts with updated values
         return NonnullPair.of(newPartitioningValues, newArgumentValues);
+    }
+
+    @Nonnull
+    protected List<WindowOrderingPart> splitNewOrderingParts(@Nonnull final Iterable<? extends Value> newChildren) {
+        final Iterator<? extends Value> newChildrenIterator = newChildren.iterator();
+        Iterators.advance(newChildrenIterator, partitioningValues.size() + argumentValues.size());
+        final var builder = ImmutableList.<WindowOrderingPart>builder();
+        for (final WindowOrderingPart orderingPart : orderingParts) {
+            builder.add(new WindowOrderingPart(newChildrenIterator.next(), orderingPart.getSortOrder()));
+        }
+        return builder.build();
     }
 
     @Nonnull
     public abstract String getName();
 
     @Nonnull
-    public abstract WindowedValue withOrderingParts(@Nonnull List<OrderingPart.RequestedOrderingPart> newOrderingParts);
+    public abstract WindowValue withOrderingParts(@Nonnull List<WindowOrderingPart> newOrderingParts);
 
     @Override
     public int hashCodeWithoutChildren() {
@@ -171,7 +191,7 @@ public abstract class WindowedValue extends AbstractValue {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
-                return PlanHashable.objectsPlanHash(mode, baseHash, getName(), partitioningValues, argumentValues, windowFrameSpecification, hashables);
+                return PlanHashable.objectsPlanHash(mode, baseHash, getName(), partitioningValues, argumentValues, orderingParts, windowFrameSpecification, hashables);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
@@ -267,7 +287,7 @@ public abstract class WindowedValue extends AbstractValue {
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> {
-                    final var otherWindowValue = (WindowedValue)other;
+                    final var otherWindowValue = (WindowValue)other;
                     return getName().equals(otherWindowValue.getName()) &&
                             windowFrameSpecification.equals(otherWindowValue.windowFrameSpecification) &&
                             orderingParts.equals(otherWindowValue.orderingParts);
@@ -281,16 +301,24 @@ public abstract class WindowedValue extends AbstractValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
+
+    @Nullable
+    @Override
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
+                                           @Nonnull final EvaluationContext context) {
+        throw new RecordCoreException("transient value cannot be evaluated; it must be consumed during plan rewriting");
+    }
+
     @Nonnull
-    PWindowedValue toWindowedValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        final PWindowedValue.Builder builder = PWindowedValue.newBuilder();
+    PWindowValue toWindowedValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PWindowValue.Builder builder = PWindowValue.newBuilder();
         for (final Value partitioningValue : partitioningValues) {
             builder.addPartitioningValues(partitioningValue.toValueProto(serializationContext));
         }
         for (final Value argumentValue : argumentValues) {
             builder.addArgumentValues(argumentValue.toValueProto(serializationContext));
         }
-        for (final OrderingPart.RequestedOrderingPart orderingPart : orderingParts) {
+        for (final WindowOrderingPart orderingPart : orderingParts) {
             builder.addOrderingParts(PRequestedOrderingPart.newBuilder()
                     .setValue(orderingPart.getValue().toValueProto(serializationContext))
                     .setSortOrder(sortOrderToProto(orderingPart.getSortOrder()))

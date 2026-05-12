@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowValue;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -47,7 +47,7 @@ import java.util.Map;
  *   <li><b>Second-order call</b> &mdash; {@code encapsulate(windowArgs)} where {@code windowArgs} is a
  *       {@code List<Object>} containing zero or more of the following, in order:
  *       <ul>
- *         <li>An optional {@link WindowedValue.FrameSpecification} (if present, must be first)</li>
+ *         <li>An optional {@link WindowValue.FrameSpecification} (if present, must be first)</li>
  *         <li>An optional {@code List<OrderingPart.RequestedOrderingPart>} representing the requested window
  *             sort order</li>
  *       </ul>
@@ -86,12 +86,12 @@ public abstract class BuiltInWindowFunction<T extends Typed> extends CatalogedFu
     @SuppressWarnings("unchecked")
     public BuiltInFunction<T> encapsulate(@Nonnull final List<Object> secondOrderArguments) {
         SemanticException.check(secondOrderArguments.size() == 3, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-        SemanticException.check(secondOrderArguments.get(0) instanceof WindowedValue.FrameSpecification, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-        final WindowedValue.FrameSpecification frameSpecification = (WindowedValue.FrameSpecification) secondOrderArguments.get(0);
+        SemanticException.check(secondOrderArguments.get(0) instanceof WindowValue.FrameSpecification, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+        final WindowValue.FrameSpecification frameSpecification = (WindowValue.FrameSpecification) secondOrderArguments.get(0);
         SemanticException.check(secondOrderArguments.get(1) instanceof List<?>, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
         final List<Value> partitioningColumns = ((List<?>)secondOrderArguments.get(1)).isEmpty() ? null : (List<Value>) secondOrderArguments.get(1);
         SemanticException.check(secondOrderArguments.get(2) instanceof List<?>, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-        final List<OrderingPart.RequestedOrderingPart> sortOrder = ((List<?>)secondOrderArguments.get(2)).isEmpty() ? null : (List<OrderingPart.RequestedOrderingPart>) secondOrderArguments.get(2);
+        final List<WindowOrderingPart> sortOrder = ((List<?>)secondOrderArguments.get(2)).isEmpty() ? null : (List<WindowOrderingPart>) secondOrderArguments.get(2);
 
         return new BuiltInFunction<>(getFunctionName(), getParameterTypes(), getVariadicSuffixType(),
                 (builtInFunction, firstOrderArguments) -> encapsulationFunction.encapsulate(this, frameSpecification, partitioningColumns, sortOrder, firstOrderArguments));

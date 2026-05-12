@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowValue;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
@@ -212,7 +213,11 @@ public class Expression {
     }
 
     public boolean isAggregate() {
-        return underlying instanceof AggregateValue && !(underlying instanceof RecordConstructorValue);
+        return getUnderlying() instanceof AggregateValue && !(getUnderlying() instanceof RecordConstructorValue);
+    }
+
+    public boolean isWindow() {
+        return getUnderlying() instanceof WindowValue;
     }
 
     @Nonnull
@@ -295,10 +300,6 @@ public class Expression {
     }
 
     public boolean isEphemeral() {
-        return false;
-    }
-
-    public boolean isWindow() {
         return false;
     }
 
