@@ -91,7 +91,7 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
             if (noNextReason == RecordCursor.NoNextReason.SOURCE_EXHAUSTED) {
                 this.continuation = ContinuationImpl.END;
             } else {
-                this.continuation = ContinuationImpl.fromUnderlyingBytes(result.getContinuation().toBytes());
+                this.continuation = ContinuationImpl.fromUnderlyingBytes(result.getContinuation().toBytes(), noNextReason);
             }
         }
     }
@@ -104,7 +104,7 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
             try {
                 final var row = transform.apply(result.get());
                 // TODO(sfines,yhatem) pass the Record-Layer Continuation object as-is to avoid copying bytes around.
-                this.continuation = ContinuationImpl.fromUnderlyingBytes(result.getContinuation().toBytes());
+                this.continuation = ContinuationImpl.fromUnderlyingBytes(result.getContinuation().toBytes(), result.hasNext() ? null : result.getNoNextReason());
                 return row;
             } catch (RecordCoreException exception) {
                 throw ExceptionUtil.toRelationalException(exception).toUncheckedWrappedException();
