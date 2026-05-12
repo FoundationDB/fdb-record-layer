@@ -33,9 +33,20 @@ test_block:
   preset: single_repetition_ordered
   tests:
     -
-      - query: select d1.embedding, row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100)
+      - query: select d1.embedding
                from documents d1, documents d2
+               where d1.zone = 'zone1'
+               qualify row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 100
       - unorderedResult: []
+#    -
+#      - query: select d1.embedding, row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100)
+#               from documents d1, documents d2
+#      - unorderedResult: []
+#    -
+#      - query: select d1.embedding, row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100) as w1,
+#                      row_number() over (partition by d1.zone order by euclidean_distance(d2.embedding, d1.embedding) desc options ef_search = 200) as w2
+#               from documents d1, documents d2
+#      - unorderedResult: []
 #    -
 #      - query: select a, row_number() over (partition by a, x order by b + z)
 #               from table_a, table_b
@@ -45,3 +56,48 @@ test_block:
 #               from table_a
 #      - explain: "SCAN([IS TABLE_A]) | MAP (_.A AS A, ROW_NUMBER( PARTITION BY _.A, _.B ORDER BY _.C ASC ROW BETWEEN @c18 PRECEDING AND CURRENT ROW) AS RN)"
 #      - unorderedResult: []
+#---
+#test_block:
+#  name: window-functions-negative-tests
+#  preset: single_repetition_ordered
+#  tests:
+#    # Nested window functions are not allowed
+#    -
+#      - query: select row_number() over (order by row_number() over (order by a)) from table_a
+#      - error: "0AF00"
+#    # ROW_NUMBER requires ORDER BY
+#    -
+#      - query: select row_number() over (partition by a) from table_a
+#      - error: "0AF00"
+#    # RANK requires ORDER BY
+#    -
+#      - query: select rank() over (partition by a) from table_a
+#      - error: "0AF00"
+#    # RANGE frame requires exactly one ORDER BY expression
+#    -
+#      - query: select row_number() over (order by a, b range between unbounded preceding and current row) from table_a
+#      - error: "0AF00"
+#    # Invalid frame boundary ordering (FOLLOWING before PRECEDING)
+#    -
+#      - query: select row_number() over (order by a rows between 5 following and 3 preceding) from table_a
+#      - error: "0AF00"
+#    # Window function in WHERE clause is not allowed
+#    -
+#      - query: select a from table_a where row_number() over (order by a) > 1
+#      - error: "0AF00"
+#    # Window function in GROUP BY clause is not allowed
+#    -
+#      - query: select a from table_a group by row_number() over (order by a)
+#      - error: "0AF00"
+#    # Window function as argument to aggregate function is not allowed
+#    -
+#      - query: select sum(row_number() over (order by a)) from table_a
+#      - error: "0AF00"
+#    # Window function in PARTITION BY of another window function
+#    -
+#      - query: select row_number() over (partition by rank() over (order by a) order by b) from table_a
+#      - error: "0AF00"
+#    # Window function in ORDER BY of another window function
+#    -
+#      - query: select row_number() over (order by rank() over (order by a)) from table_a
+#      - error: "0AF00"

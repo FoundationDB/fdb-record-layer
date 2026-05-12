@@ -132,13 +132,23 @@ public final class Expressions implements Iterable<Expression> {
         return RecordConstructorValue.ofUnnamed(ImmutableList.copyOf(this.underlying()));
     }
 
+    /**
+     * Returns expressions from {@code this} that cannot be derived from any individual expression in {@code that}.
+     * This is a derivability-based difference, not a strict equality-based set difference: an expression is excluded
+     * from the result if {@code canBeDerivedFrom} holds for at least one expression in {@code that}.
+     * <p>
+     * Note that derivability is checked against each expression in {@code that} independently. An expression that
+     * could only be derived from a <em>combination</em> of expressions in {@code that} will still appear in the result.
+     *
+     * @param that the expressions to check derivability against
+     * @param constantAliases aliases considered constant for derivability checks
+     * @return expressions from {@code this} that cannot be derived from any single expression in {@code that}
+     */
     @Nonnull
-    public Expressions difference(@Nonnull Expressions that, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        if (Iterables.isEmpty(that)) {
+    public Expressions difference(@Nonnull final Expressions that,
+                                  @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        if (isEmpty() || that.isEmpty()) {
             return this;
-        }
-        if (Iterables.isEmpty(this)) {
-            return Expressions.empty();
         }
         final ImmutableList.Builder<Expression> resultBuilder = ImmutableList.builder();
         for (final var thisExpression: this.expanded()) {
@@ -170,6 +180,36 @@ public final class Expressions implements Iterable<Expression> {
     @Nonnull
     public Expressions filter(@Nonnull Predicate<Expression> filter) {
         return Expressions.of(this.stream().filter(filter).collect(ImmutableList.toImmutableList()));
+    }
+
+    /**
+     * The result of partitioning expressions into two groups based on a predicate.
+     *
+     * @param satisfying expressions that satisfy the predicate
+     * @param notSatisfying expressions that do not satisfy the predicate
+     */
+    public record Partition(@Nonnull Expressions satisfying, @Nonnull Expressions notSatisfying) {
+    }
+
+    /**
+     * Partitions this collection into two lists based on a predicate.
+     *
+     * @param predicate the predicate to test each expression against
+     * @return a {@link Partition} where {@code satisfying} contains expressions matching the predicate
+     *         and {@code notSatisfying} contains the rest
+     */
+    @Nonnull
+    public Partition partition(@Nonnull Predicate<Expression> predicate) {
+        final ImmutableList.Builder<Expression> satisfying = ImmutableList.builder();
+        final ImmutableList.Builder<Expression> notSatisfying = ImmutableList.builder();
+        for (final var expression : this) {
+            if (predicate.test(expression)) {
+                satisfying.add(expression);
+            } else {
+                notSatisfying.add(expression);
+            }
+        }
+        return new Partition(Expressions.of(satisfying.build()), Expressions.of(notSatisfying.build()));
     }
 
     @Nonnull

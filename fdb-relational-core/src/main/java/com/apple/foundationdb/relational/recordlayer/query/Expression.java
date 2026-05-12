@@ -213,11 +213,12 @@ public class Expression {
     }
 
     public boolean isAggregate() {
-        return getUnderlying() instanceof AggregateValue && !(getUnderlying() instanceof RecordConstructorValue);
+        return getUnderlying().preOrderStream()
+                .anyMatch(v1 -> v1 instanceof AggregateValue && !(v1 instanceof RecordConstructorValue));
     }
 
     public boolean isWindow() {
-        return getUnderlying() instanceof WindowValue;
+        return getUnderlying().preOrderStream().anyMatch(v1 -> v1 instanceof WindowValue);
     }
 
     @Nonnull

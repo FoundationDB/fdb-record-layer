@@ -341,29 +341,53 @@ public class LogicalOperator {
                                                  @Nonnull Set<CorrelationIdentifier> outerCorrelations,
                                                  boolean isTopLevel,
                                                  boolean isForDdl) {
-        final Expressions missingWindowOrderingExpressions = calculateMissingWindowOrderingExpressions(output, predicates, outerCorrelations);
+        final Expressions missingWindowOrderingExpressions = calculateMissingWindowOrderingExpressions(output,
+                predicates, outerCorrelations);
 
         final boolean requiresExtraSelect = !missingWindowOrderingExpressions.isEmpty();
 
+        //
+        // Window functions reference PARTITION BY and ORDER BY columns that may not be part of the current output.
+        // When such columns are missing, we inject a bottom SELECT that projects both the original non-window output
+        // columns and the missing partitioning/ordering columns. The top SELECT (created later) can then reference
+        // these columns when constructing its window functions. This effectively transforms:
+        //
+        //   SELECT(a, window(partition=b, order=c))
+        //     |
+        //     | q0
+        //     |
+        //   SCAN(t)
+        //
+        // into:
+        //
+        //   SELECT(q1.a, window(partition=q1.b, order=q1.c))
+        //     |
+        //     | q1
+        //     |
+        //   SELECT(a, b, c)    <-- bottom select with augmented output
+        //     |
+        //     | q0
+        //     |
+        //   SCAN(t)
+        //
         if (requiresExtraSelect) {
-            final var outputWithExtraPartitioningAndOrderingColumns = output.concat(missingWindowOrderingExpressions).filter(e -> !e.isWindow());
-            final var currentValue = outputWithExtraPartitioningAndOrderingColumns.asValue();
-            final var outputWithCorrectedWindowFunctions = Expressions.of(output.expanded().stream().map(
-                    e -> {
-
-                        return e;
-                    }).collect(ImmutableList.toImmutableList()));
-
-            final var underlyingSelectOutput = outputWithExtraPartitioningAndOrderingColumns; //.concat(outputWithCorrectedWindowFunctions.expanded().filter(Expression::isWindow));
-            final var selectWithExtraPartitioningAndOrderingColumns = generateSimpleSelect(underlyingSelectOutput,
-                    logicalOperators, predicates, Optional.empty(), outerCorrelations, isForDdl);
-            final Quantifier bottomSelectQun = selectWithExtraPartitioningAndOrderingColumns.getQuantifier();
-            output = Expressions.of(outputWithCorrectedWindowFunctions.expanded().pullUp(bottomSelectQun.getRangesOver().get().getResultValue(), bottomSelectQun.getAlias(), outerCorrelations));
+            var augmentedOutput = output.filter(e -> !e.isWindow());
+            for (final var missingExpr : missingWindowOrderingExpressions) {
+                if (!missingExpr.canBeDerivedFrom(Expression.fromUnderlying(augmentedOutput.asValue()), outerCorrelations)) {
+                    augmentedOutput = augmentedOutput.concat(missingExpr);
+                }
+            }
+            final var windowPredicates = predicates.partition(Expression::isWindow);
+            final var bottomSelect = generateSimpleSelect(augmentedOutput,
+                    logicalOperators, windowPredicates.notSatisfying(), Optional.empty(), outerCorrelations, isForDdl);
+            final var bottomQun = bottomSelect.getQuantifier();
+            final var bottomValue = bottomQun.getRangesOver().get().getResultValue();
+            output = Expressions.of(output.expanded().pullUp(bottomValue, bottomQun.getAlias(), outerCorrelations));
             orderBys = orderBys.stream().map(obe ->
-                    obe.withExpression(obe.getExpression().pullUp(bottomSelectQun.getFlowedObjectValue(),
-                            bottomSelectQun.getAlias(), outerCorrelations))).collect(ImmutableList.toImmutableList());
-            logicalOperators = LogicalOperators.ofSingle(selectWithExtraPartitioningAndOrderingColumns);
-            predicates = Expressions.empty();
+                    obe.withExpression(obe.getExpression().pullUp(bottomQun.getFlowedObjectValue(),
+                            bottomQun.getAlias(), outerCorrelations))).collect(ImmutableList.toImmutableList());
+            logicalOperators = LogicalOperators.ofSingle(bottomSelect);
+            predicates = Expressions.of(windowPredicates.satisfying().pullUp(bottomValue, bottomQun.getAlias(), outerCorrelations));
         }
 
         if (orderBys.isEmpty()) {
@@ -390,15 +414,18 @@ public class LogicalOperator {
     private static Expressions calculateMissingWindowOrderingExpressions(@Nonnull Expressions output,
                                                                          @Nonnull Expressions predicates,
                                                                          @Nonnull Set<CorrelationIdentifier> outerCorrelations) {
-        final var partitioningAndOrderingExprs = Expressions.fromUnderlying(output.concat(predicates).stream()
-                .filter(Expression::isWindow).map(Expression::getUnderlying).map(WindowValue.class::cast)
+        final var partitioningAndOrderingExprs = Expressions.fromUnderlying(output.concat(predicates)
+                .expanded()
+                .stream()
+                .filter(Expression::isWindow)
+                .map(Expression::getUnderlying)
+                .flatMap(v -> v.preOrderStream().filter(WindowValue.class::isInstance))
+                .map(WindowValue.class::cast)
                 .flatMap(windowExpression -> Streams.concat(windowExpression.getPartitioningValues().stream(),
-                        windowExpression.getOrderingParts().stream().map(WindowOrderingPart::getValue)))
+                        windowExpression.getOrderingParts()
+                                .stream()
+                                .map(WindowOrderingPart::getValue)))
                 .collect(ImmutableList.toImmutableList()));
-
-        if (partitioningAndOrderingExprs.isEmpty()) {
-            return Expressions.empty();
-        }
 
         return partitioningAndOrderingExprs.difference(output, outerCorrelations);
     }
