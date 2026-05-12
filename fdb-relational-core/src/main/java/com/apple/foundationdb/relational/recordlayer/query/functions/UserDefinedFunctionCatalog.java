@@ -35,10 +35,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-final class UserDefinedFunctionCatalog {
+public final class UserDefinedFunctionCatalog {
 
     @Nonnull
-    private final Map<String, Function<Boolean, ? extends UserDefinedFunction>> functionsMap;
+    public final Map<String, Function<Boolean, ? extends UserDefinedFunction>> functionsMap;
 
     private final boolean isCaseSensitive;
 

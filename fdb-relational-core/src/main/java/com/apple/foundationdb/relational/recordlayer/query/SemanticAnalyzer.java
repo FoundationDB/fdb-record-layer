@@ -63,7 +63,9 @@ import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
+import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalogImpl;
 import com.apple.foundationdb.relational.recordlayer.query.functions.WithPlanGenerationSideEffects;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor;
 import com.apple.foundationdb.relational.util.Assert;
@@ -1133,6 +1135,15 @@ public class SemanticAnalyzer {
                                                 boolean flattenSingleItemRecords) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName.getName()), ErrorCode.UNDEFINED_FUNCTION,
                 () -> String.format(Locale.ROOT, "Unknown function %s", functionName));
+
+        var a = ((SqlFunctionCatalogImpl) functionCatalog).userDefinedFunctionCatalog.functionsMap.get("__5tvf_SIMPLE_RECORDS").apply(true);
+        ((CompiledSqlFunction) a).body // select
+                .getQuantifiers().get(0).getRangesOver().get()  // type filter
+                .getQuantifiers().get(0).getRangesOver().get(); // scan
+
+        var b = 34;
+
+
         final var tableFunction = functionCatalog.lookupFunction(functionName.getName(), arguments);
         if (tableFunction instanceof BuiltInFunction) {
             Assert.thatUnchecked(tableFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");

@@ -41,13 +41,13 @@ import java.util.function.Function;
  * A catalog of built-in and user-defined SQL functions.
  */
 @API(API.Status.EXPERIMENTAL)
-final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
+public final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
     private static final ImmutableMap<String, Function<Integer, Optional<BuiltInFunction<? extends Typed>>>> builtInSynonyms = createSynonyms();
 
     @Nonnull
-    private final UserDefinedFunctionCatalog userDefinedFunctionCatalog;
+    public final UserDefinedFunctionCatalog userDefinedFunctionCatalog;
 
     private SqlFunctionCatalogImpl(boolean isCaseSensitive) {
         this.userDefinedFunctionCatalog = new UserDefinedFunctionCatalog(isCaseSensitive);
