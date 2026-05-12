@@ -80,6 +80,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     private final Set<RecordLayerView> views;
 
+    @Nonnull
+    private final List<String> prepareStatements;
+
     private final int version;
 
     private final boolean enableLongRows;
@@ -107,6 +110,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
+                                      @Nonnull final List<String> prepareStatements,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -115,6 +119,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
+        this.prepareStatements = ImmutableList.copyOf(prepareStatements);
         this.version = version;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
@@ -130,6 +135,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
+                                      @Nonnull final List<String> prepareStatements,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -140,6 +146,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
+        this.prepareStatements = ImmutableList.copyOf(prepareStatements);
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
         this.intermingleTables = intermingleTables;
@@ -339,6 +346,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
+    public List<String> getPrepareStatements() {
+        return prepareStatements;
+    }
+
+    @Nonnull
     @Override
     public Optional<? extends View> findViewByName(@Nonnull final String viewName) {
         return views.stream().filter(view -> view.getName().equals(viewName)).findFirst();
@@ -414,6 +426,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         @Nonnull
         private final Map<String, RecordLayerView> views;
 
+        @Nonnull
+        private final List<String> prepareStatements;
+
 
         private RecordMetaData cachedMetadata;
 
@@ -422,6 +437,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             auxiliaryTypes = new LinkedHashMap<>();
             invokedRoutines = new LinkedHashMap<>();
             views = new LinkedHashMap<>();
+            prepareStatements = new ArrayList<>();
             // enable long rows is TRUE by default
             enableLongRows = true;
         }
@@ -540,6 +556,18 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             return this;
         }
 
+        @Nonnull
+        public Builder addPrepareStatement(@Nonnull final String prepareStatement) {
+            prepareStatements.add(prepareStatement);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addPrepareStatements(@Nonnull final Collection<String> prepareStatements) {
+            this.prepareStatements.addAll(prepareStatements);
+            return this;
+        }
+
         /**
          * Adds an auxiliary type, an auxiliary type is a type that is merely created, so it can be referenced later on
          * in a table definition. Any {@link DataType.Named} data type can be added as an auxiliary type such as {@code enum}s
@@ -632,10 +660,10 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
             if (cachedMetadata != null) {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
-                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
+                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), prepareStatements, version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
             } else {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
-                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), version, enableLongRows, storeRowVersions, intermingleTables);
+                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), prepareStatements, version, enableLongRows, storeRowVersions, intermingleTables);
             }
         }
 
@@ -763,6 +791,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 .setIntermingleTables(intermingleTables)
                 .addTables(getTables())
                 .addInvokedRoutines(getInvokedRoutines())
-                .addViews(getViews());
+                .addViews(getViews())
+                .addPrepareStatements(getPrepareStatements());
     }
 }
