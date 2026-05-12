@@ -135,6 +135,7 @@ public class SetupBlock extends ConnectedBlock {
 
         static final String DOMAIN = "/FRL";
         public static final String SCHEMA_TEMPLATE_BLOCK = "schema_template";
+        public static final String SCHEMA_TEMPLATE_VARIANT_DEFINITION = "definition";
         public static final String INITIAL_VERSION_AT_LEAST = "initialVersionAtLeast";
         public static final String INITIAL_VERSION_LESS_THAN = "initialVersionLessThan";
 
@@ -145,10 +146,13 @@ public class SetupBlock extends ConnectedBlock {
         /**
          * A {@code schema_template} variant specified in the .yamsql file.
          *
+         * @param reference  the location of this variant in the source .yamsql file
          * @param range  the semantic version range associated with this variant
-         * @param createSchemaTemplateSql  the {@code CREATE SCHEMA TEMPLATE} body
+         * @param createSchemaTemplateSql  the {@code CREATE SCHEMA TEMPLATE} statement built from the variant’s
+         *                                 {@code definition} body
          */
-        private record Variant(@Nonnull Range<SemanticVersion> range, @Nonnull String createSchemaTemplateSql) {
+        private record Variant(@Nonnull YamlReference reference, @Nonnull Range<SemanticVersion> range,
+                               @Nonnull String createSchemaTemplateSql) {
         }
 
         /**
@@ -173,13 +177,13 @@ public class SetupBlock extends ConnectedBlock {
                 // Parse the list of variants, depending on which `schema_template` syntax is used.
                 final List<Variant> variants = (document instanceof List)
                                                ? parseVariantList(document, reference, schemaTemplateName)
-                                               : parseSingleVariant(document, schemaTemplateName);
+                                               : parseSingleVariant(document, reference, schemaTemplateName);
 
                 // Build the main CREATE SCHEMA TEMPLATE step. This is a special executable that inspects the initial
                 // version of the connection at execution time and chooses the matching CREATE SCHEMA TEMPLATE to run.
                 final List<VariantCommands> variantCommands = variants.stream()
                         .map(variant -> new VariantCommands(variant.range,
-                                QueryCommand.withQueryString(reference, variant.createSchemaTemplateSql, executionContext)))
+                                QueryCommand.withQueryString(variant.reference, variant.createSchemaTemplateSql, executionContext)))
                         .toList();
                 executables.add(connection -> {
                     final SemanticVersion initialVersion = connection.getInitialVersion();
@@ -214,9 +218,10 @@ public class SetupBlock extends ConnectedBlock {
         }
 
         @Nonnull
-        private static List<Variant> parseSingleVariant(@Nonnull Object document, @Nonnull String schemaTemplateName) {
+        private static List<Variant> parseSingleVariant(@Nonnull Object document, @Nonnull YamlReference reference,
+                                                        @Nonnull String schemaTemplateName) {
             final String body = Matchers.string(document, "schema template description");
-            return List.of(new Variant(SemanticVersionRanges.all(),
+            return List.of(new Variant(reference, SemanticVersionRanges.all(),
                     buildCreateSchemaTemplateSql(schemaTemplateName, body)));
         }
 
@@ -226,15 +231,25 @@ public class SetupBlock extends ConnectedBlock {
             Assert.thatUnchecked(!rawVariants.isEmpty(), "schema_template list form must declare at least one variant");
             final List<Variant> parsed = new ArrayList<>(rawVariants.size());
             for (final Object raw : rawVariants) {
-                final Map<?, ?> variantMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(raw, "schema_template variant"));
-                final Object templateObj = variantMap.get(SCHEMA_TEMPLATE_BLOCK);
-                Assert.thatUnchecked(templateObj != null, "schema_template variant requires a '" + SCHEMA_TEMPLATE_BLOCK + "' key");
-                final String template = Matchers.string(templateObj, "schema_template variant template");
+                final Map<?, ?> rawVariantMap = Matchers.map(raw, "schema_template variant");
+                final YamlReference variantReference = reference.getResource().withLineNumber(extractVariantLineNumber(rawVariantMap, reference));
+                final Map<?, ?> variantMap = CustomYamlConstructor.LinedObject.unlineKeys(rawVariantMap);
+                final Object definitionObj = variantMap.get(SCHEMA_TEMPLATE_VARIANT_DEFINITION);
+                Assert.thatUnchecked(definitionObj != null, "schema_template variant requires a '" + SCHEMA_TEMPLATE_VARIANT_DEFINITION + "' key");
+                final String definition = Matchers.string(definitionObj, "schema_template variant definition");
                 final Range<SemanticVersion> range = parseVariantRange(variantMap);
-                parsed.add(new Variant(range, buildCreateSchemaTemplateSql(schemaTemplateName, template)));
+                parsed.add(new Variant(variantReference, range, buildCreateSchemaTemplateSql(schemaTemplateName, definition)));
             }
-            validateVariantCoverage(parsed, reference);
+            validateVariants(parsed, reference);
             return parsed;
+        }
+
+        private static int extractVariantLineNumber(@Nonnull Map<?, ?> rawVariantMap, @Nonnull YamlReference outerReference) {
+            return rawVariantMap.keySet().stream()
+                    .filter(CustomYamlConstructor.LinedObject.class::isInstance)
+                    .mapToInt(k -> ((CustomYamlConstructor.LinedObject) k).getLineNumber())
+                    .min()
+                    .orElse(outerReference.getLineNumber());
         }
 
         @Nonnull
@@ -257,9 +272,20 @@ public class SetupBlock extends ConnectedBlock {
             return Range.closedOpen(lowerBound, upperBound);
         }
 
-        private static void validateVariantCoverage(@Nonnull List<Variant> variants, @Nonnull YamlReference reference) {
-            final Set<Range<SemanticVersion>> uncovered = SemanticVersionRanges.uncovered(
-                    variants.stream().map(Variant::range).collect(Collectors.toList()));
+        private static void validateVariants(@Nonnull List<Variant> variants, @Nonnull YamlReference reference) {
+            final List<Range<SemanticVersion>> ranges = variants.stream().map(Variant::range).collect(Collectors.toList());
+
+            // Check for overlapping ranges.
+            final Set<Range<SemanticVersion>> overlapping = SemanticVersionRanges.overlapping(ranges);
+            if (!overlapping.isEmpty()) {
+                final IllegalArgumentException e = new IllegalArgumentException(
+                        "schema_template variants have overlapping version ranges: " + overlapping);
+                throw YamlExecutionContext.wrapContext(e,
+                        () -> "‼️ Overlapping schema_template variants at " + reference, SCHEMA_TEMPLATE_BLOCK, reference);
+            }
+
+            // Check for uncovered ranges.
+            final Set<Range<SemanticVersion>> uncovered = SemanticVersionRanges.uncovered(ranges);
             if (!uncovered.isEmpty()) {
                 final IllegalArgumentException e = new IllegalArgumentException(
                         "schema_template variants do not cover the complete set of versions; missing: " + uncovered);

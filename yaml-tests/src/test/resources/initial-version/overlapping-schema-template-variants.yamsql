@@ -1,5 +1,5 @@
 #
-# schema-template-variants.yamsql
+# overlapping-schema-template-variants.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -18,23 +18,19 @@
 # limitations under the License.
 
 ---
-# Exercises the multiple-variants form of `schema_template`. The fixed test version is 3.0.18.0, so the
-# `initialVersionAtLeast: 3.0.18.0` variant is the one that should run; the other variant declares a different column
-# so that an incorrect variant selection would surface as a query-time failure.
+# The two `schema_template` variants here both match versions in [3.0.0.0, 3.1.0.0), so the file should fail at
+# parse time regardless of the version under test.
 schema_template:
-    - initialVersionLessThan: "3.0.18.0"
+    - initialVersionLessThan: "3.1.0.0"
       definition: |
-          create table t1(id bigint, col_old bigint, primary key(id))
-    - initialVersionAtLeast: "3.0.18.0"
+          CREATE TABLE T (id BIGINT, PRIMARY KEY (id))
+    - initialVersionAtLeast: "3.0.0.0"
       definition: |
-          create table t1(id bigint, col_new bigint, primary key(id))
+          CREATE TABLE T (id BIGINT, PRIMARY KEY (id))
 ---
 test_block:
   preset: single_repetition_ordered
   tests:
     -
-      - query: insert into t1 values (1, 2)
-      - count: 1
-    -
-      - query: select col_new from t1
-      - result: [{col_new: !l 2}]
+      - query: SELECT * FROM T
+      - result: []

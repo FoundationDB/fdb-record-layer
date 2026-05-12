@@ -1,5 +1,5 @@
 #
-# schema-template-variants.yamsql
+# malformed-version-schema-template-variants.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -18,23 +18,19 @@
 # limitations under the License.
 
 ---
-# Exercises the multiple-variants form of `schema_template`. The fixed test version is 3.0.18.0, so the
-# `initialVersionAtLeast: 3.0.18.0` variant is the one that should run; the other variant declares a different column
-# so that an incorrect variant selection would surface as a query-time failure.
+# The second variant’s `initialVersionAtLeast` is not a parseable version, so the parser rejects the file at parse
+# time when building the version range.
 schema_template:
-    - initialVersionLessThan: "3.0.18.0"
+    - initialVersionLessThan: "3.0.0.0"
       definition: |
-          create table t1(id bigint, col_old bigint, primary key(id))
-    - initialVersionAtLeast: "3.0.18.0"
+          CREATE TABLE T1 (id BIGINT, PRIMARY KEY (id))
+    - initialVersionAtLeast: "not.a.real.version"
       definition: |
-          create table t1(id bigint, col_new bigint, primary key(id))
+          CREATE TABLE T1 (id BIGINT, PRIMARY KEY (id))
 ---
 test_block:
   preset: single_repetition_ordered
   tests:
     -
-      - query: insert into t1 values (1, 2)
-      - count: 1
-    -
-      - query: select col_new from t1
-      - result: [{col_new: !l 2}]
+      - query: SELECT * FROM T1
+      - result: []

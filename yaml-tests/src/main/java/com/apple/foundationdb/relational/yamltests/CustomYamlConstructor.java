@@ -58,6 +58,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         requireLineNumber.add(PreambleBlock.OPTIONS);
         requireLineNumber.add(SetupBlock.SETUP_BLOCK);
         requireLineNumber.add(SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK);
+        requireLineNumber.add(SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_VARIANT_DEFINITION);
         requireLineNumber.add(TransactionSetupsBlock.TRANSACTION_SETUP);
         requireLineNumber.add(TestBlock.TEST_BLOCK);
         requireLineNumber.add(IncludeBlock.INCLUDE);

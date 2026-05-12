@@ -26,6 +26,8 @@ import com.google.common.collect.TreeRangeSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -72,5 +74,27 @@ public final class SemanticVersionRanges {
         RangeSet<SemanticVersion> rangeSet = TreeRangeSet.create();
         ranges.forEach(rangeSet::add);
         return rangeSet.complement().subRangeSet(all()).asRanges();
+    }
+
+    /**
+     * Returns the pairwise non-empty intersections of the supplied ranges, i.e. the regions where two or more ranges
+     * overlap. An empty result means the supplied ranges are mutually exclusive.
+     */
+    @Nonnull
+    public static Set<Range<SemanticVersion>> overlapping(@Nonnull List<Range<SemanticVersion>> ranges) {
+        final Set<Range<SemanticVersion>> overlaps = new HashSet<>();
+        for (int i = 0; i < ranges.size(); i++) {
+            for (int j = i + 1; j < ranges.size(); j++) {
+                final Range<SemanticVersion> a = ranges.get(i);
+                final Range<SemanticVersion> b = ranges.get(j);
+                if (a.isConnected(b)) {
+                    final Range<SemanticVersion> intersection = a.intersection(b);
+                    if (!intersection.isEmpty()) {
+                        overlaps.add(intersection);
+                    }
+                }
+            }
+        }
+        return overlaps;
     }
 }
