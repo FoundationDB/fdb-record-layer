@@ -160,7 +160,8 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         But that String suffix will have any \x00 bytes escaped by following it with an \xff byte.
         So the sequence \x00\x5e would mean "end-of-string" followed by the beginning of a new Tuple value with code \x5e, which again, is invalid.
          */
-        private static final long MAGIC_NUMBER = 6_773_487_359_078_157_740L;
+        // Updated to invalidate continuations from older versions that used a different serialization format.
+        private static final long MAGIC_NUMBER = 6_773_487_359_078_157_741L;
 
         public Continuation(@Nullable final byte[] lastKey, final int prefixLength, final SerializationMode serializationMode) {
             // Note that doing this without a full copy is dangerous if the array is ever mutated.
