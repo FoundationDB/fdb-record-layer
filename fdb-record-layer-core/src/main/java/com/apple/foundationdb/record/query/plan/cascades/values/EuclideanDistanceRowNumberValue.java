@@ -26,10 +26,12 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PEuclideanDistanceRowNumberValue;
 import com.apple.foundationdb.record.planprotos.PValue;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -55,11 +57,11 @@ import java.util.Objects;
  * the last is furthest (row number 4). Note that rows 2 and 3 have the same distance but different row numbers.
  * </p>
  *
- * @see WindowedValue
+ * @see TransientWindowValue
  * @see Value.IndexOnlyValue
  */
 @API(API.Status.EXPERIMENTAL)
-public class EuclideanDistanceRowNumberValue extends WindowedValue implements Value.IndexOnlyValue {
+public class EuclideanDistanceRowNumberValue extends TransientWindowValue implements Value.IndexOnlyValue {
     private static final String NAME = "EuclideanDistanceRowNumber";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 
@@ -70,13 +72,27 @@ public class EuclideanDistanceRowNumberValue extends WindowedValue implements Va
 
     public EuclideanDistanceRowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
                                            @Nonnull Iterable<? extends Value> argumentValues) {
-        super(partitioningValues, argumentValues);
+        super(argumentValues, partitioningValues);
+    }
+
+    public EuclideanDistanceRowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
+                                           @Nonnull Iterable<? extends Value> argumentValues,
+                                           @Nonnull Iterable<WindowOrderingPart> orderingParts,
+                                           @Nonnull WindowFrameSpecification frameSpecification) {
+        super(argumentValues, partitioningValues, orderingParts, frameSpecification);
     }
 
     @Nonnull
     @Override
     public String getName() {
         return NAME;
+    }
+
+    @Nonnull
+    @Override
+    public EuclideanDistanceRowNumberValue withOrderingParts(final @Nonnull List<WindowOrderingPart> newOrderingParts) {
+        return new EuclideanDistanceRowNumberValue(getPartitioningValues(), getArgumentValues(), newOrderingParts,
+                getWindowFrameSpecification());
     }
 
     @Override
@@ -94,7 +110,7 @@ public class EuclideanDistanceRowNumberValue extends WindowedValue implements Va
     @Override
     public EuclideanDistanceRowNumberValue withChildren(final Iterable<? extends Value> newChildren) {
         final var childrenPair = splitNewChildren(newChildren);
-        return new EuclideanDistanceRowNumberValue(childrenPair.getKey(), childrenPair.getValue());
+        return new EuclideanDistanceRowNumberValue(childrenPair.getKey(), childrenPair.getValue(), splitNewOrderingParts(newChildren), getWindowFrameSpecification());
     }
 
     @Nonnull

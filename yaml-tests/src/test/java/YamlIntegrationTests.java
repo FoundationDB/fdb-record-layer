@@ -478,4 +478,10 @@ public class YamlIntegrationTests {
     public void filterIndexTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("filter-index.yamsql");
     }
+
+    @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
+    public void windowFunction(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("window-function.yamsql");
+    }
 }

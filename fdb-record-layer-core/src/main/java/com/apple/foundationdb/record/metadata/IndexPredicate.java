@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RowNumberValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RowNumberTransientValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.annotations.VisibleForTesting;
@@ -151,7 +151,7 @@ public abstract class IndexPredicate {
 
     /**
      * Attempts to convert a {@link com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate}
-     * wrapping a {@link RowNumberValue} with a field ordering and a constant size comparison into
+     * wrapping a {@link RowNumberTransientValue} with a field ordering and a constant size comparison into
      * a {@link RowNumberWindowPredicate}.
      *
      * <p>Expected pattern: {@code ROW_NUMBER() OVER (ORDER BY field ASC) <= size}.</p>
@@ -162,10 +162,10 @@ public abstract class IndexPredicate {
     @javax.annotation.Nullable
     private static RowNumberWindowPredicate tryFromRowNumberPredicate(
             @Nonnull final com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate valuePredicate) {
-        if (!(valuePredicate.getValue() instanceof RowNumberValue)) {
+        if (!(valuePredicate.getValue() instanceof RowNumberTransientValue)) {
             return null;
         }
-        final var rowNumberValue = (RowNumberValue)valuePredicate.getValue();
+        final var rowNumberValue = (RowNumberTransientValue)valuePredicate.getValue();
         final var argumentValues = rowNumberValue.getArgumentValues();
         if (argumentValues.size() != 1 || !(argumentValues.get(0) instanceof FieldValue)) {
             return null;

@@ -39,7 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RankTransientValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Descriptors;
@@ -140,7 +140,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             final var partitioningSize = groupingKeyExpression.getGroupingCount();
             final var partitioningExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(0, partitioningSize);
             final var argumentExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(partitioningSize, groupingKeyExpression.getColumnSize());
-            final var rankValue = new RankValue(partitioningExpressions, argumentExpressions);
+            final var rankValue = new RankTransientValue(argumentExpressions, partitioningExpressions);
             final var rankPredicate = new ValuePredicate(rankValue, comparison);
             final var selfJoinPredicate =
                     innerBaseQuantifier.getFlowedObjectValue()

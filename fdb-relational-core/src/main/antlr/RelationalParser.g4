@@ -1147,7 +1147,7 @@ windowName
     ;
 
 windowSpec
-    : windowName? partitionClause? orderByClause? windowOptionsClause?
+    : windowName? partitionClause? orderByClause? frameClause? windowOptionsClause?
     ;
 
 windowOptionsClause
@@ -1158,18 +1158,14 @@ windowOption
     : EF_SEARCH '=' efSearch=DECIMAL_LITERAL
     ;
 
-//commented out until we want to support window functions
-/*
-
-
-
 frameClause
-    : frameUnits frameExtent
+    : frameUnits frameExtent frameExclusion?
     ;
 
 frameUnits
     : ROWS
     | RANGE
+    | GROUPS
     ;
 
 frameExtent
@@ -1187,7 +1183,12 @@ frameRange
     | expression (PRECEDING | FOLLOWING)
     ;
 
-*/
+frameExclusion
+    : EXCLUDE CURRENT ROW
+    | EXCLUDE GROUP
+    | EXCLUDE TIES
+    | EXCLUDE NO OTHERS
+    ;
 
 partitionClause
     : PARTITION BY fullId (',' fullId)*

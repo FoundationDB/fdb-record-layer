@@ -1,5 +1,5 @@
 /*
- * CosineDistanceRowNumberValueTest.java
+ * EuclideanDistanceRowNumberValueTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,50 +29,50 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link CosineDistanceRowNumberValue}.
+ * Tests for {@link EuclideanDistanceRowNumberValue}.
  */
-class CosineDistanceRowNumberValueTest {
+class EuclideanDistanceRowNumberWindowValueTest {
 
     @Test
     void testConstructorWithParameters() {
         final var partitioningValues = ImmutableList.of(LiteralValue.ofScalar(1));
         final var argumentValues = ImmutableList.of(LiteralValue.ofScalar(2));
-        final var value = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
-        Assertions.assertNotNull(value, "CosineDistanceRowNumberValue should be created successfully");
+        final var value = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
+        Assertions.assertNotNull(value, "EuclideanDistanceRowNumberValue should be created successfully");
     }
 
     @Test
     void testConstructorFromProto() {
         final var partitioningValues = ImmutableList.of(LiteralValue.ofScalar(1));
         final var argumentValues = ImmutableList.of(LiteralValue.ofScalar(2));
-        final var originalValue = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
+        final var originalValue = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var proto = originalValue.toProto(serializationContext);
 
-        final var value = new CosineDistanceRowNumberValue(serializationContext, proto);
-        Assertions.assertNotNull(value, "CosineDistanceRowNumberValue should be created from proto");
+        final var value = new EuclideanDistanceRowNumberValue(serializationContext, proto);
+        Assertions.assertNotNull(value, "EuclideanDistanceRowNumberValue should be created from proto");
     }
 
     @Test
     void testGetName() {
         final var partitioningValues = ImmutableList.of(LiteralValue.ofScalar(1));
         final var argumentValues = ImmutableList.of(LiteralValue.ofScalar(2));
-        final var value = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
+        final var value = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
 
-        Assertions.assertEquals("CosineDistanceRowNumber", value.getName(),
-                "Name should be CosineDistanceRowNumber");
+        Assertions.assertEquals("EuclideanDistanceRowNumber", value.getName(),
+                "Name should be EuclideanDistanceRowNumber");
     }
 
     @Test
     void testPlanHash() {
         final var partitioningValues = ImmutableList.of(LiteralValue.ofScalar(1));
         final var argumentValues = ImmutableList.of(LiteralValue.ofScalar(2));
-        final var value1 = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
-        final var value2 = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
+        final var value1 = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
+        final var value2 = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
 
         final var partitioningValues3 = ImmutableList.of(LiteralValue.ofScalar(3));
         final var argumentValues3 = ImmutableList.of(LiteralValue.ofScalar(4));
-        final var value3 = new CosineDistanceRowNumberValue(partitioningValues3, argumentValues3);
+        final var value3 = new EuclideanDistanceRowNumberValue(partitioningValues3, argumentValues3);
 
         final int hash1 = value1.planHash(PlanHashable.PlanHashMode.VC0);
         final int hash2 = value2.planHash(PlanHashable.PlanHashMode.VC0);
@@ -88,18 +88,18 @@ class CosineDistanceRowNumberValueTest {
     void testGetResultType() {
         final var partitioningValues = ImmutableList.of(LiteralValue.ofScalar(1));
         final var argumentValues = ImmutableList.of(LiteralValue.ofScalar(2));
-        final var value = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
+        final var value = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
         final var resultType = value.getResultType();
 
         Assertions.assertEquals(Type.primitiveType(Type.TypeCode.LONG), resultType,
-                "CosineDistanceRowNumberValue should have LONG result type");
+                "EuclideanDistanceRowNumberValue should have LONG result type");
     }
 
     @Test
     void testWithChildren() {
         final var partitioningValues = ImmutableList.of(LiteralValue.ofScalar(1));
         final var argumentValues = ImmutableList.of(LiteralValue.ofScalar(2));
-        final var value = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
+        final var value = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
 
         final var newPartitioningValues = ImmutableList.of(LiteralValue.ofScalar(3));
         final var newArgumentValues = ImmutableList.of(LiteralValue.ofScalar(4));
@@ -111,8 +111,8 @@ class CosineDistanceRowNumberValueTest {
         final var newValue = value.withChildren(newChildren);
 
         Assertions.assertNotNull(newValue, "New value should not be null");
-        Assertions.assertInstanceOf(CosineDistanceRowNumberValue.class, newValue,
-                "New value should be a CosineDistanceRowNumberValue");
+        Assertions.assertInstanceOf(EuclideanDistanceRowNumberValue.class, newValue,
+                "New value should be an EuclideanDistanceRowNumberValue");
         Assertions.assertNotSame(value, newValue,
                 "New value should be a different instance");
     }
@@ -121,7 +121,7 @@ class CosineDistanceRowNumberValueTest {
     void testToProto() {
         final var partitioningValues = ImmutableList.of(LiteralValue.ofScalar(1));
         final var argumentValues = ImmutableList.of(LiteralValue.ofScalar(2));
-        final var value = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
+        final var value = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var proto = value.toProto(serializationContext);
 
@@ -133,24 +133,24 @@ class CosineDistanceRowNumberValueTest {
     void testToValueProto() {
         final var partitioningValues = ImmutableList.of(LiteralValue.ofScalar(1));
         final var argumentValues = ImmutableList.of(LiteralValue.ofScalar(2));
-        final var value = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
+        final var value = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var valueProto = value.toValueProto(serializationContext);
 
         Assertions.assertNotNull(valueProto, "Value proto should not be null");
-        Assertions.assertTrue(valueProto.hasCosineDistanceRowNumberValue(),
-                "Value proto should have CosineDistanceRowNumberValue");
+        Assertions.assertTrue(valueProto.hasEuclideanDistanceRowNumberValue(),
+                "Value proto should have EuclideanDistanceRowNumberValue");
     }
 
     @Test
     void testFromProtoStatic() {
         final var partitioningValues = ImmutableList.of(LiteralValue.ofScalar(1));
         final var argumentValues = ImmutableList.of(LiteralValue.ofScalar(2));
-        final var originalValue = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
+        final var originalValue = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var proto = originalValue.toProto(serializationContext);
 
-        final var value = CosineDistanceRowNumberValue.fromProto(serializationContext, proto);
+        final var value = EuclideanDistanceRowNumberValue.fromProto(serializationContext, proto);
 
         Assertions.assertNotNull(value, "Value should not be null");
         Assertions.assertEquals(
@@ -164,11 +164,11 @@ class CosineDistanceRowNumberValueTest {
     void testFromProtoDeserializer() {
         final var partitioningValues = ImmutableList.of(LiteralValue.ofScalar(1));
         final var argumentValues = ImmutableList.of(LiteralValue.ofScalar(2));
-        final var originalValue = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
+        final var originalValue = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var proto = originalValue.toProto(serializationContext);
 
-        final var deserializer = new CosineDistanceRowNumberValue.Deserializer();
+        final var deserializer = new EuclideanDistanceRowNumberValue.Deserializer();
         final var value = deserializer.fromProto(serializationContext, proto);
 
         Assertions.assertNotNull(value, "Deserialized value should not be null");
@@ -183,11 +183,11 @@ class CosineDistanceRowNumberValueTest {
     void testSerializationRoundTrip() {
         final var partitioningValues = ImmutableList.of(LiteralValue.ofScalar(1));
         final var argumentValues = ImmutableList.of(LiteralValue.ofScalar(2));
-        final var original = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
+        final var original = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
 
         final var proto = original.toProto(serializationContext);
-        final var deserialized = CosineDistanceRowNumberValue.fromProto(serializationContext, proto);
+        final var deserialized = EuclideanDistanceRowNumberValue.fromProto(serializationContext, proto);
 
         Assertions.assertEquals(
                 original.planHash(PlanHashable.PlanHashMode.VC0),
@@ -200,7 +200,7 @@ class CosineDistanceRowNumberValueTest {
     void testWithEmptyPartitioningValues() {
         final var partitioningValues = ImmutableList.<Value>of();
         final var argumentValues = ImmutableList.of(LiteralValue.ofScalar(2));
-        final var value = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
+        final var value = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
 
         Assertions.assertNotNull(value, "Value should be created with empty partitioning values");
         Assertions.assertEquals(0, ImmutableList.copyOf(value.getPartitioningValues()).size(),
@@ -215,7 +215,7 @@ class CosineDistanceRowNumberValueTest {
                 LiteralValue.ofScalar(3)
         );
         final var argumentValues = ImmutableList.of(LiteralValue.ofScalar(4));
-        final var value = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
+        final var value = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
 
         Assertions.assertNotNull(value, "Value should be created with multiple partitioning values");
         Assertions.assertEquals(3, ImmutableList.copyOf(value.getPartitioningValues()).size(),
@@ -229,7 +229,7 @@ class CosineDistanceRowNumberValueTest {
                 LiteralValue.ofScalar(2),
                 LiteralValue.ofScalar(3)
         );
-        final var value = new CosineDistanceRowNumberValue(partitioningValues, argumentValues);
+        final var value = new EuclideanDistanceRowNumberValue(partitioningValues, argumentValues);
 
         Assertions.assertNotNull(value, "Value should be created with multiple argument values");
         Assertions.assertEquals(2, ImmutableList.copyOf(value.getArgumentValues()).size(),
@@ -238,11 +238,11 @@ class CosineDistanceRowNumberValueTest {
 
     @Test
     void testDeserializerGetProtoMessageClass() {
-        final var deserializer = new CosineDistanceRowNumberValue.Deserializer();
+        final var deserializer = new EuclideanDistanceRowNumberValue.Deserializer();
         final var protoClass = deserializer.getProtoMessageClass();
 
         Assertions.assertNotNull(protoClass, "Proto message class should not be null");
-        Assertions.assertEquals("PCosineDistanceRowNumberValue", protoClass.getSimpleName(),
-                "Proto class should be PCosineDistanceRowNumberValue");
+        Assertions.assertEquals("PEuclideanDistanceRowNumberValue", protoClass.getSimpleName(),
+                "Proto class should be PEuclideanDistanceRowNumberValue");
     }
 }

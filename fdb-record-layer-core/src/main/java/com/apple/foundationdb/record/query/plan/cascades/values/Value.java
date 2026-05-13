@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -295,7 +296,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * </p>
      * <p>
      * <strong>Current Implementation:</strong><br>
-     * As of now, only {@link RowNumberValue} provides a non-trivial implementation of this method. It transforms
+     * As of now, only {@link RowNumberTransientValue} provides a non-trivial implementation of this method. It transforms
      * comparisons involving {@code ROW_NUMBER()} window functions ordered by distance metrics into specialized
      * {@link Comparisons.DistanceRankValueComparison} predicates that can leverage vector similarity indexes
      * (such as HNSW indexes) for efficient K-nearest neighbor searches.
@@ -318,7 +319,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @return an {@link Optional} containing the transformed {@link QueryPredicate} if this value recognizes
      *         the comparison pattern and can transform it; {@link Optional#empty()} otherwise
      *
-     * @see RowNumberValue#transformComparisonMaybe(Comparisons.Type, Value) for the primary implementation example
+     * @see RowNumberTransientValue#transformComparisonMaybe(Comparisons.Type, Value) for the primary implementation example
      */
     @Nonnull
     default Optional<QueryPredicate> transformComparisonMaybe(@Nonnull final Comparisons.Type comparisonType,
@@ -843,6 +844,22 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         Object evalWithoutStore(@Nonnull EvaluationContext context);
     }
 
+
+    /**
+     * A marker interface for values that exist only during plan generation and must be consumed
+     * (eliminated) by the plan rewriter before execution. Implementations are used purely for
+     * modeling and rewriting purposes and have no runtime semantics.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    interface TransientValue extends NonEvaluableValue {
+        @Nullable
+        @Override
+        default <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
+                                                @Nonnull final EvaluationContext context) {
+            throw new RecordCoreException("transient value cannot be evaluated; it must be consumed during plan rewriting");
+        }
+    }
+
     /**
      * A higher-order value representing a function that returns another function, enabling support for
      * second-order functions in SQL and the query planner.
@@ -887,7 +904,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
         @Nullable
         @Override
-        BuiltInFunction<? extends Value> evalWithoutStore(@Nonnull EvaluationContext context);
+        CatalogedFunction<?> evalWithoutStore(@Nonnull EvaluationContext context);
     }
 
     /**

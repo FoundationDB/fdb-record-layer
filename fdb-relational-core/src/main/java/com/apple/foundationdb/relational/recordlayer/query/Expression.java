@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.TransientWindowValue;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
@@ -124,6 +125,11 @@ public class Expression {
         return visibility == Visibility.VISIBLE;
     }
 
+    @Nonnull
+    public Expressions expand() {
+        return Expressions.ofSingle(this);
+    }
+
     /**
      * Create a new instance of an {@link Expression} with the given name, type, and value.
      * This is a {@code protected} method on the class so that subclasses can override it,
@@ -207,7 +213,12 @@ public class Expression {
     }
 
     public boolean isAggregate() {
-        return underlying instanceof AggregateValue && !(underlying instanceof RecordConstructorValue);
+        return getUnderlying().preOrderStream()
+                .anyMatch(v1 -> v1 instanceof AggregateValue && !(v1 instanceof RecordConstructorValue));
+    }
+
+    public boolean isWindow() {
+        return getUnderlying().preOrderStream().anyMatch(v1 -> v1 instanceof TransientWindowValue);
     }
 
     @Nonnull
@@ -286,7 +297,11 @@ public class Expression {
     @Nonnull
     public EphemeralExpression asEphemeral() {
         Verify.verify(getName().isPresent());
-        return new EphemeralExpression(getName(), getDataType(), getUnderlying(), getVisibility());
+        return new EphemeralExpression(this);
+    }
+
+    public boolean isEphemeral() {
+        return false;
     }
 
     @Override

@@ -39,7 +39,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class DistanceRankValueComparisonTest extends ComparisonsTestBase {
+class DistanceRankWindowValueComparisonTest extends ComparisonsTestBase {
     @Test
     void withValueTest() {
         final DistanceRankValueComparison original = randomComparison();

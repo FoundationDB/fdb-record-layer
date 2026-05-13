@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -36,7 +35,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
+import com.apple.foundationdb.record.query.plan.cascades.values.TransientWindowValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -75,7 +75,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 /**
  * This visits expression tree parse nodes and generates a corresponding {@link Expression}.
@@ -221,7 +220,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return NonnullPair.of(tableId.getName(), columnIdTrie);
     }
 
-    private static RecordLayerColumn toColumn(@Nonnull FieldValue.ResolvedAccessor field, @Nonnull CompatibleTypeEvolutionPredicate.FieldAccessTrieNode columnIdTrie) {
+    @Nonnull
+    private static RecordLayerColumn toColumn(@Nonnull final FieldValue.ResolvedAccessor field,
+                                              @Nonnull final CompatibleTypeEvolutionPredicate.FieldAccessTrieNode columnIdTrie) {
         final var columnName = field.getName();
         final var builder = RecordLayerColumn.newBuilder().setName(columnName).setIndex(field.getOrdinal());
         if (columnIdTrie.getChildrenMap() == null) {
@@ -239,7 +240,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public Expressions visitGroupByClause(@Nonnull RelationalParser.GroupByClauseContext groupByClauseContext) {
+    public Expressions visitGroupByClause(@Nonnull final RelationalParser.GroupByClauseContext groupByClauseContext) {
         return Expressions.of(groupByClauseContext.groupByItem().stream().map(this::visitGroupByItem).collect(ImmutableList.toImmutableList()));
     }
 
@@ -265,30 +266,23 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitNonAggregateWindowedFunction(@Nonnull final RelationalParser.NonAggregateWindowedFunctionContext windowedFunctionContext) {
         final String functionName = windowedFunctionContext.functionName.getText();
+
+        //
+        // parse any arguments
+        //
+        final var argumentsBuilder = ImmutableList.<Value>builder();
+        if (windowedFunctionContext.expression() != null) {
+            argumentsBuilder.add(parseChild(windowedFunctionContext.expression()).getUnderlying());
+        }
+        for (final var decimalLiteral : windowedFunctionContext.decimalLiteral()) {
+            argumentsBuilder.add(parseChild(decimalLiteral).getUnderlying());
+        }
+        final var arguments = Expressions.fromUnderlying(argumentsBuilder.build());
+
         final WindowSpecExpression windowSpecExpression = getDelegate().visitOverClause(windowedFunctionContext.overClause());
 
-        final var partitionExpressions = windowSpecExpression.getPartitions();
-        final var partitionValues = Streams.stream(partitionExpressions.underlying()).collect(ImmutableList.toImmutableList());
-        final var partitionArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(partitionValues, Type.any());
-
-        final var orderByExpressions = windowSpecExpression.getOrderByExpressions();
-        final var allowedSortSpecs = StreamSupport.stream(orderByExpressions.spliterator(), false)
-                .allMatch(exp -> exp.toSortOrder() == OrderingPart.RequestedSortOrder.ASCENDING || exp.toSortOrder() == OrderingPart.RequestedSortOrder.ANY);
-        Assert.thatUnchecked(allowedSortSpecs, ErrorCode.UNSUPPORTED_SORT, "provided sort specification not supported with window function");
-        // TODO should pass down sort specification correctly.
-        final var orderByValues = StreamSupport.stream(orderByExpressions.spliterator(), false).map(r -> r.getExpression().getUnderlying())
-                .collect(ImmutableList.toImmutableList());
-
-        final ImmutableList.Builder<Expression> argumentsBuilder = ImmutableList.builder();
-        final var orderByArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(orderByValues, Type.any());
-        argumentsBuilder.add(Expression.ofUnnamed(partitionArray)).add(Expression.ofUnnamed(orderByArray));
-
-        final var higherOrderArgumentsBuilder = ImmutableList.<Expressions>builder();
-        if (!windowSpecExpression.getWindowOptions().isEmpty()) {
-            higherOrderArgumentsBuilder.add(windowSpecExpression.getWindowOptions());
-        }
-        higherOrderArgumentsBuilder.add(Expressions.of(argumentsBuilder.build()));
-        return getDelegate().getSemanticAnalyzer().resolveHighOrderScalarFunction(functionName, true, higherOrderArgumentsBuilder.build());
+        return getDelegate().getSemanticAnalyzer().resolveHighOrderWindowFunction(functionName, true,
+                windowSpecExpression, arguments);
     }
 
     @Nonnull
@@ -306,10 +300,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                                                                                  : orderByClause.orderByExpression().stream().map(this::visitOrderByExpression)
                                                                                    .collect(ImmutableList.toImmutableList());
 
+        @Nullable final var frameClause = ctx.windowSpec().frameClause();
+        final WindowFrameSpecification frameSpecification = frameClause == null ? WindowFrameSpecification.defaultSpecification()
+                                                                                                     : visitFrameClause(frameClause);
+
         @Nullable final var windowOptionsClause = ctx.windowSpec().windowOptionsClause();
         final Expressions windowOptions = windowOptionsClause == null ? Expressions.empty() : getDelegate().visitWindowOptionsClause(windowOptionsClause);
 
-        return WindowSpecExpression.of(partitions, orderByExpressions, windowOptions);
+        return WindowSpecExpression.of(partitions, orderByExpressions, frameSpecification, windowOptions);
     }
 
     @Nonnull
@@ -337,6 +335,62 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             return Expression.of(value, Identifier.of(VectorIndexScanOptions.HNSW_EF_SEARCH.getOptionName()));
         }
         throw Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "unexpected option " + ctx.getText());
+    }
+
+    @Nonnull
+    @Override
+    public WindowFrameSpecification visitFrameClause(final RelationalParser.FrameClauseContext ctx) {
+        var exclusion = WindowFrameSpecification.Exclusion.NO_OTHER;
+        if (ctx.frameExclusion() != null) {
+            final var exc = ctx.frameExclusion();
+            if (exc.CURRENT() != null) {
+                exclusion = WindowFrameSpecification.Exclusion.CURRENT_ROW;
+            } else if (exc.GROUP() != null) {
+                exclusion = WindowFrameSpecification.Exclusion.GROUP;
+            } else if (exc.TIES() != null) {
+                exclusion = WindowFrameSpecification.Exclusion.TIES;
+            } else {
+                Assert.thatUnchecked(exc.NO() != null);
+            }
+        }
+
+        final WindowFrameSpecification.FrameType frameType;
+        if (ctx.frameUnits().ROWS() != null) {
+            frameType = WindowFrameSpecification.FrameType.ROW;
+        } else if (ctx.frameUnits().RANGE() != null) {
+            frameType = WindowFrameSpecification.FrameType.RANGE;
+        } else {
+            frameType = WindowFrameSpecification.FrameType.GROUPS;
+        }
+
+        final WindowFrameSpecification.FrameBoundary left;
+        final WindowFrameSpecification.FrameBoundary right;
+        final var extent = ctx.frameExtent();
+        if (extent.frameBetween() != null) {
+            final var between = extent.frameBetween();
+            left = visitFrameRange(between.frameRange(0));
+            right = visitFrameRange(between.frameRange(1));
+        } else {
+            left = visitFrameRange(extent.frameRange());
+            right = WindowFrameSpecification.Unbounded.INSTANCE;
+        }
+
+        return new WindowFrameSpecification(frameType, left, right, exclusion);
+    }
+
+    @Nonnull
+    @Override
+    public WindowFrameSpecification.FrameBoundary visitFrameRange(@Nonnull final RelationalParser.FrameRangeContext ctx) {
+        if (ctx.CURRENT() != null) {
+            return new WindowFrameSpecification.CurrentRow();
+        } else if (ctx.UNBOUNDED() != null) {
+            return WindowFrameSpecification.Unbounded.INSTANCE;
+        } else {
+            final var limitExpr = parseChild(ctx.expression());
+            Assert.thatUnchecked(limitExpr.getUnderlying().isConstant(), ErrorCode.UNSUPPORTED_QUERY, "window limit must be constant");
+            final var limitValue = limitExpr.getUnderlying();
+            return new WindowFrameSpecification.Bounded(limitValue);
+        }
     }
 
     @Nonnull
@@ -658,7 +712,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitWhereExpr(@Nonnull RelationalParser.WhereExprContext ctx) {
         final var expression = parseChild(ctx);
         // verify no window functions
-        Assert.thatUnchecked(expression.getUnderlying().preOrderStream().noneMatch(v -> v instanceof WindowedValue),
+        Assert.thatUnchecked(expression.getUnderlying().preOrderStream().noneMatch(v -> v instanceof TransientWindowValue),
                 ErrorCode.WINDOWING_ERROR, "window functions are not allowed in WHERE");
         return expression;
     }

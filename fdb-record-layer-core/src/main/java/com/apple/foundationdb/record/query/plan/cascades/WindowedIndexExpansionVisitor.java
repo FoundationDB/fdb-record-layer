@@ -34,7 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RankTransientValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
@@ -293,7 +293,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var partitioningSize = groupingKeyExpression.getGroupingCount();
         final var partitioningExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(0, partitioningSize);
         final var argumentExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(partitioningSize, groupingKeyExpression.getColumnSize());
-        final var rankValue = new RankValue(partitioningExpressions, argumentExpressions);
+        final var rankValue = new RankTransientValue(argumentExpressions, partitioningExpressions);
         final var rankAlias = newParameterAlias();
         final var rankPlaceholder = Placeholder.newInstanceWithoutRanges(rankValue, rankAlias);
         final var selfJoinPredicate =

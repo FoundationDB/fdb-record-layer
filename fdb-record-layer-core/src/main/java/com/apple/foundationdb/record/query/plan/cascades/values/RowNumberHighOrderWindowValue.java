@@ -25,9 +25,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.planprotos.PRowNumberHighOrderValue;
+import com.apple.foundationdb.record.planprotos.PRowNumberHighOrderWindowValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
@@ -52,7 +52,7 @@ import java.util.function.Supplier;
  * HNSW vector search) and then subsequently invoked with its actual arguments.
  * </p>
  */
-public class RowNumberHighOrderValue extends AbstractValue implements Value.HighOrderValue, LeafValue  {
+public class RowNumberHighOrderWindowValue extends AbstractValue implements Value.HighOrderValue, LeafValue  {
 
     @Nonnull
     private static final String NAME = "ROW_NUMBER_HIGH_ORDER";
@@ -65,16 +65,16 @@ public class RowNumberHighOrderValue extends AbstractValue implements Value.High
     @Nullable
     private final Boolean isReturningVectors;
 
-    private final Supplier<BuiltInFunction<RowNumberValue>> rowNumberFunctionSupplier;
+    private final Supplier<BuiltInWindowFunction<RowNumberTransientValue>> rowNumberFunctionSupplier;
 
-    public RowNumberHighOrderValue(@Nonnull final PRowNumberHighOrderValue rowNumberHighOrderValueProto) {
+    public RowNumberHighOrderWindowValue(@Nonnull final PRowNumberHighOrderWindowValue rowNumberHighOrderValueProto) {
         this.efSearch = rowNumberHighOrderValueProto.hasEfSearch() ? rowNumberHighOrderValueProto.getEfSearch() : null;
         this.isReturningVectors = rowNumberHighOrderValueProto.hasIsReturningVectors() ? rowNumberHighOrderValueProto.getIsReturningVectors() : null;
         this.rowNumberFunctionSupplier = Suppliers.memoize(() -> new CurriedRowNumberFn(efSearch, isReturningVectors));
     }
 
-    public RowNumberHighOrderValue(@Nullable final Integer efSearch,
-                                   @Nullable final Boolean isReturningVectors) {
+    public RowNumberHighOrderWindowValue(@Nullable final Integer efSearch,
+                                         @Nullable final Boolean isReturningVectors) {
         this.efSearch = efSearch;
         this.isReturningVectors = isReturningVectors;
         this.rowNumberFunctionSupplier = Suppliers.memoize(() -> new CurriedRowNumberFn(efSearch, isReturningVectors));
@@ -94,7 +94,7 @@ public class RowNumberHighOrderValue extends AbstractValue implements Value.High
 
     @Nullable
     @Override
-    public BuiltInFunction<? extends Value> evalWithoutStore(@Nonnull final EvaluationContext context) {
+    public BuiltInWindowFunction<RowNumberTransientValue> evalWithoutStore(@Nonnull final EvaluationContext context) {
         return rowNumberFunctionSupplier.get();
     }
 
@@ -105,8 +105,8 @@ public class RowNumberHighOrderValue extends AbstractValue implements Value.High
 
     @Nonnull
     @Override
-    public PRowNumberHighOrderValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        final var rowNumberHighOrderValueProtoBuilder = PRowNumberHighOrderValue.newBuilder();
+    public PRowNumberHighOrderWindowValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final var rowNumberHighOrderValueProtoBuilder = PRowNumberHighOrderWindowValue.newBuilder();
         if (efSearch != null) {
             rowNumberHighOrderValueProtoBuilder.setEfSearch(efSearch);
         }
@@ -123,8 +123,8 @@ public class RowNumberHighOrderValue extends AbstractValue implements Value.High
     }
 
     @Nonnull
-    public static RowNumberHighOrderValue fromProto(@Nonnull final PRowNumberHighOrderValue rowNumberHighOrderValue) {
-        return new RowNumberHighOrderValue(rowNumberHighOrderValue);
+    public static RowNumberHighOrderWindowValue fromProto(@Nonnull final PRowNumberHighOrderWindowValue rowNumberHighOrderValue) {
+        return new RowNumberHighOrderWindowValue(rowNumberHighOrderValue);
     }
 
     @Nonnull
@@ -137,34 +137,38 @@ public class RowNumberHighOrderValue extends AbstractValue implements Value.High
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PRowNumberHighOrderValue, RowNumberHighOrderValue> {
+    public static class Deserializer implements PlanDeserializer<PRowNumberHighOrderWindowValue, RowNumberHighOrderWindowValue> {
         @Nonnull
         @Override
-        public Class<PRowNumberHighOrderValue> getProtoMessageClass() {
-            return PRowNumberHighOrderValue.class;
+        public Class<PRowNumberHighOrderWindowValue> getProtoMessageClass() {
+            return PRowNumberHighOrderWindowValue.class;
         }
 
         @Nonnull
         @Override
-        public RowNumberHighOrderValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PRowNumberHighOrderValue rowNumberHighOrderValueProto) {
-            return RowNumberHighOrderValue.fromProto(rowNumberHighOrderValueProto);
+        public RowNumberHighOrderWindowValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                       @Nonnull final PRowNumberHighOrderWindowValue rowNumberHighOrderValueProto) {
+            return RowNumberHighOrderWindowValue.fromProto(rowNumberHighOrderValueProto);
         }
     }
 
-    public static final class CurriedRowNumberFn extends BuiltInFunction<RowNumberValue> {
+    public static final class CurriedRowNumberFn extends BuiltInWindowFunction<RowNumberTransientValue> {
         CurriedRowNumberFn(@Nullable final Integer efSearch, @Nullable final Boolean isReturningVectors) {
-            super("row_number", ImmutableList.of(Type.any(), Type.any()), (builtInFunction, arguments) -> {
-                SemanticException.check(arguments.size() == 2,
-                        SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-                SemanticException.check(arguments.get(0) instanceof AbstractArrayConstructorValue,
-                        SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-                SemanticException.check(arguments.get(1) instanceof AbstractArrayConstructorValue,
-                        SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+            super("row_number", ImmutableList.of(Type.any(), Type.any()), (builtInFunction, frameSpecification, partitioningColumns, windowOrder, arguments) -> {
+                if (frameSpecification == null) {
+                    frameSpecification = WindowFrameSpecification.defaultSpecification();
+                }
+                if (windowOrder == null) {
+                    windowOrder = ImmutableList.of();
+                }
 
-                final var partitioningValuesList = (AbstractArrayConstructorValue)arguments.get(0);
-                final var argumentValuesList = (AbstractArrayConstructorValue)arguments.get(1);
-                return new RowNumberValue(partitioningValuesList.getChildren(), argumentValuesList.getChildren(),
+                SemanticException.check(arguments.isEmpty(),
+                        SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                SemanticException.check(partitioningColumns != null,
+                        SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                // todo: check that we do not support window order
+
+                return new RowNumberTransientValue(partitioningColumns, windowOrder, frameSpecification,
                         efSearch, isReturningVectors);
             });
         }

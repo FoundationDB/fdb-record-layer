@@ -318,7 +318,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         if (semanticAnalyzer.tableExists(sourceIdentifier)) {
             final var output = logicalOperator.getOutput().expanded().rewireQov(logicalOperator.getQuantifier().getFlowedObjectValue());
             logicalOperator = LogicalOperator.generateSimpleSelect(output, LogicalOperators.ofSingle(logicalOperator),
-                    Optional.empty(), Optional.empty(), ImmutableSet.of(), true);
+                    Expressions.empty(), Optional.empty(), ImmutableSet.of(), true);
         }
 
         return logicalOperator;

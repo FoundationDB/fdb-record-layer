@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -301,9 +300,9 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
                     AndFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Value> arguments) {
             Verify.verify(Iterables.size(arguments) == 2);
-            return new AndOrValue(builtInFunction.getFunctionName(), (Value)arguments.get(0), (Value)arguments.get(1), Operator.AND);
+            return new AndOrValue(builtInFunction.getFunctionName(), arguments.get(0), arguments.get(1), Operator.AND);
         }
     }
 
@@ -318,9 +317,9 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
                     OrFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Value> arguments) {
             Verify.verify(Iterables.size(arguments) == 2);
-            return new AndOrValue(builtInFunction.getFunctionName(), (Value)arguments.get(0), (Value)arguments.get(1), Operator.OR);
+            return new AndOrValue(builtInFunction.getFunctionName(), arguments.get(0), arguments.get(1), Operator.OR);
         }
     }
 

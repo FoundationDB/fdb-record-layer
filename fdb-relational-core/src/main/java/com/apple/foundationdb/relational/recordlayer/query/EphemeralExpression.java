@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,23 +30,31 @@ import java.util.Optional;
 /**
  * An expression that is used mainly for alias resolution and does not materialize into an operator output.
  */
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public class EphemeralExpression extends Expression {
 
-    public EphemeralExpression(@Nonnull Optional<Identifier> name, @Nonnull DataType dataType, @Nonnull Value expression, @Nonnull Visibility visibility) {
-        super(name, dataType, expression, visibility);
+    @Nonnull
+    private final Expression underlying;
+
+    public EphemeralExpression(@Nonnull Expression underlying) {
+        super(underlying.getName(), underlying.getDataType(), underlying.getUnderlying(), underlying.getVisibility());
+        this.underlying = underlying;
     }
 
     @Nonnull
     @Override
-    protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, @Nonnull Visibility newVisibility) {
-        return new EphemeralExpression(newName, newDataType, newUnderlying, newVisibility);
+    protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType,
+                                   @Nonnull Value newUnderlying, @Nonnull Visibility newVisibility) {
+        return new EphemeralExpression(underlying.createNew(newName, newDataType, newUnderlying, newVisibility));
     }
 
     @Nonnull
     @Override
     public EphemeralExpression asEphemeral() {
         return this;
+    }
+
+    public boolean isEphemeral() {
+        return true;
     }
 }

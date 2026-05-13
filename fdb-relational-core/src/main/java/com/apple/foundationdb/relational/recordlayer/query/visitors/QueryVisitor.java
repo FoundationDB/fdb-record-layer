@@ -38,7 +38,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
-import com.apple.foundationdb.relational.recordlayer.query.EphemeralExpression;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -244,8 +243,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                     Expressions.empty() :
                     visitGroupByClause(simpleTableContext.groupByClause());
 
-            final List<Expression> aliasedGroupByColumns = groupByExpressions.stream().filter(expression ->
-                    expression instanceof EphemeralExpression).collect(ImmutableList.toImmutableList());
+            final List<Expression> aliasedGroupByColumns = groupByExpressions.stream().filter(Expression::isEphemeral)
+                    .collect(ImmutableList.toImmutableList());
             if (!aliasedGroupByColumns.isEmpty()) {
                 final var selectWhereWithExtraColumns = selectWhere.withAdditionalOutput(Expressions.of(aliasedGroupByColumns));
                 getDelegate().getCurrentPlanFragment().setOperator(selectWhereWithExtraColumns);
@@ -263,7 +262,15 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             if (groupByExpressions.isEmpty() && !getDelegate().isForDdl()) {
                 selectExpressions = LogicalOperator.adjustCountOnEmpty(selectExpressions);
             }
-            selectExpressions = selectExpressions.dereferenced(literals).expanded().pullUp(Expression.ofUnnamed(groupBy.getQuantifier().getRangesOver().get().getResultValue()).dereferenced(literals).getSingleItem().getUnderlying(), groupBy.getQuantifier().getAlias(), outerCorrelations).clearQualifier();
+            selectExpressions = selectExpressions.dereferenced(literals)
+                    .expanded()
+                    .pullUp(Expression.ofUnnamed(groupBy.getQuantifier().getRangesOver().get().getResultValue())
+                                    .dereferenced(literals)
+                                    .getSingleItem()
+                                    .getUnderlying(),
+                            groupBy.getQuantifier().getAlias(),
+                            outerCorrelations)
+                    .clearQualifier();
             final var finalOuterCorrelation = outerCorrelations;
             where = where.map(predicate -> predicate.pullUp(groupBy.getQuantifier().getRangesOver().get().getResultValue(), groupBy.getQuantifier().getAlias(), finalOuterCorrelation));
             if (simpleTableContext.orderByClause() != null) {
@@ -280,14 +287,14 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             }
         }
 
-        // for now, conjunct qualify predicates (if any) with where in a single condition.
+        Expressions predicates = Expressions.ofNullable(where.orElse(null));
         if (simpleTableContext.qualifyClause() != null) {
             final var qualifyExpr = visitQualifyClause(simpleTableContext.qualifyClause());
-            where = where.map(exp -> getDelegate().resolveFunction("and", exp, qualifyExpr)).or(() -> Optional.of(qualifyExpr));
+            predicates = predicates.concat(qualifyExpr);
         }
 
         final var outerCorrelations = getDelegate().getCurrentPlanFragment().getOuterCorrelations();
-        final var result = LogicalOperator.generateSelect(selectExpressions, getDelegate().getLogicalOperators(), where, orderBys,
+        final var result = LogicalOperator.generateSelect(selectExpressions, getDelegate().getLogicalOperators(), predicates, orderBys,
                 Optional.empty(), outerCorrelations, getDelegate().isTopLevel(), getDelegate().isForDdl());
 
         getDelegate().popPlanFragment();
@@ -516,7 +523,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         // That also means that the target type of the update expression needs to match
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
 
-        Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
+        final var whereMaybe = Expressions.ofNullable(ctx.whereExpr() == null ? null : visitWhereExpr(ctx.whereExpr()));
         final var updateSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
 
         getDelegate().getCurrentPlanFragment().setOperator(updateSource);
@@ -544,7 +551,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         if (ctx.RETURNING() != null) {
             final var selectExpressions = visitSelectElements(ctx.selectElements());
             final var result = LogicalOperator.generateSelect(selectExpressions, getDelegate().getLogicalOperators(),
-                    Optional.empty(), List.of(), Optional.empty(),
+                    Expressions.empty(), List.of(), Optional.empty(),
                     getDelegate().getCurrentPlanFragment().getOuterCorrelations(), getDelegate().isTopLevel(), false);
             getDelegate().getCurrentPlanFragment().setOperator(result);
             return result;
@@ -565,8 +572,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
         getDelegate().pushPlanFragment().setOperator(tableAccess);
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
-
-        Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
+        final var whereMaybe = Expressions.ofNullable(ctx.whereExpr() == null ? null : visitWhereExpr(ctx.whereExpr()));
         final var deleteSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
 
         final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class), table.getType().getStorageName());
@@ -578,7 +584,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         if (ctx.RETURNING() != null) {
             final var selectExpressions = visitSelectElements(ctx.selectElements());
             final var result = LogicalOperator.generateSelect(selectExpressions, getDelegate().getLogicalOperators(),
-                    Optional.empty(), List.of(), Optional.empty(),
+                    Expressions.empty(), List.of(), Optional.empty(),
                     getDelegate().getCurrentPlanFragment().getOuterCorrelations(), getDelegate().isTopLevel(), false);
             getDelegate().getCurrentPlanFragment().setOperator(result);
             return result;

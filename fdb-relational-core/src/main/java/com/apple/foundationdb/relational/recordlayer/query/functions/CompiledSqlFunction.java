@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
@@ -78,7 +77,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
 
     protected CompiledSqlFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                                   @Nonnull final List<Type> parameterTypes,
-                                  @Nonnull final List<Optional<? extends Typed>> parameterDefaults,
+                                  @Nonnull final List<Optional<Value>> parameterDefaults,
                                   @Nonnull final Optional<CorrelationIdentifier> parametersCorrelation,
                                   @Nonnull final RelationalExpression body,
                                   @Nonnull final Literals literals) {
@@ -96,7 +95,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
 
     @Nonnull
     @Override
-    public RelationalExpression encapsulate(@Nonnull final List<? extends Typed> arguments) {
+    public RelationalExpression encapsulate(@Nonnull final List<Value> arguments) {
         if (parametersCorrelation.isEmpty()) {
             // this should never happen.
             Assert.thatUnchecked(arguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
@@ -130,7 +129,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
 
     @Nonnull
     @Override
-    public RelationalExpression encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+    public RelationalExpression encapsulate(@Nonnull final Map<String, Value> namedArguments) {
         if (parametersCorrelation.isEmpty()) {
             // this should never happen.
             Assert.thatUnchecked(namedArguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
@@ -259,7 +258,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
 
             @Nonnull
             public CompiledSqlFunction build() {
-                final List<Optional<? extends Typed>> defaultsValuesList = Streams.stream(parameters.underlying())
+                final List<Optional<Value>> defaultsValuesList = Streams.stream(parameters.underlying())
                         .map(v -> v instanceof ThrowsValue ? Optional.<Value>empty() : Optional.of(v))
                         .collect(ImmutableList.toImmutableList());
                 return new CompiledSqlFunction(outerBuilder.name, parameters.argumentNames(), parameters.underlyingTypes(),

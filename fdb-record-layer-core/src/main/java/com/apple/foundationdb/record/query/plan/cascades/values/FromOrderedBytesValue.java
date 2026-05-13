@@ -223,7 +223,7 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
         public FromOrderedBytesAscNullsFirstFn() {
             super("FROM_ORDERED_BYTES_" + Direction.ASC_NULLS_FIRST,
                     ImmutableList.of(Type.primitiveType(Type.TypeCode.BYTES)),
-                    (builtInFunction, arguments) -> new FromOrderedBytesValue((Value)arguments.get(0), Direction.ASC_NULLS_FIRST, Type.any()));
+                    (builtInFunction, arguments) -> new FromOrderedBytesValue(arguments.get(0), Direction.ASC_NULLS_FIRST, Type.any()));
         }
     }
 
@@ -236,7 +236,7 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
         public FromOrderedBytesAscNullsLastFn() {
             super("FROM_ORDERED_BYTES_" + Direction.ASC_NULLS_LAST,
                     ImmutableList.of(Type.any()),
-                    (builtInFunction, arguments) -> new FromOrderedBytesValue((Value)arguments.get(0), Direction.ASC_NULLS_LAST, Type.any()));
+                    (builtInFunction, arguments) -> new FromOrderedBytesValue(arguments.get(0), Direction.ASC_NULLS_LAST, Type.any()));
         }
     }
 
@@ -249,7 +249,7 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
         public FromOrderedBytesDescNullsFirstFn() {
             super("FROM_ORDERED_BYTES_" + Direction.DESC_NULLS_FIRST,
                     ImmutableList.of(Type.any()),
-                    (builtInFunction, arguments) -> new FromOrderedBytesValue((Value)arguments.get(0), Direction.DESC_NULLS_FIRST, Type.any()));
+                    (builtInFunction, arguments) -> new FromOrderedBytesValue(arguments.get(0), Direction.DESC_NULLS_FIRST, Type.any()));
         }
     }
 
@@ -262,7 +262,7 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
         public FromOrderedBytesDescNullsLastFn() {
             super("FROM_ORDERED_BYTES_" + Direction.DESC_NULLS_LAST,
                     ImmutableList.of(Type.any()),
-                    (builtInFunction, arguments) -> new FromOrderedBytesValue((Value)arguments.get(0), Direction.DESC_NULLS_LAST, Type.any()));
+                    (builtInFunction, arguments) -> new FromOrderedBytesValue(arguments.get(0), Direction.DESC_NULLS_LAST, Type.any()));
         }
     }
 

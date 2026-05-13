@@ -256,7 +256,7 @@ message PValue {
     PPromoteValue promote_value = 29;
     PQuantifiedObjectValue quantified_object_value = 30;
     PQueriedValue queried_value = 31;
-    PRankValue rank_value = 32;
+    PRankTransientValue rank_value = 32;
     PRecordConstructorValue record_constructor_value = 33;
     PRecordTypeValue record_type_value = 34;
     PBinaryRelOpValue binary_rel_op_value = 35;
@@ -277,15 +277,17 @@ message PValue {
     PSubscriptValue subscript_value = 52;
     PParameterObjectValue parameter_object_value = 53;
     PCastValue cast_value = 54;
-    PRowNumberValue row_number_value = 55;
+    PRowNumberTransientValue row_number_value = 55;
     PEuclideanDistanceRowNumberValue euclidean_distance_row_number_value = 56;
     PCosineDistanceRowNumberValue cosine_distance_row_number_value = 57;
-    PRowNumberHighOrderValue row_number_high_order_value = 58;
+    PRowNumberHighOrderWindowValue row_number_high_order_value = 58;
     PDistanceValue distance_value = 59;
     PEuclideanSquareDistanceRowNumberValue euclidean_square_distance_row_number_value = 60;
     PDotProductDistanceRowNumberValue dot_product_distance_row_number_value = 61;
     PIncarnationValue incarnation_value = 62;
     PCardinalityValue cardinality_value = 63;
+    PRowNumberValue row_number_index_value = 64;
+    PRankValue rank_index_value = 65;
   }
   // Removed types that are no longer supported
   reserved 38;
@@ -686,24 +688,37 @@ message PQueriedValue {
   repeated string record_type_names = 2;
 }
 
+message PRankTransientValue {
+  optional PTransientWindowValue super = 1;
+}
+
+message PWindowValue {
+  optional PFrameSpecification frame_specification = 1;
+}
+
+message PRowNumberValue {
+  optional PWindowValue super = 1;
+}
+
 message PRankValue {
-  optional PWindowedValue super = 1;
+  optional PWindowValue super = 1;
+  repeated PValue argument_values = 2;
 }
 
 message PEuclideanDistanceRowNumberValue {
-  optional PWindowedValue super = 1;
+  optional PTransientWindowValue super = 1;
 }
 
 message PEuclideanSquareDistanceRowNumberValue {
-  optional PWindowedValue super = 1;
+  optional PTransientWindowValue super = 1;
 }
 
 message PCosineDistanceRowNumberValue {
-  optional PWindowedValue super = 1;
+  optional PTransientWindowValue super = 1;
 }
 
 message PDotProductDistanceRowNumberValue {
-  optional PWindowedValue super = 1;
+  optional PTransientWindowValue super = 1;
 }
 
 message PRecordConstructorValue {
@@ -720,13 +735,13 @@ message PRecordTypeValue {
   optional PValue in = 2;
 }
 
-message PRowNumberHighOrderValue {
+message PRowNumberHighOrderWindowValue {
   optional int32 efSearch = 2;
   optional bool isReturningVectors = 3;
 }
 
-message PRowNumberValue {
-  optional PWindowedValue super = 1;
+message PRowNumberTransientValue {
+  optional PTransientWindowValue super = 1;
   optional int32 efSearch = 2;
   optional bool isReturningVectors = 3;
 }
@@ -1375,9 +1390,63 @@ message PCardinalityValue {
   optional PValue child_value = 1;
 }
 
-message PWindowedValue {
+message PTransientWindowValue {
   repeated PValue partitioning_values = 1;
   repeated PValue argument_values = 2;
+  repeated PWindowOrderingPart ordering_parts = 3;
+  optional PFrameSpecification frame_specification = 4;
+}
+
+message PWindowOrderingPart {
+  enum PSortOrder {
+    ASCENDING = 1;
+    DESCENDING = 2;
+    ASCENDING_NULLS_LAST = 3;
+    DESCENDING_NULLS_FIRST = 4;
+    ANY = 5;
+  }
+  optional PValue value = 1;
+  optional PSortOrder sort_order = 2;
+}
+
+message PRequestedOrderingPart {
+  enum PSortOrder {
+    ASCENDING = 1;
+    DESCENDING = 2;
+    ASCENDING_NULLS_LAST = 3;
+    DESCENDING_NULLS_FIRST = 4;
+    ANY = 5;
+  }
+  optional PValue value = 1;
+  optional PSortOrder sort_order = 2;
+}
+
+message PFrameSpecification {
+  enum PFrameType {
+    ROW = 1;
+    RANGE = 2;
+    GROUPS = 3;
+  }
+
+  enum PExclusion {
+    NO_OTHER = 1;
+    CURRENT_ROW = 2;
+    GROUP = 3;
+    TIES = 4;
+  }
+
+  message PFrameBoundary {
+    oneof boundary {
+      bool unbounded = 1;
+      PValue bounded_limit = 2;
+      bool current_row = 3;
+    }
+  }
+
+  optional PFrameType frame_type = 1;
+  optional PFrameBoundary left = 2;
+  optional PFrameBoundary right = 3;
+  optional PExclusion exclusion = 4;
 }
 
 message PCollateValue {

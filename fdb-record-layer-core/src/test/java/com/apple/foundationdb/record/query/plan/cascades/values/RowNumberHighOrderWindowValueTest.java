@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.planprotos.PRowNumberHighOrderValue;
+import com.apple.foundationdb.record.planprotos.PRowNumberHighOrderWindowValue;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -36,44 +36,44 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 /**
- * Tests for {@link RowNumberHighOrderValue}.
+ * Tests for {@link RowNumberHighOrderWindowValue}.
  */
-class RowNumberHighOrderValueTest {
+class RowNumberHighOrderWindowValueTest {
 
     @Test
     void testConstructorWithParameters() {
-        final var value = new RowNumberHighOrderValue(100, true);
+        final var value = new RowNumberHighOrderWindowValue(100, true);
         Assertions.assertNotNull(value, "RowNumberHighOrderValue should be created successfully");
     }
 
     @Test
     void testConstructorWithNullParameters() {
-        final var value = new RowNumberHighOrderValue(null, null);
+        final var value = new RowNumberHighOrderWindowValue(null, null);
         Assertions.assertNotNull(value, "RowNumberHighOrderValue should be created with null parameters");
     }
 
     @Test
     void testConstructorFromProto() {
-        final var proto = PRowNumberHighOrderValue.newBuilder()
+        final var proto = PRowNumberHighOrderWindowValue.newBuilder()
                 .setEfSearch(100)
                 .setIsReturningVectors(true)
                 .build();
 
-        final var value = new RowNumberHighOrderValue(proto);
+        final var value = new RowNumberHighOrderWindowValue(proto);
         Assertions.assertNotNull(value, "RowNumberHighOrderValue should be created from proto");
     }
 
     @Test
     void testConstructorFromProtoWithoutOptionalFields() {
-        final var proto = PRowNumberHighOrderValue.newBuilder().build();
+        final var proto = PRowNumberHighOrderWindowValue.newBuilder().build();
 
-        final var value = new RowNumberHighOrderValue(proto);
+        final var value = new RowNumberHighOrderWindowValue(proto);
         Assertions.assertNotNull(value, "RowNumberHighOrderValue should be created from proto without optional fields");
     }
 
     @Test
     void testComputeChildren() {
-        final var value = new RowNumberHighOrderValue(100, true);
+        final var value = new RowNumberHighOrderWindowValue(100, true);
         final var children = value.getChildren();
 
         Assertions.assertNotNull(children, "Children should not be null");
@@ -83,7 +83,7 @@ class RowNumberHighOrderValueTest {
 
     @Test
     void testToProtoWithAllParameters() {
-        final var value = new RowNumberHighOrderValue(100, true);
+        final var value = new RowNumberHighOrderWindowValue(100, true);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var proto = value.toProto(serializationContext);
 
@@ -96,7 +96,7 @@ class RowNumberHighOrderValueTest {
 
     @Test
     void testToProtoWithNullParameters() {
-        final var value = new RowNumberHighOrderValue(null, null);
+        final var value = new RowNumberHighOrderWindowValue(null, null);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var proto = value.toProto(serializationContext);
 
@@ -107,7 +107,7 @@ class RowNumberHighOrderValueTest {
 
     @Test
     void testToValueProto() {
-        final var value = new RowNumberHighOrderValue(100, true);
+        final var value = new RowNumberHighOrderWindowValue(100, true);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var valueProto = value.toValueProto(serializationContext);
 
@@ -120,12 +120,12 @@ class RowNumberHighOrderValueTest {
 
     @Test
     void testFromProtoStatic() {
-        final var proto = PRowNumberHighOrderValue.newBuilder()
+        final var proto = PRowNumberHighOrderWindowValue.newBuilder()
                 .setEfSearch(200)
                 .setIsReturningVectors(false)
                 .build();
 
-        final var value = RowNumberHighOrderValue.fromProto(proto);
+        final var value = RowNumberHighOrderWindowValue.fromProto(proto);
 
         Assertions.assertNotNull(value, "Value should not be null");
         // Verify by serializing back
@@ -137,12 +137,12 @@ class RowNumberHighOrderValueTest {
 
     @Test
     void testFromProtoDeserializer() {
-        final var proto = PRowNumberHighOrderValue.newBuilder()
+        final var proto = PRowNumberHighOrderWindowValue.newBuilder()
                 .setEfSearch(150)
                 .setIsReturningVectors(true)
                 .build();
 
-        final var deserializer = new RowNumberHighOrderValue.Deserializer();
+        final var deserializer = new RowNumberHighOrderWindowValue.Deserializer();
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
         final var value = deserializer.fromProto(serializationContext, proto);
 
@@ -155,9 +155,9 @@ class RowNumberHighOrderValueTest {
 
     @Test
     void testPlanHash() {
-        final var value1 = new RowNumberHighOrderValue(100, true);
-        final var value2 = new RowNumberHighOrderValue(100, true);
-        final var value3 = new RowNumberHighOrderValue(200, false);
+        final var value1 = new RowNumberHighOrderWindowValue(100, true);
+        final var value2 = new RowNumberHighOrderWindowValue(100, true);
+        final var value3 = new RowNumberHighOrderWindowValue(200, false);
 
         final int hash1 = value1.planHash(PlanHashable.PlanHashMode.VC0);
         final int hash2 = value2.planHash(PlanHashable.PlanHashMode.VC0);
@@ -171,9 +171,9 @@ class RowNumberHighOrderValueTest {
 
     @Test
     void testHashCodeWithoutChildren() {
-        final var value1 = new RowNumberHighOrderValue(100, true);
-        final var value2 = new RowNumberHighOrderValue(100, true);
-        final var value3 = new RowNumberHighOrderValue(200, false);
+        final var value1 = new RowNumberHighOrderWindowValue(100, true);
+        final var value2 = new RowNumberHighOrderWindowValue(100, true);
+        final var value3 = new RowNumberHighOrderWindowValue(200, false);
 
         final int hash1 = value1.hashCodeWithoutChildren();
         final int hash2 = value2.hashCodeWithoutChildren();
@@ -187,7 +187,7 @@ class RowNumberHighOrderValueTest {
 
     @Test
     void testExplain() {
-        final var value = new RowNumberHighOrderValue(100, true);
+        final var value = new RowNumberHighOrderWindowValue(100, true);
         final var literal = LiteralValue.ofScalar(42);
 
         final var explainTokens = value.explain(ImmutableList.of(literal::explain));
@@ -198,7 +198,7 @@ class RowNumberHighOrderValueTest {
 
     @Test
     void testEvalWithoutStoreReturnsBuiltInFunction() {
-        final var value = new RowNumberHighOrderValue(100, true);
+        final var value = new RowNumberHighOrderWindowValue(100, true);
         final var evaluationContext = EvaluationContext.empty();
 
         final var result = value.evalWithoutStore(evaluationContext);
@@ -212,7 +212,7 @@ class RowNumberHighOrderValueTest {
 
     @Test
     void testEvalWithoutStoreMemoization() {
-        final var value = new RowNumberHighOrderValue(100, true);
+        final var value = new RowNumberHighOrderWindowValue(100, true);
         final var evaluationContext = EvaluationContext.empty();
 
         final var result1 = value.evalWithoutStore(evaluationContext);
@@ -224,7 +224,7 @@ class RowNumberHighOrderValueTest {
 
     @Test
     void testEvalThrowsException() {
-        final var value = new RowNumberHighOrderValue(100, true);
+        final var value = new RowNumberHighOrderWindowValue(100, true);
         final var evaluationContext = EvaluationContext.empty();
 
         RecordCoreException exception = Assertions.assertThrows(RecordCoreException.class,
@@ -236,7 +236,7 @@ class RowNumberHighOrderValueTest {
 
     @Test
     void testGetResultType() {
-        final var value = new RowNumberHighOrderValue(100, true);
+        final var value = new RowNumberHighOrderWindowValue(100, true);
         final var resultType = value.getResultType();
 
         Assertions.assertEquals(Type.FUNCTION, resultType,
@@ -245,7 +245,7 @@ class RowNumberHighOrderValueTest {
 
     @Test
     void testCurriedFunctionEncapsulation() {
-        final var value = new RowNumberHighOrderValue(100, true);
+        final var value = new RowNumberHighOrderWindowValue(100, true);
         final var curriedFn = value.evalWithoutStore(EvaluationContext.empty());
 
         Assertions.assertNotNull(curriedFn, "Curried function should not be null");
@@ -259,29 +259,29 @@ class RowNumberHighOrderValueTest {
                 ImmutableList.of(LiteralValue.ofScalar(2)));
         final List<Value> arguments = ImmutableList.of(partitioningValues, argumentValues);
 
-        final var rowNumberValue = curriedFn.encapsulate(arguments);
+        final var rowNumberValue = curriedFn.encapsulate(List.of()).encapsulate(arguments);
 
         Assertions.assertNotNull(rowNumberValue, "Encapsulated value should not be null");
-        Assertions.assertInstanceOf(RowNumberValue.class, rowNumberValue,
+        Assertions.assertInstanceOf(RowNumberTransientValue.class, rowNumberValue,
                 "Encapsulated value should be a RowNumberValue");
     }
 
     @Test
     void testCurriedFunctionRejectsInvalidArgumentCount() {
-        final var value = new RowNumberHighOrderValue(100, true);
+        final var value = new RowNumberHighOrderWindowValue(100, true);
         final var curriedFn = value.evalWithoutStore(EvaluationContext.empty());
 
         // Test with wrong number of arguments
         final List<Value> invalidArguments = ImmutableList.of(LiteralValue.ofScalar(1));
 
         Assertions.assertThrows(SemanticException.class,
-                () -> curriedFn.encapsulate(invalidArguments),
+                () -> curriedFn.encapsulate(ImmutableList.of()).encapsulate(invalidArguments),
                 "Should throw SemanticException for invalid argument count");
     }
 
     @Test
     void testCurriedFunctionRejectsInvalidArgumentTypes() {
-        final var value = new RowNumberHighOrderValue(100, true);
+        final var value = new RowNumberHighOrderWindowValue(100, true);
         final var curriedFn = value.evalWithoutStore(EvaluationContext.empty());
 
         // Test with wrong argument types (not array constructors)
@@ -291,20 +291,20 @@ class RowNumberHighOrderValueTest {
         );
 
         Assertions.assertThrows(SemanticException.class,
-                () -> curriedFn.encapsulate(invalidArguments),
+                () -> curriedFn.encapsulate(ImmutableList.of()).encapsulate(invalidArguments),
                 "Should throw SemanticException for invalid argument types");
     }
 
     @Test
     void testSerializationRoundTrip() {
-        final var original = new RowNumberHighOrderValue(100, true);
+        final var original = new RowNumberHighOrderWindowValue(100, true);
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
 
         // Serialize
         final var proto = original.toProto(serializationContext);
 
         // Deserialize
-        final var deserialized = RowNumberHighOrderValue.fromProto(proto);
+        final var deserialized = RowNumberHighOrderWindowValue.fromProto(proto);
 
         // Verify equality through plan hash
         Assertions.assertEquals(

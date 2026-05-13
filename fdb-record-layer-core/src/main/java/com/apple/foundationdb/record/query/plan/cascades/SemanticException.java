@@ -53,6 +53,7 @@ public class SemanticException extends RecordCoreException {
         INVALID_UUID_VALUE(13, "Invalid UUID value for the UUID type"),
         INVALID_CAST(14, "Invalid cast operation"),
         COMPARISON_OF_INCOMPATIBLE_TYPES(15, "The operands of a comparison operator are not compatible."),
+        UNSUPPORTED_WINDOW_FUNCTION(16, "The aggregate function does not supported window semantics"),
 
         // insert, update, deletes
         UPDATE_TRANSFORM_AMBIGUOUS(1_000, "The transformations used in an UPDATE statement are ambiguous."),

@@ -26,9 +26,12 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -57,11 +60,22 @@ public final class OrderByExpression {
 
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private OrderByExpression withExpression(@Nonnull Expression expression) {
+    public OrderByExpression withExpression(@Nonnull Expression expression) {
         if (this.expression == expression) {
             return this;
         }
         return new OrderByExpression(expression, descending, nullsLast);
+    }
+
+    /**
+     * Converts this order-by expression into a {@link WindowOrderingPart} suitable for use in window function
+     * specifications. The underlying value is taken as-is (without rebasing) and paired with the sort order
+     * derived from this expression's {@code descending} and {@code nullsLast} flags.
+     *
+     * @return a new {@link WindowOrderingPart} representing this ordering
+     */
+    public WindowOrderingPart toWindowOrderingPart() {
+        return new WindowOrderingPart(expression.getUnderlying(), toSortOrder());
     }
 
     @Nonnull
@@ -80,10 +94,7 @@ public final class OrderByExpression {
         final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         return orderBys
                 // expand *
-                .flatMap(orderBy ->
-                        orderBy.getExpression() instanceof Star ?
-                                ((Star) orderBy.getExpression()).getExpansion().stream().map(orderBy::withExpression) :
-                                Stream.of(orderBy))
+                .flatMap(orderBy -> orderBy.getExpression().expand().stream().map(orderBy::withExpression))
                 .map(orderBy -> {
                     final var orderByExpression = orderBy.getExpression();
                     final var underlying = orderByExpression.getUnderlying();
@@ -127,6 +138,13 @@ public final class OrderByExpression {
             final var sortOrder = orderBy.toSortOrder();
             return new OrderingPart.RequestedOrderingPart(rebased, sortOrder);
         });
+    }
+
+    @Nonnull
+    public static Set<CorrelationIdentifier> getCorrelatedTo(@Nonnull Stream<OrderByExpression> orderBys,
+                                                             @Nonnull final Set<CorrelationIdentifier> constantCorrelations) {
+        final var correlatedTo = orderBys.map(orderByExp -> orderByExp.getExpression().getUnderlying().getCorrelatedTo()).flatMap(Set::stream).collect(ImmutableSet.toImmutableSet());
+        return ImmutableSet.copyOf(Sets.difference(correlatedTo, constantCorrelations));
     }
 
     @Override
