@@ -92,6 +92,7 @@ utilityStatement
 templateClause
     :
         CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction | viewDefinition )
+    | prepareStatement
     ;
 
 createStatement
