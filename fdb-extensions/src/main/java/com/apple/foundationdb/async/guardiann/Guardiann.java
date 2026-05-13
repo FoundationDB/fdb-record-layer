@@ -157,6 +157,11 @@ public class Guardiann {
         return getLocator().insert();
     }
 
+    @Nonnull
+    private Delete delete() {
+        return getLocator().delete();
+    }
+
     /**
      * Performs a search for the k-nearest neighbors for a given query vector.
      *
@@ -205,5 +210,23 @@ public class Guardiann {
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
                                           @Nonnull final RealVector newVector, @Nullable final Tuple additionalValues) {
         return insert().insert(transaction, newPrimaryKey, newVector, additionalValues);
+    }
+
+    /**
+     * Deletes a vector identified by its primary key from the Guardiann index.
+     * <p>
+     * Removes the vector's references from all clusters it belongs to (primary and replicated),
+     * updates cluster metadata, and enqueues maintenance tasks if needed. The caller must provide
+     * the vector data to locate which clusters contain the vector.
+     *
+     * @param transaction the {@link Transaction} context for all database operations
+     * @param primaryKey the unique {@link Tuple} primary key of the vector to delete
+     * @param vector the {@link RealVector} data of the vector being deleted
+     * @return a {@link CompletableFuture} that completes when the deletion is finished
+     */
+    @Nonnull
+    public CompletableFuture<Void> delete(@Nonnull final Transaction transaction, @Nonnull final Tuple primaryKey,
+                                          @Nonnull final RealVector vector) {
+        return delete().delete(transaction, primaryKey, vector);
     }
 }

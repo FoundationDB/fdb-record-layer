@@ -653,8 +653,8 @@ public class MoreAsyncUtil {
      * of filter
      */
     @Nonnull
-    static <T> AsyncIterable<T> filterToIterable(final T item,
-                                                 @Nonnull final Function<T, CompletableFuture<Boolean>> filter) {
+    public static <T> AsyncIterable<T> filterToIterable(final T item,
+                                                        @Nonnull final Function<T, CompletableFuture<Boolean>> filter) {
         return new AsyncIterable<T>() {
             @Nullable
             @Override
@@ -739,8 +739,8 @@ public class MoreAsyncUtil {
      * @return a new {@code AsyncIterable} containing the result of func(item)
      */
     @Nonnull
-    static <T1, T2> AsyncIterable<T2> mapToIterable(final T1 item,
-                                                    @Nonnull final Function<T1, CompletableFuture<T2>> func) {
+    public static <T1, T2> AsyncIterable<T2> mapToIterable(final T1 item,
+                                                           @Nonnull final Function<T1, CompletableFuture<T2>> func) {
         return new AsyncIterable<T2>() {
             @Nullable
             @Override

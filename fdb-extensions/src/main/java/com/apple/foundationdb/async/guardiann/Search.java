@@ -237,10 +237,54 @@ public class Search {
                     final CompletableFuture<List<VectorReferenceAndDistance>> topReferencesFuture =
                             distinctTopK.collect(vectorReferenceAndDistancesIterable, getExecutor());
 
+                    final CompletableFuture<List<VectorReferenceAndDistance>> expandedTopReferencesFuture =
+                            topReferencesFuture.thenCompose(topReferences -> {
+                                // need to establish if we have to expand collapsed references
+                                boolean foundCollapsedReferences = false;
+                                for (final VectorReferenceAndDistance referenceAndDistance : topReferences) {
+                                    if (referenceAndDistance.getVectorReference().isCollapsed()) {
+                                        foundCollapsedReferences = true;
+                                        break;
+                                    }
+                                }
+                                if (!foundCollapsedReferences) {
+                                    return CompletableFuture.completedFuture(topReferences);
+                                }
+
+                                final var topReferencesIterable =
+                                        MoreAsyncUtil.iterableFromCollection(CompletableFuture.completedFuture(topReferences), getExecutor());
+
+                                final AsyncIterable<VectorReferenceAndDistance> expandedTopReferencesIterable =
+                                        MoreAsyncUtil.mapConcatIterable(getExecutor(), topReferencesIterable,
+                                                vectorReferenceAndDistance -> {
+                                                    final VectorReference vectorReference = vectorReferenceAndDistance.getVectorReference();
+                                                    if (!vectorReference.isCollapsed()) {
+                                                        return MoreAsyncUtil.mapToIterable(vectorReferenceAndDistance,
+                                                                item -> CompletableFuture.completedFuture(vectorReferenceAndDistance));
+                                                    }
+
+                                                    //
+                                                    // The current item is collapsed.
+                                                    //
+
+                                                    final UUID signature = StorageAdapter.signatureUuid(vectorReference.getVector());
+                                                    return AsyncUtil.mapIterable(
+                                                            primitives.fetchCollapsedVectorIdsIterable(readTransaction, signature),
+                                                            vectorId -> vectorReferenceAndDistance.withVectorReference(
+                                                                    vectorReference.withVectorId(vectorId)));
+                                                }, config.searchConcurrency());
+
+                                final DistinctTopK<VectorReferenceAndDistance> expandedDistinctTopK =
+                                        DistinctTopK.min(Comparator.comparing(VectorReferenceAndDistance::getDistance)
+                                                .thenComparing(d -> d.getVectorReference().getId()), efSearch);
+
+                                return expandedDistinctTopK.collect(expandedTopReferencesIterable, getExecutor());
+                            });
+
                     final Map<Tuple, CompletableFuture<VectorMetadata>> primaryKeyToVectorMetadataUuidFutureMap =
                             Maps.newConcurrentMap();
                     final CompletableFuture<List<VectorReferenceAndDistance>> enrichedResultsFuture =
-                            topReferencesFuture.thenCompose(topReferences ->
+                            expandedTopReferencesFuture.thenCompose(topReferences ->
                                     MoreAsyncUtil.forEach(topReferences,
                                             vectorReferenceAndDistance -> {
                                                 final VectorId vectorReferenceId =
@@ -257,7 +301,7 @@ public class Search {
                                                         return null;
                                                     }
                                                 });
-                                            }, 10, getExecutor()))
+                                            }, config.searchConcurrency(), getExecutor()))
                                     .thenApply(vectorReferenceAndDistances -> {
                                         final ImmutableList.Builder<VectorReferenceAndDistance> enrichedResultsBuilder =
                                                 ImmutableList.builder();

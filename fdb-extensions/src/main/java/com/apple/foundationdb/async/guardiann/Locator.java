@@ -48,8 +48,9 @@ public class Locator {
     @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Insert> insertSupplier = Suppliers.memoize(() -> new Insert(this));
-//    @Nonnull
-//    private final Supplier<Delete> deleteSupplier;
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<Delete> deleteSupplier = Suppliers.memoize(() -> new Delete(this));
 
     /**
      * Constructs a new HNSW graph instance.
@@ -140,8 +141,8 @@ public class Locator {
         return insertSupplier.get();
     }
 
-//    @Nonnull
-//    Delete delete() {
-//        return deleteSupplier.get();
-//    }
+    @Nonnull
+    Delete delete() {
+        return deleteSupplier.get();
+    }
 }

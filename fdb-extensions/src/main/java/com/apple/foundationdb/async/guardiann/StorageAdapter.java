@@ -33,6 +33,9 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -417,6 +420,54 @@ class StorageAdapter {
             }
         }
         return false;
+    }
+
+    @Nonnull
+    static UUID signatureUuid(@Nonnull final Transformed<RealVector> vector) {
+        return uuidFromBytes(signatureOf(vector));
+    }
+
+    @Nonnull
+    static UUID uuidFromBytes(@Nonnull final byte[] keyAsBytes) {
+        if (keyAsBytes.length != 16) {
+            throw new IllegalArgumentException("Expected 16 bytes, got " + keyAsBytes.length);
+        }
+        final long hi = readLongBigEndian(keyAsBytes, 0);
+        final long lo = readLongBigEndian(keyAsBytes, 8);
+        return new UUID(hi, lo);
+    }
+
+    static long readLongBigEndian(byte[] b, int off) {
+        return ((long) (b[off]     & 0xff) << 56) |
+                ((long) (b[off + 1] & 0xff) << 48) |
+                ((long) (b[off + 2] & 0xff) << 40) |
+                ((long) (b[off + 3] & 0xff) << 32) |
+                ((long) (b[off + 4] & 0xff) << 24) |
+                ((long) (b[off + 5] & 0xff) << 16) |
+                ((long) (b[off + 6] & 0xff) <<  8) |
+                ((long) (b[off + 7] & 0xff));
+    }
+
+    @Nonnull
+    static byte[] signatureOf(@Nonnull final Transformed<RealVector> vector) {
+        return signatureOf(vector.getUnderlyingVector());
+    }
+
+    @Nonnull
+    static byte[] signatureOf(@Nonnull final RealVector vector) {
+        byte[] full = sha256(vector);
+        return Arrays.copyOf(full, 16);
+    }
+
+    @Nonnull
+    static byte[] sha256(@Nonnull final RealVector vector) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(vector.getRawData());
+            return md.digest();
+        } catch (final NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
     }
 
     @Nonnull

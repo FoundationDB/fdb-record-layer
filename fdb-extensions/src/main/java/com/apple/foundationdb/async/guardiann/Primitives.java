@@ -175,7 +175,7 @@ class Primitives {
     }
 
     @Nonnull
-    Subspace getVectorMatadataSubspace() {
+    Subspace getVectorMetadataSubspace() {
         return getStorageAdapter().getVectorMetadataSubspace();
     }
 
@@ -296,7 +296,7 @@ class Primitives {
     @Nonnull
     CompletableFuture<VectorMetadata> fetchVectorMetadata(@Nonnull final ReadTransaction readTransaction,
                                                           @Nonnull final Tuple primaryKey) {
-        final Subspace vectorStatesSubspace = getVectorMatadataSubspace();
+        final Subspace vectorStatesSubspace = getVectorMetadataSubspace();
         final byte[] key = vectorStatesSubspace.pack(primaryKey);
 
         return readTransaction.get(key)
@@ -311,12 +311,20 @@ class Primitives {
 
     void writeVectorMetadata(@Nonnull final Transaction transaction,
                              @Nonnull final VectorMetadata vectorMetadata) {
-        final Subspace vectorIdsSubspace = getVectorMatadataSubspace();
-        final byte[] key = vectorIdsSubspace.pack(vectorMetadata.getPrimaryKey());
+        final Subspace vectorMetadataSubspace = getVectorMetadataSubspace();
+        final byte[] key = vectorMetadataSubspace.pack(vectorMetadata.getPrimaryKey());
         final byte[] value = StorageAdapter.valueTupleFromVectorMetadata(vectorMetadata).pack();
 
         getOnWriteListener().onKeyValueWritten(-1, key, value);
         transaction.set(key, value);
+    }
+
+    void deleteVectorMetadata(@Nonnull final Transaction transaction,
+                              @Nonnull final Tuple primaryKey) {
+        final Subspace vectorMetadataSubspace = getVectorMetadataSubspace();
+        final byte[] key = vectorMetadataSubspace.pack(primaryKey);
+        getLocator().getOnWriteListener().onKeyDeleted(-1, key);
+        transaction.clear(key);
     }
 
     @Nonnull

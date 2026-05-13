@@ -42,6 +42,11 @@ class VectorReferenceAndDistance {
         return distance;
     }
 
+    @Nonnull
+    public VectorReferenceAndDistance withVectorReference(@Nonnull final VectorReference vectorReference) {
+        return new VectorReferenceAndDistance(vectorReference, getDistance());
+    }
+
     @Override
     public boolean equals(final Object o) {
         if (o == null || getClass() != o.getClass()) {
