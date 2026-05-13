@@ -505,7 +505,7 @@ public class ReassignTask extends AbstractDeferredTask {
                                 updatedStandardDeviation, EnumSet.noneOf(ClusterMetadata.State.class));
                 primitives.writeClusterMetadata(transaction, newTargetClusterMetadata);
             } else {
-                primitives.writeDeferredTaskMaybe(transaction, random, clusterMetadata,
+                primitives.updateClusterMetadataAndEnqueueTaskMaybe(transaction, random, clusterMetadata,
                         clusterMetadataWithDistance.centroid(), getAccessInfo(),
                         numPrimaryVectorsAdded, numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
                         updatedStandardDeviation, ImmutableSet.of());

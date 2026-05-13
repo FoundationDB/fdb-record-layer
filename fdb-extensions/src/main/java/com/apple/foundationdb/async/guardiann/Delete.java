@@ -90,7 +90,7 @@ public class Delete {
      * <p>
      * Locates the vector's references in nearby clusters by querying the HNSW centroid index,
      * removes them, adjusts cluster metadata, and enqueues a split/merge task via
-     * {@link Primitives#writeDeferredTaskMaybe} if the primary cluster's size drops below the
+     * {@link Primitives#updateClusterMetadataAndEnqueueTaskMaybe} if the primary cluster's size drops below the
      * configured minimum. Finally, removes the vector's metadata entry.
      *
      * @param transaction the {@link Transaction} context for all database operations
@@ -143,64 +143,83 @@ public class Delete {
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
 
         return AsyncUtil.collect(
-                limitIterable(
-                        mapIterablePipelined(getExecutor(),
-                                MoreAsyncUtil.iterableOf(() ->
-                                        primitives.centroidsOrderedByDistance(transaction, vector, 0.0d, null),
-                                        getExecutor()),
-                                resultEntry ->
-                                        primitives.fetchClusterMetadataWithDistance(transaction,
-                                                StorageAdapter.clusterIdFromTuple(resultEntry.getPrimaryKey()),
-                                                storageTransform.transform(
-                                                        Objects.requireNonNull(resultEntry.getVector())),
-                                                resultEntry.getDistance()),
-                                1),
-                        config.insertMaxCandidateClusters(),
-                        getExecutor()),
-                getExecutor())
-                .thenAccept(clusterMetadataWithDistances -> {
-                    boolean deletedPrimary = false;
+                        limitIterable(
+                                mapIterablePipelined(getExecutor(),
+                                        MoreAsyncUtil.iterableOf(() ->
+                                                        primitives.centroidsOrderedByDistance(transaction, vector, 0.0d, null),
+                                                getExecutor()),
+                                        resultEntry ->
+                                                primitives.fetchClusterMetadataWithDistance(transaction,
+                                                        StorageAdapter.clusterIdFromTuple(resultEntry.getPrimaryKey()),
+                                                        storageTransform.transform(
+                                                                Objects.requireNonNull(resultEntry.getVector())),
+                                                        resultEntry.getDistance()),
+                                        1),
+                                config.insertMaxCandidateClusters(),
+                                getExecutor()),
+                        getExecutor())
+                .thenCompose(clusterMetadataWithDistances ->
+                        MoreAsyncUtil.forEach(clusterMetadataWithDistances,
+                                clusterMetadataWithDistance -> {
+                                    final UUID clusterId = clusterMetadataWithDistance.clusterMetadata().id();
+                                    return primitives.fetchVectorReference(transaction, storageTransform,
+                                            clusterId, primaryKey);
+                                },
+                                config.insertMaxCandidateClusters(), getExecutor())
+                        .thenAccept(vectorReferences -> {
+                            boolean foundPrimary = false;
 
-                    for (final ClusterMetadataWithDistance clusterMetadataWithDistance : clusterMetadataWithDistances) {
-                        final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.clusterMetadata();
-                        final UUID clusterId = clusterMetadata.id();
+                            for (int i = 0; i < clusterMetadataWithDistances.size(); i++) {
+                                final VectorReference vectorReference = vectorReferences.get(i);
+                                if (vectorReference == null) {
+                                    continue;
+                                }
 
-                        // Try to delete the vector reference from this cluster.
-                        // The reference is keyed by (clusterId, primaryKey), so we can delete directly.
-                        primitives.deleteVectorReference(transaction, clusterId, primaryKey);
+                                final ClusterMetadataWithDistance clusterMetadataWithDistance =
+                                        clusterMetadataWithDistances.get(i);
+                                final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.clusterMetadata();
+                                final UUID clusterId = clusterMetadata.id();
 
-                        if (!deletedPrimary) {
-                            // The first (nearest) cluster is assumed to be the primary cluster.
-                            deletedPrimary = true;
+                                primitives.deleteVectorReference(transaction, clusterId, primaryKey);
 
-                            final RunningStandardDeviation updatedStandardDeviation =
-                                    clusterMetadata.runningStandardDeviation().remove(
-                                            clusterMetadataWithDistance.distance());
+                                if (vectorReference.isPrimaryCopy()) {
+                                    foundPrimary = true;
+                                    final RunningStandardDeviation updatedStandardDeviation =
+                                            clusterMetadata.runningStandardDeviation().remove(
+                                                    clusterMetadataWithDistance.distance());
 
-                            primitives.writeDeferredTaskMaybe(transaction, random.split(),
-                                    clusterMetadata,
-                                    clusterMetadataWithDistance.centroid(), accessInfo,
-                                    -1, 0, 0,
-                                    updatedStandardDeviation,
-                                    ImmutableSet.of());
-                        } else {
-                            // For replicated clusters, just update the metadata counts.
-                            primitives.writeDeferredTaskMaybe(transaction, random.split(),
-                                    clusterMetadata,
-                                    clusterMetadataWithDistance.centroid(), accessInfo,
-                                    0, 0, -1,
-                                    clusterMetadata.runningStandardDeviation(),
-                                    ImmutableSet.of());
-                        }
-                    }
+                                    primitives.updateClusterMetadataAndEnqueueTaskMaybe(transaction, random.split(),
+                                            clusterMetadata,
+                                            clusterMetadataWithDistance.centroid(), accessInfo,
+                                            -1, 0, 0,
+                                            updatedStandardDeviation,
+                                            ImmutableSet.of());
+                                } else {
+                                    primitives.updateClusterMetadataAndEnqueueTaskMaybe(transaction, random.split(),
+                                            clusterMetadata,
+                                            clusterMetadataWithDistance.centroid(), accessInfo,
+                                            0, 0, -1,
+                                            clusterMetadata.runningStandardDeviation(),
+                                            ImmutableSet.of());
+                                }
+                            }
 
-                    // Delete the vector metadata entry.
-                    primitives.deleteVectorMetadata(transaction, primaryKey);
+                            if (!foundPrimary) {
+                                //
+                                // The vector was not found as a regular reference — it must be collapsed, or
+                                // we just didn't find it which should be rare. In any case, this gives us enough
+                                // ammunition to assume the vector is in a collapsed set.
+                                //
+                                final UUID signature = StorageAdapter.signatureUuid(storageTransform.transform(vector));
+                                primitives.deleteCollapsedVectorId(transaction, signature, primaryKey);
+                            }
 
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("deleted vector; primaryKey={}; clustersAffected={}",
-                                primaryKey, clusterMetadataWithDistances.size());
-                    }
-                });
+                            primitives.deleteVectorMetadata(transaction, primaryKey);
+
+                            if (logger.isDebugEnabled()) {
+                                logger.debug("deleted vector; primaryKey={}; clustersAffected={}",
+                                        primaryKey, clusterMetadataWithDistances.size());
+                            }
+                        }));
     }
 }

@@ -431,6 +431,25 @@ class Primitives {
                 });
     }
 
+    @Nonnull
+    CompletableFuture<VectorReference> fetchVectorReference(@Nonnull final ReadTransaction readTransaction,
+                                                            @Nonnull final StorageTransform storageTransform,
+                                                            @Nonnull final UUID clusterId,
+                                                            @Nonnull final Tuple primaryKey) {
+        final Subspace vectorReferencesSubspace = getVectorReferencesSubspace();
+        final byte[] key = vectorReferencesSubspace.pack(Tuple.from(clusterId, primaryKey));
+
+        return readTransaction.get(key)
+                .thenApply(valueBytes -> {
+                    getOnReadListener().onKeyValueRead(-1, key, valueBytes);
+                    if (valueBytes == null) {
+                        return null;
+                    }
+                    return StorageAdapter.vectorReferenceFromTuples(getConfig(), storageTransform,
+                            primaryKey, Tuple.fromBytes(valueBytes));
+                });
+    }
+
     void writeVectorReferences(@Nonnull final Transaction transaction,
                                @Nonnull final Quantizer quantizer,
                                @Nonnull final UUID clusterId,
@@ -524,6 +543,16 @@ class Primitives {
         transaction.set(key, value);
     }
 
+    void deleteCollapsedVectorId(@Nonnull final Transaction transaction,
+                                 @Nonnull final UUID signature,
+                                 @Nonnull final Tuple primaryKey) {
+        final Subspace collapsedVectorIdsSubspace = getCollapsedVectorIdsSubspace();
+        final byte[] key = collapsedVectorIdsSubspace.pack(Tuple.from(signature, primaryKey));
+
+        getOnWriteListener().onKeyDeleted(-1, key);
+        transaction.clear(key);
+    }
+
     @Nonnull
     CompletableFuture<Void> doSomeDeferredTasks(@Nonnull final Transaction transaction,
                                                 @Nonnull final AccessInfo accessInfo) {
@@ -605,16 +634,16 @@ class Primitives {
     }
 
     @Nonnull
-    Optional<UUID> writeDeferredTaskMaybe(@Nonnull final Transaction transaction,
-                                          @Nonnull final SplittableRandom random,
-                                          @Nonnull final ClusterMetadata clusterMetadata,
-                                          @Nonnull final Transformed<RealVector> clusterCentroid,
-                                          @Nonnull final AccessInfo accessInfo,
-                                          final int numPrimaryVectorsAdded,
-                                          final int numPrimaryUnderreplicatedVectorsAdded,
-                                          final int numReplicatedVectorsAdded,
-                                          @Nonnull final RunningStandardDeviation updatedStandardDeviation,
-                                          @Nonnull final Set<UUID> causeClusterIds) {
+    Optional<UUID> updateClusterMetadataAndEnqueueTaskMaybe(@Nonnull final Transaction transaction,
+                                                            @Nonnull final SplittableRandom random,
+                                                            @Nonnull final ClusterMetadata clusterMetadata,
+                                                            @Nonnull final Transformed<RealVector> clusterCentroid,
+                                                            @Nonnull final AccessInfo accessInfo,
+                                                            final int numPrimaryVectorsAdded,
+                                                            final int numPrimaryUnderreplicatedVectorsAdded,
+                                                            final int numReplicatedVectorsAdded,
+                                                            @Nonnull final RunningStandardDeviation updatedStandardDeviation,
+                                                            @Nonnull final Set<UUID> causeClusterIds) {
         final Config config = getConfig();
         final UUID clusterId = clusterMetadata.id();
 

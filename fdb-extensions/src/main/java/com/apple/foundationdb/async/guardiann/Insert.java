@@ -322,7 +322,7 @@ public class Insert {
                                                 updatedStandardDeviation = runningStandardDeviation;
                                             }
 
-                                            primitives.writeDeferredTaskMaybe(transaction, random.split(),
+                                            primitives.updateClusterMetadataAndEnqueueTaskMaybe(transaction, random.split(),
                                                     clusterMetadata,
                                                     replicationCandidate.centroid(), accessInfo,
                                                     isPrimaryCluster ? 1 : 0,

@@ -760,7 +760,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
             Verify.verify(clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded > 0);
 
-            primitives().writeDeferredTaskMaybe(transaction, random, clusterMetadata,
+            primitives().updateClusterMetadataAndEnqueueTaskMaybe(transaction, random, clusterMetadata,
                             clusterMetadataWithDistance.centroid(), getAccessInfo(),
                             numPrimaryVectorsAdded, numPrimaryUnderreplicatedVectorsAdded, numReplicatedVectorsAdded,
                             updatedStandardDeviation, newClusterIds)
