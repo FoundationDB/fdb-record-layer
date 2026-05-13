@@ -414,6 +414,17 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 sqlInvokedFunctionClauses.add(templateClause.sqlInvokedFunction());
             } else if (templateClause.viewDefinition() != null) {
                 viewClauses.add(templateClause.viewDefinition());
+            } else if (templateClause.prepareStatement() != null) {
+                final var prepareCtx = templateClause.prepareStatement();
+                final var name = visitUid(prepareCtx.uid()).getName();
+                final String queryString;
+                if (prepareCtx.queryString != null) {
+                    final var text = prepareCtx.queryString.getText();
+                    queryString = text.substring(1, text.length() - 1);
+                } else {
+                    queryString = prepareCtx.variable.getText();
+                }
+                metadataBuilder.addPrepareStatement(name, queryString);
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());

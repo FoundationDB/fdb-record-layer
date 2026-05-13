@@ -116,7 +116,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, View> viewMap;
     @Nonnull
-    private final List<String> prepareStatements;
+    private final Map<String, String> prepareStatements;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -154,7 +154,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         syntheticRecordTypes = new HashMap<>();
         userDefinedFunctionMap = new HashMap<>();
         viewMap = new HashMap<>();
-        prepareStatements = new ArrayList<>();
+        prepareStatements = new HashMap<>();
     }
 
     private void processSchemaOptions(boolean processExtensionOptions) {
@@ -241,7 +241,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             final View view = View.fromProto(viewProto);
             viewMap.put(view.getName(), view);
         }
-        prepareStatements.addAll(metaDataProto.getPrepareStatementsList());
+        prepareStatements.putAll(metaDataProto.getPrepareStatementsMap());
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
         }
@@ -1220,12 +1220,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    public List<String> getPrepareStatements() {
+    public Map<String, String> getPrepareStatements() {
         return prepareStatements;
     }
 
-    public void addPrepareStatement(@Nonnull String prepareStatement) {
-        prepareStatements.add(prepareStatement);
+    public void addPrepareStatement(@Nonnull String name, @Nonnull String prepareStatement) {
+        prepareStatements.put(name, prepareStatement);
     }
 
     public boolean isSplitLongRecords() {

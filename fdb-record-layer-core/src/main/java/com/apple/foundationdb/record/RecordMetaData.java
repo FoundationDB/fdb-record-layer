@@ -87,7 +87,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, View> viewMap;
     @Nonnull
-    private final List<String> prepareStatements;
+    private final Map<String, String> prepareStatements;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -120,7 +120,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 Collections.unmodifiableList(orig.formerIndexes),
                 Collections.unmodifiableMap(orig.userDefinedFunctionMap),
                 Collections.unmodifiableMap(orig.viewMap),
-                Collections.unmodifiableList(orig.prepareStatements),
+                Collections.unmodifiableMap(orig.prepareStatements),
                 orig.splitLongRecords,
                 orig.storeRecordVersions,
                 orig.version,
@@ -142,7 +142,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull List<FormerIndex> formerIndexes,
                              @Nonnull Map<String, UserDefinedFunction> userDefinedFunctionMap,
                              @Nonnull Map<String, View> viewMap,
-                             @Nonnull List<String> prepareStatements,
+                             @Nonnull Map<String, String> prepareStatements,
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,
@@ -709,7 +709,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
         builder.addAllUserDefinedFunctions(userDefinedFunctionMap.values().stream().map(UserDefinedFunction::toProto).collect(Collectors.toList()));
         builder.addAllViews(viewMap.values().stream().map(View::toProto).collect(Collectors.toList()));
-        builder.addAllPrepareStatements(prepareStatements);
+        builder.putAllPrepareStatements(prepareStatements);
         builder.setSplitLongRecords(splitLongRecords);
         builder.setStoreRecordVersions(storeRecordVersions);
         builder.setVersion(version);
@@ -735,7 +735,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    public List<String> getPrepareStatements() {
+    public Map<String, String> getPrepareStatements() {
         return prepareStatements;
     }
 

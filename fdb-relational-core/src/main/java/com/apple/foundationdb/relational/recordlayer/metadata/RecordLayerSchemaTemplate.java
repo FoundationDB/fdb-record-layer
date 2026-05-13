@@ -81,7 +81,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     private final Set<RecordLayerView> views;
 
     @Nonnull
-    private final List<String> prepareStatements;
+    private final Map<String, String> prepareStatements;
 
     private final int version;
 
@@ -110,7 +110,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
-                                      @Nonnull final List<String> prepareStatements,
+                                      @Nonnull final Map<String, String> prepareStatements,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -119,7 +119,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
-        this.prepareStatements = ImmutableList.copyOf(prepareStatements);
+        this.prepareStatements = ImmutableMap.copyOf(prepareStatements);
         this.version = version;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
@@ -135,7 +135,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
-                                      @Nonnull final List<String> prepareStatements,
+                                      @Nonnull final Map<String, String> prepareStatements,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -146,7 +146,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
-        this.prepareStatements = ImmutableList.copyOf(prepareStatements);
+        this.prepareStatements = ImmutableMap.copyOf(prepareStatements);
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
         this.intermingleTables = intermingleTables;
@@ -346,7 +346,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
-    public List<String> getPrepareStatements() {
+    public Map<String, String> getPrepareStatements() {
         return prepareStatements;
     }
 
@@ -427,7 +427,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         private final Map<String, RecordLayerView> views;
 
         @Nonnull
-        private final List<String> prepareStatements;
+        private final Map<String, String> prepareStatements;
 
 
         private RecordMetaData cachedMetadata;
@@ -437,7 +437,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             auxiliaryTypes = new LinkedHashMap<>();
             invokedRoutines = new LinkedHashMap<>();
             views = new LinkedHashMap<>();
-            prepareStatements = new ArrayList<>();
+            prepareStatements = new LinkedHashMap<>();
             // enable long rows is TRUE by default
             enableLongRows = true;
         }
@@ -557,14 +557,14 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
-        public Builder addPrepareStatement(@Nonnull final String prepareStatement) {
-            prepareStatements.add(prepareStatement);
+        public Builder addPrepareStatement(@Nonnull final String name, @Nonnull final String prepareStatement) {
+            prepareStatements.put(name, prepareStatement);
             return this;
         }
 
         @Nonnull
-        public Builder addPrepareStatements(@Nonnull final Collection<String> prepareStatements) {
-            this.prepareStatements.addAll(prepareStatements);
+        public Builder addPrepareStatements(@Nonnull final Map<String, String> prepareStatements) {
+            this.prepareStatements.putAll(prepareStatements);
             return this;
         }
 
