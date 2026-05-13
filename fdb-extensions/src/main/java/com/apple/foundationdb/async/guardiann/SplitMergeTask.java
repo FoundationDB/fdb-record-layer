@@ -287,6 +287,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                                 return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true)
                                                         .thenApply(vectorReferences ->
                                                                 kMeans(neighborhoods, vectorReferences, nestedRandom, estimator,
+                                                                        neighborhoods.innerNeighborhood().size() + 1,
                                                                         config.kMeansMaxIterations(), config.kMeansMaxRestarts()));
                                             }, config.splitMergeConcurrency(), executor)
                                     .<RepartitioningCandidate>thenApply(assignmentCandidates -> {
@@ -340,10 +341,19 @@ public class SplitMergeTask extends AbstractDeferredTask {
     }
 
     /**
-     * Merges an undersized cluster with its nearest neighbors. Fetches the inner neighborhood
-     * (clusters to be dissolved) and outer neighborhood (clusters that may absorb overflow vectors),
-     * then runs k-means to repartition the combined vector set into {@code innerNeighborhood.size() - 1}
-     * clusters — effectively reducing the total cluster count by one.
+     * Merges an undersized cluster with its nearest neighbors. Analogous to {@link #split}, operates
+     * in the following stages:
+     * <ol>
+     *   <li>If the neighborhood is not precomputed, fetches it from the HNSW centroid index and
+     *       re-enqueues a high-priority task with the neighborhood attached (early return).</li>
+     *   <li>Evaluates two candidate repartitionings: a 2-to-1 merge (dissolving the target into its
+     *       nearest neighbor) and, if the neighborhood is large enough, a 3-to-2 merge (dissolving
+     *       3 clusters into 2).</li>
+     *   <li>Runs bounded k-means on the primary vectors for each candidate.</li>
+     *   <li>Selects the best valid candidate via {@link SplitMergeEvaluator}.</li>
+     *   <li>Assigns vectors to the reduced set of clusters, updates the HNSW centroid index, and
+     *       writes new cluster metadata.</li>
+     * </ol>
      *
      * @param transaction the FDB transaction
      * @param targetClusterMetadata metadata of the undersized cluster
@@ -355,82 +365,117 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                           @Nonnull final ClusterMetadata targetClusterMetadata,
                                           @Nonnull final RealVector targetClusterCentroid) {
         final Config config = getConfig();
-        final Primitives primitives = primitives();
-        final AccessInfo accessInfo = getAccessInfo();
         final SplittableRandom random = RandomHelpers.random(getTaskId());
+        final Primitives primitives = primitives();
+        final Executor executor = getLocator().getExecutor();
+        final AccessInfo accessInfo = getAccessInfo();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
         final Quantizer quantizer = primitives.quantizer(accessInfo);
         final Estimator estimator = quantizer.estimator();
 
         final int numInnerNeighborhood = config.mergeInnerNeighborhoodSize();
         final int numOuterNeighborhood = config.mergeOuterNeighborhoodSize();
+        final int numNeighborhood = numInnerNeighborhood + numOuterNeighborhood;
 
-        final CompletableFuture<Neighborhoods> neighborhoodsFuture =
-                primitives.fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata, targetClusterCentroid,
-                        storageTransform, numInnerNeighborhood + numOuterNeighborhood)
-                        .thenApply(clusterMetadataWithDistances ->
-                                neighborhoods(clusterMetadataWithDistances, targetClusterMetadata,
-                                        getCentroid(), numInnerNeighborhood, numOuterNeighborhood));
-
-        return neighborhoodsFuture.thenCompose(neighborhoods -> {
-            final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.innerNeighborhood();
-            final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.outerNeighborhood();
-
-            //
-            // At this point innerNeighborhood contains the clusters we want to split into
-            // innerNeighborhood.size() - 1 number of clusters and outerNeighborhood contains all clusters we
-            // may assign some vectors from innerNeighborhood to.
-            //
-            return primitives.fetchInnerClusters(transaction, innerNeighborhood, storageTransform)
-                    .thenCompose(innerClusters ->
-                            primitives.cleanUpVectorReferences(transaction, innerClusters,
-                                    true))
-                    .thenApply(cleanedUpVectorReferences ->
-                            repartitionVectors(random, estimator, outerNeighborhood, cleanedUpVectorReferences,
-                                    innerNeighborhood.size() - 1))
-                    .thenCompose(repartitioning ->
-                            replaceCentroidsInHnsw(transaction, storageTransform, innerNeighborhood, repartitioning))
-                    .thenAccept(repartitioning ->
-                            persistRepartitioning(transaction, random, innerNeighborhood, repartitioning, quantizer));
-        });
-    }
-
-    /**
-     * Runs k-means on the combined primary vectors from the inner neighborhood clusters, then produces
-     * an {@link Repartitioning} that maps each vector to its new target cluster. Used by the merge path
-     * where all vectors need to be repartitioned from scratch.
-     *
-     * @param random source of randomness for k-means initialization
-     * @param estimator distance estimator for the vector space
-     * @param outerNeighborhood clusters that may receive overflow assignments
-     * @param vectorReferences all vector references (primary and replicated) from the inner clusters
-     * @param targetNumPartitions desired number of output clusters
-     * @return the computed assignment of vectors to clusters
-     */
-    @Nonnull
-    private Repartitioning repartitionVectors(@Nonnull final SplittableRandom random,
-                                              @Nonnull final Estimator estimator,
-                                              @Nonnull final List<ClusterMetadataWithDistance> outerNeighborhood,
-                                              @Nonnull final List<VectorReference> vectorReferences,
-                                              final int targetNumPartitions) {
-        final ImmutableList.Builder<VectorReference> primaryVectorReferencesBuilder = ImmutableList.builder();
-        for (final VectorReference vectorReference : vectorReferences) {
-            if (vectorReference.isPrimaryCopy()) {
-                primaryVectorReferencesBuilder.add(vectorReference);
+        final List<ClusterIdAndCentroid> neighborhood = getNeighborhood();
+        if (neighborhood.isEmpty()) {
+            return primitives.fetchNeighborhoodClusterMetadata(transaction, targetClusterMetadata,
+                    targetClusterCentroid, storageTransform, numNeighborhood)
+                    .thenAccept(fetchedNeighborhood -> {
+                        final SplitMergeTask splitMergeTask =
+                                withHighPriorityAndNeighborhood(random,
+                                        ClusterIdAndCentroid.fromClusterMetadataAndDistances(fetchedNeighborhood));
+                        splitMergeTask.writeDeferredTask(transaction);
+                        if (logger.isTraceEnabled()) {
+                            logger.info("enqueued high priority SPLIT_MERGE (merge) due to refetch of the neighborhood; taskId={}; neighborhoodSize={}",
+                                    AbstractDeferredTask.taskIdToString(splitMergeTask.getTaskId()),
+                                    splitMergeTask.getNeighborhood().size());
+                        }
+                    });
+        } else {
+            if (logger.isTraceEnabled()) {
+                logger.info("using precomputed neighborhood for merge; taskId={}; neighborhoodSize={}",
+                        taskIdToString(getTaskId()), getNeighborhood().size());
             }
         }
-        final ImmutableList<VectorReference> primaryVectorReferences = primaryVectorReferencesBuilder.build();
 
-        // re-fit only the primary vectors
-        final BoundedKMeans.Result<Transformed<RealVector>> kMeansResult =
-                BoundedKMeans.fit(random, estimator, VectorReference.vectorLens(),
-                        Transformed.underlyingLens(), primaryVectorReferences, targetNumPartitions,
-                        getConfig().kMeansMaxIterations(), getConfig().kMeansMaxRestarts(),
-                        0.00, BoundedKMeans.overflowQuadraticPenalty(),
-                        true);
+        return MoreAsyncUtil.forEach(neighborhood,
+                        clusterIdAndCentroid -> primitives.fetchClusterMetadataWithDistance(transaction,
+                                clusterIdAndCentroid.clusterId(), clusterIdAndCentroid.centroid(), 0.0d),
+                        config.splitMergeConcurrency(), executor)
+                .thenCompose(neighborhoodClusterMetadataWithDistances -> {
+                    // Compute two candidate merge configurations:
+                    // 2-to-1: merge the target and its nearest neighbor into 1 cluster (2 inner + rest outer)
+                    // 3-to-2: merge 3 nearest clusters into 2 (3 inner + rest outer)
+                    final Neighborhoods neighborhoods2To1 =
+                            neighborhoods(neighborhoodClusterMetadataWithDistances,
+                                    targetClusterMetadata, getCentroid(),
+                                    2, numNeighborhood - 2);
+                    final Neighborhoods neighborhoods3To2 =
+                            neighborhood.size() < 3
+                            ? null
+                            : neighborhoods(neighborhoodClusterMetadataWithDistances,
+                                    targetClusterMetadata, getCentroid(),
+                                    3, numNeighborhood - 3);
 
-        return assignPrimaryVectorReferences(estimator, outerNeighborhood, primaryVectorReferences,
-                kMeansResult, targetNumPartitions);
+                    final List<Neighborhoods> allNeighborhoods =
+                            Lists.newArrayList(neighborhoods2To1, neighborhoods3To2);
+
+                    return primitives.fetchInnerClusters(transaction,
+                                    largestInnerNeighborhood(neighborhoods2To1, neighborhoods3To2), storageTransform)
+                            .thenCompose(innerClusters -> RandomHelpers.forEach(random, allNeighborhoods,
+                                            (neighborhoods, nestedRandom) -> {
+                                                if (neighborhoods == null) {
+                                                    return CompletableFuture.completedFuture(null);
+                                                }
+                                                final var innerNeighborhood = neighborhoods.innerNeighborhood();
+                                                final var clampedInnerClusters =
+                                                        innerNeighborhood.size() == innerClusters.size()
+                                                        ? innerClusters
+                                                        : innerClusters.subList(0, innerNeighborhood.size());
+
+                                                return primitives.cleanUpVectorReferences(transaction, clampedInnerClusters, true)
+                                                        .thenApply(vectorReferences ->
+                                                                kMeans(neighborhoods, vectorReferences, nestedRandom, estimator,
+                                                                        neighborhoods.innerNeighborhood().size() - 1,
+                                                                        config.kMeansMaxIterations(), config.kMeansMaxRestarts()));
+                                            }, config.splitMergeConcurrency(), executor)
+                                    .<RepartitioningCandidate>thenApply(mergeCandidates -> {
+                                        final Map<RepartitioningCandidate, UpgradeResult> candidateToUpgradeResultMap = Maps.newIdentityHashMap();
+                                        final RepartitioningCandidate merge2to1Candidate =
+                                                Objects.requireNonNull(mergeCandidates.get(0));
+                                        final UpgradeResult upgradeResult2to1 =
+                                                scoreCandidate(estimator,
+                                                        innerClusters.subList(0, neighborhoods2To1.innerNeighborhood().size()),
+                                                        merge2to1Candidate);
+                                        candidateToUpgradeResultMap.put(merge2to1Candidate, upgradeResult2to1);
+                                        final RepartitioningCandidate merge3to2Candidate = mergeCandidates.get(1);
+                                        if (merge3to2Candidate != null) {
+                                            Verify.verify(innerClusters.size() > 2);
+                                            final UpgradeResult upgradeResult3to2 =
+                                                    scoreCandidate(estimator, innerClusters,
+                                                            merge3to2Candidate);
+                                            candidateToUpgradeResultMap.put(merge3to2Candidate, upgradeResult3to2);
+                                        }
+                                        final Optional<RepartitioningCandidate> bestValidCandidateOptional =
+                                                selectBestCandidateMaybe(candidateToUpgradeResultMap);
+                                        return bestValidCandidateOptional.orElse(merge2to1Candidate);
+                                    }))
+                            .thenCompose(repartitioningCandidate -> {
+                                final Neighborhoods neighborhoods = repartitioningCandidate.neighborhoods();
+                                final List<ClusterMetadataWithDistance> innerNeighborhood = neighborhoods.innerNeighborhood();
+                                final List<ClusterMetadataWithDistance> outerNeighborhood = neighborhoods.outerNeighborhood();
+
+                                final Repartitioning repartitioning =
+                                        assignPrimaryVectorReferences(estimator, outerNeighborhood,
+                                                repartitioningCandidate.primaryVectorReferences(),
+                                                repartitioningCandidate.kMeansResult(),
+                                                innerNeighborhood.size() - 1);
+                                return replaceCentroidsInHnsw(transaction, storageTransform, innerNeighborhood, repartitioning)
+                                        .thenAccept(ignored ->
+                                                persistRepartitioning(transaction, random, innerNeighborhood, repartitioning, quantizer));
+                            });
+                });
     }
 
     /**
@@ -483,7 +528,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                 clusterIdMetadataMapBuilder.build();
 
         //
-        // At this point clusterIdMetadataMap contains the new clusters after the split and all the clusters
+        // At this point clusterIdMetadataMap contains the new clusters after the split/merge and all the clusters
         // from the outer neighborhood.
         //
 
@@ -893,13 +938,16 @@ public class SplitMergeTask extends AbstractDeferredTask {
 
     /**
      * Runs bounded k-means on the primary vectors from the given vector references, partitioning them
-     * into {@code innerNeighborhood.size() + 1} clusters. This is the split path's per-candidate
+     * into {@code targetNumPartitions} clusters. Used by both split and merge paths as the per-candidate
      * clustering step.
      *
-     * @param neighborhoods the neighborhood context (determines target partition count)
+     * @param neighborhoods the neighborhood context
      * @param vectorReferences all vector references (filtered to primary copies internally)
      * @param random source of randomness for k-means initialization
      * @param estimator distance estimator for the vector space
+     * @param targetNumPartitions the desired number of output clusters
+     * @param maxIterations maximum Lloyd's iterations per k-means restart
+     * @param maxRestarts maximum number of random restarts
      * @return an assignment candidate wrapping the k-means result and primary vectors
      */
     @Nonnull
@@ -908,6 +956,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
                                                   @Nonnull final List<VectorReference> vectorReferences,
                                                   @Nonnull final SplittableRandom random,
                                                   @Nonnull final Estimator estimator,
+                                                  final int targetNumPartitions,
                                                   final int maxIterations,
                                                   final int maxRestarts) {
         final ImmutableList.Builder<VectorReference> primaryVectorReferencesBuilder = ImmutableList.builder();
@@ -923,7 +972,7 @@ public class SplitMergeTask extends AbstractDeferredTask {
         return new RepartitioningCandidate(neighborhoods, primaryVectorReferences,
                 BoundedKMeans.fit(random, estimator, VectorReference.vectorLens(),
                         Transformed.underlyingLens(), primaryVectorReferences,
-                        neighborhoods.innerNeighborhood().size() + 1, maxIterations,
+                        targetNumPartitions, maxIterations,
                         maxRestarts, 0.00, BoundedKMeans.overflowQuadraticPenalty(),
                         true));
     }
