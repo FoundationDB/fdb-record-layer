@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PFrameSpecification;
 import com.apple.foundationdb.record.planprotos.PRequestedOrderingPart;
-import com.apple.foundationdb.record.planprotos.PWindowValue;
+import com.apple.foundationdb.record.planprotos.PTransientWindowValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
@@ -51,10 +51,12 @@ import java.util.Locale;
 import java.util.function.Supplier;
 
 /**
- * A value merges the input messages given to it into an output message.
+ * A transient window value used exclusively during plan generation and rewriting. This value is not intended to be
+ * visible to the planner directly; instead, the planner should interact with the corresponding window expression and
+ * its respective {@code WindowValue} implementation.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class WindowValue extends AbstractValue implements Value.TransientValue {
+public abstract class TransientWindowValue extends AbstractValue implements Value.TransientValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Windowed-Value");
 
     @Nonnull
@@ -69,8 +71,8 @@ public abstract class WindowValue extends AbstractValue implements Value.Transie
     @Nonnull
     private final FrameSpecification windowFrameSpecification;
 
-    protected WindowValue(@Nonnull final PlanSerializationContext serializationContext,
-                          @Nonnull final PWindowValue windowedValueProto) {
+    protected TransientWindowValue(@Nonnull final PlanSerializationContext serializationContext,
+                          @Nonnull final PTransientWindowValue windowedValueProto) {
         this(windowedValueProto.getArgumentValuesList()
                 .stream()
                 .map(valueProto -> Value.fromValueProto(serializationContext, valueProto))
@@ -96,12 +98,12 @@ public abstract class WindowValue extends AbstractValue implements Value.Transie
                         : FrameSpecification.defaultSpecification());
     }
 
-    protected WindowValue(@Nonnull Iterable<? extends Value> argumentValues,
+    protected TransientWindowValue(@Nonnull Iterable<? extends Value> argumentValues,
                           @Nonnull Iterable<? extends Value> partitioningValues) {
         this(argumentValues, partitioningValues, ImmutableList.of(), FrameSpecification.defaultSpecification());
     }
 
-    protected WindowValue(@Nonnull Iterable<? extends Value> argumentValues,
+    protected TransientWindowValue(@Nonnull Iterable<? extends Value> argumentValues,
                           @Nonnull Iterable<? extends Value> partitioningValues,
                           @Nonnull Iterable<WindowOrderingPart> orderingParts,
                           @Nonnull FrameSpecification windowFrameSpecification) {
@@ -168,7 +170,7 @@ public abstract class WindowValue extends AbstractValue implements Value.Transie
     public abstract String getName();
 
     @Nonnull
-    public abstract WindowValue withOrderingParts(@Nonnull List<WindowOrderingPart> newOrderingParts);
+    public abstract TransientWindowValue withOrderingParts(@Nonnull List<WindowOrderingPart> newOrderingParts);
 
     @Override
     public int hashCodeWithoutChildren() {
@@ -287,7 +289,7 @@ public abstract class WindowValue extends AbstractValue implements Value.Transie
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> {
-                    final var otherWindowValue = (WindowValue)other;
+                    final var otherWindowValue = (TransientWindowValue)other;
                     return getName().equals(otherWindowValue.getName()) &&
                             windowFrameSpecification.equals(otherWindowValue.windowFrameSpecification) &&
                             orderingParts.equals(otherWindowValue.orderingParts);
@@ -310,8 +312,8 @@ public abstract class WindowValue extends AbstractValue implements Value.Transie
     }
 
     @Nonnull
-    PWindowValue toWindowedValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        final PWindowValue.Builder builder = PWindowValue.newBuilder();
+    PTransientWindowValue toWindowedValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PTransientWindowValue.Builder builder = PTransientWindowValue.newBuilder();
         for (final Value partitioningValue : partitioningValues) {
             builder.addPartitioningValues(partitioningValue.toValueProto(serializationContext));
         }

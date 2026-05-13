@@ -232,7 +232,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
         @Nonnull
         private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final WindowValue.FrameSpecification frameSpecification,
+                                                  @Nullable final TransientWindowValue.FrameSpecification frameSpecification,
                                                   @Nullable final List<WindowOrderingPart> sortOrder,
                                                   @Nonnull final List<? extends Typed> arguments) {
             SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);

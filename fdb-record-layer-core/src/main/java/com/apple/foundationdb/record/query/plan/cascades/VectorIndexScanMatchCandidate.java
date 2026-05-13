@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanCompar
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.RowNumberWindowValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RowNumberTransientValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
@@ -72,7 +72,7 @@ import java.util.function.Supplier;
  * ) &lt;= k
  * </pre>
  * The query planner transforms such queries into patterns involving {@link Comparisons.DistanceRankValueComparison}
- * predicates (via {@link RowNumberWindowValue#transformComparisonMaybe}),
+ * predicates (via {@link RowNumberTransientValue#transformComparisonMaybe}),
  * which this match candidate can then satisfy using the vector index.
  * </p>
  *
@@ -101,7 +101,7 @@ import java.util.function.Supplier;
  *
  * @see VectorIndexScanComparisons for the scan comparison structure
  * @see Comparisons.DistanceRankValueComparison for distance-based ranking predicates
- * @see RowNumberWindowValue for comparison transformation
+ * @see RowNumberTransientValue for comparison transformation
  */
 public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandidate, WithBaseQuantifierMatchCandidate {
     /**

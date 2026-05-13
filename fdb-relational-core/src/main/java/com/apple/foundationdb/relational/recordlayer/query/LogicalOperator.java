@@ -51,7 +51,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.WindowValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.TransientWindowValue;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Table;
@@ -419,8 +419,8 @@ public class LogicalOperator {
                 .stream()
                 .filter(Expression::isWindow)
                 .map(Expression::getUnderlying)
-                .flatMap(v -> v.preOrderStream().filter(WindowValue.class::isInstance))
-                .map(WindowValue.class::cast)
+                .flatMap(v -> v.preOrderStream().filter(TransientWindowValue.class::isInstance))
+                .map(TransientWindowValue.class::cast)
                 .flatMap(windowExpression -> Streams.concat(windowExpression.getPartitioningValues().stream(),
                         windowExpression.getOrderingParts()
                                 .stream()

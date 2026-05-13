@@ -36,7 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.WindowValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.TransientWindowValue;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
@@ -218,7 +218,7 @@ public class Expression {
     }
 
     public boolean isWindow() {
-        return getUnderlying().preOrderStream().anyMatch(v1 -> v1 instanceof WindowValue);
+        return getUnderlying().preOrderStream().anyMatch(v1 -> v1 instanceof TransientWindowValue);
     }
 
     @Nonnull

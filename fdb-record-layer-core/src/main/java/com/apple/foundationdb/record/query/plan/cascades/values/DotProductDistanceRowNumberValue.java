@@ -62,11 +62,11 @@ import java.util.Objects;
  * [1, 2, 3, 4] where the first vector (most aligned) gets row number 1.
  * </p>
  *
- * @see WindowValue
+ * @see TransientWindowValue
  * @see Value.IndexOnlyValue
  */
 @API(API.Status.EXPERIMENTAL)
-public class DotProductDistanceRowNumberValue extends WindowValue implements Value.IndexOnlyValue {
+public class DotProductDistanceRowNumberValue extends TransientWindowValue implements Value.IndexOnlyValue {
     private static final String NAME = "DotProductDistanceRowNumber";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 

@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PEuclideanSquareDistanceRowNumberValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
@@ -64,11 +63,11 @@ import java.util.Objects;
  * but different row numbers.
  * </p>
  *
- * @see WindowValue
+ * @see TransientWindowValue
  * @see Value.IndexOnlyValue
  */
 @API(API.Status.EXPERIMENTAL)
-public class EuclideanSquareDistanceRowNumberValue extends WindowValue implements Value.IndexOnlyValue {
+public class EuclideanSquareDistanceRowNumberValue extends TransientWindowValue implements Value.IndexOnlyValue {
     private static final String NAME = "EuclideanSquareDistanceRowNumber";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 

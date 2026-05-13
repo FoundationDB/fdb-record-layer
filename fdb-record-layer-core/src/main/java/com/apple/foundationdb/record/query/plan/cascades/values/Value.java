@@ -296,7 +296,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * </p>
      * <p>
      * <strong>Current Implementation:</strong><br>
-     * As of now, only {@link RowNumberWindowValue} provides a non-trivial implementation of this method. It transforms
+     * As of now, only {@link RowNumberTransientValue} provides a non-trivial implementation of this method. It transforms
      * comparisons involving {@code ROW_NUMBER()} window functions ordered by distance metrics into specialized
      * {@link Comparisons.DistanceRankValueComparison} predicates that can leverage vector similarity indexes
      * (such as HNSW indexes) for efficient K-nearest neighbor searches.
@@ -319,7 +319,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @return an {@link Optional} containing the transformed {@link QueryPredicate} if this value recognizes
      *         the comparison pattern and can transform it; {@link Optional#empty()} otherwise
      *
-     * @see RowNumberWindowValue#transformComparisonMaybe(Comparisons.Type, Value) for the primary implementation example
+     * @see RowNumberTransientValue#transformComparisonMaybe(Comparisons.Type, Value) for the primary implementation example
      */
     @Nonnull
     default Optional<QueryPredicate> transformComparisonMaybe(@Nonnull final Comparisons.Type comparisonType,

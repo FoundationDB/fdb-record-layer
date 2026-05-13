@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.WindowValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.TransientWindowValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -1479,7 +1479,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public WindowValue.FrameSpecification visitFrameClause(final RelationalParser.FrameClauseContext ctx) {
+    public TransientWindowValue.FrameSpecification visitFrameClause(final RelationalParser.FrameClauseContext ctx) {
         return getDelegate().visitFrameClause(ctx);
     }
 
@@ -1500,7 +1500,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public WindowValue.FrameSpecification.FrameBoundary visitFrameRange(final RelationalParser.FrameRangeContext ctx) {
+    public TransientWindowValue.FrameSpecification.FrameBoundary visitFrameRange(final RelationalParser.FrameRangeContext ctx) {
         return getDelegate().visitFrameRange(ctx);
     }
 

@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
-import com.apple.foundationdb.record.query.plan.cascades.values.WindowValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.TransientWindowValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -52,14 +52,14 @@ public final class WindowSpecExpression {
     private final Iterable<OrderByExpression> orderByExpressions;
 
     @Nonnull
-    private final WindowValue.FrameSpecification frameSpecification;
+    private final TransientWindowValue.FrameSpecification frameSpecification;
 
     @Nonnull
     private final Expressions windowOptions;
 
     private WindowSpecExpression(@Nonnull final Expressions partitions,
                                  @Nonnull final Iterable<OrderByExpression> orderByExpressions,
-                                 @Nonnull final WindowValue.FrameSpecification frameSpecification,
+                                 @Nonnull final TransientWindowValue.FrameSpecification frameSpecification,
                                  @Nonnull final Expressions windowOptions) {
         this.partitions = partitions;
         this.orderByExpressions = orderByExpressions;
@@ -77,7 +77,7 @@ public final class WindowSpecExpression {
     @Nonnull
     public static WindowSpecExpression of(@Nonnull final Expressions partitions,
                                           @Nonnull final Iterable<OrderByExpression> orderByExpressions,
-                                          @Nonnull final WindowValue.FrameSpecification frameSpecification,
+                                          @Nonnull final TransientWindowValue.FrameSpecification frameSpecification,
                                           @Nonnull final Expressions windowOptions) {
         return new WindowSpecExpression(partitions, orderByExpressions, frameSpecification, windowOptions);
     }
@@ -110,7 +110,7 @@ public final class WindowSpecExpression {
     }
 
     @Nonnull
-    public WindowValue.FrameSpecification getFrameSpecification() {
+    public TransientWindowValue.FrameSpecification getFrameSpecification() {
         return frameSpecification;
     }
 

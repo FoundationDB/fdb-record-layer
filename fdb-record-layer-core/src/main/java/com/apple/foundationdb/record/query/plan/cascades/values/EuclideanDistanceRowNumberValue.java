@@ -58,11 +58,11 @@ import java.util.Objects;
  * the last is furthest (row number 4). Note that rows 2 and 3 have the same distance but different row numbers.
  * </p>
  *
- * @see WindowValue
+ * @see TransientWindowValue
  * @see Value.IndexOnlyValue
  */
 @API(API.Status.EXPERIMENTAL)
-public class EuclideanDistanceRowNumberValue extends WindowValue implements Value.IndexOnlyValue {
+public class EuclideanDistanceRowNumberValue extends TransientWindowValue implements Value.IndexOnlyValue {
     private static final String NAME = "EuclideanDistanceRowNumber";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 

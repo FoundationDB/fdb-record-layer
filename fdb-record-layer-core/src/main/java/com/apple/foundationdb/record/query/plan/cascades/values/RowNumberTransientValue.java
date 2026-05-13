@@ -25,12 +25,11 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.planprotos.PRowNumberWindowValue;
+import com.apple.foundationdb.record.planprotos.PRowNumberTransientValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -52,7 +51,7 @@ import java.util.Optional;
  * A windowed value representing the {@code ROW_NUMBER()} window function, which assigns sequential
  * integer row numbers to rows within partitions based on a specified ordering.
  * <p>
- * This class extends {@link WindowValue} to provide window function semantics and implements
+ * This class extends {@link TransientWindowValue} to provide window function semantics and implements
  * {@link Value.IndexOnlyValue} because row numbers are computed during index traversal for
  * vector similarity searches and cannot be reconstructed from base records alone.
  * </p>
@@ -116,7 +115,7 @@ import java.util.Optional;
  *
  * <h2>Class Hierarchy</h2>
  * <ul>
- *   <li><strong>{@link RowNumberWindowValue}</strong> (this class) - Base window function implementation</li>
+ *   <li><strong>{@link RowNumberTransientValue}</strong> (this class) - Base window function implementation</li>
  *   <li><strong>{@link EuclideanDistanceRowNumberValue}</strong> - Specialized for Euclidean distance ordering</li>
  *   <li><strong>{@link CosineDistanceRowNumberValue}</strong> - Specialized for Cosine distance ordering</li>
  * </ul>
@@ -154,7 +153,7 @@ import java.util.Optional;
  * </ul>
  * </p>
  *
- * @see WindowValue for the window function base class
+ * @see TransientWindowValue for the window function base class
  * @see RowNumberHighOrderWindowValue for the higher-order function wrapper
  * @see RowNumberHighOrderFn for the function definition and resolution
  * @see EuclideanDistanceRowNumberValue for Euclidean distance specialization
@@ -162,7 +161,7 @@ import java.util.Optional;
  * @see Comparisons.DistanceRankValueComparison for the transformed comparison type
  * @see com.apple.foundationdb.record.query.plan.cascades.VectorIndexScanMatchCandidate for index matching
  */
-public class RowNumberWindowValue extends WindowValue implements Value.IndexOnlyValue {
+public class RowNumberTransientValue extends TransientWindowValue implements Value.IndexOnlyValue {
 
     @Nonnull
     private static final String NAME = "ROW_NUMBER_WINDOW";
@@ -176,14 +175,14 @@ public class RowNumberWindowValue extends WindowValue implements Value.IndexOnly
     @Nullable
     private final Boolean isReturningVectors;
 
-    public RowNumberWindowValue(@Nonnull final PlanSerializationContext serializationContext,
-                                @Nonnull final PRowNumberWindowValue rowNumberValueProto) {
+    public RowNumberTransientValue(@Nonnull final PlanSerializationContext serializationContext,
+                                @Nonnull final PRowNumberTransientValue rowNumberValueProto) {
         super(serializationContext, Objects.requireNonNull(rowNumberValueProto.getSuper()));
         this.efSearch = rowNumberValueProto.hasEfSearch() ? rowNumberValueProto.getEfSearch() : null;
         this.isReturningVectors = rowNumberValueProto.hasIsReturningVectors() ? rowNumberValueProto.getIsReturningVectors() : null;
     }
 
-    public RowNumberWindowValue(@Nonnull final Iterable<? extends Value> partitioningValues,
+    public RowNumberTransientValue(@Nonnull final Iterable<? extends Value> partitioningValues,
                                 @Nonnull final Iterable<WindowOrderingPart> orderingParts,
                                 @Nonnull final FrameSpecification windowFrameSpecification,
                                 @Nullable final Integer efSearch,
@@ -201,8 +200,8 @@ public class RowNumberWindowValue extends WindowValue implements Value.IndexOnly
 
     @Nonnull
     @Override
-    public RowNumberWindowValue withOrderingParts(final @Nonnull List<WindowOrderingPart> newOrderingParts) {
-        return new RowNumberWindowValue(getPartitioningValues(), newOrderingParts, getWindowFrameSpecification(),
+    public RowNumberTransientValue withOrderingParts(final @Nonnull List<WindowOrderingPart> newOrderingParts) {
+        return new RowNumberTransientValue(getPartitioningValues(), newOrderingParts, getWindowFrameSpecification(),
                 efSearch, isReturningVectors);
     }
 
@@ -222,7 +221,7 @@ public class RowNumberWindowValue extends WindowValue implements Value.IndexOnly
     public Value withChildren(final Iterable<? extends Value> newChildren) {
         final var childrenPair = splitNewChildren(newChildren);
         Verify.verify(childrenPair.getValue().isEmpty());
-        return new RowNumberWindowValue(childrenPair.getKey(), splitNewOrderingParts(newChildren), getWindowFrameSpecification(), efSearch,
+        return new RowNumberTransientValue(childrenPair.getKey(), splitNewOrderingParts(newChildren), getWindowFrameSpecification(), efSearch,
                 isReturningVectors);
     }
 
@@ -362,7 +361,7 @@ public class RowNumberWindowValue extends WindowValue implements Value.IndexOnly
         final var operator = distanceValue.getOperator();
         distanceRankComparison = new Comparisons.DistanceRankValueComparison(distanceRankComparisonType, queryVector,
                 comparand, efSearch, isReturningVectors);
-        final WindowValue windowValue;
+        final TransientWindowValue windowValue;
         switch (operator) {
             case EUCLIDEAN_DISTANCE:
                 windowValue = new EuclideanDistanceRowNumberValue(getPartitioningValues(), ImmutableList.of(indexVector));
@@ -384,8 +383,8 @@ public class RowNumberWindowValue extends WindowValue implements Value.IndexOnly
 
     @Nonnull
     @Override
-    public PRowNumberWindowValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        final var rowNumberValueProtoBuilder = PRowNumberWindowValue.newBuilder()
+    public PRowNumberTransientValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final var rowNumberValueProtoBuilder = PRowNumberTransientValue.newBuilder()
                 .setSuper(toWindowedValueProto(serializationContext));
         if (efSearch != null) {
             rowNumberValueProtoBuilder.setEfSearch(efSearch);
@@ -403,27 +402,27 @@ public class RowNumberWindowValue extends WindowValue implements Value.IndexOnly
     }
 
     @Nonnull
-    public static RowNumberWindowValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PRowNumberWindowValue rowNumberValueProto) {
-        return new RowNumberWindowValue(serializationContext, rowNumberValueProto);
+    public static RowNumberTransientValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                 @Nonnull final PRowNumberTransientValue rowNumberValueProto) {
+        return new RowNumberTransientValue(serializationContext, rowNumberValueProto);
     }
 
     /**
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PRowNumberWindowValue, RowNumberWindowValue> {
+    public static class Deserializer implements PlanDeserializer<PRowNumberTransientValue, RowNumberTransientValue> {
         @Nonnull
         @Override
-        public Class<PRowNumberWindowValue> getProtoMessageClass() {
-            return PRowNumberWindowValue.class;
+        public Class<PRowNumberTransientValue> getProtoMessageClass() {
+            return PRowNumberTransientValue.class;
         }
 
         @Nonnull
         @Override
-        public RowNumberWindowValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PRowNumberWindowValue rowNumberValueProto) {
-            return RowNumberWindowValue.fromProto(serializationContext, rowNumberValueProto);
+        public RowNumberTransientValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                              @Nonnull final PRowNumberTransientValue rowNumberValueProto) {
+            return RowNumberTransientValue.fromProto(serializationContext, rowNumberValueProto);
         }
     }
 

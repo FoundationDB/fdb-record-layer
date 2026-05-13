@@ -262,7 +262,7 @@ class RowNumberHighOrderWindowValueTest {
         final var rowNumberValue = curriedFn.encapsulate(List.of()).encapsulate(arguments);
 
         Assertions.assertNotNull(rowNumberValue, "Encapsulated value should not be null");
-        Assertions.assertInstanceOf(RowNumberWindowValue.class, rowNumberValue,
+        Assertions.assertInstanceOf(RowNumberTransientValue.class, rowNumberValue,
                 "Encapsulated value should be a RowNumberValue");
     }
 

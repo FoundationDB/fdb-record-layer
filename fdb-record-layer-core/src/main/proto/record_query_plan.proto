@@ -256,7 +256,7 @@ message PValue {
     PPromoteValue promote_value = 29;
     PQuantifiedObjectValue quantified_object_value = 30;
     PQueriedValue queried_value = 31;
-    PRankWindowValue rank_value = 32;
+    PRankTransientValue rank_value = 32;
     PRecordConstructorValue record_constructor_value = 33;
     PRecordTypeValue record_type_value = 34;
     PBinaryRelOpValue binary_rel_op_value = 35;
@@ -278,7 +278,7 @@ message PValue {
     PSubscriptValue subscript_value = 52;
     PParameterObjectValue parameter_object_value = 53;
     PCastValue cast_value = 54;
-    PRowNumberWindowValue row_number_value = 55;
+    PRowNumberTransientValue row_number_value = 55;
     PEuclideanDistanceRowNumberValue euclidean_distance_row_number_value = 56;
     PCosineDistanceRowNumberValue cosine_distance_row_number_value = 57;
     PRowNumberHighOrderWindowValue row_number_high_order_value = 58;
@@ -687,8 +687,8 @@ message PQueriedValue {
   repeated string record_type_names = 2;
 }
 
-message PRankWindowValue {
-  optional PWindowValue super = 1;
+message PRankTransientValue {
+  optional PTransientWindowValue super = 1;
 }
 
 message PRowNumberValue {
@@ -699,19 +699,19 @@ message PRankValue {
 }
 
 message PEuclideanDistanceRowNumberValue {
-  optional PWindowValue super = 1;
+  optional PTransientWindowValue super = 1;
 }
 
 message PEuclideanSquareDistanceRowNumberValue {
-  optional PWindowValue super = 1;
+  optional PTransientWindowValue super = 1;
 }
 
 message PCosineDistanceRowNumberValue {
-  optional PWindowValue super = 1;
+  optional PTransientWindowValue super = 1;
 }
 
 message PDotProductDistanceRowNumberValue {
-  optional PWindowValue super = 1;
+  optional PTransientWindowValue super = 1;
 }
 
 message PRecordConstructorValue {
@@ -733,8 +733,8 @@ message PRowNumberHighOrderWindowValue {
   optional bool isReturningVectors = 3;
 }
 
-message PRowNumberWindowValue {
-  optional PWindowValue super = 1;
+message PRowNumberTransientValue {
+  optional PTransientWindowValue super = 1;
   optional int32 efSearch = 2;
   optional bool isReturningVectors = 3;
 }
@@ -1388,7 +1388,7 @@ message PCardinalityValue {
   optional PValue child_value = 1;
 }
 
-message PWindowValue {
+message PTransientWindowValue {
   repeated PValue partitioning_values = 1;
   repeated PValue argument_values = 2;
   repeated PRequestedOrderingPart ordering_parts = 3;

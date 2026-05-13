@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
@@ -306,6 +307,11 @@ public class Traversal {
                     .filter(path -> !expectedOut.contains(path))
                     .collect(LinkedIdentitySet.toLinkedIdentitySet());
             Verify.verify(extraEdges.isEmpty(), "network contained %s expected edges for reference %s", extraEdges.size(), ref);
+        }
+
+        for (Reference ref : network.nodes()) {
+            Verify.verify(ref.get().getResultValue().preOrderStream().noneMatch(v -> v instanceof Value.TransientValue),
+                    "network contains transient value for reference %s", ref);
         }
     }
 

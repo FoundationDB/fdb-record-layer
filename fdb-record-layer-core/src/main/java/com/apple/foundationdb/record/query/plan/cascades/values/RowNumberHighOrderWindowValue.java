@@ -65,7 +65,7 @@ public class RowNumberHighOrderWindowValue extends AbstractValue implements Valu
     @Nullable
     private final Boolean isReturningVectors;
 
-    private final Supplier<BuiltInWindowFunction<RowNumberWindowValue>> rowNumberFunctionSupplier;
+    private final Supplier<BuiltInWindowFunction<RowNumberTransientValue>> rowNumberFunctionSupplier;
 
     public RowNumberHighOrderWindowValue(@Nonnull final PRowNumberHighOrderWindowValue rowNumberHighOrderValueProto) {
         this.efSearch = rowNumberHighOrderValueProto.hasEfSearch() ? rowNumberHighOrderValueProto.getEfSearch() : null;
@@ -94,7 +94,7 @@ public class RowNumberHighOrderWindowValue extends AbstractValue implements Valu
 
     @Nullable
     @Override
-    public BuiltInWindowFunction<RowNumberWindowValue> evalWithoutStore(@Nonnull final EvaluationContext context) {
+    public BuiltInWindowFunction<RowNumberTransientValue> evalWithoutStore(@Nonnull final EvaluationContext context) {
         return rowNumberFunctionSupplier.get();
     }
 
@@ -152,11 +152,11 @@ public class RowNumberHighOrderWindowValue extends AbstractValue implements Valu
         }
     }
 
-    public static final class CurriedRowNumberFn extends BuiltInWindowFunction<RowNumberWindowValue> {
+    public static final class CurriedRowNumberFn extends BuiltInWindowFunction<RowNumberTransientValue> {
         CurriedRowNumberFn(@Nullable final Integer efSearch, @Nullable final Boolean isReturningVectors) {
             super("row_number", ImmutableList.of(Type.any(), Type.any()), (builtInFunction, frameSpecification, partitioningColumns, windowOrder, arguments) -> {
                 if (frameSpecification == null) {
-                    frameSpecification = WindowValue.FrameSpecification.defaultSpecification();
+                    frameSpecification = TransientWindowValue.FrameSpecification.defaultSpecification();
                 }
                 if (windowOrder == null) {
                     windowOrder = ImmutableList.of();
@@ -168,7 +168,7 @@ public class RowNumberHighOrderWindowValue extends AbstractValue implements Valu
                         SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
                 // todo: check that we do not support window order
 
-                return new RowNumberWindowValue(partitioningColumns, windowOrder, frameSpecification,
+                return new RowNumberTransientValue(partitioningColumns, windowOrder, frameSpecification,
                         efSearch, isReturningVectors);
             });
         }

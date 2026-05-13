@@ -64,11 +64,11 @@ import java.util.Objects;
  * different row numbers.
  * </p>
  *
- * @see WindowValue
+ * @see TransientWindowValue
  * @see Value.IndexOnlyValue
  */
 @API(API.Status.EXPERIMENTAL)
-public class CosineDistanceRowNumberValue extends WindowValue implements Value.IndexOnlyValue {
+public class CosineDistanceRowNumberValue extends TransientWindowValue implements Value.IndexOnlyValue {
     private static final String NAME = "CosineDistanceRowNumber";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 
@@ -97,7 +97,7 @@ public class CosineDistanceRowNumberValue extends WindowValue implements Value.I
 
     @Nonnull
     @Override
-    public WindowValue withOrderingParts(final @Nonnull List<WindowOrderingPart> newOrderingParts) {
+    public TransientWindowValue withOrderingParts(final @Nonnull List<WindowOrderingPart> newOrderingParts) {
         return new CosineDistanceRowNumberValue(getPartitioningValues(), getArgumentValues(), newOrderingParts,
                 getWindowFrameSpecification());
     }

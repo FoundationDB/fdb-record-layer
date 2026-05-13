@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.planprotos.PRankWindowValue;
+import com.apple.foundationdb.record.planprotos.PRankTransientValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -39,21 +39,21 @@ import java.util.Objects;
  * defining a window.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RankWindowValue extends WindowValue implements Value.IndexOnlyValue {
+public class RankTransientValue extends TransientWindowValue implements Value.IndexOnlyValue {
     private static final String NAME = "RANK_WINDOW";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 
-    public RankWindowValue(@Nonnull final PlanSerializationContext serializationContext,
-                           @Nonnull final PRankWindowValue rankWindowValueProto) {
+    public RankTransientValue(@Nonnull final PlanSerializationContext serializationContext,
+                           @Nonnull final PRankTransientValue rankWindowValueProto) {
         super(serializationContext, Objects.requireNonNull(rankWindowValueProto.getSuper()));
     }
 
-    public RankWindowValue(@Nonnull Iterable<? extends Value> argumentValues,
+    public RankTransientValue(@Nonnull Iterable<? extends Value> argumentValues,
                            @Nonnull Iterable<? extends Value> partitioningValues) {
         super(argumentValues, partitioningValues);
     }
 
-    public RankWindowValue(@Nonnull final Iterable<? extends Value> argumentValues,
+    public RankTransientValue(@Nonnull final Iterable<? extends Value> argumentValues,
                            @Nonnull final Iterable<? extends Value> partitioningValues,
                            @Nonnull final Iterable<WindowOrderingPart> orderingParts,
                            @Nonnull final FrameSpecification frameSpecification) {
@@ -68,8 +68,8 @@ public class RankWindowValue extends WindowValue implements Value.IndexOnlyValue
 
     @Nonnull
     @Override
-    public RankWindowValue withOrderingParts(final @Nonnull List<WindowOrderingPart> newOrderingParts) {
-        return new RankWindowValue(getArgumentValues(), getPartitioningValues(), newOrderingParts, getWindowFrameSpecification());
+    public RankTransientValue withOrderingParts(final @Nonnull List<WindowOrderingPart> newOrderingParts) {
+        return new RankTransientValue(getArgumentValues(), getPartitioningValues(), newOrderingParts, getWindowFrameSpecification());
     }
 
     @Override
@@ -85,15 +85,15 @@ public class RankWindowValue extends WindowValue implements Value.IndexOnlyValue
 
     @Nonnull
     @Override
-    public RankWindowValue withChildren(final Iterable<? extends Value> newChildren) {
+    public RankTransientValue withChildren(final Iterable<? extends Value> newChildren) {
         final var childrenPair = splitNewChildren(newChildren);
-        return new RankWindowValue(childrenPair.getValue(), childrenPair.getKey(), splitNewOrderingParts(newChildren), getWindowFrameSpecification());
+        return new RankTransientValue(childrenPair.getValue(), childrenPair.getKey(), splitNewOrderingParts(newChildren), getWindowFrameSpecification());
     }
 
     @Nonnull
     @Override
-    public PRankWindowValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRankWindowValue.newBuilder().setSuper(toWindowedValueProto(serializationContext)).build();
+    public PRankTransientValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRankTransientValue.newBuilder().setSuper(toWindowedValueProto(serializationContext)).build();
     }
 
     @Nonnull
@@ -103,27 +103,27 @@ public class RankWindowValue extends WindowValue implements Value.IndexOnlyValue
     }
 
     @Nonnull
-    public static RankWindowValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull final PRankWindowValue rankValueProto) {
-        return new RankWindowValue(serializationContext, rankValueProto);
+    public static RankTransientValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull final PRankTransientValue rankValueProto) {
+        return new RankTransientValue(serializationContext, rankValueProto);
     }
 
     /**
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PRankWindowValue, RankWindowValue> {
+    public static class Deserializer implements PlanDeserializer<PRankTransientValue, RankTransientValue> {
         @Nonnull
         @Override
-        public Class<PRankWindowValue> getProtoMessageClass() {
-            return PRankWindowValue.class;
+        public Class<PRankTransientValue> getProtoMessageClass() {
+            return PRankTransientValue.class;
         }
 
         @Nonnull
         @Override
-        public RankWindowValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                         @Nonnull final PRankWindowValue rankValueProto) {
-            return RankWindowValue.fromProto(serializationContext, rankValueProto);
+        public RankTransientValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                         @Nonnull final PRankTransientValue rankValueProto) {
+            return RankTransientValue.fromProto(serializationContext, rankValueProto);
         }
     }
 }
