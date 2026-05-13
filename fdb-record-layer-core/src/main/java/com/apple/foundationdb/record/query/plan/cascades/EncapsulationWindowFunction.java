@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.TransientWindowValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -42,7 +42,7 @@ public interface EncapsulationWindowFunction<T extends Typed> {
      * @return A {@link Typed} object capable of doing a runtime computation against a list of arguments.
      */
     T encapsulate(@Nonnull BuiltInWindowFunction<T> builtInFunction,
-                  @Nullable TransientWindowValue.FrameSpecification frameSpecification,
+                  @Nullable WindowFrameSpecification frameSpecification,
                   @Nullable List<Value> partitioningColumns,
                   @Nullable List<WindowOrderingPart> requestedWindowOrder,
                   @Nonnull List<Value> arguments);

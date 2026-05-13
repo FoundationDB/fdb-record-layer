@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
@@ -42,7 +41,7 @@ class RowNumberTransientValueTest {
     private static final ImmutableList<Value> PARTITIONING_VALUES = ImmutableList.of(LiteralValue.ofScalar(1));
     private static final ImmutableList<WindowOrderingPart> ORDERING_PARTS =
             ImmutableList.of(new WindowOrderingPart(LiteralValue.ofScalar(2), RequestedSortOrder.ASCENDING));
-    private static final TransientWindowValue.FrameSpecification DEFAULT_FRAME = TransientWindowValue.FrameSpecification.defaultSpecification();
+    private static final WindowFrameSpecification DEFAULT_FRAME = WindowFrameSpecification.defaultSpecification();
 
     @Test
     void testConstructorWithParameters() {

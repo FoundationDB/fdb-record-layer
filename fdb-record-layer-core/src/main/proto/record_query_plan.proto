@@ -691,11 +691,17 @@ message PRankTransientValue {
   optional PTransientWindowValue super = 1;
 }
 
+message PWindowValue {
+  optional PFrameSpecification frame_specification = 1;
+}
+
 message PRowNumberValue {
+  optional PWindowValue super = 1;
 }
 
 message PRankValue {
-  repeated PValue argument_values = 1;
+  optional PWindowValue super = 1;
+  repeated PValue argument_values = 2;
 }
 
 message PEuclideanDistanceRowNumberValue {
@@ -1391,8 +1397,20 @@ message PCardinalityValue {
 message PTransientWindowValue {
   repeated PValue partitioning_values = 1;
   repeated PValue argument_values = 2;
-  repeated PRequestedOrderingPart ordering_parts = 3;
+  repeated PWindowOrderingPart ordering_parts = 3;
   optional PFrameSpecification frame_specification = 4;
+}
+
+message PWindowOrderingPart {
+  enum PSortOrder {
+    ASCENDING = 1;
+    DESCENDING = 2;
+    ASCENDING_NULLS_LAST = 3;
+    DESCENDING_NULLS_FIRST = 4;
+    ANY = 5;
+  }
+  optional PValue value = 1;
+  optional PSortOrder sort_order = 2;
 }
 
 message PRequestedOrderingPart {

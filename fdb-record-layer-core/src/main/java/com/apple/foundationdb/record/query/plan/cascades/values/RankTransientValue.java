@@ -56,7 +56,7 @@ public class RankTransientValue extends TransientWindowValue implements Value.In
     public RankTransientValue(@Nonnull final Iterable<? extends Value> argumentValues,
                            @Nonnull final Iterable<? extends Value> partitioningValues,
                            @Nonnull final Iterable<WindowOrderingPart> orderingParts,
-                           @Nonnull final FrameSpecification frameSpecification) {
+                           @Nonnull final WindowFrameSpecification frameSpecification) {
         super(argumentValues, partitioningValues, orderingParts, frameSpecification);
     }
 

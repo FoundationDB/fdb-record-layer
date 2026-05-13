@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
@@ -232,7 +231,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
         @Nonnull
         private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final TransientWindowValue.FrameSpecification frameSpecification,
+                                                  @Nullable final WindowFrameSpecification frameSpecification,
                                                   @Nullable final List<WindowOrderingPart> sortOrder,
                                                   @Nonnull final List<? extends Typed> arguments) {
             SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);

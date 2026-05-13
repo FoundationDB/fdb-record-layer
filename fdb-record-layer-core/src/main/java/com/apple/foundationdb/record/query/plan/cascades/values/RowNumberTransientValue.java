@@ -184,7 +184,7 @@ public class RowNumberTransientValue extends TransientWindowValue implements Val
 
     public RowNumberTransientValue(@Nonnull final Iterable<? extends Value> partitioningValues,
                                 @Nonnull final Iterable<WindowOrderingPart> orderingParts,
-                                @Nonnull final FrameSpecification windowFrameSpecification,
+                                @Nonnull final WindowFrameSpecification windowFrameSpecification,
                                 @Nullable final Integer efSearch,
                                 @Nullable final Boolean isReturningVectors) {
         super(ImmutableList.of(), partitioningValues, orderingParts, windowFrameSpecification);

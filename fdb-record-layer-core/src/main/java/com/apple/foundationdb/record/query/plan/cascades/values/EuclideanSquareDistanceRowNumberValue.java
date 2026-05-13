@@ -84,7 +84,7 @@ public class EuclideanSquareDistanceRowNumberValue extends TransientWindowValue 
     public EuclideanSquareDistanceRowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
                                                  @Nonnull Iterable<? extends Value> argumentValues,
                                                  @Nonnull Iterable<WindowOrderingPart> orderingParts,
-                                                 @Nonnull FrameSpecification frameSpecification) {
+                                                 @Nonnull WindowFrameSpecification frameSpecification) {
         super(argumentValues, partitioningValues, orderingParts, frameSpecification);
     }
 

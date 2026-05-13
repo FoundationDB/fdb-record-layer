@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -43,18 +44,21 @@ import java.util.function.Supplier;
  * argument values that define what is being ranked.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RankValue extends AbstractValue implements Value.IndexOnlyValue {
+public class RankValue extends WindowValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("RankValue");
 
     @Nonnull
     private final List<? extends Value> argumentValues;
 
-    public RankValue(@Nonnull final Iterable<? extends Value> argumentValues) {
+    public RankValue(@Nonnull final WindowFrameSpecification frameSpecification,
+                     @Nonnull final Iterable<? extends Value> argumentValues) {
+        super(frameSpecification);
         this.argumentValues = ImmutableList.copyOf(argumentValues);
     }
 
     public RankValue(@Nonnull final PlanSerializationContext serializationContext,
                      @Nonnull final PRankValue proto) {
+        super(serializationContext, Objects.requireNonNull(proto.getSuper()));
         this.argumentValues = proto.getArgumentValuesList().stream()
                 .map(pValue -> Value.fromValueProto(serializationContext, pValue))
                 .collect(ImmutableList.toImmutableList());
@@ -69,7 +73,7 @@ public class RankValue extends AbstractValue implements Value.IndexOnlyValue {
     @Nonnull
     @Override
     public RankValue withChildren(final Iterable<? extends Value> newChildren) {
-        return new RankValue(newChildren);
+        return new RankValue(getWindowFrameSpecification(), newChildren);
     }
 
     @Nonnull
@@ -97,7 +101,8 @@ public class RankValue extends AbstractValue implements Value.IndexOnlyValue {
     @Nonnull
     @Override
     public PRankValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        final var builder = PRankValue.newBuilder();
+        final var builder = PRankValue.newBuilder()
+                .setSuper(toWindowValueProto(serializationContext));
         for (final Value argumentValue : argumentValues) {
             builder.addArgumentValues(argumentValue.toValueProto(serializationContext));
         }

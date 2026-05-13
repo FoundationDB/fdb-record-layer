@@ -244,7 +244,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final TransientWindowValue.FrameSpecification frameSpecification,
+                                                  @Nullable final WindowFrameSpecification frameSpecification,
                                                   @Nullable final List<Value> partitioningColumns,
                                                   @Nullable final List<WindowOrderingPart> sortOrder,
                                                   @Nonnull final List<? extends Typed> arguments) {
@@ -319,7 +319,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final TransientWindowValue.FrameSpecification frameSpecification,
+                                                  @Nullable final WindowFrameSpecification frameSpecification,
                                                   @Nullable final List<Value> partitioningColumns,
                                                   @Nullable final List<WindowOrderingPart> sortOrder,
                                                   @Nonnull final List<? extends Typed> arguments) {
@@ -388,7 +388,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final TransientWindowValue.FrameSpecification frameSpecification,
+                                                  @Nullable final WindowFrameSpecification frameSpecification,
                                                   @Nullable final List<Value> partitioningColumns,
                                                   @Nullable final List<WindowOrderingPart> sortOrder,
                                                   @Nonnull final List<? extends Typed> arguments) {
@@ -463,7 +463,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final TransientWindowValue.FrameSpecification frameSpecification,
+                                                  @Nullable final WindowFrameSpecification frameSpecification,
                                                   @Nullable final List<Value> partitioningColumns,
                                                   @Nullable final List<WindowOrderingPart> sortOrder,
                                                   @Nonnull final List<? extends Typed> arguments) {
@@ -539,7 +539,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final TransientWindowValue.FrameSpecification frameSpecification,
+                                                  @Nullable final WindowFrameSpecification frameSpecification,
                                                   @Nullable final List<Value> partitioningColumns,
                                                   @Nullable final List<WindowOrderingPart> sortOrder,
                                                   @Nonnull final List<? extends Typed> arguments) {

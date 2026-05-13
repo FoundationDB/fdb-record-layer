@@ -156,7 +156,7 @@ public class RowNumberHighOrderWindowValue extends AbstractValue implements Valu
         CurriedRowNumberFn(@Nullable final Integer efSearch, @Nullable final Boolean isReturningVectors) {
             super("row_number", ImmutableList.of(Type.any(), Type.any()), (builtInFunction, frameSpecification, partitioningColumns, windowOrder, arguments) -> {
                 if (frameSpecification == null) {
-                    frameSpecification = TransientWindowValue.FrameSpecification.defaultSpecification();
+                    frameSpecification = WindowFrameSpecification.defaultSpecification();
                 }
                 if (windowOrder == null) {
                     windowOrder = ImmutableList.of();

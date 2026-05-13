@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PEuclideanDistanceRowNumberValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
@@ -79,7 +78,7 @@ public class EuclideanDistanceRowNumberValue extends TransientWindowValue implem
     public EuclideanDistanceRowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
                                            @Nonnull Iterable<? extends Value> argumentValues,
                                            @Nonnull Iterable<WindowOrderingPart> orderingParts,
-                                           @Nonnull FrameSpecification frameSpecification) {
+                                           @Nonnull WindowFrameSpecification frameSpecification) {
         super(argumentValues, partitioningValues, orderingParts, frameSpecification);
     }
 

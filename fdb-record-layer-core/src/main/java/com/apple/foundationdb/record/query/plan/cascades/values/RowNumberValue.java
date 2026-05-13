@@ -34,6 +34,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -41,17 +42,16 @@ import java.util.function.Supplier;
  * and cannot be evaluated outside an index context.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RowNumberValue extends AbstractValue implements LeafValue, Value.IndexOnlyValue {
+public class RowNumberValue extends WindowValue implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("RowNumberValue");
 
-    private static final RowNumberValue INSTANCE = new RowNumberValue();
-
-    private RowNumberValue() {
+    public RowNumberValue(@Nonnull final WindowFrameSpecification frameSpecification) {
+        super(frameSpecification);
     }
 
-    @SuppressWarnings("unused")
     public RowNumberValue(@Nonnull final PlanSerializationContext serializationContext,
                           @Nonnull final PRowNumberValue proto) {
+        super(serializationContext, Objects.requireNonNull(proto.getSuper()));
     }
 
     @Nonnull
@@ -85,7 +85,9 @@ public class RowNumberValue extends AbstractValue implements LeafValue, Value.In
     @Nonnull
     @Override
     public PRowNumberValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRowNumberValue.newBuilder().build();
+        return PRowNumberValue.newBuilder()
+                .setSuper(toWindowValueProto(serializationContext))
+                .build();
     }
 
     @Nonnull
@@ -95,14 +97,9 @@ public class RowNumberValue extends AbstractValue implements LeafValue, Value.In
     }
 
     @Nonnull
-    public static RowNumberValue instance() {
-        return INSTANCE;
-    }
-
-    @Nonnull
     public static RowNumberValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                            @Nonnull final PRowNumberValue proto) {
-        return INSTANCE;
+        return new RowNumberValue(serializationContext, proto);
     }
 
     /**

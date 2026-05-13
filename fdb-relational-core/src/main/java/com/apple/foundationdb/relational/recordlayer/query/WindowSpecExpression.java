@@ -21,12 +21,11 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
-import com.apple.foundationdb.record.query.plan.cascades.values.TransientWindowValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
@@ -52,14 +51,14 @@ public final class WindowSpecExpression {
     private final Iterable<OrderByExpression> orderByExpressions;
 
     @Nonnull
-    private final TransientWindowValue.FrameSpecification frameSpecification;
+    private final WindowFrameSpecification frameSpecification;
 
     @Nonnull
     private final Expressions windowOptions;
 
     private WindowSpecExpression(@Nonnull final Expressions partitions,
                                  @Nonnull final Iterable<OrderByExpression> orderByExpressions,
-                                 @Nonnull final TransientWindowValue.FrameSpecification frameSpecification,
+                                 @Nonnull final WindowFrameSpecification frameSpecification,
                                  @Nonnull final Expressions windowOptions) {
         this.partitions = partitions;
         this.orderByExpressions = orderByExpressions;
@@ -77,7 +76,7 @@ public final class WindowSpecExpression {
     @Nonnull
     public static WindowSpecExpression of(@Nonnull final Expressions partitions,
                                           @Nonnull final Iterable<OrderByExpression> orderByExpressions,
-                                          @Nonnull final TransientWindowValue.FrameSpecification frameSpecification,
+                                          @Nonnull final WindowFrameSpecification frameSpecification,
                                           @Nonnull final Expressions windowOptions) {
         return new WindowSpecExpression(partitions, orderByExpressions, frameSpecification, windowOptions);
     }
@@ -110,7 +109,7 @@ public final class WindowSpecExpression {
     }
 
     @Nonnull
-    public TransientWindowValue.FrameSpecification getFrameSpecification() {
+    public WindowFrameSpecification getFrameSpecification() {
         return frameSpecification;
     }
 

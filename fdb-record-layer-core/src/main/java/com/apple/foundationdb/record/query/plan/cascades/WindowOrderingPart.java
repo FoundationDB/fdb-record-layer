@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.planprotos.PWindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
 
@@ -58,6 +60,44 @@ public class WindowOrderingPart {
             return sortOrder;
         }
         return defaultSortOrder;
+    }
+
+    @Nonnull
+    public PWindowOrderingPart toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PWindowOrderingPart.newBuilder()
+                .setValue(value.toValueProto(serializationContext))
+                .setSortOrder(sortOrderToProto(sortOrder))
+                .build();
+    }
+
+    @Nonnull
+    public static WindowOrderingPart fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PWindowOrderingPart proto) {
+        return new WindowOrderingPart(
+                Value.fromValueProto(serializationContext, proto.getValue()),
+                sortOrderFromProto(proto.getSortOrder()));
+    }
+
+    @Nonnull
+    private static PWindowOrderingPart.PSortOrder sortOrderToProto(@Nonnull final OrderingPart.RequestedSortOrder sortOrder) {
+        return switch (sortOrder) {
+            case ASCENDING -> PWindowOrderingPart.PSortOrder.ASCENDING;
+            case DESCENDING -> PWindowOrderingPart.PSortOrder.DESCENDING;
+            case ASCENDING_NULLS_LAST -> PWindowOrderingPart.PSortOrder.ASCENDING_NULLS_LAST;
+            case DESCENDING_NULLS_FIRST -> PWindowOrderingPart.PSortOrder.DESCENDING_NULLS_FIRST;
+            case ANY -> PWindowOrderingPart.PSortOrder.ANY;
+        };
+    }
+
+    @Nonnull
+    private static OrderingPart.RequestedSortOrder sortOrderFromProto(@Nonnull final PWindowOrderingPart.PSortOrder proto) {
+        return switch (proto) {
+            case ASCENDING -> OrderingPart.RequestedSortOrder.ASCENDING;
+            case DESCENDING -> OrderingPart.RequestedSortOrder.DESCENDING;
+            case ASCENDING_NULLS_LAST -> OrderingPart.RequestedSortOrder.ASCENDING_NULLS_LAST;
+            case DESCENDING_NULLS_FIRST -> OrderingPart.RequestedSortOrder.DESCENDING_NULLS_FIRST;
+            case ANY -> OrderingPart.RequestedSortOrder.ANY;
+        };
     }
 
     @Override

@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFuncti
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.WindowExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
@@ -639,6 +640,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         @Override
         public Cardinalities visitFullUnorderedScanExpression(@Nonnull final FullUnorderedScanExpression element) {
             return Cardinalities.unknownMaxCardinality();
+        }
+
+        @Nonnull
+        @Override
+        public Cardinalities visitWindowExpression(@Nonnull final WindowExpression windowExpression) {
+            return fromChild(windowExpression);
         }
 
         @Nonnull
