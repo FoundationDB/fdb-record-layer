@@ -284,7 +284,7 @@ public class PartitionSelectRule extends ExplorationCascadesRule<SelectExpressio
             final ImmutableList<Column<? extends Value>> lowerResultColumns =
                     lowersCorrelatedToByUppers.stream()
                             .map(lowerAlias -> Verify.verifyNotNull(aliasToQuantifierMap.get(lowerAlias)))
-                            .map(quantifier -> (Value)QuantifiedObjectValue.of(quantifier))
+                            .map(quantifier -> (Value)QuantifiedObjectValue.of(quantifier.getAlias(), quantifier.getFlowedObjectType().nullable()))
                             .map(Column::unnamedOf)
                             .collect(ImmutableList.toImmutableList());
             final var joinedResultValue =
