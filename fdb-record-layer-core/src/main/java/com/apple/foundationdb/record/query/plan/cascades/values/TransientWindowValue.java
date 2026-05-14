@@ -161,6 +161,9 @@ public abstract class TransientWindowValue extends AbstractValue implements Valu
     @Nonnull
     public abstract TransientWindowValue withOrderingParts(@Nonnull List<WindowOrderingPart> newOrderingParts);
 
+    @Nonnull
+    public abstract WindowValue toWindowValue();
+
     @Override
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, getName(), windowFrameSpecification);

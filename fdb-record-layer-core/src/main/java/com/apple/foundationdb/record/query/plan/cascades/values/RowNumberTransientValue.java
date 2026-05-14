@@ -205,6 +205,12 @@ public class RowNumberTransientValue extends TransientWindowValue implements Val
                 efSearch, isReturningVectors);
     }
 
+    @Nonnull
+    @Override
+    public WindowValue toWindowValue() {
+        return new RowNumberValue(getWindowFrameSpecification());
+    }
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return basePlanHash(mode, BASE_HASH, efSearch, isReturningVectors);

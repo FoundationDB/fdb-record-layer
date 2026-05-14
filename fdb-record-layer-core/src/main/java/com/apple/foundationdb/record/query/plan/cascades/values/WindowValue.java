@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PWindowValue;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -61,5 +62,14 @@ public abstract class WindowValue extends AbstractValue implements Value.IndexOn
     @Override
     public int hashCode() {
         return Objects.hash(super.hashCode(), frameSpecification);
+    }
+
+    @Nonnull
+    @Override
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+        return super.equalsWithoutChildren(other).filter(ignored -> {
+            WindowValue otherWindowValue = (WindowValue)other;
+            return getWindowFrameSpecification().equals(otherWindowValue.getWindowFrameSpecification());
+        });
     }
 }

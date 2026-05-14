@@ -180,6 +180,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      */
     boolean isIndexOnly();
 
+    boolean isTransient();
+
     /**
      * evaluates computation of the expression without a store and returns the result immediately.
      *

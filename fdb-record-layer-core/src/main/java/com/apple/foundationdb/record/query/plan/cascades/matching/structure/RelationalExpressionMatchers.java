@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableSc
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -246,6 +247,25 @@ public class RelationalExpressionMatchers {
     public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstreamPredicates,
                                                                     @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
         return ofTypeWithPredicatesAndOwning(SelectExpression.class, downstreamPredicates, downstreamQuantifiers);
+    }
+
+    @Nonnull
+    public static BindingMatcher<SelectExpression> selectExpressionWithOutput(@Nonnull final BindingMatcher<? extends Value> downstreamProjections,
+                                                                              @Nonnull final BindingMatcher<? extends Quantifier> downstreamQuantifiers) {
+        return selectExpressionWithOutput(any(downstreamProjections), any(downstreamQuantifiers));
+    }
+
+    @Nonnull
+    public static BindingMatcher<SelectExpression> selectExpressionWithOutput(@Nonnull final CollectionMatcher<? extends Value> downstreamProjections,
+                                                                              @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
+        return AllOfMatcher.matchingAllOf(SelectExpression.class,
+                ImmutableList.of(
+                        typedWithDownstream(SelectExpression.class,
+                                Extractor.of(SelectExpression::getResultValues, name -> "output(" + name + ")"),
+                                downstreamProjections),
+                        typedWithDownstream(SelectExpression.class,
+                                Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
+                                downstreamQuantifiers)));
     }
 
     @Nonnull

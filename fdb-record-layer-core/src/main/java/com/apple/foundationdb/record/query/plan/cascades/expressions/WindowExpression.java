@@ -22,15 +22,17 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.WithIndentationsExplainFormatter;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -55,6 +57,9 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
     private final List<Value> partitioningValues;
 
     @Nonnull
+    private final List<Value> passThroughValues;
+
+    @Nonnull
     private final RequestedOrdering requestedOrdering;
 
     @Nonnull
@@ -62,10 +67,12 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
 
     public WindowExpression(@Nonnull final WindowValue windowValue,
                             @Nonnull final List<Value> partitioningValues,
+                            @Nonnull final List<Value> passThroughValues,
                             @Nonnull final RequestedOrdering requestedOrdering,
                             @Nonnull final Quantifier innerQuantifier) {
         this.windowValue = windowValue;
         this.partitioningValues = ImmutableList.copyOf(partitioningValues);
+        this.passThroughValues = ImmutableList.copyOf(passThroughValues);
         this.requestedOrdering = requestedOrdering;
         this.innerQuantifier = innerQuantifier;
     }
@@ -83,13 +90,24 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
         for (final var partitioningValue : partitioningValues) {
             builder.addAll(partitioningValue.getCorrelatedTo());
         }
+        for (final var passThroughValue : passThroughValues) {
+            builder.addAll(passThroughValue.getCorrelatedTo());
+        }
         return builder.build();
     }
 
     @Nonnull
     @Override
     public Value getResultValue() {
-        return windowValue;
+        final var columns = ImmutableList.<Column<? extends Value>>builder();
+        columns.add(Column.unnamedOf(windowValue));
+        for (final var partitioningValue : partitioningValues) {
+            columns.add(Column.unnamedOf(partitioningValue));
+        }
+        for (final var passThroughValue : passThroughValues) {
+            columns.add(Column.unnamedOf(passThroughValue));
+        }
+        return RecordConstructorValue.ofColumns(columns.build());
     }
 
     @Nonnull
@@ -111,6 +129,11 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
     @Nonnull
     public List<Value> getPartitioningValues() {
         return partitioningValues;
+    }
+
+    @Nonnull
+    public List<Value> getPassThroughValues() {
+        return passThroughValues;
     }
 
     @Nonnull
@@ -159,8 +182,11 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
         final var translatedPartitioningValues = partitioningValues.stream()
                 .map(v -> v.translateCorrelations(translationMap, shouldSimplifyValues))
                 .collect(ImmutableList.toImmutableList());
-        return new WindowExpression(translatedWindowValue, translatedPartitioningValues, requestedOrdering,
-                Iterables.getOnlyElement(translatedQuantifiers));
+        final var translatedPassThroughValues = passThroughValues.stream()
+                .map(v -> v.translateCorrelations(translationMap, shouldSimplifyValues))
+                .collect(ImmutableList.toImmutableList());
+        return new WindowExpression(translatedWindowValue, translatedPartitioningValues, translatedPassThroughValues,
+                requestedOrdering, Iterables.getOnlyElement(translatedQuantifiers));
     }
 
     @Override
@@ -171,12 +197,20 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
     @Nonnull
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        final var formatter = WithIndentationsExplainFormatter.forDot(5);
+        final var resultString = "WINDOW " + getResultValue().explain().getExplainTokens().render(formatter);
+
+        final var detailsBuilder = ImmutableList.<String>builder();
+        detailsBuilder.add("PARTITION BY " + partitioningValues);
+        if (!requestedOrdering.isPreserve()) {
+            detailsBuilder.add("ORDER BY " + requestedOrdering);
+        }
+
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
-                        "WINDOW",
-                        List.of("FN {{fn}}", "PARTITION BY {{partitioning}}"),
-                        ImmutableMap.of("fn", Attribute.gml(windowValue.toString()),
-                                "partitioning", Attribute.gml(partitioningValues.toString()))),
+                        resultString,
+                        detailsBuilder.build(),
+                        ImmutableMap.of()),
                 childGraphs);
     }
 }

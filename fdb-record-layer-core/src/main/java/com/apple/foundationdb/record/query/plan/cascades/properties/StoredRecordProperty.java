@@ -83,7 +83,7 @@ import java.util.List;
  * An attribute used to communicate to the planner that a plan flows instances of
  * {@link com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord} (and its subclasses) which can only
  * represent records that reside stored on disk and were retrieved by this query. This is opposite of truly computed
- * records which do not such data associated with them (such as primary key information and/or similar).
+ * records which do not have such data associated with them (such as primary key information and/or similar).
  */
 public class StoredRecordProperty implements ExpressionProperty<Boolean> {
     private static final StoredRecordProperty STORED_RECORD = new StoredRecordProperty();

@@ -74,6 +74,8 @@ public class MatchValueRule extends ValueComputationRule<Iterable<? extends Valu
         for (final var toBePulledUpValue : toBePulledUpValues) {
             if (!(toBePulledUpValue instanceof FieldValue)) {
                 if (value.semanticEquals(toBePulledUpValue, call.getEquivalenceMap())) {
+//                    newMatchedValuesMap.removeAll(toBePulledUpValue);
+//                    newMatchedValuesMap.putAll(toBePulledUpValue, ImmutableList.of(ValueCompensation.noCompensation()));
                     newMatchedValuesMap.replaceValues(toBePulledUpValue,
                             ImmutableList.of(ValueCompensation.noCompensation()));
                 }

@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.TransientWindowValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
@@ -247,6 +248,11 @@ public class ValueMatchers {
     @Nonnull
     public static BindingMatcher<VersionValue> versionValue() {
         return typed(VersionValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<Value> anyTransientWindowValue() {
+        return typedMatcherWithPredicate(Value.class, Value::isTransient);
     }
 
     @Nonnull

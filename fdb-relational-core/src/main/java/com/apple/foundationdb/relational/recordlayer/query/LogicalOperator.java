@@ -343,14 +343,20 @@ public class LogicalOperator {
                                                  boolean isForDdl) {
         final Expressions missingWindowOrderingExpressions = calculateMissingWindowOrderingExpressions(output,
                 predicates, outerCorrelations);
-
-        final boolean requiresExtraSelect = !missingWindowOrderingExpressions.isEmpty();
+        final boolean isWindowExpressionOverJoin = isWindowExpressionOverJoinOrExplode(output, predicates, logicalOperators);
+        final boolean requiresExtraSelect = !missingWindowOrderingExpressions.isEmpty() || isWindowExpressionOverJoin;
 
         //
         // Window functions reference PARTITION BY and ORDER BY columns that may not be part of the current output.
         // When such columns are missing, we inject a bottom SELECT that projects both the original non-window output
         // columns and the missing partitioning/ordering columns. The top SELECT (created later) can then reference
-        // these columns when constructing its window functions. This effectively transforms:
+        // these columns when constructing its window functions.
+        //
+        // We also inject this extra SELECT when the window expression sits on top of a join or explode. This
+        // guarantees a single quantifier feeds into the window, giving the rewriter a semi-canonical shape to match
+        // against without having to handle multi-quantifier inputs.
+        //
+        // This effectively transforms:
         //
         //   SELECT(a, window(partition=b, order=c))
         //     |
@@ -428,6 +434,19 @@ public class LogicalOperator {
                 .collect(ImmutableList.toImmutableList()));
 
         return partitioningAndOrderingExprs.difference(output, outerCorrelations);
+    }
+
+    private static boolean isWindowExpressionOverJoinOrExplode(@Nonnull final Expressions output,
+                                                               @Nonnull final Expressions predicates,
+                                                               @Nonnull final LogicalOperators logicalOperators) {
+        if (logicalOperators.size() <= 1) {
+            return false;
+        }
+
+        return output.concat(predicates)
+                .expanded()
+                .stream()
+                .anyMatch(Expression::isWindow);
     }
 
     @Nonnull

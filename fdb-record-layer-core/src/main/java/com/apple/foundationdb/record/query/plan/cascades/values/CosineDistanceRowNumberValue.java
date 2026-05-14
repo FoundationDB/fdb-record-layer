@@ -101,6 +101,12 @@ public class CosineDistanceRowNumberValue extends TransientWindowValue implement
                 getWindowFrameSpecification());
     }
 
+    @Nonnull
+    @Override
+    public WindowValue toWindowValue() {
+        return null;
+    }
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return basePlanHash(mode, BASE_HASH);

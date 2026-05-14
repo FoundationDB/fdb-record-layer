@@ -57,6 +57,9 @@ public abstract class AbstractValue implements Value {
     @SuppressWarnings("this-escape")
     private final Supplier<Boolean> isIndexOnlySupplier = Suppliers.memoize(this::computeIsIndexOnly);
 
+    @Nonnull
+    private final Supplier<Boolean> isTransientSupplier = Suppliers.memoize(this::computeIsTransient);
+
     protected AbstractValue() {
     }
 
@@ -105,6 +108,15 @@ public abstract class AbstractValue implements Value {
     @Override
     public boolean isIndexOnly() {
         return isIndexOnlySupplier.get();
+    }
+
+    private boolean computeIsTransient() {
+        return preOrderStream().anyMatch(TransientValue.class::isInstance);
+    }
+
+    @Override
+    public boolean isTransient() {
+        return isTransientSupplier.get();
     }
 
     @Nonnull

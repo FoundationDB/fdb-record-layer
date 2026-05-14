@@ -72,6 +72,12 @@ public class RankTransientValue extends TransientWindowValue implements Value.In
         return new RankTransientValue(getArgumentValues(), getPartitioningValues(), newOrderingParts, getWindowFrameSpecification());
     }
 
+    @Nonnull
+    @Override
+    public WindowValue toWindowValue() {
+        return new RankValue(getWindowFrameSpecification(), getArgumentValues());
+    }
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return basePlanHash(mode, BASE_HASH);

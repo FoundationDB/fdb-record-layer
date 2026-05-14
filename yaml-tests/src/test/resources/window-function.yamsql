@@ -32,18 +32,18 @@ test_block:
   name: window-functions-test
   preset: single_repetition_ordered
   tests:
-    -
-      - query: select d1.embedding,
-                      row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100) as w1,
-                      row_number() over (partition by d1.zone order by euclidean_distance(d2.embedding, d1.embedding) desc options ef_search = 200) as w2
-               from documents d1, documents d2
-               where d1.zone = 'zone1'
-               qualify row_number() over (partition by d2.title, d2.bookshelf order by cosine_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 100
-      - unorderedResult: []
 #    -
-#      - query: select d1.embedding, row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100)
+#      - query: select d1.embedding,
+#                      row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100) as w1,
+#                      row_number() over (partition by d1.zone order by euclidean_distance(d2.embedding, d1.embedding) desc options ef_search = 200) as w2
 #               from documents d1, documents d2
+#               where d1.zone = 'zone1'
+#               qualify row_number() over (partition by d2.title, d2.bookshelf order by cosine_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 100
 #      - unorderedResult: []
+    -
+      - query: select d1.embedding, row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100)
+               from documents d1, documents d2
+      - unorderedResult: []
 #    -
 #      - query: select d1.embedding, row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100) as w1,
 #                      row_number() over (partition by d1.zone order by euclidean_distance(d2.embedding, d1.embedding) desc options ef_search = 200) as w2
