@@ -145,6 +145,33 @@ public final class PlanGenerator {
         return plan;
     }
 
+    /**
+     * Pre-generates and caches plans for the prepare statements defined in the schema template.
+     * This method is idempotent per template name and version — subsequent calls for the same
+     * template are no-ops.
+     */
+    public void prepareStatements() {
+        if (cache.isEmpty()) {
+            return;
+        }
+        final var schemaTemplate = planContext.getSchemaTemplate();
+        if (schemaTemplate.getPrepareStatements().isEmpty()) {
+            return;
+        }
+        final var templateKey = schemaTemplate.getName() + ":" + schemaTemplate.getVersion();
+        if (cache.get().isPrepared(templateKey)) {
+            return;
+        }
+        for (final var entry : schemaTemplate.getPrepareStatements().entrySet()) {
+            try {
+                getPlan(entry.getValue());
+            } catch (RelationalException e) {
+                logger.warn("Failed to prepare statement '{}': {}", entry.getKey(), e.getMessage());
+            }
+        }
+        cache.get().markPrepared(templateKey);
+    }
+
     private boolean isCaseSensitive() {
         return options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS);
     }
@@ -485,7 +512,9 @@ public final class PlanGenerator {
                                        @Nonnull final Options options) throws RelationalException {
         final var planner = new CascadesPlanner(metaData, recordStoreState, matchCandidateRegistry);
         planner.setConfiguration(planContext.getRecordQueryPlannerConfiguration());
-        return new PlanGenerator(cache, planContext, planner, options);
+        final var planGenerator = new PlanGenerator(cache, planContext, planner, options);
+        planGenerator.prepareStatements();
+        return planGenerator;
     }
 
     /**
