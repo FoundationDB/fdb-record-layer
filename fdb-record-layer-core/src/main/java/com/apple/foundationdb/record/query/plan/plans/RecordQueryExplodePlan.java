@@ -75,8 +75,8 @@ import java.util.stream.IntStream;
  * value to Java type {@code List<?>}, and then produces one {@link QueryResult} datum per array element.
  *
  * <p>In the {@code WITH ORDINALITY} variant, {@code EXPLODE} also generates ordinals of the array elements. In this
- * case the plan produces a {@link DynamicMessage} struct with fields {@code {_element, _ordinal}} instead of
- * the bare element. The ordinals are 1-based per the SQL standard (Foundation, Section 4.10.2).
+ * case the plan produces a {@link DynamicMessage} struct with two anonymous fields (the element and the ordinal)
+ * instead of the bare element. The ordinals are 1-based per the SQL standard (Foundation, Section 4.10.2).
  *
  * @see RecordQueryFlatMapPlan
  */
@@ -85,7 +85,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Explode-Plan");
 
     /**
-     * The collection value. Must evaluate to a {@code List<?>}.
+     * The collection value. Must evaluate to an array type.
      */
     @Nonnull
     private final Value collectionValue;
@@ -145,7 +145,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
                     .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
         }
 
-        // In the WITH ORDINALITY case, produce a struct {_element, _ordinal} per list element, with 1-based ordinals.
+        // In the WITH ORDINALITY case, produce a struct (element, ordinal) per list element, with 1-based ordinals.
         final Type elementType = getElementType();
         final var resultType = (Type.Record) getExplodeResultType();
         final TypeRepository typeRepository = context.getTypeRepository();
@@ -256,7 +256,10 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
-        return collectionValue.getDynamicTypes();
+        return ImmutableSet.<Type>builder()
+                .addAll(collectionValue.getDynamicTypes())
+                .addAll(getResultValue().getDynamicTypes())
+                .build();
     }
 
     @Nonnull
@@ -276,9 +279,8 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
             return false;
         }
         final var otherExplodePlan = (RecordQueryExplodePlan)otherExpression;
-
         return collectionValue.semanticEquals(otherExplodePlan.getCollectionValue(), equivalencesMap) &&
-                withOrdinality == otherExplodePlan.withOrdinality &&
+                isWithOrdinality() == otherExplodePlan.isWithOrdinality() &&
                 semanticEqualsForResults(otherExpression, equivalencesMap);
     }
 

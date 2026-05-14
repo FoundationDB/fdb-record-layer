@@ -66,12 +66,6 @@ import java.util.Set;
  * A {@code FLATMAP} plan node. {@code FLATMAP} implements correlated lateral joins by executing an inner plan for each
  * row produced by a “driving” outer plan and combining the results. The inner plan may reference the outer row via
  * correlation. The outer and inner rows are combined by applying the {@link #resultValue} expression.
- *
- * <p>{@code FLATMAP} and {@code EXPLODE} are the runtime backbone of array unnesting. For example, for a simple
- * unnesting query {@code SELECT … FROM T, T.ARR AS A}, the outer plan scans {@code T} and the inner plan explodes the
- * array {@code T.ARR}.
- *
- * @see RecordQueryExplodePlan
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChildren, ExplainPlannerGraphRewritable, InternalPlannerGraphRewritable {

@@ -317,7 +317,7 @@ public class LogicalOperator {
 
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
         if (atAlias.isPresent()) {
-            // With AT, the `ExplodeExpression` produces a struct {_element, _ordinal}. Use `FieldValue` accessors.
+            // With AT, the `ExplodeExpression` produces a struct (element, ordinal). Use `FieldValue` accessors.
             final Type elementType = explode.getElementType();
             attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(elementType),
                     FieldValue.ofOrdinalNumber(flowedObjectValue, 0)));

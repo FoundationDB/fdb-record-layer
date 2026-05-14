@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -348,10 +347,8 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             if (explodePlan.isWithOrdinality()) {
                 final Type ordinalType = Type.primitiveType(Type.TypeCode.INT, false);
                 representative = RecordConstructorValue.ofColumns(List.of(
-                        Column.of(Type.Record.Field.of(elementType, Optional.of(ExplodeExpression.ELEMENT_FIELD_NAME)),
-                                first),
-                        Column.of(Type.Record.Field.of(ordinalType, Optional.of(ExplodeExpression.ORDINAL_FIELD_NAME)),
-                                new ThrowsValue(ordinalType))));
+                        Column.of(Type.Record.Field.of(elementType, Optional.empty()), first),
+                        Column.of(Type.Record.Field.of(ordinalType, Optional.empty()), new ThrowsValue(ordinalType))));
             } else {
                 representative = first;
             }

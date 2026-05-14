@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -56,13 +55,10 @@ import java.util.Set;
  * A table function expression that “explodes” a repeated field into a stream of its values.
  *
  * <p>In the {@code WITH ORDINALITY} variant, it also generates 1-based ordinals of the field values. In this case it
- * produces a struct with fields {@code {_element, _ordinal}} instead of the bare element.
+ * produces a struct with two anonymous fields—the element and the ordinal—instead of the bare element.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildren implements InternalPlannerGraphRewritable {
-    public static final String ELEMENT_FIELD_NAME = "_element";
-    public static final String ORDINAL_FIELD_NAME = "_ordinal";
-
     @Nonnull
     private final Value collectionValue;
 
@@ -104,15 +100,15 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
     }
 
     /**
-     * Returns the type of the explode result. For the {@code WITH ORDINALITY} variant, builds the
-     * struct result type {@code {_element: elementType, _ordinal: INT}}.
+     * Returns the type of the explode result. For the {@code WITH ORDINALITY} variant, builds an anonymous-field
+     * struct result type holding the element and the 1-based ordinal.
      */
     @Nonnull
     public static Type explodeResultType(@Nonnull final Type elementType, boolean withOrdinality) {
         if (withOrdinality) {
             return Type.Record.fromFields(ImmutableList.of(
-                    Type.Record.Field.of(elementType, Optional.of(ELEMENT_FIELD_NAME)),
-                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of(ORDINAL_FIELD_NAME))));
+                    Type.Record.Field.of(elementType, Optional.empty()),
+                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.empty())));
         } else {
             return elementType;
         }
@@ -130,15 +126,6 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
     @Override
     public Value getResultValue() {
         return new QueriedValue(getExplodeResultType());
-    }
-
-    @Nonnull
-    @Override
-    public Set<Type> getDynamicTypes() {
-        return ImmutableSet.<Type>builder()
-                .addAll(collectionValue.getDynamicTypes())
-                .addAll(getResultValue().getDynamicTypes())
-                .build();
     }
 
     @Nonnull
@@ -169,12 +156,12 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         if (this == otherExpression) {
             return true;
         }
-        if (!(otherExpression instanceof final ExplodeExpression otherExplodeExpression)) {
-            return false;
+        if (otherExpression instanceof final ExplodeExpression other) {
+            return collectionValue.semanticEquals(other.getCollectionValue(), equivalencesMap) &&
+                    isWithOrdinality() == other.isWithOrdinality() &&
+                    semanticEqualsForResults(otherExpression, equivalencesMap);
         }
-        return collectionValue.semanticEquals(otherExplodeExpression.getCollectionValue(), equivalencesMap) &&
-                withOrdinality == otherExplodeExpression.withOrdinality &&
-                semanticEqualsForResults(otherExpression, equivalencesMap);
+        return false;
     }
 
     @Override
@@ -239,8 +226,8 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
     @Override
     public String toString() {
         return withOrdinality
-                ? collectionValue + " WITH ORDINALITY"
-                : collectionValue.toString();
+               ? collectionValue + " WITH ORDINALITY"
+               : collectionValue.toString();
     }
 
     public static ExplodeExpression explodeField(@Nonnull final Quantifier.ForEach baseQuantifier,

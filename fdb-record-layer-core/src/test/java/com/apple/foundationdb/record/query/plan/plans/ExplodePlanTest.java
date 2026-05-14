@@ -287,8 +287,8 @@ public class ExplodePlanTest {
     }
 
     /**
-     * Verify that {@link ExplodeExpression#getDynamicTypes()} registers the synthesized {@code {_element, _ordinal}}
-     * struct as a dynamic type in the WITH ORDINALITY variant.
+     * Verify that {@link ExplodeExpression#getDynamicTypes()} registers the synthesized (element, ordinal) struct as
+     * a dynamic type in the WITH ORDINALITY variant.
      */
     @Test
     void dynamicTypesIncludeOrdinalityStruct() {
