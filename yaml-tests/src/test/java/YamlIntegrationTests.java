@@ -168,6 +168,12 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPECTATIONS)
+    public void existsInSelect(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("exists-in-select.yamsql");
+    }
+
+    @TestTemplate
     public void fieldIndexTestsProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("field-index-tests-proto.yamsql");
     }

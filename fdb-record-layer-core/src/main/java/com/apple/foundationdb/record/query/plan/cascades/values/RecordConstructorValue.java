@@ -132,8 +132,6 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                     childResult = wrapperBuilder.build();
                 }
                 resultMessageBuilder.setField(fieldDescriptor, childResult);
-            } else {
-                Verify.verify(fieldType.isNullable(), "Cannot set a non-nullable field to the NULL value");
             }
             i++;
         }
