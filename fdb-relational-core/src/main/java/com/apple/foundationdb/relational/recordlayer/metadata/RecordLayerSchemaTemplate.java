@@ -346,6 +346,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
+    @Override
     public Map<String, String> getPrepareStatements() {
         return prepareStatements;
     }

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRegistry;
@@ -161,7 +162,7 @@ public final class PlanGenerator {
             try {
                 getPlan(entry.getValue());
             } catch (RelationalException e) {
-                logger.warn("Failed to prepare statement '{}': {}", entry.getKey(), e.getMessage());
+                logger.error(KeyValueLogMessage.of("prepare statement", LogMessageKeys.QUERY, entry.getValue()), e);
             }
         }
         cache.get().markPrepared(templateKey);
