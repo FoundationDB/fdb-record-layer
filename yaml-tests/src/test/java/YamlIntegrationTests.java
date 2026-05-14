@@ -168,7 +168,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPECTATIONS)
     public void existsInSelect(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("exists-in-select.yamsql");
     }

@@ -1135,15 +1135,6 @@ public class SemanticAnalyzer {
                                                 boolean flattenSingleItemRecords) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName.getName()), ErrorCode.UNDEFINED_FUNCTION,
                 () -> String.format(Locale.ROOT, "Unknown function %s", functionName));
-
-        var a = ((SqlFunctionCatalogImpl) functionCatalog).userDefinedFunctionCatalog.functionsMap.get("__5tvf_SIMPLE_RECORDS").apply(true);
-        ((CompiledSqlFunction) a).body // select
-                .getQuantifiers().get(0).getRangesOver().get()  // type filter
-                .getQuantifiers().get(0).getRangesOver().get(); // scan
-
-        var b = 34;
-
-
         final var tableFunction = functionCatalog.lookupFunction(functionName.getName(), arguments);
         if (tableFunction instanceof BuiltInFunction) {
             Assert.thatUnchecked(tableFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");
