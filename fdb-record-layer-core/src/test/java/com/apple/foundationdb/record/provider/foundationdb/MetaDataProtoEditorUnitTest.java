@@ -587,6 +587,7 @@ public class MetaDataProtoEditorUnitTest {
         assertEquals(Set.of(
                         "split_long_records", "version", "former_indexes", "record_count_key",
                         "store_record_versions", "dependencies", "subspace_key_counter", "uses_subspace_key_counter",
+                        "prepare_statements",
                         // the below reference record types
                         "records", "indexes", "record_types", "joined_record_types", "unnested_record_types",
                         "user_defined_functions", "views"),
