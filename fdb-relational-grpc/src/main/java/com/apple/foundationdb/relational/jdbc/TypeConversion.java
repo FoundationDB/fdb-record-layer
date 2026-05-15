@@ -46,8 +46,8 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.EnumMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumn;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.StructMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Type;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Uuid;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.VectorMetadata;
@@ -82,7 +82,7 @@ public class TypeConversion {
      * @return {@link RelationalStruct} instance pulled from <code>resultSet</code>
      * @throws SQLException If failed get of <code>resultSet</code> metadata.
      */
-    static RelationalStruct getStruct(ResultSet resultSet, int rowIndex, int oneBasedColumn) throws SQLException {
+    static RelationalStruct getStruct(ResultSet resultSet, int rowIndex, int oneBasedColumn) {
         int index = PositionalIndex.toProtobuf(oneBasedColumn);
         var metadata =
                 resultSet.getMetadata().getColumnMetadata().getColumnMetadata(index).getStructMetadata();
@@ -90,7 +90,7 @@ public class TypeConversion {
         return column.hasStruct() ? new RelationalStructFacade(metadata, column.getStruct()) : null;
     }
 
-    static UUID getUUID(ResultSet resultSet, int rowIndex, int oneBasedColumn) throws SQLException {
+    static UUID getUUID(ResultSet resultSet, int rowIndex, int oneBasedColumn) {
         int index = PositionalIndex.toProtobuf(oneBasedColumn);
         Column column = resultSet.getRow(rowIndex).getColumns().getColumn(index);
         return column.hasUuid() ? new UUID(column.getUuid().getMostSignificantBits(), column.getUuid().getLeastSignificantBits()) : null;
@@ -164,8 +164,8 @@ public class TypeConversion {
         for (Map.Entry<String, KeySetValue> entry : protobufKeySet.getFieldsMap().entrySet()) {
             keySet.setKeyColumn(entry.getKey(),
                     entry.getValue().hasBytesValue() ? entry.getValue().getBytesValue() :
-                            entry.getValue().hasLongValue() ? entry.getValue().getLongValue() :
-                                    entry.getValue().hasStringValue() ? entry.getValue().getStringValue() : null);
+                    entry.getValue().hasLongValue() ? entry.getValue().getLongValue() :
+                    entry.getValue().hasStringValue() ? entry.getValue().getStringValue() : null);
         }
         return keySet;
     }
@@ -183,8 +183,7 @@ public class TypeConversion {
         // One-offs
         switch (protobufType) {
             case STRUCT:
-                var listColumnMetadata = toListColumnMetadataProtobuf(metadata.getStructMetaData(oneBasedIndex));
-                columnMetadataBuilder.setStructMetadata(listColumnMetadata);
+                columnMetadataBuilder.setStructMetadata(toListColumnMetadataProtobuf(metadata.getStructMetaData(oneBasedIndex)));
                 break;
             case ARRAY:
                 var columnMetadata = toColumnMetadata(metadata.getArrayMetaData(oneBasedIndex));
@@ -262,8 +261,7 @@ public class TypeConversion {
         // One-offs
         switch (metadata.getElementType()) {
             case Types.STRUCT:
-                var listColumnMetadata = toListColumnMetadataProtobuf(metadata.getElementStructMetaData());
-                columnMetadataBuilder.setStructMetadata(listColumnMetadata);
+                columnMetadataBuilder.setStructMetadata(toListColumnMetadataProtobuf(metadata.getElementStructMetaData()));
                 break;
             case Types.ARRAY:
                 var columnMetadata = toColumnMetadata(metadata.getElementArrayMetaData());
@@ -281,20 +279,16 @@ public class TypeConversion {
         return columnMetadataBuilder.build();
     }
 
-    private static ListColumnMetadata toListColumnMetadataProtobuf(@Nonnull StructMetaData metadata) throws SQLException {
-        var listColumnMetadataBuilder = ListColumnMetadata.newBuilder();
+    private static StructMetadata toListColumnMetadataProtobuf(@Nonnull StructMetaData metadata) throws SQLException {
+        var structMetadataBuilder = StructMetadata.newBuilder();
         for (int oneBasedIndex = 1; oneBasedIndex <= metadata.getColumnCount(); oneBasedIndex++) {
             var columnMetadata = toColumnMetadata(metadata, oneBasedIndex, oneBasedIndex - 1 + metadata.getLeadingPhantomColumnCount());
-            listColumnMetadataBuilder.addColumnMetadata(columnMetadata);
+            structMetadataBuilder.addColumnMetadata(columnMetadata);
         }
-        return listColumnMetadataBuilder.build();
+        return structMetadataBuilder.setTypeName(metadata.getTypeName()).build();
     }
 
-    private static ResultSetMetadata toResultSetMetaData(RelationalResultSet resultSet, int columnCount) throws SQLException {
-        var listColumnMetadataBuilder = ListColumnMetadata.newBuilder();
-        for (int oneBasedIndex = 1; oneBasedIndex <= columnCount; oneBasedIndex++) {
-            listColumnMetadataBuilder.addColumnMetadata(toColumnMetadata(resultSet.getMetaData(), oneBasedIndex, oneBasedIndex - 1 + resultSet.getMetaData().getLeadingPhantomColumnCount()));
-        }
+    private static ResultSetMetadata toResultSetMetaData(RelationalResultSet resultSet) throws SQLException {
         return ResultSetMetadata.newBuilder().setColumnMetadata(toListColumnMetadataProtobuf(resultSet.getMetaData())).build();
     }
 
@@ -519,15 +513,16 @@ public class TypeConversion {
         return column;
     }
 
-    static DataType.StructType getStructDataType(@Nonnull List<ColumnMetadata> columnMetadataList, boolean nullable) {
+    static DataType.StructType getStructDataType(StructMetadata structMetadata, boolean nullable) {
         final var structFields = new ArrayList<DataType.StructType.Field>();
-        for (int i = 0; i < columnMetadataList.size(); i++) {
-            final var colMetadata = columnMetadataList.get(i);
+        for (int i = 0; i < structMetadata.getColumnMetadataList().size(); i++) {
+            final var colMetadata = structMetadata.getColumnMetadataList().get(i);
             final var dataType = getDataType(colMetadata.getType(), colMetadata, colMetadata.getNullable());
             structFields.add(DataType.StructType.Field.from(colMetadata.getName(), dataType, i));
         }
-        // we do not preserve struct name
-        return DataType.StructType.from("ANONYMOUS_STRUCT", structFields, nullable);
+
+        final String typeName = structMetadata.hasTypeName() ? structMetadata.getTypeName() : "ANONYMOUS_STRUCT";
+        return DataType.StructType.from(typeName, structFields, nullable);
     }
 
     /**
@@ -547,7 +542,7 @@ public class TypeConversion {
             return null;
         }
         var resultSetBuilder = ResultSet.newBuilder();
-        resultSetBuilder.setMetadata(toResultSetMetaData(relationalResultSet, relationalResultSet.getMetaData().getColumnCount()));
+        resultSetBuilder.setMetadata(toResultSetMetaData(relationalResultSet));
         while (relationalResultSet.next()) {
             resultSetBuilder.addRow(toStruct(relationalResultSet));
         }
@@ -924,7 +919,7 @@ public class TypeConversion {
             case VERSION:
                 return nullable ? DataType.Primitives.NULLABLE_VERSION.type() : DataType.Primitives.VERSION.type();
             case STRUCT:
-                return getStructDataType(columnMetadata.getStructMetadata().getColumnMetadataList(), nullable);
+                return getStructDataType(columnMetadata.getStructMetadata(), nullable);
             case ENUM:
                 return getEnumDataType(columnMetadata.getEnumMetadata(), nullable);
             case ARRAY:
