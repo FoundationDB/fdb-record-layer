@@ -342,10 +342,10 @@ public class LogicalOperator {
                                                  @Nonnull Set<CorrelationIdentifier> outerCorrelations,
                                                  boolean isTopLevel,
                                                  boolean isForDdl) {
-        final Expressions missingWindowOrderingExpressions = calculateMissingWindowOrderingExpressions(output,
+        final Expressions missingWindowColumns = missingWindowColumns(output,
                 predicates, outerCorrelations);
         final boolean isWindowExpressionOverJoin = isWindowExpressionOverJoinOrExplode(output, predicates, logicalOperators);
-        final boolean requiresExtraSelect = !missingWindowOrderingExpressions.isEmpty() || isWindowExpressionOverJoin;
+        final boolean requiresExtraSelect = !missingWindowColumns.isEmpty() || isWindowExpressionOverJoin;
 
         //
         // Window functions reference PARTITION BY and ORDER BY columns that may not be part of the current output.
@@ -379,8 +379,8 @@ public class LogicalOperator {
         //
         if (requiresExtraSelect) {
             var augmentedOutput = output.filter(e -> !e.isWindow());
-            for (final var missingExpr : missingWindowOrderingExpressions) {
-                if (!missingExpr.canBeDerivedFrom(Expression.fromUnderlying(augmentedOutput.asValue()), outerCorrelations)) {
+            for (final var missingExpr : missingWindowColumns) {
+                if (augmentedOutput.isEmpty() || !missingExpr.canBeDerivedFrom(Expression.fromUnderlying(augmentedOutput.asValue()), outerCorrelations)) {
                     augmentedOutput = augmentedOutput.concat(missingExpr);
                 }
             }
@@ -418,23 +418,20 @@ public class LogicalOperator {
     }
 
     @Nonnull
-    private static Expressions calculateMissingWindowOrderingExpressions(@Nonnull Expressions output,
-                                                                         @Nonnull Expressions predicates,
-                                                                         @Nonnull Set<CorrelationIdentifier> outerCorrelations) {
-        final var partitioningAndOrderingExprs = Expressions.fromUnderlying(output.concat(predicates)
-                .expanded()
-                .stream()
+    private static Expressions missingWindowColumns(@Nonnull final Expressions output,
+                                                    @Nonnull final Expressions predicates,
+                                                    @Nonnull final Set<CorrelationIdentifier> outerCorrelations) {
+        final var windowColumns = Expressions.fromUnderlying(output.concat(predicates).expanded().stream()
                 .filter(Expression::isWindow)
                 .map(Expression::getUnderlying)
                 .flatMap(v -> v.preOrderStream().filter(TransientWindowValue.class::isInstance))
                 .map(TransientWindowValue.class::cast)
-                .flatMap(windowExpression -> Streams.concat(windowExpression.getPartitioningValues().stream(),
-                        windowExpression.getOrderingParts()
-                                .stream()
-                                .map(WindowOrderingPart::getValue)))
+                .flatMap(w -> Streams.concat(
+                        w.getPartitioningValues().stream(),
+                        w.getOrderingParts().stream().map(WindowOrderingPart::getValue),
+                        w.getArgumentValues().stream()))
                 .collect(ImmutableList.toImmutableList()));
-
-        return partitioningAndOrderingExprs.difference(output, outerCorrelations);
+        return windowColumns.difference(output, outerCorrelations);
     }
 
     private static boolean isWindowExpressionOverJoinOrExplode(@Nonnull final Expressions output,
