@@ -1652,6 +1652,28 @@ public class StandardQueryTests {
         }
     }
 
+    @Test
+    void testSelectWithConstructedArrayOfPrimitives() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertRestaurantComplexRecord(statement);
+                Assertions.assertTrue(
+                        statement.execute("SELECT [name] FROM RestaurantComplexRecord"),
+                        "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                    RelationalArray array = resultSet.getArray(1);
+                    try (RelationalResultSet arrResultSet = array.getResultSet()) {
+                        ResultSetAssert.assertThat(arrResultSet).hasNextRow();
+                        Assertions.assertEquals("testName", arrResultSet.getString(2));
+                        Assertions.assertEquals(DatabaseMetaData.columnNoNulls, arrResultSet.getMetaData().isNullable(2));
+                    }
+                    Assertions.assertFalse(resultSet.next());
+                }
+            }
+        }
+    }
+
     // todo (yhatem) add more tests for queries w and w/o index definition.
 
     private void insertTypeConflictRecords(RelationalStatement s) throws SQLException {
