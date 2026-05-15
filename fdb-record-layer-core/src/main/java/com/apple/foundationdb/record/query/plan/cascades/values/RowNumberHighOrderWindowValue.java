@@ -164,6 +164,7 @@ public class RowNumberHighOrderWindowValue extends AbstractValue implements Valu
 
                 SemanticException.check(arguments.isEmpty(),
                         SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                // it looks like the following condition can be removed.
                 SemanticException.check(partitioningColumns != null,
                         SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
                 // todo: check that we do not support window order

@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AggregateDataAccessRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ExpandWindowExpressions;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveDfsJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.WithPrimaryKeyDataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule;

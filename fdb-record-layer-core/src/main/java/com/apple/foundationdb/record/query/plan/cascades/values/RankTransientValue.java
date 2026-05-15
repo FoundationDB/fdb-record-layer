@@ -26,13 +26,21 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PRankTransientValue;
 import com.apple.foundationdb.record.planprotos.PValue;
+import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A windowed value that computes the RANK of a list of expressions which can optionally be partitioned by expressions
@@ -44,19 +52,19 @@ public class RankTransientValue extends TransientWindowValue implements Value.In
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 
     public RankTransientValue(@Nonnull final PlanSerializationContext serializationContext,
-                           @Nonnull final PRankTransientValue rankWindowValueProto) {
+                              @Nonnull final PRankTransientValue rankWindowValueProto) {
         super(serializationContext, Objects.requireNonNull(rankWindowValueProto.getSuper()));
     }
 
     public RankTransientValue(@Nonnull Iterable<? extends Value> argumentValues,
-                           @Nonnull Iterable<? extends Value> partitioningValues) {
+                              @Nonnull Iterable<? extends Value> partitioningValues) {
         super(argumentValues, partitioningValues);
     }
 
     public RankTransientValue(@Nonnull final Iterable<? extends Value> argumentValues,
-                           @Nonnull final Iterable<? extends Value> partitioningValues,
-                           @Nonnull final Iterable<WindowOrderingPart> orderingParts,
-                           @Nonnull final WindowFrameSpecification frameSpecification) {
+                              @Nonnull final Iterable<? extends Value> partitioningValues,
+                              @Nonnull final Iterable<WindowOrderingPart> orderingParts,
+                              @Nonnull final WindowFrameSpecification frameSpecification) {
         super(argumentValues, partitioningValues, orderingParts, frameSpecification);
     }
 
@@ -110,7 +118,7 @@ public class RankTransientValue extends TransientWindowValue implements Value.In
 
     @Nonnull
     public static RankTransientValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull final PRankTransientValue rankValueProto) {
+                                               @Nonnull final PRankTransientValue rankValueProto) {
         return new RankTransientValue(serializationContext, rankValueProto);
     }
 
@@ -128,8 +136,27 @@ public class RankTransientValue extends TransientWindowValue implements Value.In
         @Nonnull
         @Override
         public RankTransientValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                         @Nonnull final PRankTransientValue rankValueProto) {
+                                            @Nonnull final PRankTransientValue rankValueProto) {
             return RankTransientValue.fromProto(serializationContext, rankValueProto);
+        }
+    }
+
+    @AutoService(BuiltInWindowFunction.class)
+    public static final class RankFn extends BuiltInWindowFunction<RankTransientValue> {
+        public RankFn() {
+            super("rank", ImmutableList.of(Type.any(), Type.any()), (builtInFunction, frameSpecification, partitioningColumns, windowOrder, arguments) -> {
+                if (frameSpecification == null) {
+                    frameSpecification = WindowFrameSpecification.defaultSpecification();
+                }
+                if (windowOrder == null) {
+                    windowOrder = ImmutableList.of();
+                }
+                if (partitioningColumns == null) {
+                    partitioningColumns = ImmutableList.of();
+                }
+
+                return new RankTransientValue(arguments, partitioningColumns, windowOrder, frameSpecification);
+            });
         }
     }
 }

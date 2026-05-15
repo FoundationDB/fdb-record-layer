@@ -152,6 +152,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
                 .put("isnotdistinctfrom", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("notDistinctFrom", argumentsCount))
                 .put("range", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("range", argumentsCount))
                 .put("row_number", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("row_number", argumentsCount))
+                .put("rank", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("rank", argumentsCount))
                 .put("__pattern_for_like", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("patternForLike", argumentsCount))
                 .put("__internal_array", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("array", argumentsCount))
                 .put("__pick_value", argumentsCount -> FunctionCatalog.resolveBuiltInFunction("pick", argumentsCount))

@@ -270,6 +270,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         // parse any arguments
         //
         final var argumentsBuilder = ImmutableList.<Value>builder();
+        if (windowedFunctionContext.functionArgs() != null) {
+            argumentsBuilder.addAll(visitFunctionArgs(windowedFunctionContext.functionArgs()).underlying());
+        }
         if (windowedFunctionContext.expression() != null) {
             argumentsBuilder.add(parseChild(windowedFunctionContext.expression()).getUnderlying());
         }

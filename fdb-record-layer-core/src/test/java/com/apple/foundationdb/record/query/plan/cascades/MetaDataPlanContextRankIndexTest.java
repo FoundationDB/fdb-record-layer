@@ -133,7 +133,7 @@ class MetaDataPlanContextRankIndexTest extends FDBRecordStoreQueryTestBase {
 
             // Verify no WindowedIndexScanMatchCandidate (BY_RANK scans) are created for rank indexes
             long windowedCandidateCount = matchCandidates.stream()
-                    .filter(candidate -> candidate instanceof WindowedIndexScanMatchCandidate)
+                    .filter(candidate -> candidate instanceof LegacyWindowedIndexScanMatchCandidate)
                     .count();
 
             assertEquals(0, windowedCandidateCount,
@@ -179,7 +179,7 @@ class MetaDataPlanContextRankIndexTest extends FDBRecordStoreQueryTestBase {
 
             // Filter to WindowedIndexScanMatchCandidate with our rank index names
             final Set<String> windowedIndexCandidateNames = matchCandidates.stream()
-                    .filter(candidate -> candidate instanceof WindowedIndexScanMatchCandidate)
+                    .filter(candidate -> candidate instanceof LegacyWindowedIndexScanMatchCandidate)
                     .map(MatchCandidate::getName)
                     .collect(Collectors.toSet());
 

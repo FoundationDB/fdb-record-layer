@@ -160,11 +160,46 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         openRecordStore(context, NO_HOOK);
     }
 
+    /*
+    message NestedRankedRecord {
+  required string name = 1 [(field).primary_key = true];
+  optional string country = 2;
+  message GameScore {
+    optional string game = 1;
+    optional string tier = 2;
+    optional double score = 3;
+  }
+  repeated GameScore scores = 3;
+}
+     */
+
     protected void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsRankProto.getDescriptor());
         metaDataBuilder.addIndex("BasicRankedRecord",
                 new Index("rank_by_gender", field("score").groupBy(field("gender")),
                         IndexTypes.RANK));
+        //
+        // protobuf message:
+        //   message NestedRankedRecord {
+        //      required string name = 1 [(field).primary_key = true];
+        //      optional string country = 2;
+        //      message GameScore {
+        //         optional string game = 1;
+        //         optional string tier = 2;
+        //         optional double score = 3;
+        //      }
+        //      repeated GameScore scores = 3;
+        //  }
+        //
+        // ddl in sql
+        //   create type as struct GameScore(game string, tier string, score string)
+        //   create table NestedRankRecord(name string, country string, scores GameScore array, primary key(name))
+        //
+        // to create the following index, I think the syntax is something like
+        //   create index score_by_country as
+        //      select rank(ss.tier, ss.score) partition by (x.country, ss.game)
+        //      from NestedRankedRecord x, x.scores as ss
+        //
         metaDataBuilder.addIndex("NestedRankedRecord",
                 new Index("score_by_country",
                         Key.Expressions.concat(field("country"),

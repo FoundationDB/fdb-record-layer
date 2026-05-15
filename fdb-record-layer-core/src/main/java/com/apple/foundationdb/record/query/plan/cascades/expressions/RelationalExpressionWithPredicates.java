@@ -24,11 +24,13 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
@@ -87,6 +89,11 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
     @Nonnull
     default ImmutableSet<FieldValue> fieldValuesFromPredicates() {
         return fieldValuesFromPredicates(getPredicates());
+    }
+
+    default boolean hasTransientWindowFunctions() {
+        return getResultValue().isTransient() || getPredicates().stream().filter(WithValue.class::isInstance)
+                .map(WithValue.class::cast).map(WithValue<?>::getValue).filter(Objects::nonNull).anyMatch(Value::isTransient);
     }
 
     /**

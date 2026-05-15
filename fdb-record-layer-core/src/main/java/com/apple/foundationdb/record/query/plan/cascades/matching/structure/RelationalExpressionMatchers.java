@@ -250,19 +250,29 @@ public class RelationalExpressionMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<SelectExpression> selectExpressionWithOutput(@Nonnull final BindingMatcher<? extends Value> downstreamProjections,
-                                                                              @Nonnull final BindingMatcher<? extends Quantifier> downstreamQuantifiers) {
-        return selectExpressionWithOutput(any(downstreamProjections), any(downstreamQuantifiers));
+    public static BindingMatcher<SelectExpression> transientSelectExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
+        return typedWithDownstream(SelectExpression.class,
+                Extractor.identity(),
+                AllOfMatcher.matchingAllOf(SelectExpression.class,
+                        ImmutableList.of(
+                                PrimitiveMatchers.<SelectExpression>satisfies(RelationalExpressionWithPredicates::hasTransientWindowFunctions),
+                                typedWithDownstream(SelectExpression.class,
+                                        Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
+                                        downstreamQuantifiers))));
     }
 
     @Nonnull
-    public static BindingMatcher<SelectExpression> selectExpressionWithOutput(@Nonnull final CollectionMatcher<? extends Value> downstreamProjections,
-                                                                              @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
+    public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final CollectionMatcher<? extends Value> downstreamProjections,
+                                                                    @Nonnull final CollectionMatcher<? extends QueryPredicate> downstreamPredicates,
+                                                                    @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
         return AllOfMatcher.matchingAllOf(SelectExpression.class,
                 ImmutableList.of(
                         typedWithDownstream(SelectExpression.class,
                                 Extractor.of(SelectExpression::getResultValues, name -> "output(" + name + ")"),
                                 downstreamProjections),
+                        typedWithDownstream(SelectExpression.class,
+                                Extractor.of(SelectExpression::getPredicates, name -> "predicates(" + name + ")"),
+                                downstreamPredicates),
                         typedWithDownstream(SelectExpression.class,
                                 Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
                                 downstreamQuantifiers)));

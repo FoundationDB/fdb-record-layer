@@ -217,7 +217,7 @@ public interface MatchCandidate {
      * equality-bound ordering part should be implicitly added.
      * <p>
      * The default implementation returns {@code false}. Subclasses that support record-type-scoped scans
-     * (e.g., {@link ValueIndexScanMatchCandidate}, {@link WindowedIndexScanMatchCandidate}) override this.
+     * (e.g., {@link ValueIndexScanMatchCandidate}, {@link LegacyWindowedIndexScanMatchCandidate}) override this.
      *
      * @return {@code true} if this candidate is scoped to a single record type, {@code false} otherwise
      */

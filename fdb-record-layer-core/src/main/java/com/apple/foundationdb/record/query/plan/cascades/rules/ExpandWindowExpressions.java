@@ -21,15 +21,18 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.WindowExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.TransientWindowValue;
@@ -41,25 +44,23 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-
 import java.util.Objects;
-import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.atLeastOne;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpressionWithOutput;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyTransientWindowValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.transientSelectExpression;
 
+/**
+ * Matches a {@link SelectExpression} containing a single {@link TransientWindowValue} and rewrites it into a
+ * {@link WindowExpression} fed by the original input, wrapped by an upper {@link SelectExpression} that projects
+ * the window result alongside any pass-through columns.
+ */
 public class ExpandWindowExpressions extends ImplementationCascadesRule<SelectExpression> {
-    @Nonnull
     private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
-    @Nonnull
-    private static final BindingMatcher<Value> windowValuesMatcher = anyTransientWindowValue();
-    @Nonnull
-    private static final BindingMatcher<SelectExpression> root = selectExpressionWithOutput(atLeastOne(windowValuesMatcher), exactly(innerQuantifierMatcher));
+    private static final BindingMatcher<SelectExpression> root = transientSelectExpression(exactly(innerQuantifierMatcher));
 
     public ExpandWindowExpressions() {
         super(root);
@@ -67,57 +68,72 @@ public class ExpandWindowExpressions extends ImplementationCascadesRule<SelectEx
 
     @Override
     public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
-        final var transientWindowValues = call.getBindings().getAll(windowValuesMatcher).stream()
-                .flatMap(value -> value.preOrderStream().filter(TransientWindowValue.class::isInstance))
-                .map(TransientWindowValue.class::cast)
-                .distinct()
-                .collect(ImmutableList.toImmutableList());
-        if (transientWindowValues.size() != 1) {
+        final var select = call.get(root);
+        final var lowerRef = call.get(lowerRefMatcher);
+        final var twvs = collectTransientWindowValues(select);
+        if (twvs.size() != 1) {
             return;
         }
 
-        final var selectExpression = call.get(root);
-        final var lowerRef = call.get(lowerRefMatcher);
-        final var oldQun = Iterables.getOnlyElement(selectExpression.getQuantifiers());
+        final var oldQun = Iterables.getOnlyElement(select.getQuantifiers());
         final var newLowerQun = Quantifier.forEach(lowerRef);
-        final var rebaseToNew = AliasMap.ofAliases(oldQun.getAlias(), newLowerQun.getAlias());
+        final var rebase = AliasMap.ofAliases(oldQun.getAlias(), newLowerQun.getAlias());
+        final var twv = Iterables.getOnlyElement(twvs);
 
-        final var transientWindowValue = Iterables.getOnlyElement(transientWindowValues);
-        final var partitioningValues = transientWindowValue.getPartitioningValues().stream()
-                .map(v -> v.rebase(rebaseToNew)).collect(ImmutableList.toImmutableList());
-        final var passThroughValues = selectExpression.getResultValues().stream()
-                .filter(v -> !v.isTransient()).map(v -> v.rebase(rebaseToNew)).collect(ImmutableList.toImmutableList());
-        final var windowValue = (WindowValue)transientWindowValue.toWindowValue().rebase(rebaseToNew);
-        final var requestedOrdering = WindowOrderingPart.toRequestedOrdering(
-                transientWindowValue.getOrderingParts(), lowerRef.getCorrelatedTo());
+        // Build WindowExpression.
+        final var windowExpr = new WindowExpression(
+                (WindowValue)twv.toWindowValue().rebase(rebase),
+                twv.getPartitioningValues().stream().map(v -> v.rebase(rebase)).collect(ImmutableList.toImmutableList()),
+                select.getResultValues().stream().filter(v -> !v.isTransient()).map(v -> v.rebase(rebase)).collect(ImmutableList.toImmutableList()),
+                WindowOrderingPart.toRequestedOrdering(twv.getOrderingParts(), lowerRef.getCorrelatedTo()),
+                newLowerQun);
+        final var windowQun = Quantifier.forEach(call.memoizeFinalExpression(windowExpr));
+        final var constants = lowerRef.getCorrelatedTo();
 
-        final var windowExpression = new WindowExpression(windowValue, partitioningValues,
-                passThroughValues, requestedOrdering, newLowerQun);
-        final var windowQun = Quantifier.forEach(call.memoizeFinalExpression(windowExpression));
+        // Pull result and predicates up through the window expression.
+        final var upperOutput = pullUp(select.getResultValue(), windowExpr.getResultValue(), windowQun, rebase, constants);
+        final var upperPredicates = select.getPredicates().stream()
+                .map(p -> p instanceof final PredicateWithValue pwv
+                        ? pwv.withValue(pullUp(Objects.requireNonNull(pwv.getValue()), windowExpr.getResultValue(), windowQun, rebase, constants))
+                        : p)
+                .collect(ImmutableList.toImmutableList());
 
-        final var upperSelectOutput = Objects.requireNonNull(MaxMatchMap.compute(selectExpression.getResultValue().rebase(rebaseToNew),
-                windowExpression.getResultValue(), newLowerQun.getCorrelatedTo())
-                .translateQueryValueMaybe(windowQun.getAlias())
-                .orElseThrow()
-                .replace(part -> {
-                    if (part instanceof TransientWindowValue) {
-                        return createFieldValueReferenceToWindowExpression(windowExpression.getResultValue(), windowQun).orElseThrow();
-                    }
-                    return part;
-                }));
-        final var upperSelect = new SelectExpression(upperSelectOutput, ImmutableList.of(windowQun), ImmutableList.of());
-        call.yieldFinalExpression(upperSelect);
+        call.yieldFinalExpression(new SelectExpression(upperOutput, ImmutableList.of(windowQun), upperPredicates));
     }
 
     @Nonnull
-    private static Optional<FieldValue> createFieldValueReferenceToWindowExpression(@Nonnull final Value windowExpressionOutput,
-                                                                                    @Nonnull final Quantifier windowExpressionQun) {
-        final var fieldValues = Values.deconstructRecord(windowExpressionOutput);
-        for (int i = 0; i < fieldValues.size(); i++) {
-            if (fieldValues.get(i) instanceof WindowValue) {
-                return Optional.of(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(windowExpressionQun), i));
+    private static ImmutableList<TransientWindowValue> collectTransientWindowValues(@Nonnull final SelectExpression select) {
+        return Stream.concat(
+                        select.getResultValue().preOrderStream(),
+                        select.getPredicates().stream()
+                                .filter(WithValue.class::isInstance).map(WithValue.class::cast)
+                                .flatMap(wv -> Objects.requireNonNull(wv.getValue()).preOrderStream()))
+                .filter(TransientWindowValue.class::isInstance).map(TransientWindowValue.class::cast)
+                .distinct()
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    /** Rebases a value into the window's alias space, then translates it to reference the window output columns. */
+    @Nonnull
+    private static Value pullUp(@Nonnull final Value value, @Nonnull final Value windowResult,
+                                @Nonnull final Quantifier windowQun, @Nonnull final AliasMap rebase,
+                                @Nonnull final Set<CorrelationIdentifier> constants) {
+        return Objects.requireNonNull(
+                MaxMatchMap.compute(value.rebase(rebase), windowResult, constants)
+                        .translateQueryValueMaybe(windowQun.getAlias()).orElseThrow()
+                        .replace(part -> part instanceof TransientWindowValue
+                                ? windowFieldRef(windowResult, windowQun)
+                                : part));
+    }
+
+    @Nonnull
+    private static FieldValue windowFieldRef(@Nonnull final Value windowResult, @Nonnull final Quantifier windowQun) {
+        final var fields = Values.deconstructRecord(windowResult);
+        for (int i = 0; i < fields.size(); i++) {
+            if (fields.get(i) instanceof WindowValue) {
+                return FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(windowQun), i);
             }
         }
-        return Optional.empty();
+        throw new IllegalStateException("window result does not contain a WindowValue field");
     }
 }

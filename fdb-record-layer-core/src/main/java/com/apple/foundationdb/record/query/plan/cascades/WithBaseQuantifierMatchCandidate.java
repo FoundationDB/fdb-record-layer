@@ -36,6 +36,11 @@ public interface WithBaseQuantifierMatchCandidate extends MatchCandidate {
     @Nonnull
     Type.Record getBaseType();
 
+    /**
+     * Computes ordering parts that are implicitly equality-bound by the structure of this match candidate.
+     * When the candidate is scoped to a single record type, the record type key is always fixed and therefore
+     * acts as a constant prefix in the ordering — it need not be explicitly matched by a predicate.
+     */
     @Nonnull
     @Override
     default Set<OrderingPart.MatchedOrderingPart> computeEqualityBoundImplicitOrderingParts() {

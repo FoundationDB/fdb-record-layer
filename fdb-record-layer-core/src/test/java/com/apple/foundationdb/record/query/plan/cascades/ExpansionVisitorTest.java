@@ -34,7 +34,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 /**
  * Tests for {@link ExpansionVisitor} default methods and
- * {@link WindowedIndexExpansionVisitor} unsupported expand overload.
+ * {@link LegacyWindowedIndexExpansionVisitor} unsupported expand overload.
  */
 class ExpansionVisitorTest {
 
@@ -51,7 +51,7 @@ class ExpansionVisitorTest {
     @Test
     void testWindowedIndexExpandWithRecordTypeNamesThrowsUnsupportedOperation() {
         final Index index = new Index("test_rank_index", field("score").ungrouped(), IndexTypes.RANK);
-        final WindowedIndexExpansionVisitor visitor = new WindowedIndexExpansionVisitor(index, Collections.emptyList());
+        final LegacyWindowedIndexExpansionVisitor visitor = new LegacyWindowedIndexExpansionVisitor(index, Collections.emptyList());
 
         Assertions.assertThrows(UnsupportedOperationException.class,
                 () -> visitor.expand(ImmutableSet.of("TestRecord"),

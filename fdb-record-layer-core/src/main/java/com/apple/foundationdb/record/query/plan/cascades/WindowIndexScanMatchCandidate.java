@@ -60,7 +60,7 @@ import java.util.function.Supplier;
 /**
  * Case class to represent a match candidate that is backed by a windowed index such as a rank index.
  */
-public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandidate, WithBaseQuantifierMatchCandidate {
+public class WindowIndexScanMatchCandidate implements ScanWithFetchMatchCandidate, WithBaseQuantifierMatchCandidate {
     /**
      * Index metadata structure.
      */
@@ -88,7 +88,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
      * Holds the grouping aliases for all groupings that can to be bound during matching.
      */
     @Nonnull
-    private final List<CorrelationIdentifier> groupingAliases;
+    private final List<CorrelationIdentifier> partitioningAliases;
 
     /**
      * Holds the alias for the score placeholder in the match candidate.
@@ -132,24 +132,24 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     private final Supplier<Optional<IndexEntryToLogicalRecord>> indexEntryToLogicalRecordOptionalSupplier;
 
-    public WindowedIndexScanMatchCandidate(@Nonnull Index index,
-                                           @Nonnull Collection<RecordType> queriedRecordTypes,
-                                           @Nonnull final Traversal traversal,
-                                           @Nonnull final Type.Record baseType,
-                                           @Nonnull final CorrelationIdentifier baseAlias,
-                                           @Nonnull final List<CorrelationIdentifier> groupingAliases,
-                                           @Nonnull final CorrelationIdentifier scoreAlias,
-                                           @Nonnull final CorrelationIdentifier rankAlias,
-                                           @Nonnull final List<CorrelationIdentifier> primaryKeyAliases,
-                                           @Nonnull final List<Value> indexKeyValues,
-                                           @Nonnull final KeyExpression fullKeyExpression,
-                                           @Nullable final KeyExpression primaryKey) {
+    public WindowIndexScanMatchCandidate(@Nonnull Index index,
+                                         @Nonnull Collection<RecordType> queriedRecordTypes,
+                                         @Nonnull final Traversal traversal,
+                                         @Nonnull final Type.Record baseType,
+                                         @Nonnull final CorrelationIdentifier baseAlias,
+                                         @Nonnull final List<CorrelationIdentifier> partitioningAliases,
+                                         @Nonnull final CorrelationIdentifier scoreAlias,
+                                         @Nonnull final CorrelationIdentifier rankAlias,
+                                         @Nonnull final List<CorrelationIdentifier> primaryKeyAliases,
+                                         @Nonnull final List<Value> indexKeyValues,
+                                         @Nonnull final KeyExpression fullKeyExpression,
+                                         @Nullable final KeyExpression primaryKey) {
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
         this.traversal = traversal;
         this.baseType = baseType;
         this.baseAlias = baseAlias;
-        this.groupingAliases = ImmutableList.copyOf(groupingAliases);
+        this.partitioningAliases = ImmutableList.copyOf(partitioningAliases);
         this.scoreAlias = scoreAlias;
         this.rankAlias = rankAlias;
         this.primaryKeyAliases = ImmutableList.copyOf(primaryKeyAliases);
@@ -193,13 +193,13 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     @Override
     public List<CorrelationIdentifier> getSargableAliases() {
-        return ImmutableList.<CorrelationIdentifier>builder().addAll(groupingAliases).add(rankAlias).build();
+        return ImmutableList.<CorrelationIdentifier>builder().addAll(partitioningAliases).add(rankAlias).build();
     }
 
     @Nonnull
     @Override
     public List<CorrelationIdentifier> getOrderingAliases() {
-        return orderingAliases(groupingAliases, scoreAlias, primaryKeyAliases);
+        return orderingAliases(partitioningAliases, scoreAlias, primaryKeyAliases);
     }
 
     @Nonnull

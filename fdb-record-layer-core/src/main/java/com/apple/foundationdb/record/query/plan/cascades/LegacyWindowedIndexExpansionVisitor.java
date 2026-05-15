@@ -54,13 +54,13 @@ import java.util.Set;
  * Class to expand a by-rank index access into a candidate graph. The visitation methods are left unchanged from the super
  * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
  */
-public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
+public class LegacyWindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
     private final Index index;
     @Nonnull
     private final List<RecordType> recordTypes;
 
-    public WindowedIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> recordTypes) {
+    public LegacyWindowedIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> recordTypes) {
         Preconditions.checkArgument(IndexTypes.RANK.equals(index.getType()));
         this.index = index;
         this.recordTypes = ImmutableList.copyOf(recordTypes);
@@ -172,9 +172,9 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var groupingAndArgumentAliases = expandGroupingsAndArgumentsResult.getGroupingsAndArgumentsAliases();
         final var groupingAliases = groupingAndArgumentAliases.subList(0, groupingKeyExpression.getGroupingCount());
         final var scoreAlias = groupingAndArgumentAliases.get(groupingAndArgumentAliases.size() - 1);
-        final var matchableSortExpression = new MatchableSortExpression(WindowedIndexScanMatchCandidate.orderingAliases(groupingAliases, scoreAlias, primaryKeyAliases), isReverse, completeExpansion.buildSelect());
+        final var matchableSortExpression = new MatchableSortExpression(LegacyWindowedIndexScanMatchCandidate.orderingAliases(groupingAliases, scoreAlias, primaryKeyAliases), isReverse, completeExpansion.buildSelect());
 
-        return new WindowedIndexScanMatchCandidate(
+        return new LegacyWindowedIndexScanMatchCandidate(
                 index,
                 recordTypes,
                 Traversal.withRoot(Reference.initialOf(matchableSortExpression)),

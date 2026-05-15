@@ -1133,7 +1133,8 @@ aggregateWindowedFunction
 nonAggregateWindowedFunction
     : functionName=(LAG | LEAD) '(' expression (',' decimalLiteral)? (',' decimalLiteral)? ')' overClause
     | functionName=(FIRST_VALUE | LAST_VALUE) '(' expression ')' overClause
-    | functionName=(CUME_DIST | DENSE_RANK | PERCENT_RANK | RANK | ROW_NUMBER) '('')' overClause
+    | functionName=RANK '(' functionArgs? ')' overClause
+    | functionName=(CUME_DIST | DENSE_RANK | PERCENT_RANK | ROW_NUMBER) '('')' overClause
     | functionName=NTH_VALUE '(' expression ',' decimalLiteral ')' overClause
     | functionName=NTILE '(' decimalLiteral ')' overClause
     ;

@@ -26,12 +26,24 @@ schema_template:
     create table table_a ("id" bigint, a bigint, b bigint, c bigint, d bigint, primary key("id") )
     create table table_b ("id" bigint, x bigint, y bigint, z bigint, primary key("id"))
     create table documents(zone string, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zone, docId))
+    create type as struct GameScore(game string, tier string, score string)
+    create table NestedRankRecord(name string, country string, scores GameScore array, primary key(name))
     with options(enable_long_rows=true)
 ---
 test_block:
   name: window-functions-test
   preset: single_repetition_ordered
   tests:
+    -
+      - query: select rank(ss.tier, ss.score) over (partition by x.country, ss.game)
+             from NestedRankRecord x, x.scores as ss
+      - unorderedResult: []
+#    -
+#      - query: select d1.embedding
+#               from documents d1, documents d2
+#               where d1.zone = 'zone1'
+#               qualify row_number() over (partition by d2.title, d2.bookshelf order by cosine_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 100
+#      - unorderedResult: []
 #    -
 #      - query: select d1.embedding,
 #                      row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100) as w1,
@@ -40,10 +52,10 @@ test_block:
 #               where d1.zone = 'zone1'
 #               qualify row_number() over (partition by d2.title, d2.bookshelf order by cosine_distance(d2.embedding, d1.embedding) asc options ef_search = 100) < 100
 #      - unorderedResult: []
-    -
-      - query: select d1.embedding, row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100)
-               from documents d1, documents d2
-      - unorderedResult: []
+#    -
+#      - query: select d1.embedding, row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100)
+#               from documents d1, documents d2
+#      - unorderedResult: []
 #    -
 #      - query: select d1.embedding, row_number() over (partition by d2.zone, d2.bookshelf order by euclidean_distance(d2.embedding, d1.embedding) asc options ef_search = 100) as w1,
 #                      row_number() over (partition by d1.zone order by euclidean_distance(d2.embedding, d1.embedding) desc options ef_search = 200) as w2

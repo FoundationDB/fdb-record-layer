@@ -36,7 +36,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.query.plan.cascades.IndexExpansionInfo;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidateExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.WindowedIndexExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.LegacyWindowedIndexExpansionVisitor;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 
@@ -117,7 +117,7 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
         // For rank() we need to create at two candidates. One for BY_RANK scans and one for BY_VALUE scans.
         MatchCandidateExpansion.expandValueIndexMatchCandidate(info)
                         .ifPresent(resultBuilder::add);
-        MatchCandidateExpansion.expandIndexMatchCandidate(info, true, info.getCommonPrimaryKeyForTypes(), new WindowedIndexExpansionVisitor(index, info.getIndexedRecordTypes()))
+        MatchCandidateExpansion.expandIndexMatchCandidate(info, true, info.getCommonPrimaryKeyForTypes(), new LegacyWindowedIndexExpansionVisitor(index, info.getIndexedRecordTypes()))
                 .ifPresent(resultBuilder::add);
 
         return resultBuilder.build();
