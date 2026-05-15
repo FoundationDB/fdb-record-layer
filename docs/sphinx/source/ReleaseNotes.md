@@ -7,6 +7,54 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.10
 
+### 4.12.2.0
+
+<h4> Breaking Changes </h4>
+
+* Disallow CREATE INDEX on ARRAY fields with implicit fan-out - [PR #4104](https://github.com/FoundationDB/fdb-record-layer/pull/4104)
+<h4> New Features </h4>
+
+* Create IndexGeneralAttributes - [PR #4123](https://github.com/FoundationDB/fdb-record-layer/pull/4123)
+* `MetaDataEvolutionValidator` can now be configured to ignore field renames only on deprecated fields - [PR #4119](https://github.com/FoundationDB/fdb-record-layer/pull/4119)
+<h4> Bug Fixes </h4>
+
+* Bug fix: handle proto field number correctly - [PR #4026](https://github.com/FoundationDB/fdb-record-layer/pull/4026)
+* Revert "Disallow CREATE INDEX on ARRAY fields with implicit fan-out (#4104)" - [PR #4152](https://github.com/FoundationDB/fdb-record-layer/pull/4152)
+* Fix infinite `RecursiveCursor` out-of-band behavior - [PR #4136](https://github.com/FoundationDB/fdb-record-layer/pull/4136)
+* Disallow the STRAIGHT_JOIN and NATURAL JOIN variants - [PR #4143](https://github.com/FoundationDB/fdb-record-layer/pull/4143)
+* Prevent producing aggregate index matches with incompatible roll-ups - [PR #4014](https://github.com/FoundationDB/fdb-record-layer/pull/4014)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Add aggregate and scalar function documentation - [PR #3757](https://github.com/FoundationDB/fdb-record-layer/pull/3757)
+* Add addExplain annotation to Yamsql framework - [PR #4128](https://github.com/FoundationDB/fdb-record-layer/pull/4128)
+* Add subqueries documentation - [PR #3774](https://github.com/FoundationDB/fdb-record-layer/pull/3774)
+* Fix relational-core JMH benchmarks to compile and run - [PR #3995](https://github.com/FoundationDB/fdb-record-layer/pull/3995)
+* Extend `KeyExpressionTest` tests for `nest()` - [PR #4137](https://github.com/FoundationDB/fdb-record-layer/pull/4137)
+* Add test of inconsistent field renaming being caught in multi-type index - [PR #4116](https://github.com/FoundationDB/fdb-record-layer/pull/4116)
+* `testConcurrentMixedOperations` is flaky - [PR #4132](https://github.com/FoundationDB/fdb-record-layer/pull/4132)
+* Resolve Gradle 9 deprecation warnings - [PR #4133](https://github.com/FoundationDB/fdb-record-layer/pull/4133)
+
+</details>
+
+
+**[Full Changelog (4.12.1.0...4.12.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.1.0...4.12.2.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.10.12.0`, ✅`4.10.13.0`, ✅`4.10.15.0`, ✅`4.10.16.0`, ✅`4.10.17.0`, ✅`4.10.18.0`, ✅`4.10.19.0`, ✅`4.10.20.0`, ✅`4.11.1.0`, ✅`4.12.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/25728632242)
+
+
+
 ### 4.12.1.0
 
 <h4> Breaking Changes </h4>

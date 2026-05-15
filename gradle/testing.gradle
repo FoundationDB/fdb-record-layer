@@ -1,6 +1,8 @@
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 
+import org.gradle.api.tasks.testing.TestListener
+
 /*
  * testing.gradle
  *
@@ -117,14 +119,19 @@ task mixedModeTest(type: Test) {
             markdownReports.mkdirs()
         }
     }
-    afterTest { descriptor, result ->
-        def version = getMixedModeVersion(descriptor)
-        if (version == null) {
-            throw new RuntimeException("Could not find version " + getFullDisplayName(descriptor))
-        } else {
-            mixedModeResults.append("${result.resultType} ${version}\n")
+    addTestListener([
+        beforeSuite: { suite -> },
+        afterSuite: { suite, result -> },
+        beforeTest: { descriptor -> },
+        afterTest: { descriptor, result ->
+            def version = getMixedModeVersion(descriptor)
+            if (version == null) {
+                throw new RuntimeException("Could not find version " + getFullDisplayName(descriptor))
+            } else {
+                mixedModeResults.append("${result.resultType} ${version}\n")
+            }
         }
-    }
+    ] as TestListener)
 }
 
 def getFullDisplayName(descriptor) {
@@ -227,6 +234,10 @@ def betterException(String exception) {
 }
 
 tasks.withType(Test) { theTask ->
+    // Point the `Test` task at the compiled classes and the runtime classpath of the test source-set.
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
     configureTestTask('allTest', theTask)
     configureTestTask(theTask.name, theTask)
     testLogging {
@@ -251,35 +262,38 @@ tasks.withType(Test) { theTask ->
         }
     }
 
-    beforeTest { descriptor -> 
-        println "${Instant.now()} ${getFullDisplayName(descriptor)} STARTED"
-    } 
-    afterTest { descriptor, result ->
-        def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
-        println "${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
-        println()
-        if (result.resultType == TestResult.ResultType.FAILURE) {
-            failures.append(
-                "<details>\n" +
-                    "<summary> ❌ ${getFullDisplayName(descriptor)}</summary>\n" +
-                    "(${duration}ms)\n\n" + // blank line is required for ``` to work
-                    "```\n${betterException(result.getException().asString())}\n```\n" +
-                "</details>\n")
-        }
-    }
-    afterSuite { descriptor, result ->
-        // Very few subprojects acutally have destructive or mixed-mode tests, so strip those out of the summary.
-        // We leave the ones that have nothing under test, because that would be suspicious if a subproject had
-        // no tests
-        if (descriptor.parent == null
-            && !(descriptor.toString().endsWith(":destructiveTest") && result.getTestCount() == 0)
-            && !(descriptor.toString().endsWith(":mixedModeTest") && result.getTestCount() == 0)) {
+    addTestListener([
+        beforeSuite: { suite -> },
+        beforeTest: { descriptor ->
+            println "${Instant.now()} ${getFullDisplayName(descriptor)} STARTED"
+        },
+        afterTest: { descriptor, result ->
             def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
-            def description = descriptor.toString().replaceFirst("Gradle Test Run ", "")
-            summary.append(
-                "|${description}|${result.getFailedTestCount()}|${result.getSkippedTestCount()}|${result.getSuccessfulTestCount()}|${duration}ms|\n")
+            println "${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
+            println()
+            if (result.resultType == TestResult.ResultType.FAILURE) {
+                failures.append(
+                    "<details>\n" +
+                        "<summary> ❌ ${getFullDisplayName(descriptor)}</summary>\n" +
+                        "(${duration}ms)\n\n" + // blank line is required for ``` to work
+                        "```\n${betterException(result.getException().asString())}\n```\n" +
+                    "</details>\n")
+            }
+        },
+        afterSuite: { descriptor, result ->
+            // Very few subprojects acutally have destructive or mixed-mode tests, so strip those out of the summary.
+            // We leave the ones that have nothing under test, because that would be suspicious if a subproject had
+            // no tests
+            if (descriptor.parent == null
+                && !(descriptor.toString().endsWith(":destructiveTest") && result.getTestCount() == 0)
+                && !(descriptor.toString().endsWith(":mixedModeTest") && result.getTestCount() == 0)) {
+                def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
+                def description = descriptor.toString().replaceFirst("Gradle Test Run ", "")
+                summary.append(
+                    "|${description}|${result.getFailedTestCount()}|${result.getSkippedTestCount()}|${result.getSuccessfulTestCount()}|${duration}ms|\n")
+            }
         }
-    }
+    ] as TestListener)
     reports {
         junitXml.outputPerTestCase = true
     }

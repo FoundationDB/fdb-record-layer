@@ -32,12 +32,11 @@ import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
 import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckExplainConfig;
 import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckResultMetadataConfig;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersionRanges;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
-import com.google.common.collect.RangeSet;
-import com.google.common.collect.TreeRangeSet;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -513,15 +512,12 @@ public abstract class QueryConfig {
         // Validate that the results check each version comprehensively by making sure the set of
         // covered ranges spans the range [MIN_VERSION, MAX_VERSION)
         if (configs.stream().anyMatch(config -> config instanceof QueryConfig.InitialVersionCheckConfig)) {
-            // Creating an interval set including each covered range
-            RangeSet<SemanticVersion> rangeSet = TreeRangeSet.create();
-            configs.stream().filter(config -> config instanceof QueryConfig.InitialVersionCheckConfig)
-                    .map(config -> (QueryConfig.InitialVersionCheckConfig)config)
-                    .forEach(config -> rangeSet.add(Range.closedOpen(config.getMinVersion(), config.getMaxVersion())));
-            // Get the set of uncovered ranges that span over [MIN_VERSION, MAX_VERSION)
-            Set<Range<SemanticVersion>> uncovered = rangeSet.complement()
-                    .subRangeSet(Range.closedOpen(SemanticVersion.min(), SemanticVersion.max()))
-                    .asRanges();
+            List<Range<SemanticVersion>> ranges = configs.stream()
+                    .filter(config -> config instanceof QueryConfig.InitialVersionCheckConfig)
+                    .map(config -> (QueryConfig.InitialVersionCheckConfig) config)
+                    .map(config -> Range.closedOpen(config.getMinVersion(), config.getMaxVersion()))
+                    .toList();
+            Set<Range<SemanticVersion>> uncovered = SemanticVersionRanges.uncovered(ranges);
             if (!uncovered.isEmpty()) {
                 IllegalArgumentException e = new IllegalArgumentException("Test case does not cover complete set of versions as it is missing: " + uncovered);
                 throw YamlExecutionContext.wrapContext(e, () -> "‼️ Non-comprehensive test case found at " + reference, "config", reference);

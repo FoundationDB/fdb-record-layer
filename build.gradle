@@ -22,6 +22,15 @@ import org.yaml.snakeyaml.Yaml
 
 import org.apache.tools.ant.taskdefs.condition.Os
 
+import javax.inject.Inject
+import org.gradle.process.ExecOperations
+
+// Gives tasks access to an injected `ExecOperations` for running external processes from a `doLast` block.
+interface InjectedExecOps {
+    @Inject
+    ExecOperations getExecOps()
+}
+
 buildscript {
     repositories {
         if (Boolean.parseBoolean(mavenLocalEnabled)) {
@@ -213,10 +222,8 @@ subprojects {
         publishLibrary = true
     }
 
-    artifacts {
-        add("archives", tasks.sourcesJar)
-        add("archives", tasks.javadocJar)
-        add("archives", tasks.testJar)
+    tasks.named('assemble') {
+        dependsOn tasks.sourcesJar, tasks.javadocJar, tasks.testJar
     }
 
     afterEvaluate { project ->
@@ -277,28 +284,33 @@ subprojects {
     task updateYamsql(type: Task) {
         mustRunAfter 'test'
         mustRunAfter 'build'
+        def execOps = objects.newInstance(InjectedExecOps).execOps
+        def projectVersion = project.version
+        def yamsqlFiles = sourceSets["test"].resources.srcDirs.collect { resourceDir ->
+            fileTree(dir: resourceDir).matching {
+                include '**/*.yamsql'
+                exclude '/initial-version/*'
+                exclude '/supported-version/*'
+            }
+        }
         doLast {
             if (isReleaseBuild) {
                 // don't replace !current_version in the supported-version resources, as those are there to test
                 // supported_version, we want the !current_version to stick around
                 println("Replacing !current_version...")
-                sourceSets["test"].resources.srcDirs.stream().flatMap( resourceDir ->
-                    fileTree(dir: resourceDir).matching {
-                        include '**/*.yamsql'
-                        exclude '/initial-version/*'
-                        exclude '/supported-version/*'
-                    }.stream()
-                ).forEach { yamsql ->
-                    def original = yamsql.text
-                    def updated = original.replaceAll("(?<!\")!current_version(?!\")", project.version)
-                    if (!original.equals(updated)) {
-                        println("Replacing !current_version in " + yamsql)
-                        // Replace !current_version in all yamsql, unless it is surrounded by ", allowing it to be used in
-                        // comments, without issue, e.g. in showcasing-tests
-                        yamsql.write(updated)
-                        exec {
-                            workingDir '.'
-                            commandLine 'git', 'add', yamsql
+                yamsqlFiles.each { tree ->
+                    tree.each { yamsql ->
+                        def original = yamsql.text
+                        def updated = original.replaceAll("(?<!\")!current_version(?!\")", projectVersion)
+                        if (!original.equals(updated)) {
+                            println("Replacing !current_version in " + yamsql)
+                            // Replace !current_version in all yamsql, unless it is surrounded by ", allowing it to be used in
+                            // comments, without issue, e.g. in showcasing-tests
+                            yamsql.write(updated)
+                            execOps.exec {
+                                workingDir '.'
+                                commandLine 'git', 'add', yamsql
+                            }
                         }
                     }
                 }
