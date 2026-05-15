@@ -184,4 +184,43 @@ public class SchemaTemplatePrepareTest {
             Assertions.assertEquals(2, countCachedPlans(connection, ddl.getSchemaTemplateName()));
         }
     }
+
+    @Test
+    void prepareStatementsUsageJdbcPrepare() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/PREPARE_DB4"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+            }
+            Assertions.assertEquals(2, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+
+            try (var ps = connection.prepareStatement("select * from t1 where col1 = ?")) {
+                ps.setLong(1, 20);
+                try (RelationalResultSet rs = ps.executeQuery()) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(2, rs.getLong("ID"));
+                    Assertions.assertFalse(rs.next());
+                }
+            }
+            Assertions.assertEquals(2, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+
+            try (var ps = connection.prepareStatement("select * from t1 where id = ?")) {
+                ps.setLong(1, 2);
+                try (RelationalResultSet rs = ps.executeQuery()) {
+                    Assertions.assertTrue(rs.next());
+                    Assertions.assertEquals(2, rs.getLong("ID"));
+                    Assertions.assertEquals(20, rs.getLong("COL1"));
+                    Assertions.assertEquals(2, rs.getLong("COL2"));
+                    Assertions.assertFalse(rs.next());
+                }
+            }
+            Assertions.assertEquals(2, countCachedPlans(connection, ddl.getSchemaTemplateName()));
+        }
+    }
 }
