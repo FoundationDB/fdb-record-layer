@@ -47,6 +47,7 @@ public class BuiltInFunction<T extends Typed> extends CatalogedFunction<Value> {
 
     /**
      * Creates a new instance of {@link BuiltInFunction}.
+     *
      * @param functionName The name of the function.
      * @param parameterTypes The type of the parameter(s).
      * @param encapsulationFunction An encapsulation of the function's runtime computation.
@@ -57,6 +58,7 @@ public class BuiltInFunction<T extends Typed> extends CatalogedFunction<Value> {
 
     /**
      * Creates a new instance of {@link BuiltInFunction}.
+     *
      * @param functionName The name of the function.
      * @param parameterTypes The type of the parameter(s).
      * @param variadicSuffixType The type of the function's vararg.
@@ -77,13 +79,8 @@ public class BuiltInFunction<T extends Typed> extends CatalogedFunction<Value> {
 
     @Nonnull
     @Override
-    public Typed encapsulate(@Nonnull final List<Value> arguments) {
-        return Verify.verifyNotNull(encapsulationFunction).encapsulate(this, arguments);
-    }
-
-    @Nonnull
-    @Override
-    public Typed encapsulate(@Nonnull final Map<String, Value> namedArguments) {
-        throw new RecordCoreException("built-in functions do not support named argument calling conventions");
+    public Typed encapsulate(final @Nonnull CallSiteArguments arguments) {
+        return Verify.verifyNotNull(encapsulationFunction).createCallSite(this, arguments);
     }
 }
+

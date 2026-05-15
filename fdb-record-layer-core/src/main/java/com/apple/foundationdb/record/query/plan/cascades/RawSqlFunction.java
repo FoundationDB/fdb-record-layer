@@ -23,12 +23,9 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.List;
-import java.util.Map;
 
 public class RawSqlFunction extends UserDefinedFunction {
 
@@ -52,13 +49,7 @@ public class RawSqlFunction extends UserDefinedFunction {
 
     @Nonnull
     @Override
-    public Typed encapsulate(@Nonnull final List<Value> arguments) {
-        throw new RecordCoreException("attempt to encapsulate raw sql function");
-    }
-
-    @Nonnull
-    @Override
-    public Typed encapsulate(@Nonnull final Map<String, Value> namedArguments) {
+    public Typed encapsulate(final @Nonnull CallSiteArguments arguments) {
         throw new RecordCoreException("attempt to encapsulate raw sql function");
     }
 

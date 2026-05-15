@@ -324,7 +324,7 @@ public class CollateValue extends AbstractValue {
                                @Nonnull final TextCollatorRegistry collatorRegistry) {
             super(functionName,
                     ImmutableList.of(Type.primitiveType(Type.TypeCode.STRING)), Type.any(),
-                    (builtInFunction, arguments) -> CollateValue.encapsulate(collatorRegistry, arguments));
+                    (builtInFunction, arguments) -> CollateValue.encapsulate(collatorRegistry, ImmutableList.copyOf(arguments.getValues())));
         }
     }
 

@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.planprotos.PExistsValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
@@ -43,11 +44,11 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -151,10 +152,10 @@ public class ExistsValue extends AbstractValue implements BooleanValue, Quantifi
         }
 
         // TODO this is sus
-        private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulateInternal(@Nonnull final CallSiteArguments arguments) {
             // the call is already validated against the resolved function
             Verify.verify(arguments.size() == 1);
-            final Typed in = arguments.get(0);
+            final Typed in = Iterables.getOnlyElement(arguments.getValues());
             Verify.verify(in instanceof RelationalExpression);
 
             // create an existential quantifier

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
@@ -33,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
@@ -51,7 +51,7 @@ public class RemoveRangeOneRule extends ExplorationCascadesRule<SelectExpression
     private static final BindingMatcher<SelectExpression> root = selectExpression(any(middleQun));
 
     @Nonnull
-    private static final RangeValue EXPECTED = (RangeValue) new RangeValue.RangeFn().encapsulate(List.of(LiteralValue.ofScalar(1L)));
+    private static final RangeValue EXPECTED = (RangeValue) new RangeValue.RangeFn().encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(1L)));
 
     public RemoveRangeOneRule() {
         super(root);

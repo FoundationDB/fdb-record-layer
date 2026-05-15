@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
@@ -72,7 +73,7 @@ class OrderingValueSimplificationTest {
 
         // ('fieldValue' as a, 10 as b, 'World' as c).b.a.ab + 3
         final var arithmeticValue =
-                (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(fieldValue2, LiteralValue.ofScalar(3)));
+                (Value)new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(ImmutableList.of(fieldValue2, LiteralValue.ofScalar(3))));
 
 
         final var simplifiedValue = simplifyOrderingValue(arithmeticValue);
@@ -102,7 +103,7 @@ class OrderingValueSimplificationTest {
 
         // ('fieldValue' as a, _ as b, 'World' as c).b.a.ab + 3
         final var arithmeticValue =
-                (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(fieldValueB, LiteralValue.ofScalar(3)));
+                (Value)new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(ImmutableList.of(fieldValueB, LiteralValue.ofScalar(3))));
 
         // ('fieldValue' as a, _ as b, 'World' as c).a
         final var fieldValueA = FieldValue.ofFieldName(recordConstructor, "a");

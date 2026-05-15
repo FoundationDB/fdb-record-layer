@@ -362,7 +362,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     @Nonnull
     public static Optional<AggregateValue> aggregateValue(@Nonnull final Index index, @Nonnull final Value argument) {
         return Optional.of((AggregateValue)aggregateMap.get()
-                .get(index.getType()).encapsulate(ImmutableList.of(argument)));
+                .get(index.getType()).encapsulate(CallSiteArguments.ofPositional(argument)));
     }
 
     @Nonnull
@@ -371,15 +371,15 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         // Since aggregate indexes do not support windowing semantics, we first call encapsulatePureAggregate()
         // to obtain a first-order BuiltInFunction with no frame/order, then encapsulate(args) to produce the value.
         final ImmutableMap.Builder<String, BuiltInFunction<? extends Value>> mapBuilder = ImmutableMap.builder();
-        mapBuilder.put(IndexTypes.MAX_EVER_LONG, new IndexOnlyAggregateValue.MaxEverFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.MIN_EVER_LONG, new IndexOnlyAggregateValue.MinEverFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.MAX_EVER_TUPLE, new IndexOnlyAggregateValue.MaxEverFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.MIN_EVER_TUPLE, new IndexOnlyAggregateValue.MinEverFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.COUNT, new CountValue.CountFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.COUNT_NOT_NULL, new CountValue.CountFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.PERMUTED_MAX, new NumericAggregationValue.MaxFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.PERMUTED_MIN, new NumericAggregationValue.MinFn().encapsulatePureAggregate());
+        mapBuilder.put(IndexTypes.MAX_EVER_LONG, new IndexOnlyAggregateValue.MaxEverFn());
+        mapBuilder.put(IndexTypes.MIN_EVER_LONG, new IndexOnlyAggregateValue.MinEverFn());
+        mapBuilder.put(IndexTypes.MAX_EVER_TUPLE, new IndexOnlyAggregateValue.MaxEverFn());
+        mapBuilder.put(IndexTypes.MIN_EVER_TUPLE, new IndexOnlyAggregateValue.MinEverFn());
+        mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn());
+        mapBuilder.put(IndexTypes.COUNT, new CountValue.CountFn());
+        mapBuilder.put(IndexTypes.COUNT_NOT_NULL, new CountValue.CountFn());
+        mapBuilder.put(IndexTypes.PERMUTED_MAX, new NumericAggregationValue.MaxFn());
+        mapBuilder.put(IndexTypes.PERMUTED_MIN, new NumericAggregationValue.MinFn());
         return mapBuilder.build();
     }
 
@@ -391,7 +391,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     public static Optional<AggregateValue> rollUpAggregateValueMaybe(@Nonnull final String indexType, @Nonnull final Value argument) {
         return Optional.ofNullable(rollUpAggregateMap.get()
                 .get(indexType))
-                .map(fn -> (AggregateValue)fn.encapsulate(ImmutableList.of(argument)));
+                .map(fn -> (AggregateValue)fn.encapsulate(CallSiteArguments.ofPositional(argument)));
     }
 
     @Nonnull
@@ -400,15 +400,15 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         // Aggregate functions are second-order window functions (e.g. SUM is a BuiltInWindowFunction).
         // Since aggregate indexes do not support windowing semantics, we first call encapsulatePureAggregate()
         // to obtain a first-order BuiltInFunction with no frame/order, then encapsulate(args) to produce the value.
-        mapBuilder.put(IndexTypes.MAX_EVER_LONG, new NumericAggregationValue.MaxFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.MIN_EVER_LONG, new NumericAggregationValue.MinFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.MAX_EVER_TUPLE, new NumericAggregationValue.MaxFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.MIN_EVER_TUPLE, new NumericAggregationValue.MinFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.COUNT, new NumericAggregationValue.SumFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.COUNT_NOT_NULL, new NumericAggregationValue.SumFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.PERMUTED_MAX, new NumericAggregationValue.MaxFn().encapsulatePureAggregate());
-        mapBuilder.put(IndexTypes.PERMUTED_MIN, new NumericAggregationValue.MinFn().encapsulatePureAggregate());
+        mapBuilder.put(IndexTypes.MAX_EVER_LONG, new NumericAggregationValue.MaxFn());
+        mapBuilder.put(IndexTypes.MIN_EVER_LONG, new NumericAggregationValue.MinFn());
+        mapBuilder.put(IndexTypes.MAX_EVER_TUPLE, new NumericAggregationValue.MaxFn());
+        mapBuilder.put(IndexTypes.MIN_EVER_TUPLE, new NumericAggregationValue.MinFn());
+        mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn());
+        mapBuilder.put(IndexTypes.COUNT, new NumericAggregationValue.SumFn());
+        mapBuilder.put(IndexTypes.COUNT_NOT_NULL, new NumericAggregationValue.SumFn());
+        mapBuilder.put(IndexTypes.PERMUTED_MAX, new NumericAggregationValue.MaxFn());
+        mapBuilder.put(IndexTypes.PERMUTED_MIN, new NumericAggregationValue.MinFn());
         return mapBuilder.build();
     }
 

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -35,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -43,124 +41,9 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * A windowed value representing the {@code ROW_NUMBER()} window function, which assigns sequential
- * integer row numbers to rows within partitions based on a specified ordering.
- * <p>
- * This class extends {@link TransientWindowValue} to provide window function semantics and implements
- * {@link Value.IndexOnlyValue} because row numbers are computed during index traversal for
- * vector similarity searches and cannot be reconstructed from base records alone.
- * </p>
- *
- * <h2>Primary Use Case: Vector Similarity Search</h2>
- * <p>
- * While {@code ROW_NUMBER()} is a standard SQL window function, this implementation is specifically
- * designed for K-nearest neighbor (K-NN) vector similarity searches using HNSW indexes. The function
- * assigns rank positions to vectors based on their distance from a query vector, enabling efficient
- * "top-K" result limiting through the {@code QUALIFY} clause.
- * </p>
- * <p>
- * <strong>Typical Query Pattern:</strong>
- * <pre>
- * SELECT docId, title
- * FROM documents
- * WHERE category = 'tech'
- * QUALIFY ROW_NUMBER() OVER (
- *   PARTITION BY category
- *   ORDER BY euclidean_distance(embedding, [0.1, 0.2, 0.3])
- *   OPTIONS ef_search = 100
- * ) &lt;= 10
- * </pre>
- * This query finds the 10 nearest documents in the 'tech' category to the query vector {@code [0.1, 0.2, 0.3]}.
- * </p>
- *
- * <h2>Configuration Parameters</h2>
- * <ul>
- *   <li><strong>efSearch</strong> ({@code Integer}, optional): Controls the HNSW index search quality.
- *       Higher values increase recall (accuracy) but decrease performance. Corresponds to the
- *       {@code ef_search} parameter in the {@code OPTIONS} clause. When {@code null}, the index's
- *       default value is used.</li>
- *   <li><strong>isReturningVectors</strong> ({@code Boolean}, optional): Determines whether the
- *       index scan should return actual vector values in addition to distances. When {@code true},
- *       vectors are returned; when {@code false} or {@code null}, only distances and document IDs
- *       are returned, reducing data transfer overhead.</li>
- * </ul>
- *
- * <h2>Comparison Transformation</h2>
- * <p>
- * The {@link #transformComparisonMaybe(Comparisons.Type, Value)} method performs critical pattern
- * matching to enable HNSW index usage. When a comparison like {@code ROW_NUMBER() <= 10} is detected,
- * it transforms the predicate into a {@link Comparisons.DistanceRankValueComparison} that the query
- * planner recognizes as a K-NN search pattern.
- * </p>
- * <p>
- * <strong>Transformation Example:</strong>
- * <pre>
- * // Original predicate
- * ROW_NUMBER() OVER (ORDER BY euclidean_distance(embedding, queryVec)) &lt;= 10
- *
- * // Transformed to
- * ValuePredicate(
- *   EuclideanDistanceRowNumberValue(partitions, indexField),
- *   DistanceRankValueComparison(queryVec, k=10, efSearch, isReturningVectors)
- * )
- * </pre>
- * This transformation allows {@link com.apple.foundationdb.record.query.plan.cascades.VectorIndexScanMatchCandidate}
- * to recognize and satisfy the pattern using an HNSW index scan.
- * </p>
- *
- * <h2>Class Hierarchy</h2>
- * <ul>
- *   <li><strong>{@link RowNumberTransientValue}</strong> (this class) - Base window function implementation</li>
- *   <li><strong>{@link EuclideanDistanceRowNumberValue}</strong> - Specialized for Euclidean distance ordering</li>
- *   <li><strong>{@link CosineDistanceRowNumberValue}</strong> - Specialized for Cosine distance ordering</li>
- * </ul>
- * <p>
- * The specialized subclasses are created during comparison transformation to explicitly capture the
- * distance metric being used, enabling the query planner to match against appropriately-configured
- * HNSW indexes.
- * </p>
- *
- * <h2>Integration with Higher-Order Functions</h2>
- * <p>
- * {@code ROW_NUMBER()} is resolved as a higher-order function through {@link RowNumberHighOrderWindowValue}.
- * The resolution process is:
- * <ol>
- *   <li>Parser encounters {@code ROW_NUMBER(ef_search: 100)}</li>
- *   <li>{@link RowNumberHighOrderFn} creates {@link RowNumberHighOrderWindowValue} with configuration</li>
- *   <li>Higher-order value is evaluated to produce a curried function</li>
- *   <li>Curried function is applied with partition and ordering arguments</li>
- *   <li>Final {@code RowNumberValue} is produced with configuration baked in</li>
- * </ol>
- * This multi-stage resolution enables flexible syntax where configuration parameters can be specified
- * separately from the window specification.
- * </p>
- *
- * <h2>Index-Only Semantics</h2>
- * <p>
- * This class implements {@link Value.IndexOnlyValue} because row numbers are computed during the
- * HNSW index traversal based on distance rankings. These rankings cannot be reconstructed from the
- * base record data alone - they fundamentally depend on the index's graph structure and search
- * algorithm. This constraint ensures that:
- * <ul>
- *   <li>The query planner doesn't attempt to compute row numbers outside of index scans</li>
- *   <li>No covering index optimizations at the moment</li>
- *   <li>Plan validation catches attempts to use {@code ROW_NUMBER()} without an appropriate index</li>
- * </ul>
- * </p>
- *
- * @see TransientWindowValue for the window function base class
- * @see RowNumberHighOrderWindowValue for the higher-order function wrapper
- * @see RowNumberHighOrderFn for the function definition and resolution
- * @see EuclideanDistanceRowNumberValue for Euclidean distance specialization
- * @see CosineDistanceRowNumberValue for Cosine distance specialization
- * @see Comparisons.DistanceRankValueComparison for the transformed comparison type
- * @see com.apple.foundationdb.record.query.plan.cascades.VectorIndexScanMatchCandidate for index matching
- */
 public class RowNumberTransientValue extends TransientWindowValue implements Value.IndexOnlyValue {
 
     @Nonnull
@@ -436,7 +319,7 @@ public class RowNumberTransientValue extends TransientWindowValue implements Val
      * The {@code row_number} window function.
      */
     @AutoService(BuiltInFunction.class)
-    public static final class RowNumberHighOrderFn extends BuiltInFunction<RowNumberHighOrderWindowValue> {
+    public static final class RowNumberValueFn extends BuiltInFunction<RowNumberTransientValue> {
 
         @Nonnull
         public static final String EF_SEARCH_ARGUMENT = VectorIndexScanOptions.HNSW_EF_SEARCH.getOptionName();
@@ -444,67 +327,24 @@ public class RowNumberTransientValue extends TransientWindowValue implements Val
         @Nonnull
         public static final String INDEX_RETURNS_VECTORS_ARGUMENT = VectorIndexScanOptions.HNSW_RETURN_VECTORS.getOptionName();
 
-        public RowNumberHighOrderFn() {
-            super("row_number", ImmutableList.of(EF_SEARCH_ARGUMENT, INDEX_RETURNS_VECTORS_ARGUMENT),
-                    ImmutableList.of(Type.primitiveType(Type.TypeCode.INT), Type.primitiveType(Type.TypeCode.BOOLEAN)),
-                    ImmutableList.of(Optional.of(LiteralValue.ofScalar(null)), Optional.of(LiteralValue.ofScalar(null))),
-                    RowNumberHighOrderFn::encapsulateInternal);
-        }
-
-        @Nonnull
-        @Override
-        public HighOrderValue encapsulate(@Nonnull final Map<String, Value> namedArguments) {
-            SemanticException.check(namedArguments.size() <= 2,
-                    SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-            // Validate that namedArguments only contains EF_SEARCH_ARGUMENT or INDEX_RETURNS_VECTORS_ARGUMENT (or is empty)
-            for (final String key : namedArguments.keySet()) {
-                SemanticException.check(EF_SEARCH_ARGUMENT.equals(key) || INDEX_RETURNS_VECTORS_ARGUMENT.equals(key),
+        public RowNumberValueFn() {
+            super("row_number", ImmutableList.of(Type.any()), Type.any(), (ignored, callSiteArguments) -> {
+                final var namedArguments = callSiteArguments.getOptions();
+                SemanticException.check(namedArguments.size() <= 2,
                         SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-            }
-
-            final Typed efSearchValue = namedArguments.getOrDefault(EF_SEARCH_ARGUMENT, null);
-            final Integer efSearch = efSearchValue == null ? null : (Integer)Verify.verifyNotNull(((LiteralValue<?>)efSearchValue).evalWithoutStore(EvaluationContext.EMPTY));
-
-            final Typed indexReturnsVectorsValue = namedArguments.getOrDefault(INDEX_RETURNS_VECTORS_ARGUMENT, null);
-            final Boolean indexReturnsValue = indexReturnsVectorsValue == null ? null : (Boolean)Verify.verifyNotNull(((LiteralValue<?>)indexReturnsVectorsValue).evalWithoutStore(EvaluationContext.EMPTY));
-
-            return new RowNumberHighOrderWindowValue(efSearch, indexReturnsValue);
-        }
-
-        @Nonnull
-        private static RowNumberHighOrderWindowValue encapsulateInternal(@Nonnull final BuiltInFunction<RowNumberHighOrderWindowValue> ignored,
-                                                                         @Nonnull final List<Value> arguments) {
-            SemanticException.check(arguments.size() <= 2,
-                    SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-
-            if (arguments.isEmpty()) {
-                return new RowNumberHighOrderWindowValue(null, null);
-            }
-
-            if (arguments.size() == 1) {
-                final Typed argument = arguments.get(0);
-                SemanticException.check(argument instanceof LiteralValue, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-                final var argumentValue = (LiteralValue<?>)argument;
-                final var argumentType = argumentValue.getResultType().getTypeCode();
-                if (argumentType.equals(Type.TypeCode.BOOLEAN)) {
-                    boolean indexReturnsValue = (boolean)Verify.verifyNotNull(argumentValue.evalWithoutStore(EvaluationContext.EMPTY));
-                    return new RowNumberHighOrderWindowValue(null, indexReturnsValue);
-                } else if (argumentType.equals(Type.TypeCode.INT)) {
-                    int efSearch = (int)Verify.verifyNotNull(argumentValue.evalWithoutStore(EvaluationContext.EMPTY));
-                    return new RowNumberHighOrderWindowValue(efSearch, null);
+                // Validate that namedArguments only contains EF_SEARCH_ARGUMENT or INDEX_RETURNS_VECTORS_ARGUMENT (or is empty)
+                for (final String key : namedArguments.keySet()) {
+                    SemanticException.check(EF_SEARCH_ARGUMENT.equals(key) || INDEX_RETURNS_VECTORS_ARGUMENT.equals(key),
+                            SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
                 }
-                SemanticException.fail(SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "function undefined for given argument " + argumentValue);
-            }
 
-            final Typed efSearchValue = arguments.get(0);
-            SemanticException.check(efSearchValue instanceof LiteralValue, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-            final int efSearch = (int)Verify.verifyNotNull(((LiteralValue<?>)efSearchValue).evalWithoutStore(EvaluationContext.EMPTY));
+                @Nullable  final Integer efSearch = (Integer)namedArguments.getOrDefault(EF_SEARCH_ARGUMENT, null);
+                @Nullable final Boolean indexReturnsVectorsValue = (Boolean)namedArguments.getOrDefault(INDEX_RETURNS_VECTORS_ARGUMENT, null);
 
-            final Typed indexReturnsVectorsValue = arguments.get(1);
-            SemanticException.check(indexReturnsVectorsValue instanceof LiteralValue, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
-            final boolean indexReturnsValue = (boolean)Verify.verifyNotNull(((LiteralValue<?>)indexReturnsVectorsValue).evalWithoutStore(EvaluationContext.EMPTY));
-
-            return new RowNumberHighOrderWindowValue(efSearch, indexReturnsValue);
+                final var windowSpecification = callSiteArguments.getWindowSpecification();
+                return new RowNumberTransientValue(windowSpecification.partitioningValues(),
+                        windowSpecification.orderingParts(), windowSpecification.frameSpecification(), efSearch, indexReturnsVectorsValue);
+            });
         }
     }
 }

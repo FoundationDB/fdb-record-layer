@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -332,11 +333,11 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                 final FieldValue num2Value = FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_2");
                 final FieldValue num3Value = FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_3_indexed");
                 final FieldValue numUniqueValue = FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_unique");
-                final Value sumValue = (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(num2Value, num3Value));
-                final Value maskValue = (Value) new ArithmeticValue.BitAndFn().encapsulate(ImmutableList.of(
+                final Value sumValue = (Value) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(ImmutableList.of(num2Value, num3Value)));
+                final Value maskValue = (Value) new ArithmeticValue.BitAndFn().encapsulate(CallSiteArguments.ofPositional(ImmutableList.of(
                         numUniqueValue,
                         LiteralValue.ofScalar(4L)
-                ));
+                )));
                 SelectExpression select = GraphExpansion.builder()
                         .addQuantifier(typeQun)
                         .addPredicate(new ValuePredicate(strValue, new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, strValueParam)))
@@ -423,10 +424,10 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                 final Bindings bindings = constantBindings(maskConstantValue, mask);
                 final RecordQueryPlan plan = planGraph(() -> {
                     Quantifier typeQun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
-                    final Value maskValue = (Value)new ArithmeticValue.BitAndFn().encapsulate(List.of(
+                    final Value maskValue = (Value)new ArithmeticValue.BitAndFn().encapsulate(CallSiteArguments.ofPositional(List.of(
                             FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_unique"),
                             maskConstantValue
-                    ));
+                    )));
                     final Quantifier selectQun = Quantifier.forEach(Reference.initialOf(GraphExpansion.builder()
                             .addQuantifier(typeQun)
                             .addPredicate(new ValuePredicate(maskValue, new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, maskResultParam)))
@@ -498,10 +499,10 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
             final RecordQueryPlan plan = planGraph(() -> {
                 Quantifier typeQun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
-                final Value addValue = (Value) new ArithmeticValue.AddFn().encapsulate(List.of(
+                final Value addValue = (Value) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(List.of(
                         FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_2"),
                         FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_3_indexed")
-                ));
+                )));
                 final SelectExpression select = GraphExpansion.builder()
                         .addQuantifier(typeQun)
                         .addResultColumn(Column.of(Optional.of("sum"), addValue))

@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
@@ -45,6 +46,7 @@ import com.apple.foundationdb.tuple.TupleOrdering;
 import com.apple.foundationdb.tuple.TupleOrdering.Direction;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
@@ -208,7 +210,11 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
         public ToOrderedBytesAscNullsFirstFn() {
             super("TO_ORDERED_BYTES_" + Direction.ASC_NULLS_FIRST,
                     ImmutableList.of(Type.any()),
-                    (builtInFunction, arguments) -> new ToOrderedBytesValue(arguments.get(0), Direction.ASC_NULLS_FIRST));
+                    (builtInFunction, arguments) -> {
+                        SemanticException.check(arguments.isSimplePositional(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                        SemanticException.check(Iterables.size(arguments.getValues()) == 1, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                        return new ToOrderedBytesValue(Iterables.getOnlyElement(arguments.getValues()), Direction.ASC_NULLS_FIRST);
+                    });
         }
     }
 
@@ -220,7 +226,11 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
         public ToOrderedBytesAscNullsLastFn() {
             super("TO_ORDERED_BYTES_" + Direction.ASC_NULLS_LAST,
                     ImmutableList.of(Type.any()),
-                    (builtInFunction, arguments) -> new ToOrderedBytesValue(arguments.get(0), Direction.ASC_NULLS_LAST));
+                    (builtInFunction, arguments) -> {
+                        SemanticException.check(arguments.isSimplePositional(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                        SemanticException.check(Iterables.size(arguments.getValues()) == 1, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                        return new ToOrderedBytesValue(Iterables.getOnlyElement(arguments.getValues()), Direction.ASC_NULLS_LAST);
+                    });
         }
     }
 
@@ -232,7 +242,11 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
         public ToOrderedBytesDescNullsFirstFn() {
             super("TO_ORDERED_BYTES_" + Direction.DESC_NULLS_FIRST,
                     ImmutableList.of(Type.any()),
-                    (builtInFunction, arguments) -> new ToOrderedBytesValue(arguments.get(0), Direction.DESC_NULLS_FIRST));
+                    (builtInFunction, arguments) -> {
+                        SemanticException.check(arguments.isSimplePositional(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                        SemanticException.check(Iterables.size(arguments.getValues()) == 1, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                        return new ToOrderedBytesValue(Iterables.getOnlyElement(arguments.getValues()), Direction.DESC_NULLS_FIRST);
+                    });
         }
     }
 
@@ -244,7 +258,11 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
         public ToOrderedBytesDescNullsLastFn() {
             super("TO_ORDERED_BYTES_" + Direction.DESC_NULLS_LAST,
                     ImmutableList.of(Type.any()),
-                    (builtInFunction, arguments) -> new ToOrderedBytesValue(arguments.get(0), Direction.DESC_NULLS_LAST));
+                    (builtInFunction, arguments) -> {
+                        SemanticException.check(arguments.isSimplePositional(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                        SemanticException.check(Iterables.size(arguments.getValues()) == 1, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                        return new ToOrderedBytesValue(Iterables.getOnlyElement(arguments.getValues()), Direction.DESC_NULLS_LAST);
+                    });
         }
     }
 

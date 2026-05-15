@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -232,14 +232,15 @@ public class PickValue extends AbstractValue {
 
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static Value encapsulate(@Nonnull BuiltInFunction<Value> ignored,
-                                         @Nonnull final List<? extends Typed> arguments) {
+                                         @Nonnull final CallSiteArguments callSiteArguments) {
+            final var arguments = ImmutableList.copyOf(callSiteArguments.getValues());
             Verify.verify(arguments.size() > 1);
-            var selectorValue = (Value)arguments.get(0);
+            var selectorValue = arguments.get(0);
             final var selectorMaxType = Type.maximumType(selectorValue.getResultType(), Type.primitiveType(Type.TypeCode.INT));
             SemanticException.check(selectorMaxType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             selectorValue = PromoteValue.inject(selectorValue, selectorMaxType);
 
-            final var firstAlternative = (Value)arguments.get(1);
+            final var firstAlternative = arguments.get(1);
             var alternativesMaxType = firstAlternative.getResultType();
             for (int i = 2; i < arguments.size(); i++) {
                 alternativesMaxType = Type.maximumType(alternativesMaxType, arguments.get(i).getResultType());
@@ -248,7 +249,7 @@ public class PickValue extends AbstractValue {
 
             final var alternativesList = ImmutableList.<Value>builder();
             for (int i = 1; i < arguments.size(); i++) {
-                alternativesList.add(PromoteValue.inject((Value)arguments.get(i), alternativesMaxType));
+                alternativesList.add(PromoteValue.inject(arguments.get(i), alternativesMaxType));
             }
             return new PickValue(selectorValue, alternativesList.build());
         }

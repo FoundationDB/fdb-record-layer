@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.planprotos.PArithmeticValue.PPhysicalOperat
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -54,7 +55,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -203,17 +203,19 @@ public class ArithmeticValue extends AbstractValue {
 
     @Nonnull
     private static Value encapsulateInternal(@Nonnull BuiltInFunction<Value> builtInFunction,
-                                             @Nonnull final List<? extends Typed> arguments) {
+                                             @Nonnull final CallSiteArguments arguments) {
         return encapsulate(builtInFunction.getFunctionName(), arguments);
     }
 
     @Nonnull
-    private static Value encapsulate(@Nonnull final String functionName, @Nonnull final List<? extends Typed> arguments) {
+    private static Value encapsulate(@Nonnull final String functionName, @Nonnull final CallSiteArguments callSiteArguments) {
+        SemanticException.check(callSiteArguments.isSimplePositional(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+        final var arguments = ImmutableList.copyOf(callSiteArguments.getValues());
         Verify.verify(arguments.size() == 2);
-        final Typed arg0 = arguments.get(0);
+        final Value arg0 = arguments.get(0);
         final Type type0 = arg0.getResultType();
         SemanticException.check(type0.isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE);
-        final Typed arg1 = arguments.get(1);
+        final Value arg1 = arguments.get(1);
         final Type type1 = arg1.getResultType();
         SemanticException.check(type1.isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE);
 
@@ -226,7 +228,7 @@ public class ArithmeticValue extends AbstractValue {
 
         Verify.verifyNotNull(physicalOperator, "unable to encapsulate arithmetic operation due to type mismatch(es)");
 
-        return new ArithmeticValue(physicalOperator, (Value)arg0, (Value)arg1);
+        return new ArithmeticValue(physicalOperator, arg0, arg1);
     }
 
     private static Map<BinaryOperatorSignature, PhysicalOperator> computeOperatorMap() {

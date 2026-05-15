@@ -207,12 +207,12 @@ public class InOpValue extends AbstractValue implements BooleanValue {
     public static class InFn extends BuiltInFunction<Value> {
         public InFn() {
             super("in",
-                    List.of(new Type.Any(), new Type.Array()), (builtInFunc, args) -> encapsulateInternal(args));
+                    List.of(new Type.Any(), new Type.Array()), (builtInFunc, args) -> encapsulateInternal(ImmutableList.copyOf(args.getValues())));
         }
 
         @Nonnull
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulateInternal(@Nonnull final List<Value> arguments) {
             final Typed arg0 = arguments.get(0);
             final Type res0 = arg0.getResultType();
 

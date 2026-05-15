@@ -232,8 +232,5 @@ public abstract class CatalogedFunction<S> implements Typed {
     }
 
     @Nonnull
-    public abstract Typed encapsulate(@Nonnull List<S> arguments);
-
-    @Nonnull
-    public abstract Typed encapsulate(@Nonnull Map<String, S> namedArguments);
+    public abstract Typed encapsulate(@Nonnull CallSiteArguments arguments);
 }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -57,7 +58,7 @@ final class UserDefinedFunctionCatalog {
     }
 
     @Nonnull
-    public Optional<? extends CatalogedFunction<Value>> lookup(@Nonnull final String functionName, Expressions arguments) {
+    public Optional<? extends CatalogedFunction<Value>> lookup(@Nonnull final String functionName, CallSiteArguments arguments) {
         final var functionSupplier = functionsMap.get(functionName);
         if (functionSupplier == null) {
             return Optional.empty();
@@ -66,28 +67,8 @@ final class UserDefinedFunctionCatalog {
         // lazy-compile the function
         final var function = functionSupplier.apply(isCaseSensitive);
 
-        // either all arguments are named, or none is named.
-        // I think partial naming is supported in SQL standard, but we do not support that at the moment.
-        int countNamed = 0;
-        int countUnnamed = 0; // Java container builders do not have size for some reason.
-        final var namedArgumentsBuilder = ImmutableMap.<String, Value>builder();
-        final var unnamedArgumentsBuilder = ImmutableList.<Value>builder();
-        for (final var argument : arguments) {
-            if (argument.isNamedArgument()) {
-                Assert.thatUnchecked(countUnnamed == 0, ErrorCode.UNSUPPORTED_OPERATION,
-                        "mixing named and unnamed arguments is not supported");
-                countNamed++;
-                namedArgumentsBuilder.put(argument.getName().get().toString(), argument.getUnderlying());
-            } else {
-                Assert.thatUnchecked(countNamed == 0, ErrorCode.UNSUPPORTED_OPERATION,
-                        "mixing named and unnamed arguments is not supported");
-                countUnnamed++;
-                unnamedArgumentsBuilder.add(argument.getUnderlying());
-            }
-        }
-        final var namedArguments = namedArgumentsBuilder.build();
-        if (!namedArguments.isEmpty()) {
-            return function.validateCall(arguments.toNamedArgumentInvocation());
+        if (arguments.isNamed()) {
+            return function.validateCall(arguments.asNamedArguments().namedValues());
         }
         // todo: this should go throw validateCall for unnamed arguments, however that function is not considering
         // proper type promotion, instead, we're delegating this logic to the actual encapsuation logic of each

@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.planprotos.PDistanceValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -202,8 +203,8 @@ public class DistanceValue extends AbstractValue {
 
     @Nonnull
     private static Value encapsulateInternal(@Nonnull BuiltInFunction<Value> builtInFunction,
-                                             @Nonnull final List<? extends Typed> arguments) {
-        return encapsulate(builtInFunction.getFunctionName(), arguments);
+                                             @Nonnull final CallSiteArguments callSiteArguments) {
+        return encapsulate(builtInFunction.getFunctionName(), ImmutableList.copyOf(callSiteArguments.getValues()));
     }
 
     @Nonnull

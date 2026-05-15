@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
@@ -1180,7 +1181,7 @@ public class PredicatePushDownRuleTest {
                         projectColumn(base, "b"),
                         projectColumn(base, "d")
                 )),
-                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(base, "a"))),
+                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(base, "a"))),
                 GroupByExpression::nestedResults,
                 base
         ));
@@ -1196,7 +1197,7 @@ public class PredicatePushDownRuleTest {
                         projectColumn(newInner, "b"),
                         projectColumn(newInner, "d")
                 )),
-                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(newInner, "a"))),
+                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(newInner, "a"))),
                 GroupByExpression::nestedResults,
                 newInner
         ));
@@ -1223,7 +1224,7 @@ public class PredicatePushDownRuleTest {
                         projectColumn(base, "d"),
                         projectColumn(base, "c")
                 )),
-                (AggregateValue)new NumericAggregationValue.MaxFn().encapsulate(ImmutableList.of(fieldValue(base, "e.one"))),
+                (AggregateValue)new NumericAggregationValue.MaxFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(base, "e.one"))),
                 GroupByExpression::flattenedResults,
                 base
         ));
@@ -1239,7 +1240,7 @@ public class PredicatePushDownRuleTest {
                         projectColumn(newInner, "d"),
                         projectColumn(newInner, "c")
                 )),
-                (AggregateValue)new NumericAggregationValue.MaxFn().encapsulate(ImmutableList.of(fieldValue(newInner, "e.one"))),
+                (AggregateValue)new NumericAggregationValue.MaxFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(newInner, "e.one"))),
                 GroupByExpression::flattenedResults,
                 newInner
         ));
@@ -1283,7 +1284,7 @@ public class PredicatePushDownRuleTest {
                         projectColumn(base, "b"),
                         projectColumn(base, "c")
                 )),
-                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(base, "a"))),
+                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(base, "a"))),
                 GroupByExpression::nestedResults,
                 base
         ));
@@ -1313,7 +1314,7 @@ public class PredicatePushDownRuleTest {
                         projectColumn(base, "b"),
                         projectColumn(base, "c")
                 )),
-                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(base, "a"))),
+                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(base, "a"))),
                 GroupByExpression::flattenedResults,
                 base
         ));

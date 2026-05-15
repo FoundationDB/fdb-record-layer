@@ -33,13 +33,14 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
@@ -153,9 +154,9 @@ public class CardinalityValue extends AbstractValue {
                     List.of(Type.any()), (builtInFunction, arguments) -> encapsulateInternal(arguments));
         }
 
-        private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulateInternal(@Nonnull final CallSiteArguments arguments) {
             Verify.verify(arguments.size() == 1);
-            return new CardinalityValue((Value)arguments.get(0));
+            return new CardinalityValue(Iterables.getOnlyElement(arguments.getValues()));
         }
     }
 

@@ -185,9 +185,9 @@ class LikeOperatorValueTest {
         BuiltInFunction like = new LikeOperatorValue.LikeFn();
         BuiltInFunction pattern = new PatternForLikeValue.PatternForLikeFn();
         try {
-            like.encapsulate(Arrays.asList(
+            like.encapsulate(CallSiteArguments.ofPositional(Arrays.asList(
                     lhs,
-                    pattern.encapsulate(Arrays.asList(rhs, escapeChar))));
+                    (Value)pattern.encapsulate(CallSiteArguments.ofPositional(Arrays.asList(rhs, escapeChar))))));
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof SemanticException);
@@ -222,11 +222,11 @@ class LikeOperatorValueTest {
     private static LikeOperatorValue createLikeOperatorValue(final String lhs, final String rhs, final String escapeChar) {
         BuiltInFunction like = new LikeOperatorValue.LikeFn();
         BuiltInFunction pattern = new PatternForLikeValue.PatternForLikeFn();
-        Typed value = like.encapsulate(Arrays.asList(
+        Typed value = like.encapsulate(CallSiteArguments.ofPositional(Arrays.asList(
                 new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), lhs),
-                pattern.encapsulate(Arrays.asList(
+                (Value)pattern.encapsulate(CallSiteArguments.ofPositional(Arrays.asList(
                         new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), rhs),
-                        new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), escapeChar)))));
+                        new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), escapeChar)))))));
         Assertions.assertInstanceOf(LikeOperatorValue.class, value);
         return (LikeOperatorValue) value;
     }

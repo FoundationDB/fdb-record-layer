@@ -29,12 +29,13 @@ import com.apple.foundationdb.record.planprotos.PSubscriptValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
@@ -186,14 +187,15 @@ public class SubscriptValue extends AbstractValue {
 
         @SuppressWarnings({"PMD.UnusedFormalParameter", "PMD.UnusedPrivateMethod"}) // false positive, method is used
         private static Value encapsulate(@Nonnull BuiltInFunction<Value> ignored,
-                                         @Nonnull final List<? extends Typed> arguments) {
+                                         @Nonnull final CallSiteArguments callSiteArguments) {
+            final var arguments = ImmutableList.copyOf(callSiteArguments.getValues());
             Verify.verify(arguments.size() == 2);
-            var indexValue = (Value)arguments.get(0);
+            var indexValue = arguments.get(0);
             final var indexMaxType = Type.maximumType(indexValue.getResultType(), Type.primitiveType(Type.TypeCode.INT));
             SemanticException.check(indexMaxType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             indexValue = PromoteValue.inject(indexValue, indexMaxType);
 
-            var sourceValue = (Value)arguments.get(1);
+            var sourceValue = arguments.get(1);
             Verify.verify(sourceValue.getResultType().isArray());
 
             return new SubscriptValue(indexValue, sourceValue);

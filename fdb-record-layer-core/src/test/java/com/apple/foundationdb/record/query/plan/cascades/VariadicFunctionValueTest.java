@@ -82,9 +82,9 @@ class VariadicFunctionValueTest {
     private static final LiteralValue<Boolean> BOOLEAN_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
     private static final LiteralValue<Boolean> BOOLEAN_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true);
     private static final LiteralValue<Boolean> BOOLEAN_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), null);
-    private static final Typed RECORD_1 = new RecordConstructorValue.RecordFn().encapsulate(List.of(STRING_1, INT_1, FLOAT_1));
-    private static final Typed RECORD_2 = new RecordConstructorValue.RecordFn().encapsulate(List.of(STRING_2, INT_2, FLOAT_2));
-    private static final Typed RECORD_3 = new RecordConstructorValue.RecordFn().encapsulate(List.of(STRING_3, INT_3, FLOAT_3));
+    private static final Typed RECORD_1 = new RecordConstructorValue.RecordFn().encapsulate(CallSiteArguments.ofPositional(List.of(STRING_1, INT_1, FLOAT_1)));
+    private static final Typed RECORD_2 = new RecordConstructorValue.RecordFn().encapsulate(CallSiteArguments.ofPositional(List.of(STRING_2, INT_2, FLOAT_2)));
+    private static final Typed RECORD_3 = new RecordConstructorValue.RecordFn().encapsulate(CallSiteArguments.ofPositional(List.of(STRING_3, INT_3, FLOAT_3)));
     private static final Typed NULL_TYPED = new LiteralValue<>(Type.primitiveType(Type.TypeCode.NULL), null);
     private static final Typed RECORD_NAMED = RecordConstructorValue.ofColumns(ImmutableList.of(
             Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("f1")), LiteralValue.ofScalar("sz")),
@@ -398,14 +398,14 @@ class VariadicFunctionValueTest {
     void testPredicate(List<Value> args, BuiltInFunction function, Object expectedValue, boolean shouldFail) {
         if (shouldFail) {
             try {
-                function.encapsulate(args);
+                function.encapsulate(CallSiteArguments.ofPositional(args));
                 Assertions.fail("expected an exception to be thrown");
             } catch (Exception e) {
                 Assertions.assertTrue(e instanceof SemanticException);
                 Assertions.assertEquals(((SemanticException)e).getErrorCode(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             }
         } else {
-            Typed value = function.encapsulate(args);
+            Typed value = function.encapsulate(CallSiteArguments.ofPositional(args));
             Assertions.assertTrue(value instanceof VariadicFunctionValue);
             Object actualValue = ((VariadicFunctionValue)value).eval(null, evaluationContext);
             Assertions.assertEquals(expectedValue, actualValue);

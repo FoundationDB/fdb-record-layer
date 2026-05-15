@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -624,7 +625,7 @@ class RecursiveQueriesTest extends TempTableTestBase {
 
             final var ttScanRecuQun = Quantifier.forEach(Reference.initialOf(TempTableScanExpression.ofCorrelated(scanTempTableAlias, getHierarchyType())));
             var idField = getIdCol(ttScanRecuQun);
-            final var multByTwo = Column.of(Optional.of("id"), (Value)new ArithmeticValue.MulFn().encapsulate(List.of(idField.getValue(), LiteralValue.ofScalar(2L))));
+            final var multByTwo = Column.of(Optional.of("id"), (Value)new ArithmeticValue.MulFn().encapsulate(CallSiteArguments.ofPositional(List.of(idField.getValue(), LiteralValue.ofScalar(2L)))));
             selectExpression = GraphExpansion.builder()
                     .addAllResultColumns(List.of(multByTwo))
                     .addQuantifier(ttScanRecuQun)

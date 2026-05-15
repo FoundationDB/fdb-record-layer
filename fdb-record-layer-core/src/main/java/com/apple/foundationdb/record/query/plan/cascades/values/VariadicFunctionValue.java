@@ -33,12 +33,12 @@ import com.apple.foundationdb.record.planprotos.PVariadicFunctionValue.PPhysical
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.auto.service.AutoService;
@@ -188,7 +188,8 @@ public class VariadicFunctionValue extends AbstractValue {
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction,
-                                     @Nonnull final List<? extends Typed> arguments) {
+                                     @Nonnull final CallSiteArguments callSiteArguments) {
+        final var arguments = ImmutableList.copyOf(callSiteArguments.getValues());
         Verify.verify(arguments.size() >= 2);
         Type resultType = null;
         for (final var arg : arguments) {
@@ -213,7 +214,7 @@ public class VariadicFunctionValue extends AbstractValue {
 
         final ImmutableList.Builder<Value> promotedArgs = ImmutableList.builder();
         for (final var arg: arguments) {
-            promotedArgs.add(PromoteValue.inject((Value) arg, resultType));
+            promotedArgs.add(PromoteValue.inject(arg, resultType));
         }
         return new VariadicFunctionValue(physicalOperator, promotedArgs.build());
     }

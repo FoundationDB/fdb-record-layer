@@ -36,8 +36,8 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
-import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
@@ -221,23 +221,21 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
     /**
      * The {@code count(x)} function.
      */
-    @AutoService(BuiltInWindowFunction.class)
+    @AutoService(BuiltInFunction.class)
     @SuppressWarnings("PMD.UnusedFormalParameter")
-    public static class CountFn extends BuiltInWindowFunction<AggregateValue> {
+    public static class CountFn extends BuiltInFunction<AggregateValue> {
         public CountFn() {
             super("COUNT",
-                    ImmutableList.of(new Type.Any()), (builtInFunction, frameSpecification, partitioningColumns, sortOrder, arguments) -> encapsulate(builtInFunction, frameSpecification, sortOrder, arguments));
+                    ImmutableList.of(new Type.Any()), CountFn::encapsulate);
         }
 
         @Nonnull
-        private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final WindowFrameSpecification frameSpecification,
-                                                  @Nullable final List<WindowOrderingPart> sortOrder,
-                                                  @Nonnull final List<? extends Typed> arguments) {
-            SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            final Typed arg0 = arguments.get(0);
-            return new CountValue((Value)arg0);
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull CallSiteArguments callSiteArguments) {
+            SemanticException.check(callSiteArguments.isSimplePositional(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+            SemanticException.check(Iterables.size(callSiteArguments.getValues()) == 1, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+            final Value arg0 = Iterables.getOnlyElement(callSiteArguments.getValues());
+            return new CountValue(arg0);
         }
     }
 

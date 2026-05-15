@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
@@ -55,7 +56,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
     @Override
-    public CatalogedFunction<Value> lookupFunction(@Nonnull final String name, @Nonnull final Expressions arguments) {
+    public CatalogedFunction<Value> lookupFunction(@Nonnull final String name, @Nonnull final CallSiteArguments arguments) {
         final var builtInFunctionMaybe = lookupBuiltInFunction(name, arguments);
         final var userDefinedFunctionMaybe = lookupUserDefinedFunction(name, arguments);
         if (builtInFunctionMaybe.isPresent() && userDefinedFunctionMaybe.isPresent()) {
@@ -73,18 +74,18 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
     private Optional<? extends CatalogedFunction<Value>> lookupBuiltInFunction(@Nonnull final String name,
-                                                                        @Nonnull final Expressions expressions) {
+                                                                        @Nonnull final CallSiteArguments callSiteArguments) {
         final var functionValidator = builtInSynonyms.get(name.toLowerCase(Locale.ROOT));
         if (functionValidator == null) {
             return Optional.empty();
         }
         // TODO we should streamline the validation logic.
-        return functionValidator.apply(expressions.size());
+        return functionValidator.apply(callSiteArguments.size());
     }
 
     @Nonnull
     private Optional<? extends CatalogedFunction<Value>> lookupUserDefinedFunction(@Nonnull final String name,
-                                                                                   @Nonnull final Expressions expressions) {
+                                                                                   @Nonnull final CallSiteArguments expressions) {
         return userDefinedFunctionCatalog.lookup(name, expressions);
     }
 

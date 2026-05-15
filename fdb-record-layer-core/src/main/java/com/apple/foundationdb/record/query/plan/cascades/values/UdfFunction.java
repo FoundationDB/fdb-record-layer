@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -55,7 +56,9 @@ public abstract class UdfFunction extends BuiltInFunction<Value> {
 
     @Nonnull
     @Override
-    public final Typed encapsulate(@Nonnull final List<Value> arguments) {
+    public final Typed encapsulate(final @Nonnull CallSiteArguments callSiteArguments) {
+        SemanticException.check(callSiteArguments.isSimplePositional(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+        final List<Value> arguments = ImmutableList.copyOf(callSiteArguments.getValues());
         final List<Type> parameterTypes = getParameterTypes();
         if (arguments.size() != parameterTypes.size()) {
             final String udfName = getFunctionName();

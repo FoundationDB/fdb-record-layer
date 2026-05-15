@@ -53,7 +53,7 @@ public class UserDefinedMacroFunctionTest {
                 Column.of(fields.get(1), new LiteralValue<>(fields.get(1).getFieldType(), 1L))
         ));
 
-        Assertions.assertEquals(FieldValue.ofFieldName(testValue1, "name"), macroFunction.encapsulate(ImmutableList.of(testValue1)));
+        Assertions.assertEquals(FieldValue.ofFieldName(testValue1, "name"), macroFunction.encapsulate(CallSiteArguments.ofPositional(ImmutableList.of(testValue1))));
     }
 
     @Test
@@ -74,7 +74,7 @@ public class UserDefinedMacroFunctionTest {
                 Column.of(fields.get(0), new LiteralValue<>(fields.get(0).getFieldType(), 2L))
         ));
 
-        Assertions.assertEquals(new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_LL, testValue1, testValue2), macroFunction.encapsulate(ImmutableList.of(testValue1, testValue2)));
+        Assertions.assertEquals(new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_LL, testValue1, testValue2), macroFunction.encapsulate(CallSiteArguments.ofPositional(ImmutableList.of(testValue1, testValue2))));
     }
 
     @Test
@@ -89,7 +89,7 @@ public class UserDefinedMacroFunctionTest {
         LiteralValue<Long> inputValue = new LiteralValue<>(longType, 123L);
 
         // The function should return the literal value regardless of input
-        Assertions.assertEquals(literalBody, constantFunction.encapsulate(ImmutableList.of(inputValue)));
+        Assertions.assertEquals(literalBody, constantFunction.encapsulate(CallSiteArguments.ofPositional(ImmutableList.of(inputValue))));
     }
 
     @Test
@@ -112,7 +112,7 @@ public class UserDefinedMacroFunctionTest {
                 Column.of(fields.get(2), new LiteralValue<>(fields.get(2).getFieldType(), 30L))
         ));
 
-        Assertions.assertEquals(FieldValue.ofFieldName(testValue, "firstName"), getFirstNameFunction.encapsulate(ImmutableList.of(testValue)));
+        Assertions.assertEquals(FieldValue.ofFieldName(testValue, "firstName"), getFirstNameFunction.encapsulate(CallSiteArguments.ofPositional(ImmutableList.of(testValue))));
     }
 
     @Test
@@ -129,7 +129,7 @@ public class UserDefinedMacroFunctionTest {
 
         // Should throw exception because function expects 2 arguments but only 1 provided
         Assertions.assertThrows(Exception.class, () -> {
-            addFunction.encapsulate(ImmutableList.of(singleArg));
+            addFunction.encapsulate(CallSiteArguments.ofPositional(ImmutableList.of(singleArg)));
         });
     }
 
@@ -153,7 +153,7 @@ public class UserDefinedMacroFunctionTest {
         ArithmeticValue expectedAdd = new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_LL, arg1, arg2);
         ArithmeticValue expectedResult = new ArithmeticValue(ArithmeticValue.PhysicalOperator.MUL_LL, expectedAdd, arg3);
 
-        Assertions.assertEquals(expectedResult, complexFunction.encapsulate(ImmutableList.of(arg1, arg2, arg3)));
+        Assertions.assertEquals(expectedResult, complexFunction.encapsulate(CallSiteArguments.ofPositional(ImmutableList.of(arg1, arg2, arg3))));
     }
 
     @Test
@@ -168,7 +168,7 @@ public class UserDefinedMacroFunctionTest {
 
         // Should throw exception because named arguments are not supported
         Assertions.assertThrows(Exception.class, () -> {
-            identityFunction.encapsulate(ImmutableMap.of("param", argValue));
+            identityFunction.encapsulate(CallSiteArguments.ofNamed(ImmutableMap.of("param", argValue)));
         });
     }
 }

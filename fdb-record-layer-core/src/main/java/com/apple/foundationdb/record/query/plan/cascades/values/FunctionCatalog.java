@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
@@ -29,7 +28,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,8 +64,7 @@ public class FunctionCatalog {
     @Nonnull
     private static Map<FunctionKey, CatalogedFunction<?>> loadFunctions() {
         final ImmutableMap.Builder<FunctionKey, CatalogedFunction<?>> catalogBuilder = ImmutableMap.builder();
-        final Iterable<CatalogedFunction> loader = Iterables.concat(ServiceLoaderProvider.load(BuiltInFunction.class),
-                ServiceLoaderProvider.load(BuiltInWindowFunction.class));
+        final Iterable<BuiltInFunction> loader = ServiceLoaderProvider.load(BuiltInFunction.class);
 
         loader.forEach(builtInFunction -> {
             catalogBuilder.put(FunctionKey.entry(builtInFunction.getFunctionName(), builtInFunction.getParameterTypes().size(),
@@ -93,14 +90,6 @@ public class FunctionCatalog {
         CatalogedFunction<?> builtInFunction = getFunctionCatalog().get(FunctionKey.invocation(functionName, numberOfArguments));
         Verify.verify(builtInFunction == null || builtInFunction instanceof BuiltInFunction<?>);
         return Optional.ofNullable((BuiltInFunction<Value>)builtInFunction);
-    }
-
-    @Nonnull
-    @SuppressWarnings({"java:S1066", "unchecked"})
-    public static Optional<BuiltInWindowFunction<Value>> resolveBuiltInWindowFunction(@Nonnull final String functionName, int numberOfArguments) {
-        CatalogedFunction<?> builtInFunction = getFunctionCatalog().get(FunctionKey.invocation(functionName, numberOfArguments));
-        Verify.verify(builtInFunction == null || builtInFunction instanceof BuiltInWindowFunction<?>);
-        return Optional.ofNullable((BuiltInWindowFunction<Value>)builtInFunction);
     }
 
     @Nonnull
@@ -135,14 +124,6 @@ public class FunctionCatalog {
         final var result = getFunctionsByClass().get(clazz);
         Verify.verify(result == null || result instanceof BuiltInFunction<?>);
         return Optional.ofNullable((BuiltInFunction<Value>)(result));
-    }
-
-    @Nonnull
-    @SuppressWarnings("unchecked")
-    public static Optional<BuiltInWindowFunction<Value>> getBuiltInWindowFunction(@Nonnull final Class<? extends BuiltInWindowFunction<Value>> clazz) {
-        final var result = getFunctionsByClass().get(clazz);
-        Verify.verify(result == null || result instanceof BuiltInWindowFunction<?>);
-        return Optional.ofNullable((BuiltInWindowFunction<Value>)(result));
     }
 
     /**

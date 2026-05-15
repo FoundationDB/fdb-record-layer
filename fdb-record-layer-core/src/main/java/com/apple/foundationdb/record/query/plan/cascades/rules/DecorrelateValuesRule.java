@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
@@ -258,7 +259,7 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
             //
             // We're about to push down all the quantifiers. Introduce a range(1) box here to avoid creating a Select with no children
             //
-            TableFunctionExpression rangeOneExpr = new TableFunctionExpression((StreamingValue) new RangeValue.RangeFn().encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L))));
+            TableFunctionExpression rangeOneExpr = new TableFunctionExpression((StreamingValue) new RangeValue.RangeFn().encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(1L))));
             Quantifier newRangeQun = Quantifier.forEach(call.memoizeExploratoryExpression(rangeOneExpr));
             newQuantifiersBuilder.add(newRangeQun);
         }

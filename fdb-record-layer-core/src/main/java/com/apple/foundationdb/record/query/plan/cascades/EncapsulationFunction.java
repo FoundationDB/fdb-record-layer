@@ -38,5 +38,5 @@ public interface EncapsulationFunction<T extends Typed> {
      * @param arguments The arguments needed by the computation.
      * @return A {@link Typed} object capable of doing a runtime computation against a list of arguments.
      */
-    T encapsulate(@Nonnull BuiltInFunction<T> builtInFunction, List<Value> arguments);
+    T createCallSite(@Nonnull BuiltInFunction<T> builtInFunction, CallSiteArguments arguments);
 }

@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -573,9 +574,9 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         {
             // 2.1. construct aggregate expression.
             final var num2 = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_2"));
-            final var bitBucketNumValue2FieldValue = (Value)new ArithmeticValue.BitmapBucketOffsetFn().encapsulate(List.of(num2, bucketSizeValue));
+            final var bitBucketNumValue2FieldValue = (Value)new ArithmeticValue.BitmapBucketOffsetFn().encapsulate(CallSiteArguments.ofPositional(List.of(num2, bucketSizeValue)));
 
-            final Value bitMapValue = (Value) new NumericAggregationValue.BitmapConstructAggFn().encapsulate(List.of(new ArithmeticValue.BitmapBitPositionFn().encapsulate(List.of(num2, bucketSizeValue))));
+            final Value bitMapValue = (Value) new NumericAggregationValue.BitmapConstructAggFn().encapsulate(CallSiteArguments.ofPositional((Value)new ArithmeticValue.BitmapBitPositionFn().encapsulate(CallSiteArguments.ofPositional(List.of(num2, bucketSizeValue)))));
             final var aggCol = Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BYTES), Optional.of("bitmap_field")), bitMapValue);
             final var aggregationExpr = RecordConstructorValue.ofColumns(ImmutableList.of(aggCol));
 

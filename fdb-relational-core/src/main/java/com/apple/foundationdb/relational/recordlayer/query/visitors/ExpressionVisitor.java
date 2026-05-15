@@ -283,8 +283,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
         final WindowSpecExpression windowSpecExpression = getDelegate().visitOverClause(windowedFunctionContext.overClause());
 
-        return getDelegate().getSemanticAnalyzer().resolveHighOrderWindowFunction(functionName, true,
-                windowSpecExpression, arguments);
+        return getDelegate().getSemanticAnalyzer().resolveWindowFunction(functionName, true, windowSpecExpression, arguments);
     }
 
     @Nonnull

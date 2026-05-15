@@ -26,9 +26,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PRankTransientValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -36,11 +34,8 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * A windowed value that computes the RANK of a list of expressions which can optionally be partitioned by expressions
@@ -141,21 +136,14 @@ public class RankTransientValue extends TransientWindowValue implements Value.In
         }
     }
 
-    @AutoService(BuiltInWindowFunction.class)
-    public static final class RankFn extends BuiltInWindowFunction<RankTransientValue> {
+    @AutoService(BuiltInFunction.class)
+    public static final class RankFn extends BuiltInFunction<RankTransientValue> {
         public RankFn() {
-            super("rank", ImmutableList.of(Type.any(), Type.any()), (builtInFunction, frameSpecification, partitioningColumns, windowOrder, arguments) -> {
-                if (frameSpecification == null) {
-                    frameSpecification = WindowFrameSpecification.defaultSpecification();
-                }
-                if (windowOrder == null) {
-                    windowOrder = ImmutableList.of();
-                }
-                if (partitioningColumns == null) {
-                    partitioningColumns = ImmutableList.of();
-                }
-
-                return new RankTransientValue(arguments, partitioningColumns, windowOrder, frameSpecification);
+            super("rank", ImmutableList.of(Type.any()), Type.any(), (builtInFunction, callSiteArguments) -> {
+                SemanticException.check(!callSiteArguments.isNamed(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                final var windowSpecification = callSiteArguments.getWindowSpecification();
+                return new RankTransientValue(callSiteArguments.getValues(), windowSpecification.partitioningValues(),
+                        windowSpecification.orderingParts(), windowSpecification.frameSpecification());
             });
         }
     }

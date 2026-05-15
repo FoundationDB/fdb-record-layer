@@ -43,15 +43,14 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.BitmapValueIndexMaintainer;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
-import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.auto.service.AutoService;
@@ -195,10 +194,11 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
     @Nonnull
     private static AggregateValue encapsulate(@Nonnull final String functionName,
-                                              @Nonnull final List<? extends Typed> arguments,
+                                              @Nonnull final CallSiteArguments arguments,
                                               @Nonnull final BiFunction<PhysicalOperator, Value, NumericAggregationValue> valueSupplier) {
+        SemanticException.check(arguments.isSimplePositional(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
         Verify.verify(arguments.size() == 1);
-        final Typed arg0 = arguments.get(0);
+        final Value arg0 = Iterables.getOnlyElement(arguments.getValues());
         final Type type0 = arg0.getResultType();
         SemanticException.check(type0.isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE);
 
@@ -211,7 +211,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         Verify.verifyNotNull(physicalOperator, "unable to encapsulate aggregate operation due to type mismatch(es)");
 
-        return valueSupplier.apply(physicalOperator, (Value)arg0);
+        return valueSupplier.apply(physicalOperator, arg0);
     }
 
     private static Map<Pair<LogicalOperator, TypeCode>, PhysicalOperator> computeOperatorMap() {
@@ -243,15 +243,9 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final WindowFrameSpecification frameSpecification,
-                                                  @Nullable final List<Value> partitioningColumns,
-                                                  @Nullable final List<WindowOrderingPart> sortOrder,
-                                                  @Nonnull final List<? extends Typed> arguments) {
-            SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            SemanticException.check(partitioningColumns == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, BitmapConstructAgg::new);
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final CallSiteArguments callSiteArguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), callSiteArguments, BitmapConstructAgg::new);
         }
 
         @Nonnull
@@ -318,15 +312,9 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final WindowFrameSpecification frameSpecification,
-                                                  @Nullable final List<Value> partitioningColumns,
-                                                  @Nullable final List<WindowOrderingPart> sortOrder,
-                                                  @Nonnull final List<? extends Typed> arguments) {
-            SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            SemanticException.check(partitioningColumns == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Sum::new);
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final CallSiteArguments callSiteArguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), callSiteArguments, Sum::new);
         }
 
         @Nonnull
@@ -387,15 +375,9 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final WindowFrameSpecification frameSpecification,
-                                                  @Nullable final List<Value> partitioningColumns,
-                                                  @Nullable final List<WindowOrderingPart> sortOrder,
-                                                  @Nonnull final List<? extends Typed> arguments) {
-            SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            SemanticException.check(partitioningColumns == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Avg::new);
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final CallSiteArguments callSiteArguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), callSiteArguments, Avg::new);
         }
 
         @Nonnull
@@ -462,16 +444,9 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final WindowFrameSpecification frameSpecification,
-                                                  @Nullable final List<Value> partitioningColumns,
-                                                  @Nullable final List<WindowOrderingPart> sortOrder,
-                                                  @Nonnull final List<? extends Typed> arguments) {
-            SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            SemanticException.check(partitioningColumns == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-
-            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Min::new);
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final CallSiteArguments callSiteArguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), callSiteArguments, Min::new);
         }
 
         @Nonnull
@@ -538,15 +513,9 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static AggregateValue encapsulate(@Nonnull BuiltInWindowFunction<AggregateValue> builtInFunction,
-                                                  @Nullable final WindowFrameSpecification frameSpecification,
-                                                  @Nullable final List<Value> partitioningColumns,
-                                                  @Nullable final List<WindowOrderingPart> sortOrder,
-                                                  @Nonnull final List<? extends Typed> arguments) {
-            SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            SemanticException.check(partitioningColumns == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Max::new);
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final CallSiteArguments callSiteArguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), callSiteArguments, Max::new);
         }
 
         @Nonnull
@@ -595,8 +564,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * The {@code sum} function.
      */
-    @AutoService(BuiltInWindowFunction.class)
-    public static class SumFn extends BuiltInWindowFunction<AggregateValue> {
+    @AutoService(BuiltInFunction.class)
+    public static class SumFn extends BuiltInFunction<AggregateValue> {
         public SumFn() {
             super("SUM",
                     ImmutableList.of(new Type.Any()), Sum::encapsulate);
@@ -606,8 +575,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * The {@code bitmap} function.
      */
-    @AutoService(BuiltInWindowFunction.class)
-    public static class BitmapConstructAggFn extends BuiltInWindowFunction<AggregateValue> {
+    @AutoService(BuiltInFunction.class)
+    public static class BitmapConstructAggFn extends BuiltInFunction<AggregateValue> {
         public BitmapConstructAggFn() {
             super("BITMAP_CONSTRUCT_AGG",
                     ImmutableList.of(new Type.Any()), BitmapConstructAgg::encapsulate);
@@ -617,8 +586,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * The {@code avg} function.
      */
-    @AutoService(BuiltInWindowFunction.class)
-    public static class AvgFn extends BuiltInWindowFunction<AggregateValue> {
+    @AutoService(BuiltInFunction.class)
+    public static class AvgFn extends BuiltInFunction<AggregateValue> {
         public AvgFn() {
             super("AVG",
                     ImmutableList.of(new Type.Any()), Avg::encapsulate);
@@ -628,8 +597,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * The {@code min} function.
      */
-    @AutoService(BuiltInWindowFunction.class)
-    public static class MinFn extends BuiltInWindowFunction<AggregateValue> {
+    @AutoService(BuiltInFunction.class)
+    public static class MinFn extends BuiltInFunction<AggregateValue> {
         public MinFn() {
             super("MIN",
                     ImmutableList.of(new Type.Any()), Min::encapsulate);
@@ -639,8 +608,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     /**
      * The {@code max} function.
      */
-    @AutoService(BuiltInWindowFunction.class)
-    public static class MaxFn extends BuiltInWindowFunction<AggregateValue> {
+    @AutoService(BuiltInFunction.class)
+    public static class MaxFn extends BuiltInFunction<AggregateValue> {
         public MaxFn() {
             super("MAX",
                     ImmutableList.of(new Type.Any()), Max::encapsulate);

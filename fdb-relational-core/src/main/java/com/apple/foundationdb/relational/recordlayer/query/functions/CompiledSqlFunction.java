@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -95,27 +96,35 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
 
     @Nonnull
     @Override
-    public RelationalExpression encapsulate(@Nonnull final List<Value> arguments) {
+    public RelationalExpression encapsulate(final @Nonnull CallSiteArguments arguments) {
+        Assert.thatUnchecked(arguments.isSimple());
+        if (arguments.isSimplePositional()) {
+            return handlePositionalArguments(ImmutableList.copyOf(arguments.getValues()));
+        }
+        return handleNamedArguments(arguments.asNamedArguments().namedValues());
+    }
+
+    private RelationalExpression handlePositionalArguments(@Nonnull List<Value> positionalArguments) {
         if (parametersCorrelation.isEmpty()) {
             // this should never happen.
-            Assert.thatUnchecked(arguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
+            Assert.thatUnchecked(positionalArguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
                     "unexpected parameterless function invocation with non-zero arguments");
             return body;
         }
         final var parametersCount = getParameterNames().size();
-        Assert.thatUnchecked(arguments.size() <= parametersCount, ErrorCode.UNDEFINED_FUNCTION,
+        Assert.thatUnchecked(positionalArguments.size() <= parametersCount, ErrorCode.UNDEFINED_FUNCTION,
                 () -> "could not find function matching the provided arguments");
-        for (var missingArgIndex = arguments.size(); missingArgIndex < parametersCount; missingArgIndex++) {
+        for (var missingArgIndex = positionalArguments.size(); missingArgIndex < parametersCount; missingArgIndex++) {
             Assert.thatUnchecked(hasDefaultValue(missingArgIndex), ErrorCode.UNDEFINED_FUNCTION,
                     () -> "could not find function matching the provided arguments");
         }
         final var resultBuilder = GraphExpansion.builder();
         for (var paramIdx = 0; paramIdx < parametersCount; paramIdx++) {
             Value argumentValue;
-            if (paramIdx >= arguments.size()) {
+            if (paramIdx >= positionalArguments.size()) {
                 argumentValue = Assert.castUnchecked(Assert.optionalUnchecked(getDefaultValue(paramIdx)), Value.class);
             } else {
-                final var providedArgValue = Assert.castUnchecked(arguments.get(paramIdx), Value.class);
+                final var providedArgValue = Assert.castUnchecked(positionalArguments.get(paramIdx), Value.class);
                 final var isPromotionNeeded = PromoteValue.isPromotionNeeded(providedArgValue.getResultType(), computeParameterType(paramIdx));
                 Assert.thatUnchecked(!isPromotionNeeded || PromoteValue.isPromotable(providedArgValue.getResultType(), computeParameterType(paramIdx)),
                         ErrorCode.UNDEFINED_FUNCTION, () -> "could not find function matching the provided arguments");
@@ -128,8 +137,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
     }
 
     @Nonnull
-    @Override
-    public RelationalExpression encapsulate(@Nonnull final Map<String, Value> namedArguments) {
+    public RelationalExpression handleNamedArguments(@Nonnull final Map<String, Value> namedArguments) {
         if (parametersCorrelation.isEmpty()) {
             // this should never happen.
             Assert.thatUnchecked(namedArguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
@@ -192,7 +200,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
     @Nonnull
     private static Quantifier rangeOfOnePlan() {
         final var rangeFunction = new RangeValue.RangeFn();
-        final var rangeValue = Assert.castUnchecked(rangeFunction.encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L))),
+        final var rangeValue = Assert.castUnchecked(rangeFunction.encapsulate(CallSiteArguments.ofPositional(ImmutableList.of(LiteralValue.ofScalar(1L)))),
                 StreamingValue.class);
         final var tableFunctionExpression = new TableFunctionExpression(rangeValue);
         return Quantifier.forEach(Reference.initialOf(tableFunctionExpression));

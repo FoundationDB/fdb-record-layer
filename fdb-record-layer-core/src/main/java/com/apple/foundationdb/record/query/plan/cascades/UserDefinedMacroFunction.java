@@ -22,20 +22,18 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.planprotos.PUserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -55,15 +53,16 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
 
     @Nonnull
     @Override
-    public Value encapsulate(@Nonnull List<Value> arguments) {
+    public Value encapsulate(@Nonnull CallSiteArguments arguments) {
         // replace the QuantifiedObjectValue in body with arguments
-        SemanticException.check(arguments.size() == parameterTypes.size(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument length doesn't match with function definition");
+        final var argsList = ImmutableList.copyOf(arguments.getValues());
+        SemanticException.check(argsList.size() == parameterTypes.size(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument length doesn't match with function definition");
         final RegularTranslationMap.Builder translationMapBuilder = TranslationMap.regularBuilder();
-        for (int i = 0; i < arguments.size(); i++) {
+        for (int i = 0; i < argsList.size(); i++) {
             // check that arguments[i] type matches with parameterTypes[i] ignoring nullability -- Nullability is not specified when a user defined function is defined.
             final int finalI = i;
-            SemanticException.check(typeEquals(arguments.get(finalI).getResultType(), parameterTypes.get(i)), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument type doesn't match with function definition");
-            translationMapBuilder.when(parameterIdentifiers.get(finalI)).then((sourceAlias, leafValue) -> arguments.get(finalI));
+            SemanticException.check(typeEquals(argsList.get(finalI).getResultType(), parameterTypes.get(i)), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument type doesn't match with function definition");
+            translationMapBuilder.when(parameterIdentifiers.get(finalI)).then((sourceAlias, leafValue) -> argsList.get(finalI));
         }
         return bodyValue.translateCorrelations(translationMapBuilder.build());
     }
@@ -82,13 +81,6 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
                         .setFunctionName(functionName)
                         .setBody(bodyValue.toValueProto(serializationContext)))
                 .build();
-    }
-
-
-    @Nonnull
-    @Override
-    public Typed encapsulate(@Nonnull final Map<String, Value> namedArguments) {
-        throw new RecordCoreException("user defined scalar functions do not support named argument calling conventions");
     }
 
     @Nonnull

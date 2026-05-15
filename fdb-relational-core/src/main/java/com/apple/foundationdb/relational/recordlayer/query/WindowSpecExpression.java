@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
 import com.google.common.collect.ImmutableList;
@@ -120,5 +121,13 @@ public final class WindowSpecExpression {
 
     public boolean isDefault() {
         return Iterables.isEmpty(orderByExpressions) && partitions.isEmpty() && frameSpecification.isDefault();
+    }
+
+    @Nonnull
+    public CallSiteArguments.WindowSpecification toWindowSpecification() {
+        return new CallSiteArguments.WindowSpecification(
+                frameSpecification,
+                partitions.asList().stream().map(Expression::getUnderlying).collect(ImmutableList.toImmutableList()),
+                ImmutableList.copyOf(getWindowOrderBys()));
     }
 }

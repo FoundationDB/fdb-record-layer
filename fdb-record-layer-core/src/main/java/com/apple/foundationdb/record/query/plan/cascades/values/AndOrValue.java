@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
@@ -300,9 +301,10 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
                     AndFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Value> arguments) {
-            Verify.verify(Iterables.size(arguments) == 2);
-            return new AndOrValue(builtInFunction.getFunctionName(), arguments.get(0), arguments.get(1), Operator.AND);
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments arguments) {
+            final var args = ImmutableList.copyOf(arguments.getValues());
+            Verify.verify(args.size() == 2);
+            return new AndOrValue(builtInFunction.getFunctionName(), args.get(0), args.get(1), Operator.AND);
         }
     }
 
@@ -317,9 +319,10 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
                     OrFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Value> arguments) {
-            Verify.verify(Iterables.size(arguments) == 2);
-            return new AndOrValue(builtInFunction.getFunctionName(), arguments.get(0), arguments.get(1), Operator.OR);
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments arguments) {
+            final var args = ImmutableList.copyOf(arguments.getValues());
+            Verify.verify(args.size() == 2);
+            return new AndOrValue(builtInFunction.getFunctionName(), args.get(0), args.get(1), Operator.OR);
         }
     }
 

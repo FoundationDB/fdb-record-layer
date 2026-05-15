@@ -111,7 +111,7 @@ public class RuleTestHelper {
 
     @Nonnull
     public static Quantifier rangeOneQun() {
-        var rangeValue = (RangeValue) new RangeValue.RangeFn().encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L)));
+        var rangeValue = (RangeValue) new RangeValue.RangeFn().encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(1L)));
         TableFunctionExpression tvf = new TableFunctionExpression(rangeValue);
         return Quantifier.forEach(Reference.initialOf(tvf));
     }

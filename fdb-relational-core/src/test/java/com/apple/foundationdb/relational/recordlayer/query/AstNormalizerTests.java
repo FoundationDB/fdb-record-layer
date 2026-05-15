@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -418,13 +419,13 @@ public class AstNormalizerTests {
 
                             @Nonnull
                             @Override
-                            public RelationalExpression encapsulate(@Nonnull final List<Value> arguments) {
+                            public RelationalExpression encapsulate(final @Nonnull CallSiteArguments arguments) {
                                 throw new NotImplementedException("unexpected call");
                             }
 
                             @Nonnull
                             @Override
-                            public RelationalExpression encapsulate(@Nonnull final Map<String, Value> namedArguments) {
+                            public RelationalExpression handleNamedArguments(@Nonnull final Map<String, Value> namedArguments) {
                                 throw new NotImplementedException("unexpected call");
                             }
                         })

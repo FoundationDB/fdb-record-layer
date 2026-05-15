@@ -37,17 +37,17 @@ import com.apple.foundationdb.record.planprotos.PMinEverValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
-import com.apple.foundationdb.record.query.plan.cascades.BuiltInWindowFunction;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -224,10 +224,9 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         }
 
         @Nonnull
-        private static AggregateValue encapsulate(@Nonnull final List<? extends Typed> arguments) {
-            Verify.verify(arguments.size() == 1);
-            final Typed arg0 = arguments.get(0);
-            return new MinEverValue(PhysicalOperator.MIN_EVER_LONG, (Value)arg0);
+        private static AggregateValue encapsulate(@Nonnull final Iterable<Value> arguments) {
+            Verify.verify(Iterables.size(arguments) == 1);
+            return new MinEverValue(PhysicalOperator.MAX_EVER_LONG, Iterables.getOnlyElement(arguments));
         }
 
         @Nonnull
@@ -303,10 +302,9 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         }
 
         @Nonnull
-        private static AggregateValue encapsulate(@Nonnull final List<? extends Typed> arguments) {
-            Verify.verify(arguments.size() == 1);
-            final Typed arg0 = arguments.get(0);
-            return new MaxEverValue(PhysicalOperator.MAX_EVER_LONG, (Value)arg0);
+        private static AggregateValue encapsulate(@Nonnull final Iterable<Value> arguments) {
+            Verify.verify(Iterables.size(arguments) == 1);
+            return new MaxEverValue(PhysicalOperator.MAX_EVER_LONG, Iterables.getOnlyElement(arguments));
         }
 
         @Nonnull
@@ -358,14 +356,12 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     /**
      * The {@code min_ever} function.
      */
-    @AutoService(BuiltInWindowFunction.class)
-    public static class MinEverFn extends BuiltInWindowFunction<AggregateValue> {
+    @AutoService(BuiltInFunction.class)
+    public static class MinEverFn extends BuiltInFunction<AggregateValue> {
         public MinEverFn() {
-            super("MIN_EVER", ImmutableList.of(new Type.Any()), (ignored, frameSpecification, partitioningColumns, sortOrder, arguments) -> {
-                SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-                SemanticException.check(partitioningColumns == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-                SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-                return MinEverValue.encapsulate(arguments);
+            super("MIN_EVER", ImmutableList.of(new Type.Any()), (ignored, callSiteArguments) -> {
+                SemanticException.check(!callSiteArguments.isSimplePositional(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                return MinEverValue.encapsulate(callSiteArguments.getValues());
             });
         }
     }
@@ -373,14 +369,12 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     /**
      * The {@code max_ever} function.
      */
-    @AutoService(BuiltInWindowFunction.class)
-    public static class MaxEverFn extends BuiltInWindowFunction<AggregateValue> {
+    @AutoService(BuiltInFunction.class)
+    public static class MaxEverFn extends BuiltInFunction<AggregateValue> {
         public MaxEverFn() {
-            super("MAX_EVER", ImmutableList.of(new Type.Any()), (ignored, frameSpecification, partitioningColumns, sortOrder, arguments) -> {
-                SemanticException.check(frameSpecification == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-                SemanticException.check(partitioningColumns == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-                SemanticException.check(sortOrder == null, SemanticException.ErrorCode.UNSUPPORTED_WINDOW_FUNCTION);
-                return MaxEverValue.encapsulate(arguments);
+            super("MAX_EVER", ImmutableList.of(new Type.Any()), (ignored, callSiteArguments) -> {
+                SemanticException.check(!callSiteArguments.isSimplePositional(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                return MaxEverValue.encapsulate(callSiteArguments.getValues());
             });
         }
     }

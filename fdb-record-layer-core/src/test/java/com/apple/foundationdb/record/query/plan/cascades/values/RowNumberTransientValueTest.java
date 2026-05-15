@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
@@ -203,40 +204,39 @@ class RowNumberTransientValueTest {
 
     @Test
     void testRowNumberHighOrderFnEncapsulateWithNamedArguments() {
-        final var fn = new RowNumberTransientValue.RowNumberHighOrderFn();
+        final var fn = new RowNumberTransientValue.RowNumberValueFn();
 
         final var efSearchValue = LiteralValue.ofScalar(100);
         final var returnsVectorsValue = LiteralValue.ofScalar(true);
         final var namedArguments = Map.<String, Value>of(
-                RowNumberTransientValue.RowNumberHighOrderFn.EF_SEARCH_ARGUMENT, efSearchValue,
-                RowNumberTransientValue.RowNumberHighOrderFn.INDEX_RETURNS_VECTORS_ARGUMENT, returnsVectorsValue
+                RowNumberTransientValue.RowNumberValueFn.EF_SEARCH_ARGUMENT, efSearchValue,
+                RowNumberTransientValue.RowNumberValueFn.INDEX_RETURNS_VECTORS_ARGUMENT, returnsVectorsValue
         );
 
-        final var result = fn.encapsulate(namedArguments);
+        final var result = fn.encapsulate(CallSiteArguments.ofNamed(namedArguments));
 
         Assertions.assertNotNull(result, "Encapsulated value should not be null");
-        Assertions.assertInstanceOf(RowNumberHighOrderWindowValue.class, result,
-                "Result should be RowNumberHighOrderValue");
+        Assertions.assertInstanceOf(RowNumberTransientValue.RowNumberValueFn.class, result,
+                "Result should be RowNumberValueFn");
     }
 
     @Test
     void testRowNumberHighOrderFnEncapsulateWithNoArguments() {
-        final var fn = new RowNumberTransientValue.RowNumberHighOrderFn();
-        final var namedArguments = Map.<String, Value>of();
+        final var fn = new RowNumberTransientValue.RowNumberValueFn();
 
-        final var result = fn.encapsulate(namedArguments);
+        final var result = fn.encapsulate(CallSiteArguments.empty());
 
         Assertions.assertNotNull(result, "Encapsulated value should not be null");
-        Assertions.assertInstanceOf(RowNumberHighOrderWindowValue.class, result,
+        Assertions.assertInstanceOf(RowNumberTransientValue.RowNumberValueFn.class, result,
                 "Result should be RowNumberHighOrderValue");
     }
 
     @Test
     void testRowNumberHighOrderFnEncapsulateRejectsInvalidNamedArgument() {
-        final var fn = new RowNumberTransientValue.RowNumberHighOrderFn();
+        final var fn = new RowNumberTransientValue.RowNumberValueFn();
 
         final var invalidValue = LiteralValue.ofScalar(100);
-        final var namedArguments = Map.<String, Value>of("invalid_argument", invalidValue);
+        final var namedArguments = CallSiteArguments.ofNamed(Map.<String, Value>of("invalid_argument", invalidValue));
 
         Assertions.assertThrows(SemanticException.class,
                 () -> fn.encapsulate(namedArguments),
@@ -245,16 +245,16 @@ class RowNumberTransientValueTest {
 
     @Test
     void testRowNumberHighOrderFnEncapsulateRejectsTooManyNamedArguments() {
-        final var fn = new RowNumberTransientValue.RowNumberHighOrderFn();
+        final var fn = new RowNumberTransientValue.RowNumberValueFn();
 
         final var efSearchValue = LiteralValue.ofScalar(100);
         final var returnsVectorsValue = LiteralValue.ofScalar(true);
         final var extraValue = LiteralValue.ofScalar(42);
-        final var namedArguments = Map.<String, Value>of(
-                RowNumberTransientValue.RowNumberHighOrderFn.EF_SEARCH_ARGUMENT, efSearchValue,
-                RowNumberTransientValue.RowNumberHighOrderFn.INDEX_RETURNS_VECTORS_ARGUMENT, returnsVectorsValue,
+        final var namedArguments = CallSiteArguments.ofNamed(Map.<String, Value>of(
+                RowNumberTransientValue.RowNumberValueFn.EF_SEARCH_ARGUMENT, efSearchValue,
+                RowNumberTransientValue.RowNumberValueFn.INDEX_RETURNS_VECTORS_ARGUMENT, returnsVectorsValue,
                 "extra", extraValue
-        );
+        ));
 
         Assertions.assertThrows(SemanticException.class,
                 () -> fn.encapsulate(namedArguments),
