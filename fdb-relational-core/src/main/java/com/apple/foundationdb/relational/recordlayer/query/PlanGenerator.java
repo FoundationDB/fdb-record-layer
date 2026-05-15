@@ -162,7 +162,9 @@ public final class PlanGenerator {
             try {
                 getPlan(entry.getValue());
             } catch (RelationalException e) {
-                logger.error(KeyValueLogMessage.of("prepare statement", LogMessageKeys.QUERY, entry.getValue()), e);
+                if (logger.isErrorEnabled()) {
+                    logger.error(KeyValueLogMessage.of("prepare statement", LogMessageKeys.QUERY, entry.getValue()), e);
+                }
             }
         }
         cache.get().markPrepared(templateKey);
