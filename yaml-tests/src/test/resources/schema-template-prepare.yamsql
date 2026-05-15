@@ -19,10 +19,16 @@
 
 ---
 schema_template:
-    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
-    create index i1 as select col1 from t1
-    prepare by_col1 from 'select * from t1 where col1 = 1'
-    prepare by_id from 'select * from t1 where id = 1'
+    - initialVersionLessThan: !current_version
+      definition: |
+        create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+        create index i1 as select col1 from t1
+    - initialVersionAtLeast: !current_version
+      definition: |
+        create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+        create index i1 as select col1 from t1
+        prepare by_col1 from 'select * from t1 where col1 = 1'
+        prepare by_id from 'select * from t1 where id = 1'
 ---
 setup:
   steps:
