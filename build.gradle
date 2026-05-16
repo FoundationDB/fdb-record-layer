@@ -345,11 +345,13 @@ wrapper {
     }
 }
 
+// Capture the distribution destination directories at configuration time so the configuration cache does not need to
+// reach into `allprojects` from the `doLast` closure at execution time.
+def distributionDirs = allprojects.collect { it.tasks.createDistribution.destinationDir }
+
 clean.doLast {
     delete ".idea_build"
-    allprojects.each { p ->
-        delete p.tasks.createDistribution.destinationDir
-    }
+    delete distributionDirs
 }
 
 apply from: 'gradle/sphinx.gradle'
