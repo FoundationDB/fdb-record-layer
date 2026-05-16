@@ -95,14 +95,6 @@ class RelationalStructFacade implements RelationalStruct {
 
     /**
      * Package-private so protobuf is available to serializer (in same package).
-     */
-    @Nullable
-    String getTypeName() {
-        return delegateMetadata.getTypeName();
-    }
-
-    /**
-     * Package-private so protobuf is available to serializer (in same package).
      * @return The backing protobuf used to keep Struct data.
      */
     Struct getDelegate() {
