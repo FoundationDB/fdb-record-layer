@@ -32,14 +32,24 @@ sourceSets.configureEach {
     java.srcDir(generateGrammarSource.map { files() })
 }
 
+// Copy the generated `*.tokens` files into `src/main/antlr/` so other grammars can reference them as a vocabulary.
+// For configuration cache compatibility, the directory providers are captured at configuration time and the copy uses
+// an injected `FileSystemOperations` service rather than `Project.copy()`.
+def antlrTokensSource = layout.buildDirectory.dir('generated-src/antlr/main/com/apple/foundationdb/relational/generated/')
+def antlrTokensDest = layout.projectDirectory.dir('src/main/antlr')
+
+abstract class AntlrTokenCopier {
+    @javax.inject.Inject
+    abstract org.gradle.api.file.FileSystemOperations getFs()
+}
+
+def antlrTokenCopier = objects.newInstance(AntlrTokenCopier)
+
 generateGrammarSource.doLast {
-    final source = layout.buildDirectory.dir('generated-src/antlr/main/com/apple/foundationdb/relational/generated/')
-    final tokensFile = "*.tokens"
-    final dest = layout.projectDirectory.dir('src/main/antlr')
-    copy {
-        from source
-        include tokensFile
-        into dest
+    antlrTokenCopier.fs.copy {
+        from antlrTokensSource
+        include '*.tokens'
+        into antlrTokensDest
     }
 }
 
