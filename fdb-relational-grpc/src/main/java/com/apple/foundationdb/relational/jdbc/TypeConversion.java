@@ -183,7 +183,7 @@ public class TypeConversion {
         // One-offs
         switch (protobufType) {
             case STRUCT:
-                columnMetadataBuilder.setStructMetadata(toListColumnMetadataProtobuf(metadata.getStructMetaData(oneBasedIndex)));
+                columnMetadataBuilder.setStructMetadata(toStructMetadataProtobuf(metadata.getStructMetaData(oneBasedIndex)));
                 break;
             case ARRAY:
                 var columnMetadata = toColumnMetadata(metadata.getArrayMetaData(oneBasedIndex));
@@ -261,7 +261,7 @@ public class TypeConversion {
         // One-offs
         switch (metadata.getElementType()) {
             case Types.STRUCT:
-                columnMetadataBuilder.setStructMetadata(toListColumnMetadataProtobuf(metadata.getElementStructMetaData()));
+                columnMetadataBuilder.setStructMetadata(toStructMetadataProtobuf(metadata.getElementStructMetaData()));
                 break;
             case Types.ARRAY:
                 var columnMetadata = toColumnMetadata(metadata.getElementArrayMetaData());
@@ -279,7 +279,7 @@ public class TypeConversion {
         return columnMetadataBuilder.build();
     }
 
-    private static StructMetadata toListColumnMetadataProtobuf(@Nonnull StructMetaData metadata) throws SQLException {
+    private static StructMetadata toStructMetadataProtobuf(@Nonnull StructMetaData metadata) throws SQLException {
         var structMetadataBuilder = StructMetadata.newBuilder();
         for (int oneBasedIndex = 1; oneBasedIndex <= metadata.getColumnCount(); oneBasedIndex++) {
             var columnMetadata = toColumnMetadata(metadata, oneBasedIndex, oneBasedIndex - 1 + metadata.getLeadingPhantomColumnCount());
@@ -289,7 +289,7 @@ public class TypeConversion {
     }
 
     private static ResultSetMetadata toResultSetMetaData(RelationalResultSet resultSet) throws SQLException {
-        return ResultSetMetadata.newBuilder().setColumnMetadata(toListColumnMetadataProtobuf(resultSet.getMetaData())).build();
+        return ResultSetMetadata.newBuilder().setColumnMetadata(toStructMetadataProtobuf(resultSet.getMetaData())).build();
     }
 
     private static Array toArray(RelationalArray relationalArray) throws SQLException {
