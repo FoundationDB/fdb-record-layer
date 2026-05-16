@@ -47,9 +47,9 @@ build.dependsOn {
     shadowJar
 }
 
-createDistribution {dependsOn('shadowJar')}
+tasks.named('createDistribution') { dependsOn('shadowJar') }
 
-task shadedSourcesJar(type: Jar) {
+tasks.register('shadedSourcesJar', Jar) {
     description = "Assembles a Jar archive containing the main sources."
     group = JavaBasePlugin.DOCUMENTATION_GROUP
     archiveAppendix = null
@@ -60,7 +60,7 @@ task shadedSourcesJar(type: Jar) {
     dependsOn(project(coreProject).tasks.compileJava)
 }
 
-task shadedJavadocJar(type: Jar) {
+tasks.register('shadedJavadocJar', Jar) {
     description = "Assembles a Jar archive containing the main Javadoc."
     group = JavaBasePlugin.DOCUMENTATION_GROUP
     archiveAppendix = null
@@ -114,8 +114,8 @@ publishing {
                     addDependencies(project(':fdb-extensions'), dependenciesNode)
                 }
             }
-            artifact tasks.shadedSourcesJar
-            artifact tasks.shadedJavadocJar
+            artifact tasks.named('shadedSourcesJar')
+            artifact tasks.named('shadedJavadocJar')
         }
 
     }

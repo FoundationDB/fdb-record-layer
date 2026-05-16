@@ -66,21 +66,21 @@ if (ext.publishLibrary) {
                     }
                 }
 
-                artifact tasks.sourcesJar
-                artifact tasks.javadocJar
-                artifact tasks.testJar
+                artifact tasks.named('sourcesJar')
+                artifact tasks.named('javadocJar')
+                artifact tasks.named('testJar')
                 addPublishingInfo(publication)
             }
         }
     }
-    createDistribution.configure {
-        afterEvaluate {
-            dependsOn generatePomFileForLibraryPublication
-            from tasks.jar, tasks.sourcesJar, tasks.javadocJar, tasks.testJar, tasks.generatePomFileForLibraryPublication
+    afterEvaluate {
+        tasks.named('createDistribution').configure {
+            dependsOn tasks.named('generatePomFileForLibraryPublication')
+            from tasks.named('jar'), tasks.named('sourcesJar'), tasks.named('javadocJar'), tasks.named('testJar'), tasks.named('generatePomFileForLibraryPublication')
             // Capture the names at configuration time so the rename closure does not reach into `tasks` at execution
             // time (which is incompatible with the configuration cache).
-            String pomDestinationName = tasks.generatePomFileForLibraryPublication.destination.name
-            String jarArchiveFileName = tasks.jar.archiveFileName.get()
+            String pomDestinationName = tasks.named('generatePomFileForLibraryPublication').get().destination.name
+            String jarArchiveFileName = tasks.named('jar').get().archiveFileName.get()
             rename { filename ->
                 if (filename == pomDestinationName) {
                     jarArchiveFileName.replace("jar", "pom")
