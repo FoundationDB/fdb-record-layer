@@ -77,11 +77,13 @@ if (ext.publishLibrary) {
         afterEvaluate {
             dependsOn generatePomFileForLibraryPublication
             from tasks.jar, tasks.sourcesJar, tasks.javadocJar, tasks.testJar, tasks.generatePomFileForLibraryPublication
+            // Capture the names at configuration time so the rename closure does not reach into `tasks` at execution
+            // time (which is incompatible with the configuration cache).
+            String pomDestinationName = tasks.generatePomFileForLibraryPublication.destination.name
+            String jarArchiveFileName = tasks.jar.archiveFileName.get()
             rename { filename ->
-                GenerateMavenPom pomTask = tasks.generatePomFileForLibraryPublication
-                Jar jarTask = tasks.jar
-                if (filename == pomTask.destination.name) {
-                    jarTask.archiveFileName.map { archive -> archive.replace("jar", "pom") }
+                if (filename == pomDestinationName) {
+                    jarArchiveFileName.replace("jar", "pom")
                 } else {
                     filename
                 }
