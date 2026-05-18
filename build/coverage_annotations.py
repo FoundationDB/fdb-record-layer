@@ -229,7 +229,7 @@ def format_file_annotation(repo_path, file_coverage, changed_coverage, first_cha
 
     annotation_line = max(1, first_changed_line - 1)
     message = f'File coverage: {file_pct_str} | Changed lines: {changed_pct_str}'
-    return f'::notice file={repo_path},line={annotation_line}::{message}'
+    return f'::notice file={repo_path},line={annotation_line},title=Coverage::{message}'
 
 
 def generate_annotations(coverage_data, diff_data, source_prefixes):

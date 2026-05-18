@@ -20,7 +20,11 @@
 # limitations under the License.
 #
 
-"""Unit tests for coverage_annotations.py"""
+"""
+Unit tests for coverage_annotations.py
+Run these with:
+    python3 -m pytest build/test_coverage_annotations.py
+"""
 
 import os
 import sys
@@ -352,7 +356,7 @@ class TestFormatFileAnnotation(unittest.TestCase):
         )
         self.assertEqual(
             result,
-            '::notice file=module/src/main/java/com/example/Foo.java,line=14::'
+            '::notice file=module/src/main/java/com/example/Foo.java,line=14,title=Coverage::'
             'File coverage: 80.0% (8/10 lines) | Changed lines: 66.7% (2/3 lines)'
         )
 
