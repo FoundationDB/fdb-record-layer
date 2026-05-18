@@ -328,13 +328,14 @@ class StorageAdapter {
     @Nonnull
     static RunningStandardDeviation runningStandardDeviationFromTuple(@Nonnull final Tuple valueTuple) {
         return new RunningStandardDeviation(valueTuple.getLong(0), valueTuple.getDouble(1),
-                valueTuple.getDouble(2));
+                valueTuple.getDouble(2), valueTuple.getDouble(3));
     }
 
     @Nonnull
     static Tuple valueTupleFromRunningStandardDeviation(@Nonnull final RunningStandardDeviation runningStandardDeviation) {
         return Tuple.from(runningStandardDeviation.getNumElements(), runningStandardDeviation.getRunningMean(),
-                runningStandardDeviation.getRunningSumSquaredDeviations());
+                runningStandardDeviation.getRunningSumSquaredDeviations(),
+                runningStandardDeviation.getRunningMaxEver());
     }
 
     @Nonnull

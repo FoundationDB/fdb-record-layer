@@ -27,6 +27,7 @@ import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.StoredVecsIterator;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
@@ -333,7 +334,8 @@ class TestHelpers {
         }
     }
 
-    static void dumpQueries(@Nonnull final String queriesFile) throws IOException {
+    static List<RealVector> readQueryVectors(@Nonnull final String queriesFile) throws IOException {
+        final ImmutableList.Builder<RealVector> resultBuilder = ImmutableList.builder();
         final Path queryPath = Paths.get(queriesFile);
 
         try (final var queryChannel = FileChannel.open(queryPath, StandardOpenOption.READ)) {
@@ -342,9 +344,10 @@ class TestHelpers {
             while (queryIterator.hasNext()) {
                 final DoubleRealVector queryVector = queryIterator.next();
 
-                logger.info("query vector={}", queryVector.toString(queryVector.getNumDimensions()));
+                resultBuilder.add(queryVector);
             }
         }
+        return resultBuilder.build();
     }
 
     static class TestOnWriteListener implements OnWriteListener {

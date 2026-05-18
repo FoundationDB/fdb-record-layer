@@ -57,6 +57,8 @@ import javax.annotation.Nonnull;
  * @param searchConcurrency concurrency for parallel metadata fetches during search
  * @param insertMaxCandidateClusters maximum clusters evaluated as insertion targets
  * @param sampleBatchSize number of sampled vectors consumed per statistics-computation pass
+ * @param deleteMaxCandidateClusters maximum clusters probed when locating a vector's references during delete
+ * @param deleteConcurrency concurrency for parallel operations during delete
  * @param splitNeighborhoodSize number of nearest clusters fetched from HNSW for split candidate evaluation
  * @param mergeInnerNeighborhoodSize number of clusters dissolved during a merge
  * @param mergeOuterNeighborhoodSize number of outer clusters that may absorb overflow during merge
@@ -67,6 +69,8 @@ import javax.annotation.Nonnull;
  * @param collapseMinDuplicates minimum identical vectors sharing a signature before collapse
  * @param splitMergeConcurrency concurrency for parallel operations during split/merge tasks
  * @param reassignConcurrency concurrency for parallel operations during reassign tasks
+ * @param deleteMaxCandidateClusters maximum clusters probed when locating a vector's references during delete
+ * @param deleteConcurrency concurrency for parallel operations during delete
  */
 @SuppressWarnings("checkstyle:MemberName")
 public record Config(@Nonnull Metric metric,
@@ -93,6 +97,9 @@ public record Config(@Nonnull Metric metric,
                      // insert
                      int insertMaxCandidateClusters,
                      int sampleBatchSize,
+                     // delete
+                     int deleteMaxCandidateClusters,
+                     int deleteConcurrency,
                      // split/merge
                      int splitNeighborhoodSize,
                      int mergeInnerNeighborhoodSize,
@@ -137,6 +144,9 @@ public record Config(@Nonnull Metric metric,
     // insert
     public static final int DEFAULT_INSERT_MAX_CANDIDATE_CLUSTERS = 10;
     public static final int DEFAULT_SAMPLE_BATCH_SIZE = 50;
+    // delete
+    public static final int DEFAULT_DELETE_MAX_CANDIDATE_CLUSTERS = 10;
+    public static final int DEFAULT_DELETE_CONCURRENCY = 10;
     // split/merge
     public static final int DEFAULT_SPLIT_NEIGHBORHOOD_SIZE = 32;
     public static final int DEFAULT_MERGE_INNER_NEIGHBORHOOD_SIZE = 3;
@@ -200,6 +210,7 @@ public record Config(@Nonnull Metric metric,
                 maxNumConcurrentNodeFetches(), maxNumConcurrentNeighborhoodFetches(),
                 searchMaxClusters(), searchMinClustersBeforePruning(), searchDistanceRatioCutoff(),
                 searchConcurrency(), insertMaxCandidateClusters(), sampleBatchSize(),
+                deleteMaxCandidateClusters(), deleteConcurrency(),
                 splitNeighborhoodSize(), mergeInnerNeighborhoodSize(), mergeOuterNeighborhoodSize(),
                 kMeansMaxIterations(), kMeansMaxRestarts(),
                 reassignInnerNeighborhoodSize(), reassignOuterNeighborhoodSize(),
@@ -227,6 +238,8 @@ public record Config(@Nonnull Metric metric,
                 ", searchConcurrency=" + searchConcurrency() +
                 ", insertMaxCandidateClusters=" + insertMaxCandidateClusters() +
                 ", sampleBatchSize=" + sampleBatchSize() +
+                ", deleteMaxCandidateClusters=" + deleteMaxCandidateClusters() +
+                ", deleteConcurrency=" + deleteConcurrency() +
                 ", splitNeighborhoodSize=" + splitNeighborhoodSize() +
                 ", mergeInnerNeighborhoodSize=" + mergeInnerNeighborhoodSize() +
                 ", mergeOuterNeighborhoodSize=" + mergeOuterNeighborhoodSize() +
@@ -276,6 +289,9 @@ public record Config(@Nonnull Metric metric,
         // insert
         private int insertMaxCandidateClusters = DEFAULT_INSERT_MAX_CANDIDATE_CLUSTERS;
         private int sampleBatchSize = DEFAULT_SAMPLE_BATCH_SIZE;
+        // delete
+        private int deleteMaxCandidateClusters = DEFAULT_DELETE_MAX_CANDIDATE_CLUSTERS;
+        private int deleteConcurrency = DEFAULT_DELETE_CONCURRENCY;
         // split/merge
         private int splitNeighborhoodSize = DEFAULT_SPLIT_NEIGHBORHOOD_SIZE;
         private int mergeInnerNeighborhoodSize = DEFAULT_MERGE_INNER_NEIGHBORHOOD_SIZE;
@@ -304,6 +320,7 @@ public record Config(@Nonnull Metric metric,
                              final int searchMaxClusters, final int searchMinClustersBeforePruning,
                              final double searchDistanceRatioCutoff, final int searchConcurrency,
                              final int insertMaxCandidateClusters, final int sampleBatchSize,
+                             final int deleteMaxCandidateClusters, final int deleteConcurrency,
                              final int splitNeighborhoodSize, final int mergeInnerNeighborhoodSize,
                              final int mergeOuterNeighborhoodSize, final int kMeansMaxIterations,
                              final int kMeansMaxRestarts,
@@ -331,6 +348,8 @@ public record Config(@Nonnull Metric metric,
             this.searchConcurrency = searchConcurrency;
             this.insertMaxCandidateClusters = insertMaxCandidateClusters;
             this.sampleBatchSize = sampleBatchSize;
+            this.deleteMaxCandidateClusters = deleteMaxCandidateClusters;
+            this.deleteConcurrency = deleteConcurrency;
             this.splitNeighborhoodSize = splitNeighborhoodSize;
             this.mergeInnerNeighborhoodSize = mergeInnerNeighborhoodSize;
             this.mergeOuterNeighborhoodSize = mergeOuterNeighborhoodSize;
@@ -546,6 +565,24 @@ public record Config(@Nonnull Metric metric,
             return this;
         }
 
+        public int getDeleteMaxCandidateClusters() {
+            return deleteMaxCandidateClusters;
+        }
+
+        public ConfigBuilder setDeleteMaxCandidateClusters(final int deleteMaxCandidateClusters) {
+            this.deleteMaxCandidateClusters = deleteMaxCandidateClusters;
+            return this;
+        }
+
+        public int getDeleteConcurrency() {
+            return deleteConcurrency;
+        }
+
+        public ConfigBuilder setDeleteConcurrency(final int deleteConcurrency) {
+            this.deleteConcurrency = deleteConcurrency;
+            return this;
+        }
+
         public int getSplitNeighborhoodSize() {
             return splitNeighborhoodSize;
         }
@@ -645,6 +682,7 @@ public record Config(@Nonnull Metric metric,
                     getMaxNumConcurrentNeighborhoodFetches(),
                     getSearchMaxClusters(), getSearchMinClustersBeforePruning(), getSearchDistanceRatioCutoff(),
                     getSearchConcurrency(), getInsertMaxCandidateClusters(), getSampleBatchSize(),
+                    getDeleteMaxCandidateClusters(), getDeleteConcurrency(),
                     getSplitNeighborhoodSize(), getMergeInnerNeighborhoodSize(), getMergeOuterNeighborhoodSize(),
                     getKMeansMaxIterations(), getKMeansMaxRestarts(),
                     getReassignInnerNeighborhoodSize(), getReassignOuterNeighborhoodSize(),

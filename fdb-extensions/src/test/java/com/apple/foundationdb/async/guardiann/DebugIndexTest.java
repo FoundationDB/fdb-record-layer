@@ -300,6 +300,24 @@ public class DebugIndexTest implements BaseTest {
     }
 
     @Test
+    void clusterOverlapDiagnosticsTest() throws Exception {
+        final List<RealVector> queryVectors =
+                TestHelpers.readQueryVectors("/Users/nseemann/Downloads/embeddings-unified-model-100k-queries-1.0.0.fvecs");
+
+        final HNSW centroidHnsw = guardiann.getLocator().primitives().getClusterCentroidsHnsw();
+
+        final Set<ResultEntry> centroidEntries = Sets.newConcurrentHashSet();
+        SiftTest.scanCentroids(db, centroidHnsw.getSubspace(), centroidHnsw.getConfig(), 0, 100, centroidEntries::add);
+
+        logger.info("clusterOverlapDiagnostics - checking clusters numCentroids={}", centroidEntries.size());
+        final List<Integer> result = db.run(transaction -> {
+            final Search search = guardiann.getLocator().search();
+            return search.clusterOverlapDiagnostics(transaction, queryVectors,
+                    ImmutableList.copyOf(centroidEntries)).join();
+        });
+    }
+
+    @Test
     void testScanCollapsedVectorIds() throws Exception {
         db.run(tr -> {
             final Primitives primitives = guardiann.getLocator().primitives();

@@ -155,7 +155,7 @@ public class Delete {
                                                                 Objects.requireNonNull(resultEntry.getVector())),
                                                         resultEntry.getDistance()),
                                         1),
-                                config.insertMaxCandidateClusters(),
+                                config.deleteMaxCandidateClusters(),
                                 getExecutor()),
                         getExecutor())
                 .thenCompose(clusterMetadataWithDistances ->
@@ -165,7 +165,7 @@ public class Delete {
                                     return primitives.fetchVectorReference(transaction, storageTransform,
                                             clusterId, primaryKey);
                                 },
-                                config.insertMaxCandidateClusters(), getExecutor())
+                                config.deleteConcurrency(), getExecutor())
                         .thenAccept(vectorReferences -> {
                             boolean foundPrimary = false;
 

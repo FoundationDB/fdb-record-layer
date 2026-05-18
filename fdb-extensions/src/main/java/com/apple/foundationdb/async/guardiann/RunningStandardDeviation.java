@@ -25,17 +25,20 @@ import java.util.Objects;
 
 class RunningStandardDeviation {
     private static final RunningStandardDeviation IDENTITY = new RunningStandardDeviation(0L, 0.0d,
-            0.0d);
+            0.0d, Double.NEGATIVE_INFINITY);
     private final long numElements;
 
     private final double runningMean;
     private final double runningSumSquaredDeviations;
+    private final double runningMaxEver;
 
     public RunningStandardDeviation(final long numElements, final double runningMean,
-                                    final double runningSumSquaredDeviations) {
+                                    final double runningSumSquaredDeviations,
+                                    final double runningMaxEver) {
         this.numElements = numElements;
         this.runningMean = runningMean;
         this.runningSumSquaredDeviations = runningSumSquaredDeviations;
+        this.runningMaxEver = runningMaxEver;
     }
 
     public long getNumElements() {
@@ -50,6 +53,10 @@ class RunningStandardDeviation {
         return runningSumSquaredDeviations;
     }
 
+    public double getRunningMaxEver() {
+        return runningMaxEver;
+    }
+
     @Nonnull
     public RunningStandardDeviation add(final double newValue) {
         long newN = getNumElements() + 1;
@@ -58,7 +65,7 @@ class RunningStandardDeviation {
         double delta2 = newValue - newMean;
         double newM2 = getRunningSumSquaredDeviations() + delta * delta2;
 
-        return new RunningStandardDeviation(newN, newMean, newM2);
+        return new RunningStandardDeviation(newN, newMean, newM2, Math.max(getRunningMaxEver(), newValue));
     }
 
     @Nonnull
@@ -83,7 +90,8 @@ class RunningStandardDeviation {
             newM2 = 0.0;
         }
 
-        return new RunningStandardDeviation(newN, newMean, newM2);
+        // runningMaxEver is intentionally not updated — it remains an upper bound after removal
+        return new RunningStandardDeviation(newN, newMean, newM2, getRunningMaxEver());
     }
 
     @Nonnull
@@ -103,7 +111,8 @@ class RunningStandardDeviation {
                 other.getRunningSumSquaredDeviations() +
                 delta * delta * this.getNumElements() * other.getNumElements() / combinedN;
 
-        return new RunningStandardDeviation(combinedN, combinedMean, combinedM2);
+        return new RunningStandardDeviation(combinedN, combinedMean, combinedM2,
+                Math.max(this.getRunningMaxEver(), other.getRunningMaxEver()));
     }
 
     @Nonnull
@@ -136,7 +145,8 @@ class RunningStandardDeviation {
                             "This usually means the subtracted accumulator was not actually a subset.");
         }
 
-        return new RunningStandardDeviation(newN, newMean, newM2);
+        // runningMaxEver is intentionally not updated — it remains an upper bound after subtraction
+        return new RunningStandardDeviation(newN, newMean, newM2, getRunningMaxEver());
     }
 
     public double mean() {
@@ -162,6 +172,10 @@ class RunningStandardDeviation {
         return Math.sqrt(sampleVariance());
     }
 
+    public double maxEver() {
+        return Double.isInfinite(runningMaxEver) && runningMaxEver < 0 ? Double.NaN : runningMaxEver;
+    }
+
     @Override
     public boolean equals(final Object o) {
         if (o == null || getClass() != o.getClass()) {
@@ -170,18 +184,19 @@ class RunningStandardDeviation {
         final RunningStandardDeviation that = (RunningStandardDeviation)o;
         return getNumElements() == that.getNumElements() &&
                 Double.compare(getRunningMean(), that.getRunningMean()) == 0 &&
-                Double.compare(getRunningSumSquaredDeviations(), that.getRunningSumSquaredDeviations()) == 0;
+                Double.compare(getRunningSumSquaredDeviations(), that.getRunningSumSquaredDeviations()) == 0 &&
+                Double.compare(getRunningMaxEver(), that.getRunningMaxEver()) == 0;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getNumElements(), getRunningMean(), getRunningSumSquaredDeviations());
+        return Objects.hash(getNumElements(), getRunningMean(), getRunningSumSquaredDeviations(), getRunningMaxEver());
     }
 
     @Override
     public String toString() {
         return "RunningStandardDeviation[" + getNumElements() + ", " + getRunningMean() + ", " +
-                getRunningSumSquaredDeviations() + ']';
+                getRunningSumSquaredDeviations() + ", " + getRunningMaxEver() + ']';
     }
 
     @Nonnull

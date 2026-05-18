@@ -462,10 +462,10 @@ public class Search {
     }
 
     @Nonnull
-    CompletableFuture<SearchResult> search1(@Nonnull final ReadTransaction readTransaction,
-                                            final int k,
-                                            final int efSearch,
-                                            @Nonnull final RealVector queryVector) {
+    CompletableFuture<SearchResult> searchOrderedByDistance(@Nonnull final ReadTransaction readTransaction,
+                                                            final int k,
+                                                            final int efSearch,
+                                                            @Nonnull final RealVector queryVector) {
         final Primitives primitives = primitives();
         final Config config = getConfig();
 
@@ -657,13 +657,16 @@ public class Search {
                                             for (final Cluster cluster : clusters) {
                                                 final double distance =
                                                         estimator.distance(cluster.centroid(), vectorReference.getVector());
-                                                trueClusterDistances.add(new ClusterMetadataWithDistance(cluster.clusterMetadata(), cluster.centroid(), distance));
+                                                trueClusterDistances.add(
+                                                        new ClusterMetadataWithDistance(cluster.clusterMetadata(),
+                                                                cluster.centroid(), distance));
                                             }
                                             boolean found = false;
                                             int rank = 0;
                                             while (!trueClusterDistances.isEmpty()) {
                                                 final UUID nextClusterId =
-                                                        Objects.requireNonNull(trueClusterDistances.pollFirst()).clusterMetadata().id();
+                                                        Objects.requireNonNull(trueClusterDistances.pollFirst())
+                                                                .clusterMetadata().id();
                                                 if (nextClusterId.equals(currentClusterId)) {
                                                     wrongAssignmentsByRankMap.compute(rank, (r, oldCount) ->
                                                             Objects.requireNonNullElse(oldCount, 0) + 1);
@@ -682,16 +685,107 @@ public class Search {
                                     }
                                     if (numAllPrimaryAssignments != clusterMetadata.getNumPrimaryVectors()) {
                                         if (logger.isErrorEnabled()) {
-                                            logger.error("cluster metadata count of primary vectors is wrong; exected={}; actual={}", clusterMetadata.getNumPrimaryVectors(), numAllPrimaryAssignments);
+                                            logger.error("""
+                                                    cluster metadata count of primary vectors is wrong; \
+                                                    exected={}; actual={}
+                                                    """,
+                                                    clusterMetadata.getNumPrimaryVectors(), numAllPrimaryAssignments);
                                         }
                                     }
                                     if (logger.isInfoEnabled()) {
-                                        logger.info("assignment stats; clusterId={}, numAllPrimaryAssignments={}, numWrongAssignments={}, numReplicated={}, stdDev={}, wrongAssignmentsByRankMap={}",
-                                                currentClusterId, numAllPrimaryAssignments, numWrongAssignments, numReplicatedVectors,
-                                                clusterMetadata.standardDeviation(), wrongAssignmentsByRankMap);
+                                        logger.info(
+                                                """
+                                                assignment stats; clusterId={}, numAllPrimaryAssignments={}, \
+                                                numWrongAssignments={}, numReplicated={}, stdDev={}, \
+                                                wrongAssignmentsByRankMap={} \
+                                                """,
+                                                currentClusterId, numAllPrimaryAssignments, numWrongAssignments,
+                                                numReplicatedVectors, clusterMetadata.standardDeviation(),
+                                                wrongAssignmentsByRankMap);
                                     }
                                 }
                                 return assignmentsMap;
+                            });
+                });
+    }
+
+    /**
+     * Diagnostic method that computes cluster overlap statistics for a set of query vectors. For each
+     * query vector, counts how many clusters "overlap" — i.e., the query falls within the cluster's ball
+     * defined by {@code dist(query, centroid) <= maxEver}. Logs per-query overlap counts and aggregate
+     * statistics (min, max, mean).
+     *
+     * @param readTransaction the read transaction context
+     * @param queryVectors the query vectors to evaluate overlap for
+     * @param centroids the list of all cluster centroids (as returned by an HNSW scan)
+     * @return a future completing with a list of overlap counts (one per query vector)
+     */
+    @Nonnull
+    CompletableFuture<List<Integer>> clusterOverlapDiagnostics(@Nonnull final ReadTransaction readTransaction,
+                                                               @Nonnull final List<RealVector> queryVectors,
+                                                               @Nonnull final List<ResultEntry> centroids) {
+        final Primitives primitives = primitives();
+
+        return primitives.fetchAccessInfo(readTransaction)
+                .thenCompose(accessInfo -> {
+                    if (accessInfo == null) {
+                        return CompletableFuture.completedFuture(ImmutableList.of());
+                    }
+                    final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
+                    final Estimator estimator = primitives.quantizer(accessInfo).estimator();
+
+                    return MoreAsyncUtil.forEach(centroids,
+                                    centroid -> {
+                                        final UUID clusterId = StorageAdapter.clusterIdFromTuple(centroid.getPrimaryKey());
+                                        return primitives.fetchClusterMetadata(readTransaction, clusterId)
+                                                .thenApply(clusterMetadata -> {
+                                                    final Transformed<RealVector> transformedCentroid =
+                                                            storageTransform.transform(
+                                                                    Objects.requireNonNull(centroid.getVector()));
+                                                    return new ClusterMetadataWithDistance(clusterMetadata,
+                                                            transformedCentroid, 0.0d);
+                                                });
+                                    },
+                                    getConfig().searchConcurrency(), getExecutor())
+                            .thenApply(clusterMetadataList -> {
+                                final ImmutableList.Builder<Integer> overlapCountsBuilder = ImmutableList.builder();
+                                int totalOverlaps = 0;
+                                int minOverlap = Integer.MAX_VALUE;
+                                int maxOverlap = 0;
+
+                                for (final RealVector queryVector : queryVectors) {
+                                    final Transformed<RealVector> transformedQuery = storageTransform.transform(queryVector);
+                                    int overlapCount = 0;
+
+                                    for (final ClusterMetadataWithDistance clusterMetadataWithDistance : clusterMetadataList) {
+                                        final double maxEver = clusterMetadataWithDistance.clusterMetadata()
+                                                .runningStandardDeviation().maxEver();
+                                        if (Double.isNaN(maxEver)) {
+                                            continue;
+                                        }
+                                        final double distanceToCentroid = estimator.distance(
+                                                transformedQuery, clusterMetadataWithDistance.centroid());
+                                        if (distanceToCentroid <= maxEver) {
+                                            overlapCount++;
+                                        }
+                                    }
+
+                                    overlapCountsBuilder.add(overlapCount);
+                                    totalOverlaps += overlapCount;
+                                    minOverlap = Math.min(minOverlap, overlapCount);
+                                    maxOverlap = Math.max(maxOverlap, overlapCount);
+                                }
+
+                                final int numQueries = queryVectors.size();
+                                if (logger.isInfoEnabled() && numQueries > 0) {
+                                    logger.info("cluster overlap diagnostics; numQueries={}, numClusters={}, " +
+                                                    "minOverlap={}, maxOverlap={}, meanOverlap={}",
+                                            numQueries, clusterMetadataList.size(),
+                                            minOverlap, maxOverlap,
+                                            (double) totalOverlaps / numQueries);
+                                }
+
+                                return overlapCountsBuilder.build();
                             });
                 });
     }
